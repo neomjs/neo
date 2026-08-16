@@ -1,0 +1,194 @@
+/* AgentOS.view.fleet.MailboxPane — the read-only A2A inbox mirror, skinned mount-agnostically.
+   The pane renders in TWO hosts: the AgentDetail Mailbox tab and the operator drawer (composed by
+   OperatorMailbox), so its rules live here unscoped — moved from AgentDetail.scss, which keeps only
+   its tab-context padding tune. Per the drawer-shell contract (#17209): no outer padding, no
+   surface — the host owns the frame; every color reads from the --fm-* token layer. */
+.fm-mailbox-pane {
+    gap       : 6px;
+    min-height: 0;
+
+    .fm-mailbox-head {
+        gap        : 8px;
+        align-items: center;
+    }
+
+    .fm-mailbox-title {
+        flex       : 1;
+        font-weight: 500;
+        font-size  : 12px;
+        color      : var(--fm-ink);
+    }
+
+    /* the page window (offset–count) — mono, subordinate; only rendered in rows mode */
+    .fm-mailbox-page {
+        flex       : none;
+        gap        : 2px;
+        align-items: center;
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        color      : var(--fm-ink-dim);
+    }
+
+    /* the two page steps are quiet icon controls — never the stock primary slab; the disabled
+       edge keeps the glyph and drops the affordance (button.Base owns the semantic state) */
+    .neo-button.fm-mailbox-page-step {
+        background: transparent;
+        border    : 0;
+        box-shadow: none;
+        color     : var(--fm-ink-dim);
+        min-width : 0;
+
+        &:hover:not(.neo-disabled) {
+            color: var(--fm-ink);
+        }
+
+        &.neo-disabled {
+            opacity: 0.4;
+        }
+
+        .neo-button-glyph {
+            color: inherit;
+        }
+    }
+
+    /* the freshness ledger chip — the S1 vocabulary, verbatim from the AgentDetail sibling so the
+       cockpit speaks ONE freshness language in both mounts (values must not drift; see
+       AgentDetail.scss for the tone rationale incl. the .is-lost AA treatment) */
+    .fm-freshness {
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 9px;
+        line-height  : 1;
+        white-space  : nowrap;
+        padding      : 2px 7px;
+        border-radius: 999px;
+        background   : color-mix(in srgb, currentColor 12%, transparent);
+        color        : var(--fm-ink-dim);
+
+        &.is-fresh {
+            color: var(--fm-signal);
+        }
+
+        &.is-stale {
+            color: var(--fm-state-wedged);
+        }
+
+        &.is-lost {
+            color     : var(--fm-ink);
+            background: color-mix(in srgb, var(--fm-kind-alert) 30%, transparent);
+        }
+
+        &.is-unobserved {
+            color: var(--fm-ink-dim);
+        }
+    }
+
+    /* the honest-state line: unobserved/empty stay muted (absence is not an error);
+       a denial is a NAMED access fact — readable ink on an alert-tinted panel, mirroring
+       the freshness .is-lost AA treatment; a degrade uses the wedged tone */
+    .fm-mailbox-state {
+        padding      : 12px 10px;
+        font-size    : 11px;
+        color        : var(--fm-ink-dim);
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 6px;
+
+        &.is-denied {
+            color     : var(--fm-ink);
+            background: color-mix(in srgb, var(--fm-kind-alert) 18%, transparent);
+        }
+
+        &.is-degraded {
+            color: var(--fm-state-wedged);
+        }
+    }
+
+    .fm-mailbox-rows {
+        overflow  : auto;
+        min-height: 0;
+    }
+
+    /* one message row — an immutable timestamped fact: subject line over a mono meta line.
+       NO hover affordance beyond the thread head (the only interactive surface). */
+    .fm-mail-row {
+        padding      : 6px 8px;
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 6px;
+        background   : var(--fm-panel);
+
+        & + .fm-mail-row,
+        & + .fm-mail-thread {
+            margin-top: 6px;
+        }
+
+        /* unread is the SUBJECT AGENT's queue fact (never operator state) — a signal-tinted
+           left edge, no count, no badge */
+        &.is-unread {
+            border-left: 2px solid var(--fm-signal);
+        }
+
+        &.is-in-thread {
+            margin-left: 14px;
+        }
+    }
+
+    .fm-mail-row-main {
+        display    : flex;
+        gap        : 8px;
+        align-items: baseline;
+    }
+
+    .fm-mail-subject {
+        flex         : 1;
+        font-size    : 12px;
+        color        : var(--fm-ink);
+        overflow     : hidden;
+        white-space  : nowrap;
+        text-overflow: ellipsis;
+    }
+
+    /* the thread-collapse chip on a thread head — the pane's single affordance; a NATIVE button,
+       so the reset strips the stock button chrome down to the pill */
+    .fm-mail-thread-count {
+        flex         : none;
+        border       : 0;
+        cursor       : pointer;
+        font-family  : var(--fm-font-mono);
+        font-size    : 9px;
+        padding      : 2px 7px;
+        border-radius: 999px;
+        color        : var(--fm-ink-dim);
+        background   : color-mix(in srgb, currentColor 12%, transparent);
+
+        &:hover {
+            color: var(--fm-ink);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--fm-signal);
+            outline-offset: 1px;
+        }
+    }
+
+    .fm-mail-thread-head {
+        cursor: pointer;
+    }
+
+    .fm-mail-thread {
+        & + .fm-mail-row,
+        & + .fm-mail-thread {
+            margin-top: 6px;
+        }
+
+        > .fm-mail-row + .fm-mail-row {
+            margin-top: 4px;
+        }
+    }
+
+    .fm-mail-row-meta {
+        margin-top : 3px;
+        font-family: var(--fm-font-mono);
+        font-size  : 9px;
+        color      : var(--fm-ink-dim);
+    }
+}

@@ -91,8 +91,12 @@ class OperatorMailbox extends Container {
             header   : {text: 'Your inbox'},
             reference: 'operator-inbox-pane'
         }, {
+            // shrinkable, never 'none': in the height-bounded drawer slot the form's natural
+            // height exceeds the well, and a rigid form starves the inbox above it to 0px —
+            // the read half must survive the write half. The skin adds the internal scroll +
+            // the inbox floor.
             module   : OperatorComposeForm,
-            flex     : 'none',
+            flex     : '0 1 auto',
             reference: 'operator-compose-form'
         }]
     }
