@@ -13,6 +13,7 @@ import {DELIVERABLE_HARNESS_TARGET}                                             
 import {buildWakeDigest, getHighestWakePriority}                                                from '../../daemons/wake/wakeDigestBuilder.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
+import {PRESENCE_STATES}                                                                        from '../fleet/fleetPresenceStateAdapter.mjs';
 import {readActiveWakeSubscriptionObservations}                                                 from './readActiveWakeSubscriptionIdentities.mjs';
 import {
     activeWakeSubscriptionStatusSql,
@@ -39,6 +40,15 @@ function formatWindow(ms) {
 
     return `${ms}ms`;
 }
+
+/**
+ * The host-originated composed axes `who_is_online` cannot observe from its own plane. Served as
+ * per-row `unknown` under `degraded/none` capability envelopes until the fleet publishes its
+ * host-edge observations into the plane — absence of truth is never rendered as fine, and an
+ * unobservable axis never ranks a seat top.
+ * @type {String[]}
+ */
+const COMPOSED_HOST_AXES = Object.freeze(['throttle', 'lifecycle', 'liveness']);
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
@@ -715,31 +725,55 @@ class WakeSubscriptionService extends Base {
      * lane-handoff / lead-baton / wake-targeting so a request to a dark agent fails loud instead
      * of stalling silently; it is not a hard routing gate.
      *
+     * **Plane declaration (what this answer is NOT).** The presence signal is
+     * `add_memory`-recency — a container-side proxy observed at turn boundaries, never an
+     * availability verdict: a long turn (the definition of working) is structurally
+     * indistinguishable from absence on this signal, and a fresh write says a turn ENDED recently,
+     * not that the seat is free. The payload says so itself: every return carries an `axes`
+     * surface in the Fleet's capability-envelope grammar (`{capability: {source, plane, state,
+     * confidence, capturedAt, reason}}`), where `presence` declares its proxy plane and the
+     * host-originated composed axes (`throttle`, `lifecycle`, `liveness`) are served as
+     * `degraded/none` envelopes until the fleet publishes its observations into the plane — each
+     * verbose row carries those axes as `unknown`. An `unknown` axis never ranks a seat top and
+     * never renders as fine. The presence state vocabulary itself is imported from the Fleet's
+     * taxonomy (`PRESENCE_STATES`, whose one exporting home is `fleetPresenceStateAdapter`), so
+     * the cockpit's downstream mapping can never drift from this tool's words.
+     *
      * @param {Object} [opts]
      * @param {String} [opts.family] Optional model-family filter (e.g. `'claude'`, `'gpt'`).
      * @param {Boolean} [opts.verbose=false] When false (default) returns the terse roster summary
-     *   (`{generatedAt, summary, online, idle, benched}`) — a "who is online?" answer, not a
+     *   (`{generatedAt, axes, summary, online, idle, benched}`) — a "who is online?" answer, not a
      *   diagnostics dump. When true returns the full per-agent projection (signalStatus + per-agent
      *   reason/signals) for diagnostics. Default stays terse so the per-call token cost is
      *   proportional to the question.
      * @param {Date|String|Number} [opts.now=new Date()] Clock source (unit-test seam).
      * @returns {Promise<Object>} Terse (default):
-     *   `{generatedAt, summary, windows, online[], idle[], dark[], neverConnected[], benched[]}`
+     *   `{generatedAt, axes, summary, windows, online[], idle[], dark[], neverConnected[], benched[]}`
      *   (identity arrays). The five buckets separate LIVENESS from MEMBERSHIP: `online` (acting
      *   now), `idle` (stale but inside the idle cutoff), `dark` (stale beyond it), `neverConnected`
      *   (rostered but never observed on THIS deployment), `benched` (participationStatus gate).
      *   `windows` carries the resolved `{activityFreshMs, idleCutoffMs}` so the counts are
-     *   interpretable without reading source. Verbose: `{generatedAt, signalStatus, agents}` where
-     *   each agent is `{identity, name, family, participationStatus, online, state, reason, signals}`.
+     *   interpretable without reading source. `axes` carries the capability envelopes above —
+     *   `presence` wired/observed with its plane declaration, the host-originated axes
+     *   degraded/none. Verbose: `{generatedAt, axes, signalStatus, agents}` where each agent is
+     *   `{identity, name, family, participationStatus, online, state, reason, signals, axes}` —
+     *   the per-row `axes` holds every host-originated axis as `unknown` until the fleet publishes.
      */
     async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
-        const nowMs       = this._coerceDate(now).getTime(),
-              agents      = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
-              generatedAt = new Date(nowMs).toISOString();
+        const nowMs = this._coerceDate(now).getTime(),
+              // Every projected row carries the unobservable composed axes as `unknown` — the
+              // tool never fabricates a host-originated verdict from its container-side primitive.
+              agents      = this._listAgentIdentityNodes(family).map(node => ({
+                  ...this._projectAgentLiveness(node, nowMs),
+                  axes: this._unobservedComposedAxes()
+              })),
+              generatedAt = new Date(nowMs).toISOString(),
+              axes        = this._composedAxesEnvelope(generatedAt);
 
         if (verbose) {
             return {
                 generatedAt,
+                axes,
                 signalStatus: 'Precedence: (1) participationStatus hard gate; (2) a fresh turn-presence beacon, ' +
                               'which decides online before any absence verdict — add_memory lands at turn ' +
                               'boundaries, so a first or long turn is present without a recent write; (3) ' +
@@ -753,32 +787,82 @@ class WakeSubscriptionService extends Base {
         // Terse default — a "who is online?" answer, not a diagnostics book. The signalStatus essay
         // and the per-agent reason/signals live behind verbose:true so the per-call token cost stays
         // proportional to the question. Buckets are keyed off the projected state so the wire shape
-        // and the per-agent verdict can never disagree.
-        const inState        = state => agents.filter(agent => agent.state === state).map(agent => agent.identity),
-              online         = inState('online'),
-              idle           = inState('idle'),
-              dark           = inState('dark'),
-              neverConnected = inState('neverConnected'),
-              benched        = inState('benched'),
-              windows        = {
+        // and the per-agent verdict can never disagree, and they are DERIVED from the Fleet's
+        // exported taxonomy — the tool's state vocabulary is imported, never re-declared.
+        const inState = state => agents.filter(agent => agent.state === state).map(agent => agent.identity),
+              buckets = Object.fromEntries(PRESENCE_STATES.map(state => [state, inState(state)])),
+              windows = {
                   activityFreshMs: AiConfig.whoIsOnline.activityFreshMs,
                   idleCutoffMs   : AiConfig.whoIsOnline.idleCutoffMs
               };
 
         return {
             generatedAt,
+            axes,
             // The summary states the windows it applied: the same counts mean different things under
             // a 15-minute and a 4-hour window, so a bare number is not interpretable without them.
-            summary: `${online.length} online · ${idle.length} idle · ${dark.length} dark · ` +
-                     `${neverConnected.length} never-connected · ${benched.length} benched ` +
+            summary: `${buckets.online.length} online · ${buckets.idle.length} idle · ${buckets.dark.length} dark · ` +
+                     `${buckets.neverConnected.length} never-connected · ${buckets.benched.length} benched ` +
                      `(online ≤ ${formatWindow(windows.activityFreshMs)}, idle ≤ ${formatWindow(windows.idleCutoffMs)})`,
             windows,
-            online,
-            idle,
-            dark,
-            neverConnected,
-            benched
+            ...buckets
         };
+    }
+
+    /**
+     * @summary Builds the composed-axes honesty surface both `who_is_online` return shapes carry.
+     *
+     * The grammar is the Fleet Manager's capability envelope — `{source, plane, state, confidence,
+     * capturedAt, reason}` — served UN-FLATTENED per axis, so a degraded source can never paint a
+     * healthy one. `presence` is the axis this tool owns: `wired/observed`, and its `reason` is the
+     * plane declaration (a container-side `add_memory`-recency proxy, not an availability verdict).
+     * The host-originated axes ({@link COMPOSED_HOST_AXES}) report `degraded/none` with a named
+     * reason until the fleet publishes its observations into the plane — the envelope's
+     * `capturedAt` echoes the projection's own observation bound (`generatedAt`), never a
+     * re-stamped clock.
+     * @param {String} capturedAt The projection's observation bound (ISO).
+     * @returns {Object} `{presence, throttle, lifecycle, liveness}` capability envelopes.
+     * @protected
+     */
+    _composedAxesEnvelope(capturedAt) {
+        const unobserved = axis => ({
+            capability: {
+                source    : null,
+                plane     : 'host',
+                state     : 'degraded',
+                confidence: 'none',
+                capturedAt,
+                reason    : `no fleet ${axis} observation has been published to the plane — ` +
+                            `unknown is the platform truth until one lands`
+            }
+        });
+
+        return {
+            presence: {
+                capability: {
+                    source    : 'memory-core:whoIsOnline',
+                    plane     : 'container',
+                    signal    : 'add_memory-recency',
+                    state     : 'wired',
+                    confidence: 'observed',
+                    capturedAt,
+                    reason    : 'container-side recency proxy observed at turn boundaries — an ' +
+                                'activity observation, not an availability verdict'
+                }
+            },
+            ...Object.fromEntries(COMPOSED_HOST_AXES.map(axis => [axis, unobserved(axis)]))
+        };
+    }
+
+    /**
+     * @summary The per-row composed-axes truth for a plane-only projection: every host-originated
+     * axis is `unknown`, because nothing has published it into the plane. A fresh object per row —
+     * rows must never share a mutable axes reference.
+     * @returns {Object} e.g. `{throttle: 'unknown', lifecycle: 'unknown', liveness: 'unknown'}`.
+     * @protected
+     */
+    _unobservedComposedAxes() {
+        return Object.fromEntries(COMPOSED_HOST_AXES.map(axis => [axis, 'unknown']));
     }
 
     /**
