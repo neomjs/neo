@@ -156,7 +156,7 @@ Use the full template when uncertainty is about missing context, broadened scope
 
 ### 6.2 Round 2 Is Disposition-Only
 
-Ordinary Round 2 uses `.agents/skills/pr-review/assets/pr-review-round-2-template.md`: a table over the Round-1 required actions, quoted verbatim, each marked `ADDRESSED`, `DEFENDED`, or `STILL_OPEN`. A `STILL_OPEN` item keeps the original Round-1 review authoritative; it never becomes a new action list.
+Ordinary Round 2 uses `.agents/skills/pr-review/assets/pr-review-round-2-template.md`: a table over the Round-1 required actions, quoted verbatim, each marked `ADDRESSED`, `DEFENDED`, or `STILL_OPEN`.
 
 It carries no fresh premise snapshot, no new Depth Floor, no audit reruns, and no metrics restatement. Each of those invites a reviewer to find a defensible new concern, and a round that can always find one is not terminal. **Fresh findings at Round 2 are accepted risk** — a bounded cost, traded against an unbounded loop.
 
@@ -168,7 +168,7 @@ If a commentId-scoped A2A arrives without prior-cycle context, that is a cold-ca
 
 ### 6.3 Budgeted Review Closure
 
-At RC2 or >24KB, load the payload. On post-cutover PRs the ordinary budget is **one submitted `CHANGES_REQUESTED` per canonical reviewer family**, counted across heads, authors, and retractions; managed submission refuses a second and fails closed on a reviewer it cannot classify. Another family retains its independent round. Grandfathered PRs stay judgment-only. Continue with the disposition round, `APPROVED`, Maintainer Polish, guarded A+FU, or validated terminal D+S; size is cost, never scope.
+At RC2 or >24KB, load the payload. **A demand round is a `CHANGES_REQUESTED`** — a `COMMENT` never opens an action packet, on create or edit, so the round cannot be avoided by picking another state; an `APPROVED` follow-up must cite an independent owning issue, never a coordinate or this PR's close target. On post-cutover PRs the budget is **one such round per canonical reviewer family**, counted across heads, authors, and retractions; a second is refused, as is a reviewer it cannot classify. Another family keeps its round; grandfathered PRs stay judgment-only. Continue with the disposition, `APPROVED`, Maintainer Polish, A+FU, or terminal D+S; size is cost, never scope.
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
@@ -309,7 +309,7 @@ After §3-§8, choose exactly one row:
 | **Approve+Follow-Up** | Scope transfer only; worst normal outcome. Requires a merge-safe head, no unresolved correctness, explicit close-target AC ownership, and an independently valuable day-after-merge counterfactual. |
 | **Drop+Supersede** | Dead/stale premise at any round, or no merge-safe slice once the family's round is spent; terminal `CHANGES_REQUESTED`, not repair. |
 
-The former RC2 `COMMENTED` closure packet is retired: it existed so a second ordinary round could be spent closing rather than re-opening, and there is no second ordinary round to close. Round 2 dispositions the existing actions; the semantic-surface freeze it enforced is now the disposition table's rule that a `STILL_OPEN` item keeps the original review authoritative and never mints a new action list.
+The former RC2 `COMMENTED` closure packet is retired: it existed so a second ordinary round could be spent closing rather than re-opening, and there is no second ordinary round to close. The semantic-surface freeze it enforced now lives in the disposition rule above, and the managed path refuses the packet it was guarding against.
 
 **D+S completeness:** source-coordinate falsifiers; salvage map; disposition-shaped successor landing pad; successor citation to the map. `Disposition`: `implementation-off` (refile implementation) | `ticket-prescription-off` (amend ticket) | `ticket-premise-dead` (close ticket). One validated terminal D+S may exceed the ordinary budget.
 

@@ -193,6 +193,28 @@ export const GET_ISSUE_FOR_PUSH = `
 `;
 
 /**
+ * Builds a query that resolves several issues' open/closed state in ONE round trip.
+ *
+ * Aliased per number rather than issued per issue, because the cost objection to checking A+FU
+ * follow-up ownership at admission was N lookups per approval. One batched request answers any
+ * number of them, and the caller only issues it when an approval actually carries follow-up items —
+ * so a plain APPROVE, the default merge-safe terminal, pays nothing.
+ *
+ * A number GitHub does not know returns `null` for its alias, which is the signal for "no such issue"
+ * rather than an error the caller has to distinguish.
+ *
+ * @param {Number[]} numbers Issue numbers to resolve.
+ * @returns {String} A GraphQL document with one aliased `issue` field per number.
+ */
+export const buildIssueStatesQuery = numbers => `
+  query IssueStates($owner: String!, $repo: String!) {
+    repository(owner: $owner, name: $repo) {
+${numbers.map(number => `      issue${number}: issue(number: ${number}) { number state }`).join('\n')}
+    }
+  }
+`;
+
+/**
  * Mutation to remove a "blocked by" relationship from an issue.
  *
  * Variables required:
@@ -552,6 +574,7 @@ export const GET_PULL_REQUEST_ID = `
         }
       }
       pullRequest(number: $prNumber) {
+        body
         createdAt
         id
         headRefOid
