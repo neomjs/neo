@@ -84,8 +84,41 @@ test.describe('check-theme-surfaces.mjs', () => {
 
         expect(run({...fixture, tokenPattern: WS_PATTERN, modeInvariant: new Set()}).length,
             'the right namespace SEES the copied skin').toBeGreaterThan(0);
-        expect(run({...fixture}).length,
-            'the --fm-* default extracts nothing here — a clean report over an empty map').toBe(0);
+
+        // This assertion USED TO READ `.toBe(0)` — the spec demonstrated the vacuous green and then
+        // pinned it as expected. It proved the class existed for the registered pair while leaving the
+        // collector free to keep reporting it as clean for every future one. Inverted now: the wrong
+        // pattern FAILS instead of passing over an empty map.
+        expect(run({...fixture}).some(failure => failure.startsWith('[surface]')),
+            'the --fm-* default extracts nothing here — that is a registry defect, not a clean surface').toBe(true);
+    });
+
+    test('#17230: both skins empty fails; one empty skin stays with the completeness check', () => {
+        // BOTH empty is the discriminator. One empty skin is a real, reportable state that the parity
+        // and completeness checks already describe better than a generic "unread surface" would, so
+        // widening this to `||` would swallow their sharper message behind a vaguer one.
+        const oneSideEmpty = run({
+            dark : ':root .x {\n    --fm-ink: #d6dce6;\n}\n',
+            light: ':root .x {\n}\n'
+        });
+
+        expect(oneSideEmpty.some(failure => failure.startsWith('[surface]')),
+            'the dark skin extracted fine — this is not an unread surface').toBe(false);
+        expect(oneSideEmpty.some(failure => failure.includes('[parity]')),
+            'and the existing parity check still owns it').toBe(true);
+    });
+
+    test('#17230: the surface failure names the pattern that matched nothing', () => {
+        // The message has to carry the diagnosis, because the author's next question is always "which
+        // field is wrong" — and a registry entry has several.
+        const [failure] = run({
+            dark : ':root .x {\n    --workstation-ink: #111;\n}\n',
+            light: ':root .x {\n    --workstation-ink: #eee;\n}\n'
+        });
+
+        expect(failure).toContain('[surface]');
+        expect(failure).toContain('token pattern');
+        expect(failure).toContain('unchecked rather than clean');
     });
 
     test('#17200: a bare color literal in a view fails token-only — #14618 AC-2, at the layer that owns it', () => {
