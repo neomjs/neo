@@ -510,6 +510,14 @@ paths:
         a seat top and never renders as fine.
 
 
+        Load axis: the second owned axis, also container-plane — re-review obligations counted from
+        the plane-resident A2A review-lifecycle ping trail (a reviewer holding N open
+        CHANGES_REQUESTED loops reads N, never 0). Terse carries the sparse reviewLoad map
+        (identity → open loop count; absent IS the counted zero); verbose rows carry {open,
+        returned, loops[]} oldest-first. A review that never pinged is invisible to this trail —
+        the envelope's reason says so.
+
+
         Terse by default: {summary, windows, online[], idle[], dark[], neverConnected[], benched[]}
         (identity arrays). Buckets separate liveness from membership: idle is stale but within the
         configured cutoff, dark is stale beyond it, neverConnected has no activity on this deployment
@@ -545,7 +553,7 @@ paths:
               schema:
                 type: object
                 description: >
-                  Terse default: {generatedAt, axes, summary, windows, online[], idle[], dark[],
+                  Terse default: {generatedAt, axes, summary, windows, reviewLoad, online[], idle[], dark[],
                   neverConnected[], benched[]}. With verbose:true: {generatedAt, axes, signalStatus,
                   agents[]}.
                 properties:
@@ -558,10 +566,19 @@ paths:
                       The composed-axes honesty surface — a declared superset of the Fleet's
                       capability-envelope grammar (adds plane/signal: this tool serves axes it
                       cannot own, so the plane travels on the envelope). Terse: the presence
-                      envelope (wired/observed, proxy declared) plus an unobserved marker naming
-                      the host-originated axes (throttle, lifecycle, liveness). Verbose: each host
-                      axis as its full degraded/none envelope until the fleet publishes. An unknown
-                      axis never ranks a seat top and never renders as fine.
+                      envelope (wired/observed, proxy declared), the load envelope (wired/observed,
+                      the A2A review-lifecycle trail's blind class named), plus an unobserved marker
+                      naming the host-originated axes (throttle, lifecycle, liveness). Verbose: each
+                      host axis as its full degraded/none envelope until the fleet publishes. An
+                      unknown axis never ranks a seat top and never renders as fine.
+                  reviewLoad:
+                    type: object
+                    additionalProperties: {type: integer}
+                    description: >
+                      Terse default — the sparse load map: identity → open re-review loop count,
+                      only seats holding at least one. Absent IS the counted zero. Derived from the
+                      plane-resident A2A review-lifecycle ping trail; a review that never pinged is
+                      invisible to it.
                   summary:
                     type: string
                     description: >
@@ -624,6 +641,12 @@ paths:
                             Per-row composed axes: every host-originated axis the tool cannot
                             observe (throttle, lifecycle, liveness) is unknown until the fleet
                             publishes — never a verdict fabricated from the recency primitive.
+                        reviewLoad:
+                          type: object
+                          description: >
+                            Per-row re-review load from the A2A review-lifecycle trail: {open,
+                            returned, loops[]} with loops oldest-first (the stalest obligation at
+                            the head). A seat with no open loops reads the counted zero.
         '500':
           description: Operation failed.
           content:

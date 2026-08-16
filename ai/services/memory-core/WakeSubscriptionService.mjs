@@ -14,6 +14,7 @@ import {buildWakeDigest, getHighestWakePriority}                                
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
 import {PRESENCE_STATES}                                                                        from '../fleet/fleetPresenceStateAdapter.mjs';
+import {deriveReviewLoad}                                                                       from './helpers/reviewLoadProjection.mjs';
 import {readActiveWakeSubscriptionObservations}                                                 from './readActiveWakeSubscriptionIdentities.mjs';
 import {
     activeWakeSubscriptionStatusSql,
@@ -730,8 +731,10 @@ class WakeSubscriptionService extends Base {
      * availability verdict: a long turn (the definition of working) is structurally
      * indistinguishable from absence on this signal, and a fresh write says a turn ENDED recently,
      * not that the seat is free. The payload says so itself: every return carries an `axes`
-     * surface. Terse holds the `presence` envelope (wired/observed, proxy declared) plus a compact
-     * `unobserved` marker naming the host-originated axes (`throttle`, `lifecycle`, `liveness`);
+     * surface. Terse holds the `presence` envelope (wired/observed, proxy declared), the `load`
+     * envelope (the second owned axis — re-review obligations counted from the plane-resident A2A
+     * review-lifecycle trail, wired/observed, its blind class named), plus a compact `unobserved`
+     * marker naming the host-originated axes (`throttle`, `lifecycle`, `liveness`);
      * verbose serves each host axis as its full `degraded/none` envelope until the fleet publishes
      * its observations into the plane, and each verbose row carries those axes as `unknown`. The
      * envelope shape is a declared superset of the Fleet Manager's capability-envelope grammar —
@@ -744,31 +747,36 @@ class WakeSubscriptionService extends Base {
      * @param {Object} [opts]
      * @param {String} [opts.family] Optional model-family filter (e.g. `'claude'`, `'gpt'`).
      * @param {Boolean} [opts.verbose=false] When false (default) returns the terse roster summary
-     *   (`{generatedAt, axes, summary, online, idle, benched}`) — a "who is online?" answer, not a
-     *   diagnostics dump. When true returns the full per-agent projection (signalStatus + per-agent
-     *   reason/signals) for diagnostics. Default stays terse so the per-call token cost is
-     *   proportional to the question.
+     *   (`{generatedAt, axes, summary, windows, reviewLoad, online, idle, benched}`) — a "who is
+     *   online?" answer, not a diagnostics dump. When true returns the full per-agent projection
+     *   (signalStatus + per-agent reason/signals) for diagnostics. Default stays terse so the
+     *   per-call token cost is proportional to the question.
      * @param {Date|String|Number} [opts.now=new Date()] Clock source (unit-test seam).
      * @returns {Promise<Object>} Terse (default):
-     *   `{generatedAt, axes, summary, windows, online[], idle[], dark[], neverConnected[], benched[]}`
+     *   `{generatedAt, axes, summary, windows, reviewLoad, online[], idle[], dark[], neverConnected[], benched[]}`
      *   (identity arrays). The five buckets separate LIVENESS from MEMBERSHIP: `online` (acting
      *   now), `idle` (stale but inside the idle cutoff), `dark` (stale beyond it), `neverConnected`
      *   (rostered but never observed on THIS deployment), `benched` (participationStatus gate).
      *   `windows` carries the resolved `{activityFreshMs, idleCutoffMs}` so the counts are
-     *   interpretable without reading source. Terse `axes` carries ONLY what the default answer
-     *   needs (the tool is terse-by-default — diagnostics live behind `verbose`, never bloat the
-     *   context window): the full `presence` capability envelope with its plane declaration, and a
-     *   compact `unobserved` marker naming the host-originated axes — declared, never fabricated.
+     *   interpretable without reading source. `reviewLoad` is the sparse load map — identity →
+     *   open re-review loop count, only seats holding at least one; absent IS the counted zero.
+     *   Terse `axes` carries ONLY what the default answer needs (the tool is terse-by-default —
+     *   diagnostics live behind `verbose`, never bloat the context window): the full `presence`
+     *   and `load` capability envelopes with their plane declarations, and a compact `unobserved`
+     *   marker naming the host-originated axes — declared, never fabricated.
      *   Verbose: `{generatedAt, axes, signalStatus, agents}` — `axes` serves every host-originated
      *   axis as its full `degraded/none` envelope, and each agent row is
-     *   `{identity, name, family, participationStatus, online, state, reason, signals, axes}` —
-     *   the per-row `axes` holds every host-originated axis as `unknown` until the fleet publishes.
+     *   `{identity, name, family, participationStatus, online, state, reason, signals, axes, reviewLoad}` —
+     *   the per-row `axes` holds every host-originated axis as `unknown` until the fleet publishes,
+     *   and the per-row `reviewLoad` is `{open, returned, loops[]}` (loops oldest-first, so the
+     *   stalest obligation surfaces at the head).
      */
     async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
         const nowMs       = this._coerceDate(now).getTime(),
               projected   = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
               generatedAt = new Date(nowMs).toISOString(),
-              axes        = this._composedAxesEnvelope(generatedAt);
+              axes        = this._composedAxesEnvelope(generatedAt),
+              reviewLoad  = this._readReviewLifecycleLoad(nowMs);
 
         if (verbose) {
             return {
@@ -783,7 +791,14 @@ class WakeSubscriptionService extends Base {
                 // Per-row `unknown` axes are verbose diagnostics — allocated only on this path, so
                 // the default answer never pays for objects its buckets discard. The tool never
                 // fabricates a host-originated verdict from its container-side primitive.
-                agents: projected.map(row => ({...row, axes: this._unobservedComposedAxes()}))
+                // `reviewLoad` rides the same rows: open re-review loops counted from the
+                // review-lifecycle trail, `{open: 0, returned: 0, loops: []}` when the trail holds
+                // nothing for the seat — a counted zero, never an unknown.
+                agents: projected.map(row => ({
+                    ...row,
+                    axes      : this._unobservedComposedAxes(),
+                    reviewLoad: reviewLoad.get(row.identity) ?? {loops: [], open: 0, returned: 0}
+                }))
             };
         }
 
@@ -804,8 +819,9 @@ class WakeSubscriptionService extends Base {
             // The presence envelope is the default answer's honesty (the plane declaration), so it
             // stays terse-side; the three host-originated envelopes would repeat byte-identical
             // "nothing published" on every call — diagnostics by definition — so terse DECLARES
-            // their axes unobserved and verbose serves the full envelopes.
-            axes: {presence: axes.presence, unobserved: [...COMPOSED_HOST_AXES]},
+            // their axes unobserved and verbose serves the full envelopes. The load envelope is
+            // the second owned axis: wired, container-plane, its trail named in the reason.
+            axes: {presence: axes.presence, load: axes.load, unobserved: [...COMPOSED_HOST_AXES]},
             // The summary states the windows it applied: the same counts mean different things under
             // a 15-minute and a 4-hour window, so a bare number is not interpretable without them.
             // Counts and labels derive from the same imported taxonomy as the buckets — a rename at
@@ -815,6 +831,12 @@ class WakeSubscriptionService extends Base {
                      ).join(' · ') +
                      ` (online ≤ ${formatWindow(windows.activityFreshMs)}, idle ≤ ${formatWindow(windows.idleCutoffMs)})`,
             windows,
+            // Sparse by construction: only identities holding open re-review loops appear, so the
+            // routing question ("who can take one more?") reads the default answer — and an absent
+            // entry IS the counted zero, never an unknown.
+            reviewLoad: Object.fromEntries(
+                [...reviewLoad].filter(([, load]) => load.open > 0).map(([identity, load]) => [identity, load.open])
+            ),
             ...buckets
         };
     }
@@ -834,12 +856,15 @@ class WakeSubscriptionService extends Base {
      *
      * Envelopes are served UN-FLATTENED per axis, so a degraded source can never paint a healthy
      * one. `presence` is the axis this tool owns: `wired/observed`, and its `reason` is the plane
-     * declaration (a container-side `add_memory`-recency proxy, not an availability verdict). The
-     * host-originated axes ({@link COMPOSED_HOST_AXES}) report `degraded/none` with a named reason
+     * declaration (a container-side `add_memory`-recency proxy, not an availability verdict).
+     * `load` is the second container-plane axis: re-review obligations derived from the
+     * plane-resident A2A review-lifecycle trail (`reviewLoadProjection`), `wired/observed`, its
+     * `reason` naming the trail's blind class — a review that never pinged is invisible to it.
+     * The host-originated axes ({@link COMPOSED_HOST_AXES}) report `degraded/none` with a named reason
      * until the fleet publishes its observations into the plane — the envelope's `capturedAt` echoes
      * the projection's own observation bound (`generatedAt`), never a re-stamped clock.
      * @param {String} capturedAt The projection's observation bound (ISO).
-     * @returns {Object} `{presence, throttle, lifecycle, liveness}` capability envelopes.
+     * @returns {Object} `{presence, load, throttle, lifecycle, liveness}` capability envelopes.
      * @protected
      */
     _composedAxesEnvelope(capturedAt) {
@@ -868,6 +893,19 @@ class WakeSubscriptionService extends Base {
                                 'activity observation, not an availability verdict'
                 }
             },
+            load: {
+                capability: {
+                    source    : 'memory-core:whoIsOnline',
+                    plane     : 'container',
+                    signal    : 'a2a-review-lifecycle',
+                    state     : 'wired',
+                    confidence: 'observed',
+                    capturedAt,
+                    reason    : 're-review obligations counted from the plane-resident A2A ' +
+                                'review-lifecycle ping trail — a review that never pinged is ' +
+                                'invisible here, and loops age out past the declared trail horizon'
+                }
+            },
             ...Object.fromEntries(COMPOSED_HOST_AXES.map(axis => [axis, unobserved(axis)]))
         };
     }
@@ -881,6 +919,46 @@ class WakeSubscriptionService extends Base {
      */
     _unobservedComposedAxes() {
         return Object.fromEntries(COMPOSED_HOST_AXES.map(axis => [axis, 'unknown']));
+    }
+
+    /**
+     * @summary Reads the plane-resident A2A review-lifecycle trail and derives each rostered
+     * peer's open re-review load. The mailbox lives in the same graph store the roster read
+     * already uses, so the trail scan adds no transport and no second authority: the derivation
+     * itself is pure ({@link module:ai/services/memory-core/helpers/reviewLoadProjection}), and the
+     * served envelope names the trail's blind class — a review that never pinged is invisible here.
+     * @param {Number} nowMs The projection's observation bound (epoch ms).
+     * @returns {Map<String, {open: Number, returned: Number, loops: Object[]}>} Reviewer identity →
+     *     load; identities with no open loops are absent (the absent entry IS the zero).
+     * @protected
+     */
+    _readReviewLifecycleLoad(nowMs) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return new Map();
+
+        const rows = sqlite.prepare(`
+            SELECT data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'MESSAGE'
+        `).all();
+
+        const messages = [];
+
+        for (const row of rows) {
+            try {
+                const properties = JSON.parse(row.data).properties ?? {};
+
+                messages.push({
+                    from   : properties.from,
+                    sentAt : properties.sentAt,
+                    subject: properties.subject,
+                    to     : properties.to
+                });
+            } catch (error) {
+                logger.warn(`[WakeSubscription] who_is_online: skipped unparseable MESSAGE row: ${error.message}`);
+            }
+        }
+
+        return deriveReviewLoad(messages, {now: nowMs})
     }
 
     /**
