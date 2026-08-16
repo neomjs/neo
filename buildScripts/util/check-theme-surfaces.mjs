@@ -201,6 +201,30 @@ export function collectThemeSurfaceFailures({
           dark                     = extractFmTokens(darkPath,  tokenPattern),
           light                    = extractFmTokens(lightPath, tokenPattern);
 
+    // check 0 — the surface was actually READ. Every check below iterates the extracted maps, so an
+    // empty pair produces zero failures by CONSTRUCTION rather than by verdict: a registry entry whose
+    // `tokenPattern` does not match its surface's namespace reports clean while being entirely
+    // unexamined. Nothing in the output distinguishes "clean" from "read nothing".
+    //
+    // The class is measured, not hypothetical — building the workstation surface I ran it under the
+    // agentos `--fm-*` pattern, extracted zero tokens, and got a pass that looked exactly like success.
+    // A spec caught that one because the pair was registered; the next wrong pattern will not have had
+    // a spec written for it in advance, which is why the collector has to own this rather than the
+    // suite. Raised by @neo-kimi-iris.
+    //
+    // BOTH empty is the condition, not either: one empty skin is a real state the completeness check
+    // below already reports with a better message, whereas both empty can only mean the pattern never
+    // matched anything.
+    if (dark.size === 0 && light.size === 0) {
+        failures.push(`[surface] extracted no tokens from either skin — the token pattern ${tokenPattern} matches nothing in ${path.basename(darkPath)}, so this surface is unchecked rather than clean`);
+
+        // Deliberately NOT an early return, though the first draft was one to spare the reader the
+        // derived findings. The pre-existing symmetric-empty-palette spec refuted that: when views do
+        // consume tokens, `[completeness]` names the missing token exactly, which is sharper than this
+        // line and is the older, more specific diagnosis. Short-circuiting would have traded real
+        // information for a tidier report.
+    }
+
     // check 1 — skin parity
     for (const [name, darkValue] of dark) {
         if (!light.has(name)) {
