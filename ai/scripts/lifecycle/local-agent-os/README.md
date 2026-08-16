@@ -34,20 +34,39 @@ valid deployment — you simply do not get wakes.
 
 ## Platform matrix
 
-The **runtime is portable**: `ai/daemons/orchestrator/hostEdge.mjs` and
-`ai/daemons/wake/receiver.mjs` run anywhere Node runs. Only the **supervision**
-is platform-specific.
-
 **Two processes, and neither one starts the other.** The host edge and the wake
 receiver are independent: a host running only the host edge accepts no wakes, and
 nothing on that host reports a problem, because from its side there is nothing to
 report. Run both, or decide deliberately to run one.
 
-| Platform | Run it | Keep it running |
-|---|---|---|
-| any (macOS, Linux, Windows) | `npm run ai:host-edge` **and** `npm run ai:wake-receiver` ([invocation](#start-the-wake-receiver)) | your terminal, or your own supervisor |
-| macOS | same two commands | the launchd installs below (`RunAtLoad` + `KeepAlive`) — one per process |
-| Linux | same two commands | systemd user units wrapping them — not supplied here |
+They do **not** have the same platform reach. `hostEdge.mjs` runs anywhere Node
+runs. `receiver.mjs` is **POSIX-only**, and not by convention — it refuses to
+start unless its manifest carries no group or other permission bits:
+
+```js
+// ai/daemons/wake/receiver.mjs
+if ((stat.mode & 0o077) !== 0) {
+    throw new Error(`Wake receiver manifest '${manifestPath}' must be mode 0600`);
+}
+```
+
+[Node documents](https://nodejs.org/api/fs.html#file-modes) that Windows exposes
+no owner/group/other distinction and that `chmod` there can change only
+writability, so a Windows host cannot express the mode this gate requires. That
+is a deliberate secret-hygiene gate on a file holding signing keys, not an
+oversight to route around — so the receiver row below names the platforms it can
+actually serve rather than claiming one it cannot.
+
+| Platform | Host edge | Wake receiver | Keep them running |
+|---|---|---|---|
+| macOS | `npm run ai:host-edge` | `npm run ai:wake-receiver` ([invocation](#start-the-wake-receiver)) | the launchd installs below (`RunAtLoad` + `KeepAlive`) — one per process |
+| Linux | same | same | systemd user units wrapping them — not supplied here |
+| Windows | `npm run ai:host-edge` | **not supported** — see the mode gate above | your own supervisor, host edge only |
+
+A Windows host therefore gets host-bound effects and **no wake delivery**. That
+is a real gap rather than a documentation shortcut: closing it needs a
+Windows-appropriate manifest-permission contract in `receiver.mjs`, which is a
+runtime change and not something this guide can assert on its behalf.
 
 `npm run ai:host-edge` resolves the complete **host-edge** posture from
 `ai/deploy/hostEdgeProfile.mjs`: the `host-edge` role, `deploymentMode=local`,
@@ -259,12 +278,13 @@ the receiver afterwards.
 
 ## Start the wake receiver
 
-This is the portable command, and it is the second of the two processes in the
-[platform matrix](#platform-matrix). It runs anywhere Node runs; the macOS
+This is the portable-across-POSIX command, and it is the second of the two
+processes in the [platform matrix](#platform-matrix). It runs on macOS and Linux;
+it cannot run on Windows, for the manifest-mode reason given there. The macOS
 launchd plist below is *supervision over this same command*, not an alternative
 to it. Within this guide the plist was previously the only place these arguments
-appeared, which left every non-macOS host without a runnable line — the receiver
-is not macOS-only, only its supervision is.
+appeared, which left Linux hosts without a runnable line — the receiver is not
+macOS-only, only its supervision is.
 
 There are no deployment-path defaults. All four arguments are required:
 

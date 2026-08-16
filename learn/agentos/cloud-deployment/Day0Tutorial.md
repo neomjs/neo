@@ -774,7 +774,9 @@ only, or intentionally deferred.
 
 Every milestone above can pass, every healthcheck can report green, and the
 deployment can still have **no wake delivery and no host-bound effects**. That is
-not a defect — it is the two-role split working as designed:
+not a defect — it is the three-role split working as designed. The container plane
+is one role; the host side is **two**, and conflating them is what leaves a
+deployment silently deaf:
 
 | Role | Runs | Owns |
 |---|---|---|
@@ -800,9 +802,12 @@ process, with a route manifest, a state directory, and a port:
 npm run ai:wake-receiver -- --manifest … --state-dir … --host … --port …
 ```
 
-Neither is an installer and both run anywhere Node runs — the macOS LaunchAgents
-are optional supervision over those same commands. Full procedure, platform
-matrix, the complete receiver invocation, and the signed-route setup:
+Neither is an installer — the macOS LaunchAgents are optional supervision over
+those same commands. Their platform reach differs: the host edge runs anywhere
+Node runs, while the wake receiver is POSIX-only because it refuses a manifest
+carrying group or other permission bits, which Windows cannot express. Full
+procedure, platform matrix, the complete receiver invocation, and the
+signed-route setup:
 [`ai/scripts/lifecycle/local-agent-os/README.md`](../../../ai/scripts/lifecycle/local-agent-os/README.md).
 
 **A containerized-only deployment is a valid choice** — plenty of installs want
