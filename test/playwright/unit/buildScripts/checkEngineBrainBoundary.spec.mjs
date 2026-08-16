@@ -142,16 +142,34 @@ test.describe('check-engine-brain-boundary — one-way direction, ratchet fails 
         expect(findBrainImports(self, 'buildScripts/util/check-engine-brain-boundary.mjs')).toEqual([]);
     });
 
-    test('a DYNAMIC import is a crossing — the shape both greps could not see', () => {
-        // src/worker/App.mjs:779 does `import('../ai/Client.mjs')`. The originating ticket states
-        // src/** has zero crossings, and a `from`-anchored grep agrees, because a dynamic import has
-        // no `from` keyword. This is the single most important case in the file.
+    test('a DYNAMIC import is a crossing — the shape no hand-grep could see', () => {
+        // All three of devCockpit.mjs's crossings are dynamic imports, which is why every
+        // `from`-anchored sweep missed that file entirely.
         const findings = findBrainImports(
-            `if (useAi) { this.aiClientPromise = import('../ai/Client.mjs') }`,
-            'src/worker/App.mjs'
+            `const {localBearer} = await import('../ai/mcp/server/shared/helpers/localBearer.mjs');`,
+            'buildScripts/devCockpit.mjs'
         );
 
         expect(findings).toHaveLength(1);
-        expect(findings[0].specifier).toBe('../ai/Client.mjs');
+    });
+
+    test('IDENTICAL specifier, opposite verdicts — resolution decides, not text shape', () => {
+        // The defect this pair exists to prevent, and it shipped a wrong public claim before it was
+        // caught. `../ai/Client.mjs` resolves to the BRAIN from buildScripts/ and to `src/ai/` from
+        // src/worker/. `src/ai/**` is the engine's own AI layer — the sanctioned seam by which the
+        // Body connects to the Brain — and is engine code, not a crossing.
+        const fromEngineTooling = findBrainImports(`import c from '../ai/Client.mjs';`, 'buildScripts/devCockpit.mjs'),
+              fromEngineRuntime = findBrainImports(`import c from '../ai/Client.mjs';`, 'src/worker/App.mjs');
+
+        expect(fromEngineTooling).toHaveLength(1);
+        expect(fromEngineRuntime).toEqual([]);
+    });
+
+    test('PASSES: every src/ai/** consumer, however deep the hop', () => {
+        // A path predicate that ignores its resolution context convicts the one seam the
+        // architecture depends on. These must all stay clean.
+        expect(findBrainImports(`import w from '../../ai/WriteGuard.mjs';`, 'src/worker/mixin/Foo.mjs')).toEqual([]);
+        expect(findBrainImports(`import t from './ai/TransactionService.mjs';`, 'src/Neo.mjs')).toEqual([]);
+        expect(findBrainImports(`import l from '../ai/LockRegistry.mjs';`, 'src/state/Provider.mjs')).toEqual([]);
     });
 });

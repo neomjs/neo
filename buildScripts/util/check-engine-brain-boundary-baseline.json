@@ -11,7 +11,7 @@
         "specifier": "../ai/services/fleet/fleetLaunchContract.mjs",
         "count": 1,
         "class": "B",
-        "note": "Class B. Dynamic import. The dev cockpit is agent-serving tooling; the fix moves a file, not a concern."
+        "note": "Class B. Dynamic import. devCockpit.mjs is the one file no hand-grep found — all three of its crossings are dynamic imports, which have no `from` keyword."
     },
     {
         "file": "buildScripts/docs/index/labels.mjs",
@@ -32,7 +32,7 @@
         "specifier": "../../ai/services.host.mjs",
         "count": 1,
         "class": "A",
-        "note": "Class A, and the sharp end: performs the atomic dev -> main release commit, so releasing the framework currently requires the agent OS to be importable. Its relocation must keep the release workflow's entry point reachable — the one sequencing constraint in the burndown."
+        "note": "Class A, and the sharp end: performs the atomic dev -> main release commit, so releasing the framework currently requires the agent OS to be present and importable. Its relocation must keep the release workflow's entry point reachable — the one sequencing constraint in the burndown."
     },
     {
         "file": "buildScripts/util/agent-preflight.mjs",
@@ -46,7 +46,7 @@
         "specifier": "../../ai/graph/identityRoots.mjs",
         "count": 1,
         "class": "B",
-        "note": "Class B, and the worst smell in it: a misfiled file reaching the identity graph itself rather than a service boundary."
+        "note": "Class B, and the worst smell in the set: a misfiled file reaching the identity graph itself rather than a service boundary."
     },
     {
         "file": "buildScripts/util/deriveFleetRoster.mjs",
@@ -54,12 +54,5 @@
         "count": 1,
         "class": "B",
         "note": "Class B. Second consumer of the identity graph from a misfiled engine-directory script; shares a destination with agentCoAuthorEmails.mjs, so the two move together."
-    },
-    {
-        "file": "src/worker/App.mjs",
-        "specifier": "../ai/Client.mjs",
-        "count": 1,
-        "class": "C",
-        "note": "Class C — neither A nor B, and the row that falsifies the premise. This is the engine RUNTIME, not its tooling. Both the originating census and its correction state src/** is clean with zero crossings, and a `from`-anchored grep agrees, because this is a DYNAMIC import and a dynamic import has no `from` keyword. It is lazy and gated behind the `useAi` config, so the engine does not unconditionally require the Brain — but src/** is not clean. Keeping it is a decision to keep a runtime coupling, and should be made explicitly rather than inherited from a grep that could not see it."
     }
 ]

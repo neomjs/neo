@@ -24,23 +24,27 @@ const BASELINE   = path.join(__dirname, 'check-engine-brain-boundary-baseline.js
  * performs the atomic `dev` → `main` release commit and cannot run without `ai/services.host.mjs`,
  * so releasing the framework requires the agent OS to be present and importable.
  *
- * ## Why this guard reads the AST, and why that matters to its own premise
+ * `src/**` does NOT cross, and `src/ai/**` is the reason that statement needs care rather than a
+ * grep. It is the engine's own AI layer — the one sanctioned seam by which the Body connects to the
+ * Brain — and it is engine code. An import of `../ai/Client.mjs` from `src/worker/App.mjs` resolves
+ * *there*, not to the Brain.
  *
- * The widely-held belief when this was written — stated in the originating ticket, in its
- * correction, and by me — was that `src/**` is clean with zero crossings and only build tooling
- * crosses. It is not. `src/worker/App.mjs` reaches `ai/Client.mjs`.
+ * ## Two detector defects this guard was built through, both worth keeping visible
  *
- * Every sweep that concluded otherwise was `from`-anchored, and a DYNAMIC import has no `from`
- * keyword. The count went 3 → 6 → 10 across three sweeps, and each step was a tool limitation rather
- * than carelessness. That is why this guard reads `ImportDeclaration` / `ImportExpression` nodes from
- * the parse tree instead of matching text: the shape it most needs to catch is the one text-matching
- * structurally cannot see. (The runtime crossing is lazy and gated behind the `useAi` config, so the
- * engine does not *unconditionally* require the Brain — but "never crosses" was false.)
+ * **Text shape is not resolution.** The first predicate matched `/^(?:\.\.\/)+ai\//` on the specifier
+ * alone. `../ai/Client.mjs` resolves to the Brain from `buildScripts/` and to `src/ai/` from
+ * `src/worker/` — same text, opposite answers. That produced a confident, wrong finding that the
+ * engine runtime crosses. Specifiers are now joined to the importing file's directory and normalised
+ * before anything is decided.
+ *
+ * **`from`-anchored sweeps cannot see a dynamic import.** Three earlier hand-greps missed
+ * `buildScripts/devCockpit.mjs` entirely for this reason, which is why this reads
+ * `ImportDeclaration` / `ImportExpression` nodes from the parse tree rather than matching text.
  *
  * ## Why a baseline rather than a clean gate
  *
- * Ten crossings across nine files, one of them the release path. Relocating them is multi-step work;
- * a gate failing on all ten from day one is a gate that gets disabled.
+ * Nine crossings across seven files, one of them the release path. Relocating them is multi-step
+ * work; a gate failing on all nine from day one is a gate that gets disabled.
  *
  * The baseline exempts known debt — it is NOT the assertion. The check asserts the property: an
  * import from a file the baseline does not cover fails, so a new crossing in a new file cannot pass
@@ -54,12 +58,33 @@ const BASELINE   = path.join(__dirname, 'check-engine-brain-boundary-baseline.js
  */
 
 /**
- * Matches a relative module specifier resolving into the Brain, e.g. `../../ai/services.host.mjs`.
- * Anchored on an `ai/` segment after one or more `../` hops, so `../../apps/ai/neural-link/…` — a
- * real path in this repo — cannot match.
- * @type {RegExp}
+ * @summary Does this specifier, resolved from this file, land in the Brain?
+ *
+ * **Resolution, not text shape.** The first version of this test matched `/^(?:\.\.\/)+ai\//` on the
+ * specifier alone, and that is wrong in a way that reads as correct: `../ai/Client.mjs` means
+ * completely different things depending on where it is written. From `buildScripts/devCockpit.mjs`
+ * it resolves to the Brain at `ai/`. From `src/worker/App.mjs` it resolves to **`src/ai/Client.mjs`**
+ * — the engine's own AI layer, the single sanctioned seam by which the Body connects to the Brain,
+ * and unambiguously engine code.
+ *
+ * That false positive convicted `src/worker/App.mjs` and produced a confident, wrong claim that the
+ * engine runtime crosses the boundary. A path question answered by a text pattern will keep being
+ * wrong at exactly the places where the answer matters, so the specifier is now joined to the
+ * importing file's directory and normalised before anything is decided.
+ *
+ * @param {String} file Repo-relative path of the importing file.
+ * @param {String} specifier The module specifier as written.
+ * @returns {Boolean} True only when the resolved path lies under the top-level `ai/` tree.
  */
-const BRAIN_SPECIFIER_RE = /^(?:\.\.\/)+ai\//;
+function resolvesIntoBrain(file, specifier) {
+    if (!specifier.startsWith('.')) {
+        return false
+    }
+
+    const resolved = path.normalize(path.join(path.dirname(file), specifier)).split(path.sep).join('/');
+
+    return resolved === 'ai' || resolved.startsWith('ai/')
+}
 
 /**
  * @summary Pure predicate: which `(file, specifier)` pairs cross the boundary?
@@ -107,7 +132,7 @@ export function findBrainImports(source, file) {
 
         const specifier = node.source?.value;
 
-        if (typeof specifier === 'string' && BRAIN_SPECIFIER_RE.test(specifier)) {
+        if (typeof specifier === 'string' && resolvesIntoBrain(file, specifier)) {
             findings.push({file, specifier, line: node.loc.start.line})
         }
     });
@@ -235,7 +260,10 @@ then it is a list of things that used to be true rather than a measurement.`)
         process.exit(1)
     }
 
-    const srcCrossings = findings.filter(entry => entry.file.startsWith('src/')).length;
+    const srcCrossings = findings.filter(entry => entry.file.startsWith('src/')).length,
+          srcNote      = srcCrossings === 0
+              ? 'src/** clean, as it has always been — src/ai/** is the engine\'s own AI layer, not a crossing'
+              : `${srcCrossings} in src/** — the RUNTIME crosses, which is a different and worse problem than tooling`;
 
-    console.log(`check-engine-brain-boundary: OK — ${findings.length} crossing(s), all baselined; ${files.length} file(s) scanned. ${srcCrossings} of them in src/** (the runtime), which is the row to burn down first.`)
+    console.log(`check-engine-brain-boundary: OK — ${findings.length} crossing(s), all baselined; ${files.length} file(s) scanned. ${srcNote}.`)
 }
