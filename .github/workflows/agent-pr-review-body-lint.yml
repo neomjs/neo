@@ -99,6 +99,60 @@ jobs:
             // contract and receives the narrow Micro-Delta validation below); a Round-2 disposition
             // is the other, for the reason above.
             if (reviewState === 'commented' && !isCommentedClosure && !isRound2Disposition) {
+              // ...but "supplementary" stopped being true of one thing. A COMMENT may no longer mint
+              // a new action packet: the managed path refuses it. Skipping this state entirely left
+              // the DIRECT gh/UI path neither refused nor observed, so the guard was avoidable by
+              // clicking — the third time this skip has exempted a shape that later acquired a gate
+              // (the Round-2 disposition above was the second).
+              //
+              // A post-submit lint cannot refuse; the review is already public. It REPORTS, which is
+              // what the ticket's "where observable" means. The heavy template stays skipped — this
+              // review never owed it.
+              //
+              // The rule is duplicated from the managed path rather than imported: this job runs
+              // without a repo checkout. Duplication is the established shape in this file (the
+              // closure-packet pattern above is the same), and the risk it carries is real — keep
+              // this in step with `collectDemandedActionItems` in `PullRequestService.mjs`, whose
+              // scoping rationale (section-scoped so a verdict block is not read as a demand) is the
+              // authority.
+              const demandLines = (() => {
+                const items = [];
+                let   fence = null, inSection = false;
+
+                for (const line of String(body).split(/\r\n|[\n\r]/)) {
+                  const fenceMatch = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
+
+                  if (fenceMatch) {
+                    if (fence === null)                     fence = fenceMatch[1][0];
+                    else if (fenceMatch[1][0] === fence)    fence = null;
+                    continue;
+                  }
+                  if (fence !== null) continue;
+
+                  if (/^[ \t]{0,3}#{1,6}[ \t]/.test(line)) {
+                    inSection = /Required\s+Actions?\b/i.test(line);
+                    continue;
+                  }
+
+                  if (inSection && (/^[ \t]*[-*][ \t]+\[[ \t]*\][ \t]*\S/.test(line)
+                                 || /^[ \t]*(?:[-*][ \t]+)?\*{0,2}RA[-_ ]?\d+\*{0,2}[ \t]*[:.)—-][ \t]*\S/i.test(line))) {
+                    items.push(line.trim());
+                  }
+                }
+
+                return items;
+              })();
+
+              if (demandLines.length > 0) {
+                const managed = body.includes('[review-budget-managed]');
+                const bypass  = /^\[review-budget-bypass\]\s+reason:\s*\S.*$/im.test(body);
+
+                if (!managed && !bypass) {
+                  core.setFailed(`COMMENTED review by ${reviewer} raises ${demandLines.length} new required-action item(s) without managed-path provenance or a \`[review-budget-bypass] reason: ...\` disclosure. A COMMENT carries a disposition over existing actions; a first demand round is a REQUEST_CHANGES, which the budget counts. Use manage_pr_review, or disclose the direct gh/UI bypass.`);
+                  return;
+                }
+              }
+
               console.log(`✅ COMMENTED review by ${reviewer} — supplementary (non-gating); template enforcement is state-keyed to APPROVED/CHANGES_REQUESTED. Skipping lint.`);
               return;
             }
