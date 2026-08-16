@@ -106,11 +106,14 @@ export function describePaneFreshness({freshness, ageMs} = {}) {
 /**
  * @summary Compact relative-age label from a millisecond age. Pure; negative (future / clock-skew)
  * ages clamp to `0s ago` rather than rendering a nonsensical future time.
+ *
+ * Exported as a shared chrome primitive: pane freshness and the viewer-wake telltale
+ * ({@link module:apps/agentos/view/fleet/viewerWakeTelltale}) must word relative ages identically —
+ * one formatter, two consumers, no drift.
  * @param {Number} ageMs
  * @returns {String}
- * @private
  */
-function formatAge(ageMs) {
+export function formatAge(ageMs) {
     const seconds = Math.max(0, Math.floor(ageMs / 1000));
 
     if (seconds < 60) {

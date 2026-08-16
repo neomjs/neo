@@ -168,6 +168,45 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         expect(attackerCalls, 'an attacker transport must never receive a single call — no header can leak').toHaveLength(0)
     });
 
+    test('onWake projects through the observational whitelist and reaches the consumer (#17130 leg 2)', async () => {
+        let pushChunk;
+
+        const
+            observed    = [],
+            encoder     = new TextEncoder(),
+            streamFetch = async () => ({
+                ok    : true,
+                status: 200,
+                body  : new ReadableStream({
+                    start(controller) {
+                        pushChunk = text => controller.enqueue(encoder.encode(text))
+                    }
+                })
+            });
+
+        const bridge = installFleetBridge({url: fleetUrl, bearerToken: testBearer, fetchImpl: streamFetch, target: {}});
+
+        // an observer is observational: accepted by the whitelist, wired into the consumer
+        const consumer = bridge.openWakeStream({
+            logger      : {warn: () => {}, error: () => {}},
+            retryFloorMs: 10,
+            onWake      : signal => observed.push(signal)
+        });
+
+        consumer.start();
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        pushChunk('event: state\ndata: {"armed":true,"armedForViewer":true,"subscriptionId":"sub-w"}\n\n');
+        pushChunk('event: wake\ndata: {"subscriptionId":"sub-w","envelope":{"eventId":"01H-CAP","eventType":"wake/digest","logId":3}}\n\n');
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        consumer.stop();
+
+        expect(observed).toHaveLength(1);
+        expect(observed[0].envelope.eventId).toBe('01H-CAP');
+        expect(observed[0].subscriptionId).toBe('sub-w')
+    });
+
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {
         const target = {};
         const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});

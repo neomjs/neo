@@ -245,13 +245,13 @@ export function installFleetBridge({
     shellTransport || Object.defineProperty(registryBridge, 'openWakeStream', {
         configurable: true,
         value       : (opts = {}) => {
-            const offered = Object.keys(opts).filter(key => !['logger', 'now', 'pollDigest', 'retryFloorMs'].includes(key));
+            const offered = Object.keys(opts).filter(key => !['logger', 'now', 'onWake', 'pollDigest', 'retryFloorMs'].includes(key));
 
             if (offered.length) {
-                throw new TypeError(`openWakeStream refuses option(s) '${offered.join("', '")}' — the capability owns destination, credentials, and transport; only observational options (pollDigest, logger, retryFloorMs, now) project through`)
+                throw new TypeError(`openWakeStream refuses option(s) '${offered.join("', '")}' — the capability owns destination, credentials, and transport; only observational options (pollDigest, onWake, logger, retryFloorMs, now) project through`)
             }
 
-            const {pollDigest, logger, retryFloorMs, now} = opts;
+            const {pollDigest, onWake, logger, retryFloorMs, now} = opts;
 
             return createFleetWakeStreamConsumer({
                 eventsUrl  : new URL('/fleet/events', fleetUrl.origin).href,
@@ -261,6 +261,7 @@ export function installFleetBridge({
                     ...(mcAuthorization ? {'x-neo-mc-authorization': `Bearer ${mcAuthorization}`} : {})
                 }),
                 ...(pollDigest   !== undefined ? {pollDigest} : {}),
+                ...(onWake       !== undefined ? {onWake} : {}),
                 ...(logger       !== undefined ? {logger} : {}),
                 ...(retryFloorMs !== undefined ? {retryFloorMs} : {}),
                 ...(now          !== undefined ? {now} : {})

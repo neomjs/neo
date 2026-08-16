@@ -295,3 +295,138 @@ test.describe('fleetWakeStreamConsumer — the browser-direct wake observation',
         expect(consumer.resolveDeliveryLiveness().reason).toBe('wake stream consumer not running')
     })
 });
+
+test.describe('fleetWakeStreamConsumer — leg-2 observational surface (#17130)', () => {
+    test('onWake must be a function or null — the observer seam is validated at create', () => {
+        expect(() => createFleetWakeStreamConsumer({
+            eventsUrl  : 'http://127.0.0.1:8083/fleet/events',
+            authHeaders: () => ({}),
+            onWake     : 'not-a-function'
+        })).toThrow(/onWake must be a function or null/)
+    });
+
+    test('onWake observes every wake frame, and a THROWING observer never kills the read loop', async () => {
+        const
+            observed = [],
+            response = sseResponse();
+
+        const consumer = createFleetWakeStreamConsumer({
+            eventsUrl   : 'http://127.0.0.1:8083/fleet/events',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            authHeaders : () => ({}),
+            fetchImpl   : async () => response,
+            onWake      : signal => {
+                observed.push(signal);
+                if (observed.length === 1) {
+                    throw new Error('observer fault — must be absorbed')
+                }
+            }
+        });
+
+        consumer.start();
+        await wait(20);
+
+        response.push('event: state\ndata: {"armed":true,"armedForViewer":true,"subscriptionId":"sub-2"}\n\n');
+        response.push('event: wake\ndata: {"subscriptionId":"sub-2","envelope":{"eventId":"01H-A","eventType":"wake/digest","logId":11,"emittedAt":"2026-08-16T19:00:00.000Z"}}\n\n');
+        await wait(20);
+        response.push('event: wake\ndata: {"subscriptionId":"sub-2","envelope":{"eventId":"01H-B","eventType":"wake/digest","logId":12,"emittedAt":"2026-08-16T19:00:01.000Z"}}\n\n');
+        await wait(20);
+
+        // both frames observed — the first observer throw was absorbed, the loop survived
+        expect(observed).toHaveLength(2);
+        expect(observed[0].subscriptionId).toBe('sub-2');
+        expect(observed[0].envelope.eventId).toBe('01H-A');
+        expect(typeof observed[0].receivedAt).toBe('number');
+        expect(observed[1].envelope.eventId).toBe('01H-B');
+
+        // and the stream's own truth kept advancing past the fault
+        expect(consumer.describe().watermark).toBe(12);
+        expect(consumer.resolveDeliveryLiveness().alive).toBe(true);
+
+        consumer.stop()
+    });
+
+    test('lastCatchUp keeps fresh ≠ empty ≠ failed apart, and null is the honest absence', async () => {
+        // absence: no pollDigest wired → no observation, ever
+        const unwired = createFleetWakeStreamConsumer({
+            eventsUrl   : 'http://127.0.0.1:8083/fleet/events',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            authHeaders : () => ({}),
+            fetchImpl   : async () => {
+                const response = sseResponse();
+                setTimeout(() => response.push('event: state\ndata: {"armed":true,"subscriptionId":"sub-u"}\n\n'), 5);
+                return response
+            }
+        });
+
+        unwired.start();
+        await wait(30);
+        expect(unwired.describe().lastCatchUp).toBe(null);
+        unwired.stop();
+
+        // fresh → (drop) → empty: one consumer, two connections, two distinct observed states
+        const
+            polls     = [],
+            responses = [];
+
+        const consumer = createFleetWakeStreamConsumer({
+            eventsUrl   : 'http://127.0.0.1:8083/fleet/events',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            authHeaders : () => ({}),
+            pollDigest  : async args => {
+                polls.push(args);
+                return {counts: {pending: polls.length === 1 ? 4 : 0}, watermark: 20 + polls.length}
+            },
+            fetchImpl: async () => {
+                const response = sseResponse();
+                responses.push(response);
+                setTimeout(() => response.push('event: state\ndata: {"armed":true,"armedForViewer":true,"subscriptionId":"sub-c"}\n\n'), 5);
+                return response
+            }
+        });
+
+        consumer.start();
+        await wait(30);
+
+        const fresh = consumer.describe().lastCatchUp;
+
+        expect(fresh.state).toBe('fresh');
+        expect(fresh.pending).toBe(4);
+        expect(typeof fresh.at).toBe('number');
+
+        responses[0].close();
+        await wait(60);
+
+        const empty = consumer.describe().lastCatchUp;
+
+        expect(empty.state).toBe('empty');
+        expect(empty.pending).toBe(0);
+        consumer.stop();
+
+        // failed: the poll throws → the state says so, pending claims nothing
+        const failing = createFleetWakeStreamConsumer({
+            eventsUrl   : 'http://127.0.0.1:8083/fleet/events',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            authHeaders : () => ({}),
+            pollDigest  : async () => { throw new Error('digest source unreachable') },
+            fetchImpl   : async () => {
+                const response = sseResponse();
+                setTimeout(() => response.push('event: state\ndata: {"armed":true,"subscriptionId":"sub-f"}\n\n'), 5);
+                return response
+            }
+        });
+
+        failing.start();
+        await wait(30);
+
+        const failed = failing.describe().lastCatchUp;
+
+        expect(failed.state).toBe('failed');
+        expect(failed.pending).toBe(null);
+        failing.stop()
+    })
+});
