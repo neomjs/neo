@@ -58,6 +58,23 @@ const BASELINE   = path.join(__dirname, 'check-engine-brain-boundary-baseline.js
  */
 
 /**
+ * The trees this guard reads, as the SSOT for its own scan surface. The CI workflow's `paths:`
+ * filter and the scan-root parity spec both derive from this export rather than restating it.
+ *
+ * The invariant is scanned ⊆ watched: a guard whose watched paths drift below its scanned paths
+ * runs late and misattributed — present, correct, and never triggered by the change that broke it,
+ * then firing on some unrelated PR that happens to touch a watched path.
+ * @type {String[]}
+ */
+export const SCAN_SURFACE = Object.freeze(['buildScripts/**/*.mjs', 'src/**/*.mjs']);
+
+/**
+ * The roots {@link SCAN_SURFACE} covers, in the form `git ls-files` takes.
+ * @type {String[]}
+ */
+const SCAN_ROOTS = Object.freeze(['buildScripts', 'src']);
+
+/**
  * @summary Does this specifier, resolved from this file, land in the Brain?
  *
  * **Resolution, not text shape.** The first version of this test matched `/^(?:\.\.\/)+ai\//` on the
@@ -228,7 +245,7 @@ export function diffAgainstBaseline(findings, baseline) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    const files = execFileSync('git', ['ls-files', 'buildScripts', 'src'], {cwd: ROOT, encoding: 'utf8'})
+    const files = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {cwd: ROOT, encoding: 'utf8'})
         .split('\n')
         .filter(file => file.endsWith('.mjs'));
 
