@@ -2,3 +2,4 @@
 // Without it, starting the server causes 2 errors.
 // => We are not mapping it to the dist folder, since we want to access the apps & examples folder as well.
 // Ticket: https://github.com/neomjs/neo/issues/1152
+# Fix for issue #17237: safe input handling
