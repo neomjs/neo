@@ -253,14 +253,50 @@ export function installFleetBridge({
 
             const {pollDigest, onWake, logger, retryFloorMs, now} = opts;
 
+            const authHeaders = () => ({
+                ...(bearerToken     ? {authorization: `Bearer ${bearerToken}`} : {}),
+                ...(mcAuthorization ? {'x-neo-mc-authorization': `Bearer ${mcAuthorization}`} : {})
+            });
+
+            // The catch-up truth lane's DEFAULT: the composed server's brokered digest poll on
+            // the events origin, riding the SAME pinned fetch + header closure as the stream —
+            // no mint crosses into the consumer or the pane. An explicit observational
+            // `pollDigest` option (tests, alternate compositions) still overrides. A server
+            // without the endpoint (or a refused poll) throws here and the consumer records the
+            // honest `failed` catch-up observation with this reason — once per connection,
+            // bounded, never a retry storm.
+            const brokeredPollDigest = async ({subscriptionId, sinceLogId}) => {
+                const response = await fetchImpl(new URL('/fleet/events/digest', fleetUrl.origin).href, {
+                    method : 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...authHeaders()
+                    },
+                    body: JSON.stringify({subscriptionId, sinceLogId})
+                });
+
+                let envelope = null;
+
+                try {
+                    envelope = await response.json()
+                } catch {/* a body-less refusal (older server's 404 page) falls through to the status throw */}
+
+                if (!response.ok) {
+                    throw new Error(envelope?.error || `digest poll unavailable: HTTP ${response.status}`)
+                }
+
+                if (envelope?.state !== FLEET_WIRE_RESPONSE_STATES.ok) {
+                    throw new Error(envelope?.error || 'digest poll failed')
+                }
+
+                return envelope.result
+            };
+
             return createFleetWakeStreamConsumer({
-                eventsUrl  : new URL('/fleet/events', fleetUrl.origin).href,
+                eventsUrl : new URL('/fleet/events', fleetUrl.origin).href,
                 fetchImpl,
-                authHeaders: () => ({
-                    ...(bearerToken     ? {authorization: `Bearer ${bearerToken}`} : {}),
-                    ...(mcAuthorization ? {'x-neo-mc-authorization': `Bearer ${mcAuthorization}`} : {})
-                }),
-                ...(pollDigest   !== undefined ? {pollDigest} : {}),
+                authHeaders,
+                pollDigest: pollDigest !== undefined ? pollDigest : brokeredPollDigest,
                 ...(onWake       !== undefined ? {onWake} : {}),
                 ...(logger       !== undefined ? {logger} : {}),
                 ...(retryFloorMs !== undefined ? {retryFloorMs} : {}),

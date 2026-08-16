@@ -503,6 +503,82 @@ export async function createFleetServerApp({
         }
     });
 
+    // The catch-up truth lane's client surface — the events origin's sibling, taking exactly the
+    // stream's two headers: class-1 admission already proven by the chain above, the viewer's
+    // class-3 MC credential brokered in-flight (poll-digest is an authenticated MC call and the
+    // browser page holds no plane credential by design — this route is how the cold drain reaches
+    // it). Same connection-attempt shape as the stream: a consumer polls once per connection.
+    const digestLimiter = rateLimit({
+        windowMs       : 60_000,
+        limit          : 30,
+        standardHeaders: false,
+        legacyHeaders  : false,
+        validate       : {xForwardedForHeader: false},
+        keyGenerator   : req => resolveViewerStreamKey(req.fleetRequestContext, app.fleetWakeArming?.provenIdentity?.() ?? null)
+            ?? 'unidentified',
+        handler        : (req, res) => res.status(429).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+            error: 'fleet: too many digest polls'
+        }))
+    });
+
+    app.post('/fleet/events/digest', digestLimiter, async (req, res) => {
+        const streamKey = resolveViewerStreamKey(req.fleetRequestContext, app.fleetWakeArming?.provenIdentity?.() ?? null);
+
+        if (!streamKey) {
+            res.status(403).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: viewer identity carries no stable subject'
+            }));
+            return
+        }
+
+        if (!app.fleetWakeArming?.pollDigestForViewer) {
+            res.status(403).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: wake catch-up is not wired on this deployment — no wake lane declared'
+            }));
+            return
+        }
+
+        const {subscriptionId, sinceLogId = 0} = req.body ?? {};
+
+        if (typeof subscriptionId !== 'string' || subscriptionId.trim().length === 0 ||
+            !Number.isFinite(sinceLogId) || sinceLogId < 0
+        ) {
+            res.status(400).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: malformed digest poll — subscriptionId (string) and a non-negative sinceLogId are required'
+            }));
+            return
+        }
+
+        const
+            fleetBearer    = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+            mcBearer       = (req.headers['x-neo-mc-authorization'] ?? '').replace(/^Bearer\s+/i, '').trim(),
+            canonicalClaim = normalizeAgentIdentity(req.fleetRequestContext.providerUsername ?? req.fleetRequestContext.username);
+
+        if (!mcBearer || !canonicalClaim) {
+            res.status(403).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: "fleet: digest poll requires the viewer's own MC credential — the catch-up lane is per-viewer"
+            }));
+            return
+        }
+
+        const outcome = await app.fleetWakeArming.pollDigestForViewer({
+            canonicalClaim,
+            bearer              : mcBearer,
+            fleetAdmissionBearer: fleetBearer,
+            subscriptionId,
+            sinceLogId
+        });
+
+        if (!outcome.ok) {
+            res.status(403).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: `fleet: ${outcome.reason}`
+            }));
+            return
+        }
+
+        res.status(200).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: outcome.result}))
+    });
+
     app.post('/fleet', async (req, res) => {
         let envelope;
 
@@ -1033,6 +1109,68 @@ export function createWakeArmingContext({
 
             outcomesByViewer.set(viewerKey, mutation);
             return mutation
+        },
+
+        /**
+         * @summary Runs one viewer-credentialed `poll-digest` against the plane — the catch-up
+         * truth lane, brokered exactly like per-viewer arming: an ephemeral MC session under the
+         * viewer's OWN presented credential (init proof → poll-digest → close), used in-flight
+         * and never stored. MC's caller-owned subscription model holds per viewer with no
+         * delegation surface; the poll reaches exactly the subscriptions the presented credential
+         * owns. Deliberately UNLATCHED (unlike arming's single-flight cache): a poll is
+         * per-request truth, so every call runs its own session and no outcome is remembered.
+         * Refusals return reasons, never throw.
+         * @param {Object} options
+         * @param {String} options.canonicalClaim The viewer's canonical `@login` claim, proven
+         *     against MC by the session init.
+         * @param {String} options.bearer The viewer's own presented plane credential.
+         * @param {String} [options.fleetAdmissionBearer=''] The class-1 bearer the request was
+         *     admitted on — equality here IS the forbidden class-1→class-3 forwarding, refused
+         *     before any MC client exists (same teeth as {@link ensureArmedForViewer}).
+         * @param {String} options.subscriptionId The handshake-vouched subscription to poll.
+         * @param {Number} [options.sinceLogId=0] The client-held watermark.
+         * @returns {Promise<Object>} `{ok: true, result}` or `{ok: false, reason}`.
+         */
+        async pollDigestForViewer({canonicalClaim, bearer, fleetAdmissionBearer = '', subscriptionId, sinceLogId = 0}) {
+            if (closed) {
+                return {ok: false, reason: 'poll-refused: arming context closed'}
+            }
+
+            if (!planeBase || typeof bearer !== 'string' || bearer.length === 0 || !canonicalClaim) {
+                return {ok: false, reason: 'poll-refused: no per-viewer plane credential presented'}
+            }
+
+            if (fleetAdmissionBearer && bearer === fleetAdmissionBearer) {
+                return {ok: false, reason: 'poll-refused: the presented MC credential is byte-identical to the Fleet admission bearer — the credential-class ledger forbids the aliasing'}
+            }
+
+            let viewerClient;
+
+            try {
+                viewerClient = createPlaneClient({
+                    baseUrl            : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
+                    credential         : bearer,
+                    allowPlainHttpHosts: aiConfig.fleet.planeInternalHosts
+                });
+
+                const admission = await viewerClient.init({expectedIdentity: canonicalClaim});
+
+                if (!admission.ok) {
+                    return {ok: false, reason: `poll-refused: viewer admission refused (${admission.reason})`}
+                }
+
+                const result = await viewerClient.callTool('manage_wake_subscription', {
+                    action: 'poll-digest',
+                    subscriptionId,
+                    sinceLogId
+                });
+
+                return {ok: true, result}
+            } catch (error) {
+                return {ok: false, reason: `poll-refused: ${error?.message ?? error}`}
+            } finally {
+                await viewerClient?.close?.()
+            }
         },
 
         /**

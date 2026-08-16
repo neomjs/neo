@@ -448,6 +448,149 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
     })
 });
 
+test.describe('FleetServerComposition - the brokered digest poll on the events origin', () => {
+    test('the catch-up lane is per-viewer: refusal matrix + a proven poll passing the MC result through verbatim', async () => {
+        const {startFleetServer} = await import('../../../../../../ai/services/fleet/fleetServer.mjs');
+
+        const
+            viewersByBearer = {
+                'ada-token'    : {login: 'ada', providerUserId: 1, identity: '@ada'},
+                'service-token': {login: 'svc', providerUserId: 9, identity: '@svc'},
+                'ada-mc-token' : {login: 'ada', providerUserId: 1, identity: '@ada'}
+            },
+            pollsByIdentity = {};
+
+        const createPlaneClient = ({credential}) => {
+            const viewer = viewersByBearer[credential];
+
+            return {
+                async init() {
+                    return viewer ? {ok: true, identity: viewer.identity} : {ok: false, reason: 'unknown bearer'}
+                },
+                async callTool(name, args) {
+                    (pollsByIdentity[viewer.identity] ??= []).push(args);
+
+                    if (args.action === 'subscribe')   return {subscriptionId: `WAKE_SUB:${viewer.login}`};
+                    if (args.action === 'rotate-key')  return {subscriptionId: `WAKE_SUB:${viewer.login}`, signingKey: 'a'.repeat(64)};
+                    if (args.action === 'poll-digest') return {counts: {pending: 5}, watermark: 77, entries: [{logId: 77}]}
+                },
+                async close() {}
+            }
+        };
+
+        const server = await startFleetServer({
+            host    : '127.0.0.1',
+            port    : 0,
+            aiConfig: {
+                publicUrl    : 'http://127.0.0.1:3102/fleet',
+                mcpHttpHost  : '127.0.0.1',
+                mcpListenHost: '127.0.0.1',
+                fleet        : {
+                    port              : 0,
+                    dataDir           : '/unused',
+                    wakeSelfBase      : 'http://fleet-server:8083',
+                    planeBase         : 'http://ingress:8080',
+                    planeBearer       : 'service-token',
+                    planeBearerFile   : '',
+                    admissionTokenFile: '',
+                    planeInternalHosts: ['ingress']
+                }
+            },
+            planeGuard        : () => {},
+            logger            : QUIET,
+            createPlaneClient,
+            resolveViewerClaim: async () => ({agentIdentityNodeId: '@svc'}),
+            authService       : {
+                setupPreCors() {},
+                async setup({app: target}) {
+                    target.use((req, res, next) => {
+                        const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim();
+                        const viewer = viewersByBearer[bearer];
+
+                        if (viewer) {
+                            req.auth = {
+                                userId          : viewer.login,
+                                username        : `${viewer.login} display`,
+                                providerUsername: viewer.login,
+                                authProvider    : 'github',
+                                providerUserId  : viewer.providerUserId
+                            }
+                        }
+
+                        next()
+                    })
+                }
+            },
+            transportService: {
+                computeAllowedHosts: () => ['127.0.0.1'],
+                installCors() {}
+            }
+        });
+
+        const base = `http://127.0.0.1:${server.address().port}`;
+
+        const poll = (headers, body) => fetch(`${base}/fleet/events/digest`, {
+            method : 'POST',
+            headers: {'content-type': 'application/json', ...headers},
+            body   : JSON.stringify(body)
+        });
+
+        try {
+            // class-1 alone: the admission bearer is NEVER forwarded to the MC audience — the
+            // per-viewer lane refuses instead of borrowing the service session.
+            const classOneOnly = await poll({authorization: 'Bearer ada-token'}, {subscriptionId: 'WAKE_SUB:ada'});
+
+            expect(classOneOnly.status).toBe(403);
+            expect((await classOneOnly.json()).error).toContain("viewer's own MC credential");
+
+            // the identical-token mutant: equality IS the forbidden class-1→class-3 forwarding
+            const aliased = await poll(
+                {authorization: 'Bearer ada-token', 'x-neo-mc-authorization': 'Bearer ada-token'},
+                {subscriptionId: 'WAKE_SUB:ada'}
+            );
+
+            expect(aliased.status).toBe(403);
+            expect((await aliased.json()).error).toContain('byte-identical');
+            expect(pollsByIdentity['@ada'], 'no MC client may exist for a refused pair').toBeUndefined();
+
+            // malformed body: shape refused before any brokering
+            const malformed = await poll(
+                {authorization: 'Bearer ada-token', 'x-neo-mc-authorization': 'Bearer ada-mc-token'},
+                {sinceLogId: -1}
+            );
+
+            expect(malformed.status).toBe(400);
+            expect((await malformed.json()).error).toContain('malformed digest poll');
+
+            // an unknown class-3 credential: the viewer admission itself refuses
+            const unknownMint = await poll(
+                {authorization: 'Bearer ada-token', 'x-neo-mc-authorization': 'Bearer forged-mint'},
+                {subscriptionId: 'WAKE_SUB:ada'}
+            );
+
+            expect(unknownMint.status).toBe(403);
+            expect((await unknownMint.json()).error).toContain('viewer admission refused');
+
+            // the proven poll: the viewer's OWN credential brokers poll-digest and the MC result
+            // crosses back VERBATIM inside the ok envelope
+            const proven = await poll(
+                {authorization: 'Bearer ada-token', 'x-neo-mc-authorization': 'Bearer ada-mc-token'},
+                {subscriptionId: 'WAKE_SUB:ada', sinceLogId: 41}
+            );
+
+            expect(proven.status).toBe(200);
+
+            const envelope = await proven.json();
+
+            expect(envelope.state).toBe('ok');
+            expect(envelope.result).toEqual({counts: {pending: 5}, watermark: 77, entries: [{logId: 77}]});
+            expect(pollsByIdentity['@ada']).toEqual([{action: 'poll-digest', subscriptionId: 'WAKE_SUB:ada', sinceLogId: 41}])
+        } finally {
+            await new Promise(resolve => server.close(resolve))
+        }
+    })
+});
+
 test.describe('FleetServerComposition - the relay stream consumer against the composed admission chain', () => {
     test('the production credential chain end-to-end: the resolved fleet-client mint is admitted and drives cold catch-up; the plane-MCP mint is refused with an honest observation', async () => {
         const {startFleetServer, assertFleetPlaneAdmissionBearerClass} = await import('../../../../../../ai/services/fleet/fleetServer.mjs');

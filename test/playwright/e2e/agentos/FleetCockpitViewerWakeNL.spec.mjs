@@ -18,11 +18,13 @@ import {E2E_FLEET_VIEWER, wireAuthenticatedFleetBridge} from './authenticatedFle
  * and activity stay honestly degraded throughout, proving the viewer-wake axis is independent
  * chrome, not a spine passenger.
  *
- * Honest scope: the cold-drain `poll-digest` leg is NOT driven here — the browser page holds no
- * plane credential by design, so the cockpit's `wakePollDigest` seam is a worker-realm injection
- * no page-side test can supply. The catch-up mechanics (cold drain from the vouched id, watermark
- * continuity, fresh ≠ empty ≠ failed) are pinned in `fleetWakeStreamConsumer.spec.mjs`; the seam
- * pass-through is pinned in `fleetCockpitViewerWake.spec.mjs`.
+ * The cold-drain leg rides the capability's BROKERED digest-poll default: the vouched handshake
+ * triggers one `POST /fleet/events/digest` carrying the SAME two headers as the stream, the
+ * fixture answers the endpoint contract, and the drained count renders in the telltale detail —
+ * no worker-realm injection, no mint outside the bridge closure. The consumer-level catch-up
+ * mechanics (watermark continuity, fresh ≠ empty ≠ failed) stay pinned in
+ * `fleetWakeStreamConsumer.spec.mjs`; the server-side brokering (viewer-credentialed MC session)
+ * is pinned in `fleetWakeArming.spec.mjs` + `FleetServerComposition.spec.mjs`.
  *
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/FleetCockpitViewerWakeNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  *
@@ -49,6 +51,7 @@ async function startWakeFixture({bearerToken, port = 0}) {
 
     const
         fanout      = createFleetWakeFanout({heartbeatMs: 1000, logger: {error: () => {}, warn: () => {}}}),
+        digestCalls = [],
         headersSeen = [];
 
     const server = createServer((req, res) => {
@@ -65,6 +68,36 @@ async function startWakeFixture({bearerToken, port = 0}) {
                 'access-control-allow-methods': 'GET, POST'
             });
             res.end();
+            return
+        }
+
+        if (req.method === 'POST' && req.url.startsWith('/fleet/events/digest')) {
+            const class1 = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim();
+
+            let raw = '';
+
+            req.on('data', chunk => { raw += chunk });
+            req.on('end', () => {
+                let body = null;
+
+                try { body = JSON.parse(raw) } catch {/* refused below */}
+
+                digestCalls.push({
+                    body,
+                    class1Matches: class1 === bearerToken,
+                    class3       : req.headers['x-neo-mc-authorization'] ?? null
+                });
+
+                if (class1 !== bearerToken || !req.headers['x-neo-mc-authorization'] || !body?.subscriptionId) {
+                    res.writeHead(403, {'content-type': 'application/json'});
+                    res.end('{"state":"refused","error":"fleet: digest poll refused"}');
+                    return
+                }
+
+                // the endpoint contract: the brokered MC poll-digest result inside the ok envelope
+                res.writeHead(200, {'content-type': 'application/json'});
+                res.end(JSON.stringify({state: 'ok', result: {counts: {pending: 4}, watermark: 7}}))
+            });
             return
         }
 
@@ -96,6 +129,7 @@ async function startWakeFixture({bearerToken, port = 0}) {
     const boundPort = server.address().port;
 
     return {
+        digestCalls,
         fanout,
         headersSeen,
         port    : boundPort,
@@ -121,7 +155,10 @@ async function startWakeFixture({bearerToken, port = 0}) {
         close() {
             return new Promise(resolve => {
                 fanout.dispose();
-                server.close(resolve)
+                server.close(resolve);
+                // the brokered digest poll leaves a keep-alive socket behind — without this,
+                // `server.close` waits out the idle timeout and the test eats its own budget
+                server.closeAllConnections?.()
             })
         }
     }
@@ -182,6 +219,21 @@ test.describe('FleetCockpit — viewer wake push journey (#17130 leg 2)', () => 
 
         expect(admitted.length).toBeGreaterThan(0);
         expect(admitted[admitted.length - 1].class3).toBe(`Bearer ${mcMint}`);
+
+        // ── the COLD DRAIN through the brokered default: the vouched handshake fired exactly one
+        // digest poll on the events origin, carrying the SAME two headers, and the drained count
+        // renders in the telltale detail — the catch-up truth lane, end-to-end in the page
+        await expect.poll(async () => await telltale.getAttribute('title') ?? '', {
+            message: 'the brokered cold drain reaches the telltale detail', timeout: 20000, intervals: [250]
+        }).toContain('catch-up: fresh (4 pending drained)');
+
+        const drained = fixture.digestCalls[0];
+
+        expect(drained, 'the vouched handshake must trigger the digest poll').toBeTruthy();
+        expect(drained.class1Matches).toBe(true);
+        expect(drained.class3).toBe(`Bearer ${mcMint}`);
+        expect(drained.body.subscriptionId).toBe(subscriptionId);
+        expect(drained.body.sinceLogId).toBe(0);
 
         // ── a digest pushed through the PRODUCTION fan-out lands in the page ────────────────────
         fixture.fanout.handleDigest({
