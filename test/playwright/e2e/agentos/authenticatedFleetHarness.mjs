@@ -82,9 +82,12 @@ export function authenticatedFleetOptions(overrides = {}) {
  * @param {Object} options.app         The `neuralLink.connectToApp('AgentOS')` handle.
  * @param {String} options.fleetUrl    The loopback fleet endpoint the server bound.
  * @param {String} options.bearerToken The server's process bearer.
+ * @param {String} [options.mcAuthorization] The viewer's class-3 MC mint arming the per-viewer
+ *     wake stream — a DISTINCT credential from the class-1 bearer by contract (`installFleetBridge`
+ *     refuses a byte-identical pair). Omitted = the honest not-armed state.
  * @returns {Promise<void>}
  */
-export async function wireAuthenticatedFleetBridge({app, fleetUrl, bearerToken}) {
+export async function wireAuthenticatedFleetBridge({app, fleetUrl, bearerToken, mcAuthorization}) {
     const [viewport] = await app.queryComponent({className: 'AgentOS.view.Viewport'}, ['id']);
 
     if (!viewport?.properties?.id) {
@@ -98,7 +101,11 @@ export async function wireAuthenticatedFleetBridge({app, fleetUrl, bearerToken})
         throw new Error('authenticatedFleetHarness: the Viewport exposes no controller.id — injector unreachable')
     }
 
-    const ack = await app.callMethod(controllerId, 'wireFleetBridge', [{url: fleetUrl, bearerToken}]);
+    const ack = await app.callMethod(controllerId, 'wireFleetBridge', [{
+        url: fleetUrl,
+        bearerToken,
+        ...(mcAuthorization ? {mcAuthorization} : {})
+    }]);
 
     // The injector acks with literal true; anything else means the call silently no-oped in the
     // worker (stale module, missing method, swallowed throw) — fail LOUD here, not at a downstream

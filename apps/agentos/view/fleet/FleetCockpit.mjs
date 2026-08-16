@@ -17,12 +17,14 @@ import FleetGrid                                from './FleetGrid.mjs';
 import FleetRoster                              from '../../store/FleetRoster.mjs';
 import MemoriesPane                             from './MemoriesPane.mjs';
 import OperatorMailbox                          from './OperatorMailbox.mjs';
+import ViewerWakeFeed                           from '../../store/ViewerWakeFeed.mjs';
 import WakeRoutePane                            from './WakeRoutePane.mjs';
 import StateProvider                            from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument                      from './cockpitDockDocument.mjs';
 import cockpitPresetCollection                  from './cockpitPresets.mjs';
 import {createDockTearOutHandlers}              from '../../../../src/dashboard/DockTearOut.mjs';
 import {DAEMON_FAULT_STATES, deriveSpineBanner} from './spineBanner.mjs';
+import {describeViewerWakeTelltale}             from './viewerWakeTelltale.mjs';
 import {mapFleetSessionHealth}                  from './sourceHealth.mjs';
 import {previewToOperation}                     from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
@@ -187,14 +189,15 @@ class FleetCockpit extends Container {
          * plain containers, so per-class loading never fetches it; the consuming workspace
          * declares the dependency (the projection root carries the matching `.neo-dashboard`
          * scope class itself).
-         * Theme files this view needs that its own namespace does not pull in. `SpineBanner` is here
-         * because the banner is a plain component slot (`fleet-spine-banner`) rather than its own
-         * class — nothing requests `AgentOS.view.fleet.SpineBanner`, so without this entry the
-         * stylesheet is built and never loaded, and the banner renders unstyled. Any future
-         * class-less slot with its own SCSS needs the same registration.
-         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','AgentOS.view.fleet.SpineBanner']
+         * Theme files this view needs that its own namespace does not pull in. `SpineBanner` and
+         * `ViewerWakeTelltale` are here because both are plain component slots
+         * (`fleet-spine-banner`, `viewer-wake-telltale`) rather than their own classes — nothing
+         * requests their namespaces, so without these entries the stylesheets are built and never
+         * loaded, and the chrome renders unstyled. Any future class-less slot with its own SCSS
+         * needs the same registration.
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','AgentOS.view.fleet.SpineBanner','AgentOS.view.fleet.ViewerWakeTelltale']
          */
-        additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.SpineBanner'],
+        additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.SpineBanner', 'AgentOS.view.fleet.ViewerWakeTelltale'],
         /**
          * @member {String[]} baseCls=['fm-fleet-cockpit']
          */
@@ -241,10 +244,26 @@ class FleetCockpit extends Container {
          */
         stateProvider: {
             module: StateProvider,
+            data  : {
+                /**
+                 * The per-viewer wake-push truths, stamped by the composition root from the
+                 * stream consumer's OWN observations. `stream` carries the
+                 * consumer's liveness vocabulary verbatim (`alive: true|'unknown'` + reason);
+                 * `catchUp` keeps failed ≠ empty ≠ fresh as three states by construction, with
+                 * `state: null` as the honest absence of any observation.
+                 */
+                viewerWake: {
+                    stream : {alive: 'unknown', reason: 'wake stream not started', capturedAt: null},
+                    catchUp: {state: null, at: null, pending: null}
+                }
+            },
             stores: {
                 fleetRoster: {
                     autoLoad: true,
                     module  : FleetRoster
+                },
+                viewerWakeFeed: {
+                    module: ViewerWakeFeed
                 }
             }
         },
@@ -466,6 +485,32 @@ class FleetCockpit extends Container {
      * @protected
      */
     livenessTimerId = null
+    /**
+     * The live per-viewer wake-stream consumer, opened through the bridge's `openWakeStream`
+     * capability (direct-browser topology only). `null` is the honest not-wired state — the
+     * packaged shell carries no such capability, and a bearer-less bridge's stream is refused
+     * server-side and observed as such.
+     * @member {Object|null} viewerWakeConsumer=null
+     * @protected
+     */
+    viewerWakeConsumer = null
+    /**
+     * The exact bridge object {@link #viewerWakeConsumer} was opened from. Custody heals by
+     * REPLACING the published bridge (verify-then-promote), so identity comparison per liveness
+     * tick is the rebuild trigger — a consumer must never outlive the closure custody it rode.
+     * @member {Object|null} viewerWakeBridge=null
+     * @protected
+     */
+    viewerWakeBridge = null
+    /**
+     * Injectable connection catch-up seam, passed through to the stream consumer's `pollDigest`
+     * option when supplied. The browser page holds no plane credential BY DESIGN (mints live in
+     * transport closures), so no default exists here: compositions that own a plane-side
+     * poll-digest authority (tests, tooling hosts) inject it; every other topology renders the
+     * consumer's honest catch-up absence instead of a fabricated drain.
+     * @member {Function|null} wakePollDigest=null
+     */
+    wakePollDigest = null
     /**
      * Re-entrancy latch for {@link #onRosterStoreLoad}: the store fires `load` for its own
      * mutations (mutate → onCollectionMutate → load), so the guard's reconciliation adds/removals
@@ -829,7 +874,8 @@ class FleetCockpit extends Container {
         me.loadActivity();
         me.loadRoster();
         me.loadOperatorIdentity();
-        me.startLiveness()
+        me.startLiveness();
+        me.ensureViewerWakeStream()
     }
 
     /**
@@ -1040,6 +1086,18 @@ class FleetCockpit extends Container {
                     text     : 'Reconnect'
                 },
                 '->', {
+                    // The per-viewer wake-push telltale — MY push lane's health, a different axis
+                    // from the spine banner (fleet transport) and the per-agent telltales (each
+                    // resident's route). Always rendered, quietly: live is one token wide, and a
+                    // degraded push carries the consumer's reason verbatim. Synced by
+                    // syncViewerWakeTelltale from the provider-held viewerWake truths; the feed's
+                    // last signals ride the title as the drill-free detail.
+                    ntype    : 'component',
+                    cls      : ['fm-viewer-wake'],
+                    reference: 'viewer-wake-telltale',
+                    role     : 'status',
+                    text     : 'wake: not started'
+                }, {
                     // The fleet-start outcome summary — written by the controller after the
                     // staged bring-up settles ("N started · U UNKNOWN · M rejected · K excluded";
                     // per-member reasons ride the title). Empty + hidden until a start ran; hover
@@ -2080,6 +2138,13 @@ class FleetCockpit extends Container {
         let me = this;
 
         me.stopLiveness();
+
+        // the wake stream dies with its composition root — a consumer that outlives the cockpit
+        // would keep a credentialed connection open on behalf of a surface that no longer exists
+        me.viewerWakeConsumer?.stop();
+        me.viewerWakeConsumer = null;
+        me.viewerWakeBridge   = null;
+
         me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         Neo.currentWorker.un({
@@ -2753,7 +2818,11 @@ class FleetCockpit extends Container {
         me.livenessTimerId = setInterval(() => {
             if (me.streamReadInFlight      < me.maxReadsInFlight) me.loadActivity();
             if (me.gridReadInFlight        < me.maxReadsInFlight) me.loadRoster();
-            if (me.brainHealthReadInFlight < me.maxReadsInFlight) me.loadBrainHealth()
+            if (me.brainHealthReadInFlight < me.maxReadsInFlight) me.loadBrainHealth();
+
+            // no in-flight cap: this launches no wire read — it compares bridge identity (the
+            // custody-heal rebuild trigger) and copies the consumer's local observations
+            me.ensureViewerWakeStream()
         }, me.livenessPollInterval);
 
         // The daemon surface has no other first read: unlike roster/activity (seeded then wired
@@ -2785,6 +2854,143 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Keeps the per-viewer wake stream bound to the CURRENT bridge's capability —
+     * called at construct and on every liveness tick.
+     *
+     * Three honest outcomes, none of them a wire read:
+     * - **capability present, bridge unchanged:** the running consumer stands; only the
+     *   observation stamp refreshes.
+     * - **bridge replaced (custody heal / explicit re-wire):** the old consumer is stopped and a
+     *   fresh one opens through the NEW closure — a consumer must never outlive the credential
+     *   custody it was built from, and `installFleetBridge` publishing a new object is exactly
+     *   that boundary.
+     * - **no capability (packaged shell, or no bridge yet):** any running consumer stops and the
+     *   provider carries the honest not-wired state — absence of signal, never a fabricated
+     *   stream.
+     * @protected
+     */
+    ensureViewerWakeStream() {
+        let me     = this,
+            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (!bridge?.openWakeStream) {
+            if (me.viewerWakeConsumer) {
+                me.viewerWakeConsumer.stop();
+                me.viewerWakeConsumer = null;
+                me.viewerWakeBridge   = null
+            }
+
+            me.stampViewerWake({
+                stream: {
+                    alive     : 'unknown',
+                    reason    : 'wake push not wired — this composition carries no direct-browser wake capability',
+                    capturedAt: Date.now()
+                }
+            });
+            return
+        }
+
+        if (me.viewerWakeConsumer && me.viewerWakeBridge === bridge) {
+            me.stampViewerWake();
+            return
+        }
+
+        me.viewerWakeConsumer?.stop();
+
+        me.viewerWakeConsumer = bridge.openWakeStream({
+            onWake: signal => me.onViewerWakeSignal(signal),
+            ...(me.wakePollDigest ? {pollDigest: me.wakePollDigest} : {})
+        });
+        me.viewerWakeBridge = bridge;
+
+        me.viewerWakeConsumer.start();
+        me.stampViewerWake()
+    }
+
+    /**
+     * @summary One observed wake frame → the bounded feed + an immediate stamp. The record stores
+     * the envelope's own field names verbatim ({@link AgentOS.model.WakeSignal}); a frame carrying
+     * no envelope is still a receipt (the stream moved) but yields no feed row to fabricate.
+     * @param {Object} signal `{subscriptionId, envelope, receivedAt}` from the consumer's `onWake`.
+     * @protected
+     */
+    onViewerWakeSignal({subscriptionId, envelope, receivedAt}) {
+        let me = this;
+
+        if (me.isDestroyed) return;
+
+        if (envelope?.eventId) {
+            me.getStateProvider()?.getStore('viewerWakeFeed')?.addSignal({
+                eventId  : envelope.eventId,
+                kind     : envelope.eventType ?? 'wake',
+                logId    : envelope.logId ?? null,
+                emittedAt: envelope.emittedAt ?? null,
+                receivedAt,
+                subscriptionId
+            })
+        }
+
+        me.stampViewerWake()
+    }
+
+    /**
+     * @summary Writes the consumer's OWN observations into the provider (`viewerWake.stream` /
+     * `viewerWake.catchUp` — the contract's data path) and re-renders the chrome telltale from
+     * the same truth. One writer, two surfaces, zero re-judging: liveness vocabulary and catch-up
+     * states pass through verbatim.
+     * @param {Object} [override] `{stream}` for the not-wired stamp, when no consumer exists to ask.
+     * @protected
+     */
+    stampViewerWake(override = null) {
+        let me       = this,
+            provider = me.getStateProvider(),
+            consumer = me.viewerWakeConsumer;
+
+        if (!provider) return;
+
+        const
+            stream  = override?.stream ?? (consumer
+                ? {...consumer.resolveDeliveryLiveness(), capturedAt: Date.now()}
+                : {alive: 'unknown', reason: 'wake stream not started', capturedAt: Date.now()}),
+            catchUp = consumer?.describe().lastCatchUp ?? {state: null, at: null, pending: null};
+
+        provider.setData('viewerWake', {stream, catchUp});
+        me.syncViewerWakeTelltale()
+    }
+
+    /**
+     * @summary Renders the chrome telltale chip from the provider-held viewer-wake truths plus the
+     * feed's newest rows — pure derivation in, `text`/`title` out. `text`, never `html`: the chip
+     * interpolates the consumer's reason strings, which arrive over the wire; data, not markup.
+     * @protected
+     */
+    syncViewerWakeTelltale() {
+        let me   = this,
+            slot = me.getReference('viewer-wake-telltale');
+
+        if (!slot) return;
+
+        const
+            provider   = me.getStateProvider(),
+            viewerWake = provider?.getData('viewerWake') ?? {},
+            signals    = (provider?.getStore('viewerWakeFeed')?.items ?? []).slice(0, 5).map(record => ({
+                kind      : record.kind,
+                emittedAt : record.emittedAt,
+                receivedAt: record.receivedAt
+            })),
+            {ariaLabel, cls, text, title} = describeViewerWakeTelltale({
+                stream : viewerWake.stream ?? null,
+                catchUp: viewerWake.catchUp?.state ? viewerWake.catchUp : null,
+                signals
+            });
+
+        slot.set({cls, text});
+        slot.vdom.title         = title;
+        slot.vdom['aria-label'] = ariaLabel;
+        slot.update()
+    }
+
+    /**
      * @summary The Reconnect affordance's one-click re-drive: every liveness seam, immediately.
      *
      * Deliberately NOT gated on {@link #maxReadsInFlight} — per that cap's contract, only the
@@ -2799,7 +3005,8 @@ class FleetCockpit extends Container {
 
         me.loadActivity();
         me.loadRoster();
-        me.loadBrainHealth()
+        me.loadBrainHealth();
+        me.ensureViewerWakeStream()
     }
 
     /**
