@@ -216,7 +216,32 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         expect(script).toContain('key code 36');
         expect(script).toContain('before user input restore paste');
         expect(script).toContain('set the clipboard to savedClipboard');
+
+        // Every keystroke block must type into the VERIFIED target, never a fresh frontmost read.
+        // The TOCTOU that misrouted a wake into another seat's session: each block used to open with
+        // `first application process whose frontmost is true` — a second read taken AFTER
+        // `assertTargetFrontmost` had approved the target — so the payload went wherever focus had
+        // drifted during the 0.2s-1.0s delays. Losing focus BEFORE a check aborts loudly; losing it
+        // AFTER raised nothing and typed one seat's wake, and on the restore path the operator's own
+        // recovered draft, into whichever window had taken focus.
+        //
+        // Folded into this arm rather than given its own: `dispatchLocalWake` serializes on
+        // module-level state, so a second delivery perturbs specs sharing the worker. A standalone
+        // version of this check broke an unrelated stale-replay arm — an isolation defect introduced
+        // by a test for an isolation defect.
+        const tells = script.match(/tell (targetProcess|frontmostProcess)/g) ?? [];
+
+        expect(tells.length, 'the delivery has keystroke blocks to check').toBeGreaterThan(0);
+        expect(tells.every(line => line === 'tell targetProcess'),
+            `no keystroke block may tell a re-read frontmost process — saw ${tells.join(', ')}`).toBe(true);
+        expect(script).toContain('set targetProcess to first application process whose unix id is');
+        expect(script).toContain('whose bundle identifier is targetBundleId');
+        // The assertion itself still reads whoever is frontmost — that is the comparison, not a
+        // delivery target. Without this the arm would pass on a build that deleted the check.
+        expect(script, 'the frontmost READ survives inside the check')
+            .toContain('set frontmostProcess to first application process whose frontmost is true');
     });
+
 
     test('OpenCode retries changed coordinates once without allowing authority retarget', async () => {
         const first = {

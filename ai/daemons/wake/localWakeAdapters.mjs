@@ -597,6 +597,40 @@ async function deliverOsascript({digest, effects, meta, record}) {
 }
 
 /**
+ * @summary AppleScript lines binding `targetProcess` to the seat we are delivering to, by IDENTITY.
+ *
+ * Every keystroke block used to open with `first application process whose frontmost is true` — a
+ * second, independent read taken *after* `assertTargetFrontmost` had already approved the target.
+ * The check proved the target held focus; the next statement discarded that and asked the system
+ * again, so the payload went wherever focus had drifted to by then. With the 0.2s–1.0s delays in
+ * the sequences below, focus has hundreds of milliseconds to move WHILE text is being typed.
+ *
+ * That is why a misrouted wake could report success. Losing focus BEFORE a check aborts loudly —
+ * the `Target app lost frontmost status` errors in the receiver log are that guard working. Losing
+ * it AFTER a check raised nothing at all: one seat's wake was typed into another seat's window, and
+ * on the restore path the OPERATOR'S OWN recovered draft was pasted into whichever window had taken
+ * focus. The check was never the weak part; discarding its result one line later was.
+ *
+ * Resolution follows the same precedence the assertion uses — pid, then bundle id, then name — so a
+ * route that identifies its target one way is delivered to the target identified the same way.
+ *
+ * @param {String} indent AppleScript indentation for the emitted block.
+ * @returns {String[]} `osascript` argv fragments.
+ * @private
+ */
+function resolveTargetProcessLines(indent) {
+    return [
+        '-e', `${indent}if targetProcessId is not "" then`,
+        '-e', `${indent}  set targetProcess to first application process whose unix id is (targetProcessId as integer)`,
+        '-e', `${indent}else if targetBundleId is not "" then`,
+        '-e', `${indent}  set targetProcess to first application process whose bundle identifier is targetBundleId`,
+        '-e', `${indent}else`,
+        '-e', `${indent}  set targetProcess to first application process whose name is targetAppName`,
+        '-e', `${indent}end if`
+    ]
+}
+
+/**
  * @summary Builds the draft-preserving AppleScript argument vector.
  * @private
  */
@@ -658,8 +692,8 @@ function buildOsascriptArgs({appName, digest, focusSeedKey, focusSeedSequence, i
         '-e', '  end repeat',
         '-e', '  if not targetRaised then my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
         '-e', '  tell application "System Events"',
-        '-e', '    set frontmostProcess to first application process whose frontmost is true',
-        '-e', '    tell frontmostProcess'
+        ...resolveTargetProcessLines('    '),
+        '-e', '    tell targetProcess'
     ];
 
     if (tabShortcut) {
@@ -701,8 +735,8 @@ function buildOsascriptArgs({appName, digest, focusSeedKey, focusSeedSequence, i
         '-e', '  delay 0.2',
         '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake paste")',
         '-e', '  tell application "System Events"',
-        '-e', '    set frontmostProcess to first application process whose frontmost is true',
-        '-e', '    tell frontmostProcess',
+        ...resolveTargetProcessLines('    '),
+        '-e', '    tell targetProcess',
         '-e', '      keystroke "v" using command down',
         '-e', '      delay 0.5',
         ...(appName === 'Codex' ? ['-e', '      key code 53', '-e', '      delay 0.45'] : []),
@@ -716,8 +750,8 @@ function buildOsascriptArgs({appName, digest, focusSeedKey, focusSeedSequence, i
         '-e', '    delay 0.2',
         '-e', '    my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before user input restore paste")',
         '-e', '    tell application "System Events"',
-        '-e', '      set frontmostProcess to first application process whose frontmost is true',
-        '-e', '      tell frontmostProcess',
+        ...resolveTargetProcessLines('      '),
+        '-e', '      tell targetProcess',
         '-e', '        keystroke "v" using command down',
         '-e', '      end tell',
         '-e', '    end tell',
