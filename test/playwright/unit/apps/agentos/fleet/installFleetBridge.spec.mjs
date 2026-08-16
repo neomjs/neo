@@ -207,6 +207,117 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         expect(observed[0].subscriptionId).toBe('sub-w')
     });
 
+    test('the capability supplies the BROKERED digest-poll default: same origin, same two headers, override still wins', async () => {
+        const
+            mcMint      = 'D'.repeat(43),
+            digestCalls = [],
+            encoder     = new TextEncoder();
+
+        let pushChunk;
+
+        const streamFetch = async (url, options) => {
+            if (String(url).endsWith('/fleet/events/digest')) {
+                digestCalls.push({url: String(url), headers: options.headers, body: JSON.parse(options.body)});
+
+                return {
+                    ok    : true,
+                    status: 200,
+                    json  : async () => ({state: 'ok', result: {counts: {pending: 3}, watermark: 44}})
+                }
+            }
+
+            return {
+                ok    : true,
+                status: 200,
+                body  : new ReadableStream({
+                    start(controller) {
+                        pushChunk = text => controller.enqueue(encoder.encode(text))
+                    }
+                })
+            }
+        };
+
+        const bridge = installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: mcMint, fetchImpl: streamFetch, target: {}});
+
+        const consumer = bridge.openWakeStream({logger: {warn: () => {}, error: () => {}}, retryFloorMs: 10});
+
+        consumer.start();
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        // the vouched handshake triggers the connection catch-up through the brokered default
+        pushChunk('event: state\ndata: {"armed":true,"armedForViewer":true,"subscriptionId":"sub-d"}\n\n');
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        consumer.stop();
+
+        expect(digestCalls).toHaveLength(1);
+        expect(digestCalls[0].url).toBe('http://127.0.0.1:8083/fleet/events/digest');
+        expect(digestCalls[0].body).toEqual({subscriptionId: 'sub-d', sinceLogId: 0});
+        // both mints ride their OWN headers on the poll, exactly like the stream
+        expect(digestCalls[0].headers.authorization).toBe(`Bearer ${testBearer}`);
+        expect(digestCalls[0].headers['x-neo-mc-authorization']).toBe(`Bearer ${mcMint}`);
+
+        const observation = consumer.describe();
+
+        expect(observation.lastCatchUp.state).toBe('fresh');
+        expect(observation.lastCatchUp.pending).toBe(3);
+        expect(observation.watermark).toBe(44);
+
+        // an explicit observational pollDigest OVERRIDES the default — the wire sees no digest POST
+        const overrideCalls = [];
+
+        const overridden = bridge.openWakeStream({
+            logger      : {warn: () => {}, error: () => {}},
+            retryFloorMs: 10,
+            pollDigest  : async args => { overrideCalls.push(args); return {counts: {pending: 0}} }
+        });
+
+        overridden.start();
+        await new Promise(resolve => setTimeout(resolve, 20));
+        pushChunk?.('event: state\ndata: {"armed":true,"armedForViewer":true,"subscriptionId":"sub-o"}\n\n');
+        await new Promise(resolve => setTimeout(resolve, 20));
+        overridden.stop();
+
+        expect(overrideCalls).toEqual([{subscriptionId: 'sub-o', sinceLogId: 0}]);
+        expect(digestCalls, 'the brokered default must stay silent under an override').toHaveLength(1)
+    });
+
+    test('an older server without the digest endpoint lands as the honest FAILED catch-up observation — never a fabricated drain', async () => {
+        const encoder = new TextEncoder();
+
+        let pushChunk;
+
+        const streamFetch = async (url, options) => {
+            if (String(url).endsWith('/fleet/events/digest')) {
+                return {ok: false, status: 404, json: async () => { throw new Error('no body') }}
+            }
+
+            return {
+                ok    : true,
+                status: 200,
+                body  : new ReadableStream({
+                    start(controller) {
+                        pushChunk = text => controller.enqueue(encoder.encode(text))
+                    }
+                })
+            }
+        };
+
+        const bridge   = installFleetBridge({url: fleetUrl, bearerToken: testBearer, fetchImpl: streamFetch, target: {}});
+        const consumer = bridge.openWakeStream({logger: {warn: () => {}, error: () => {}}, retryFloorMs: 10});
+
+        consumer.start();
+        await new Promise(resolve => setTimeout(resolve, 20));
+        pushChunk('event: state\ndata: {"armed":true,"subscriptionId":"sub-old"}\n\n');
+        await new Promise(resolve => setTimeout(resolve, 20));
+        consumer.stop();
+
+        const {lastCatchUp} = consumer.describe();
+
+        expect(lastCatchUp.state).toBe('failed');
+        expect(lastCatchUp.pending).toBe(null)
+    });
+
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {
         const target = {};
         const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});

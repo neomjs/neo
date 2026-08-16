@@ -3001,9 +3001,13 @@ class FleetCockpit extends Container {
                 signals
             });
 
-        slot.set({cls, text});
+        // vdom attributes FIRST, then the config set, then one explicit flush: `set()` batches its
+        // own update asynchronously, so an update flushed BEFORE the text config lands pushes a
+        // vdom without the chip's text — a blank frame on every stamp cadence (the race the wake
+        // e2e caught as an empty telltale). Ordered this way, every flush carries text + title.
         slot.vdom.title         = title;
         slot.vdom['aria-label'] = ariaLabel;
+        slot.set({cls, text});
         slot.update()
     }
 

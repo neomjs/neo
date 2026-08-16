@@ -513,6 +513,156 @@ test.describe('fleet wake arming - the shutdown fence (delayed mutations cross a
     })
 });
 
+test.describe('pollDigestForViewer — the brokered catch-up truth lane', () => {
+    /** A poll-focused fixture: the fake plane client answers `poll-digest` and records lifecycle. */
+    function pollFixture({initOk = true} = {}) {
+        const
+            fanout        = createFleetWakeFanout({logger: QUIET, heartbeatMs: 0}),
+            constructions = [],
+            toolCalls     = [],
+            closes        = [];
+
+        const context = createWakeArmingContext({
+            fanout,
+            aiConfig: {fleet: {
+                planeBase         : 'http://ingress:8080',
+                planeBearer       : 'service-token',
+                planeBearerFile   : '',
+                admissionTokenFile: '',
+                planeInternalHosts: ['ingress'],
+                wakeSelfBase      : 'http://fleet-server:8083'
+            }},
+            logger           : QUIET,
+            createPlaneClient: options => {
+                constructions.push(options);
+
+                return {
+                    async init({expectedIdentity}) {
+                        return initOk
+                            ? {ok: true, identity: expectedIdentity}
+                            : {ok: false, reason: 'subject mismatch'}
+                    },
+                    async callTool(name, args) {
+                        toolCalls.push({name, args});
+                        return {counts: {pending: 2}, watermark: 41, entries: [{logId: 41}]}
+                    },
+                    async close() {
+                        closes.push(true)
+                    }
+                }
+            },
+            resolveViewerClaim: async () => ({agentIdentityNodeId: '@svc'})
+        });
+
+        return {closes, constructions, context, fanout, toolCalls}
+    }
+
+    test('a byte-identical viewer/fleet bearer pair is refused before any MC client exists', async () => {
+        const {constructions, context} = pollFixture();
+
+        const outcome = await context.pollDigestForViewer({
+            canonicalClaim      : '@ada',
+            bearer              : 'the-same-pat',
+            fleetAdmissionBearer: 'the-same-pat',
+            subscriptionId      : 'WAKE_SUB:x'
+        });
+
+        expect(outcome.ok).toBe(false);
+        expect(outcome.reason).toContain('byte-identical');
+        expect(constructions).toHaveLength(0)
+    });
+
+    test('a refused viewer admission answers the reason and closes the ephemeral session', async () => {
+        const {closes, context} = pollFixture({initOk: false});
+
+        const outcome = await context.pollDigestForViewer({
+            canonicalClaim: '@ada',
+            bearer        : 'viewer-mint',
+            subscriptionId: 'WAKE_SUB:x'
+        });
+
+        expect(outcome.ok).toBe(false);
+        expect(outcome.reason).toContain('viewer admission refused');
+        expect(closes).toHaveLength(1)
+    });
+
+    test('a proven poll passes the MC result through VERBATIM and closes the session', async () => {
+        const {closes, context, toolCalls} = pollFixture();
+
+        const outcome = await context.pollDigestForViewer({
+            canonicalClaim: '@ada',
+            bearer        : 'viewer-mint',
+            subscriptionId: 'WAKE_SUB:ada',
+            sinceLogId    : 17
+        });
+
+        expect(outcome.ok).toBe(true);
+        expect(outcome.result).toEqual({counts: {pending: 2}, watermark: 41, entries: [{logId: 41}]});
+        expect(toolCalls).toEqual([{
+            name: 'manage_wake_subscription',
+            args: {action: 'poll-digest', subscriptionId: 'WAKE_SUB:ada', sinceLogId: 17}
+        }]);
+        expect(closes).toHaveLength(1)
+    });
+
+    test('UNLATCHED by design: every poll runs its own ephemeral session — no cached outcome', async () => {
+        const {closes, constructions, context} = pollFixture();
+
+        await context.pollDigestForViewer({canonicalClaim: '@ada', bearer: 'viewer-mint', subscriptionId: 'WAKE_SUB:ada'});
+        await context.pollDigestForViewer({canonicalClaim: '@ada', bearer: 'viewer-mint', subscriptionId: 'WAKE_SUB:ada'});
+
+        expect(constructions).toHaveLength(2);
+        expect(closes).toHaveLength(2)
+    });
+
+    test('a throwing plane tool becomes a reason, never a throw — and the session still closes', async () => {
+        const
+            closes = [],
+            fanout = createFleetWakeFanout({logger: QUIET, heartbeatMs: 0});
+
+        const context = createWakeArmingContext({
+            fanout,
+            aiConfig: {fleet: {
+                planeBase         : 'http://ingress:8080',
+                planeBearer       : 'service-token',
+                planeBearerFile   : '',
+                admissionTokenFile: '',
+                planeInternalHosts: ['ingress'],
+                wakeSelfBase      : 'http://fleet-server:8083'
+            }},
+            logger           : QUIET,
+            createPlaneClient: () => ({
+                async init() { return {ok: true, identity: '@ada'} },
+                async callTool() { throw new Error('digest source unreachable') },
+                async close() { closes.push(true) }
+            }),
+            resolveViewerClaim: async () => ({agentIdentityNodeId: '@svc'})
+        });
+
+        const outcome = await context.pollDigestForViewer({
+            canonicalClaim: '@ada',
+            bearer        : 'viewer-mint',
+            subscriptionId: 'WAKE_SUB:ada'
+        });
+
+        expect(outcome.ok).toBe(false);
+        expect(outcome.reason).toContain('digest source unreachable');
+        expect(closes).toHaveLength(1)
+    });
+
+    test('a closed context and a missing credential both answer honest refusals', async () => {
+        const {context} = pollFixture();
+
+        expect((await context.pollDigestForViewer({canonicalClaim: '@ada', bearer: '', subscriptionId: 'WAKE_SUB:x'})).reason)
+            .toContain('no per-viewer plane credential');
+
+        await context.close();
+
+        expect((await context.pollDigestForViewer({canonicalClaim: '@ada', bearer: 'mint', subscriptionId: 'WAKE_SUB:x'})).reason)
+            .toContain('arming context closed')
+    })
+});
+
 test.describe('resolveViewerStreamKey - immutable-fact keying, never display names', () => {
     const proven = '@viewer';
 
