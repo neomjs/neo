@@ -678,11 +678,17 @@ let
     hadError     = false,
     hadUnfixable = false;
 
+// Files this run actually wrote. A per-file guard makes each REFUSAL safe; it does not make the BATCH
+// mutation-free, because files ahead of the refusal in argv were already rewritten. The summary has to
+// know that to stay true.
+const repairedFiles = [];
+
 for (const file of files) {
     try {
         const result = processFile(file, fix, gitRoot, staged && fix);
         if (result === 'reported' || result === 'fixed') hadDrift = true;
-        if (result === 'unfixable') hadUnfixable = true;
+        if (result === 'fixed')                          repairedFiles.push(file);
+        if (result === 'unfixable')                      hadUnfixable = true;
     } catch (err) {
         console.error(`Error processing ${file}: ${err.message}`);
         hadError = true;
@@ -699,12 +705,25 @@ if (hadDrift && !fix) {
 }
 
 if (hadUnfixable) {
-    const unstaged = [...unfixableReasons].filter(([, reason]) => reason === 'unstaged-changes').map(([file]) => file);
+    const
+        refused  = [...unfixableReasons.keys()],
+        unstaged = [...unfixableReasons].filter(([, reason]) => reason === 'unstaged-changes').map(([file]) => file);
 
     console.error(
         unstaged.length === unfixableReasons.size
-            ? `\nBlock-alignment repair skipped: ${unstaged.join(', ')} has unstaged changes, so the staged line numbers do not address the file on disk. No files were rewritten — stage or stash the rest, then retry.`
-            : '\nBlock-alignment repair skipped: the staged line numbers could not be trusted for every file (unstaged changes, or a failed staged-line read). No files were rewritten — resolve that, then retry.'
+            ? `\nBlock-alignment repair skipped for ${refused.join(', ')}: the staged line numbers do not address the file on disk, because it has unstaged changes — stage or stash the rest, then retry.`
+            : `\nBlock-alignment repair skipped for ${refused.join(', ')}: the staged line numbers could not be trusted (unstaged changes, or a failed staged-line read) — resolve that, then retry.`
+    );
+
+    // The refusal is per FILE, so "no files were rewritten" is only true when none were. Any file
+    // ahead of the refusal in argv has already been written, and its repair is sitting UNSTAGED in the
+    // author's tree — telling them nothing happened sends them away from a real edit they still owe a
+    // `git add`. @neo-gpt drove the mixed batch at the exact head and caught the message claiming the
+    // opposite of the mutation that had just occurred.
+    console.error(
+        repairedFiles.length === 0
+            ? 'No files were rewritten.'
+            : `Note: ${repairedFiles.join(', ')} was already repaired before the refusal — that write stands, and is unstaged.`
     );
 }
 

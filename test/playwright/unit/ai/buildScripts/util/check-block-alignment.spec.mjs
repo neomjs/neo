@@ -717,4 +717,48 @@ test.describe('check-block-alignment.mjs --fix --staged index-vs-worktree precon
         expect(run(['--fix', 'src.mjs']).status).toBe(0);
         expect(fs.readFileSync(file, 'utf8')).toContain('const zz  = 1;');
     });
+
+    // The usage header accepts `<file.mjs> [...]`, and a per-file refusal does NOT make the batch
+    // mutation-free: a safe file earlier in argv is already written when a later one refuses. Saying
+    // "no files were rewritten" there is the opposite of what just happened, and it sends the author
+    // away from a real repair sitting UNSTAGED in their tree. Found by @neo-gpt at the exact head.
+    test('a mixed batch reports the earlier repair instead of claiming nothing was written (#17226)', () => {
+        const safe = path.join(stagedDir, 'safe.mjs'),
+              file = path.join(stagedDir, 'src.mjs');
+
+        // Both baselines are committed in ONE commit before anything is staged. `git commit` with no
+        // pathspec commits the whole index, so seeding these files in sequence would sweep the first
+        // file's staged drift into the second file's commit and leave it with nothing staged.
+        fs.writeFileSync(safe, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        fs.writeFileSync(file, 'const zz = 1;\n', 'utf8');
+        git('add', 'safe.mjs', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        // safe.mjs: drift entirely on staged-added lines, no unstaged edit → repairable.
+        fs.writeFileSync(safe, "import a from 'a';\nimport bb from 'b';\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n", 'utf8');
+        // src.mjs: staged drift, then an unstaged edit above it that shifts the coordinates → refused.
+        fs.writeFileSync(file, 'const zz = 1;\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n', 'utf8');
+        git('add', 'safe.mjs', 'src.mjs');
+        fs.writeFileSync(file, '// unstaged A\n// unstaged B\n// unstaged C\nconst zz = 1;\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n', 'utf8');
+
+        const result = run(['--fix', '--staged', 'safe.mjs', 'src.mjs']);
+
+        // The earlier file really was rewritten...
+        expect(fs.readFileSync(safe, 'utf8')).toContain('    id      : 1,');
+        // ...so the summary must say so, and must NOT claim the batch was a no-op.
+        expect(result.output).toContain('safe.mjs was already repaired before the refusal');
+        expect(result.output).not.toContain('No files were rewritten');
+        expect(result.status).toBe(1);
+    });
+
+    // The control that keeps the truthful-summary fix from inverting: when nothing was written, the
+    // no-op claim is correct and must survive.
+    test('an all-refused batch still reports that nothing was written (#17226)', () => {
+        seedShiftedFile();
+
+        const result = run(['--fix', '--staged', 'src.mjs']);
+
+        expect(result.output).toContain('No files were rewritten');
+        expect(result.output).not.toContain('already repaired before the refusal');
+    });
 });
