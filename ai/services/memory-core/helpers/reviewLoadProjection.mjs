@@ -29,7 +29,7 @@
 export const REVIEW_LOAD_TRAIL_HORIZON_MS = 30 * 24 * 60 * 60 * 1000;
 
 const APPROVED_PATTERN   = /\bAPPROVED\b/i;
-const CHANGES_PATTERN    = /\bCHANGES_REQUESTED\b/i;
+const CHANGES_PATTERN    = /\b(?:CHANGES_REQUESTED|REQUEST_CHANGES)\b/i;
 const CLOSE_TAG_PATTERN  = /^(?:review-posted|APPROVED)\b/i;
 const FIRST_TAG_PATTERN  = /^\s*\[([^\]]+)]/;
 const OPEN_TAG_PATTERN   = /^(?:review-posted|CHANGES_REQUESTED|REQUEST_CHANGES)\b/i;
@@ -77,11 +77,18 @@ export function deriveReviewLoad(messages, {horizonMs = REVIEW_LOAD_TRAIL_HORIZO
 
         const firstTag = subject.match(FIRST_TAG_PATTERN)?.[1] ?? '';
 
-        if (CHANGES_PATTERN.test(subject) && OPEN_TAG_PATTERN.test(firstTag)) {
+        const
+            approvedAt = subject.search(APPROVED_PATTERN),
+            changesAt  = subject.search(CHANGES_PATTERN);
+
+        // The disposition a subject IS beats the disposition it QUOTES: when both vocabularies
+        // appear, the earlier mention carries the verdict — "APPROVED — all CHANGES_REQUESTED
+        // items verified" retires the loop it names, it does not open one.
+        if (changesAt > -1 && (approvedAt === -1 || changesAt < approvedAt) && OPEN_TAG_PATTERN.test(firstTag)) {
             for (const pr of refs) {
                 loops.set(`${from}|${pr}`, {pr, returned: false, reviewer: from, since: new Date(sentMs).toISOString()});
             }
-        } else if (APPROVED_PATTERN.test(subject) && CLOSE_TAG_PATTERN.test(firstTag)) {
+        } else if (approvedAt > -1 && CLOSE_TAG_PATTERN.test(firstTag)) {
             for (const pr of refs) {
                 loops.delete(`${from}|${pr}`);
             }

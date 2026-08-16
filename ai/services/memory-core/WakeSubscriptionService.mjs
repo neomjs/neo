@@ -775,8 +775,8 @@ class WakeSubscriptionService extends Base {
         const nowMs       = this._coerceDate(now).getTime(),
               projected   = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
               generatedAt = new Date(nowMs).toISOString(),
-              axes        = this._composedAxesEnvelope(generatedAt),
-              reviewLoad  = this._readReviewLifecycleLoad(nowMs);
+              reviewTrail = this._readReviewLifecycleLoad(nowMs),
+              axes        = this._composedAxesEnvelope(generatedAt, reviewTrail);
 
         if (verbose) {
             return {
@@ -797,7 +797,11 @@ class WakeSubscriptionService extends Base {
                 agents: projected.map(row => ({
                     ...row,
                     axes      : this._unobservedComposedAxes(),
-                    reviewLoad: reviewLoad.get(row.identity) ?? {loops: [], open: 0, returned: 0}
+                    // an unreadable trail serves honest absence (null), never a fabricated zero —
+                    // the load envelope above carries the degraded reason
+                    reviewLoad: reviewTrail.available
+                        ? (reviewTrail.byReviewer.get(row.identity) ?? {loops: [], open: 0, returned: 0})
+                        : null
                 }))
             };
         }
@@ -833,10 +837,13 @@ class WakeSubscriptionService extends Base {
             windows,
             // Sparse by construction: only identities holding open re-review loops appear, so the
             // routing question ("who can take one more?") reads the default answer — and an absent
-            // entry IS the counted zero, never an unknown.
-            reviewLoad: Object.fromEntries(
-                [...reviewLoad].filter(([, load]) => load.open > 0).map(([identity, load]) => [identity, load.open])
-            ),
+            // entry IS the counted zero. The whole key is OMITTED when the trail is unreadable:
+            // a present-but-empty map would read as "everyone is zero" over absence of observation.
+            ...(reviewTrail.available ? {
+                reviewLoad: Object.fromEntries(
+                    [...reviewTrail.byReviewer].filter(([, load]) => load.open > 0).map(([identity, load]) => [identity, load.open])
+                )
+            } : {}),
             ...buckets
         };
     }
@@ -858,16 +865,19 @@ class WakeSubscriptionService extends Base {
      * one. `presence` is the axis this tool owns: `wired/observed`, and its `reason` is the plane
      * declaration (a container-side `add_memory`-recency proxy, not an availability verdict).
      * `load` is the second container-plane axis: re-review obligations derived from the
-     * plane-resident A2A review-lifecycle trail (`reviewLoadProjection`), `wired/observed`, its
-     * `reason` naming the trail's blind class — a review that never pinged is invisible to it.
+     * plane-resident A2A review-lifecycle trail (`reviewLoadProjection`) — `wired/observed` when
+     * the trail is readable, a `degraded/none` envelope carrying the failure reason when it is
+     * not: absence of observation never renders as a counted zero.
      * The host-originated axes ({@link COMPOSED_HOST_AXES}) report `degraded/none` with a named reason
      * until the fleet publishes its observations into the plane — the envelope's `capturedAt` echoes
      * the projection's own observation bound (`generatedAt`), never a re-stamped clock.
      * @param {String} capturedAt The projection's observation bound (ISO).
+     * @param {Object} reviewTrail `{available, reason?}` from the trail read — availability is
+     *     tri-state honesty for the `load` envelope, not a caching hint.
      * @returns {Object} `{presence, load, throttle, lifecycle, liveness}` capability envelopes.
      * @protected
      */
-    _composedAxesEnvelope(capturedAt) {
+    _composedAxesEnvelope(capturedAt, reviewTrail) {
         const unobserved = axis => ({
             capability: {
                 source    : null,
@@ -879,6 +889,28 @@ class WakeSubscriptionService extends Base {
                             `unknown is the platform truth until one lands`
             }
         });
+
+        const loadCapability = reviewTrail.available
+            ? {
+                source    : 'memory-core:whoIsOnline',
+                plane     : 'container',
+                signal    : 'a2a-review-lifecycle',
+                state     : 'wired',
+                confidence: 'observed',
+                capturedAt,
+                reason    : 're-review obligations counted from the plane-resident A2A ' +
+                            'review-lifecycle ping trail — a review that never pinged is ' +
+                            'invisible here, and loops age out past the declared trail horizon'
+            }
+            : {
+                source    : 'memory-core:whoIsOnline',
+                plane     : 'container',
+                signal    : 'a2a-review-lifecycle',
+                state     : 'degraded',
+                confidence: 'none',
+                capturedAt,
+                reason    : reviewTrail.reason
+            };
 
         return {
             presence: {
@@ -893,19 +925,7 @@ class WakeSubscriptionService extends Base {
                                 'activity observation, not an availability verdict'
                 }
             },
-            load: {
-                capability: {
-                    source    : 'memory-core:whoIsOnline',
-                    plane     : 'container',
-                    signal    : 'a2a-review-lifecycle',
-                    state     : 'wired',
-                    confidence: 'observed',
-                    capturedAt,
-                    reason    : 're-review obligations counted from the plane-resident A2A ' +
-                                'review-lifecycle ping trail — a review that never pinged is ' +
-                                'invisible here, and loops age out past the declared trail horizon'
-                }
-            },
+            load: {capability: loadCapability},
             ...Object.fromEntries(COMPOSED_HOST_AXES.map(axis => [axis, unobserved(axis)]))
         };
     }
@@ -927,19 +947,35 @@ class WakeSubscriptionService extends Base {
      * already uses, so the trail scan adds no transport and no second authority: the derivation
      * itself is pure ({@link module:ai/services/memory-core/helpers/reviewLoadProjection}), and the
      * served envelope names the trail's blind class — a review that never pinged is invisible here.
+     *
+     * The scan is BOUND at the SQL layer: the `MESSAGE:` id-prefix prefilter rides the primary-key
+     * index (the mailbox's own production read pattern), so memory-class rows — the dominant row
+     * class — never reach the JSON walk. Availability is tri-state by construction: a missing
+     * store handle or a thrown read returns `{available: false, reason}` rather than an empty
+     * derivation, because absence of observation must never render as a counted zero — and a
+     * failed trail read never takes the roster answer down with it.
      * @param {Number} nowMs The projection's observation bound (epoch ms).
-     * @returns {Map<String, {open: Number, returned: Number, loops: Object[]}>} Reviewer identity →
-     *     load; identities with no open loops are absent (the absent entry IS the zero).
+     * @returns {Object} `{available: true, byReviewer: Map}` or
+     *     `{available: false, byReviewer: Map, reason: String}`.
      * @protected
      */
     _readReviewLifecycleLoad(nowMs) {
-        const sqlite = GraphService.db?.storage?.db;
-        if (!sqlite) return new Map();
+        const unavailable = reason => ({available: false, byReviewer: new Map(), reason});
 
-        const rows = sqlite.prepare(`
-            SELECT data FROM Nodes
-            WHERE json_extract(data, '$.label') = 'MESSAGE'
-        `).all();
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return unavailable('the review-lifecycle trail store is not readable on this deployment');
+
+        let rows;
+
+        try {
+            rows = sqlite.prepare(`
+                SELECT data FROM Nodes
+                WHERE id LIKE 'MESSAGE:%' AND json_extract(data, '$.label') = 'MESSAGE'
+            `).all();
+        } catch (error) {
+            logger.warn(`[WakeSubscription] who_is_online: review-lifecycle trail read failed: ${error?.message ?? error}`);
+            return unavailable(`the review-lifecycle trail read failed: ${error?.message ?? error}`)
+        }
 
         const messages = [];
 
@@ -958,7 +994,7 @@ class WakeSubscriptionService extends Base {
             }
         }
 
-        return deriveReviewLoad(messages, {now: nowMs})
+        return {available: true, byReviewer: deriveReviewLoad(messages, {now: nowMs})}
     }
 
     /**

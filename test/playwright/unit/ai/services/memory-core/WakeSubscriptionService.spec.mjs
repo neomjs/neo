@@ -3200,10 +3200,11 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         // AC4 fixture: a MESSAGE node of the review-lifecycle trail — `from`/`to`/`subject`/`sentAt`
         // ride the node properties exactly as MailboxService writes them; the subject is the
-        // protocol surface the disposition classifier reads.
+        // protocol surface the disposition classifier reads. Ids carry the production `MESSAGE:`
+        // prefix because the service read pre-filters on it.
         function seedReviewPing({id, from, subject, sentAt, to = 'AGENT:*'}) {
             GraphService.upsertNode({
-                id,
+                id        : `MESSAGE:${id}`,
                 type      : 'MESSAGE',
                 name      : subject,
                 properties: {from, to, subject, sentAt}
@@ -3217,14 +3218,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             seedActivity('@neo-ac4-quiet', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
             // Two OPEN loops: a CHANGES_REQUESTED review-ping per PR, no later disposition.
-            seedReviewPing({id: 'MSG:AC4-CR-1', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 60 * 60 * 1000),
+            seedReviewPing({id: 'AC4-CR-1', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 60 * 60 * 1000),
                 subject: '[review-posted][CHANGES_REQUESTED][PR #101 @ aaa1111111] two edits'});
-            seedReviewPing({id: 'MSG:AC4-CR-2', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 30 * 60 * 1000),
+            seedReviewPing({id: 'AC4-CR-2', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 30 * 60 * 1000),
                 subject: '[review-posted][CHANGES_REQUESTED][PR #102 @ bbb2222222] one edit'});
             // One CLOSED loop: the same reviewer's later APPROVED ping retires the CR.
-            seedReviewPing({id: 'MSG:AC4-CR-3', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 2 * 60 * 60 * 1000),
+            seedReviewPing({id: 'AC4-CR-3', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 2 * 60 * 60 * 1000),
                 subject: '[review-posted][CHANGES_REQUESTED][PR #103 @ ccc3333333] nits'});
-            seedReviewPing({id: 'MSG:AC4-OK-3', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 45 * 60 * 1000),
+            seedReviewPing({id: 'AC4-OK-3', from: '@neo-ac4-reviewer', sentAt: iso(T0ms - 45 * 60 * 1000),
                 subject: '[APPROVED][PR #103 @ ddd4444444] all addressed'});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
@@ -3243,10 +3244,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             seedAgent('@neo-ac4-returned');
             seedActivity('@neo-ac4-returned', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
-            seedReviewPing({id: 'MSG:AC4-CR-4', from: '@neo-ac4-returned', sentAt: iso(T0ms - 60 * 60 * 1000),
+            seedReviewPing({id: 'AC4-CR-4', from: '@neo-ac4-returned', sentAt: iso(T0ms - 60 * 60 * 1000),
                 subject: '[review-posted][CHANGES_REQUESTED][PR #201 @ eee5555555] three actions'});
             // The author returns the ball: a re-review request ADDRESSED to the reviewer.
-            seedReviewPing({id: 'MSG:AC4-RR-4', from: '@neo-ac4-author', to: '@neo-ac4-returned', sentAt: iso(T0ms - 10 * 60 * 1000),
+            seedReviewPing({id: 'AC4-RR-4', from: '@neo-ac4-author', to: '@neo-ac4-returned', sentAt: iso(T0ms - 10 * 60 * 1000),
                 subject: '[re-review request][PR #201 @ fff6666666] all RAs discharged'});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
@@ -3266,10 +3267,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             seedActivity('@neo-ac4-author', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
             // A stale-approval WARNING names APPROVED but is not a disposition ping.
-            seedReviewPing({id: 'MSG:AC4-STALE', from: '@neo-ac4-robust', sentAt: iso(T0ms - 20 * 60 * 1000),
+            seedReviewPing({id: 'AC4-STALE', from: '@neo-ac4-robust', sentAt: iso(T0ms - 20 * 60 * 1000),
                 subject: '[approval STALE — do not merge on it][PR #301 @ 999aaaaaaa] GitHub still shows APPROVED from the dead head'});
             // An author's re-review request may QUOTE the RC vocabulary; the first tag is not a disposition.
-            seedReviewPing({id: 'MSG:AC4-QUOTE', from: '@neo-ac4-author', to: '@neo-ac4-robust', sentAt: iso(T0ms - 15 * 60 * 1000),
+            seedReviewPing({id: 'AC4-QUOTE', from: '@neo-ac4-author', to: '@neo-ac4-robust', sentAt: iso(T0ms - 15 * 60 * 1000),
                 subject: '[re-review request][PR #302 @ 888bbbbbbb] your CHANGES_REQUESTED items are all discharged'});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
@@ -3287,7 +3288,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             seedAgent('@neo-ac4-terse-quiet');
             seedActivity('@neo-ac4-terse-quiet', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
-            seedReviewPing({id: 'MSG:AC4-CR-5', from: '@neo-ac4-terse', sentAt: iso(T0ms - 30 * 60 * 1000),
+            seedReviewPing({id: 'AC4-CR-5', from: '@neo-ac4-terse', sentAt: iso(T0ms - 30 * 60 * 1000),
                 subject: '[review-posted][CHANGES_REQUESTED][PR #401 @ 123abcdef0] one blocking edit'});
 
             const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
@@ -3311,13 +3312,89 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             seedAgent('@neo-ac4-horizon');
             seedActivity('@neo-ac4-horizon', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
-            seedReviewPing({id: 'MSG:AC4-OLD', from: '@neo-ac4-horizon', sentAt: iso(T0ms - 31 * 24 * 60 * 60 * 1000),
+            seedReviewPing({id: 'AC4-OLD', from: '@neo-ac4-horizon', sentAt: iso(T0ms - 31 * 24 * 60 * 60 * 1000),
                 subject: '[review-posted][CHANGES_REQUESTED][PR #501 @ 000fffffff1] ancient loop'});
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
             const reviewer = agents.find(a => a.identity === '@neo-ac4-horizon');
 
             expect(reviewer.reviewLoad.open).toBe(0);
+        });
+
+        test('#17267 review — an UNREADABLE trail degrades the load envelope; it never serves a counted zero over absence', async () => {
+            seedAgent('@neo-ac4-degraded');
+            seedActivity('@neo-ac4-degraded', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const realDb = GraphService.db;
+
+            try {
+                // Branch 1: the store handle is absent entirely — the answer still returns (an
+                // empty roster is the bigger outage's truth, not this axis's concern), the load
+                // envelope degrades, and the sparse map is OMITTED rather than present-but-empty
+                // (which would read as "everyone is zero" over absence of observation).
+                GraphService.db = {storage: {db: null}};
+
+                const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+                expect(terse.axes.load.capability.state).toBe('degraded');
+                expect(terse.axes.load.capability.confidence).toBe('none');
+                expect(typeof terse.axes.load.capability.reason).toBe('string');
+                expect('reviewLoad' in terse).toBe(false);
+
+                // Branch 2: the trail read ALONE throws (a contended store) — the roster answer
+                // must survive its axis failing. The stub kills only the MESSAGE query.
+                const realSqlite = realDb.storage.db;
+
+                GraphService.db = {storage: {db: {
+                    prepare: sql => {
+                        if (sql.includes('MESSAGE')) throw new Error('disk i/o error');
+                        return realSqlite.prepare(sql)
+                    }
+                }}};
+
+                const thrown = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+                expect(thrown.axes.load.capability.state).toBe('degraded');
+                expect(thrown.axes.load.capability.reason).toContain('disk i/o error');
+                expect(thrown.online).toContain('@neo-ac4-degraded');
+
+                const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+                const entry   = verbose.agents.find(a => a.identity === '@neo-ac4-degraded');
+
+                expect(entry.reviewLoad).toBeNull(); // honest absence, distinct from the counted zero
+            } finally {
+                GraphService.db = realDb
+            }
+        });
+
+        test('#17267 review — a dual-mention subject RETIRES the loop: the first disposition word wins', async () => {
+            seedAgent('@neo-ac4-dual');
+            seedActivity('@neo-ac4-dual', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            seedReviewPing({id: 'AC4-D1', from: '@neo-ac4-dual', sentAt: iso(T0ms - 60 * 60 * 1000),
+                subject: '[review-posted][CHANGES_REQUESTED][PR #601 @ aaaa0000001] two edits'});
+            // The approval names the prior RC vocabulary — the disposition it IS beats the one it QUOTES.
+            seedReviewPing({id: 'AC4-D2', from: '@neo-ac4-dual', sentAt: iso(T0ms - 30 * 60 * 1000),
+                subject: '[review-posted][PR #601 @ bbbb0000002] APPROVED — all CHANGES_REQUESTED items verified'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const reviewer = agents.find(a => a.identity === '@neo-ac4-dual');
+
+            expect(reviewer.reviewLoad.open).toBe(0);
+        });
+
+        test('#17267 review — a REQUEST_CHANGES-tagged ping opens a loop (the tag-set and word-set agree)', async () => {
+            seedAgent('@neo-ac4-rcform');
+            seedActivity('@neo-ac4-rcform', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            seedReviewPing({id: 'AC4-RC', from: '@neo-ac4-rcform', sentAt: iso(T0ms - 30 * 60 * 1000),
+                subject: '[REQUEST_CHANGES][PR #701 @ cccc0000003] two edits'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const reviewer = agents.find(a => a.identity === '@neo-ac4-rcform');
+
+            expect(reviewer.reviewLoad.open).toBe(1);
+            expect(reviewer.reviewLoad.loops[0].pr).toBe(701);
         });
     });
 
