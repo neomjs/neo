@@ -402,7 +402,7 @@ test.describe('check-theme-surfaces.mjs', () => {
                 'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
             }, DUAL_SEAM);
 
-            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('NO ZERO reveal override'))).toBe(true);
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('NO FULL ZERO reveal override'))).toBe(true);
         });
 
         // census cross-check — the paneRoots list must not be hand-closed (the future-pane clause)
@@ -429,6 +429,36 @@ test.describe('check-theme-surfaces.mjs', () => {
             }, seamWithInventory(inv));
 
             expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes("'future-pane'") && m.includes('UNCLASSIFIED'))).toBe(true);
+        });
+
+        test('a PARTIAL zero longhand does not satisfy the dual-mount override — all four sides (round 5)', () => {
+            // `padding-top: 0` cleared the check while left/right/bottom kept double-framing.
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual {\n            padding-top: 0;\n        }\n    }\n}\n',
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            }, DUAL_SEAM);
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('NO FULL ZERO') && m.includes('covered: top'))).toBe(true);
+        });
+
+        test('four zero longhands covering every side DO satisfy the override — no over-rejection (round 5)', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual {\n            padding-block : 0;\n            padding-inline: 0;\n        }\n    }\n}\n',
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            }, DUAL_SEAM);
+
+            expect(failures).toEqual([]);
+        });
+
+        test('a DESCENDANT-only zero rule does not satisfy the override — the root itself must be targeted (round 5)', () => {
+            // `> .dual .dual-header { padding: 0 }` zeroed a child while the root kept 10px 12px,
+            // and a contains-the-token selector match accepted it.
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual .dual-header {\n            padding: 0;\n        }\n    }\n}\n',
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            }, DUAL_SEAM);
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('NO FULL ZERO'))).toBe(true);
         });
 
         test('a MULTILINE autoHidden inventory item is still extracted — formatting-total census (round 4)', () => {
@@ -488,6 +518,24 @@ test.describe('check-theme-surfaces.mjs', () => {
             }, seamWithInventory(emptyInv));
 
             expect(empty.some(m => m.startsWith('[shell-seam]') && m.includes('ZERO autoHidden refs'))).toBe(true);
+        });
+
+        test('a DOUBLE-QUOTED componentRef is still extracted — JS spelling breadth (round 5)', () => {
+            // A syntax-valid double-quoted row escaped a single-quote pattern while seven existing
+            // refs kept the zero-yield fallback quiet.
+            const inv = path.join(tempDir, 'dockDocument.mjs');
+
+            fs.writeFileSync(inv, INVENTORY(
+                "        known : {componentRef: 'known-pane', title: 'Known', kind: 'tool', autoHidden: true},\n" +
+                '        future: {componentRef: "future-pane", title:\'Future\', kind:\'tool\', autoHidden:true}'
+            ), 'utf8');
+
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(inv));
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes("'future-pane'") && m.includes('UNCLASSIFIED'))).toBe(true);
         });
 
         test('a census row mapping to a selector absent from paneRoots is flagged as dangling', () => {

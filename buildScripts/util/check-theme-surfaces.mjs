@@ -426,6 +426,33 @@ function isZeroValue(value = '') {
     return tokens.length > 0 && tokens.every(token => /^0(?:px|rem|em|%)?$/.test(token));
 }
 
+// Which box sides a zero padding declaration neutralizes. A SINGLE zero longhand satisfied the
+// override demand on an exact-head probe (`padding-top: 0`) while three sides kept double-framing —
+// neutralization is complete only when all four sides are covered.
+const PADDING_SIDES = {
+    'padding'             : ['top', 'right', 'bottom', 'left'],
+    'padding-top'         : ['top'],
+    'padding-right'       : ['right'],
+    'padding-bottom'      : ['bottom'],
+    'padding-left'        : ['left'],
+    'padding-block'       : ['top', 'bottom'],
+    'padding-block-start' : ['top'],
+    'padding-block-end'   : ['bottom'],
+    'padding-inline'      : ['left', 'right'],
+    'padding-inline-start': ['left'],
+    'padding-inline-end'  : ['right']
+};
+
+// The final selector must target the pane ROOT ITSELF — a descendant rule
+// (`> .fm-agent-detail .fm-detail-header { padding: 0 }`) neutralizes a child while the root keeps
+// its full frame, and it satisfied a contains-the-token check on an exact-head probe. The root token
+// must be the selector's LAST compound (optionally followed by pseudo-classes/-elements only).
+function targetsRootDirectly(selector, rootSelector) {
+    const escaped = rootSelector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    return new RegExp(`${escaped}(?::{1,2}[\\w-]+(?:\\([^)]*\\))?)*\\s*$`).test(selector.trim());
+}
+
 // Formatting-total extraction of `{… componentRef: 'x' … autoHidden: true …}` object spans: for each
 // `autoHidden: true`, walk back to the innermost enclosing `{`, forward to its match, and read the
 // componentRef from THAT span. A one-line regex required both keys on the same line, so a valid
@@ -455,9 +482,11 @@ function extractAutoHiddenRefs(text) {
 
         if (end === -1) continue;
 
-        const ref = text.slice(start, end + 1).match(/componentRef\s*:\s*'([^']+)'/);
+        // All three JS string spellings — a syntax-valid double-quoted row escaped a single-quote
+        // pattern on an exact-head probe, while the seven existing refs kept the ZERO fallback quiet
+        const ref = text.slice(start, end + 1).match(/componentRef\s*:\s*(['"`])([^'"`]+)\1/);
 
-        if (ref) refs.push(ref[1]);
+        if (ref) refs.push(ref[2]);
     }
 
     return refs;
@@ -497,21 +526,23 @@ export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewD
             }
         } else if (rootFrameHits.length && fs.existsSync(slotPath)) {
             // dual-mount: the root frame is legitimate for pinned/vessel — demand the reveal
-            // override, and demand it NEUTRALIZES: presence alone passed `padding: 99px` on an
-            // exact-head probe, which frames the reveal mount twice while satisfying the check
-            let overridden = false;
+            // override, and demand it FULLY NEUTRALIZES: presence passed `padding: 99px`, a single
+            // zero longhand passed `padding-top: 0` (three sides still framing), and a descendant
+            // rule passed a contains-the-token match — three exact-head probes, three demands:
+            // the rule targets the ROOT itself, with zero values, covering ALL FOUR sides.
+            const coveredSides = new Set();
 
             walkScssDeclarations(stripBlockComments(fs.readFileSync(slotPath, 'utf8')), ({selectorStack, property, value}) => {
                 const inSlot = selectorStack.some(sel => matchesSelector(sel, seam.slotSelector));
 
-                if (inSlot && matchesSelector(selectorStack.at(-1), rootSelector)
-                    && property.startsWith('padding') && isZeroValue(value)) {
-                    overridden = true;
+                if (inSlot && targetsRootDirectly(selectorStack.at(-1), rootSelector)
+                    && PADDING_SIDES[property] && isZeroValue(value)) {
+                    for (const side of PADDING_SIDES[property]) coveredSides.add(side);
                 }
             });
 
-            if (!overridden) {
-                failures.push(`[shell-seam] ${relFile} pane root ${rootSelector} keeps its dual-mount frame but ${seam.slotFile} carries NO ZERO reveal override (a nested "${seam.slotSelector} … ${rootSelector}" rule declaring padding: 0) — the transient reveal mount double-frames`);
+            if (coveredSides.size !== 4) {
+                failures.push(`[shell-seam] ${relFile} pane root ${rootSelector} keeps its dual-mount frame but ${seam.slotFile} carries NO FULL ZERO reveal override (a nested "${seam.slotSelector} … ${rootSelector}" rule — targeting the root itself — must zero ALL four padding sides; covered: ${[...coveredSides].join('+') || 'none'}) — the transient reveal mount double-frames`);
             }
         }
     }
