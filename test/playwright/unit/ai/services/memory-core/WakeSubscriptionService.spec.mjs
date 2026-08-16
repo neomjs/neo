@@ -3069,6 +3069,134 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(res.neverConnected).toContain('@neo-dispatch');
             expect(res.idle).not.toContain('@neo-dispatch');
         });
+
+        test('#17225 AC2 — the inversion red-proof: a beaconless mid-turn peer and an idle-but-fresh-write peer carry identical unobservable axes', async () => {
+            // The ticket's fixture, beaconless by construction (today's fleet-wide truth: nothing
+            // emits turn-presence, so the mid-turn rescue cannot fire). One peer mid-turn with a
+            // stale write, one idle peer with a fresh one. The recency observation honestly
+            // differs — and that is ALL the tool may claim. Every axis the tool cannot observe
+            // must answer `unknown` for BOTH, so no served axis can rank the idle peer as more
+            // available than the working one.
+            seedAgent('@neo-ac2-midturn');
+            seedActivity('@neo-ac2-midturn', {timestamp: iso(T0ms - 20 * 60 * 1000)}); // stale, no beacon
+            seedAgent('@neo-ac2-idlefresh');
+            seedActivity('@neo-ac2-idlefresh', {timestamp: iso(T0ms - 2 * 60 * 1000)}); // fresh
+
+            const {agents}  = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const midturn   = agents.find(a => a.identity === '@neo-ac2-midturn');
+            const idlefresh = agents.find(a => a.identity === '@neo-ac2-idlefresh');
+
+            // The presence observation differs honestly — recency is the one signal this tool owns.
+            expect(midturn.state).toBe('idle');
+            expect(idlefresh.state).toBe('online');
+
+            // Every composed axis the tool cannot observe: unknown for BOTH, never a verdict.
+            const unobserved = {throttle: 'unknown', lifecycle: 'unknown', liveness: 'unknown'};
+            expect(midturn.axes).toEqual(unobserved);
+            expect(idlefresh.axes).toEqual(unobserved);
+            expect(idlefresh.axes).toEqual(midturn.axes);
+        });
+
+        test('#17225 AC1 — the payload declares its own plane: a container-side add_memory-recency proxy, never an availability verdict', async () => {
+            seedAgent('@neo-ac1');
+            seedActivity('@neo-ac1', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const terse    = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+            const presence = terse.axes?.presence?.capability;
+
+            expect(presence).toBeTruthy();
+            expect(presence.plane).toBe('container');
+            expect(presence.signal).toContain('add_memory');
+            expect(presence.state).toBe('wired');
+            expect(presence.confidence).toBe('observed');
+            // The envelope echoes the projection's observation bound — it never mints its own.
+            expect(presence.capturedAt).toBe(terse.generatedAt);
+            expect(presence.reason).toContain('not an availability verdict');
+
+            // Terse and verbose carry the same declaration — the plane honesty is not paywalled
+            // behind the diagnostics surface.
+            const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            expect(verbose.axes.presence.capability).toEqual(presence);
+        });
+
+        test('#17225 AC3 — unobservable axes: declared in terse, served as degraded/none envelopes in verbose', async () => {
+            // The terse-by-default contract (diagnostics behind the optional param, never bloat the
+            // context window) bounds WHAT the default answer pays for: the presence envelope is the
+            // answer's honesty and stays; three byte-identical "nothing published" envelopes on
+            // every call would be diagnostics in the default path. So terse DECLARES the host axes
+            // unobserved, and verbose serves the full FM-grammar envelopes.
+            seedAgent('@neo-ac3');
+            seedActivity('@neo-ac3', {timestamp: iso(T0ms - 2 * 60 * 1000)});
+
+            const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            expect(terse.axes.unobserved).toEqual(['throttle', 'lifecycle', 'liveness']);
+            expect(terse.axes.throttle, 'diagnostics stay out of the default answer').toBeUndefined();
+            expect(terse.axes.lifecycle).toBeUndefined();
+            expect(terse.axes.liveness).toBeUndefined();
+            expect(terse.axes.presence?.capability?.state).toBe('wired');
+
+            const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+
+            for (const axis of ['throttle', 'lifecycle', 'liveness']) {
+                const capability = verbose.axes?.[axis]?.capability;
+
+                expect(capability, `${axis} envelope`).toBeTruthy();
+                expect(capability.state).toBe('degraded');        // absence of truth is declared, never hidden
+                expect(capability.confidence).toBe('none');       // never rendered as fine
+                expect(typeof capability.reason).toBe('string');  // the hole names itself
+                expect(capability.capturedAt).toBe(verbose.generatedAt);
+            }
+        });
+
+        test('#17225 AC5 — the presence vocabulary is imported from the Fleet taxonomy, never re-declared in the MC tree', async () => {
+            const servicePath = path.resolve(process.cwd(), 'ai/services/memory-core/WakeSubscriptionService.mjs');
+            const serviceSrc  = await fs.readFile(servicePath, 'utf8');
+
+            // The import is the admission: fleetPresenceStateAdapter is the vocabulary's ONE
+            // exporting home, so the FM's downstream mapping can never drift from the tool's words.
+            expect(serviceSrc).toContain("from '../fleet/fleetPresenceStateAdapter.mjs'");
+
+            // The grep control, positive-controlled first: an absence-assertion never shown capable
+            // of presence is indistinguishable from a test that does nothing. The detector flags any
+            // 150-char window holding >= 3 DISTINCT vocabulary words as quoted literals — the shape a
+            // re-declared list takes in any spelling (array, reordered, double-quoted, switch/case
+            // cluster) — while scattered single uses stay silent.
+            const VOCAB    = ['online', 'idle', 'dark', 'benched', 'neverConnected'],
+                  detector = src => {
+                      const hits = [...src.matchAll(/(['"])(online|idle|dark|benched|neverConnected)\1/g)];
+
+                      for (let i = 0; i < hits.length; i++) {
+                          const windowed = hits.filter(h => h.index >= hits[i].index && h.index < hits[i].index + 150);
+
+                          if (new Set(windowed.map(h => h[2])).size >= 3) return true;
+                      }
+
+                      return false;
+                  };
+
+            // The positive controls — each spelling a re-declaration could take, including the four
+            // evasions a naive ordered single-quote pattern misses.
+            expect(detector(`const S = ['online', 'idle', 'dark', 'benched', 'neverConnected']`)).toBe(true);
+            expect(detector(`const S = ['neverConnected', 'dark', 'online']`)).toBe(true);
+            expect(detector('const S = ["online", "idle", "dark"]')).toBe(true);
+            expect(detector(`switch (s) { case 'online': case 'idle': case 'dark': return s; }`)).toBe(true);
+            // and the negative control: one scattered use is a usage, not a vocabulary.
+            expect(detector(`row.state = 'online';`)).toBe(false);
+
+            // The sweep itself: recursive — subdirectories are exactly where a second copy would hide.
+            const root = path.resolve(process.cwd(), 'ai/services/memory-core'),
+                  walk = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => {
+                      const abs = path.join(dir, entry.name);
+
+                      return entry.isDirectory() ? walk(abs) : (entry.name.endsWith('.mjs') ? [abs] : []);
+                  });
+
+            for (const file of walk(root)) {
+                const src = await fs.readFile(file, 'utf8');
+                expect(detector(src), `${path.relative(root, file)} re-declares the presence vocabulary`).toBe(false);
+            }
+        });
     });
 
     test.describe('rotateKey — the repair door for a row that lost its signing key', () => {

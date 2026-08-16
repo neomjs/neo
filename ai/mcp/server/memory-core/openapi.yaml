@@ -492,10 +492,22 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: >
-        Reports per-maintainer live availability — who is completing turns recently, not whether the
-        process is up. Advisory liveness for review-routing, lane-handoff, lead-baton, and
-        wake-targeting: surfaces probably-dark maintainers so a request to a dark agent fails loud
-        instead of stalling the merge gate silently.
+        Reports per-maintainer recent ACTIVITY for review-routing, lane-handoff, lead-baton, and
+        wake-targeting — who is completing turns recently, not whether the process is up, and NOT
+        an availability verdict. Advisory liveness: surfaces probably-dark maintainers so a request
+        to a dark agent fails loud instead of stalling the merge gate silently.
+
+
+        Plane declaration: the presence signal is add_memory-recency, a CONTAINER-side proxy
+        observed at turn boundaries. A long turn (the definition of working) is structurally
+        indistinguishable from absence on this signal, and a fresh write says a turn ENDED
+        recently — not that the seat is free. Every response carries an axes surface (a declared
+        superset of the Fleet's capability-envelope grammar, adding plane/signal because this tool
+        serves axes it cannot own): terse holds the presence envelope (wired/observed, proxy
+        declared) plus a compact unobserved marker naming the host-originated axes (throttle,
+        lifecycle, liveness); verbose serves each as its full degraded/none envelope until the
+        fleet publishes, and each verbose row carries them as unknown. An unknown axis never ranks
+        a seat top and never renders as fine.
 
 
         Terse by default: {summary, windows, online[], idle[], dark[], neverConnected[], benched[]}
@@ -533,12 +545,23 @@ paths:
               schema:
                 type: object
                 description: >
-                  Terse default: {generatedAt, summary, windows, online[], idle[], dark[],
-                  neverConnected[], benched[]}. With verbose:true: {generatedAt, signalStatus, agents[]}.
+                  Terse default: {generatedAt, axes, summary, windows, online[], idle[], dark[],
+                  neverConnected[], benched[]}. With verbose:true: {generatedAt, axes, signalStatus,
+                  agents[]}.
                 properties:
                   generatedAt:
                     type: string
                     description: ISO timestamp the projection was computed at.
+                  axes:
+                    type: object
+                    description: >
+                      The composed-axes honesty surface — a declared superset of the Fleet's
+                      capability-envelope grammar (adds plane/signal: this tool serves axes it
+                      cannot own, so the plane travels on the envelope). Terse: the presence
+                      envelope (wired/observed, proxy declared) plus an unobserved marker naming
+                      the host-originated axes (throttle, lifecycle, liveness). Verbose: each host
+                      axis as its full degraded/none envelope until the fleet publishes. An unknown
+                      axis never ranks a seat top and never renders as fine.
                   summary:
                     type: string
                     description: >
@@ -595,6 +618,12 @@ paths:
                           description: The projected bucket. Mutually exclusive with the other four.
                         reason: {type: string}
                         signals: {type: object}
+                        axes:
+                          type: object
+                          description: >
+                            Per-row composed axes: every host-originated axis the tool cannot
+                            observe (throttle, lifecycle, liveness) is unknown until the fleet
+                            publishes — never a verdict fabricated from the recency primitive.
         '500':
           description: Operation failed.
           content:
