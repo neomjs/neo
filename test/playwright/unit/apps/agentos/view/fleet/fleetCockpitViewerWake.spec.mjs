@@ -88,6 +88,7 @@ test.describe('FleetCockpit — viewer wake stream wiring (#17130 leg 2)', () =>
             ensureViewerWakeStream: FleetCockpit.prototype.ensureViewerWakeStream,
             getReference          : reference => reference === 'viewer-wake-telltale' ? slot : null,
             getStateProvider      : () => provider,
+            getViewerWakeFeed     : FleetCockpit.prototype.getViewerWakeFeed,
             onViewerWakeSignal    : FleetCockpit.prototype.onViewerWakeSignal,
             stampViewerWake       : FleetCockpit.prototype.stampViewerWake,
             syncViewerWakeTelltale: FleetCockpit.prototype.syncViewerWakeTelltale

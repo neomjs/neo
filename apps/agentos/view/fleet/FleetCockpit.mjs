@@ -2908,6 +2908,23 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolves the provider-owned viewer wake feed, tolerating compositions whose
+     * provider config replaced the class default without the store: `Provider.getStore` walks the
+     * parent chain and throws at the root for an unknown key, and a cockpit hosted under an
+     * overridden provider must degrade the feed honestly (no signals to show) rather than crash
+     * the whole surface.
+     * @returns {Object|null}
+     * @protected
+     */
+    getViewerWakeFeed() {
+        try {
+            return this.getStateProvider()?.getStore('viewerWakeFeed') ?? null
+        } catch {
+            return null
+        }
+    }
+
+    /**
      * @summary One observed wake frame → the bounded feed + an immediate stamp. The record stores
      * the envelope's own field names verbatim ({@link AgentOS.model.WakeSignal}); a frame carrying
      * no envelope is still a receipt (the stream moved) but yields no feed row to fabricate.
@@ -2920,7 +2937,7 @@ class FleetCockpit extends Container {
         if (me.isDestroyed) return;
 
         if (envelope?.eventId) {
-            me.getStateProvider()?.getStore('viewerWakeFeed')?.addSignal({
+            me.getViewerWakeFeed()?.addSignal({
                 eventId  : envelope.eventId,
                 kind     : envelope.eventType ?? 'wake',
                 logId    : envelope.logId ?? null,
@@ -2973,7 +2990,7 @@ class FleetCockpit extends Container {
         const
             provider   = me.getStateProvider(),
             viewerWake = provider?.getData('viewerWake') ?? {},
-            signals    = (provider?.getStore('viewerWakeFeed')?.items ?? []).slice(0, 5).map(record => ({
+            signals    = (me.getViewerWakeFeed()?.items ?? []).slice(0, 5).map(record => ({
                 kind      : record.kind,
                 emittedAt : record.emittedAt,
                 receivedAt: record.receivedAt

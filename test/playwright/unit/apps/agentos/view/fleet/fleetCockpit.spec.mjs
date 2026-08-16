@@ -1525,12 +1525,13 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         const driven = [];
 
         FleetCockpit.prototype.reconnectFleet.call({
-            loadActivity   : () => driven.push('activity'),
-            loadBrainHealth: () => driven.push('brainHealth'),
-            loadRoster     : () => driven.push('roster')
+            loadActivity          : () => driven.push('activity'),
+            loadBrainHealth       : () => driven.push('brainHealth'),
+            loadRoster            : () => driven.push('roster'),
+            ensureViewerWakeStream: () => driven.push('viewerWake')
         });
 
-        expect(driven.sort()).toEqual(['activity', 'brainHealth', 'roster'])
+        expect(driven.sort()).toEqual(['activity', 'brainHealth', 'roster', 'viewerWake'])
     });
 
     test('⭐ the shell transport fact reaches the cold copy through the health pull — daemon truth untouched', () => {
@@ -1942,6 +1943,9 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
             // the third seam counts separately: the wire-read expectations stay untouched by it
             loadBrainHealth() { this.brainReads++; return Promise.resolve() },
             loadRoster()   { this.polls++; return Promise.resolve() },
+            // the fourth tick seam (viewer wake rebind) launches no wire read — modeled as a
+            // plain no-op so the wire-read balance assertions stay exact
+            ensureViewerWakeStream() {},
             startLiveness: FleetCockpit.prototype.startLiveness,
             stopLiveness : FleetCockpit.prototype.stopLiveness,
             // counting stand-ins: the real ones are globals, and the assertion is about balance
