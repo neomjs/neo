@@ -146,7 +146,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **Out of Scope** — what this ticket deliberately does NOT do. Prevents scope creep during implementation.
 - **Avoided Traps** / **Gold Standards Rejected** *(when applicable)* — alternatives considered and rejected, with rationale. Especially critical when rejecting a generic industry/LLM "best practice" (e.g. standard React patterns, generic node workflows) that is a trap in Neo.mjs's multi-threaded architecture.
 - **Related** — sibling tickets, superseded tickets, dependencies, PRs.
-- **Origin Session ID** — Memory Core session ID that produced the ticket. **Optional, but highly recommended** for genuinely single-session tickets. Serves as a direct pointer for the A2A Contextual Bridge Protocol (`AGENTS.md §14`); also the intent authority a reviewer mines (`learn/agentos/process/correction-culture.md`). Format: `Origin Session ID: <uuid>` on its own line near the end of the body.
+- **Origin Session ID** — `Origin Session ID: <uuid>` on its own line near the end of the body; optional but highly recommended for genuinely single-session tickets.
 - **Handoff Retrieval Hints** — Semantic query patterns (`query_raw_memories`, `query_summaries`) or exact Git commit-range anchors to assist subsequent agents in resuming the workstream across fragmented session IDs post-restart. **REQUIRED for architecturally substantive tickets or multi-session workflows.** Example: `Retrieval Hint: "cross-harness MCP singleton cache divergence"` or `Retrieval Hint: Commit SHA 1234abcd..5678efgh`.
 
 ### 5.1 Reference Hygiene: Backtick-Escape for Descriptive `#N`
