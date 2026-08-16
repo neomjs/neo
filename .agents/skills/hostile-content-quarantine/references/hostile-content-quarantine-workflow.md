@@ -55,7 +55,17 @@ The neutralize **action** (delete/redact) is **agent agency** for clear-hostile 
 |---|---|---|
 | Wholesale spam artifact (the entire post IS the pitch) | **Delete** — nothing anchors a real thread | #12992 |
 | Hostile content inside a real thread (spam comment on a legitimate ticket) | **Redact the payload (names/links) + keep the de-fanged record** — deletion would amputate the thread; redaction keeps the KB clean since sync pulls current bodies | #12674 |
-| Moderation deferred / record deliberately kept | **Sync denylist** (post-#12995) excludes it from ingestion | #12995 Fix 3 |
+| Moderation deferred / record deliberately kept | **Sync denylist — per surface, never one lever** (below) | #12995, #17246 |
+
+Each syncer gates separately; reading this table as general is what produced #17246.
+
+| Surface | Lever (`issueSync.*`) | Matches | Evicts a synced copy |
+|---|---|---|---|
+| discussions | `discussionDenylist` | number ∥ author | by number |
+| issues | `issueDenylist`, or a `droppedLabels` label | number ∥ author | by number |
+| pull requests | **none — gap** | — | no |
+
+Author matching is **fetch-time only** everywhere (metadata persists number, not author) — evict on-disk copies by number. Closing + locking contains **nothing**: neither is a label or a denylist entry, so redaction is what cleans the corpus (sync pulls current bodies).
 
 **Verify the outcome across ALL THREE surfaces** (MACHINE-ENFORCEABLE-CANDIDATE) — the #12992 lesson: one surface lies.
 

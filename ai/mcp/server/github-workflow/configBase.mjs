@@ -156,6 +156,24 @@ class ConfigBase extends ConfigProvider {
                  */
                 discussionDenylist: leaf({numbers: [], authors: []}),
                 /**
+                 * Containment denylist for issues — the `discussionDenylist` sibling, on the surface we
+                 * actually get attacked on. Issues whose `number` or `author.login` match are excluded
+                 * from sync and never written to `resources/content/**` or downstream KB chunks.
+                 *
+                 * `droppedLabels` already contains a labelled issue, but only by asserting a disposition
+                 * (`dropped` / `wontfix` / `duplicate`) that hostile content does not have, and only one
+                 * artifact at a time. This leaf is the author-level and number-level lever: one entry
+                 * contains an account, and it does not require mislabelling the artifact to do it.
+                 *
+                 * `number` matching quarantines an already-synced copy (file + content-index entry) even
+                 * when GitHub no longer lists it — the spam-hammer-hidden case. `author` matching is
+                 * fetch-time exclusion only, because `metadata.issues` persists `number` and not author
+                 * login, so a cached copy cannot be resolved back to its author. Policy-free; the empty
+                 * default is a no-op.
+                 * @type {{numbers: Number[], authors: String[]}}
+                 */
+                issueDenylist: leaf({numbers: [], authors: []}),
+                /**
                  * Product names to redact from untrusted GitHub-authored content when the content-trust
                  * sanitizer projects sync/write-boundary Markdown. Empty by default; policy values belong
                  * in local config, not in syncer code.

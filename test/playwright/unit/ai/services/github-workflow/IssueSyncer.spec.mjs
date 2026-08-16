@@ -1356,6 +1356,189 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(metadata.issues[issueNumber].contentHash).toBe(currentHash);
         expect(metadata.issues[issueNumber].updatedAt).toBe('2026-06-24T12:01:00Z');
     });
+
+    /**
+     * Containment denylist coverage. Empirical anchor: an astroturf vendor pitch from an account
+     * with no prior association reached `resources/content/issues/**` with the product name verbatim
+     * in the corpus `title:` field. `droppedLabels` could have contained it only by asserting a
+     * disposition it does not have, one artifact at a time.
+     *
+     * Each test drives the real `pullFromGitHub` path rather than calling the private predicate, so
+     * the assertion covers the wiring — a predicate that returns `true` into a call site that ignores
+     * it would pass a unit test of the predicate alone.
+     */
+    async function withIssueDenylist(denylist, fn) {
+        const original = issueSyncConfig.issueDenylist;
+
+        issueSyncConfig.issueDenylist = denylist;
+
+        try {
+            return await fn()
+        } finally {
+            issueSyncConfig.issueDenylist = original
+        }
+    }
+
+    test('a denylisted AUTHOR is excluded at fetch time and never written (#17246)', async () => {
+        const hostile = buildMockIssue({
+            number       : 60001,
+            title        : 'Feature Suggestion: metering via some-vendor-product',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        hostile.author = {login: 'astroturf-account'};
+
+        const legitimate = buildMockIssue({
+            number       : 60002,
+            title        : 'A real ticket from a real maintainer',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        GraphqlService.query = async query => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-08-16T21:00:00Z'},
+                    repository: {
+                        issues: {
+                            pageInfo: {hasNextPage: false, endCursor: null},
+                            nodes   : [structuredClone(hostile), structuredClone(legitimate)]
+                        }
+                    }
+                };
+            }
+
+            if (query.includes('FetchSingleIssue')) {
+                if (query.includes('60001')) return {repository: {issue: structuredClone(hostile)}};
+                if (query.includes('60002')) return {repository: {issue: structuredClone(legitimate)}};
+            }
+
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`)
+        };
+
+        const {stats, newMetadata} = await withIssueDenylist(
+            {numbers: [], authors: ['astroturf-account']},
+            () => IssueSyncer.pullFromGitHub({issues: {}})
+        );
+
+        expect(stats.dropped.issues).toContain(60001);
+        expect(newMetadata.issues[60001]).toBeUndefined();
+
+        // The legitimate sibling in the same batch must be untouched — a containment gate that
+        // suppresses the whole page would pass a "hostile is absent" assertion on its own.
+        expect(stats.pulled.issues).toContain(60002);
+        expect(newMetadata.issues[60002]).toBeDefined()
+    });
+
+    test('a denylisted NUMBER evicts an already-synced copy from disk AND the content index (#17246)', async () => {
+        const ingested = buildMockIssue({
+            number       : 60003,
+            title        : 'Already in the corpus before anyone classified it',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        GraphqlService.query = async query => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-08-16T21:00:00Z'},
+                    repository: {
+                        issues: {
+                            pageInfo: {hasNextPage: false, endCursor: null},
+                            nodes   : [structuredClone(ingested)]
+                        }
+                    }
+                };
+            }
+
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(ingested)}}
+            }
+
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`)
+        };
+
+        // Pass 1 — it syncs normally, exactly as the astroturf issue did before anyone classified it.
+        const first = await withIssueDenylist(
+            {numbers: [], authors: []},
+            () => IssueSyncer.pullFromGitHub({issues: {}})
+        );
+
+        const storedRelative = first.newMetadata.issues[60003]?.path;
+
+        expect(storedRelative).toBeTruthy();
+
+        const storedAbsolute = path.resolve(aiConfig.projectRoot, storedRelative);
+
+        await expect(fs.pathExists(storedAbsolute)).resolves.toBe(true);
+
+        // Pass 2 — now denylisted by number. The already-emitted artifact is the whole point:
+        // moderation always arrives after ingestion, so a gate that only blocks future writes
+        // leaves the corpus poisoned.
+        const second = await withIssueDenylist(
+            {numbers: [60003], authors: []},
+            () => IssueSyncer.pullFromGitHub(structuredClone(first.newMetadata))
+        );
+
+        expect(second.stats.dropped.issues).toContain(60003);
+        expect(second.newMetadata.issues[60003]).toBeUndefined();
+        await expect(fs.pathExists(storedAbsolute)).resolves.toBe(false);
+
+        const index = await fs.readJson(path.join(tmpRoot, '_index.json'));
+
+        expect(JSON.stringify(index)).not.toContain('issue-60003')
+    });
+
+    test('the empty default denylist is a no-op — identical output with and without the gate (#17246)', async () => {
+        const issue = buildMockIssue({
+            number       : 60004,
+            title        : 'Ordinary issue, ordinary sync',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        GraphqlService.query = async query => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-08-16T21:00:00Z'},
+                    repository: {
+                        issues: {
+                            pageInfo: {hasNextPage: false, endCursor: null},
+                            nodes   : [structuredClone(issue)]
+                        }
+                    }
+                };
+            }
+
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(issue)}}
+            }
+
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`)
+        };
+
+        const {stats, newMetadata} = await withIssueDenylist(
+            {numbers: [], authors: []},
+            () => IssueSyncer.pullFromGitHub({issues: {}})
+        );
+
+        expect(stats.dropped.issues).toEqual([]);
+        expect(stats.pulled.issues).toContain(60004);
+
+        const written = path.resolve(aiConfig.projectRoot, newMetadata.issues[60004].path);
+
+        await expect(fs.pathExists(written)).resolves.toBe(true);
+
+        // The author leg must not fire on an author who is simply absent from the list. `[].includes(x)`
+        // is false for every x, but `authors: [undefined]` in a hand-edited overlay would match every
+        // reconciliation-path call that carries no author — assert the resolved default is the empty set.
+        expect(issueSyncConfig.issueDenylist).toEqual({numbers: [], authors: []})
+    });
 });
 
 function buildComment(i) {
