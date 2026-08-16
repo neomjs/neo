@@ -63,3 +63,37 @@ export function getStagedAddedLines(file, gitRoot) {
         return null;
     }
 }
+
+/**
+ * @summary Whether a file's working-tree content still matches what is staged for it.
+ *
+ * The line numbers {@link getStagedAddedLines} returns are INDEX coordinates — they come from
+ * `git diff --cached`, whose new side is the staged content. Any consumer that then reads or writes
+ * the file from disk is using working-tree coordinates, and the two agree only while the file has no
+ * unstaged changes. On a partially staged file they drift by however many lines the unstaged edit
+ * added or removed above the staged region, so an index line number silently addresses the wrong
+ * working-tree line.
+ *
+ * For a REPORTING consumer that drift misnames a line. For a REWRITING one it edits the wrong line,
+ * which is why this predicate exists: the caller can refuse rather than write blind. `lint-staged`
+ * stashes unstaged changes before running tasks, so the hook path normally satisfies this — the
+ * exposure is a direct invocation.
+ *
+ * Fails CLOSED in the useful direction: anything other than a clean "no unstaged changes" answer
+ * returns `false`, so an unreadable git state is treated as unsafe rather than assumed safe.
+ *
+ * @param {String} file    Path to the file.
+ * @param {String} gitRoot Repository root (cwd for the git invocation).
+ * @returns {Boolean} `true` only when git confirms the working tree matches the index for this file.
+ */
+export function isWorkingTreeCleanFor(file, gitRoot) {
+    try {
+        // `--quiet` implies `--exit-code`: 0 = no unstaged differences, 1 = differences (thrown by
+        // execFileSync as a non-zero exit). Both answers are informative; anything else is not.
+        execFileSync('git', ['diff', '--quiet', '--', file], {cwd: gitRoot, encoding: 'utf-8'});
+
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
