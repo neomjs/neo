@@ -1731,6 +1731,8 @@ test.describe('Wake Daemon', () => {
         let   deliveryCount   = 0;
         let   finalDigest     = '';
         const deliveryPromise = new Promise((resolve, reject) => {
+            // wall-clock-under-test: the 8s window is the duplicate-delivery observation bound — a
+            // second delivery against 50ms poll cycles must surface inside it
             const timeout = setTimeout(() => {
                 resolve(); // Resolve instead of reject because we expect exactly one delivery. We'll wait a bit.
             }, 8000);
@@ -3217,6 +3219,8 @@ test.describe('Wake Daemon', () => {
         // this orphan logs a false success at 2s even though the owner already resolved failed.
         const stubServer = http.createServer((req, res) => {
             requests.push(Date.now());
+            // out-waits: the 1s delivery-owner bound — the orphan response lands only after the
+            // owner has already resolved failed
             setTimeout(() => {
                 if (!res.destroyed) {
                     res.writeHead(204);
@@ -4100,6 +4104,7 @@ test.describe('Wake Daemon', () => {
                     env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
                 });
 
+                // out-waits: FAST_POLL_MS (50ms) — the stimulus lands inside the daemon's first poll cycles
                 setTimeout(() => insertMessageWake(db, {agentId, subject: 'Webhook Address Wake'}), 1000);
             });
         });
