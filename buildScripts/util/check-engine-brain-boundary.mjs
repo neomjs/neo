@@ -20,22 +20,37 @@ const BASELINE   = path.join(__dirname, 'check-engine-brain-boundary-baseline.js
  * `ai/` is the **Brain** — swarm services, MCP servers, daemons. The direction is one-way by design:
  * the Brain may consume the engine; the engine must not consume the Brain.
  *
- * `src/**` respects this completely — zero relative imports into `ai/` or `apps/`. The engine's
- * *runtime* has never crossed. Only its *build and release tooling* does, and the consequence is
- * concrete rather than aesthetic: `buildScripts/release/publish.mjs` performs the atomic
- * `dev` → `main` release commit and cannot run without `ai/services.host.mjs`. Releasing the
- * framework requires the agent OS to be present and importable — a coupling nobody chose.
+ * The sharpest consequence is concrete rather than aesthetic: `buildScripts/release/publish.mjs`
+ * performs the atomic `dev` → `main` release commit and cannot run without `ai/services.host.mjs`,
+ * so releasing the framework requires the agent OS to be present and importable.
+ *
+ * ## Why this guard reads the AST, and why that matters to its own premise
+ *
+ * The widely-held belief when this was written — stated in the originating ticket, in its
+ * correction, and by me — was that `src/**` is clean with zero crossings and only build tooling
+ * crosses. It is not. `src/worker/App.mjs` reaches `ai/Client.mjs`.
+ *
+ * Every sweep that concluded otherwise was `from`-anchored, and a DYNAMIC import has no `from`
+ * keyword. The count went 3 → 6 → 10 across three sweeps, and each step was a tool limitation rather
+ * than carelessness. That is why this guard reads `ImportDeclaration` / `ImportExpression` nodes from
+ * the parse tree instead of matching text: the shape it most needs to catch is the one text-matching
+ * structurally cannot see. (The runtime crossing is lazy and gated behind the `useAi` config, so the
+ * engine does not *unconditionally* require the Brain — but "never crosses" was false.)
  *
  * ## Why a baseline rather than a clean gate
  *
- * Six sites cross today, one of them the release path. Relocating them is multi-step work; a gate
- * that fails on all six from day one would simply be disabled. The baseline lets the boundary become
- * *enforceable now* — no seventh site can appear — while the six burn down.
+ * Ten crossings across nine files, one of them the release path. Relocating them is multi-step work;
+ * a gate failing on all ten from day one is a gate that gets disabled.
  *
- * The ratchet is deliberately symmetric, and that is the part worth keeping. A baselined entry that
- * no longer violates must ALSO leave the baseline, or the file becomes a list of things that used to
- * be true: a burndown that only fails upward lets the real count drift below the recorded one, and
- * then the recorded one is quietly fiction. Both directions fail here.
+ * The baseline exempts known debt — it is NOT the assertion. The check asserts the property: an
+ * import from a file the baseline does not cover fails, so a new crossing in a new file cannot pass
+ * by leaving the listed ones intact. A snapshot used as the assertion would reproduce the exact
+ * failure that made this ticket a case study.
+ *
+ * The ratchet is deliberately symmetric. A baselined entry that no longer violates must ALSO leave
+ * the baseline, or the file becomes a list of things that used to be true: a burndown failing only
+ * upward lets the recorded count drift above the real one, and then it is fiction. Both directions
+ * fail here, and rows carry `count` so a partial burndown cannot hide behind a surviving key.
  */
 
 /**
