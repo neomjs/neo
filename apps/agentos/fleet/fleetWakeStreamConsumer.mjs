@@ -75,6 +75,11 @@ export function parseSseFrames(buffer) {
  *     `x-neo-mc-authorization`; a byte-identical pair is refused at install time, before any wire.
  * @param {Function} [options.pollDigest] `({subscriptionId, sinceLogId}) => result` seam for
  *     connection catch-up; absent means catch-up is skipped and the observation says so.
+ * @param {Function} [options.onWake] Observational per-frame callback
+ *     `({subscriptionId, envelope, receivedAt}) => void` — fired for every parsed `wake` frame so a
+ *     composition root can feed a rendering surface without polling. Strictly an observer: a
+ *     throwing callback is absorbed and logged, never allowed to kill the read loop, and it can
+ *     neither redirect nor acknowledge delivery — poll remains the truth lane.
  * @param {Function} [options.fetchImpl] Injection seam; defaults to global `fetch`.
  * @param {Function} [options.now=Date.now]
  * @param {Object} [options.logger=console]
@@ -86,6 +91,7 @@ export function createFleetWakeStreamConsumer({
     eventsUrl,
     authHeaders,
     pollDigest = null,
+    onWake     = null,
     fetchImpl  = null,
     now        = Date.now,
     logger     = console,
@@ -97,6 +103,10 @@ export function createFleetWakeStreamConsumer({
 
     if (typeof authHeaders !== 'function') {
         throw new Error('createFleetWakeStreamConsumer requires an authHeaders function — credentials stay in the bridge closure, never consumer options')
+    }
+
+    if (onWake !== null && typeof onWake !== 'function') {
+        throw new Error('createFleetWakeStreamConsumer: onWake must be a function or null')
     }
 
     const doFetch = fetchImpl ?? ((...args) => fetch(...args));
@@ -114,6 +124,7 @@ export function createFleetWakeStreamConsumer({
         subscriptionId   = null,
         watermark        = 0,
         pendingAtCatchUp = null,
+        lastCatchUp      = null,
         catchUpFired     = false,
         abortController  = null;
 
@@ -152,6 +163,16 @@ export function createFleetWakeStreamConsumer({
             if (Number.isFinite(logId) && logId > watermark) {
                 watermark = logId
             }
+
+            if (onWake) {
+                try {
+                    onWake({subscriptionId: payload.subscriptionId ?? subscriptionId, envelope: payload.envelope ?? null, receivedAt: lastWakeAt})
+                } catch (error) {
+                    // an observer fault must never kill the read loop — the stream's liveness is
+                    // the consumer's contract, the callback's health is the caller's
+                    logger.warn?.(`[FleetWakeStreamConsumer] onWake observer failed: ${error?.message ?? error}`)
+                }
+            }
         }
 
         // Catch-up fires once per connection, the moment the subscription id is known. The
@@ -175,11 +196,16 @@ export function createFleetWakeStreamConsumer({
 
             pendingAtCatchUp = result?.counts?.pending ?? result?.pending ?? 0;
 
+            // Three states BY CONSTRUCTION, timestamped: a successful poll that drained nothing is
+            // `empty`, one that drained is `fresh` — and neither is ever conflated with `failed`.
+            lastCatchUp = {state: pendingAtCatchUp > 0 ? 'fresh' : 'empty', at: now(), pending: pendingAtCatchUp};
+
             if (Number.isFinite(result?.watermark) && result.watermark > watermark) {
                 watermark = result.watermark
             }
         } catch (error) {
             pendingAtCatchUp = null;
+            lastCatchUp      = {state: 'failed', at: now(), pending: null};
             logger.warn?.(`[FleetWakeStreamConsumer] reconnect catch-up failed: ${error?.message ?? error}`)
         }
     }
@@ -358,6 +384,11 @@ export function createFleetWakeStreamConsumer({
                 subscriptionId,
                 watermark,
                 pendingAtCatchUp,
+                // `null` is the ABSENCE of a catch-up observation (seam unwired, or none fired
+                // yet) — distinct from all three observed states, same tri-state honesty as the
+                // telltale axes. Survives reconnects deliberately: it is a timestamped
+                // observation log, not an epoch vouch.
+                lastCatchUp,
                 consecutiveDrops,
                 retryFloorMs
             }
