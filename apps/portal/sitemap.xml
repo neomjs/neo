@@ -916,7 +916,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-08-16T07:06:31Z</lastmod>
+    <lastmod>2026-08-16T07:56:02Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -936,7 +936,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-16T03:25:29Z</lastmod>
+    <lastmod>2026-08-16T07:56:06Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2282,6 +2282,10 @@
     <loc>https://neomjs.com/news/releases/8.1.0</loc>
     <lastmod>2026-05-16T20:39:28+02:00</lastmod>
     <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17236</loc>
+    <lastmod>2026-08-16T07:52:05Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17234</loc>
