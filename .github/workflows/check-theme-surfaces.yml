@@ -1,0 +1,49 @@
+name: Theme Surfaces Guard
+
+# The path lists are the ENFORCEMENT half of this guard: a surface registered in SURFACES but absent
+# here is checked by `npm run check-theme-surfaces` and never by CI, so its coverage is decorative on
+# exactly the tree it was added for. Registering a new surface means adding its three scss roots here.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'resources/scss/theme-neo-dark/apps/agentos/**'
+      - 'resources/scss/theme-neo-light/apps/agentos/**'
+      - 'resources/scss/src/apps/agentos/**'
+      - 'resources/scss/theme-neo-dark/apps/workstation/**'
+      - 'resources/scss/theme-neo-light/apps/workstation/**'
+      - 'resources/scss/src/apps/workstation/**'
+      - 'buildScripts/util/check-theme-surfaces.mjs'
+      - '.github/workflows/check-theme-surfaces.yml'
+      - 'package.json'
+  push:
+    branches: [dev]
+    paths:
+      - 'resources/scss/theme-neo-dark/apps/agentos/**'
+      - 'resources/scss/theme-neo-light/apps/agentos/**'
+      - 'resources/scss/src/apps/agentos/**'
+      - 'resources/scss/theme-neo-dark/apps/workstation/**'
+      - 'resources/scss/theme-neo-light/apps/workstation/**'
+      - 'resources/scss/src/apps/workstation/**'
+      - 'buildScripts/util/check-theme-surfaces.mjs'
+      - '.github/workflows/check-theme-surfaces.yml'
+      - 'package.json'
+
+concurrency:
+  group: check-theme-surfaces-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Check registered theme surfaces (skin parity + token-only views)
+        run: npm run check-theme-surfaces

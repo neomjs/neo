@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @module buildScripts/util/check-agentos-theme
+ * @module buildScripts/util/check-theme-surfaces
  * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Four checks
  * an eyeball review misses:
  *
@@ -24,7 +24,7 @@
  *      which four new text sites re-adopted it unnoticed. This check makes the contract mechanical —
  *      the token stays legal for `background`/`border-color`, and is rejected in a `color:` fill.
  *
- * `collectAgentosThemeFailures` is a pure-over-the-filesystem function (injectable paths, no exit/log)
+ * `collectThemeSurfaceFailures` is a pure-over-the-filesystem function (injectable paths, no exit/log)
  * so the CLI wrapper and the isolated spec both drive it. Both mechanical, not discipline.
  */
 import fs              from 'fs';
@@ -109,7 +109,13 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
 function resolvesDifferently({dark, light, name, value, seen = new Set([name]), depth = 0}) {
     if (depth > 8) return false;
 
-    for (const [, referent] of String(value).matchAll(/var\(\s*(--[\w-]+)|(?:^|[\s,(])(--[\w-]+)/g)) {
+    // `?? match[2]` is load-bearing: the pattern has two alternatives — inside `var()` and bare — and
+    // destructuring only the first capture silently discarded every bare-referent match. Inert today
+    // (every real referent shape arrives via `var()`), but the JSDoc above claimed the coverage, so the
+    // next reader would have believed a walk that was not happening. Found by @neo-kimi-iris.
+    for (const match of String(value).matchAll(/var\(\s*(--[\w-]+)|(?:^|[\s,(])(--[\w-]+)/g)) {
+        const referent = match[1] ?? match[2];
+
         if (!referent || seen.has(referent)) continue;
 
         const darkReferent  = dark.get(referent),
@@ -181,7 +187,7 @@ function stripVarCalls(text) {
  *                                      parity check then passes over an empty map
  * @returns {String[]} failure messages (empty array = clean)
  */
-export function collectAgentosThemeFailures({
+export function collectThemeSurfaceFailures({
     darkPath         = DEFAULT_PATHS.darkPath,
     lightPath        = DEFAULT_PATHS.lightPath,
     viewDir          = DEFAULT_PATHS.viewDir,
@@ -274,7 +280,7 @@ export function collectAgentosThemeFailures({
 }
 
 // ─────────────────────────────── CLI ───────────────────────────────
-// Only when run directly (`node …/check-agentos-theme.mjs`), not when imported by the spec.
+// Only when run directly (`node …/check-theme-surfaces.mjs`), not when imported by the spec.
 /**
  * @summary The app surfaces this guard covers, each with its own paths, token namespace, contract and
  * mode-invariant set.
@@ -312,7 +318,7 @@ const SURFACES = [
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     const failures = SURFACES.flatMap(({name, ...paths}) =>
-        collectAgentosThemeFailures(paths).map(failure => `[${name}] ${failure}`));
+        collectThemeSurfaceFailures(paths).map(failure => `[${name}] ${failure}`));
 
     if (failures.length) {
         console.error('✗ theme guard FAILED:\n');

@@ -2,17 +2,17 @@ import {test, expect}                from '@playwright/test';
 import fs                            from 'node:fs';
 import os                            from 'node:os';
 import path                          from 'node:path';
-import {collectAgentosThemeFailures} from '../../../../../../buildScripts/util/check-agentos-theme.mjs';
+import {collectThemeSurfaceFailures} from '../../../../../../buildScripts/util/check-theme-surfaces.mjs';
 
 /**
- * check-agentos-theme.mjs — the dual-mode theme guard. These isolated fixtures drive the
+ * check-theme-surfaces.mjs — the dual-mode theme guard. These isolated fixtures drive the
  * exported collector with temp skins/views so each defect class fails independently of the real tree:
  * parity (byte-identical / missing), token-only (a bare CSS-color literal past the var() fallback), and
  * completeness (a consumed token a skin fails to supply — the empty/truncated-palette false-green that a
  * pure symmetry check would pass). Positive cases pin the sanctioned var() fallback + component-local
  * alias so the guard cannot regress into false rejections.
  */
-test.describe('check-agentos-theme.mjs', () => {
+test.describe('check-theme-surfaces.mjs', () => {
     let tempDir;
 
     test.beforeEach(() => {
@@ -36,7 +36,7 @@ test.describe('check-agentos-theme.mjs', () => {
             fs.writeFileSync(path.join(viewDir, name), content, 'utf8');
         }
 
-        return collectAgentosThemeFailures({darkPath, lightPath, viewDir, contractedTokens, ...rest});
+        return collectThemeSurfaceFailures({darkPath, lightPath, viewDir, contractedTokens, ...rest});
     };
 
     // A surface is a TOKEN LANGUAGE, so these drive the collector under a foreign namespace.
