@@ -426,6 +426,8 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
 
             const adaChunk = await Promise.race([
                 adaReader.read().then(({value}) => Buffer.from(value).toString('utf8')),
+                // wall-clock-under-test: the SSE chunk must win this 1500ms race — a 'TIMEOUT' win
+                // is the silent-delivery failure
                 new Promise(resolve => setTimeout(() => resolve('TIMEOUT'), 1500))
             ]);
 

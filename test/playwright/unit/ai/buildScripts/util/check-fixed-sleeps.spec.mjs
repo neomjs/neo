@@ -1,4 +1,5 @@
 import {test, expect}  from '@playwright/test';
+import {spawnSync}     from 'node:child_process';
 import fs              from 'node:fs';
 import os              from 'node:os';
 import path            from 'node:path';
@@ -401,5 +402,76 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         // failure message — the suite reports nothing rather than red. Reaching this assertion at all
         // is the proof, since the import happens in beforeAll.
         expect(typeof reconcile, 'the module imported without exiting the worker').toBe('function');
+    });
+
+    test('#17177: the callback arm is a wait too — inline-callback positives, named-constant-delay negative', async () => {
+        // The guard's own docstring states its subject: "a fixed second-scale wait that does not name
+        // what it waits for." An inline callback names nothing, and it blocks the wall clock exactly as
+        // long as the Identifier form — the first-argument restriction was a regex-capture artifact,
+        // never a decision. Widening what the guard SEES, though, must not widen what it REFUSES: the
+        // delay-literal contract is untouched, so a named-constant delay stays out on either arm.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-callback-')),
+            fixture = path.join(dir, 'callback.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, [
+                // The positives: both inline-callback spellings, invisible while the first argument
+                // must be an Identifier.
+                "setTimeout(() => { poll(); }, 8000);",
+                "setTimeout(function () { poll(); }, 1500);",
+                // The negative: a named-constant DELAY stays out regardless of the callback arm —
+                // the constant already names what this guard asks named.
+                "setTimeout(() => { poll(); }, DELAY_MS);",
+                // The Identifier control anchors the set: without it a zero-detection bug reads green.
+                "await new Promise(resolve => setTimeout(resolve, 1000));",
+                // The self-naming failure deadline: a failure detector, not a wait — its error text
+                // is the naming, so it is exempt like the named-constant delay.
+                "setTimeout(() => reject(new Error('the wake never landed')), 5000);",
+                // The exemption's boundary, pinned from both sides: a message-free reject names
+                // nothing, and a message behind a variable is not statically visible — both stay
+                // counted, because a form the guard cannot prove self-naming must never be waved through.
+                "setTimeout(() => reject(), 5000);",
+                "setTimeout(() => reject(new Error(msg)), 5000);"
+            ].join('\n'), 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.map(entry => entry.ms), 'both callback spellings, the control, and the two unnamed deadline forms are seen')
+                .toEqual([8000, 1500, 1000, 5000, 5000]);
+            expect(sites.map(entry => entry.line), 'each at its own call site, the negatives absent')
+                .toEqual([1, 2, 4, 6, 7]);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('#17177: the CLI exits 1 on a fresh callback-form wait and 0 on a clean tree', () => {
+        // The library-level pins above prove the site is SEEN; this proves the verdict crosses the
+        // process boundary. A sandbox cwd is the whole tree to the CLI (ROOT_DIR is process.cwd()),
+        // so the clean-tree leg runs without touching the repo — and on the pre-widening matcher the
+        // fixture leg inverts: the callback form is invisible, the exit stays 0, and this test is red.
+        const
+            dir      = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-cli-')),
+            unitRoot = path.join(dir, 'test', 'playwright', 'unit');
+
+        fs.mkdirSync(unitRoot, {recursive: true});
+
+        try {
+            let res = spawnSync(process.execPath, [modulePath], {cwd: dir, encoding: 'utf8'});
+
+            expect(res.status, `clean tree exits 0: ${res.stderr}`).toBe(0);
+
+            fs.writeFileSync(path.join(unitRoot, 'fresh.spec.mjs'), 'setTimeout(() => { poll(); }, 8000);\n', 'utf8');
+
+            res = spawnSync(process.execPath, [modulePath], {cwd: dir, encoding: 'utf8'});
+
+            expect(res.status, `a fresh callback-form wait fails the guard: ${res.stdout}`).toBe(1);
+            expect(res.stderr).toContain('8000ms');
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
     });
 });

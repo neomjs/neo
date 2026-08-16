@@ -261,7 +261,9 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
             child.on('exit', code => resolve({code, output, child}));
 
             // the positive control never exits on its own — give it time to prove the reuse plan,
-            // then tear it down; the refusal path exits(1) well inside this window
+            // then tear it down; the refusal path exits(1) well inside this window.
+            // wall-clock-under-test: the still-running child inside this window IS the reuse-plan
+            // proof; the kill only tears down a passing child
             setTimeout(() => {
                 if (child.exitCode === null) {
                     child.kill('SIGTERM')
