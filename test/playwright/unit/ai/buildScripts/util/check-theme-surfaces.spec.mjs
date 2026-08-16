@@ -365,5 +365,92 @@ test.describe('check-theme-surfaces.mjs', () => {
 
             expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('no longer styles'))).toBe(true);
         });
+
+        test('a MISSING slot file fails closed — the exact-head omission probe', () => {
+            // Removing the configured slot file returned an empty list: the owner audit was
+            // conditional on existsSync. Absence of the owner IS the ownerless state.
+            const failures = runSeam({
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('is missing'))).toBe(true);
+        });
+
+        // census cross-check — the paneRoots list must not be hand-closed (the future-pane clause)
+        const INVENTORY = (rows) => `export const doc = {\n    items: {\n${rows}\n    }\n};\n`;
+
+        const seamWithInventory = (inventoryFile, {exempt = {}, refToRoot = {'known-pane': '.pane'}} = {}) => ({
+            ...SEAM,
+            inventory: {file: inventoryFile, refToRoot, exempt}
+        });
+
+        test('an UNCLASSIFIED autoHidden pane in the dock inventory fails — the future-pane clause', () => {
+            // The exact-head probe: an unlisted pane never entered the closed list, so the guard
+            // never looked. A future pane lands in the dock document first — the census catches it.
+            const inv = path.join(tempDir, 'dockDocument.mjs');
+
+            fs.writeFileSync(inv, INVENTORY(
+                "        known : {componentRef: 'known-pane',  title: 'Known',  kind: 'tool', autoHidden: true},\n" +
+                "        future: {componentRef: 'future-pane', title: 'Future', kind: 'tool', autoHidden: true}"
+            ), 'utf8');
+
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(inv));
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes("'future-pane'") && m.includes('UNCLASSIFIED'))).toBe(true);
+        });
+
+        test('a fully classified inventory passes — mapped and exempt refs both count', () => {
+            const inv = path.join(tempDir, 'dockDocument.mjs');
+
+            fs.writeFileSync(inv, INVENTORY(
+                "        known : {componentRef: 'known-pane', title: 'Known', kind: 'tool', autoHidden: true},\n" +
+                "        card  : {componentRef: 'card-pane',  title: 'Card',  kind: 'tool', autoHidden: true}"
+            ), 'utf8');
+
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(inv, {exempt: {'card-pane': 'card exception'}}));
+
+            expect(failures).toEqual([]);
+        });
+
+        test('a missing or zero-yield inventory source fails closed — the census cannot go vacuous', () => {
+            const missing = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(path.join(tempDir, 'nope.mjs')));
+
+            expect(missing.some(m => m.startsWith('[shell-seam]') && m.includes('inventory source') && m.includes('missing'))).toBe(true);
+
+            const emptyInv = path.join(tempDir, 'emptyDoc.mjs');
+
+            fs.writeFileSync(emptyInv, 'export const doc = {};\n', 'utf8');
+
+            const empty = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(emptyInv));
+
+            expect(empty.some(m => m.startsWith('[shell-seam]') && m.includes('ZERO autoHidden refs'))).toBe(true);
+        });
+
+        test('a census row mapping to a selector absent from paneRoots is flagged as dangling', () => {
+            const inv = path.join(tempDir, 'dockDocument.mjs');
+
+            fs.writeFileSync(inv, INVENTORY(
+                "        known: {componentRef: 'known-pane', title: 'Known', kind: 'tool', autoHidden: true}"
+            ), 'utf8');
+
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(inv, {refToRoot: {'known-pane': '.not-in-pane-roots'}}));
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('dangling'))).toBe(true);
+        });
     });
 });

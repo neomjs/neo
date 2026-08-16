@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-theme-surfaces
- * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Four checks
+ * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Five checks
  * an eyeball review misses:
  *
  *   1. Skin parity — every `--fm-*` Fleet-Manager-cockpit COLOR token must carry a genuinely different
@@ -24,8 +24,15 @@
  *      which four new text sites re-adopted it unnoticed. This check makes the contract mechanical —
  *      the token stays legal for `background`/`border-color`, and is rejected in a `color:` fill.
  *
- * `collectThemeSurfaceFailures` is a pure-over-the-filesystem function (injectable paths, no exit/log)
- * so the CLI wrapper and the isolated spec both drive it. Both mechanical, not discipline.
+ *   5. Drawer shell/pane frame seam (agentos only) — the FleetCockpit reveal slot is the ONE owner of
+ *      the drawer frame; hosted pane skin roots stay frame-free (full longhand families), the slot
+ *      must own `background`+`padding` at its own depth, dual-mount panes carry a slot-side reveal
+ *      override, absence fails closed, and the census cross-checks the cockpit dock document's
+ *      `autoHidden` inventory so a future pane cannot escape a stale hand-list.
+ *
+ * `collectThemeSurfaceFailures` and `collectShellSeamFailures` are pure-over-the-filesystem functions
+ * (injectable paths, no exit/log) so the CLI wrapper and the isolated spec both drive them. All
+ * mechanical, not discipline.
  */
 import fs              from 'fs';
 import path            from 'path';
@@ -107,7 +114,25 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
               ['fleet/OperatorMailbox.scss', '.fm-operator-mailbox'],
               ['fleet/MailboxPane.scss',     '.fm-mailbox-pane'],
               ['fleet/AgentDetail.scss',     '.fm-agent-detail', {dualMount: true}]
-          ]
+          ],
+          // The census is NOT hand-closed: every autoHidden pane the cockpit dock document declares
+          // must be classified here — either mapped to its skin root above, or exempt with a reason.
+          // A future pane lands in the inventory first (that is how it becomes a drawer pane at
+          // all), so the guard fails on it mechanically instead of waiting for a reviewer.
+          inventory: {
+              file     : 'apps/agentos/view/fleet/cockpitDockDocument.mjs',
+              refToRoot: {
+                  'agent-detail'    : '.fm-agent-detail',
+                  'catch-up'        : '.fm-catch-up-pane',
+                  'memories'        : '.fm-memories-pane',
+                  'wakeRoutes'      : '.fm-wakeroutes-pane',
+                  'operator-mailbox': '.fm-operator-mailbox'
+              },
+              exempt: {
+                  'define-agent': 'the card-in-the-well exception — panel surface + padding are card identity',
+                  'perspectives': 'placeholder leaf — renders the shell-owned fm-pane-placeholder until its view lands'
+              }
+          }
       };
 
 /**
@@ -369,7 +394,7 @@ function walkScssDeclarations(source, visit) {
 /**
  * @summary check 5 — the drawer shell/pane frame seam, exported for fixture-driven specs.
  *
- * Three assertions, each demonstrated as a real bypass or regression before being encoded:
+ * Five assertions, each demonstrated as a real bypass or regression before being encoded:
  *
  *   1. Hosted pane skin ROOTS declare no frame property (full logical + physical longhand families —
  *      `padding-inline-start` passed a shorthand-only list). "Root" means declaration depth 1 inside
@@ -382,8 +407,14 @@ function walkScssDeclarations(source, visit) {
  *      instead have a slot-side reveal override — a nested rule inside the slot block naming the
  *      pane's root selector and declaring `padding` — so the transient reveal mount renders
  *      frame-free without stripping the other mounts.
+ *   4. FAIL CLOSED on absence: a missing slot file (or a missing/empty-yield inventory source) is a
+ *      failure, never a skip — an exact-head probe deleted the slot file and the guard stayed green.
+ *   5. The census is not hand-closed: every `autoHidden` pane in the cockpit dock document must be
+ *      classified (mapped to a skin root in `paneRoots`, or exempt with a recorded reason). A future
+ *      pane enters the inventory first, so it fails mechanically instead of escaping a stale list —
+ *      an exact-head probe added an unlisted pane skin and the closed list never looked at it.
  *
- * @param {Object} seam AGENTOS_SHELL_SEAM-shaped: `{slotFile, slotSelector, paneRoots}`.
+ * @param {Object} seam AGENTOS_SHELL_SEAM-shaped: `{slotFile, slotSelector, paneRoots, inventory?}`.
  * @param {String} [seamViewDir] SCSS root the seam's relative files resolve against.
  * @returns {String[]} failure messages (empty array = clean)
  */
@@ -431,7 +462,11 @@ export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewD
         }
     }
 
-    if (fs.existsSync(slotPath)) {
+    if (!fs.existsSync(slotPath)) {
+        // fail closed: a missing owner file is the frame having NO owner, not a surface to skip —
+        // an exact-head probe deleted the configured slot file and the guard stayed green
+        failures.push(`[shell-seam] ${seam.slotFile} is missing — the drawer frame has no owner`);
+    } else {
         const slotOwnProps = new Set();
 
         let slotSeen = false;
@@ -452,6 +487,42 @@ export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewD
             for (const required of ['background', 'padding']) {
                 if (!slotOwnProps.has(required)) {
                     failures.push(`[shell-seam] ${seam.slotFile} slot block ${seam.slotSelector} does not declare ${required} at its own depth — the shell must own the drawer frame itself`);
+                }
+            }
+        }
+    }
+
+    // The census cross-check: the paneRoots list must not be hand-closed. Every autoHidden pane the
+    // cockpit dock document declares must be CLASSIFIED — mapped to a skin root in paneRoots, or
+    // exempt with a recorded reason. A future pane enters the inventory first, so it fails here
+    // mechanically instead of silently escaping a stale list.
+    if (seam.inventory) {
+        const inventoryPath = path.isAbsolute(seam.inventory.file)
+            ? seam.inventory.file
+            : path.join(repoRoot, seam.inventory.file);
+
+        if (!fs.existsSync(inventoryPath)) {
+            failures.push(`[shell-seam] pane inventory source ${seam.inventory.file} is missing — the census cannot be verified`);
+        } else {
+            const inventoryText = stripBlockComments(fs.readFileSync(inventoryPath, 'utf8')),
+                  refs          = [...inventoryText.matchAll(/componentRef\s*:\s*'([^']+)'[^\n]*autoHidden\s*:\s*true/g)].map(match => match[1]),
+                  rootSelectors = new Set(seam.paneRoots.map(([, selector]) => selector));
+
+            if (refs.length === 0) {
+                // fail closed on an empty extraction: a refactor of the inventory shape would
+                // otherwise turn the census check into a vacuous green
+                failures.push(`[shell-seam] pane inventory source ${seam.inventory.file} yielded ZERO autoHidden refs — extraction pattern or inventory shape changed; the census cannot be verified`);
+            }
+
+            for (const ref of refs) {
+                if (seam.inventory.exempt?.[ref]) continue;
+
+                const mappedRoot = seam.inventory.refToRoot?.[ref];
+
+                if (!mappedRoot) {
+                    failures.push(`[shell-seam] autoHidden pane '${ref}' (cockpit dock document) is UNCLASSIFIED — map it to its skin root in the seam census, or record it exempt with a reason`);
+                } else if (!rootSelectors.has(mappedRoot)) {
+                    failures.push(`[shell-seam] autoHidden pane '${ref}' maps to ${mappedRoot} but that selector is not in paneRoots — the census row is dangling`);
                 }
             }
         }
