@@ -1,0 +1,44 @@
+name: Engine/Brain Boundary Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'buildScripts/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary-baseline.json'
+      - '.github/workflows/engine-brain-boundary-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'buildScripts/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary-baseline.json'
+      - '.github/workflows/engine-brain-boundary-lint.yml'
+
+concurrency:
+  group: engine-brain-boundary-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # No `npm ci`: the guard reads `git ls-files` plus source text and imports nothing from the
+      # tree it scans. Keeping it dependency-free is deliberate — a boundary guard that needed an
+      # install would be the first thing dropped when the install broke, which is exactly when a
+      # boundary is most likely to be crossed.
+      - name: Check engine does not import the Brain
+        run: node ./buildScripts/util/check-engine-brain-boundary.mjs
