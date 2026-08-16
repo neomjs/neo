@@ -15,6 +15,7 @@ import {
 }                           from '../graph/agentFamilyResolution.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
+    buildIssueStatesQuery,
     GET_PULL_REQUEST_ID,
     GET_PULL_REQUEST_REVIEW,
     UPDATE_PULL_REQUEST_REVIEW
@@ -1265,6 +1266,97 @@ function isRound2PrReview(body) {
  */
 const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
 
+const ACTION_PACKET_HEADING_PATTERN = /Required\s+Actions?\b/i;
+const ACTION_PACKET_ITEM_PATTERN    = /^[ \t]*[-*][ \t]+\[[ \t]*\][ \t]*\S/;
+const ACTION_PACKET_RA_PATTERN      = /^[ \t]*(?:[-*][ \t]+)?\*{0,2}RA[-_ ]?\d+\*{0,2}[ \t]*[:.)—-][ \t]*\S/i;
+const MARKDOWN_FENCE_PATTERN        = /^[ \t]{0,3}(`{3,}|~{3,})/;
+const MARKDOWN_HEADING_PATTERN      = /^[ \t]{0,3}#{1,6}[ \t]/;
+
+/**
+ * @summary Matches an owning-issue citation on a follow-up action line.
+ *
+ * A bare `#\d+` anywhere on the line was the first version and @neo-gpt falsified it at the exact head:
+ * `line #42` satisfied it, so any prose number read as an owner. The reference now has to stand as its
+ * own token — not glued to a preceding word — which is how an issue is actually cited, and a full
+ * issue URL is accepted for the same reason.
+ * @type {RegExp}
+ */
+const ACTION_PACKET_OWNER_PATTERN = /(?:^|[\s([<])#(\d+)\b|\/issues\/(\d+)\b/;
+
+/**
+ * @summary Words that turn a following `#N` into a coordinate rather than an owner.
+ *
+ * `line #42`, `column #3`, `comment #5` — each cites a coordinate rather than a ticket that accepts
+ * ownership of work. Listing the coordinate words is narrower than trying to define what an owner IS.
+ * @type {RegExp}
+ */
+const ACTION_PACKET_NON_OWNER_PATTERN = /\b(?:line|lines|col|column|row|page|step|item|note|comment|pr|commit|run|job|attempt|para|paragraph)[ \t]*#\d+/i;
+
+/**
+ * @summary Collects the action items a review body DEMANDS, scoped to its Required Actions section.
+ *
+ * The scope is the whole finding. An unchecked checkbox is not a demand by itself — the Micro-Delta
+ * verdict block is a list of unchecked OPTIONS (`- [ ] **APPROVED**`, `- [ ] **MAINTAINER POLISH**`),
+ * and a body-wide scan reads every one of them as a fresh action packet. That false positive would
+ * fire on every Micro-Delta review, which is to say on the exact bodies the budget exists to permit.
+ *
+ * Scoping to `Required Action(s)` is not a guess about where demands live. It was derived by replaying
+ * the review history that motivated this guard — the one where reviewer-pushed COMMENTED rounds walked
+ * live demands past a budget that recorded a single ordinary round. Every demanded item there sat
+ * under that heading, one of them spelled singular, which is why the pattern accepts both.
+ *
+ * **A demand is not only a checkbox.** The first version read that measured population as the whole
+ * grammar and matched unchecked checkboxes alone; @neo-gpt submitted `RA-999: fix the production
+ * boundary` under this very heading and it sailed through. The measured specimens are evidence about
+ * what HAS been written, never permission to narrow the contract to that one form — so an `RA-N`
+ * demand line counts too. Both forms stay SECTION-scoped, which is what keeps a disposition table's
+ * `| RA-1 | ... |` rows (they live under `Disposition`, and are cells rather than lines) and a verdict
+ * block from reading as fresh demands.
+ *
+ * Two exclusions fall out of the line shape rather than being special-cased:
+ * - **Blockquoted** carried actions (`> - [ ] prior action`) fail the item pattern, so quoting Round 1
+ *   verbatim — which a disposition round legitimately does — never reads as minting.
+ * - **Fenced** blocks are skipped, so a review that SHOWS an example packet does not raise one. A
+ *   fence closes only on its own marker character, so a ``` inside a ~~~ block stays content.
+ *
+ * Splitting on CR/LF only is deliberate. U+2028/U+2029 are ECMAScript SOURCE line terminators, which
+ * is why this repo's JS parsers must honour them; GitHub markdown does not break lines on them, and
+ * treating them as breaks here would import a rule from a different grammar.
+ *
+ * @param {String} body Review body.
+ * @returns {String[]} The demanded item lines, trimmed; empty when the body demands nothing.
+ */
+function collectDemandedActionItems(body) {
+    const lines = String(body || '').split(/\r\n|[\n\r]/),
+          items = [];
+
+    let fence     = null,
+        inSection = false;
+
+    for (const line of lines) {
+        const fenceMatch = MARKDOWN_FENCE_PATTERN.exec(line);
+
+        if (fenceMatch) {
+            if      (fence === null)             fence = fenceMatch[1][0];
+            else if (fenceMatch[1][0] === fence) fence = null;
+            continue
+        }
+
+        if (fence !== null) continue;
+
+        if (MARKDOWN_HEADING_PATTERN.test(line)) {
+            inSection = ACTION_PACKET_HEADING_PATTERN.test(line);
+            continue
+        }
+
+        if (inSection && (ACTION_PACKET_ITEM_PATTERN.test(line) || ACTION_PACKET_RA_PATTERN.test(line))) {
+            items.push(line.trim())
+        }
+    }
+
+    return items
+}
+
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
     '# PR Review Follow-Up',
     '**Cycle:**',
@@ -1966,12 +2058,202 @@ function getPrReviewStateValidationFailure({acknowledgedRequestChanges, pr_numbe
     }
 }
 
+/**
+ * @summary Refuses a COMMENT that mints a fresh action packet, in any budget state.
+ *
+ * **This guard used to be budget-scoped, and that was the defect.** It refused a demand-bearing COMMENT
+ * only once the family had spent an ordinary `CHANGES_REQUESTED` round — so a family that simply never
+ * chose that enum was never post-budget, and could push demand after demand through COMMENT forever.
+ * @neo-gpt drove it at the exact head: the same packet was admitted after zero, one, and two prior
+ * same-family demand COMMENTs. The guard rebuilt the very loophole it was written to close, one layer
+ * up, because it still bound on a review STATE while claiming to bind on demand SUBSTANCE.
+ *
+ * So the rule is now stateless: a managed COMMENT may not raise a new action packet at all. That is
+ * not a stricter version of the old rule, it is the honest one — a review demanding author action IS a
+ * request for changes, and routing it there is what makes the budget count it. The first demand is a
+ * `REQUEST_CHANGES` (which spends the family's round); afterwards the disposition carries the existing
+ * actions, and fresh findings are accepted risk or a ticket the reviewer owns.
+ *
+ * What refuses is still the PACKET, never the channel. A COMMENT carrying a disposition, a closure
+ * packet, or plain commentary is untouched — the disposition contract REQUIRES a `STILL_OPEN` round to
+ * be COMMENT, so refusing the channel would forbid the exact round this contract exists to make
+ * reachable.
+ *
+ * Being stateless also removes every fail-open precondition the budget-scoped version needed (cutover
+ * resolution, provable review history, a classifiable reviewer). Each of those was a way to be right
+ * about the demand and admit it anyway, and each is now gone. The same rule then applies identically
+ * on `create` and on `update`, which is the property the create-only version lacked.
+ *
+ * @param {Object}        options
+ * @param {String}        options.body    Incoming review body.
+ * @param {Number|String} options.subject PR number or review id, for the message.
+ * @returns {Object|null} Failure payload, or null when the comment is permitted.
+ */
+function getCommentActionPacketFailure({body, subject}) {
+    const demanded = collectDemandedActionItems(body);
+
+    if (demanded.length === 0) return null;
+
+    return {
+        error  : 'PR Review Action Packet Validation Failed',
+        message: [
+            `This COMMENT on ${subject} raises ${demanded.length} new required-action item(s).`,
+            'A COMMENT carries a disposition over EXISTING actions; it does not open a new packet, in any budget state —',
+            'otherwise the ordinary round stays avoidable by never choosing the REQUEST_CHANGES state.',
+            'Submit the first demand round as REQUEST_CHANGES (which spends your family\'s ordinary round), post the',
+            'disposition (STILL_OPEN preserves the original review\'s authority), APPROVE when merge-safe, or one',
+            'validated Drop+Supersede. A fresh finding after the round is spent is accepted risk, or a ticket you own.'
+        ].join(' '),
+        code               : 'PR_REVIEW_ACTION_PACKET_REFUSED',
+        demandedActionItems: demanded.length
+    }
+}
+
+/**
+ * @summary Refuses an APPROVE whose follow-up actions name no owning issue.
+ *
+ * Plain APPROVE is the default merge-safe terminal outcome, and Approve-with-Follow-Up must validate
+ * the standalone-ticket counterfactual and independent ownership. That rule existed only as prose —
+ * before this guard the string `A+FU` appeared nowhere under `ai/`, only in the skill payloads — so on
+ * this one decision the reviewer's two options were an enforced rule and an unenforced one, which is
+ * not a choice between equals. This is the enforcement half; the payload keeps the rule's statement.
+ *
+ * Ownership is the checkable core of "standalone-ticket counterfactual": required work either has a
+ * ticket someone owns, or it is accepted risk. What an approval cannot do is leave work demanded and
+ * unowned at the moment the PR becomes mergeable — the point after which nobody is looking.
+ *
+ * **Independent is the load-bearing word, and two ways of failing it are checkable offline.** A
+ * coordinate is not an owner: `line #42` cites a place, not a ticket accepting work, and the first
+ * version of this guard accepted it. Nor is this PR's own close target: an item pointing at the ticket
+ * the approval closes describes work the merge is about to declare finished, which is the precise
+ * opposite of independent follow-up. Both were @neo-gpt's findings, and the second had been encoded as
+ * this suite's POSITIVE fixture — the anti-pattern shipped as its own proof.
+ *
+ * What is NOT checked here is whether the cited issue exists and is open, which needs a tracker read.
+ * The admission path deliberately resolves identity from a startup cache rather than over the network
+ * (see the reviewer-login note at the budget call site) precisely so a submission cannot fail for
+ * reasons unrelated to the review being judged; adding N issue lookups per approval reintroduces
+ * exactly that. Existence belongs in the post-submit audit path, which already reads the tracker.
+ *
+ * Deliberately NOT budget-scoped. The governing rule states no cutover condition, and this is about
+ * the shape of an approval rather than about a spent round, so a grandfathered PR gets it too.
+ *
+ * @param {Object}        options
+ * @param {String}        options.body           Incoming review body.
+ * @param {Number[]}      [options.closeTargets] Issue numbers this PR closes; each is a non-owner.
+ * @param {Number|String} options.subject        PR number or review id, for the message.
+ * @returns {Object|null} Failure payload, or null when the approval is permitted.
+ */
+function getApproveFollowUpOwnershipFailure({body, closeTargets = [], subject}) {
+    const unowned = collectDemandedActionItems(body).filter(item => {
+        if (ACTION_PACKET_NON_OWNER_PATTERN.test(item)) return true;
+
+        const match = ACTION_PACKET_OWNER_PATTERN.exec(item);
+
+        if (!match) return true;
+
+        return closeTargets.includes(Number(match[1] ?? match[2]))
+    });
+
+    if (unowned.length === 0) return null;
+
+    return {
+        error  : 'PR Review Follow-Up Ownership Validation Failed',
+        message: [
+            `This APPROVE on ${subject} carries ${unowned.length} required-action item(s) that name no INDEPENDENT owning issue.`,
+            'Plain APPROVE is the default merge-safe terminal outcome. If the work is genuinely required it belongs to a',
+            'ticket someone owns, and the item must cite that ticket as its own reference (`#N` or an issue URL) — a',
+            'coordinate such as `line #42` names a place, and this PR\'s own close target names work the merge is about',
+            'to call finished. If it is not worth an independent ticket it is accepted risk, and does not belong in an',
+            'approval\'s action list at all.'
+        ].join(' '),
+        code                : 'PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED',
+        unownedFollowUpItems: unowned.length
+    }
+}
+
+/**
+ * @summary The issue numbers an approval's follow-up items cite as their owners.
+ * @param {String} body Review body.
+ * @returns {Number[]} Distinct cited issue numbers; empty when the approval carries no follow-up.
+ */
+function collectFollowUpOwnerNumbers(body) {
+    const numbers = new Set();
+
+    for (const item of collectDemandedActionItems(body)) {
+        const match = ACTION_PACKET_OWNER_PATTERN.exec(item);
+
+        if (match) numbers.add(Number(match[1] ?? match[2]))
+    }
+
+    return [...numbers]
+}
+
+/**
+ * @summary Refuses an approval whose cited follow-up owner does not exist, or is already closed.
+ *
+ * I defended leaving this out on the grounds that admission must not make network round trips — the
+ * budget resolves the reviewer login from a startup cache for exactly that reason. @neo-gpt held that
+ * admission is the right layer and demonstrated why at the exact head: a closed issue and a
+ * nonexistent one both satisfied the lexical check and reached the mutation. A reference that resolves
+ * to nothing is not ownership, and an approval is the last moment anyone looks.
+ *
+ * The cost objection dissolves rather than being overruled. The lookup is ONE batched request for any
+ * number of citations, and it is issued **only when the approval actually carries follow-up items** —
+ * so a plain APPROVE, the default and by far the common case, still performs zero extra work.
+ *
+ * Fails OPEN on an unreadable answer, deliberately and in the opposite direction from the budget's
+ * refusals. This gate sits on the merge-safe terminal: refusing an approval because GitHub hiccuped
+ * blocks the path the whole contract is trying to make reachable, while admitting an unverifiable
+ * citation leaves work owned-on-paper that the post-submit audit can still surface. Only a definite
+ * answer — the issue is absent, or its state is `CLOSED` — refuses.
+ *
+ * @param {Object}   options
+ * @param {String}   options.body      Incoming review body.
+ * @param {Number[]} options.numbers   Cited owner issue numbers.
+ * @param {Object}   options.states    `{[number]: 'OPEN'|'CLOSED'|null}` as resolved from GitHub.
+ * @param {String}   options.subject   PR number or review id, for the message.
+ * @returns {Object|null} Failure payload, or null when every citation resolves to an open issue.
+ */
+function getFollowUpOwnerResolutionFailure({numbers, states, subject}) {
+    const missing = numbers.filter(number => states[number] === null || states[number] === undefined),
+          closed  = numbers.filter(number => states[number] === 'CLOSED');
+
+    if (missing.length === 0 && closed.length === 0) return null;
+
+    return {
+        error  : 'PR Review Follow-Up Ownership Validation Failed',
+        message: [
+            `This APPROVE on ${subject} cites follow-up owners that do not accept work:`,
+            missing.length ? `no such issue — ${missing.map(number => `#${number}`).join(', ')}.` : '',
+            closed.length  ? `already closed — ${closed.map(number => `#${number}`).join(', ')}.` : '',
+            'A citation that resolves to nothing, or to finished work, is not ownership — it is the appearance of it,',
+            'recorded at the last moment anyone looks. File the follow-up, cite the open issue, or drop the item and',
+            'accept the risk.'
+        ].filter(Boolean).join(' '),
+        code                    : 'PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED',
+        unresolvedFollowUpOwners: [...missing, ...closed]
+    }
+}
+
+/**
+ * @summary Reads the close targets a PR body declares, so a follow-up cannot cite one as its owner.
+ * @param {String} body PR body.
+ * @returns {Number[]} Issue numbers named by a standalone close keyword.
+ */
+function collectPrCloseTargets(body) {
+    return [...String(body || '').matchAll(/^[ \t]*(?:Resolves|Closes|Fixes)[ \t]+#(\d+)/gim)].map(match => Number(match[1]))
+}
+
 function getReviewBudgetFailure(pr_number, message, audit = {}) {
     return {
-        error              : 'PR Review Budget Validation Failed',
+        error: 'PR Review Budget Validation Failed',
         message,
-        code               : 'PR_REVIEW_BUDGET_VALIDATION_FAILED',
-        permittedNextStates: ['APPROVED', 'COMMENT', 'validated Drop+Supersede'],
+        code : 'PR_REVIEW_BUDGET_VALIDATION_FAILED',
+        // `COMMENT` is qualified rather than listed bare. @neo-kimi-phoebe's reading was that the
+        // overflow valve lived in this very message: it named the channel that skipped the budget, so
+        // the refusal doubled as directions to the way around itself.
+        permittedNextStates: ['APPROVED', 'COMMENT carrying the disposition over the existing actions', 'validated Drop+Supersede'],
         reviewBudget       : audit,
         pr_number
     }
@@ -3224,6 +3506,51 @@ class PullRequestService extends Base {
                 let submissionBody = body;
 
                 if (event === 'APPROVE') {
+                    const followUpOwnershipFailure = getApproveFollowUpOwnershipFailure({
+                        body,
+                        // Read from the PR body in the SAME projection already fetched above, so
+                        // "not this PR's own close target" costs no extra round trip.
+                        closeTargets: collectPrCloseTargets(pullRequest?.body),
+                        subject     : `PR #${pr_number}`
+                    });
+
+                    if (followUpOwnershipFailure) {
+                        return followUpOwnershipFailure
+                    }
+
+                    // Only reached when the approval CARRIES follow-up items — a plain APPROVE never
+                    // gets here, so the default terminal outcome performs no extra request at all.
+                    const ownerNumbers = collectFollowUpOwnerNumbers(body);
+
+                    if (ownerNumbers.length > 0) {
+                        let states = null;
+
+                        try {
+                            const resolved = await GraphqlService.query(buildIssueStatesQuery(ownerNumbers), {
+                                owner: aiConfig.owner,
+                                repo : aiConfig.repo
+                            });
+
+                            states = Object.fromEntries(ownerNumbers.map(number =>
+                                [number, resolved?.repository?.[`issue${number}`]?.state ?? null]));
+                        } catch (error) {
+                            // Unreadable answer ⇒ no refusal. See the helper's note: this gate sits on
+                            // the merge-safe terminal, so a GitHub hiccup must not block the path the
+                            // contract exists to make reachable.
+                            logger.warn(`Follow-up owner resolution failed for PR #${pr_number}; admitting: ${error.message}`)
+                        }
+
+                        const ownerResolutionFailure = states && getFollowUpOwnerResolutionFailure({
+                            numbers: ownerNumbers,
+                            states,
+                            subject: `PR #${pr_number}`
+                        });
+
+                        if (ownerResolutionFailure) {
+                            return ownerResolutionFailure
+                        }
+                    }
+
                     const stateValidationFailure = getPrReviewStateValidationFailure({
                         acknowledgedRequestChanges,
                         pr_number,
@@ -3232,6 +3559,15 @@ class PullRequestService extends Base {
 
                     if (stateValidationFailure) {
                         return stateValidationFailure
+                    }
+                } else if (event === 'COMMENT') {
+                    // Stateless by construction. The earlier version resolved activation and the
+                    // family's spent rounds here, which meant a family that never chose the
+                    // REQUEST_CHANGES enum was never "post-budget" and could demand indefinitely.
+                    const actionPacketFailure = getCommentActionPacketFailure({body, subject: `PR #${pr_number}`});
+
+                    if (actionPacketFailure) {
+                        return actionPacketFailure
                     }
                 } else if (event === 'REQUEST_CHANGES') {
                     const activationResolution = resolveReviewBudgetActivation({
@@ -3400,6 +3736,32 @@ class PullRequestService extends Base {
                     auditFieldChanges,
                     terminalClassificationChanged: currentTerminal !== incomingTerminal
                 }
+            }
+
+            // The same two demand guards the create path runs. Editing a submitted review is a second
+            // way to raise a packet, and until this ran here the create-side guards could be walked
+            // around entirely: post an admissible COMMENT or APPROVE, then edit the demand in.
+            // @neo-gpt drove both injections at the exact head and both reached the mutation.
+            //
+            // This is where being stateless pays: the update path holds the review's own state and
+            // body but no PR projection, so a budget-scoped rule could not be applied here at all
+            // without a second fetch. A body-and-state rule applies identically on both paths.
+            //
+            // `CHANGES_REQUESTED` is deliberately absent: a demand packet is what that state is FOR,
+            // and its ordinary round was charged when the review was created.
+            let updateDemandFailure = null;
+
+            if (currentReview.state === 'APPROVED') {
+                // Close targets need the PR body, which this path does not fetch. An approval edit is
+                // therefore held to the coordinate-and-form half of the rule; the create path, which
+                // has the projection, is where the close-target arm is enforced.
+                updateDemandFailure = getApproveFollowUpOwnershipFailure({body, subject: `review ${review_id}`})
+            } else if (currentReview.state === 'COMMENTED') {
+                updateDemandFailure = getCommentActionPacketFailure({body, subject: `review ${review_id}`})
+            }
+
+            if (updateDemandFailure) {
+                return updateDemandFailure
             }
 
             const updateData = await GraphqlService.query(UPDATE_PULL_REQUEST_REVIEW, {
