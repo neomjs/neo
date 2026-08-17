@@ -1,7 +1,8 @@
-import Button         from '../../../../src/button/Base.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import Container      from '../../../../src/container/Base.mjs';
-import CatchUpEntries from '../../store/CatchUpEntries.mjs';
+import Button             from '../../../../src/button/Base.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
+import CatchUpEntries     from '../../store/CatchUpEntries.mjs';
+import {formatViewerTime} from './viewerTime.mjs';
 
 /**
  * @summary Resolve a citation to a canonical public drill target. Only the source-owned PR
@@ -438,11 +439,16 @@ class CatchUpPane extends Container {
         }
     }
 
-    /** @param {Date|String|Number|null} value @returns {String} */
+    /**
+     * @summary Viewer-local stamp via the shared cockpit formatter. This pane, `MemoriesPane` and
+     * `WakeRoutePane` each carried a byte-identical UTC formatter — one implementation copy-pasted
+     * three times, which reads as consistency right up until the rule needs to change in one place.
+     * The miss-copy stays here because a prose pane says "unknown time" where a dense row says "—".
+     * @param {Date|String|Number|null} value
+     * @returns {String}
+     */
     formatStamp(value) {
-        const date = new Date(value);
-
-        return Number.isFinite(date.getTime()) ? date.toISOString().replace('T', ' ').slice(0, 16) + 'Z' : 'unknown time'
+        return formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 

@@ -108,8 +108,16 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
         expect(clio.failureErrorClass).toBe('connect-timeout');
         expect(clio.failureAt).toBe('2026-08-03T19:00:00.000Z');
 
-        expect(pane.getReference('wakeroutes-meta').text)
-            .toBe('2 seat routes · every axis observed · captured 2026-08-03 20:01Z');
+        // Composition, not format. This line used to pin `captured 2026-08-03 20:01Z`, which quietly
+        // asserted UTC rendering from a spec whose subject is the meta SENTENCE — so it broke the day
+        // instants became viewer-local, and would now pass or fail on the runner's own zone.
+        // The format contract is proven with a pinned locale/zone in `viewerTime.spec.mjs`; here we
+        // assert only what this pane actually composes.
+        const meta = pane.getReference('wakeroutes-meta').text;
+
+        expect(meta).toContain('2 seat routes · every axis observed · captured ');
+        expect(meta).not.toContain('unknown time');   // an instant WAS formatted, whatever the zone
+        expect(meta).toMatch(/captured .*\d/);        // …and it carries digits, not an empty tail
 
         // The rendered card carries the state IN THE SENTENCE (never colour alone), reason attached.
         const rows  = pane.getReference('wakeroutes-rows'),
@@ -118,8 +126,14 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
         expect(texts[0][0]).toBe('@neo-opus-ada');
         expect(texts[0][1]).toBe('subscription: none');
         expect(texts[0][2]).toContain('armed: unobserved — arming read path unavailable');
-        expect(texts[0][5]).toContain('presence: idle · last seen 2026-08-03 18:29Z — stale add_memory activity');
-        expect(texts[1][4]).toBe('last failure: connect-timeout at 2026-08-03 19:00Z');
+        // Same split as the meta line above: these assert the SENTENCE this pane composes — the state
+        // word, the separator grammar and the attached reason — not the glyphs of the instant inside
+        // it. Pinning the formatted stamp here made the pane spec a second, zone-dependent test of the
+        // formatter, and it is the reason both lines broke on a change that touched neither the
+        // presence axis nor the failure axis.
+        expect(texts[0][5]).toContain('presence: idle · last seen ');
+        expect(texts[0][5]).toContain('— stale add_memory activity');
+        expect(texts[1][4]).toMatch(/^last failure: connect-timeout at .+\d/);
 
         pane.destroy()
     });

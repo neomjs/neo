@@ -2,6 +2,7 @@ import AgentSessionSummaries from '../../store/AgentSessionSummaries.mjs';
 import Button                from '../../../../src/button/Base.mjs';
 import Component             from '../../../../src/component/Base.mjs';
 import Container             from '../../../../src/container/Base.mjs';
+import {formatViewerTime}    from './viewerTime.mjs';
 
 /**
  * The invoked Fleet memories surface: what one agent has been doing, session by session.
@@ -404,11 +405,14 @@ class MemoriesPane extends Container {
         }
     }
 
-    /** @param {Date|String|Number|null} value @returns {String} */
+    /**
+     * @summary Viewer-local stamp via the shared cockpit formatter — see `viewerTime.mjs` for why
+     * format is single-sourced while this pane keeps its own "unknown time" miss-copy.
+     * @param {Date|String|Number|null} value
+     * @returns {String}
+     */
     formatStamp(value) {
-        const date = new Date(value);
-
-        return Number.isFinite(date.getTime()) ? date.toISOString().replace('T', ' ').slice(0, 16) + 'Z' : 'unknown time'
+        return formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 
