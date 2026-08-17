@@ -739,10 +739,46 @@ class IssueSyncer extends Base {
             const oldPathRelative = oldIssue?.path;
             const oldAbsolutePath = oldIssue ? this.#resolvePath(oldPathRelative) : null;
 
+            // --- EVICTION, AND WHY IT RUNS BEFORE SEALED-CHUNK ENFORCEMENT ---
+            // A null targetPath means "this issue must not exist on disk" — denylisted, or dropped by
+            // label. That is a containment decision, and containment cannot be conditional on where
+            // the file happens to live.
+            //
+            // This block sat BELOW the sealed-chunk block and was therefore unreachable for an
+            // archived closed issue: `wasArchived && targetPath !== oldAbsolutePath` is
+            // unconditionally true when targetPath is null, so enforcement reassigned it to the old
+            // path and the eviction never ran. The issue was re-written instead of removed — no
+            // error, no stat, silent. All three conditions are ordinary: already-synced (the case the
+            // number leg exists for), CLOSED (what a moderator does first), archived.
+            //
+            // Ordering is the whole fix. Sealed-chunk semantics answer "which bucket does this file
+            // belong in", which is only a question for a file that belongs on disk at all. Asking it
+            // first lets a bucket rule overrule a containment rule.
+            if (!targetPath) {
+                stats.dropped.count++;
+                stats.dropped.issues.push(issueNumber);
+
+                if (oldPathRelative) {
+                    try {
+                        await fs.unlink(oldAbsolutePath);
+                        shouldPruneEmptyDirs = true;
+                        logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldAbsolutePath}`);
+                    } catch (e) { /* File might not exist */ }
+                }
+
+                delete newMetadata.issues[issueNumber];
+
+                indexMutations.remove.push({ type: 'issues', id: issueNumber });
+                continue;
+            }
+
             // --- ARCHIVE ANOMALY DETECTION & SEALED-CHUNK SEMANTICS ---
             // Detect if an issue's closedAt timestamp has shifted from a previously known value.
             // Under sealed-chunk semantics, historical items should not jump archive buckets
             // just because a maintainer toggled the state.
+            //
+            // Reached only for an issue that IS staying on disk, so `targetPath` is non-null here and
+            // both branches below compare two real paths.
             if (oldIssue && issue.state === 'CLOSED') {
                 const wasArchived = oldAbsolutePath && oldAbsolutePath.startsWith(issueSyncConfig.archiveRoot);
 
@@ -759,25 +795,6 @@ class IssueSyncer extends Base {
                     logger.warn(`[SEALED CHUNK ENFORCEMENT] Issue #${issueNumber} bucket shifted, but it is already archived. Forcing retention at ${oldAbsolutePath}.`);
                     targetPath = oldAbsolutePath;
                 }
-            }
-
-            if (!targetPath) {
-                stats.dropped.count++;
-                stats.dropped.issues.push(issueNumber);
-                const oldPathRelative = metadata.issues[issueNumber]?.path;
-                if (oldPathRelative) {
-                    try {
-                        const oldPath = this.#resolvePath(oldPathRelative);
-                        await fs.unlink(oldPath);
-                        shouldPruneEmptyDirs = true;
-                        logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
-                    } catch (e) { /* File might not exist */ }
-                }
-                // Remove from metadata
-                delete newMetadata.issues[issueNumber];
-
-                indexMutations.remove.push({ type: 'issues', id: issueNumber });
-                continue;
             }
 
             const needsUpdate = !oldIssue ||

@@ -1493,6 +1493,74 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(JSON.stringify(index)).not.toContain('issue-60003')
     });
 
+    test('a denylisted issue that is CLOSED and already ARCHIVED is still evicted (#17246)', async () => {
+        // The hole @neo-opus-grace found on review. `#getIssuePath` returns null for a denylisted
+        // issue, but the sealed-chunk block ran FIRST and its second branch is
+        // `wasArchived && targetPath !== oldAbsolutePath` — unconditionally true when targetPath is
+        // null. So enforcement reassigned the old path and the eviction below it never ran: the
+        // hostile artifact was re-written instead of removed, silently.
+        //
+        // All three conditions are ordinary, not exotic: already-synced (the exact case the number
+        // leg exists for), CLOSED (what a moderator does first), and archived. The fix is ordering —
+        // containment decides whether a file belongs on disk at all, which is upstream of the bucket
+        // question sealed-chunk answers.
+        const N  = 60005;
+        const ts = '2026-05-01T00:00:00Z';
+
+        const archivedAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v12.0.0', 'chunk-1', `issue-${N}.md`);
+        const archivedRel = path.relative(aiConfig.projectRoot, archivedAbs);
+
+        await fs.ensureDir(path.dirname(archivedAbs));
+        await fs.writeFile(archivedAbs, 'hostile content that a moderator classified after ingestion', 'utf8');
+
+        const hostile = buildMockIssue({
+            number       : N,
+            title        : 'Archived, closed, and only later classified',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        hostile.state     = 'CLOSED';
+        hostile.closedAt  = ts;
+        hostile.updatedAt = ts;
+        hostile.milestone = {title: 'v12.0.0'};
+
+        GraphqlService.query = async query => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: ts},
+                    repository: {issues: {pageInfo: {hasNextPage: false, endCursor: null}, nodes: [structuredClone(hostile)]}}
+                };
+            }
+
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(hostile)}}
+            }
+
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`)
+        };
+
+        const metadata = {
+            lastSync: '2026-01-01T00:00:00Z',
+            issues  : {
+                [N]: {state: 'CLOSED', updatedAt: ts, closedAt: ts, milestone: 'v12.0.0', path: archivedRel, contentHash: 'h', commentsTotal: 0}
+            }
+        };
+
+        // closedAt is deliberately UNCHANGED between metadata and the fetched issue: the resurrection
+        // needed no anomaly, only the else-branch, which is why it could not be found by looking for
+        // a warning in the log.
+        const {stats, newMetadata} = await withIssueDenylist(
+            {numbers: [N], authors: []},
+            () => IssueSyncer.pullFromGitHub(metadata)
+        );
+
+        expect(stats.dropped.issues).toContain(N);
+        expect(newMetadata.issues[N]).toBeUndefined();
+        await expect(fs.pathExists(archivedAbs)).resolves.toBe(false);
+    });
+
     test('the empty default denylist is a no-op — identical output with and without the gate (#17246)', async () => {
         const issue = buildMockIssue({
             number       : 60004,
