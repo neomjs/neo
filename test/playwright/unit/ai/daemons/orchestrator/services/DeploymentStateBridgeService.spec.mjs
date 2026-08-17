@@ -41,6 +41,7 @@ const BRIDGE_CONFIG_PATHS = [
     'orchestrator.deploymentStateBridge.statsSampleWindow',
     'orchestrator.deploymentStateBridge.providerResidencyServiceKeys',
     'orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys',
+    'orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys',
     'orchestrator.deploymentStateBridge.recoveryRunLimit',
     'orchestrator.deploymentStateBridge.selfHealRecentEventLimit',
     'orchestrator.deploymentStateBridge.snapshotPath',
@@ -97,6 +98,7 @@ function createService({
     directProbeFn = null,
     providerResidencyProbe = async () => null,
     providerLaneShapeProbe = null,
+    providerModelIdentityProbe = null,
     providerActivityProbe = null,
     providerActivityWindowMs = 24 * 60 * 60 * 1000,
     providerActivityLimit = 50,
@@ -117,6 +119,7 @@ function createService({
         directProbeFn,
         providerResidencyProbe,
         providerLaneShapeProbe,
+        providerModelIdentityProbe,
         providerActivityProbe,
         providerActivityWindowMs,
         providerActivityLimit,
@@ -3442,6 +3445,220 @@ test.describe('provider-lane shape routing — the embedding receipt must not ri
         expect(bridge.isProviderLaneShapeServiceKey('embedding-model')).toBe(true);
         expect(bridge.isProviderLaneShapeServiceKey('local-model')).toBe(true);
         expect(bridge.isProviderLaneShapeServiceKey('chat-model')).toBe(false);
+
+        bridge.destroy()
+    });
+});
+
+test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — embedding-lane model identity', () => {
+    const IDENTITY_CONFIG_PATHS = [
+        'orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys',
+        'orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys',
+        'orchestrator.deploymentStateBridge.providerResidencyServiceKeys',
+        'openAiCompatible.host',
+        'openAiCompatible.embeddingModel'
+    ];
+
+    let restoreIdentityConfig;
+
+    test.beforeEach(() => {
+        restoreIdentityConfig = snapshotAiConfig(AiConfig, IDENTITY_CONFIG_PATHS);
+
+        AiConfig.openAiCompatible.host           = 'http://127.0.0.1:8090';
+        AiConfig.openAiCompatible.embeddingModel = 'qwen3-embedding-0.6b'
+    });
+
+    test.afterEach(() => {
+        restoreIdentityConfig?.()
+    });
+
+    test('the served list naming the configured model reads MATCH, and publishes on a healthy plane too', async () => {
+        const bridge = createService({
+            providerModelIdentityProbe: async () => ['qwen3-embedding-0.6b', 'some-other-model']
+        });
+
+        const identity = await bridge.collectProviderModelIdentity({observedAt: 7});
+
+        expect(identity.state).toBe('match');
+        expect(identity.configuredModel).toBe('qwen3-embedding-0.6b');
+        expect(identity.reason).toBeNull();
+        // Published on a MATCH as well: proving a lane is serving the right model previously took a
+        // shell on the host, so the answer belongs in the artifact either way.
+        expect(identity.observedAt).toBe(7);
+
+        bridge.destroy()
+    });
+
+    test('the real incident reproduces: configured 0.6b, served 8B, and the SERVED id is named', async () => {
+        // A production plane ran Qwen3-Embedding-8B against a 0.6b configuration across two deploys.
+        // The only symptom was slow embeddings, read as a performance problem rather than a
+        // configuration one — this is the surface that makes it legible without a shell.
+        const bridge = createService({
+            providerModelIdentityProbe: async () => ['Qwen3-Embedding-8B-Q4_K_M']
+        });
+
+        const identity = await bridge.collectProviderModelIdentity({observedAt: 8});
+
+        expect(identity.state).toBe('mismatch');
+        expect(identity.reason).toContain('qwen3-embedding-0.6b');
+        expect(identity.reason).toContain('Qwen3-Embedding-8B-Q4_K_M');
+        expect(identity.servedModelIds).toEqual(['Qwen3-Embedding-8B-Q4_K_M']);
+
+        // The remediation speaks THIS lane's language. Borrowing the residency verdict's vendor-coupled
+        // advice would tell a llama.cpp container to run an `ollama` command that cannot work — on the
+        // very surface an operator reads without shell access.
+        expect(identity.reason).not.toContain('ollama');
+
+        bridge.destroy()
+    });
+
+    test('an endpoint that will not answer is UNOBSERVABLE, never a mismatch', async () => {
+        const bridge = createService({
+            providerModelIdentityProbe: async () => { throw new Error('ECONNREFUSED') }
+        });
+
+        const identity = await bridge.collectProviderModelIdentity({observedAt: 9});
+
+        // An identity check that cannot run is an unanswered question, never a confirmed match — and
+        // never a reported mismatch either, which would send an operator to fix a model that is fine.
+        expect(identity.state).toBe('unobservable');
+        expect(identity.reason).toContain('ECONNREFUSED');
+        expect(identity.servedModelIds).toBeNull();
+
+        bridge.destroy()
+    });
+
+    test('an answered-but-empty list is UNOBSERVABLE too — /v1/models is conventional, not guaranteed', async () => {
+        const bridge = createService({providerModelIdentityProbe: async () => []});
+
+        const identity = await bridge.collectProviderModelIdentity({observedAt: 10});
+
+        // Zero rows cannot separate "serves no models" from "does not answer this question", so a
+        // proxy or minimal runtime answering 200 with nothing enumerable must not read as a mismatch.
+        expect(identity.state).toBe('unobservable');
+
+        bridge.destroy()
+    });
+
+    test('no configured model is UNCONFIGURED — the question was never asked', async () => {
+        AiConfig.openAiCompatible.embeddingModel = '';
+
+        let probeCalls = 0;
+
+        const bridge = createService({
+            providerModelIdentityProbe: async () => { probeCalls++; return ['anything'] }
+        });
+
+        const identity = await bridge.collectProviderModelIdentity({observedAt: 11});
+
+        expect(identity.state).toBe('unconfigured');
+        expect(probeCalls, 'nothing to compare against, so the endpoint is not disturbed').toBe(0);
+
+        bridge.destroy()
+    });
+
+    test('the identity predicate is its OWN key — never residency, never lane-shape', async () => {
+        AiConfig.orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys = ['embedding-model'];
+        AiConfig.orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys     = ['local-model'];
+        AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys     = ['chat-model'];
+
+        const bridge = createService();
+
+        // Three sets, three lanes. Collapsing any pair publishes one lane's facts on another's record
+        // — and for residency specifically it would attach `ollama pull` remediation to a llama.cpp
+        // endpoint, which is the reason this is a third key rather than a reuse.
+        expect(bridge.isProviderModelIdentityServiceKey('embedding-model')).toBe(true);
+        expect(bridge.isProviderModelIdentityServiceKey('local-model')).toBe(false);
+        expect(bridge.isProviderModelIdentityServiceKey('chat-model')).toBe(false);
+
+        bridge.destroy()
+    });
+
+    test('a served model that changes under a running endpoint is re-read, never memoized', async () => {
+        // Deliberately unlike the lane-shape receipt, which is a one-shot boot reading. Slot geometry
+        // cannot change without a restart; the model a running endpoint serves CAN, so a cached match
+        // would outlive the fact it reported — a health surface asserting yesterday's truth.
+        let served = ['qwen3-embedding-0.6b'];
+
+        const bridge = createService({providerModelIdentityProbe: async () => served});
+
+        expect((await bridge.collectProviderModelIdentity({observedAt: 1})).state).toBe('match');
+
+        served = ['Qwen3-Embedding-8B-Q4_K_M'];
+
+        expect((await bridge.collectProviderModelIdentity({observedAt: 2})).state).toBe('mismatch');
+
+        bridge.destroy()
+    });
+});
+
+test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — identity gating at the CALL SITE', () => {
+    const IDENTITY_WIRING_PATHS = [
+        'orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys',
+        'orchestrator.deploymentStateBridge.providerResidencyServiceKeys',
+        'orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys',
+        'openAiCompatible.host',
+        'openAiCompatible.embeddingModel'
+    ];
+
+    let restoreWiringConfig;
+
+    /** Minimal runtime seam — this suite asserts gating, not container facts. */
+    function runtimeStub() {
+        return {
+            async readObserve(request) {
+                return request.operation === 'inspect'
+                    ? {data: {Id: 'c-x', State: {Status: 'running'}}, proof: {operation: 'inspect'}}
+                    : {data: null, proof: {operation: request.operation}}
+            }
+        }
+    }
+
+    test.beforeEach(() => {
+        restoreWiringConfig = snapshotAiConfig(AiConfig, IDENTITY_WIRING_PATHS);
+
+        AiConfig.openAiCompatible.host           = 'http://127.0.0.1:8090';
+        AiConfig.openAiCompatible.embeddingModel = 'qwen3-embedding-0.6b';
+        // The three sets are made DISJOINT so a collapsed gate cannot accidentally still fire.
+        AiConfig.orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys = ['embedding-model'];
+        AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys     = ['chat-model'];
+        AiConfig.orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys     = ['local-model']
+    });
+
+    test.afterEach(() => {
+        restoreWiringConfig?.()
+    });
+
+    test('the snapshot publishes identity for a participant and withholds it for a non-participant', async () => {
+        // This is the assertion the predicate test could NOT make. Testing `isProviderModelIdentity-
+        // ServiceKey` in isolation proves the function; it says nothing about which predicate the
+        // collection path actually calls. A mutation swapping the call site onto the residency
+        // predicate left the isolated predicate test green — a pure-function corpus cannot catch an
+        // unreachable or mis-wired call site, so the gate has to be exercised through the snapshot.
+        const bridge = Neo.create(DeploymentStateBridgeService, {
+            runtimeAccessService      : runtimeStub(),
+            diagnosisService          : Neo.create(ContainerHealthDiagnosisService, {}),
+            providerResidencyProbe    : async () => null,
+            providerModelIdentityProbe: async () => ['qwen3-embedding-0.6b'],
+            writeLog                  : () => {},
+            nowFn                     : () => OBSERVED_AT
+        });
+
+        const participant = await bridge.collectServiceSnapshot({serviceKey: 'embedding-model', observedAt: OBSERVED_AT});
+
+        expect(participant.providerModelIdentity).not.toBeNull();
+        expect(participant.providerModelIdentity.state).toBe('match');
+
+        // `chat-model` is the RESIDENCY key here. If the call site were gated on residency this would
+        // carry an identity receipt — which is exactly the mutation this test exists to kill.
+        const residencyOnly = await bridge.collectServiceSnapshot({serviceKey: 'chat-model', observedAt: OBSERVED_AT});
+
+        expect(residencyOnly.providerModelIdentity).toBeNull();
+
+        // …and `local-model` is the LANE-SHAPE key, so the other possible collapse is covered too.
+        const shapeOnly = await bridge.collectServiceSnapshot({serviceKey: 'local-model', observedAt: OBSERVED_AT});
+
+        expect(shapeOnly.providerModelIdentity).toBeNull();
 
         bridge.destroy()
     });

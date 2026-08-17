@@ -1442,7 +1442,30 @@ class ConfigBase extends ConfigProvider {
                      * @type {String[]}
                      */
                     providerLaneShapeServiceKeys: leaf(['local-model', 'embedding-model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_LANE_SHAPE_SERVICE_KEYS', 'csv'),
-                    recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number'),
+                    /**
+                     * @summary Services the embedding-lane MODEL-IDENTITY receipt attaches to — is the
+                     * configured `openAiCompatible.embeddingModel` the one the endpoint actually serves?
+                     *
+                     * A third key rather than a reuse, for the same reason the shape key is not the
+                     * residency key — and the sibling above already argues the lane half. This one adds
+                     * the REMEDIATION half, which is what makes reuse actively harmful rather than merely
+                     * imprecise: the residency verdict's advice is vendor-coupled (`ollama pull <model>`,
+                     * built into its message). Attaching identity to residency would tell a llama.cpp
+                     * container to run an `ollama` command that cannot work — emitted on the very surface
+                     * an operator reads WITHOUT shell access, which is the surface this observation exists
+                     * to make trustworthy. Wrong remediation is worse than silence: silence is a gap, a
+                     * confident wrong instruction is a false lead.
+                     *
+                     * Reusing the SHAPE key would be closer but still wrong: geometry and identity are
+                     * different assertions with different answerability, and one gate over two assertions
+                     * is exactly the defect this ticket's runtime half repaired.
+                     *
+                     * Same two-topology default as its siblings: `local-model` where one service holds
+                     * both roles, `embedding-model` where the lanes are split.
+                     * @type {String[]}
+                     */
+                    providerModelIdentityServiceKeys: leaf(['local-model', 'embedding-model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_MODEL_IDENTITY_SERVICE_KEYS', 'csv'),
+                    recoveryRunLimit                : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number'),
                     // Self-heal snapshot's recent-event cap — a DIFFERENT surface from recoveryRunLimit (heal-ledger
                     // events vs recovery-run states). collectSelfHealSnapshot validates it finite/non-negative (0 = no
                     // recent-event list) so a negative value can never expand the snapshot to every retained event.
