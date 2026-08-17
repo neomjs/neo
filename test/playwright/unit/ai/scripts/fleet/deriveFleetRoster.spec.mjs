@@ -1,6 +1,6 @@
 import {expect, test}      from '@playwright/test';
 import fs                  from 'node:fs';
-import {deriveFleetRoster} from '../../../../../../buildScripts/util/deriveFleetRoster.mjs';
+import {deriveFleetRoster} from '../../../../../../ai/scripts/fleet/deriveFleetRoster.mjs';
 import {
     normalizeFleetSources,
     normalizeSourceFact,
@@ -82,7 +82,7 @@ test.describe('deriveFleetRoster (registry-derived cockpit roster, #15621)', () 
 
     test('the snapshot carries its provenance in-band (_meta) and the committed file is in sync (no hand-painting)', () => {
         expect(doc._meta.authority).toBe('ai/graph/identityRoots.mjs');
-        expect(doc._meta.generator).toBe('buildScripts/util/deriveFleetRoster.mjs');
+        expect(doc._meta.generator).toBe('ai/scripts/fleet/deriveFleetRoster.mjs');
         expect(doc._meta.generatedAt).toBeTruthy();
 
         const committed = fs.readFileSync(COMMITTED, 'utf8');

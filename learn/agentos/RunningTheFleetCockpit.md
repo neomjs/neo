@@ -15,7 +15,7 @@ the app, and the fleet HTTP transport the cockpit's controls and live feeds ride
 npm run cockpit
 ```
 
-That is the whole boot. The launcher (`buildScripts/devCockpit.mjs`) supervises both processes and
+That is the whole boot. The launcher (`ai/scripts/fleet/devCockpit.mjs`) supervises both processes and
 opens the browser directly on the cockpit surface (`apps/agentos/index.html`). On a fresh checkout
 this lands you on a live roster with working controls — no second terminal, no manual server start.
 

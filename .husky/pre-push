@@ -13,5 +13,5 @@ set -e
 payload="$(cat)"
 
 printf '%s\n' "$payload" | node ./buildScripts/util/check-branch-discipline.mjs
-printf '%s\n' "$payload" | node ./buildScripts/util/check-commit-authorship.mjs
+printf '%s\n' "$payload" | node ./ai/scripts/lint/check-commit-authorship.mjs
 printf '%s\n' "$payload" | node ./buildScripts/util/check-spec-retirement.mjs

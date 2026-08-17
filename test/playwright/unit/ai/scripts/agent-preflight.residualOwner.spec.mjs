@@ -1,5 +1,5 @@
 import {expect, test}   from '@playwright/test';
-import {validatePrBody} from '../../../../../../buildScripts/util/agent-preflight.mjs';
+import {validatePrBody} from '../../../../../ai/scripts/agent-preflight.mjs';
 
 /**
  * Deferred work must name a home that SURVIVES the merge.

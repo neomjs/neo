@@ -8,15 +8,15 @@ import {fileURLToPath} from 'node:url';
 
 // Neo namespace bootstrap (entry-point invariant): the fleet transport's module chain reaches the
 // fleet singletons' `Neo.setupClass` at load — mirror devFleetServer's bootstrap order.
-import Neo             from '../../../../../src/Neo.mjs';
-import * as core       from '../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 import http from 'node:http';
 
-import {COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, buildFleetChildEnv, planCockpitBoot, probeFleetEndpoint, probePlaneIdentity, resolveLivePlaneConfig} from '../../../../../buildScripts/devCockpit.mjs';
-import {startFleetBridgeServer}                                                                                                                       from '../../../../../ai/services/fleet/fleetBridgeServer.mjs';
-import {generateLocalBearerToken}                                                                                                                     from '../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
+import {COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, buildFleetChildEnv, planCockpitBoot, probeFleetEndpoint, probePlaneIdentity, resolveLivePlaneConfig} from '../../../../../../ai/scripts/fleet/devCockpit.mjs';
+import {startFleetBridgeServer}                                                                                                                       from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {generateLocalBearerToken}                                                                                                                     from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 
 const authenticatedOptions = overrides => ({
     port         : 0,
@@ -26,7 +26,7 @@ const authenticatedOptions = overrides => ({
     ...overrides
 });
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..');
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 /**
  * The boot-plan witnesses for the one-command cockpit launcher: the pure decision seam
@@ -34,7 +34,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * spawn-on-free) and the identity probe run against the REAL fleet transport, a bare TCP
  * listener, and a closed port — a listener is never presumed to be a fleet server.
  */
-test.describe('buildScripts/devCockpit — the live-by-default boot plan', () => {
+test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', () => {
     // Two witnesses below OWN the real :8083 endpoint (the composed boot and the reuse
     // falsifier). Parallel workers would race them onto the same port — and under the
     // authenticated-reuse contract the loser correctly REFUSES, failing the wrong test.
@@ -171,7 +171,7 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
 
         // the webpack child is stubbed via the injectable command seam — the composed-boot witness
         // targets the SUPERVISION + fleet identity, not a webpack build (its own suite territory)
-        const launcher = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs')], {
+        const launcher = spawn(process.execPath, [path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs')], {
             cwd: repoRoot,
             env: {
                 ...process.env,
@@ -245,7 +245,7 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
               }));
 
         const launchCockpit = env => new Promise(resolve => {
-            const child = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs')], {
+            const child = spawn(process.execPath, [path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs')], {
                 cwd: repoRoot,
                 env: {
                     ...process.env,
@@ -308,7 +308,7 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
  * through the REAL launcher — the full live boot against a fixture plane, the unreachable-plane
  * fail-fast, and the never-adopt-an-incumbent refusal.
  */
-test.describe('buildScripts/devCockpit — the live-plane journey (cockpit:live)', () => {
+test.describe('ai/scripts/fleet/devCockpit — the live-plane journey (cockpit:live)', () => {
     // The composed witnesses below own :8083 in turn (serial, same discipline as the boot-plan suite).
     test.describe.configure({mode: 'serial'});
 
@@ -507,7 +507,7 @@ test.describe('buildScripts/devCockpit — the live-plane journey (cockpit:live)
 
         fs.writeFileSync(tokenFile, 'fixture-file-token-42\n');
 
-        const launcher = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs'), '--live'], {
+        const launcher = spawn(process.execPath, [path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs'), '--live'], {
             cwd: repoRoot,
             env: {
                 ...process.env,
@@ -546,7 +546,7 @@ test.describe('buildScripts/devCockpit — the live-plane journey (cockpit:live)
     test('live mode fails FAST on an unreachable plane — before any page or transport spawns', async () => {
         test.setTimeout(30000);
 
-        const launcher = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs'), '--live'], {
+        const launcher = spawn(process.execPath, [path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs'), '--live'], {
             cwd: repoRoot,
             env: {
                 ...process.env,
@@ -581,7 +581,7 @@ test.describe('buildScripts/devCockpit — the live-plane journey (cockpit:live)
 
         try {
             const result = await new Promise(resolve => {
-                const child = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs'), '--live'], {
+                const child = spawn(process.execPath, [path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs'), '--live'], {
                     cwd: repoRoot,
                     env: {
                         ...process.env,

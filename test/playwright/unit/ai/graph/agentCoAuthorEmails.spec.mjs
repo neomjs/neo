@@ -5,7 +5,7 @@ import {
     rosterEmailForLogin,
     reconcileWithRegistry,
     registryAgentLogins
-}                      from '../../../../../../buildScripts/util/agentCoAuthorEmails.mjs';
+}                      from '../../../../../ai/graph/agentCoAuthorEmails.mjs';
 
 /**
  * Addresses lifted from real history: two derivations that reached `dev` — one from the display
@@ -17,7 +17,7 @@ const
     CANONICAL          = 'neo-opus-4-7@neomjs.com',
     commit             = (body, sha = 'a'.repeat(40)) => ({sha, subject: 'subject', body});
 
-test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
+test.describe('ai/graph/agentCoAuthorEmails (#16280)', () => {
     test.describe('registry reconciliation', () => {
         test('every agent seat in the registry has an address — no seat is silently unvalidatable', () => {
             expect(reconcileWithRegistry().missingEmail).toEqual([]);
