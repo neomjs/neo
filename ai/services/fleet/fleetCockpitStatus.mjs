@@ -122,6 +122,14 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                   agentId     = publicAgent.id,
                   repoStatus  = statusByAgentId.get(agentId) || null,
                   runtime     = runtimeByAgentId.get(agentId) || null,
+                  // Runtime supervision is wired for this row only when the producer actually holds a
+                  // process record — NOT merely because a row came back. `fleetRuntimeStatus` answers
+                  // for every REGISTERED agent by design, so row-existence is a roster fact, and
+                  // reading it as a supervision fact is what let a `benched / offline` verdict render
+                  // over seats the fleet never launched. An `unmanaged` row is the producer
+                  // stating it observes nothing here; the honest source state for that is `not-wired`,
+                  // which the display contract already renders as the external-harness topology.
+                  supervised  = runtime != null && runtime.state !== 'unmanaged',
                   wake        = wakeByAgentId.get(agentId) || null,
                   throttle    = throttleByAgentId.get(agentId) || null,
                   presence    = presenceByAgentId.get(agentId) || null
@@ -150,7 +158,7 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                 participationStatus: publicAgent.participationStatus ?? null,
                 agent              : publicAgent,
                 repoStatus,
-                lifecycle          : runtime
+                lifecycle          : supervised
                     ? {
                         source    : FLEET_COCKPIT_SOURCES.runtime,
                         state     : runtime.state ?? 'unknown',
@@ -235,9 +243,17 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                     },
                     runtime: {
                         source    : FLEET_COCKPIT_SOURCES.runtime,
-                        state     : runtime ? 'wired' : 'not-wired',
-                        confidence: runtime ? (runtime.confidence ?? 'observed') : 'none',
-                        reason    : runtime ? boundReason(runtime.reason) : 'runtime process status is pending the Fleet runtime-status wire method'
+                        state     : supervised ? 'wired' : 'not-wired',
+                        confidence: supervised ? (runtime.confidence ?? 'observed') : 'none',
+                        // An unmanaged row carries its OWN cause ("no fleet process record …"), which is
+                        // strictly more informative than the axis-level not-wired default and must not be
+                        // overwritten by it — the default describes a missing WIRE, this describes a
+                        // present producer observing nothing for this agent.
+                        reason    : supervised
+                            ? boundReason(runtime.reason)
+                            : (runtime?.reason
+                                ? boundReason(runtime.reason)
+                                : 'runtime process status is pending the Fleet runtime-status wire method')
                     },
                     wake: {
                         source    : FLEET_COCKPIT_SOURCES.wake,

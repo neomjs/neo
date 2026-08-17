@@ -95,9 +95,38 @@ test.describe('Neo.ai.services.fleet.FleetManager — fleetRuntimeStatus (roster
         };
 
         expect(FleetManager.fleetRuntimeStatus()).toEqual([
-            {agentId: 'alice', state: 'running', running: true,  confidence: 'observed', source: 'fleet:runtimeStatus'},
-            {agentId: 'bob',   state: 'stopped', running: false, confidence: 'inferred', source: 'fleet:runtimeStatus'}
+            {agentId: 'alice', state: 'running', running: true, confidence: 'observed', source: 'fleet:runtimeStatus'},
+            {
+                agentId   : 'bob',
+                state     : 'unmanaged',
+                running   : false,
+                confidence: 'none',
+                reason    : 'no fleet process record: this agent runs outside fleet supervision',
+                source    : 'fleet:runtimeStatus'
+            }
         ]);
+    });
+
+    test('an agent the fleet never launched reports unmanaged, NOT stopped — never-launched is not stopped (#17305)', () => {
+        // The incident: nine external-harness seats rendered `benched / offline` because `status()`
+        // answers `stopped` for an agent it holds no record of — a sound lifecycle default, an
+        // invented verdict once republished as fleet truth. The row must still EXIST (the roster
+        // guarantee is about row existence), it just may not assert a session state.
+        const registryStub = {listAgents: () => [{id: 'grace'}]};
+
+        FleetManager.lifecycleService = {
+            getRegistry: () => registryStub,
+            status     : id => ({id, state: 'stopped', running: false, pid: null, startedAt: null, exitCode: null})
+        };
+
+        const [row] = FleetManager.fleetRuntimeStatus();
+
+        expect(row.state).toBe('unmanaged');
+        expect(row.state).not.toBe('stopped');
+        // Absence of signal, never a verdict: no confidence is claimed, and the cause travels with
+        // the fact because downstream normalization is forbidden from inventing one.
+        expect(row.confidence).toBe('none');
+        expect(row.reason).toBe('no fleet process record: this agent runs outside fleet supervision');
     });
 
     test('a tracked-but-stopped agent reads observed (a process record backs it) — state never invented', () => {

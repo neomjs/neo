@@ -30,6 +30,12 @@ import {
 import {THROTTLE_SOURCE_LABEL} from '../../../../../../ai/services/fleet/fleetThrottleStateAdapter.mjs'
 import {WAKE_SOURCE_LABEL}     from '../../../../../../ai/services/fleet/fleetWakeStateAdapter.mjs'
 
+// Same both-sides-meet licence as the labels above, for the one assertion that has to span the whole
+// chain. The never-launched-reads-benched defect was invisible to every single-layer test because each
+// layer was correct on its own terms — the producer reported what it was asked, the assembler wired
+// what it was handed, the display rendered its input faithfully. Only the composition was a lie.
+import {mapFleetSessionHealth, resolveFleetDisplayState} from '../../../../../../apps/agentos/view/fleet/sourceHealth.mjs'
+
 test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
     test('passes identity display facts through from assembler-enriched agents — nulls when un-enriched (never guessed)', () => {
         const snapshot = createFleetCockpitStatus({
@@ -100,6 +106,93 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         // no runtime entry -> the DTO's own placeholder-never-renders-as-fact discipline
         expect(snapshot.rows[1].lifecycle).toMatchObject({state: 'not-wired', confidence: 'none'})
         expect(snapshot.rows[1].sources.runtime).toMatchObject({state: 'not-wired', confidence: 'none'})
+    })
+
+    test('an unmanaged runtime row is NOT wired — row-existence is a roster fact, not a supervision fact (#17305)', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents       : [{id: 'grace'}],
+            runtimeStatus: [{
+                agentId   : 'grace',
+                state     : 'unmanaged',
+                running   : false,
+                confidence: 'none',
+                reason    : 'no fleet process record: this agent runs outside fleet supervision'
+            }]
+        })
+
+        // A row came back, so the pre-fix mapping called this `wired` and published the row's state
+        // as session truth — which is how a `benched / offline` verdict rendered over seats the fleet
+        // never launched. Supervision is keyed on holding a process record, not on answering.
+        expect(snapshot.rows[0].sources.runtime).toMatchObject({state: 'not-wired', confidence: 'none'})
+        expect(snapshot.rows[0].sources.runtime.state).not.toBe('wired')
+
+        // The producer's own cause survives instead of being overwritten by the axis-level
+        // "pending the wire method" default — that default describes a missing WIRE, this describes a
+        // present producer that observes nothing for this agent.
+        expect(snapshot.rows[0].sources.runtime.reason).toBe('no fleet process record: this agent runs outside fleet supervision')
+
+        expect(snapshot.rows[0].lifecycle).toMatchObject({state: 'not-wired', confidence: 'none'})
+    })
+
+    test('END TO END: an unmanaged row renders `external`, never `benched / offline` (#17305)', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents       : [{id: 'grace'}],
+            runtimeStatus: [{
+                agentId   : 'grace',
+                state     : 'unmanaged',
+                running   : false,
+                confidence: 'none',
+                reason    : 'no fleet process record: this agent runs outside fleet supervision'
+            }]
+        })
+
+        const row     = snapshot.rows[0],
+              session = mapFleetSessionHealth(row.lifecycle, row.sources),
+              display = resolveFleetDisplayState({state: session.state, sources: session.sources})
+
+        // The operator's witnessed defect, as one assertion: `off` is the state that renders the
+        // "benched / offline" card text, and it is a participation verdict the fleet has no standing
+        // to make about a seat it never launched.
+        expect(display).toBe('external')
+        expect(display).not.toBe('off')
+
+        // And it must arrive there HONESTLY. Routing an unrecognized state through the mapper's
+        // downgrade path also yields `external`, but only by rewriting the runtime source to
+        // `invalid` / "lifecycle and runtime facts contradict" — a fabricated conflict, made
+        // operator-visible by design. A right answer via an invented reason is the same defect class
+        // this ticket closes, relocated to a field nobody checks.
+        expect(session.sources.runtime.state).toBe('not-wired')
+        expect(session.sources.runtime.state).not.toBe('invalid')
+        expect(session.sources.runtime.reason).toBe('no fleet process record: this agent runs outside fleet supervision')
+    })
+
+    test('END TO END control: a real stopped record still renders `off` — the benched verdict Fleet IS entitled to (#17305)', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents       : [{id: 'alice'}],
+            runtimeStatus: [{agentId: 'alice', state: 'stopped', running: false, confidence: 'observed'}]
+        })
+
+        const row     = snapshot.rows[0],
+              session = mapFleetSessionHealth(row.lifecycle, row.sources),
+              display = resolveFleetDisplayState({state: session.state, sources: session.sources})
+
+        // Without this control the fix could pass by making EVERY row external — which would delete
+        // the one honest benched/offline signal instead of correcting its scope.
+        expect(display).toBe('off')
+        expect(session.sources.runtime.state).toBe('wired')
+    })
+
+    test('a REAL stopped record stays wired and keeps stopped — the operator-benched fact remains observable (#17305)', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents       : [{id: 'alice'}],
+            runtimeStatus: [{agentId: 'alice', state: 'stopped', running: false, confidence: 'observed'}]
+        })
+
+        // The negative control for the fix: without it, a genuine fleet-managed stop would be
+        // laundered into the same not-wired bucket and the one verdict Fleet IS entitled to make
+        // would disappear.
+        expect(snapshot.rows[0].sources.runtime).toMatchObject({state: 'wired', confidence: 'observed'})
+        expect(snapshot.rows[0].lifecycle).toMatchObject({state: 'stopped', confidence: 'observed'})
     })
 
     test('composes roster and repo status with explicit source labels', () => {
