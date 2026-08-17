@@ -75,6 +75,15 @@
             color      : var(--fm-ink-dim);
             font-style : italic;
         }
+
+        // A DECLARATION never earns the emphasis an OBSERVATION does. `is-enabled` bolds a state the
+        // fleet read back; a declared row carries the same word shape but only the registry behind
+        // it, so it must not shout equally loud. Deliberately NOT italic — `is-unknown` owns italic
+        // for "not read back yet", and a declared row is a different fact from an unobserved one.
+        // Placed after `is-enabled` because both selectors have equal specificity; source order wins.
+        &.is-declared .fm-config-value {
+            font-weight : 400;
+        }
     }
 
     .fm-config-toggle {

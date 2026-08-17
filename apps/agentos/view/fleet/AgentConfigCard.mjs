@@ -18,6 +18,20 @@ import {
  * enable-state via `resolveMcpMatrix` — null matrix = catalog defaults), and the operational
  * toggles with tri-state honesty (On / Off / "Not read back yet" — never an optimistic guess).
  * Every label is operator product language; transport vocabulary never renders.
+ *
+ * **Two authorities render here, and each section names which one it speaks with.** The registry
+ * is a DECLARATION — what a seat is configured to run. The operational toggles are READ BACK — what
+ * the fleet actually observed. Presenting both as a bare `On`/`Off` let a declaration masquerade as
+ * a measurement: a seat that had filed four issues through its github-workflow server within the
+ * hour rendered `GitHub workflow: Off`, because the registry said so and nothing on the row admitted
+ * that the registry was all it knew. The operator read a stale declaration as a dead server.
+ *
+ * So declared rows say `Declared on` / `Declared off` and their sections are marked `· declared`,
+ * while read-back rows keep the plain state words under `· read back`. The distinction lives in the
+ * WORD rather than a colour, matching `CARD-CONTRACT.md`'s rule that the adjacent hue may carry
+ * emphasis but the text is the colour-independent channel. A wrong declaration is now readable AS a
+ * wrong declaration — and since these rows are toggles, the operator can correct the thing the row
+ * actually reports.
  */
 class AgentConfigCard extends Component {
     static config = {
@@ -260,7 +274,7 @@ class AgentConfigCard extends Component {
         }, {
             cls: ['fm-config-section'],
             cn : [
-                {tag: 'strong', cls: ['fm-config-heading'], text: 'Memory & knowledge'},
+                {tag: 'strong', cls: ['fm-config-heading'], text: 'Memory & knowledge · declared'},
                 {
                     cls: ['fm-config-chips', 'fm-config-targets'],
                     cn : targetChoices
@@ -269,20 +283,23 @@ class AgentConfigCard extends Component {
         }, {
             cls: ['fm-config-section'],
             cn : [
-                {tag: 'strong', cls: ['fm-config-heading'], text: 'Servers'},
+                {tag: 'strong', cls: ['fm-config-heading'], text: 'Servers · declared'},
                 ...listMcpServers().map(server => ({
                     id : `${me.id}__srv__${server.key}`,
-                    cls: ['fm-config-row', 'fm-config-toggle', matrix[server.key] ? 'is-enabled' : 'is-disabled'],
+                    cls: ['fm-config-row', 'fm-config-toggle', 'is-declared', matrix[server.key] ? 'is-enabled' : 'is-disabled'],
                     cn : [
                         {cls: ['fm-config-label'], text: server.label},
-                        {cls: ['fm-config-value'], text: matrix[server.key] ? 'On' : 'Off'}
+                        // `Declared` is load-bearing, not decoration: the fleet cannot observe an
+                        // external harness's live server set, so this row only ever knows what the
+                        // registry says. A bare `Off` here claimed an observation nobody made.
+                        {cls: ['fm-config-value'], text: matrix[server.key] ? 'Declared on' : 'Declared off'}
                     ]
                 }))
             ]
         }, {
             cls: ['fm-config-section'],
             cn : [
-                {tag: 'strong', cls: ['fm-config-heading'], text: 'Operations'},
+                {tag: 'strong', cls: ['fm-config-heading'], text: 'Operations · read back'},
                 this.createToggleRow('Hooks',              record.hooksActive),
                 this.createToggleRow('Wake subscriptions', record.wakeSubscriptionsActive)
             ]
