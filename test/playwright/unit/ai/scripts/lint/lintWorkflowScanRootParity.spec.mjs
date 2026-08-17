@@ -80,6 +80,16 @@ const REGISTRY = Object.freeze({
         source   : 'declared',
         surface  : ['test/playwright/unit/**']
     },
+    // Whole-tree by construction: the guard answers "does every `src/` package have values in BOTH
+    // neo themes, or a baselined justification", which is a property of the tree rather than of a
+    // diff. A package reaches zero coverage on the commit that adds its structure sheet, and that
+    // commit may touch no theme file at all — so the surface is the whole SCSS tree, not the
+    // theme directories the guard's verdict happens to be about.
+    'theme-coverage-lint.yml': {
+        scriptRel: 'buildScripts/util/check-theme-coverage.mjs',
+        source   : 'declared',
+        surface  : ['resources/scss/**/*.scss']
+    },
     'config-template-ssot-lint.yml': {
         scriptRel: 'ai/scripts/lint/lint-config-template-ssot.mjs',
         source   : 'imported',
