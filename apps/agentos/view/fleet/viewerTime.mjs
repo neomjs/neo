@@ -26,6 +26,31 @@
  */
 
 /**
+ * @summary The receipt half for surfaces that interpolate a stamp INTO a sentence.
+ *
+ * `formatViewerTime` hands back `{text, title}` and a caller rendering the instant as its own
+ * element can use both. A prose line cannot: `captured ${stamp}` is one string, so a per-substring
+ * `title` would need the line split into nested nodes for a hover nobody asked to be that precise.
+ * The proportionate answer is a title on the CONTAINING line, which is what this builds.
+ *
+ * **Without it these panes lose citability outright, and that is a regression rather than a gap.**
+ * They previously rendered `2026-08-03 20:01Z` — exact, zone-free, quotable into an evidence table.
+ * Viewer-local text alone has no year and no zone marker, so an agent citing a catch-up window or a
+ * capture time would have nothing recoverable. The module's promise that the operator and the citing
+ * agent are "not forced to pick" only holds if this travels with the text.
+ *
+ * Multiple instants join with `·` in argument order, matching how the sentence reads them.
+ * @param {...(String|Number|Date|null)} instants
+ * @returns {String|null} ISO instants joined, or null when none are formattable — `null` is the
+ *     remove signal for `changeVdomRootKey`, so a line that loses its stamp loses its title too.
+ */
+export function viewerTimeTitle(...instants) {
+    const isos = instants.map(instant => formatViewerTime(instant)?.title).filter(Boolean);
+
+    return isos.length > 0 ? isos.join(' · ') : null
+}
+
+/**
  * @summary Shared same-day predicate over the viewer's calendar, not UTC's.
  * Comparing UTC dates would call 23:30 Berlin "yesterday" for half the evening.
  * @param {Intl.DateTimeFormat} dayFormat
@@ -80,9 +105,13 @@ export function formatViewerTime(instant, options = {}) {
         dayFormat  = new Intl.DateTimeFormat(locale, {year: 'numeric', month: '2-digit', day: '2-digit', ...zoneOptions});
         dateFormat = new Intl.DateTimeFormat(locale, {month: 'short', day: 'numeric', ...zoneOptions})
     } catch {
-        timeFormat = new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit'});
-        dayFormat  = new Intl.DateTimeFormat(undefined, {year: 'numeric', month: '2-digit', day: '2-digit'});
-        dateFormat = new Intl.DateTimeFormat(undefined, {month: 'short', day: 'numeric'})
+        // Only the ZONE is discarded. An earlier revision rebuilt with `undefined` locale too, which
+        // silently threw away a perfectly valid locale because a sibling option was bad: `de-DE` +
+        // a broken zone fell back to the ambient locale and flipped 24-hour `10:15` to `10:15 AM`.
+        // Degrade the option that failed, never its neighbours.
+        timeFormat = new Intl.DateTimeFormat(locale, {hour: '2-digit', minute: '2-digit'});
+        dayFormat  = new Intl.DateTimeFormat(locale, {year: 'numeric', month: '2-digit', day: '2-digit'});
+        dateFormat = new Intl.DateTimeFormat(locale, {month: 'short', day: 'numeric'})
     }
 
     const time = timeFormat.format(date);

@@ -108,16 +108,24 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
         expect(clio.failureErrorClass).toBe('connect-timeout');
         expect(clio.failureAt).toBe('2026-08-03T19:00:00.000Z');
 
-        // Composition, not format. This line used to pin `captured 2026-08-03 20:01Z`, which quietly
-        // asserted UTC rendering from a spec whose subject is the meta SENTENCE — so it broke the day
-        // instants became viewer-local, and would now pass or fail on the runner's own zone.
-        // The format contract is proven with a pinned locale/zone in `viewerTime.spec.mjs`; here we
-        // assert only what this pane actually composes.
-        const meta = pane.getReference('wakeroutes-meta').text;
+        // Composition and VALUE, not format. This line used to pin `captured 2026-08-03 20:01Z`,
+        // which quietly asserted UTC rendering from a spec whose subject is the meta SENTENCE — so it
+        // broke the day instants became viewer-local, and re-pinning would pass or fail on the
+        // runner's own zone. The format contract is proven with a pinned locale/zone in
+        // `viewerTime.spec.mjs`.
+        //
+        // But composition alone was too weak, and the gap is the point: `toContain('captured ')` plus
+        // a digits match passes if the pane formats the WRONG instant — swap `capturedAt` for
+        // `lastSeenAt` and every such assertion still holds. "This pane formats the instant it
+        // claims to" is the PANE's contract, not the formatter's, so it must survive the split.
+        //
+        // The title is the zone-free way to pin it: it carries the exact ISO by construction, so this
+        // is stable in Berlin and in a UTC runner alike while asserting nothing about glyphs.
+        const metaEl = pane.getReference('wakeroutes-meta');
 
-        expect(meta).toContain('2 seat routes · every axis observed · captured ');
-        expect(meta).not.toContain('unknown time');   // an instant WAS formatted, whatever the zone
-        expect(meta).toMatch(/captured .*\d/);        // …and it carries digits, not an empty tail
+        expect(metaEl.text).toContain('2 seat routes · every axis observed · captured ');
+        expect(metaEl.text).not.toContain('unknown time');
+        expect(metaEl.vdom.title).toBe('2026-08-03T20:01:00.000Z');
 
         // The rendered card carries the state IN THE SENTENCE (never colour alone), reason attached.
         const rows  = pane.getReference('wakeroutes-rows'),
@@ -134,6 +142,17 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
         expect(texts[0][5]).toContain('presence: idle · last seen ');
         expect(texts[0][5]).toContain('— stale add_memory activity');
         expect(texts[1][4]).toMatch(/^last failure: connect-timeout at .+\d/);
+
+        // Same value-pinning as the meta line, per axis: the receipt names WHICH instant the row
+        // formatted, so a row that renders a plausible time from the wrong field still fails.
+        const axes = rows.items.map(card => card.items.map(line => line.vdom?.title ?? null));
+
+        expect(axes[0][5]).toBe('2026-08-03T18:29:27.443Z'); // ada's presence lastSeenAt
+        expect(axes[1][4]).toBe('2026-08-03T19:00:00.000Z'); // clio's failure receipt failedAt
+
+        // …and an axis carrying no instant carries no title: an empty receipt would read as
+        // "no instant exists" rather than "this line has no time in it".
+        expect(axes[0][1]).toBeNull();                       // subscription: none
 
         pane.destroy()
     });

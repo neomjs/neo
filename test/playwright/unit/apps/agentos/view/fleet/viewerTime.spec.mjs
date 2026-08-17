@@ -13,10 +13,10 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../../../../src/Neo.mjs';
-import * as core          from '../../../../../../../src/core/_export.mjs';
-import {formatViewerTime} from '../../../../../../../apps/agentos/view/fleet/viewerTime.mjs';
+import {test, expect}                      from '@playwright/test';
+import Neo                                 from '../../../../../../../src/Neo.mjs';
+import * as core                           from '../../../../../../../src/core/_export.mjs';
+import {formatViewerTime, viewerTimeTitle} from '../../../../../../../apps/agentos/view/fleet/viewerTime.mjs';
 
 // Zone and locale are PINNED on every call. A test that relied on the runner's ambient zone would
 // pass in CI (UTC) while proving nothing about the defect, which is specifically that a viewer OUTSIDE
@@ -82,6 +82,41 @@ test.describe('AgentOS fleet viewerTime — viewer-local presentation, UTC wire 
 
         expect(view).not.toBeNull();
         expect(view.title).toBe('2026-08-17T08:15:00.000Z')
+    });
+
+    test('an invalid zone degrades ONLY the zone — a valid locale survives it', () => {
+        // Caught by @neo-opus-ada in review. The fallback rebuilt every formatter with `undefined`
+        // locale, so one bad option silently discarded a good neighbour: `de-DE` is 24-hour, and the
+        // ambient-locale fallback under this runner renders `10:15 AM` — a 12/24-hour flip riding on
+        // top of the zone fallback.
+        //
+        // The degradation test above could not see it BY CONSTRUCTION: it passes no locale, so it has
+        // nothing to lose. A probe that supplies only the failing option cannot detect collateral
+        // damage to the options beside it.
+        const view = formatViewerTime('2026-08-17T08:15:00.000Z', {locale: 'de-DE', timeZone: 'Mars/Olympus'});
+
+        expect(view).not.toBeNull();
+        expect(view.text).not.toMatch(/\b(AM|PM)\b/);
+        expect(view.title).toBe('2026-08-17T08:15:00.000Z')
+    });
+
+    test('viewerTimeTitle carries the receipt for prose lines, in sentence order', () => {
+        // The T5 receipt for surfaces that interpolate a stamp mid-sentence and therefore cannot give
+        // the substring its own `title`.
+        expect(viewerTimeTitle('2026-08-17T08:15:00.000Z')).toBe('2026-08-17T08:15:00.000Z');
+
+        // A window is only citable as a PAIR, and order follows how the sentence reads it.
+        expect(viewerTimeTitle('2026-08-17T08:00:00.000Z', '2026-08-17T09:00:00.000Z'))
+            .toBe('2026-08-17T08:00:00.000Z · 2026-08-17T09:00:00.000Z');
+
+        // Null is the REMOVE signal for changeVdomRootKey — an empty title would read as "no receipt
+        // exists" rather than "this line has no instant in it".
+        expect(viewerTimeTitle(null)).toBeNull();
+        expect(viewerTimeTitle('not-a-date')).toBeNull();
+        expect(viewerTimeTitle(null, 'nope')).toBeNull();
+
+        // a mixed list keeps only what is formattable, rather than emitting a gap
+        expect(viewerTimeTitle(null, '2026-08-17T08:15:00.000Z')).toBe('2026-08-17T08:15:00.000Z')
     });
 
     test('Date and epoch-ms inputs are accepted alongside ISO strings', () => {
