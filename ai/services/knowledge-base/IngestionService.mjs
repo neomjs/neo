@@ -311,6 +311,11 @@ class IngestionService extends Base {
                     chunks               : embeddableChunks,
                     onProviderTimeout    : controls.onProviderTimeout,
                     replayEmbeddingPoison: controls.replayEmbeddingPoison === true,
+                    // Fourth member of the control envelope, alongside signal / onProviderTimeout /
+                    // poison replay. Optional by construction: an absent predicate leaves
+                    // `embedChunks` on its `() => false` default, so a caller that supplies no
+                    // budget behaves exactly as it does today.
+                    shouldYield: controls.shouldYield,
                     signal               : controls.signal,
                     tenantContext,
                     summary,
@@ -453,7 +458,8 @@ class IngestionService extends Base {
         viaMcp = true,
         signal,
         onProviderTimeout,
-        replayEmbeddingPoison = false
+        replayEmbeddingPoison = false,
+        shouldYield
     }) {
         const groups = new Map();
 
@@ -473,6 +479,7 @@ class IngestionService extends Base {
                     deleteStale  : false,
                     onProviderTimeout,
                     replayEmbeddingPoison,
+                    shouldYield,
                     signal,
                     tenantContext: {...tenantContext, repoSlug},
                     viaMcp
@@ -532,7 +539,22 @@ class IngestionService extends Base {
                     }));
                 }
 
-                summary.embeddingsGenerated += result?.embedded ?? group.length;
+                // `result.embedded` or nothing — never `group.length`. The old fallback credited the
+                // ENTIRE group as landed whenever the field was absent, which is the one direction
+                // this counter must never round: `embeddingsGenerated` is the `embedded` term in
+                // `deriveOutstanding`, so over-crediting it reports a corpus as fully embedded while
+                // chunks are still outstanding, and the checkpoint settles over work that never
+                // landed. Under-counting is recoverable — the next sweep re-selects; over-counting
+                // is not, because nothing goes looking again.
+                summary.embeddingsGenerated += Number.isSafeInteger(result?.embedded) ? result.embedded : 0;
+
+                // A slice that stopped early is not a corpus that finished. Sticky across groups:
+                // one yielded group means the run as a whole did not exhaust its work, and a later
+                // complete group must not clear that.
+                if (result?.yielded === true) {
+                    summary.yielded = true;
+                }
+
                 this.updateIngestionProgress({
                     embeddedChunks: summary.embeddingsGenerated,
                     errorCount    : summary.errors.length
@@ -720,6 +742,11 @@ class IngestionService extends Base {
             deleted            : 0,
             embeddingsGenerated: 0,
             skippedOversized   : 0,
+            // False until an embed run reports it stopped on a budget rather than on exhaustion.
+            // Initialised here rather than left undefined so consumers can distinguish "this run did
+            // not yield" from "this summary predates the field" — an absent boolean reads as false
+            // and would let a stale producer look like a complete run.
+            yielded   : false,
             errors             : [],
             tenantId           : aiConfig.defaultTenantId,
             durationMs         : Date.now() - startedAt
@@ -1184,7 +1211,18 @@ class IngestionService extends Base {
                     tenantId: tenantContext.tenantId,
                     repoSlug: normalized.repoSlug
                 }),
+                // `yielded` is a hard veto on minting, and it belongs HERE rather than only at the
+                // caller. A materialization receipt is a claim that the corpus is WHOLE: the next
+                // sweep matches it against the envelope digest and, on a hit, skips ingestion
+                // entirely. A bounded slice has positive effect — chunks really landed — so an
+                // effect-only test mints proof of completeness for a corpus with a remainder, and
+                // the checkpoint then settles over work that never landed. The slice is real
+                // progress and none of it is lost; what it is not is finished.
+                //
+                // This does NOT weaken crash-after-complete recovery: a run that exhausted its
+                // corpus reports `yielded: false` and mints exactly as before.
                 hasEffect      = summary.errors.length === 0
+                    && summary.yielded !== true
                     && [summary.ingested, summary.deleted]
                         .some(value => Number.isSafeInteger(value) && value > 0);
 

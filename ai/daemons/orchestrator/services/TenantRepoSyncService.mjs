@@ -37,6 +37,8 @@ import {
     TenantRepoAccessStatus
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
+    assertSliceBudgetMs,
+    createSliceBudgetPredicate,
     classifyEmbeddingRecoveryState,
     detectStarvedTenantSync,
     hasPendingEmbeddingRecoveryBypass,
@@ -53,6 +55,7 @@ import {
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+    KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
     KB_TENANT_REPO_SYNC_STARVED,
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
@@ -492,6 +495,20 @@ function classifyIngestionOutcome(summary) {
         error.sourceErrorCount = summary.errors.length;
 
         throw error
+    }
+
+    // Reached only on a CLEAN summary, and the ordering is the contract: an error-bearing run is
+    // classified above regardless of whether it also yielded. A slice that both hit a live failure
+    // and ran out of budget is a failure — the budget is the less urgent fact, and letting it
+    // reclassify the run would launder a real fault into a benign rotation.
+    if (summary.yielded === true) {
+        // Neither success nor failure. The corpus is not exhausted, so the checkpoint must not
+        // advance as though it were; but nothing went wrong, so no failure accounting applies.
+        // Distinct from `deferred`, which is the same STATE arrived at for the opposite REASON:
+        // deferral carries a retained cause and arms the recovery canary, because something is
+        // broken and a later health observation is what un-breaks it. A budgeted slice has no
+        // cause to retain and nothing to recover — it needs another turn, not a diagnosis.
+        return {outcome: 'partial-progress', summary, deferredCodes: []}
     }
 
     return {outcome: 'complete', summary, deferredCodes: []}
@@ -1605,7 +1622,7 @@ class TenantRepoSyncService extends Base {
      * Iterates configured tenantRepos and refreshes each via GitMirror → envelope → KB.
      *
      * @param {Object} options Forwarded from `runTask`.
-     * @returns {Promise<Object>} `{status, details: {repoCount, completedCount, failedCount, results}}`.
+     * @returns {Promise<Object>} `{status, details: {repoCount, completedCount, deferredCount, partialProgressCount, failedCount, results}}`.
      */
     async syncTenantRepos({
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
@@ -1615,6 +1632,7 @@ class TenantRepoSyncService extends Base {
         globalCadenceMs    = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio        = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
+        sliceBudgetMs      = AiConfig.data.orchestrator.tenantRepoSync.sliceBudgetMs,
         starvedAfterMs     = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
         healEventLedgerDir = revisionsFilePath ? path.join(path.dirname(revisionsFilePath), 'heal-events') : null,
         seedBootstrap      = true,
@@ -1631,6 +1649,12 @@ class TenantRepoSyncService extends Base {
                 {phase: 'full-replay-validation'}
             )
         }
+
+        // Validated BEFORE any repo is admitted, not at the first yield check. A budget that only
+        // fails once a slice is already running would refuse the sweep midway through a repo that
+        // had already acquired a slot — the operator sees a partial sweep and a config error at the
+        // same time and has to work out which caused which.
+        assertSliceBudgetMs(sliceBudgetMs);
 
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({ingestionService: knowledgeBaseIngestionService});
         const allRepos       = resolvedConfig.tenantRepos || [];
@@ -1941,6 +1965,10 @@ class TenantRepoSyncService extends Base {
         let   completedCount = 0;
         let   deferredCount  = 0;
         let   failedCount    = 0;
+        // Counted separately from `deferredCount`: a sweep where every repo rotated on its budget is
+        // healthy and making progress, while a sweep where every repo deferred is a lane in trouble.
+        // Folding them would make the two indistinguishable in the one number an operator reads.
+        let partialProgressCount = 0;
         let   abortedCount   = 0;
 
         // Per-runTask concurrency gate caps simultaneous git/ingest work.
@@ -2287,7 +2315,14 @@ class TenantRepoSyncService extends Base {
                             ...envelope,
                             ...(materializationAttempt ? {materializationAttempt} : {}),
                             viaMcp: false // operator-bulk path
-                        }, providerCircuitControls);
+                        }, {
+                            ...providerCircuitControls,
+                            // Per-repo, anchored at THIS repo's admission. The envelope above is
+                            // built once and shared by the whole sweep; a budget shared that way
+                            // would be spent by the first admitted repo and every later one born
+                            // already expired — a fairness fix that starves the tail it serves.
+                            shouldYield: createSliceBudgetPredicate({startedMs, sliceBudgetMs})
+                        });
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:
                 // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and
@@ -2436,6 +2471,69 @@ class TenantRepoSyncService extends Base {
                     });
 
                     deferredCount++;
+
+                    return
+                }
+
+                if (ingestOutcome.outcome === 'partial-progress') {
+                    // The slice ran out of budget on a healthy run. Same STATE as a deferral —
+                    // checkpoint holds, streak untouched, attempt stamp advances — arrived at for
+                    // the opposite reason, and the differences are what make it not a deferral:
+                    //
+                    // - No `lastSourceErrorCode` and no recovery episode. Nothing failed, so there
+                    //   is no cause to retain and nothing for the dependency-recovery canary to
+                    //   observe. Writing one would arm a recovery lane against a repo that is
+                    //   simply mid-corpus.
+                    // - It returns BEFORE `assertFullMaterializationEffect`. That guard mints or
+                    //   reuses a full-materialization receipt on positive effect, and a receipt is
+                    //   a claim that the corpus is whole. Minting one here is the shortcut that
+                    //   lets the NEXT sweep's `retryReceipt` branch skip ingestion entirely and
+                    //   settle a checkpoint over a remainder that never landed — the failure this
+                    //   outcome exists to prevent, and the one AC-6's negative arm pins.
+                    //
+                    // The streak is neither incremented nor reset, so a budgeted rotation cannot
+                    // climb a repo toward its backoff cap: being large is not a fault.
+                    const partialOutstanding = buildCorpusOutstandingObservation({
+                        summary   : rawSummary,
+                        priorState,
+                        observedAt: startedMs
+                    });
+
+                    persistedRevisions[repoLabel] = {
+                        ...priorState,
+                        lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
+                        lastRunAttemptAt                  : startedMs,
+                        consecutiveFailures               : priorState?.consecutiveFailures ?? 0,
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        corpusOutstanding                 : partialOutstanding
+                    };
+
+                    writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} partial-progress: ` +
+                        `slice budget reached, checkpoint held at ` +
+                        `${priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : 'none'} ` +
+                        `ingested=${rawSummary?.ingested ?? 0} ` +
+                        `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
+                        `(streak held at ${priorState?.consecutiveFailures ?? 0}; repo stays due)`);
+
+                    repoStates.push({
+                        tenantId        : repo.tenantId,
+                        repoSlug        : repo.repoSlug,
+                        lastIngestedRev : priorState?.lastIngestedRev ?? null,
+                        lastSyncAt      : new Date().toISOString(),
+                        status          : 'partial-progress',
+                        checkpointStatus: priorState?.checkpointStatus ?? TenantRepoCheckpointStatus.UNINITIALIZED,
+                        // The operator-facing point of this row: a plane owner must be able to see
+                        // every repo advancing rather than infer it from a total. Without the
+                        // outstanding stamp, a rotating repo is indistinguishable from a stuck one.
+                        corpusOutstanding: partialOutstanding
+                    });
+
+                    healthService?.recordTaskOutcome?.(taskName, 'partial-progress', {
+                        repo    : repoLabel,
+                        tenantId: repo.tenantId
+                    });
+
+                    partialProgressCount++;
 
                     return
                 }
@@ -2759,6 +2857,12 @@ class TenantRepoSyncService extends Base {
                 completedCount,
                 deferredCount,
                 failedCount,
+                // Reported alongside the others rather than folded into either. A repo that rotated
+                // on its budget neither completed nor deferred, and collapsing it into `completed`
+                // would tell a plane owner the corpus is done while a remainder is outstanding —
+                // collapsing it into `deferred` would report a healthy rotating lane as one in
+                // trouble. The per-repo rows carry the outstanding stamp; this is the total.
+                partialProgressCount,
                 notDueCount,
                 revalidationDeferredCount,
                 ...(detection.starved ? {starved: true, starvedEvidence: detection.evidence} : {}),

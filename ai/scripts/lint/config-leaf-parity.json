@@ -467,6 +467,7 @@
         "orchestrator.tenantRepoSync.backoffCapMs",
         "orchestrator.tenantRepoSync.jitterRatio",
         "orchestrator.tenantRepoSync.leaseStaleAfterMs",
+        "orchestrator.tenantRepoSync.sliceBudgetMs",
         "orchestrator.tenantRepoSync.starvedAfterMs",
         "orchestrator.tenantRepoSync.sweepCadenceMs",
         "orchestrator.wakeDispatch",
