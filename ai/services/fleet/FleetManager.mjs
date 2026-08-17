@@ -191,6 +191,17 @@ class FleetManager extends Base {
      * a reason naming the absence — **absence of signal, never a verdict** — and the state is never
      * invented. A record the fleet does own keeps `running` / `stopped` verbatim: that IS the
      * operator-benched fact, and it stays observable.
+     *
+     * **`running: false` on an unmanaged row is a KNOWN residual assertion, kept deliberately — not
+     * inherited by oversight.** The sentence above is honest about `state` and `confidence` and only
+     * approximately honest here: if never-launched is not stopped, then no-record is equally not
+     * not-running, and an external-harness seat may well be running right now. It survives because
+     * `running` is a Boolean with no room for *unknown*, so correcting it means widening a PUBLISHED
+     * wire-method field to a tri-state — a contract change, not a fix, and out of scope for the defect
+     * this method's split addresses. The cost is bounded and was measured rather than assumed: the only
+     * consumer that reads the field is `ai/scripts/fleet/onboardPeer.mjs`, and `Boolean(null) === false`
+     * means it would behave identically either way. Widen it when a consumer actually needs to
+     * distinguish "not running" from "we do not know" — and delete this paragraph when you do.
      * @returns {Object[]} one `{agentId, state, running, confidence, source}` entry per registered agent;
      *     unmanaged rows additionally carry `reason`.
      */
