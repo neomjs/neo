@@ -13,14 +13,8 @@
 // project these exact values; the engine default codifies what shipped, rather than the
 // GitHub-dark literals the structure layer carries as last-resort fallbacks. The signal
 // teal is the preview design artifact's «Signal glow» identity.
-:where(.neo-theme-neo-dark) {
-    --agent-dock-preview-accept      : #5eead4;
-    --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
-    --agent-dock-preview-reject      : #f4718b;
-    --agent-dock-preview-reject-fill : rgba(244, 113, 139, 0.16);
+@use 'preview-accents' as *;
 
-    // «Signal glow» variant: glow teal + an 18% flood on the deep ground (ground lives in
-    // the sibling Container.scss values file, which owns the indicator/chip family).
-    --agent-dock-preview-signal      : #5eead4;
-    --agent-dock-preview-signal-fill : rgba(94, 234, 212, 0.18);
+:where(.neo-theme-neo-dark) {
+    @include preview-accents;
 }

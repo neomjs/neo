@@ -1,0 +1,24 @@
+// The accept/reject/signal accent family (light), shared by BOTH dashboard values sheets.
+//
+// Why a partial rather than a value in one file: the family has two independent readers in the
+// structure layer — `src/dashboard/DockPreview.scss` paints the preview affordances with it, and
+// `src/dashboard/Container.scss` paints the drop indicators, chips and the Signal-glow variant with
+// the same accents. Each values sheet must resolve STANDALONE (a host may load either one first,
+// or only one at all: `additionalThemeFiles` names a single class and is not transitive, because it
+// takes a className string precisely for classes that were never imported). So both output sheets
+// carry the family — but a colour duplicated in four places is a colour that drifts in three of
+// them, so the source lives here once per theme and is included where it is needed.
+//
+// Provenance: the converged application language. The light skin's deep pigment keeps the identity
+// legible on paper; light chips float, they do not glow.
+@mixin preview-accents {
+    --agent-dock-preview-accept      : #0d9488;
+    --agent-dock-preview-accept-fill : rgba(13, 148, 136, 0.14);
+    --agent-dock-preview-reject      : #be123c;
+    --agent-dock-preview-reject-fill : rgba(190, 18, 60, 0.12);
+
+    // «Signal glow» variant: the deep-pigment daylight signal + a paper-safe 14% flood (the ground
+    // itself is an indicator/chip surface and lives in the Container values sheet).
+    --agent-dock-preview-signal      : #0f766e;
+    --agent-dock-preview-signal-fill : rgba(15, 118, 110, 0.14);
+}

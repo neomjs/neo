@@ -11,14 +11,8 @@
 //
 // Provenance: the converged application language. The light skin's deep pigment keeps the
 // identity legible on paper; light chips float, they do not glow.
-:where(.neo-theme-neo-light) {
-    --agent-dock-preview-accept      : #0d9488;
-    --agent-dock-preview-accept-fill : rgba(13, 148, 136, 0.14);
-    --agent-dock-preview-reject      : #be123c;
-    --agent-dock-preview-reject-fill : rgba(190, 18, 60, 0.12);
+@use 'preview-accents' as *;
 
-    // «Signal glow» variant: the deep-pigment daylight signal + a paper-safe 14% flood
-    // (ground lives in the sibling Container.scss values file).
-    --agent-dock-preview-signal      : #0f766e;
-    --agent-dock-preview-signal-fill : rgba(15, 118, 110, 0.14);
+:where(.neo-theme-neo-light) {
+    @include preview-accents;
 }
