@@ -55,7 +55,8 @@ import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {assertFleetPlaneAdmissionBearerClass,
-        assertFleetViewerMcAuthorizationClass}                            from './fleetServer.mjs';
+        assertFleetViewerMcAuthorizationClass,
+        resolveFleetPlaneBearer}                                                from './fleetServer.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader,
         createPlaneWakeObservationsReader}                               from './planeWakeIdentitiesReader.mjs';
@@ -95,10 +96,13 @@ async function boot() {
     //    a bearer resolving to any OTHER subject would silently re-attribute every admission
     //    decision — refusal is the only honest outcome.
     //  - in-process mode: the existing host-graph verification (seeded AgentIdentity node).
-    const planeBase   = AiConfig.fleet.planeBase.trim(),
+    const planeBase = AiConfig.fleet.planeBase.trim(),
+          // The credential resolves through the sanctioned two-home read (direct value, else the
+          // declared secret file): the dev entry is a Fleet entry, so the file custody class the
+          // leaf documents holds on this journey too — never the direct leaf alone.
           planeClient = planeBase ? createPlaneMailboxClient({
               baseUrl   : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
-              credential: AiConfig.fleet.planeBearer
+              credential: resolveFleetPlaneBearer()
           }) : null;
 
     let
