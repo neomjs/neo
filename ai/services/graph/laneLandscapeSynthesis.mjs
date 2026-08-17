@@ -47,6 +47,22 @@ export function selectLandscapeSynthesisInputIds(landscape = {}) {
  * @param {Object} params.landscape A projected current-state landscape.
  * @returns {String} The prompt.
  */
+/**
+ * @summary Renders a census count for the prompt, keeping "I could not look" distinct from "zero".
+ *
+ * A degraded census reports `null` counts because a total is a completeness claim it cannot make.
+ * Rendering that as `0` would hand a model a fabricated fact in the one section of the prompt it is
+ * told to treat as ground truth ("use ONLY the structure above"), and the model has no way to tell
+ * an absent measurement from a measured absence. The word does what the `null` does: it cannot be
+ * read as a quantity.
+ *
+ * @param {Number|null|undefined} value A census count, or `null` when the census was degraded.
+ * @returns {String|Number} The count, or an explicit unknown marker.
+ */
+function countForPrompt(value) {
+    return typeof value === 'number' ? value : 'unknown (census degraded — not zero)'
+}
+
 export function buildLaneLandscapeSynthesisPrompt({landscape} = {}) {
     const goal      = landscape?.goalTrajectory || [],
           blocked   = landscape?.dependencyPath || [],
@@ -72,11 +88,18 @@ export function buildLaneLandscapeSynthesisPrompt({landscape} = {}) {
         ...blockedLines,
         '',
         'AUTHORITY COVERAGE:',
-        `- assigned: ${authority.assignedCount ?? 0}`,
-        `- unassigned: ${authority.unassignedCount ?? 0}${(authority.unassignedIds || []).length > 0 ? ` (${authority.unassignedIds.join(', ')})` : ''}`,
+        // `?? 0` here would be the projection's own defect one layer lower and pointed at a MODEL:
+        // a degraded census now reports `null` counts (a total is a completeness claim it cannot
+        // make), and coercing that to `0` would write "assigned: 0" into a prompt as fact. The
+        // caller skips synthesis entirely while degraded, so this is unreachable through
+        // `exploreLaneLandscape` — but the builder is exported and its spec calls it directly, so
+        // the honest rendering is what belongs here rather than a default that only stays correct
+        // while an upstream guard holds.
+        `- assigned: ${countForPrompt(authority.assignedCount)}`,
+        `- unassigned: ${countForPrompt(authority.unassignedCount)}${(authority.unassignedIds || []).length > 0 ? ` (${authority.unassignedIds.join(', ')})` : ''}`,
         '',
         'CENSUS COVERAGE:',
-        `- total open items: ${coverage.totalOpenItems ?? 0}`,
+        `- total open items: ${countForPrompt(coverage.totalOpenItems)}`,
         `- relation edges: ${coverage.edgeCount ?? 0}`,
         '',
         'Write a concise structural description across three dimensions: goal trajectory, dependency /',
