@@ -6,6 +6,12 @@
 .fm-mailbox-pane {
     gap       : 6px;
     min-height: 0;
+    /* The sibling of the min-height above, and mount-agnostic for the same reason: a flex item's
+       automatic minimum size is its content size, so without this the pane cannot shrink below its
+       rows' intrinsic width. In the AgentDetail tab that measured 1081.64px inside a 256px slot
+       (#17313) — the pop-out host never showed it, because an OS window viewport bounds the pane
+       for free. Same defect, two geometries, only one of them forgiving. */
+    min-width : 0;
 
     .fm-mailbox-head {
         gap        : 8px;
