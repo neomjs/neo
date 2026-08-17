@@ -1,3 +1,42 @@
+import {
+    KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
+    TenantRepoSyncError
+} from '../services/TenantRepoSyncErrors.mjs';
+
+/**
+ * @summary Rejects a `tenantRepoSync.sliceBudgetMs` that cannot bound anything.
+ *
+ * Mirrors the gate shape `beforeSetConcurrencyLimit` uses — positive integer, nothing else — but
+ * THROWS where that one substitutes. The asymmetry is deliberate and is about what each value can
+ * do when wrong: a bad concurrency limit degrades throughput and the sweep still finishes, while a
+ * bad slice budget removes the only bound on how long one repo may hold a slot. Substituting a
+ * working number there would leave an operator believing they had tuned fairness while the shipped
+ * guarantee was something else, and the symptom — a starved tail — is indistinguishable from the
+ * defect this budget exists to remove.
+ *
+ * `0` is rejected like any other invalid value rather than read as a disable. A disable sentinel
+ * would mean "unlimited slot hold", spelled as though it were an off switch.
+ *
+ * Lives here rather than beside its caller because the caller imports Neo: a validator that cannot
+ * be exercised without booting the class system is a validator whose own contract goes untested.
+ * The service reads the leaf at its use site and passes the resolved value in — never the leaf,
+ * never a re-derivation.
+ * @param {*} value Resolved `AiConfig.data.orchestrator.tenantRepoSync.sliceBudgetMs`.
+ * @returns {Number} The validated budget in ms.
+ * @throws {TenantRepoSyncError} `KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET` when not a positive integer.
+ */
+export function assertSliceBudgetMs(value) {
+    if (!Number.isInteger(value) || value < 1) {
+        throw new TenantRepoSyncError(
+            KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
+            `tenantRepoSync.sliceBudgetMs must be a positive integer in ms; received ${JSON.stringify(value)}. There is no disable value — express effectively-unbounded as a large number.`,
+            {phase: 'config-validation', received: value}
+        )
+    }
+
+    return value
+}
+
 /**
  * Builds the trigger for the cloud-deployable tenant-repo-sync lane.
  * Mirror of `buildPrimaryRepoSyncTrigger` in `./primaryDevSync.mjs` — pure function;

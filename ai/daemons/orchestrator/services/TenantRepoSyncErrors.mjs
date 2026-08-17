@@ -18,6 +18,17 @@ export const KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED    = 'KB_TENANT_REPO_SYNC_R
 export const KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND       = 'KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND';
 export const KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
 export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT';
+// A resolved `tenantRepoSync.sliceBudgetMs` that is not a positive integer. It refuses rather than
+// substituting a default, and the refusal is the point: this budget is the only thing bounding how
+// long one repo may hold a concurrency slot, so a value silently corrected back to a working number
+// would leave an operator believing they had tuned fairness while the shipped guarantee was
+// something else entirely.
+//
+// `0` reaches here like any other invalid value — deliberately, because the alternative reading is
+// the footgun. A disable sentinel would mean "unlimited slot hold", which is precisely the state
+// this budget exists to remove, spelled as though it were an off switch. Effectively-unbounded is
+// expressed as a large number, visibly, and there is no value that turns the bound off.
+export const KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET = 'KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET';
 export const KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION = 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION';
 // The OTHER half of what `EMPTY_MATERIALIZATION` used to carry, and the opposite instruction.
 // A full materialization DID take effect — rows were ingested or deleted — but no receipt proves

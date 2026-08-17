@@ -37,6 +37,7 @@ import {
     TenantRepoAccessStatus
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
+    assertSliceBudgetMs,
     classifyEmbeddingRecoveryState,
     detectStarvedTenantSync,
     hasPendingEmbeddingRecoveryBypass,
@@ -53,6 +54,7 @@ import {
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+    KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
     KB_TENANT_REPO_SYNC_STARVED,
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
@@ -1615,6 +1617,7 @@ class TenantRepoSyncService extends Base {
         globalCadenceMs    = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio        = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
+        sliceBudgetMs      = AiConfig.data.orchestrator.tenantRepoSync.sliceBudgetMs,
         starvedAfterMs     = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
         healEventLedgerDir = revisionsFilePath ? path.join(path.dirname(revisionsFilePath), 'heal-events') : null,
         seedBootstrap      = true,
@@ -1631,6 +1634,12 @@ class TenantRepoSyncService extends Base {
                 {phase: 'full-replay-validation'}
             )
         }
+
+        // Validated BEFORE any repo is admitted, not at the first yield check. A budget that only
+        // fails once a slice is already running would refuse the sweep midway through a repo that
+        // had already acquired a slot — the operator sees a partial sweep and a config error at the
+        // same time and has to work out which caused which.
+        assertSliceBudgetMs(sliceBudgetMs);
 
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({ingestionService: knowledgeBaseIngestionService});
         const allRepos       = resolvedConfig.tenantRepos || [];
