@@ -1,0 +1,45 @@
+name: Theme Coverage Lint
+
+# CI mirror of the lint-staged check-theme-coverage guard, so `git commit --no-verify` cannot bypass it
+# at the merge-gate — and so a merge commit, which stages files the author never touched, still gets the
+# check. Without this mirror the guard is inert in exactly the cases it exists for.
+#
+# The guard is whole-tree by construction rather than diff-scoped: it answers "does every src/ package
+# have values in BOTH neo themes, or a baselined justification", which is a property of the tree and not
+# of a diff. A package reaches zero coverage the moment its structure sheet is added, and that commit
+# may touch no theme file at all — so a path filter narrower than the whole SCSS tree would let the one
+# commit this guard exists to catch sail past it.
+#
+# PR-only: the scheduled data-sync pipeline pushes to dev with `[skip ci]`, so it never reaches this gate.
+
+on:
+  pull_request:
+    branches: [dev]
+    # Mirrors the lint-staged glob (`resources/scss/**/*.scss`) plus this guard's own sources, per the
+    # scanned ⊆ watched invariant `lint-guard-ci-parity` enforces.
+    paths:
+      - 'resources/scss/**/*.scss'
+      - 'buildScripts/util/check-theme-coverage.mjs'
+      - '.github/workflows/theme-coverage-lint.yml'
+
+concurrency:
+  group: theme-coverage-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # The guard reads the filesystem only — no argv parsing, no runtime deps — so node_modules is not
+      # required. Kept explicit so a future dependency does not fail here mysteriously.
+      - name: Check theme coverage (whole tree)
+        run: node buildScripts/util/check-theme-coverage.mjs
