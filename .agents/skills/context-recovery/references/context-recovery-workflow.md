@@ -35,6 +35,17 @@ message already redirects it.
 
 1. **Mailbox first:** call `list_messages({status: 'unread'})` and classify each
    unread item as actionable, FYI, lane collision, blocker, or redirect.
+
+1a. **Read what YOU sent** — every other axis here reads what was done TO you, so
+   nothing else surfaces your own commitments. Neither read blocks; record the null.
+   - **Sunset handover, BODY not subject:** `get_message` the latest continuity
+     self-DM (`from == to == @me`) in full, *regardless of read status* — bulk
+     `mark_read` and read-projection rollbacks hide it from `unread` scoping.
+     None → `sunset-body: none-found`.
+   - **Outbox:** `list_messages({box:'outbox'})` over the current window — relayed
+     rulings, lane claims, review verdicts. A ruling you RELAYED lives only in what
+     you SENT, and contradicting your own broadcast is worse than not knowing it,
+     because peers have already acted. None → `outbox: none-in-window`.
 2. **Recency feed:** call `query_recent_turns({agentIdentity: '@me', detail:
    'summary', limit: 20})` first. This is the chronological axis: identify the
    last lane, PR/ticket ids, branch, review verdicts, blockers, and unresolved
@@ -53,6 +64,10 @@ message already redirects it.
 Use `detail: 'full'` only when summaries are insufficient to identify the next
 action. Summary detail is the cheap graph-first path; full detail joins Chroma
 for prompt/response content and should be targeted.
+
+**A recall miss never supports a "was never saved" claim.** A failed search is
+evidence about the index, not the store; a failed or truncated read is not a read
+that found nothing. Read the primary artifact before asserting any absence.
 
 6. **Identity quarantine (post-compaction prior):** the self-story is the
    context most silently reconstructed after compaction — nothing fails loudly
@@ -88,6 +103,8 @@ Produce a compact recovery ledger before resuming:
 ```text
 context-recovery:
 - mailbox: <count + actionable ids>
+- sunset-body: <messageId read in full | none-found>
+- outbox: <commitments already published | none-in-window>
 - recency: <last ticket/PR/branch/action>
 - semantic: <memory ids or clear miss>
 - live-state: <issue/PR/branch verification>
