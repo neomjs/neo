@@ -102,4 +102,40 @@ test.describe('check-package-contents — fires on private state, not on the tra
         // "no forbidden entries" over a pack that never happened.
         expect(() => parsePackOutput('npm ERR! something went wrong\n')).toThrow(/no JSON array/);
     });
+
+    test('parsePackOutput finds a payload that starts at offset 0', () => {
+        // The lifecycle scripts are not a contract. The moment `prepare` stops writing to stdout the
+        // payload begins the string, and a matcher requiring a PRECEDING newline threw
+        // "no JSON array found" over output that had one. Safe direction — a throw reds the gate and
+        // can never false-pass — but a guard that breaks on a cleaner environment gets distrusted.
+        expect(parsePackOutput('[\n  {"entryCount": 2, "files": []}\n]\n')[0].entryCount).toBe(2);
+    });
+
+    test('the DevIndex rule survives the corpus being RENAMED — the defect it exists to end', () => {
+        // The sharpest case in this file, because the guard nearly reproduced defect #1 itself.
+        //
+        // The original `.npmignore` rule was pinned to `apps/devindex/resources/*.json` and went
+        // vacuous when the corpus moved into `data/` and became `.jsonl`. A gate pinned to
+        // `resources/data/` would go vacuous on the SAME move — rename `data/` → `corpus/` and both
+        // the ignore rule and its observer fall silent together, printing OK over a 26.5 MiB leak.
+        //
+        // Anchoring on `resources/` with `images/` allowed means a subtree that does not exist yet is
+        // excluded by default, so only a deliberate allowlist edit can widen it.
+        expect(findForbiddenEntries(['apps/devindex/resources/data/users.jsonl'])).toHaveLength(1);
+        expect(findForbiddenEntries(['apps/devindex/resources/corpus/users.jsonl'])).toHaveLength(1);
+        expect(findForbiddenEntries(['apps/devindex/resources/some-future-dataset/x.json'])).toHaveLength(1);
+
+        // and the one carve-out still passes, at any depth
+        expect(findForbiddenEntries(['apps/devindex/resources/images/logo.svg'])).toEqual([]);
+        expect(findForbiddenEntries(['apps/devindex/resources/images/icons/nested.svg'])).toEqual([]);
+    });
+
+    test('the rule set names DIRECTORIES only — the two generated portal FILES are a boundary, not a gap', () => {
+        // `.npmignore` also excludes `/apps/portal/sitemap.xml` and `/apps/portal/llms.txt` (3.22 MiB),
+        // and they are deliberately not gated here. Every prefix in the set names a tree whose leak
+        // would be a DISCLOSURE; the portal files are already public on neomjs.com, so shipping them
+        // is waste and not exposure. Asserted so the distinction is enforced rather than merely
+        // written down — a later editor adding a file-shaped rule has to change this test and say why.
+        expect(FORBIDDEN_PREFIXES.every(rule => rule.prefix.endsWith('/'))).toBe(true);
+    });
 });
