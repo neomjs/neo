@@ -52,9 +52,9 @@ jobs:
         run: |
           printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
           if [ "$PR_DRAFT" = "true" ]; then
-            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF" --pr-draft
+            node ai/scripts/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF" --pr-draft
           else
-            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF"
+            node ai/scripts/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF"
           fi
 
       - name: Validate PR Body

@@ -5,11 +5,25 @@ import path                       from 'node:path';
 import process                    from 'node:process';
 import {fileURLToPath}            from 'node:url';
 import {collectStaleOverlayFindings}
-                                   from '../../ai/scripts/setup/initServerConfigs.mjs';
+                                   from './setup/initServerConfigs.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
-    __dirname  = path.dirname(__filename);
+    __dirname  = path.dirname(__filename),
+    /**
+     * The gates this orchestrator SPAWNS (`check-ticket-archaeology`, `check-block-alignment`) are
+     * engine-side source guards and stay under `buildScripts/util/`; only this orchestrator moved
+     * Brain-side in the Class B relocation. So the default is resolved against that directory explicitly rather than
+     * against `__dirname`.
+     *
+     * It was `__dirname` while this file sat beside them, which was correct then and would have been
+     * silently wrong the moment the file moved: `path.join()` produces a path either way, and the
+     * failure would surface as a missing-file spawn at pre-commit time rather than at import. The
+     * unit specs already inject `scriptDir: '/repo/buildScripts/util'`, so they would have kept
+     * passing over a broken default — the reason this is a named constant and not an inlined join.
+     * @type {String}
+     */
+    GATE_DIR   = path.resolve(__dirname, '../../buildScripts/util');
 
 // Source-to-mirror: keep these PR-body anchors in sync with
 // `.github/workflows/agent-pr-body-lint.yml`. Do not reintroduce a shared
@@ -724,7 +738,7 @@ export function runAgentPreflight({
     execFileSyncImpl = execFileSync,
     existsSyncImpl   = existsSync,
     readFileSyncImpl = readFileSync,
-    scriptDir        = __dirname,
+    scriptDir        = GATE_DIR,
     stderr           = process.stderr,
     stdout           = process.stdout
 } = {}) {

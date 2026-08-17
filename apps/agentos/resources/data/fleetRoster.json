@@ -1,9 +1,9 @@
 {
     "_meta": {
-        "generatedAt": "2026-08-15T21:03:37.192Z",
+        "generatedAt": "2026-08-17T07:06:12.676Z",
         "authority": "ai/graph/identityRoots.mjs",
         "engineTags": "learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)",
-        "generator": "buildScripts/util/deriveFleetRoster.mjs",
+        "generator": "ai/scripts/fleet/deriveFleetRoster.mjs",
         "note": "Registry snapshot — participation truth, not live session state. Regenerate, do not hand-edit."
     },
     "data": [

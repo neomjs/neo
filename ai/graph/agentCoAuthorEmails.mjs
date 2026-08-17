@@ -1,4 +1,4 @@
-import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
+import {IDENTITIES} from './identityRoots.mjs';
 
 /**
  * @summary The `githubLogin → commit email` map behind the pre-push co-author trailer check.
@@ -28,7 +28,7 @@ import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
  *
  * @see #16280 — the ticket this module implements (ticket-ref-ok: implementing ticket)
  * @see ai/graph/identityRoots.mjs — the authoritative identity registry this map is keyed to
- * @see buildScripts/util/deriveFleetRoster.mjs — the precedent for a build script consuming that
+ * @see ai/scripts/fleet/deriveFleetRoster.mjs — the precedent for a build script consuming that
  *      registry alongside a small source-anchored map of facts the registry does not carry
  */
 

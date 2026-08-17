@@ -8,7 +8,7 @@
  * retired once transport custody establishes (`./connectionProfiles.mjs` custody discipline).
  *
  * Trust posture, client half: the endpoint only answers armed launches (`fleet.bearerHandshake`,
- * armed by `buildScripts/devCockpit.mjs`) and only for exact-allowlisted browser Origins — this
+ * armed by `ai/scripts/fleet/devCockpit.mjs`) and only for exact-allowlisted browser Origins — this
  * module simply asks once and treats every non-success as "no bearer". The result is held in
  * memory and handed to `installFleetBridge` as an argument; it is never persisted, logged, or
  * placed in a URL. Fail-closed by shape: any refusal, timeout, malformed body, or malformed token

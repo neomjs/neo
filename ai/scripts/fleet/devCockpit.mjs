@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @module buildScripts/devCockpit
+ * @module ai/scripts/fleet/devCockpit
  * @summary The one-command cockpit boot: `npm run cockpit` supervises BOTH processes a live
  * Fleet-Manager session needs — the webpack dev server (opened DIRECTLY on the AgentOS cockpit
  * surface via `--open-target`) and the fleet HTTP transport (`ai/services/fleet/devFleetServer.mjs`)
@@ -493,18 +493,18 @@ async function main() {
     let reuseProof = null;
 
     if (probe?.status === 'fleet') {
-        const {isLocalBearerToken} = await import('../ai/mcp/server/shared/helpers/localBearer.mjs');
+        const {isLocalBearerToken} = await import('../../mcp/server/shared/helpers/localBearer.mjs');
 
         if (isLocalBearerToken(process.env.NEO_FLEET_BEARER)) {
             try {
                 // The identity claim rides the shared stdio resolver, whose chain needs the Neo
                 // namespace — bootstrap it here, on this rare branch only, exactly like the fleet
                 // entrypoints do (the happy paths stay import-light).
-                await import('../src/Neo.mjs');
-                await import('../src/core/_export.mjs');
-                await import('../src/manager/Instance.mjs');
+                await import('../../../src/Neo.mjs');
+                await import('../../../src/core/_export.mjs');
+                await import('../../../src/manager/Instance.mjs');
 
-                const {probeExistingFleetServer, resolveFleetViewerClaim} = await import('../ai/services/fleet/fleetLaunchContract.mjs'),
+                const {probeExistingFleetServer, resolveFleetViewerClaim} = await import('../../services/fleet/fleetLaunchContract.mjs'),
                       viewer                                              = await resolveFleetViewerClaim();
 
                 reuseProof = await probeExistingFleetServer({
@@ -539,7 +539,7 @@ async function main() {
         // The launch contract: ONE process-lifetime bearer, generated here in launcher memory and
         // handed to the fleet child via env — the in-memory channel. Never logged, never a file.
         // An operator-pinned NEO_FLEET_BEARER wins (the child refuses a malformed pin itself).
-        const {generateLocalBearerToken} = await import('../ai/mcp/server/shared/helpers/localBearer.mjs'),
+        const {generateLocalBearerToken} = await import('../../mcp/server/shared/helpers/localBearer.mjs'),
               fleetBearer                = process.env.NEO_FLEET_BEARER || generateLocalBearerToken();
 
         // Injectable fleet-cmd seam (mirrors NEO_COCKPIT_WEBPACK_CMD): the composed-boot witness

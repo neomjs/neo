@@ -18,7 +18,7 @@ import {
     validateChangeClass,
     validatePrBody,
     validateStackedPrTickets
-}                     from '../../../../../../buildScripts/util/agent-preflight.mjs';
+}                     from '../../../../../ai/scripts/agent-preflight.mjs';
 
 const validBody = [
     'Resolves #12345',
@@ -31,7 +31,7 @@ const validBody = [
     '- Delivered as requested.',
     '',
     '## Test Evidence',
-    '- npm run test-unit -- test/playwright/unit/ai/buildScripts/util/agent-preflight.spec.mjs',
+    '- npm run test-unit -- test/playwright/unit/ai/scripts/agent-preflight.spec.mjs',
     '',
     '## Post-Merge Validation',
     '- None.'
@@ -48,7 +48,7 @@ const draftBody = [
     '- Draft helper extracted before the leaf close target is complete.',
     '',
     '## Test Evidence',
-    '- npm run test-unit -- test/playwright/unit/ai/buildScripts/util/agent-preflight.spec.mjs',
+    '- npm run test-unit -- test/playwright/unit/ai/scripts/agent-preflight.spec.mjs',
     '',
     '## Post-Merge Validation',
     '- None while draft.'

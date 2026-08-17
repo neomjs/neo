@@ -71,6 +71,6 @@ jobs:
       # the CI counterpart to checkout ownership, which exists only at the hook.
       - name: Lint commit authorship and co-author trailers
         run: >
-          node ./buildScripts/util/check-commit-authorship.mjs
+          node ./ai/scripts/lint/check-commit-authorship.mjs
           --author-login "${{ github.event.pull_request.user.login }}"
           < /dev/null

@@ -115,7 +115,7 @@ const REGISTRY = Object.freeze({
         source   : 'declared',
         surface  : [
             'ai/graph/identityRoots.mjs',
-            'buildScripts/util/deriveFleetRoster.mjs',
+            'ai/scripts/fleet/deriveFleetRoster.mjs',
             'learn/agentos/ModelStats.md'
         ]
     },

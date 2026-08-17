@@ -37,14 +37,19 @@ const BASELINE   = path.join(__dirname, 'check-engine-brain-boundary-baseline.js
  * engine runtime crosses. Specifiers are now joined to the importing file's directory and normalised
  * before anything is decided.
  *
- * **`from`-anchored sweeps cannot see a dynamic import.** Three earlier hand-greps missed
- * `buildScripts/devCockpit.mjs` entirely for this reason, which is why this reads
- * `ImportDeclaration` / `ImportExpression` nodes from the parse tree rather than matching text.
+ * **`from`-anchored sweeps cannot see a dynamic import.** Three earlier hand-greps missed the dev
+ * cockpit launcher entirely for this reason — all three of its crossings were `await import(...)`,
+ * which has no `from` keyword — which is why this reads `ImportDeclaration` / `ImportExpression`
+ * nodes from the parse tree rather than matching text. (That file has since moved Brain-side to
+ * `ai/scripts/fleet/devCockpit.mjs` in the Class B burndown, so it is named here as the
+ * anchor for WHY this parses rather than greps, not as a current offender.)
  *
  * ## Why a baseline rather than a clean gate
  *
- * Nine crossings across seven files, one of them the release path. Relocating them is multi-step
- * work; a gate failing on all nine from day one is a gate that gets disabled.
+ * The baseline opened at nine crossings across seven files, one of them the release path. Relocating
+ * them is multi-step work; a gate failing on all nine from day one is a gate that gets disabled. Six
+ * burned down with the Class B relocation; the three that remain are Class A, where the fix
+ * moves a concern rather than a file.
  *
  * The baseline exempts known debt — it is NOT the assertion. The check asserts the property: an
  * import from a file the baseline does not cover fails, so a new crossing in a new file cannot pass
@@ -79,8 +84,9 @@ const SCAN_ROOTS = Object.freeze(['buildScripts', 'src']);
  *
  * **Resolution, not text shape.** The first version of this test matched `/^(?:\.\.\/)+ai\//` on the
  * specifier alone, and that is wrong in a way that reads as correct: `../ai/Client.mjs` means
- * completely different things depending on where it is written. From `buildScripts/devCockpit.mjs`
- * it resolves to the Brain at `ai/`. From `src/worker/App.mjs` it resolves to **`src/ai/Client.mjs`**
+ * completely different things depending on where it is written. From a file directly under
+ * `buildScripts/` it resolves to the Brain at `ai/`. From `src/worker/App.mjs` it resolves to
+ * **`src/ai/Client.mjs`**
  * — the engine's own AI layer, the single sanctioned seam by which the Body connects to the Brain,
  * and unambiguously engine code.
  *
@@ -191,10 +197,12 @@ const crossingKey = entry => `${entry.file}::${entry.specifier}`;
 /**
  * @summary Collapses findings to one row per crossing, carrying how many times it occurs.
  *
- * The count is load-bearing, not decoration. `buildScripts/devCockpit.mjs` imports
+ * The count is load-bearing, not decoration. The dev cockpit launcher imported
  * `ai/mcp/server/shared/helpers/localBearer.mjs` at two separate lines, so a set keyed on
  * file+specifier alone represents both with one member — and removing one of the two would leave the
- * key present and the diff silent. That is the measured failure mode behind a sibling baseline in
+ * key present and the diff silent. That pair is what the `count` field was added for, and the Class B
+ * burndown removed both occurrences together precisely because the count made the partial case
+ * visible. That is the measured failure mode behind a sibling baseline in
  * this repo, where 83 rows collapsed to 9 keys and deleting 63 of 64 occurrences still reported
  * green. Counting is what makes a partial burndown visible.
  *

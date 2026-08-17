@@ -6,7 +6,7 @@ import {redeemFleetBearerHandshake} from '../../../../../../apps/agentos/fleet/r
 // the no-store request shape, and the fail-closed null on every non-success path. The server half
 // (arming, exact-Origin admission, the redemption response itself) is witnessed in
 // `test/playwright/unit/ai/services/fleet/fleetBridgeServer.spec.mjs`; the composed launcher
-// hand-down in `test/playwright/unit/ai/buildScripts/devCockpit.spec.mjs`.
+// hand-down in `test/playwright/unit/ai/scripts/fleet/devCockpit.spec.mjs`.
 test.describe('redeemFleetBearerHandshake — the page half of the one-command hand-off', () => {
     const validToken = 'A'.repeat(43),
           okEnvelope = token => ({

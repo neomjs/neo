@@ -390,7 +390,7 @@ class ConfigBase extends ConfigProvider {
                  * secret to a plain browser page with no agent in the loop. Default OFF — a
                  * standalone `npm run ai:fleet-server` exposes zero new surface; the cockpit
                  * launcher arms it in the fleet child's env because arming is a custody decision
-                 * and custody lives with the launcher (`buildScripts/devCockpit.mjs`). While armed,
+                 * and custody lives with the launcher (`ai/scripts/fleet/devCockpit.mjs`). While armed,
                  * browser-caller authentication deliberately collapses to the exact-Origin policy —
                  * the documented Option-B dev-mode widening, never the packaged product path.
                  * @type {boolean}

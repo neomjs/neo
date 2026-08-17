@@ -80,7 +80,7 @@ import fs                 from 'node:fs';
 import path               from 'node:path';
 import {fileURLToPath}    from 'node:url';
 import {IDENTITIES}       from '../../graph/identityRoots.mjs';
-import {ENGINE_TAG_BY_ID} from '../../../buildScripts/util/deriveFleetRoster.mjs';
+import {ENGINE_TAG_BY_ID} from '../fleet/deriveFleetRoster.mjs';
 
 /** Version-ish tokens: `4.8`, `5`, `3.1`, `k3`. Bare years are excluded — a date is not a version. */
 const VERSION_TOKEN = /\b(?:v?\d+\.\d+(?:\.\d+)?|k\d+)\b/gi;
@@ -223,7 +223,7 @@ export function checkEngineCoherence({identities = IDENTITIES, engineTags = ENGI
                     handle,
                     kind   : 'engineTag',
                     detail : `engine tag \`${tag}\` has part(s) ${missingParts.map(p => `\`${p}\``).join(', ')} absent from ModelStats ${section.section} \`name\`: "${section.name}"`,
-                    sources: ['buildScripts/util/deriveFleetRoster.mjs', `learn/agentos/ModelStats.md:${section.line}`]
+                    sources: ['ai/scripts/fleet/deriveFleetRoster.mjs', `learn/agentos/ModelStats.md:${section.line}`]
                 })
             }
         }

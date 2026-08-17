@@ -127,7 +127,7 @@ import {fileURLToPath} from 'url';
 import {promisify}     from 'util';
 
 import {IDENTITIES}                                                                    from '../../graph/identityRoots.mjs';
-import {rosterEmailForLogin}                                                           from '../../../buildScripts/util/agentCoAuthorEmails.mjs';
+import {rosterEmailForLogin}                                                           from '../../graph/agentCoAuthorEmails.mjs';
 import {initClaudeSettings, listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -399,7 +399,7 @@ async function resolveAgentGitIdentity({agentIdentity, getAuthenticatedAccount})
     if (!rosterEmail) {
         throw new Error(
             `bootstrapWorktree: agent '${expectedLogin}' has no commit address in ` +
-            'buildScripts/util/agentCoAuthorEmails.mjs. Add the seat there before binding its Git identity.'
+            'ai/graph/agentCoAuthorEmails.mjs. Add the seat there before binding its Git identity.'
         )
     }
 
