@@ -100,6 +100,17 @@ import {
 import {resolveCloudOnlyDefault} from './services/deploymentDurabilityPosture.mjs';
 
 /**
+ * Stable waiter identity for the provider-residency repair actuator.
+ *
+ * It is deliberately NOT in `DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES`: this actuator competes for the
+ * heavy lane but is not itself heavy maintenance, so it registers a wait without joining the mutex
+ * that would then block on itself.
+ * @type {String}
+ */
+const PROVIDER_RESIDENCY_TASK_NAME = 'provider-residency-repair';
+
+
+/**
  * Deadline for the boot-time configured-tenant-repo coverage prewarm. An internal liveness bound
  * rather than deployment policy: exceeding it costs ranking precision on the first sweep (the
  * unresolved fail-safe posture still ranks bootstrap), while an unbounded wait would stop the
@@ -678,21 +689,72 @@ export class Orchestrator extends Base {
         try {
             activeTask = this.maintenanceBackpressureService.getActiveHeavyMaintenanceTask();
         } catch (error) {
+            // An inspection FAULT is not contention: there is no competitor to register a wait
+            // against, and recording one would attribute a broken read to a starving actuator.
             this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance task inspection failed; deferring provider residency repair: ${error.message}`);
             return false;
         }
 
         if (activeTask) {
             this.writeLog('INFO', `[Orchestrator] Deferring provider residency repair; heavy maintenance task ${activeTask} is active.`);
+            this.recordProviderResidencyDeferral({
+                reasonText      : `heavy maintenance task ${activeTask} is active`,
+                blockingTaskName: activeTask
+            });
             return false;
         }
 
         if (this.isHeavyMaintenanceLeaseActive(now)) {
             this.writeLog('INFO', '[Orchestrator] Deferring provider residency repair; the shared heavy-maintenance lease is active or could not be inspected.');
+            this.recordProviderResidencyDeferral({
+                reasonText: 'the shared heavy-maintenance lease is active or could not be inspected'
+            });
             return false;
         }
 
+        // Admitted: it is running, so it must stop counting as a competitor. Leaving the entry
+        // behind would make other acquirers yield to work that already proceeded.
+        this.maintenanceBackpressureService.clearWaiter(PROVIDER_RESIDENCY_TASK_NAME);
+
         return true;
+    }
+
+    /**
+     * @summary Records a provider-residency deferral as a MEASURED wait, not just a log line.
+     *
+     * This actuator used to inspect-and-skip: it logged on every deferred poll and registered
+     * nothing, so it could never appear in `listActiveWaitersSync` and therefore never in the
+     * starvation receipt that `foldHeavyMaintenanceStarvation` scores. On one plane it deferred
+     * every ~30s for hours while the health surface reported three breaches and not this one —
+     * the surface was not wrong, it was scoring a population this consumer never joined.
+     *
+     * Routed through `recordDeferral` rather than registering directly, because that is where the
+     * durable streak anchor is computed: `registerWaiterSync` refuses an unmeasured wait, so a
+     * call-time timestamp would restart the streak on every poll and a multi-hour starvation would
+     * read as permanently fresh.
+     *
+     * Registration only — it does not acquire the lease or change what is scheduled. Making the
+     * wait VISIBLE and making it ADMITTED are separable, and only the first is in scope here.
+     * @param {Object} options
+     * @param {String} options.reasonText Human-readable scheduling reason.
+     * @param {String|null} [options.blockingTaskName] The competing task, when one is known.
+     * @returns {void}
+     * @protected
+     */
+    recordProviderResidencyDeferral({reasonText, blockingTaskName = null}) {
+        try {
+            this.maintenanceBackpressureService.recordDeferral({
+                taskName  : PROVIDER_RESIDENCY_TASK_NAME,
+                // A contention class, so `recordDeferral` promotes it to a registered waiter; the
+                // policy classes (shed windows, dependency gates) deliberately do not register.
+                reasonCode: 'heavy-maintenance-backpressure',
+                reasonText,
+                blockingTaskName
+            })
+        } catch (error) {
+            // Observability must never take down the actuator it observes.
+            this.writeLog('ERROR', `[Orchestrator] Provider-residency deferral record failed: ${error.message}`)
+        }
     }
 
     beforeSetMaintenanceBackpressureService(value) {

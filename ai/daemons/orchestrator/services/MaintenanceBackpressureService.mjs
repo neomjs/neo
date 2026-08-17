@@ -632,6 +632,23 @@ export class MaintenanceBackpressureService extends Base {
     }
 
     /**
+     * @summary Drops this task's waiter entry — it is running, so it is no longer competing.
+     *
+     * Public because a deferring consumer outside the acquisition path needs the same release: a
+     * consumer that registers a waiter and never clears it leaves other acquirers yielding to work
+     * that already proceeded. Pairs with the registration inside {@link recordDeferral}.
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {void}
+     */
+    clearWaiter(taskName) {
+        try {
+            clearWaiterSync({leasePath: this.resolveHeavyMaintenanceLeasePath(), taskName})
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Waiter clear failed for ${taskName}: ${e.message}`)
+        }
+    }
+
+    /**
      * @param {Object} options
      * @param {String} options.taskName Deferred task name.
      * @param {String} options.reasonCode Discriminator field.
@@ -1009,11 +1026,7 @@ export class MaintenanceBackpressureService extends Base {
 
         // The task proceeds (own lease or compatible-pair bypass): it is no longer a waiter, and a
         // stale self-entry must not make OTHER acquirers yield to work that is already running.
-        try {
-            clearWaiterSync({leasePath: this.resolveHeavyMaintenanceLeasePath(), taskName});
-        } catch (e) {
-            this.writeLog('ERROR', `[Orchestrator] Waiter clear failed for ${taskName}: ${e.message}`);
-        }
+        this.clearWaiter(taskName);
 
         const releaseLease = () => {
             if (!leaseToken) return;
