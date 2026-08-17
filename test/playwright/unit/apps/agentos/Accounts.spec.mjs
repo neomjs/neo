@@ -697,6 +697,52 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         store.destroy()
     });
 
+    test('a server row names the registry as its authority — never a bare Off implying observation (#17306)', () => {
+        // The incident: this seat had filed four issues through its github-workflow server within the
+        // hour while the pane rendered `GitHub workflow: Off`. The registry declaration was all the
+        // pane knew, and a bare `Off` claimed an observation nobody made.
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'clio', githubUsername: 'clio', harnessType: 'codex', mcpServers: {'github-workflow': false, 'memory-core': true}}
+        ]});
+        const card = Neo.create(AgentConfigCard, {record: store.get('clio')});
+        const text = cardText(card);
+
+        expect(text).toContain('"text":"Declared off"');
+        expect(text).toContain('"text":"Declared on"');
+
+        // The falsifier for the actual defect: no server row may render the bare observation words.
+        // Asserting only the presence of "Declared off" would pass while a sibling row still lied.
+        expect(text).not.toMatch(/"cls":\["fm-config-value"\],"text":"Off"/);
+
+        // The section carries the authority too, so the grain is readable without parsing each row.
+        expect(text).toContain('Servers · declared');
+        expect(text).toContain('Memory & knowledge · declared');
+
+        card.destroy();
+        store.destroy()
+    });
+
+    test('read-back rows keep the plain state words — the fix must not relabel observations (#17306)', () => {
+        // Negative control. Marking every row "declared" would satisfy the assertion above and destroy
+        // the distinction the ticket exists to create: Operations rows ARE read back, and an observed
+        // `On` must stay an observed `On`.
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'vega', githubUsername: 'vega', harnessType: 'codex', hooksActive: true, wakeSubscriptionsActive: null}
+        ]});
+        const card = Neo.create(AgentConfigCard, {record: store.get('vega')});
+        const text = cardText(card);
+
+        expect(text).toMatch(/"text":"Hooks"\},\{"cls":\["fm-config-value"\],"text":"On"/);
+        expect(text).toContain('Not read back yet');
+        expect(text).toContain('Operations · read back');
+
+        // and the observed row never borrows the declared vocabulary
+        expect(text).not.toMatch(/"text":"Hooks"\},\{"cls":\["fm-config-value"\],"text":"Declared/);
+
+        card.destroy();
+        store.destroy()
+    });
+
     test('target choices render public availability honestly and emit only the narrow persisted intent', () => {
         const
             store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [{
