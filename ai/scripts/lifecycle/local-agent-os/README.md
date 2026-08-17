@@ -34,22 +34,53 @@ valid deployment — you simply do not get wakes.
 
 ## Platform matrix
 
-The **runtime is portable**: `ai/daemons/orchestrator/hostEdge.mjs` and
-`ai/daemons/wake/receiver.mjs` run anywhere Node runs. Only the **supervision**
-is platform-specific.
+**Two processes, and neither one starts the other.** The host edge and the wake
+receiver are independent: a host running only the host edge accepts no wakes, and
+nothing on that host reports a problem, because from its side there is nothing to
+report. Run both, or decide deliberately to run one.
 
-| Platform | Run it | Keep it running |
-|---|---|---|
-| any (macOS, Linux, Windows) | `npm run ai:host-edge` | your terminal, or your own supervisor |
-| macOS | same command | the launchd install below (`RunAtLoad` + `KeepAlive`) |
-| Linux | same command | a systemd user unit wrapping it — not supplied here |
+They do **not** have the same platform reach. `hostEdge.mjs` runs anywhere Node
+runs. `receiver.mjs` is **POSIX-only**, and not by convention — it refuses to
+start unless its manifest carries no group or other permission bits:
 
-`npm run ai:host-edge` resolves the **complete** host-edge posture from
+```js
+// ai/daemons/wake/receiver.mjs
+if ((stat.mode & 0o077) !== 0) {
+    throw new Error(`Wake receiver manifest '${manifestPath}' must be mode 0600`);
+}
+```
+
+[Node documents](https://nodejs.org/api/fs.html#file-modes) that Windows exposes
+no owner/group/other distinction and that `chmod` there can change only
+writability, so a Windows host cannot express the mode this gate requires. That
+is a deliberate secret-hygiene gate on a file holding signing keys, not an
+oversight to route around — so the receiver row below names the platforms it can
+actually serve rather than claiming one it cannot.
+
+| Platform | Host edge | Wake receiver | Keep them running |
+|---|---|---|---|
+| macOS | `npm run ai:host-edge` | `npm run ai:wake-receiver` ([invocation](#start-the-wake-receiver)) | the launchd installs below (`RunAtLoad` + `KeepAlive`) — one per process |
+| Linux | same | same | systemd user units wrapping them — not supplied here |
+| Windows | `npm run ai:host-edge` | **not supported** — see the mode gate above | your own supervisor, host edge only |
+
+A Windows host therefore gets host-bound effects and **no wake delivery**. That
+is a real gap rather than a documentation shortcut: closing it needs a
+Windows-appropriate manifest-permission contract in `receiver.mjs`, which is a
+runtime change and not something this guide can assert on its behalf.
+
+`npm run ai:host-edge` resolves the complete **host-edge** posture from
 `ai/deploy/hostEdgeProfile.mjs`: the `host-edge` role, `deploymentMode=local`,
 a state root outside every checkout, and the lane closure. No installer, no
-plist, no shell-specific syntax. Every key yields to an explicit environment
-value, so a machine without LM Studio starts with
-`NEO_ORCHESTRATOR_LMS_ENABLED=false` set and nothing else changed.
+plist, no shell-specific syntax. Complete for that role — it does **not** start
+the wake receiver, which is a separate final-mile boundary with its own
+manifest, state directory, and port.
+
+Every key yields to an explicit environment value, so a machine without LM Studio
+starts with `NEO_ORCHESTRATOR_LMS_ENABLED=false` set and nothing else changed.
+**That flag governs LM Studio supervision only.** It does not disable wake, and
+it is not a reason to skip the receiver — a no-LMS host still needs it running to
+receive anything at all. Setting it and stopping there is the single most likely
+way to end up with a permanently deaf seat that reports healthy.
 
 **`npm run ai:orchestrator` is not the host edge.** It starts the same daemon
 with no role declared, and since #16229 that refuses rather than resolving one:
@@ -244,6 +275,45 @@ published route answers `404`, and the sender treats a 4xx as a client error and
 degrades the subscription immediately with no retry — so the route goes deaf on
 its *first* wake rather than failing gradually. Restart after publishing, or start
 the receiver afterwards.
+
+## Start the wake receiver
+
+This is the portable-across-POSIX command, and it is the second of the two
+processes in the [platform matrix](#platform-matrix). It runs on macOS and Linux;
+it cannot run on Windows, for the manifest-mode reason given there. The macOS
+launchd plist below is *supervision over this same command*, not an alternative
+to it. Within this guide the plist was previously the only place these arguments
+appeared, which left Linux hosts without a runnable line — the receiver is not
+macOS-only, only its supervision is.
+
+There are no deployment-path defaults. All four arguments are required:
+
+```bash
+chmod 0600 "${NEO_WAKE_RECEIVER_MANIFEST}"
+mkdir -p -m 0700 "${NEO_WAKE_RECEIVER_STATE_DIR}"
+
+npm run ai:wake-receiver -- \
+  --manifest   "${NEO_WAKE_RECEIVER_MANIFEST}" \
+  --state-dir  "${NEO_WAKE_RECEIVER_STATE_DIR}" \
+  --host       127.0.0.1 \
+  --port       3199
+```
+
+`--host 127.0.0.1` keeps the receiver loopback-only, which is what a local
+install wants. A containerized sender needs a Docker-reachable bind address
+instead; that topology and its `host.docker.internal` mapping are covered in
+[`PersistentProcessManagement.md` §3d](../../../../learn/agentos/wake-substrate/PersistentProcessManagement.md).
+
+**`--manifest` means something different here than one command earlier.**
+`ai:wake-manifest` *generates* the routes file and takes `--manifest` as its
+**output** path; `ai:wake-receiver` *serves* that file and takes it as **input**.
+Same flag, adjacent commands, opposite direction — running the generator is not
+starting the receiver, and a host that ran only the generator holds a routes file
+nothing is serving.
+
+The receiver imports no GraphLog or SQLite: it owns durable acceptance and local
+harness effects only. That is why it survives — and must be started — on a host
+with `NEO_ORCHESTRATOR_LMS_ENABLED=false` and no model provider at all.
 
 > **Do not signal a receiver to reload it.** A process started before the reload
 > handler existed has no SIGHUP handler, and node's default for an unhandled SIGHUP
