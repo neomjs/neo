@@ -9,7 +9,8 @@ import {
 }                            from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import SourceRegistry       from './source/_export.mjs';
+import SourceRegistry     from './source/_export.mjs';
+import {loadTenantParser} from './source/tenantParserLoader.mjs';
 import {normalizeTenantRepoConfig}
                             from './helpers/tenantRepoAccessContract.mjs';
 import {createTenantRepoMaterializationDigest}
@@ -185,6 +186,28 @@ class IngestionService extends Base {
          */
         vectorService: VectorService
     }
+
+    /**
+     * Tenant-declared parser classes, keyed on the full DECLARATION —
+     * `<tenantId>::<parserId>::<parserModule>::<exportName>`.
+     *
+     * Deliberately NOT the shared `SourceRegistry`: that singleton keys on `parserId` alone and
+     * overwrites on re-registration, so two tenants declaring the same id would collide. Keying by
+     * tenant makes that isolation structural rather than guarded.
+     *
+     * **The module specifier is part of the key, and that is not decoration.** The graph tier is
+     * writable at runtime with no restart, so a `<tenantId>::<parserId>` key would pin the first
+     * class ever loaded for that id to the process lifetime. Re-pointing a tenant at a new parser
+     * module then invalidates the materialization digest, correctly re-materializes the whole
+     * repo — and runs it through the OLD parser, reporting complete success. Including the
+     * declaration makes a re-declaration an ordinary cache miss.
+     *
+     * The pinned root is deliberately absent from the key: it is a deployment leaf resolved once at
+     * boot, so it cannot vary between two reads within a process.
+     * @member {Map<String,Object>} #tenantParserCache
+     * @private
+     */
+    #tenantParserCache = new Map();
 
     /**
      * @member {Function|null} parsedChunkValidator=null
@@ -1575,7 +1598,17 @@ class IngestionService extends Base {
         }
 
         const parserId = file.parserId || 'raw-text';
-        const parser   = this.resolveParser(parserId);
+
+        // Tenant-declared parsers resolve FIRST and never enter the shared registry.
+        //
+        // `SourceRegistry` is a singleton keyed by `parserId` whose own JSDoc advertises
+        // "re-registering the same name overwrites the prior class — idempotent for hot-reload".
+        // That reads as a feature, and it is one for hot-reload; for multi-tenant registration it is
+        // last-tenant-wins. Registering tenant parsers into it would let tenant A's declaration
+        // silently reshape tenant B's ingestion under a shared id. Resolving per tenant at dispatch
+        // instead makes that class of leak impossible rather than guarded against, and leaves the
+        // import-time global registration path byte-identical for a zero-config deployment.
+        const parser = await this.resolveTenantParser({parserId, tenantContext}) ?? this.resolveParser(parserId);
 
         if (file.parserId && !parser) {
             const error = new Error(`Parser '${file.parserId}' is not registered.`);
@@ -1599,6 +1632,83 @@ class IngestionService extends Base {
         }
 
         return [this.rawFileToParsedRecord({file, fileIndex, parserId, tenantContext})];
+    }
+
+    /**
+     * @summary Resolves a parser a TENANT declared, loading it from the deployment-pinned root.
+     *
+     * The gap this closes: `getTenantConfig` resolves a tenant's `customParsers` through its
+     * three-tier chain, and nothing consumed the result. `applyConfigToRegistry` — the only writer
+     * into `SourceRegistry` — is called exactly once, at import time, with the GLOBAL config. So a
+     * parser declared in a tenant's `kb-config.yaml` tier was resolved into an object no one
+     * registered. Dispatch was never the problem; registration was.
+     *
+     * **Two entry shapes, because the tiers differ in kind.** `{ParserClass}` is the JS-config form
+     * and still works. `{parserModule}` is the form a DATA tier can hold — the graph node stores JSON
+     * and the yaml bootstrap stores scalars, neither of which can carry a class reference. The module
+     * name resolves below `aiConfig.tenantParserRoot`; containment lives in `tenantParserLoader`,
+     * which takes the root as an argument and reads no config of its own.
+     *
+     * **Failures propagate.** A declared-but-unloadable parser throws its coded reason rather than
+     * returning null, because null falls through to `raw-text` — which INGESTS SUCCESSFULLY as one
+     * whole-file chunk per file. Nothing errors, nothing is missing, retrieval is simply worse. That
+     * is the same defect shape as a census reporting `0` instead of `unknown`, minus even a
+     * suspicious number to notice.
+     *
+     * @param {Object} options
+     * @param {String} options.parserId
+     * @param {Object} [options.tenantContext]
+     * @returns {Promise<Object|null>} The tenant's parser class, or null when it declared none.
+     * @protected
+     */
+    async resolveTenantParser({parserId, tenantContext} = {}) {
+        const tenantId = tenantContext?.tenantId;
+
+        if (!tenantId || !parserId) {
+            return null
+        }
+
+        // The declaration is read BEFORE the cache is consulted, because the declaration is what the
+        // cache key is made of. `getTenantConfig` is an in-memory `getNodeRecord` lookup behind an
+        // already-resolved `ready()`, so this is not the cost the cache exists to avoid — that cost
+        // is the containment syscalls and the module resolution below.
+        const declared = (await this.getTenantConfig({tenantId}))?.customParsers;
+
+        if (!Array.isArray(declared)) {
+            return null
+        }
+
+        const entry = declared.find(candidate => (candidate?.parserId || null) === parserId);
+
+        if (!entry) {
+            return null
+        }
+
+        // A live class reference still wins — the JS-config tier is unchanged by this path, and
+        // caching an object the caller already handed us would buy nothing.
+        if (entry.ParserClass) {
+            return entry.ParserClass
+        }
+
+        if (!entry.parserModule) {
+            return null
+        }
+
+        const cacheKey = `${tenantId}::${parserId}::${entry.parserModule}::${entry.exportName ?? ''}`;
+
+        if (this.#tenantParserCache.has(cacheKey)) {
+            return this.#tenantParserCache.get(cacheKey)
+        }
+
+        const ParserClass = await loadTenantParser({
+            specifier : entry.parserModule,
+            root      : aiConfig.tenantParserRoot,
+            exportName: entry.exportName
+        });
+
+        this.#tenantParserCache.set(cacheKey, ParserClass);
+
+        return ParserClass
     }
 
     /**

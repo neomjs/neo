@@ -636,6 +636,7 @@
         "rawRepoSource",
         "sourcePaths",
         "spoofRejectionMode",
+        "tenantParserRoot",
         "transport",
         "undeliverableTimeoutStrikes",
         "useDefaultParsers",
