@@ -8,6 +8,7 @@ import '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import {
     acquireAuthorityLeaseSurvivingSelfSuccession,
+    assertStarvationReceiptReadable,
     enforceSingleton,
     LOCAL_AI_CONFIG_FILE,
     isOrchestratorDaemonCommand,
@@ -550,4 +551,43 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(LOCAL_AI_CONFIG_FILE).toBe(path.resolve(process.cwd(), 'ai/config.mjs'));
     });
 
+});
+
+test.describe('assertStarvationReceiptReadable — boot refuses an unreadable starvation verdict (#17290)', () => {
+    const aiConfig = ({checkMs, staleAfterMs}) => ({
+        orchestrator: {
+            intervals            : {heavyMaintenanceStarvationWatchdogCheckMs: checkMs},
+            heavyMaintenanceLease: {starvationReceiptStaleAfterMs: staleAfterMs}
+        }
+    });
+
+    test('the shipped 10min/2min pair is refused, and the error names both numbers and the gap', () => {
+        let thrown;
+
+        try {
+            assertStarvationReceiptReadable({aiConfig: aiConfig({checkMs: 600000, staleAfterMs: 120000})});
+        } catch (error) {
+            thrown = error;
+        }
+
+        expect(thrown).toBeTruthy();
+        expect(thrown.message).toContain('600000ms');
+        expect(thrown.message).toContain('120000ms');
+        expect(thrown.message).toContain('480000ms');
+        // The remediation must name the leaves, not just the symptom.
+        expect(thrown.message).toContain('NEO_HEAVY_MAINTENANCE_LEASE_STARVATION_RECEIPT_STALE_MS');
+        expect(thrown.message).toContain('NEO_ORCHESTRATOR_HEAVY_STARVATION_WATCHDOG_INTERVAL_MS');
+    });
+
+    test('the derived default boots and returns its numbers', () => {
+        expect(assertStarvationReceiptReadable({
+            aiConfig: aiConfig({checkMs: 600000, staleAfterMs: 1200000})
+        })).toMatchObject({reachable: true, unreadableMs: 0});
+    });
+
+    test('a disabled watchdog boots — nothing is stamped, so nothing goes unread', () => {
+        expect(assertStarvationReceiptReadable({
+            aiConfig: aiConfig({checkMs: 0, staleAfterMs: 0})
+        })).toMatchObject({reachable: true});
+    });
 });

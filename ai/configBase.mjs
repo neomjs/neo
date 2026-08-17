@@ -1520,7 +1520,14 @@ class ConfigBase extends ConfigProvider {
                      * entry expiry clears it on the next check. `<= 0` disables. Consumed by
                      * `scheduling/heavyMaintenanceStarvationWatchdog.mjs`.
                      */
-                    starvationDegradeAfterMs: leaf(HOUR_MS, 'NEO_HEAVY_MAINTENANCE_LEASE_STARVATION_DEGRADE_MS', 'number')
+                    starvationDegradeAfterMs: leaf(HOUR_MS, 'NEO_HEAVY_MAINTENANCE_LEASE_STARVATION_DEGRADE_MS', 'number'),
+                    /**
+                     * Explicit override for how long a starvation RECEIPT stays consumable. Leave
+                     * unset (the default) and the bound derives from the producer's own cadence via
+                     * the `starvationReceiptStaleAfterMs` formula — see it for why the pair must be
+                     * coupled rather than tuned side by side.
+                     */
+                    starvationReceiptStaleAfterMsOverride: leaf(null, 'NEO_HEAVY_MAINTENANCE_LEASE_STARVATION_RECEIPT_STALE_MS', 'number')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
@@ -2368,6 +2375,25 @@ class ConfigBase extends ConfigProvider {
                 data.auth.mode === 'github-pat',
             'auth.autoProvisionIdentitySources': data => data.auth.autoProvisionIdentitySourcesOverride ??
                 (['github-pat', 'gitlab-pat'].includes(data.auth.mode) ? [data.auth.mode] : []),
+            /**
+             * How long a starvation receipt stays consumable, derived from the cadence of the
+             * watchdog that STAMPS it — never from an unrelated clock.
+             *
+             * The consumer bound and the producer cadence are one decision, not two. Bounding a
+             * receipt by `deploymentStateBridge.staleAfterMs` (a bridge-WRITE staleness clock)
+             * shipped a fold that could only degrade for 2 minutes of every 10: measured on a live
+             * plane, 15 consecutive samples read healthy over an hours-long starvation before one
+             * sample caught the fresh window. The pair now moves together — re-tune the
+             * cadence and the window follows.
+             *
+             * Two cadences of tolerance: one full period plus a single missed run. Past that the
+             * receipt SHOULD go stale — a watchdog that has skipped two runs is no longer evidence
+             * about the plane, and `foldHeavyMaintenanceStarvation` correctly declines to degrade
+             * on it. The bound exists to expire a dead producer, not to widen a live one.
+             */
+            'orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMs': data =>
+                data.orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMsOverride ??
+                data.orchestrator.intervals.heavyMaintenanceStarvationWatchdogCheckMs * 2,
             'engines.chroma.useTestDatabase': data => data.engines.chroma.useUnitTestDatabase || data.engines.chroma.useTestHarness,
             'engines.chroma.dataDir'        : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
             'engines.chroma.host'           : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,
