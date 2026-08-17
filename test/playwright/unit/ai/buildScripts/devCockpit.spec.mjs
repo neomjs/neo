@@ -1,6 +1,8 @@
 import {test, expect}  from '@playwright/test';
 import {spawn}         from 'node:child_process';
+import fs              from 'node:fs';
 import {createServer}  from 'node:net';
+import os              from 'node:os';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -12,9 +14,9 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 
 import http from 'node:http';
 
-import {COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, planCockpitBoot, probeFleetEndpoint} from '../../../../../buildScripts/devCockpit.mjs';
-import {startFleetBridgeServer}                                                       from '../../../../../ai/services/fleet/fleetBridgeServer.mjs';
-import {generateLocalBearerToken}                                                     from '../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
+import {COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, buildFleetChildEnv, planCockpitBoot, probeFleetEndpoint, probePlaneIdentity, resolveLivePlaneConfig} from '../../../../../buildScripts/devCockpit.mjs';
+import {startFleetBridgeServer}                                                                                                                       from '../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {generateLocalBearerToken}                                                                                                                     from '../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 
 const authenticatedOptions = overrides => ({
     port         : 0,
@@ -295,5 +297,287 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
     test('the composed command opens the COCKPIT surface, not the dev-server root', () => {
         expect(COCKPIT_OPEN_TARGET).toBe('apps/agentos/index.html');
         expect(FLEET_PROBE_METHOD).toContain('probe')
+    })
+});
+
+/**
+ * The live-journey witnesses (`--live`, the `cockpit:live` script): the plane-binding resolution
+ * seam (env > file > gh precedence, fail-closed refusals, secret values never in the notes), the
+ * unauthenticated plane-identity probe (the auth guard's 401 IS the signature), the child-env
+ * custody rule (the fleet child alone carries the materialized bearer), and three composed runs
+ * through the REAL launcher — the full live boot against a fixture plane, the unreachable-plane
+ * fail-fast, and the never-adopt-an-incumbent refusal.
+ */
+test.describe('buildScripts/devCockpit — the live-plane journey (cockpit:live)', () => {
+    // The composed witnesses below own :8083 in turn (serial, same discipline as the boot-plan suite).
+    test.describe.configure({mode: 'serial'});
+
+    test('resolveLivePlaneConfig: env pin wins and the gh seam is never consulted', async () => {
+        const resolved = await resolveLivePlaneConfig({
+            env        : {NEO_FLEET_PLANE_BASE: 'http://127.0.0.1:4000', NEO_FLEET_PLANE_BEARER: 'env-token'},
+            readGhToken: async () => { throw new Error('the gh seam must not run when the env pins the bearer') }
+        });
+
+        expect(resolved.refuse).toBe(false);
+        expect(resolved.planeBase).toBe('http://127.0.0.1:4000');
+        expect(resolved.planeBearer).toBe('env-token');
+        expect(resolved.bearerSource).toBe('env');
+        expect(resolved.notes[0]).toContain('pinned via NEO_FLEET_PLANE_BASE')
+    });
+
+    test('resolveLivePlaneConfig: the secret-file half materializes and never consults gh', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-live-'));
+
+        fs.writeFileSync(path.join(dir, 'token'), '  file-token-42\n');
+
+        const resolved = await resolveLivePlaneConfig({
+            env        : {NEO_FLEET_PLANE_BEARER_FILE: path.join(dir, 'token')},
+            readGhToken: async () => { throw new Error('the gh seam must not run when the file pins the bearer') }
+        });
+
+        expect(resolved.refuse).toBe(false);
+        expect(resolved.planeBearer).toBe('file-token-42');
+        expect(resolved.bearerSource).toBe('file');
+        expect(resolved.planeBase).toBe('http://127.0.0.1:3102');
+        expect(resolved.notes[0]).toContain('canonical local plane')
+    });
+
+    test('resolveLivePlaneConfig: gh is the fallback of last resort — and a pinned-but-dead file REFUSES instead of falling through', async () => {
+        const viaGh = await resolveLivePlaneConfig({env: {}, readGhToken: async () => 'gh-token'});
+
+        expect(viaGh.refuse).toBe(false);
+        expect(viaGh.bearerSource).toBe('gh');
+        expect(viaGh.planeBearer).toBe('gh-token');
+
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-live-'));
+
+        for (const pinned of [path.join(dir, 'missing'), path.join(dir, 'empty')]) {
+            if (pinned.endsWith('empty')) {
+                fs.writeFileSync(pinned, '   \n')
+            }
+
+            const resolved = await resolveLivePlaneConfig({
+                env        : {NEO_FLEET_PLANE_BEARER_FILE: pinned},
+                readGhToken: async () => 'gh-token-that-must-not-be-reached'
+            });
+
+            expect(resolved.refuse, pinned).toBe(true);
+            expect(resolved.planeBearer, pinned).toBe('');
+            expect(resolved.notes.at(-1), pinned).toContain('REFUSED');
+            expect(resolved.notes.at(-1), pinned).toContain('must never silently fall through');
+            expect(resolved.notes.join(' '), pinned).not.toContain('gh-token-that-must-not-be-reached')
+        }
+    });
+
+    test('resolveLivePlaneConfig: all-three-empty refuses with the remediation — and no resolved value ever reaches the notes', async () => {
+        const resolved = await resolveLivePlaneConfig({env: {}, readGhToken: async () => ''});
+
+        expect(resolved.refuse).toBe(true);
+        expect(resolved.notes.at(-1)).toContain('REFUSED');
+        expect(resolved.notes.at(-1)).toContain('NEO_FLEET_PLANE_BEARER');
+        expect(resolved.notes.at(-1)).toContain('gh auth login');
+
+        // The custody witness: a resolved bearer VALUE never leaks into the operator-facing notes
+        // (sources are named, secrets are not) — across all three sources.
+        const SECRET = 'fixture-secret-value-that-must-stay-out-of-logs';
+
+        for (const [env, readGhToken] of [
+            [{NEO_FLEET_PLANE_BEARER: SECRET}, async () => ''],
+            [{}, async () => SECRET]
+        ]) {
+            const leakProbe = await resolveLivePlaneConfig({env, readGhToken});
+
+            expect(leakProbe.refuse).toBe(false);
+            expect(leakProbe.notes.join(' ')).not.toContain(SECRET)
+        }
+    });
+
+    test('probePlaneIdentity: the auth guard 401 IS the plane signature; anything else is named', async () => {
+        // (a) a fixture ingress answering 401 before any session — the plane's fail-closed shape
+        const guard = http.createServer((req, res) => {
+            res.writeHead(401, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: 'invalid_token', error_description: 'Missing Authorization header'}))
+        });
+
+        await new Promise(resolve => guard.listen(0, '127.0.0.1', resolve));
+
+        const guardPort  = guard.address().port,
+              guardProbe = await probePlaneIdentity({planeBase: `http://127.0.0.1:${guardPort}`});
+
+        expect(guardProbe.status).toBe('plane');
+        expect(guardProbe.detail).toContain('identity confirmed');
+
+        await new Promise(resolve => guard.close(resolve));
+
+        // (b) an HTTP-ish occupant answering 200-ok is NOT the authenticated ingress
+        const foreign = http.createServer((req, res) => {
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({ok: true}))
+        });
+
+        await new Promise(resolve => foreign.listen(0, '127.0.0.1', resolve));
+
+        const foreignProbe = await probePlaneIdentity({planeBase: `http://127.0.0.1:${foreign.address().port}`});
+
+        expect(foreignProbe.status).toBe('incompatible');
+        expect(foreignProbe.detail).toContain('HTTP 200');
+
+        await new Promise(resolve => foreign.close(resolve));
+
+        // (c) the just-closed port → unreachable, with the plane-start remediation named
+        const deadProbe = await probePlaneIdentity({planeBase: `http://127.0.0.1:${guardPort}`});
+
+        expect(deadProbe.status).toBe('unreachable');
+        expect(deadProbe.detail).toContain('docker compose');
+        expect(deadProbe.detail).toContain('local-agent-os')
+    });
+
+    test('buildFleetChildEnv: the fleet child alone carries the binding — the base env is never mutated', () => {
+        const baseEnv = {PATH: '/usr/bin'},
+              env     = buildFleetChildEnv({baseEnv, fleetBearer: 'transport-bearer', livePlane: {planeBase: 'http://127.0.0.1:3102', planeBearer: 'plane-secret'}});
+
+        expect(env.NEO_FLEET_BEARER).toBe('transport-bearer');
+        expect(env.NEO_FLEET_BEARER_HANDSHAKE).toBe('1');
+        expect(env.NEO_FLEET_PLANE_BASE).toBe('http://127.0.0.1:3102');
+        expect(env.NEO_FLEET_PLANE_BEARER).toBe('plane-secret');
+
+        // custody: nothing reached back into the launcher's own environment (the webpack child's)
+        expect(baseEnv).toEqual({PATH: '/usr/bin'});
+
+        // the in-process journey adds no plane surface at all
+        const inProcess = buildFleetChildEnv({baseEnv, fleetBearer: 'transport-bearer'});
+
+        expect('NEO_FLEET_PLANE_BASE' in inProcess).toBe(false);
+        expect('NEO_FLEET_PLANE_BEARER' in inProcess).toBe(false)
+    });
+
+    test('composed live boot: the file-pinned bearer materializes into the FLEET child only — the webpack child never sees it', async () => {
+        test.setTimeout(60000);
+
+        if ((await probeFleetEndpoint(8083)).status !== 'free') {
+            test.skip(true, 'the default fleet endpoint is occupied on this machine — the composed live witness needs to own it');
+            return
+        }
+
+        // the fixture plane: an ingress whose 401-before-session is the identity signature
+        const fixturePlane = http.createServer((req, res) => {
+            res.writeHead(401, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: 'invalid_token'}))
+        });
+
+        await new Promise(resolve => fixturePlane.listen(0, '127.0.0.1', resolve));
+
+        const
+            planeBase = `http://127.0.0.1:${fixturePlane.address().port}`,
+            dir       = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-live-')),
+            tokenFile = path.join(dir, 'plane-token');
+
+        fs.writeFileSync(tokenFile, 'fixture-file-token-42\n');
+
+        const launcher = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs'), '--live'], {
+            cwd: repoRoot,
+            env: {
+                ...process.env,
+                NEO_FLEET_PLANE_BASE       : planeBase,
+                NEO_FLEET_PLANE_BEARER_FILE: tokenFile,
+                // the fleet stub proves the materialized binding ARRIVED (value compared inside the
+                // child, only the boolean printed); the webpack stub proves custody (its env lacks it)
+                NEO_COCKPIT_FLEET_CMD   : JSON.stringify([process.execPath, '-e',
+                    `console.log('FLEET_STUB planeBase=' + process.env.NEO_FLEET_PLANE_BASE + ' bearerMatch=' + (process.env.NEO_FLEET_PLANE_BEARER === 'fixture-file-token-42')); setInterval(() => {}, 1000)`]),
+                NEO_COCKPIT_WEBPACK_CMD : JSON.stringify([process.execPath, '-e',
+                    `console.log('WEBPACK_STUB planeBearerAbsent=' + (process.env.NEO_FLEET_PLANE_BEARER === undefined)); setInterval(() => {}, 1000)`])
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let output = '';
+        launcher.stdout.on('data', chunk => output += chunk);
+        launcher.stderr.on('data', chunk => output += chunk);
+
+        try {
+            await expect.poll(() => output.includes('WEBPACK_STUB'), {timeout: 15000}).toBe(true);
+
+            expect(output).toContain(`[cockpit:live] plane identity confirmed (authenticated ingress refusal) at ${planeBase}`);
+            expect(output).toContain(`FLEET_STUB planeBase=${planeBase} bearerMatch=true`);
+            expect(output).toContain('WEBPACK_STUB planeBearerAbsent=true');
+            // and the bearer VALUE stayed out of every launcher log line
+            expect(output).not.toContain('fixture-file-token-42')
+        } finally {
+            const exited = new Promise(resolve => launcher.on('exit', resolve));
+            launcher.kill('SIGTERM');
+            await exited;
+            await new Promise(resolve => fixturePlane.close(resolve))
+        }
+    });
+
+    test('live mode fails FAST on an unreachable plane — before any page or transport spawns', async () => {
+        test.setTimeout(30000);
+
+        const launcher = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs'), '--live'], {
+            cwd: repoRoot,
+            env: {
+                ...process.env,
+                NEO_FLEET_PLANE_BASE   : 'http://127.0.0.1:9',
+                NEO_FLEET_PLANE_BEARER : 'dummy-token',
+                NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'console.log("WEBPACK_STUB_STARTED"); setInterval(() => {}, 1000)'])
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let output = '';
+        launcher.stdout.on('data', chunk => output += chunk);
+        launcher.stderr.on('data', chunk => output += chunk);
+
+        const code = await new Promise(resolve => launcher.on('exit', resolve));
+
+        expect(code).toBe(1);
+        expect(output).toContain('[cockpit:live] REFUSED: no plane answering');
+        expect(output).toContain('docker compose');
+        expect(output).not.toContain('WEBPACK_STUB_STARTED')
+    });
+
+    test('live mode NEVER adopts an incumbent fleet transport — its plane binding is not probe-observable', async () => {
+        test.setTimeout(60000);
+
+        if ((await probeFleetEndpoint(8083)).status !== 'free') {
+            test.skip(true, 'the default fleet endpoint is occupied on this machine — the no-adoption witness needs to own it');
+            return
+        }
+
+        const incumbent = await startFleetBridgeServer(authenticatedOptions({port: 8083}));
+
+        try {
+            const result = await new Promise(resolve => {
+                const child = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs'), '--live'], {
+                    cwd: repoRoot,
+                    env: {
+                        ...process.env,
+                        NEO_FLEET_PLANE_BASE   : 'http://127.0.0.1:3102',
+                        NEO_FLEET_PLANE_BEARER : 'dummy-token',
+                        NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'console.log("WEBPACK_STUB_STARTED"); setInterval(() => {}, 1000)'])
+                    },
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+
+                let output = '';
+                child.stdout.on('data', chunk => output += chunk);
+                child.stderr.on('data', chunk => output += chunk);
+                child.on('exit', code => resolve({code, output}))
+            });
+
+            // The plane probe may refuse first on machines without a serving plane — both refusals
+            // are fail-closed before any page; the witness pins the no-adoption reason when the
+            // plane half passed (fixture-free: the probe result decides which refusal surfaced).
+            expect(result.code).toBe(1);
+            expect(result.output).toContain('[cockpit:live] REFUSED');
+            expect(result.output).not.toContain('WEBPACK_STUB_STARTED');
+
+            if (result.output.includes('already serves a fleet transport')) {
+                expect(result.output).toContain('plane binding is not observable');
+                expect(result.output).toContain('npm run cockpit')
+            }
+        } finally {
+            await new Promise(resolve => incumbent.close(resolve))
+        }
     })
 });
