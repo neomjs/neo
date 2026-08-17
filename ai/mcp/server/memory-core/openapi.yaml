@@ -970,8 +970,12 @@ paths:
                     properties:
                       assignedCount:
                         type: integer
+                        nullable: true
+                        description: "null when the census is degraded — a count over an incomplete set is an unknown wearing a number. Never read a null as 0."
                       unassignedCount:
                         type: integer
+                        nullable: true
+                        description: "null when the census is degraded. `unassignedIds` still lists what WAS seen; its length is a floor, not this count."
                       unassignedIds:
                         type: array
                         description: Unassigned per the SOURCE's own assignee/author evidence — never inferred from a local store's silence.
@@ -980,10 +984,15 @@ paths:
                   coverage:
                     type: object
                     description: "Census completeness. A degraded census means the narrative is withheld rather than served partial."
-                    required: [totalOpenItems, edgeCount, degraded, degradedReasons]
+                    required: [totalOpenItems, observedOpenItems, edgeCount, degraded, degradedReasons]
                     properties:
                       totalOpenItems:
                         type: integer
+                        nullable: true
+                        description: "null whenever `degraded` is true — a TOTAL is a completeness claim, and completeness is the exact thing a degraded census failed to establish. Do not coerce: `null > 0` is false, so a `> 0` guard on a degraded census silently concludes the backlog is empty. Branch on `degraded`, or read `observedOpenItems`."
+                      observedOpenItems:
+                        type: integer
+                        description: "What the census actually saw — always a number, and a FLOOR rather than a total. A partial read keeps its value here instead of being flattened away with the completeness claim it cannot make."
                       edgeCount:
                         type: integer
                       degraded:
