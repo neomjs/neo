@@ -554,14 +554,50 @@ class IssueSyncer extends Base {
     }
 
     /**
+     * Containment gate: is this issue on the sync denylist (by number or author)?
+     *
+     * Mirrors `DiscussionSyncer#isDenylisted`, deliberately without that sibling's `|| {}` fallback:
+     * `issueDenylist` is an AiConfig leaf with an object default, so the SSOT guarantees the subtree
+     * and a defensive fallback would only hide a broken config tree.
+     * ticket-ref-ok: ADR 0019 §3 B3 — the divergence from the adjacent sibling is deliberate, and
+     * without the authority citation a future maintainer reads it as an oversight and "fixes" it back.
+     *
+     * The two legs have different reach, and the difference is structural rather than incidental.
+     * `number` is present at every `#getIssuePath` call site, including the reconciliation paths that
+     * pass a partial `{number, ...}` object, so a number match contains an issue everywhere — which is
+     * what lets an already-synced copy fall into the existing quarantine branch. `author` is only
+     * present when the caller holds the fetched GitHub node; the reconciliation paths read
+     * `metadata.issues`, which persists `number` and not author login, so author matching is
+     * fetch-time exclusion only. That is the same bound the discussion sibling documents, for the same
+     * reason, and it is why an author entry stops future syncs but does not retroactively evict a
+     * cached copy — use the number leg for that.
+     *
+     * @param {Object} issue A GitHub issue node, or a partial `{number}` from a reconciliation path.
+     * @returns {Boolean}
+     * @private
+     */
+    #isDenylisted(issue) {
+        const denylist = issueSyncConfig.issueDenylist;
+
+        return denylist.numbers.includes(issue.number) ||
+               denylist.authors.includes(issue.author?.login)
+    }
+
+    /**
      * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
-     * labels (dropped), and milestone or closed date (for archiving).
+     * the containment denylist, labels (dropped), and milestone or closed date (for archiving).
      * @param {object} issue The GitHub issue object.
      * @param {Map<number, object>} planBuckets Precomputed bucket distribution.
      * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
      * @private
      */
     #getIssuePath(issue, planBuckets = new Map()) {
+        // Containment precedes disposition: a denylisted issue is excluded regardless of its labels,
+        // and returning null here routes it into the same quarantine branch `droppedLabels` uses.
+        if (this.#isDenylisted(issue)) {
+            return null
+        }
+
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
 
         // Handle both GraphQL (issue.labels.nodes) and potential direct array.
@@ -703,10 +739,46 @@ class IssueSyncer extends Base {
             const oldPathRelative = oldIssue?.path;
             const oldAbsolutePath = oldIssue ? this.#resolvePath(oldPathRelative) : null;
 
+            // --- EVICTION, AND WHY IT RUNS BEFORE SEALED-CHUNK ENFORCEMENT ---
+            // A null targetPath means "this issue must not exist on disk" — denylisted, or dropped by
+            // label. That is a containment decision, and containment cannot be conditional on where
+            // the file happens to live.
+            //
+            // This block sat BELOW the sealed-chunk block and was therefore unreachable for an
+            // archived closed issue: `wasArchived && targetPath !== oldAbsolutePath` is
+            // unconditionally true when targetPath is null, so enforcement reassigned it to the old
+            // path and the eviction never ran. The issue was re-written instead of removed — no
+            // error, no stat, silent. All three conditions are ordinary: already-synced (the case the
+            // number leg exists for), CLOSED (what a moderator does first), archived.
+            //
+            // Ordering is the whole fix. Sealed-chunk semantics answer "which bucket does this file
+            // belong in", which is only a question for a file that belongs on disk at all. Asking it
+            // first lets a bucket rule overrule a containment rule.
+            if (!targetPath) {
+                stats.dropped.count++;
+                stats.dropped.issues.push(issueNumber);
+
+                if (oldPathRelative) {
+                    try {
+                        await fs.unlink(oldAbsolutePath);
+                        shouldPruneEmptyDirs = true;
+                        logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldAbsolutePath}`);
+                    } catch (e) { /* File might not exist */ }
+                }
+
+                delete newMetadata.issues[issueNumber];
+
+                indexMutations.remove.push({ type: 'issues', id: issueNumber });
+                continue;
+            }
+
             // --- ARCHIVE ANOMALY DETECTION & SEALED-CHUNK SEMANTICS ---
             // Detect if an issue's closedAt timestamp has shifted from a previously known value.
             // Under sealed-chunk semantics, historical items should not jump archive buckets
             // just because a maintainer toggled the state.
+            //
+            // Reached only for an issue that IS staying on disk, so `targetPath` is non-null here and
+            // both branches below compare two real paths.
             if (oldIssue && issue.state === 'CLOSED') {
                 const wasArchived = oldAbsolutePath && oldAbsolutePath.startsWith(issueSyncConfig.archiveRoot);
 
@@ -723,25 +795,6 @@ class IssueSyncer extends Base {
                     logger.warn(`[SEALED CHUNK ENFORCEMENT] Issue #${issueNumber} bucket shifted, but it is already archived. Forcing retention at ${oldAbsolutePath}.`);
                     targetPath = oldAbsolutePath;
                 }
-            }
-
-            if (!targetPath) {
-                stats.dropped.count++;
-                stats.dropped.issues.push(issueNumber);
-                const oldPathRelative = metadata.issues[issueNumber]?.path;
-                if (oldPathRelative) {
-                    try {
-                        const oldPath = this.#resolvePath(oldPathRelative);
-                        await fs.unlink(oldPath);
-                        shouldPruneEmptyDirs = true;
-                        logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
-                    } catch (e) { /* File might not exist */ }
-                }
-                // Remove from metadata
-                delete newMetadata.issues[issueNumber];
-
-                indexMutations.remove.push({ type: 'issues', id: issueNumber });
-                continue;
             }
 
             const needsUpdate = !oldIssue ||

@@ -517,6 +517,7 @@
         "issueSync.discussionOuterPageSize",
         "issueSync.discussionsDir",
         "issueSync.droppedLabels",
+        "issueSync.issueDenylist",
         "issueSync.issueFilenamePrefix",
         "issueSync.issuesDir",
         "issueSync.maxAssigneesPerIssue",
