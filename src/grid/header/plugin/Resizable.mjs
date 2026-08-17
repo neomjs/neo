@@ -56,8 +56,11 @@ class Resizable extends BaseResizable {
                 newWidth = parseInt(dragProxy.wrapperStyle.width, 10);
 
             if (newWidth && newWidth !== owner.width) {
-                let toolbar = owner.parent,
-                    body    = toolbar?.parent?.body;
+                // Resolve the body via the toolbar's own getter, never by walking parents:
+                // `grid.header.Wrapper` sits between the toolbar and the grid.Container, so the
+                // former `toolbar.parent.body` walk yielded undefined and this live cell update
+                // silently stopped running — the header resized alone.
+                let body = owner.parent?.body;
 
                 owner.width = newWidth;
 

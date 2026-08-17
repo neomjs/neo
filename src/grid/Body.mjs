@@ -429,12 +429,7 @@ class GridBody extends Component {
      */
     afterSetBufferColumnRange(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.skipCreateViewData = true;
-            me.updateMountedAndVisibleColumns(true);
-            me.skipCreateViewData = false;
-            me.createViewData()
+            this.refreshColumns(true)
         }
     }
 
@@ -467,17 +462,10 @@ class GridBody extends Component {
      */
     afterSetContainerWidth(value, oldValue) {
         if (value > 0) {
-            let me = this;
-
-            // updateMountedAndVisibleColumns only re-renders rows as a side effect of mountedColumns
-            // *changing*. A width-invariant region — e.g. a single-column locked-end body whose
-            // mounted range is always [0, 0] regardless of width — would otherwise never render its
-            // rows once measured. Recompute with the row render suppressed, then fire exactly one
-            // explicit createViewData (mirroring the afterSetBufferColumnRange pattern above).
-            me.skipCreateViewData = true;
-            me.updateMountedAndVisibleColumns();
-            me.skipCreateViewData = false;
-            me.createViewData()
+            // A width-invariant region — e.g. a single-column locked-end body whose mounted range is
+            // always [0, 0] regardless of width — would never render its rows once measured if we
+            // relied on the mounted-range side effect. refreshColumns() guarantees the repaint.
+            this.refreshColumns()
         }
     }
 
@@ -1442,6 +1430,34 @@ class GridBody extends Component {
 
         me.updateDepth = 2;
         me.update()
+    }
+
+    /**
+     * @summary Recomputes the mounted/visible column range and repaints the rows EXACTLY once.
+     *
+     * `mountedColumns` is used as the "did the columns change?" proxy in TWO places, and a pure
+     * width change (a column resize) satisfies neither — the mounted range stays equal, and
+     * `core.Config` only notifies on `!isEqual` while `core.Compare` deep-compares arrays:
+     *
+     * 1. {@link #updateMountedAndVisibleColumns} repaints rows only as a *side effect* of the range
+     *    changing (see {@link #afterSetMountedColumns}), so nothing renders at all.
+     * 2. {@link #createViewData} auto-detects a column change the same way; without it, `recycle`
+     *    stays true and the recycled cells keep the geometry that was just replaced.
+     *
+     * This closes both: the incidental render is suppressed, the range recomputed, and exactly one
+     * explicit `createViewData()` fired — with `force` propagated so a geometry change actually
+     * re-applies `columnPositions` instead of recycling past it.
+     * @param {Boolean} [force=false] True when column GEOMETRY changed (widths / positions), not
+     * merely the mounted range. Forwarded to both {@link #updateMountedAndVisibleColumns} and
+     * {@link #createViewData}, where it disables cell recycling.
+     */
+    refreshColumns(force = false) {
+        let me = this;
+
+        me.skipCreateViewData = true;
+        me.updateMountedAndVisibleColumns(force);
+        me.skipCreateViewData = false;
+        me.createViewData(false, force)
     }
 
     /**
