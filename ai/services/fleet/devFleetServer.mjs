@@ -55,8 +55,8 @@ import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {assertFleetPlaneAdmissionBearerClass,
-        assertFleetViewerMcAuthorizationClass,
-        resolveFleetPlaneBearer}                                                from './fleetServer.mjs';
+        assertFleetPlaneBearerClass,
+        assertFleetViewerMcAuthorizationClass}                            from './fleetServer.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader,
         createPlaneWakeObservationsReader}                               from './planeWakeIdentitiesReader.mjs';
@@ -97,12 +97,13 @@ async function boot() {
     //    decision — refusal is the only honest outcome.
     //  - in-process mode: the existing host-graph verification (seeded AgentIdentity node).
     const planeBase = AiConfig.fleet.planeBase.trim(),
-          // The credential resolves through the sanctioned two-home read (direct value, else the
-          // declared secret file): the dev entry is a Fleet entry, so the file custody class the
-          // leaf documents holds on this journey too — never the direct leaf alone.
+          // The credential arms through the ASSERT variant — matching the composed server's call
+          // site for this same credential, so the two-home custody split AND the credential-class
+          // non-alias teeth arrive together: a bearer aliasing the deployment's admission token
+          // fails this boot exactly as in production. Never the direct leaf alone.
           planeClient = planeBase ? createPlaneMailboxClient({
               baseUrl   : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
-              credential: resolveFleetPlaneBearer()
+              credential: assertFleetPlaneBearerClass()
           }) : null;
 
     let

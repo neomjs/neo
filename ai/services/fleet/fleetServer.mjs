@@ -632,6 +632,10 @@ export async function createFleetServerApp({
  * compose secret, and a credential does not belong in an env literal). Returns `''` when
  * neither yields a value — the caller decides whether that is an honest unarmed state or a
  * refused boot.
+ *
+ * Call sites ARMING a plane credential use the assert variant ({@link assertFleetPlaneBearerClass})
+ * so the credential-class teeth arrive with the resolution; this bare form is for comparison
+ * operands that need the value itself.
  * @param {Object} [options]
  * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
  * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
