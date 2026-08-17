@@ -258,12 +258,14 @@
 
 // One visual family for cross indicators and edge chips: token-fed surfaces, motion-contract
 // timing only. `visibility` (not `display`) keeps the DOM warm so position glides and the
-// show/hide fades actually run.
+// show/hide fades actually run. The ground/line read the dock-domain aliases — the theme
+// values layers (theme-neo-*/dashboard/Container.scss) supply them; an app-palette read here
+// would leave unthemed- light hosts painting dark chrome.
 .neo-dashboard-dock-drop-indicator,
 .neo-dashboard-dock-drop-chip {
     align-items    : center;
-    background     : var(--fm-panel-2, rgb(28 33 40 / 92%));
-    border         : 1px solid var(--fm-line, rgb(139 148 158 / 45%));
+    background     : var(--dock-preview-ground, rgb(28 33 40 / 92%));
+    border         : 1px solid var(--dock-preview-line, rgb(139 148 158 / 45%));
     border-radius  : 6px;
     box-shadow     : 0 2px 8px rgb(0 0 0 / 35%);
     display        : flex;

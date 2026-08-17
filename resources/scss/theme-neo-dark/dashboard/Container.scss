@@ -1,0 +1,35 @@
+// The dock VALUES layer (dark): colors for the token family that
+// resources/scss/src/dashboard/Container.scss reads — indicator/chip surfaces, the
+// body-mounted drag proxy, and the cross-window arrival pulse. The accept/reject/signal
+// accent family lives in the sibling DockPreview.scss values file (its structure sheet is
+// the primary reader); this file is self-contained and never references those tokens, so
+// either sheet resolves standalone regardless of which components have mounted.
+//
+// `:where()` is deliberate and load-bearing: it contributes ZERO specificity, so these
+// engine defaults lose to every application projection (`:root .neo-theme-*` and higher)
+// regardless of stylesheet load order — component-mount order decides which sheet loads
+// first, and an engine default must never win that race against an app skin. The body-
+// mounted drag proxy carries the theme class directly, so it resolves these values the
+// same way whether or not an app projects its own.
+//
+// Provenance: the converged application language. `signal-ground`, the proxy ground/shadow
+// and the line color are the values agentos and the workstation independently ship;
+// `--dock-preview-ground` keeps the cockpit's indicator ground byte-near its former
+// `--fm-panel-2` read (the app-palette leak this layer retires).
+:where(.neo-theme-neo-dark) {
+    // Indicator/chip surfaces (default family): a floating dark ground + the converged line.
+    --agent-dock-preview-signal-ground: rgba(11, 14, 19, 0.92);
+    --dock-preview-ground             : rgba(26, 33, 44, 0.92);
+    --dock-preview-line               : #262f3d;
+
+    // Cross-window arrival pulse: the signal teal at outline strength.
+    --dock-arrival-outline            : rgba(94, 234, 212, 0.55);
+
+    // The drag proxy (mounts at document.body with the theme class stamped on it).
+    // The border literal duplicates the signal teal from DockPreview.scss on purpose:
+    // each values file must resolve standalone.
+    --agent-dock-proxy-border         : color-mix(in srgb, #5eead4 38%, #262f3d);
+    --agent-dock-proxy-ground         : #141a23;
+    --agent-dock-proxy-shadow         : #0b0e13;
+    --agent-dock-proxy-text           : #d6dce6;
+}
