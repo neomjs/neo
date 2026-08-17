@@ -1211,7 +1211,18 @@ class IngestionService extends Base {
                     tenantId: tenantContext.tenantId,
                     repoSlug: normalized.repoSlug
                 }),
+                // `yielded` is a hard veto on minting, and it belongs HERE rather than only at the
+                // caller. A materialization receipt is a claim that the corpus is WHOLE: the next
+                // sweep matches it against the envelope digest and, on a hit, skips ingestion
+                // entirely. A bounded slice has positive effect — chunks really landed — so an
+                // effect-only test mints proof of completeness for a corpus with a remainder, and
+                // the checkpoint then settles over work that never landed. The slice is real
+                // progress and none of it is lost; what it is not is finished.
+                //
+                // This does NOT weaken crash-after-complete recovery: a run that exhausted its
+                // corpus reports `yielded: false` and mints exactly as before.
                 hasEffect      = summary.errors.length === 0
+                    && summary.yielded !== true
                     && [summary.ingested, summary.deleted]
                         .some(value => Number.isSafeInteger(value) && value > 0);
 
