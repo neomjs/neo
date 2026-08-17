@@ -2076,6 +2076,34 @@ class ConfigBase extends ConfigProvider {
                  *   so a lane whose capped retries keep failing (fresh attempts, visible
                  *   `failed` sweeps) stays quiet — a stale suppression means a wedged lane,
                  *   not an ordinary outage. Set `0` to disable the event (never the status).
+                 * - `sliceBudgetMs` bounds ONE repo's share of ONE sweep, so a concurrency slot
+                 *   is released on progress rather than on corpus completion. Without it the
+                 *   slot spans the entire ingestion call, and with more due repos than slots the
+                 *   tail waits for a head repo to FINISH — measured as sibling repos starved for
+                 *   4+ hours behind one backlog while sweeps fired every 60s.
+                 *
+                 *   It is a SAFE-POINT budget, never a wall-clock cap, and the distinction is
+                 *   contract rather than implementation detail: the reused yield primitive checks
+                 *   its predicate only between batches and never before the first one (an explicit
+                 *   forward-progress guarantee against livelock). So effective occupancy is
+                 *   `sliceBudgetMs` PLUS one batch envelope, and a repo admitted with an already
+                 *   exhausted budget still lands one batch. The budget bounds occupancy from
+                 *   above; it can never starve a repo to zero progress.
+                 *
+                 *   The default is chosen against that envelope, not for roundness: the provider
+                 *   call ceiling is 300s (`openAiCompatible.batchEmbeddingTimeoutMs`,
+                 *   `ollama.embeddingTimeoutMs`), so a budget at one ceiling gives a worst-case
+                 *   hold of roughly two while a healthy slice — where a batch takes seconds, not
+                 *   its ceiling — lands many batches before yielding. It is deliberately NOT
+                 *   derived from the provider leaf: a formula would couple two independently
+                 *   tunable knobs and move the fairness guarantee silently when a provider
+                 *   timeout is retuned. REVALIDATION TRIGGER: raising the provider call ceiling,
+                 *   or changing the sweep's concurrency default, reopens this number — the budget
+                 *   is only meaningful while it is at or above one batch envelope.
+                 *
+                 *   `0` is invalid, not a disable. A magic zero would read as "off" and behave as
+                 *   "unlimited slot hold" — precisely the state this budget removes. Express
+                 *   effectively-unbounded as a large number, visibly.
                  *
                  * @type {Object}
                  */
@@ -2083,6 +2111,7 @@ class ConfigBase extends ConfigProvider {
                     backoffCapMs     : leaf(2 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_BACKOFF_CAP_MS', 'number'),
                     jitterRatio      : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
                     leaseStaleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS', 'number'),
+                    sliceBudgetMs    : leaf(5 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SLICE_BUDGET_MS', 'number'),
                     starvedAfterMs   : leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_STARVED_AFTER_MS', 'number'),
                     sweepCadenceMs   : leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
                 },
