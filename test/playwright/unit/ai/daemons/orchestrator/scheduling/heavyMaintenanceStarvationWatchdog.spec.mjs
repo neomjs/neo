@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test';
 import {
+    describeStarvationReceiptReachability,
     evaluateWaiterStarvation,
     getDueTask
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/heavyMaintenanceStarvationWatchdog.mjs';
@@ -168,5 +169,48 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
             now                                      : 999999999,
             heavyMaintenanceStarvationWatchdogCheckMs: 0
         })).toBeNull();
+    });
+});
+
+test.describe('describeStarvationReceiptReachability — the producer/consumer pairing (#17290)', () => {
+    test('the shipped pair is UNREACHABLE: 10min restamp against a 2min window', () => {
+        const result = describeStarvationReceiptReachability({checkMs: 600000, staleAfterMs: 120000});
+
+        expect(result.reachable).toBe(false);
+        // 8 of every 10 minutes a stamped verdict is already stale — the measured duty cycle.
+        expect(result.unreadableMs).toBe(480000);
+    });
+
+    test('the derived default is reachable and leaves no unreadable gap', () => {
+        const result = describeStarvationReceiptReachability({checkMs: 600000, staleAfterMs: 1200000});
+
+        expect(result.reachable).toBe(true);
+        expect(result.unreadableMs).toBe(0);
+    });
+
+    test('a window EQUAL to the cadence is the floor — reachable, with zero slack', () => {
+        expect(describeStarvationReceiptReachability({checkMs: 600000, staleAfterMs: 600000})).toMatchObject({
+            reachable: true, unreadableMs: 0
+        });
+
+        expect(describeStarvationReceiptReachability({checkMs: 600000, staleAfterMs: 599999})).toMatchObject({
+            reachable: false, unreadableMs: 1
+        });
+    });
+
+    test('a DISABLED producer is reachable by definition — a verdict never stamped cannot go unread', () => {
+        expect(describeStarvationReceiptReachability({checkMs: 0, staleAfterMs: 0})).toMatchObject({
+            reachable: true, unreadableMs: 0
+        });
+
+        expect(describeStarvationReceiptReachability({checkMs: -1, staleAfterMs: 120000})).toMatchObject({
+            reachable: true
+        });
+    });
+
+    test('non-finite input fails closed rather than passing on a NaN comparison', () => {
+        for (const pair of [{checkMs: NaN, staleAfterMs: 120000}, {checkMs: 600000, staleAfterMs: undefined}]) {
+            expect(describeStarvationReceiptReachability(pair).reachable).toBe(false);
+        }
     });
 });

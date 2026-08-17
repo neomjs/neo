@@ -363,6 +363,7 @@
         "orchestrator.heavyMaintenanceLease.fairnessYieldAfterMs",
         "orchestrator.heavyMaintenanceLease.staleAfterMs",
         "orchestrator.heavyMaintenanceLease.starvationDegradeAfterMs",
+        "orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMsOverride",
         "orchestrator.intervals",
         "orchestrator.intervals.backupMs",
         "orchestrator.intervals.backupRetryDelayMs",

@@ -34,6 +34,7 @@ import AiConfig                                                          from '.
 import Orchestrator, {rotateLogFileIfNewDay}                             from './Orchestrator.mjs';
 import {acquireAuthorityLease, AUTHORITY_LEASE_TTL_MS}                   from './authorityLease.mjs';
 import {assertAuthorityProfile, isTaskOwnedByProfile}                    from './taskAuthority.mjs';
+import {describeStarvationReceiptReachability}                           from './scheduling/heavyMaintenanceStarvationWatchdog.mjs';
 import {assertConfigFresh}                                               from '../../scripts/setup/initServerConfigs.mjs';
 import {DAEMON_EXIT_CRASH, DAEMON_EXIT_OK}                               from '../shared/daemonExit.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
@@ -298,6 +299,44 @@ export function assertOrchestratorPlane({aiConfig = AiConfig, rootDir = REPO_ROO
 }
 
 /**
+ * @summary Refuses a boot whose starvation verdict would be unreadable most of the time.
+ *
+ * The watchdog restamps the receipt once per cadence; the health fold consumes it only while it is
+ * inside its freshness window. A window shorter than the cadence therefore leaves a gap in which a
+ * continuously starved plane answers `healthy` — the detector runs, the verdict is written, and
+ * almost every poll misses it. Sibling of `assertOrchestratorPlane`: a config pair that cannot
+ * mean what it claims is refused here, ahead of `startOrchestrator`, so a rejected launch writes no
+ * state directory, no PID file and no log. ticket-ref-ok: ADR-0019 §10.8 is the authority
+ * that assigns boot-time config refusal to this entrypoint rather than to a service hook.
+ *
+ * The shipped pair was 600,000ms restamped against a 120,000ms window — readable roughly a fifth of
+ * the time, through green CI and a live plane starved for days.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Config singleton (injectable for tests).
+ * @returns {Object} The reachability descriptor, for callers that want the numbers.
+ * @throws {Error} When the consumer window is shorter than the producer cadence.
+ */
+export function assertStarvationReceiptReadable({aiConfig = AiConfig} = {}) {
+    const reachability = describeStarvationReceiptReachability({
+        checkMs     : aiConfig.orchestrator.intervals.heavyMaintenanceStarvationWatchdogCheckMs,
+        staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMs
+    });
+
+    if (!reachability.reachable) {
+        throw new Error(
+            '[Orchestrator] the heavy-maintenance starvation receipt is restamped every ' +
+            `${reachability.checkMs}ms but stays consumable for only ${reachability.staleAfterMs}ms, ` +
+            `leaving ${reachability.unreadableMs}ms of every cycle in which a starved plane reports ` +
+            'healthy. Unset NEO_HEAVY_MAINTENANCE_LEASE_STARVATION_RECEIPT_STALE_MS to let the ' +
+            'derived default track the cadence, raise it to at least the cadence, or lower ' +
+            'NEO_ORCHESTRATOR_HEAVY_STARVATION_WATCHDOG_INTERVAL_MS.'
+        );
+    }
+
+    return reachability;
+}
+
+/**
  * @summary Resolves whether an orchestrator role owns graph-backed plane work.
  *
  * The data-integrity sweep is a canonical container-plane lane, so its authority
@@ -463,6 +502,7 @@ export async function bootOrchestratorCli() {
     await assertConfigFresh({requiredFindings: findings});
 
     assertAuthorityProfile(AiConfig.orchestrator.authorityProfile);
+    assertStarvationReceiptReadable();
 
     return startOrchestrator();
 }

@@ -356,9 +356,11 @@ const serviceMapping = {
         // Fresh bridge truth only. `composeMemoryCoreHealthcheck` keeps stale/unavailable
         // observations explicit but prevents either from authorizing a backup degradation.
         deploymentInspection: await readDeploymentInspection(),
-        // The starvation receipt's own checkedAt freshness reads the same deployment-state
-        // authority that bounds the snapshot — one leaf governs the whole consumed surface.
-        starvationStaleAfterMs: AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
+        // The starvation receipt is bounded by ITS OWN producer's cadence, never by the bridge's
+        // write-staleness clock: the snapshot is rewritten every 30s, the receipt only every
+        // watchdog run, so one leaf governing both made the verdict readable 2 minutes in 10
+        // The formula couples this bound to that cadence.
+        starvationStaleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMs,
         // Elected + parked vector-generation identities (never throws; `missing` on a plane that
         // has not declared an election) — acceptance for a generation cutover reads this block.
         vectorGeneration: await projectVectorGenerationHealth({
