@@ -3,6 +3,7 @@ import fs             from 'fs-extra';
 import * as yaml      from 'js-yaml';
 import path           from 'node:path';
 
+import {SCAN_SURFACE as BOUNDARY_SURFACE}        from '../../../../../../buildScripts/util/check-engine-brain-boundary.mjs';
 import {SCAN_SURFACE as CONFIG_TEMPLATE_SURFACE} from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
 import {SCAN_SURFACE as ENTRYPOINT_SURFACE}      from '../../../../../../ai/scripts/lint/lint-npm-script-entrypoints.mjs';
 import {SCAN_SURFACE as FIXED_SLEEP_SURFACE}     from '../../../../../../buildScripts/util/check-fixed-sleeps.mjs';
@@ -83,6 +84,11 @@ const REGISTRY = Object.freeze({
         scriptRel: 'ai/scripts/lint/lint-config-template-ssot.mjs',
         source   : 'imported',
         surface  : CONFIG_TEMPLATE_SURFACE
+    },
+    'engine-brain-boundary-lint.yml': {
+        scriptRel: 'buildScripts/util/check-engine-brain-boundary.mjs',
+        source   : 'imported',
+        surface  : BOUNDARY_SURFACE
     },
     'npm-script-entrypoint-lint.yml': {
         scriptRel: 'ai/scripts/lint/lint-npm-script-entrypoints.mjs',
