@@ -146,8 +146,8 @@ test.describe('grid column resize — header/cell width sync', () => {
             }
         });
 
-        // Every column carries a fixed px width on purpose: passSizeToBody then takes its pure-math
-        // path instead of awaiting getLayoutRect(), so the drop path is exercised without DOM metrics.
+        // Every column carries a fixed px width, so the geometry under assertion is exact arithmetic
+        // rather than whatever a layout engine rounds to.
         grid = Neo.create(GridContainer, {
             appName  : 'GridColumnResizeCellSyncTest',
             height   : 400,
