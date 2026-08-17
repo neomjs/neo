@@ -34,10 +34,12 @@ function toMs(value, name) {
 
 /**
  * @summary Reduce one read failure to a projection-safe diagnostic detail: message extracted,
- * whitespace collapsed, bounded to 240 chars, credential families masked through the shared
- * redaction authority. The consuming catch used to discard the error entirely, leaving
- * `memories-read-failed` as the whole story — a diagnosis that costs probes exactly one carried
- * field would have made free.
+ * whitespace collapsed, credential families masked through the shared redaction authority, and
+ * ONLY THEN bounded to 240 chars — redaction replaces, and a replacement can be longer than its
+ * match, so a cap applied before it does not bind. Redacting the whole message first is also
+ * strictly safer than redacting a truncation of it. The consuming catch used to discard the
+ * error entirely, leaving `memories-read-failed` as the whole story — a diagnosis that costs
+ * probes exactly one carried field would have made free.
  * @param {*} error The thrown value; non-Errors are coerced.
  * @returns {String|null} the sanitized detail, or `null` when nothing legible remains.
  * @private
@@ -46,9 +48,9 @@ function redactReadFailure(error) {
     // an Error owns its message even when empty — falling through to String(error) would turn a
     // message-less throw into the literal word "Error", a detail that details nothing
     const raw  = typeof error?.message === 'string' ? error.message : error == null ? '' : String(error),
-          text = raw.replace(/\s+/g, ' ').trim().slice(0, 240);
+          text = redactCredentials(raw.replace(/\s+/g, ' ').trim()).slice(0, 240);
 
-    return text ? redactCredentials(text) : null
+    return text || null
 }
 
 /**
