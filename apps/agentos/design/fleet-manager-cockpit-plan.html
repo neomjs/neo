@@ -398,4 +398,89 @@
       </div>
     </div>
   </section>
+
+  <!-- ── 6 · THE DESIGN BAR (the §04 pass, specified) ── -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">06</span><h2>The design bar — type, density, chip &amp; motion, specified</h2>
+      <span class="faint mono" style="margin-left:auto;font-size:12px">the contract the §04-pass implementation subs score against</span></div>
+    <p class="muted" style="max-width:74ch">The cockpit's mechanics landed leaf by leaf; its visual language was never designed — three status-chip idioms grew up independently in one month, type and density were never laddered, iconography is library default, motion is one mechanism. This section is the bar, at implementable depth: four ladders, each with its token contract (values live in <span class="mono">TOKENS.md</span> — the §04 token appendix) and an acceptance sketch. It specifies; it does not restate the honesty SEMANTICS the idioms already share — those are landed and referenced, never re-litigated. The token contract is a floor, not a ceiling: a delta is a recorded design decision on a ticket, never silent drift (the standing TOKENS.md rule).</p>
+
+    <!-- ── ladder 1 · type + density ── -->
+    <div class="lanes" style="margin-top:18px">
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">T1</span><h3>Type + density ladder</h3><span class="lane-own"><b>consumers:</b> every cockpit surface; the rail/drawer ergonomics subs</span></div>
+        <div class="lane-body"><p>Five type roles, as tokens — no seventh size. A surface picks a ROLE; it never picks a pixel. The measured population below the display tier is six sizes, three of them within 1px of a neighbour (12.5 / 12 / 11 / 10.5 / 10 / 9 across 68 literals) — accumulated drift, not a scale. This ladder is a <b>correction</b> of that population, not a description of it: values codify the covered share, the disposition row rules the rest, and the only deliberate moves beyond it are the rails/drawers ergonomics findings this pass answers.</p>
+          <div class="reg-table-wrap"><table class="reg-table">
+            <tr><th>role token</th><th>value</th><th>stack</th><th>consumers (the measured population they codify — 39 of 68 literals exactly; the rest resolve by the disposition row)</th></tr>
+            <tr><td>--fm-text-display</td><td>14px / 1.3 · 600</td><td>sans</td><td>agent name (card), pane titles, drawer headers — 14px ×2</td></tr>
+            <tr><td>--fm-text-body</td><td>12px / 1.45</td><td>sans</td><td>lane line (card), stream event text, pane body copy — 12px ×12, the most-implemented value</td></tr>
+            <tr><td>--fm-text-detail</td><td>11px / 1.4</td><td>mono</td><td>telltale, spine banner, viewer-wake, source strip, foot meta — 11px ×19</td></tr>
+            <tr><td>--fm-text-micro</td><td>10px / 1.3</td><td>mono</td><td>event chips, open-lane badge, timestamps — 10px ×11</td></tr>
+            <tr><td>--fm-text-chrome</td><td>11px / 1 · .08em · uppercase</td><td>mono</td><td>panel labels, rail tabs, section eyebrows — shares the 11px population; tracking + case is its distinction</td></tr>
+          </table></div>
+          <ul class="subs" style="margin-top:12px">
+            <li><span class="s-tag">disposition</span><span class="s-txt"><b>A literal outside the five roles migrates to the NEAREST role (ties to the smaller); a shift of ≥1px instead becomes a recorded exception named in the file's SCSS header</b> — the spacing ladder's own exception shape — or the deliberate move an implementation sub records on its ticket. Ruled outright so four subs cannot re-decide it: <b>body is 12px</b> (12 vs 7 implemented, an integer-step 14/12/11/10 scale, and the mock itself splits 12/12.5) so the 12.5px ×7 sites migrate at an invisible 0.5px; 10.5px ×8 → micro (0.5px); <b>9px ×6 → micro</b> — a deliberate 1px growth on the smallest text in the product (MailboxPane, AgentCard badge, SourceHealthMarker, AgentDetail), the appendix already flags 10px as the comfort floor and nothing smaller ships; 13px ×1 (AddAgentForm) → body (tie-to-smaller); 15px ×1 (AgentDetail header) → display (1px); 16px ×1 (AgentCard) → the deliberate oversize move owned by the ergonomics slice (#17211), never a silent migration.</span></li>
+            <li><span class="s-tag">density</span><span class="s-txt"><b>Roster-scan vs drilled detail is a stated ladder, not an accident.</b> Roster tier: the card's exception-based rule already owns it (nominal earns zero pixels — the telltale contract); the grid stays 2-up to the 20-card fleet, 3-up only past 1280px of grid measure. Detail tier: one resident, full readouts (the telltale detail rule). Drawer tier: pane content lays out to the drawer's ACTUAL measure — prose caps at 68ch, list/grid panes use full width at their density tier; a fixed narrow column floating in dead space is a ladder violation (the #17211 symptom, now a stated rule).</span></li>
+            <li><span class="s-tag">rails</span><span class="s-txt"><b>One deliberate proportion decision:</b> both edge rails are CHROME. Left-rail tabs render at the chrome tier (11px uppercase mono — down from today's oversize), right-rail rotated tabs floor at 11px + .08em tracking with a structural active state (signal mark + weight, never hue-alone). The grid/timeline splitter is a designed affordance: visible divider line, hover signal wash, resize cursor — discoverability is the bar, not an accident of hit-area.</span></li>
+            <li><span class="s-tag">rhythm</span><span class="s-txt"><b>Spacing is 4/8/12/16, tokenized</b> (--fm-space-1..4): card padding 12px (today's 10–12 snaps), panel padding 16px, stream row gaps 8px, chip internals 2/8. A literal outside the ladder is a recorded exception (today: the card's 16px left pad clearing the 4px family rail — kept, named).</span></li>
+            <li><span class="s-tag">sketch</span><span class="s-txt"><b>Acceptance:</b> every cockpit text node resolves through a role token (greppable: zero font-size literals in fleet SCSS after the pass); the five roles render side-by-side in the visual-regression baseline (#14618) in both themes; drawer panes fill their measure on the acceptance surface (offline topology, light + dark).</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── ladder 2 · the chip system ── -->
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">T2</span><h3>The chip system — one family, five current idioms</h3><span class="lane-own"><b>consumers:</b> every status/kind surface</span></div>
+        <div class="lane-body"><p>One designed family: <b>mark + text + optional detail affordance</b>. The mark carries severity/kind in geometry and token color; the text carries the whole message; the detail affordance (title/drill) answers what the chip had no room for. Three classes on one class axis — <b>exception-only</b> (nominal earns zero pixels), <b>always-rendered</b> (furniture that must be findable before it matters), <b>affordance</b> (an action, never an observation). Color is always supplemental and token-only: the text is the message, the mark is the accent — neither channel load-bearing alone (WCAG 1.4.1 as design law, below).</p>
+          <div class="reg-table-wrap"><table class="reg-table">
+            <tr><th>idiom</th><th>class</th><th>anatomy today</th><th>migration note (one note each, per the bar)</th></tr>
+            <tr><td>state dot (StateDot)</td><td>always-rendered</td><td>8px mark + 22% halo; word rides the adjacent state text</td><td>The family's mark-only member. Keep geometry; the pulse moves to the motion ladder's token. The dot alone NEVER carries state (the #15512 two-channel rule: dot carries hue, the WORD is the 1.4.1 channel).</td></tr>
+            <tr><td>per-agent telltale</td><td>exception-only</td><td>bare mono text, compound (wake · throttle)</td><td>Adopt the shared chip geometry (--fm-chip-pad-y/x, radius) so an exception reads as one object, not loose text. Semantics untouched: enumerated-deviation-only, axis-named words, resolver-owned aria/title (telltale.mjs is the contract authority).</td></tr>
+            <tr><td>spine banner</td><td>exception-only</td><td>3px accent bar + mono text, cold/degraded mark classes</td><td>The reference member for the exception class (text carries cause AND remedy; mark carries severity). Mark width unifies to the family token (--fm-chip-mark-w: 3px — its current value wins).</td></tr>
+            <tr><td>viewer-wake telltale</td><td>always-rendered</td><td>2px mark + mono text, live/degraded classes</td><td>The furniture-class reference (nominal is one token wide and reads as toolbar furniture). Mark width migrates 2px → the family token; the quiet-exception tone rule (idle, never wedged, while poll is truth) is restated as family law.</td></tr>
+            <tr><td>event chip (EventChip)</td><td>always-rendered</td><td>tinted plate, kind token → --fm-chip indirection</td><td>The kind-axis reference (text + border + faint fill from ONE custom property; unknown kind → neutral). Adopt family radius/padding tokens; the closed --fm-kind-* class set stays the binding mechanism (class swap, never a written style).</td></tr>
+            <tr><td>selector chip (.fm-chip)</td><td>affordance</td><td>outlined button chip, structural selection (border + weight + wash)</td><td>The affordance-class sibling, documented so the family never confuses it with an observation chip: selection is structural (never hue-alone), observations are facts. Radius may stay 6px as the affordance-class distinction (recorded, not drift).</td></tr>
+          </table></div>
+          <ul class="subs" style="margin-top:12px">
+            <li><span class="s-tag">mapping</span><span class="s-txt"><b>State-to-token stays where it lives.</b> --fm-state-* (session state, never identity — ADR 0032) and --fm-kind-* (event category, a separate axis) remain the value authority in the theme Viewport.scss twins. The family adds GEOMETRY tokens only (--fm-chip-mark-w, --fm-chip-pad-y, --fm-chip-pad-x, --fm-chip-radius, --fm-chip-gap): one local indirection per idiom (the --fm-spine-mark / --fm-viewer-wake-mark / --fm-chip pattern), a state class rebinds ONE token, an unmatched class renders quiet — never a borrowed severity.</span></li>
+            <li><span class="s-tag">law-1</span><span class="s-txt"><b>Never hue-alone (WCAG 1.4.1, design law).</b> Every chip carries a non-hue channel: text, geometry, or both. Anchors: the state dot's two-channel rule (CARD-CONTRACT state-text-present, #15512 — the TOKENS.md audit that found the dot reachable only by hue, resolved by the adjacent word); the event chip's uppercase kind word; the spine banner's cause-and-remedy text; the selector chip's border+weight structure.</span></li>
+            <li><span class="s-tag">law-2</span><span class="s-txt"><b>Motion is decoration, never information (design law).</b> Reduced-motion users lose zero signal, by construction. Anchors: the token-layer collapse (Container.scss: every dock duration → 0ms under prefers-reduced-motion); the pulse's inclusion-gate (StateDot.scss: the animation exists only under no-preference); the TOKENS.md Motion section (the 1.4.1 tension record — re-loading signal onto motion would break the reduced-motion property, so the third channel is text, never more motion).</span></li>
+            <li><span class="s-tag">sketch</span><span class="s-txt"><b>Acceptance:</b> all five idioms consume the family geometry tokens; a hue-removal pass (gray-filter screenshot review in the visual-regression baseline) keeps every chip legible; the exception/furniture/affordance class of each idiom is stated in its SCSS header (the current discipline, made contract).</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── ladder 3 · iconography ── -->
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">T3</span><h3>Iconography — which glyphs are load-bearing</h3><span class="lane-own"><b>consumers:</b> controls, rails, drills</span></div>
+        <div class="lane-body"><p>The cockpit's icons are library default (Font Awesome via button glyph). The bar is not a custom set — it is a stated rule for where a glyph may carry meaning at all, and a review venue for the ones that mislead.</p>
+          <ul class="subs" style="margin-top:12px">
+            <li><span class="s-tag">rule</span><span class="s-txt"><b>Load-bearing glyphs are the short, named list:</b> the control verbs (state-derived play/stop, restart — AgentCard, actions-in-flow), the tear-out/pop-out affordance, the rail entries (add-agent, perspectives, the drawer panes), the fleet-start verb. Every other glyph is decoration and may be swapped without a design decision.</span></li>
+            <li><span class="s-tag">must-not</span><span class="s-txt"><b>No icon-only state, no icon-only kind.</b> State and kind are text+mark (the chip system); an icon may decorate, never substitute. No expander glyph on the card — the name is the one disclosure route (CARD-CONTRACT, deliberate).</span></li>
+            <li><span class="s-tag">replace</span><span class="s-txt"><b>Defaults get replaced only where they mislead</b> — a glyph whose library meaning fights its cockpit meaning (candidate class: restart-as-undo, wake-as-bell). Replacements land token/class-level (SCSS skin layers only, zero CSS-in-JS) and are recorded on the implementing sub.</span></li>
+            <li><span class="s-tag">sketch</span><span class="s-txt"><b>Acceptance:</b> the load-bearing list above renders in the baseline with accessible names matching visible purpose (icon buttons keep tooltips per the VisualSystem interaction contract); a grep finds no glyph-only state or kind carrier.</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── ladder 4 · motion language ── -->
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">T4</span><h3>Motion — FLIP, reveal/dismiss, pulse, one vocabulary</h3><span class="lane-own"><b>consumers:</b> dock ops, rails/drawers, liveness</span></div>
+        <div class="lane-body"><p>Three motion classes, one token vocabulary. The dock motion contract already owns durations/easings for the dock domain; this ladder names the classes, binds the cockpit's non-dock motion to the same standards vocabulary, and states the reduced-motion collapse per class. A call-site duration/easing literal is a contract violation (the dock rule, extended to the cockpit).</p>
+          <div class="reg-table-wrap"><table class="reg-table">
+            <tr><th>class</th><th>meaning</th><th>token + value</th><th>reduced-motion collapse</th></tr>
+            <tr><td>FLIP (dock ops)</td><td>geometry change is movement, not teleport — drag, dock, tear-out, reparent</td><td>--dock-transition-duration (280ms) / --dock-transition-easing (cubic-bezier(0.22,1,0.36,1)); fast tier 120ms</td><td>token-layer 0ms (Container.scss) — instant, never removed: the state change still lands</td></tr>
+            <tr><td>reveal / dismiss (rails, drawers, overlays)</td><td>chrome enters from its edge, settles toward it; dismissed chrome leaves the DOM</td><td>same dock contract (the reveal choreography already reads it)</td><td>same token-layer collapse; dwell/grace timing stays with DockRevealStateMachine's named design constants (not restated here)</td></tr>
+            <tr><td>pulse (liveness)</td><td>a live state breathes — decoration only, the hue+word carry the fact</td><td>--fm-motion-pulse: 2400ms ease-in-out (the current 2.4s dot pulse, tokenized)</td><td>the animation exists only under no-preference (StateDot.scss inclusion-gate) — absence IS the collapse</td></tr>
+          </table></div>
+          <ul class="subs" style="margin-top:12px">
+            <li><span class="s-tag">binding</span><span class="s-txt"><b>Cockpit surfaces outside the .neo-dashboard scope read the standards vocabulary directly</b> (var(--motion-panel, 280ms) / var(--motion-fast, 120ms)) — the dock tokens deliberately resolve nothing outside their scope (Container.scss says so); the FM alias tokens (--fm-motion-*) point at the vocabulary, never at dock-scoped aliases.</span></li>
+            <li><span class="s-tag">observable</span><span class="s-txt"><b>Motion lifecycle stays observable:</b> dock motion signals through neo-dashboard-dock-animating (DockMotionSignal — the one lifecycle every producer routes through); cockpit reveal/pulse additions join that signal rather than toggling classes ad hoc.</span></li>
+            <li><span class="s-tag">sketch</span><span class="s-txt"><b>Acceptance:</b> zero duration/easing literals in fleet + cockpit SCSS outside the token layer (greppable, same rule as the dock domain); a reduced-motion run shows every state change landing instantly with zero lost information; the pulse token's value change re-times every pulse from one place.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <p class="caption">The §04 bar, specified: four ladders, token values in TOKENS.md, semantics unchanged where the honesty discipline already landed. Implementation subs score against this page.</p>
+  </section>
 </div>
