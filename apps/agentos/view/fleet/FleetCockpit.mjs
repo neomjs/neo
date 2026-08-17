@@ -3020,6 +3020,12 @@ class FleetCockpit extends Container {
      * generation fences drop stale answers, and the same routing matrices write the state — the
      * button only collapses the up-to-one-cadence wait into "now". Works identically in both
      * topologies (the browser flow has the same stale-offline problem after a late server start).
+     *
+     * The pane histories (memories / catch-up / wake routes) ride this re-drive for a stronger
+     * reason: they have NO cadence at all — request-driven only — so a failed first read would
+     * otherwise sit as its unavailable envelope forever. Re-driving goes THROUGH each pane's own
+     * refresh handler, whose guards (active agent, partition) decide whether there is a request
+     * to make; a pane with no selection stays silent rather than fabricating one.
      */
     reconnectFleet() {
         let me = this;
@@ -3027,7 +3033,15 @@ class FleetCockpit extends Container {
         me.loadActivity();
         me.loadRoster();
         me.loadBrainHealth();
-        me.ensureViewerWakeStream()
+        me.ensureViewerWakeStream();
+
+        // The pane histories are liveness seams too: a failed first read pins its unavailable
+        // envelope until SOME re-request happens, and before this line the only such request was a
+        // manual pane action — the dead-pane gap. Each pane's own refresh handler carries its
+        // guards (active agent / partition), so re-driving through it is exactly the button's path.
+        me.getReference('memories')?.onRefreshClick();
+        me.getReference('catch-up')?.onRefreshClick();
+        me.getReference('wakeRoutes')?.onRefreshClick()
     }
 
     /**
