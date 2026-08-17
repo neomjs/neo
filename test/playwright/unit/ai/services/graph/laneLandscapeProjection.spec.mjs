@@ -217,7 +217,8 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
             now
         });
 
-        expect(result.coverage).toEqual({totalOpenItems: 2, edgeCount: 1, degraded: false, degradedReasons: []});
+        // A complete census is the one case where the total IS knowable, so both fields carry it.
+        expect(result.coverage).toEqual({totalOpenItems: 2, observedOpenItems: 2, edgeCount: 1, degraded: false, degradedReasons: []});
         expect(result.authorityCoverage.unassignedIds).toEqual(['issue-1']);
         expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
     });
@@ -235,8 +236,12 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         });
 
         expect(result.coverage.degraded).toBe(true);
-        // the partial evidence still surfaces — labelled incomplete rather than discarded
-        expect(result.coverage.totalOpenItems).toBe(1);
+        // the partial evidence still surfaces — labelled incomplete rather than discarded — but as a
+        // FLOOR, not a total: the walk stopped at a bound, so "1" is what was seen and the real
+        // total is unknown. Reporting it as `totalOpenItems` would be the clipped read claiming
+        // completeness it explicitly failed to prove.
+        expect(result.coverage.observedOpenItems).toBe(1);
+        expect(result.coverage.totalOpenItems).toBeNull();
         // and it says WHICH part is missing: a degraded flag without its reason is only half-honest
         expect(result.coverage.degradedReasons).toEqual(['open issues: walk stopped at the bound']);
     });
@@ -266,10 +271,30 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         });
 
         expect(result.coverage.degraded).toBe(true);
-        expect(result.coverage.totalOpenItems).toBe(0);
         expect(result.goalTrajectory).toEqual([]);
         expect(result.notAuthority).toBe(true);
         // the failure names itself rather than presenting as an empty landscape
         expect(result.coverage.degradedReasons.join(' ')).toContain('graphql down');
+
+        // THE defect, asserted directly. This line previously read `toBe(0)` — directly beneath the
+        // comment above claiming the landscape does not present as empty, while asserting the exact
+        // shape an empty one produces. A caller that reads a count without branching on `degraded`
+        // could not tell "no open work" from "the census could not run", and for a next-lane engine
+        // that is the worse direction: it reports no lanes rather than the wrong lane.
+        expect(result.coverage.totalOpenItems).toBeNull();
+        expect(result.authorityCoverage.assignedCount).toBeNull();
+        expect(result.authorityCoverage.unassignedCount).toBeNull();
+        // observed stays a real number — zero items were genuinely seen, which is true and useful
+        expect(result.coverage.observedOpenItems).toBe(0);
+
+        // The property that matters, stated as the contract rather than as three field assertions:
+        // no count in a degraded landscape may be read as a quantity.
+        const counts = [
+            result.coverage.totalOpenItems,
+            result.authorityCoverage.assignedCount,
+            result.authorityCoverage.unassignedCount
+        ];
+
+        expect(counts.every(value => typeof value !== 'number')).toBe(true);
     });
 });

@@ -182,7 +182,8 @@ export function projectLaneLandscape({items = [], edges = [], now, degraded = fa
     // this keys on identity — which is the honest fingerprint for a STRUCTURAL view: an edited body
     // does not change the landscape, while a state change removes the item from the census and moves
     // the hash.
-    const sourceManifestHash = hashSourceManifest(citations);
+    const sourceManifestHash = hashSourceManifest(citations),
+          isDegraded         = degraded === true;
 
     return Object.freeze({
         capturedAt       : capturedDate.toISOString(),
@@ -191,14 +192,40 @@ export function projectLaneLandscape({items = [], edges = [], now, degraded = fa
         citations        : Object.freeze(citations.map(citation => Object.freeze(citation))),
         sourceManifestHash,
         authorityCoverage: Object.freeze({
-            assignedCount  : assignedIds.length,
-            unassignedCount: unassignedIds.length,
+            // `null` under degradation, never 0 — see the coverage block below. A count of an
+            // incomplete set is not a smaller true count; it is an unknown wearing a number.
+            assignedCount  : isDegraded ? null : assignedIds.length,
+            unassignedCount: isDegraded ? null : unassignedIds.length,
+            // The IDS stay: they are what the census DID see, which is a floor rather than a claim,
+            // and dropping them would discard the only usable half of a partial read.
             unassignedIds  : Object.freeze([...unassignedIds].sort())
         }),
         coverage: Object.freeze({
-            totalOpenItems: openItems.length,
-            edgeCount     : relEdges.length,
-            degraded      : degraded === true,
+            /**
+             * `null` whenever the census is degraded. **A degraded census cannot report a total by
+             * definition** — "total" is a completeness claim, and completeness is the exact thing
+             * that failed.
+             *
+             * This is not pedantry; it is the defect this field carried. When the plane holds no
+             * GitHub credential every page read fails, and the projection emitted
+             * `totalOpenItems: 0` beside `degraded: true` — the same shape a genuinely empty
+             * backlog produces. Suppressing the narrative synthesis (which this already did) only
+             * covered half of it: the census numbers stayed confidently populated with zeros, so a
+             * caller that read the count without branching on the flag learned "there is no work"
+             * from a tool whose real answer was "I could not look". For a next-lane engine that is
+             * the worse direction of error — it does not misroute a seat, it reports no lanes.
+             *
+             * `null` is unreadable as a quantity, so the flag can no longer be skipped by accident.
+             */
+            totalOpenItems: isDegraded ? null : openItems.length,
+            /**
+             * What the census actually saw, always truthful and always a number — a FLOOR, not a
+             * total. Partial reads keep their value here rather than being flattened to `null`
+             * along with the completeness claim they cannot make.
+             */
+            observedOpenItems: openItems.length,
+            edgeCount        : relEdges.length,
+            degraded         : isDegraded,
             // The provenance of the degradation: a caller must be able to see WHICH part of the
             // picture is missing, not merely that some part is.
             degradedReasons: Object.freeze(Array.isArray(degradedReasons) ? [...degradedReasons] : [])
