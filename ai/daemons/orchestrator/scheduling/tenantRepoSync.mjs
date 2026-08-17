@@ -38,6 +38,33 @@ export function assertSliceBudgetMs(value) {
 }
 
 /**
+ * @summary Builds one repo's slice-budget yield predicate.
+ *
+ * Scoped PER REPO, not per sweep: the control envelope that carries `signal` and
+ * `onProviderTimeout` is built once and shared by every repo in the sweep, but a budget shared that
+ * way would be consumed by the first admitted repo and every later one would be born already
+ * expired — a fairness fix that starves the tail it exists to serve. Each repo therefore gets its
+ * own predicate anchored at the moment IT was admitted.
+ *
+ * `startedMs` is the admission instant, not the moment the repo joined the FIFO. A repo that waited
+ * legitimately for a slot must not have that wait charged against the work it is finally allowed to
+ * do; anchoring at queue-join would hand the most-starved repo the smallest slice.
+ *
+ * The predicate only votes. `embedChunks` checks it between batches and never before the first, so
+ * the actual occupancy is this budget plus one batch envelope, and a repo admitted with an already
+ * exhausted budget still lands one batch. That is the forward-progress guarantee, not a rounding
+ * error — see the `sliceBudgetMs` leaf for why it bounds occupancy only from above.
+ * @param {Object} options
+ * @param {Number} options.startedMs Epoch ms at which this repo was admitted to its slot.
+ * @param {Number} options.sliceBudgetMs Validated budget from {@link assertSliceBudgetMs}.
+ * @param {Function} [options.now=Date.now] Clock seam.
+ * @returns {Function} `() => Boolean` — true once the slice has outlived its budget.
+ */
+export function createSliceBudgetPredicate({startedMs, sliceBudgetMs, now = Date.now}) {
+    return () => now() - startedMs >= sliceBudgetMs
+}
+
+/**
  * Builds the trigger for the cloud-deployable tenant-repo-sync lane.
  * Mirror of `buildPrimaryRepoSyncTrigger` in `./primaryDevSync.mjs` — pure function;
  * no class, no Neo machinery, no side effects.

@@ -38,6 +38,7 @@ import {
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
     assertSliceBudgetMs,
+    createSliceBudgetPredicate,
     classifyEmbeddingRecoveryState,
     detectStarvedTenantSync,
     hasPendingEmbeddingRecoveryBypass,
@@ -2296,7 +2297,14 @@ class TenantRepoSyncService extends Base {
                             ...envelope,
                             ...(materializationAttempt ? {materializationAttempt} : {}),
                             viaMcp: false // operator-bulk path
-                        }, providerCircuitControls);
+                        }, {
+                            ...providerCircuitControls,
+                            // Per-repo, anchored at THIS repo's admission. The envelope above is
+                            // built once and shared by the whole sweep; a budget shared that way
+                            // would be spent by the first admitted repo and every later one born
+                            // already expired — a fairness fix that starves the tail it serves.
+                            shouldYield: createSliceBudgetPredicate({startedMs, sliceBudgetMs})
+                        });
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:
                 // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and
