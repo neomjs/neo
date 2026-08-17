@@ -115,7 +115,7 @@ function resolvesIntoBrain(file, specifier) {
  *
  * Covers static `import`, re-export forms (`export … from`, `export * from`), and dynamic
  * `import('…')` with a literal argument. A dynamic import built from a variable is out of reach here
- * and out of scope: it is not a shape any of the six real crossings use.
+ * and out of scope: it is not a shape any of the nine real crossings use.
  *
  * Split from the filesystem walk so the rule is unit-testable against source strings, and so a
  * red-proof can plant a crossing import without writing one into the tree.
@@ -244,6 +244,36 @@ export function diffAgainstBaseline(findings, baseline) {
     return {added, burnedDown}
 }
 
+/**
+ * @summary The report lines for newly-added crossings, resolved back to their raw occurrences.
+ *
+ * **Why this exists as its own exported function rather than an inline `forEach`.** The reporter is
+ * this guard's entire product — nobody reads a green boundary check — and it was the one layer with
+ * no coverage. `tallyCrossings` collapses occurrences to `{file, specifier, count}` and drops `line`
+ * on the way, so printing `entry.line` from a tallied row emitted a literal `:undefined` where the
+ * location belongs. Fifteen specs passed over it because every one asserted the returned arrays;
+ * `line` was asserted on `findBrainImports`, one layer upstream of where it was lost.
+ *
+ * Reporting from the raw findings rather than re-attaching a single line to the tally is the choice
+ * that carries information: a crossing with `count: 2` has two real locations, and a tallied row can
+ * only ever name one of them. Both are printed, in file-then-line order.
+ *
+ * No fallback branch for a tallied row with no matching occurrence: `added` is filtered from
+ * `tallyCrossings(findings)`, so every key here came out of `findings` by construction. An
+ * `?? []` there would be unreachable code that quietly turns a future invariant break into silence.
+ *
+ * @param {Array<Object>} added Tallied rows the baseline does not cover.
+ * @param {Array<Object>} findings Raw crossings, one per occurrence, carrying `line`.
+ * @returns {String[]} One line per occurrence.
+ */
+export function describeAddedCrossings(added, findings) {
+    const addedKeys = new Set(added.map(crossingKey));
+
+    return findings
+        .filter(entry => addedKeys.has(crossingKey(entry)))
+        .map(entry => `  ${entry.file}:${entry.line} imports ${entry.specifier}`)
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     const files = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {cwd: ROOT, encoding: 'utf8'})
         .split('\n')
@@ -255,7 +285,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     if (added.length) {
         console.error(`\x1b[31mcheck-engine-brain-boundary: ${added.length} NEW engine → Brain import(s):\x1b[0m`);
-        added.forEach(entry => console.error(`  ${entry.file}:${entry.line} imports ${entry.specifier}`));
+        describeAddedCrossings(added, findings).forEach(line => console.error(line));
         console.error(`
 The engine must not consume the Brain. An import here makes the framework's build pipeline depend on
 the agent OS being present — which is what makes releasing the framework require \`ai/\` to exist.

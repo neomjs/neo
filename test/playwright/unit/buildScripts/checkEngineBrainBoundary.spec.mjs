@@ -8,13 +8,13 @@ import {test, expect} from '@playwright/test';
  * symmetric case has its own tests: if a fixed violation may silently stay listed, the file drifts
  * above the real count and becomes a record of things that used to be true. The count then reads as
  * measurement while measuring nothing, which is precisely the shape that let the originating
- * ticket's "three exact sites" survive as a title over six real ones.
+ * ticket's "three exact sites" survive as a title over nine real ones.
  */
 test.describe('check-engine-brain-boundary — one-way direction, ratchet fails both ways', () => {
-    let findBrainImports, diffAgainstBaseline;
+    let findBrainImports, diffAgainstBaseline, describeAddedCrossings;
 
     test.beforeAll(async () => {
-        ({findBrainImports, diffAgainstBaseline} =
+        ({findBrainImports, diffAgainstBaseline, describeAddedCrossings} =
             await import('../../../../buildScripts/util/check-engine-brain-boundary.mjs'));
     });
 
@@ -171,5 +171,56 @@ test.describe('check-engine-brain-boundary — one-way direction, ratchet fails 
         expect(findBrainImports(`import w from '../../ai/WriteGuard.mjs';`, 'src/worker/mixin/Foo.mjs')).toEqual([]);
         expect(findBrainImports(`import t from './ai/TransactionService.mjs';`, 'src/Neo.mjs')).toEqual([]);
         expect(findBrainImports(`import l from '../ai/LockRegistry.mjs';`, 'src/state/Provider.mjs')).toEqual([]);
+    });
+
+    // The reporter is the guard's whole product — a green run prints one line nobody reads. It was
+    // also the one layer with no coverage, and it shipped `:undefined` where the location belongs,
+    // because `tallyCrossings` drops `line` and the reporter asked a tallied row for it. Every
+    // assertion above this point reads the returned ARRAYS, which is exactly why none of them saw
+    // it: `line` is asserted on `findBrainImports`, one layer upstream of where it was lost.
+    test.describe('the failure message — the only output anyone reads', () => {
+        const crossing = (file, line) => ({file, specifier: '../../ai/graph/identityRoots.mjs', line});
+
+        test('names a real line, never the literal ":undefined"', () => {
+            const findings = [crossing('buildScripts/util/probe.mjs', 42)],
+                  {added}  = diffAgainstBaseline(findings, []),
+                  lines    = describeAddedCrossings(added, findings);
+
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toContain('buildScripts/util/probe.mjs:42');
+            // The red-proof, stated as its own assertion rather than left to the `toContain` above:
+            // the pre-fix reporter produced this exact string, and it passed 15 green specs.
+            expect(lines[0]).not.toContain(':undefined');
+        });
+
+        test('a crossing occurring TWICE reports BOTH lines — what a tallied row cannot express', () => {
+            // The reason this reports from raw findings rather than re-attaching one line to the
+            // tally: `{file, specifier, count: 2}` can name at most one location, and a developer
+            // sent to a file with two crossings has to find the second one by hand.
+            const findings = [crossing('buildScripts/devCockpit.mjs', 223), crossing('buildScripts/devCockpit.mjs', 269)],
+                  {added}  = diffAgainstBaseline(findings, []);
+
+            expect(added).toHaveLength(1);
+            expect(added[0].count).toBe(2);
+
+            const lines = describeAddedCrossings(added, findings);
+
+            expect(lines).toHaveLength(2);
+            expect(lines[0]).toContain(':223');
+            expect(lines[1]).toContain(':269');
+        });
+
+        test('reports ONLY the added crossings, not every finding in the tree', () => {
+            // A baselined crossing is tolerated debt; printing it in the NEW list would tell a
+            // developer to fix something the baseline already accepts.
+            const baselined = crossing('buildScripts/release/publish.mjs', 25),
+                  fresh     = crossing('buildScripts/util/probe.mjs', 7),
+                  findings  = [baselined, fresh],
+                  baseline  = [{file: baselined.file, specifier: baselined.specifier, count: 1}],
+                  {added}   = diffAgainstBaseline(findings, baseline),
+                  lines     = describeAddedCrossings(added, findings);
+
+            expect(lines).toEqual(['  buildScripts/util/probe.mjs:7 imports ../../ai/graph/identityRoots.mjs']);
+        });
     });
 });
