@@ -1,0 +1,45 @@
+// The dock VALUES layer (light): colors for the token family that
+// resources/scss/src/dashboard/Container.scss reads — indicator/chip surfaces, the
+// body-mounted drag proxy, the cross-window arrival pulse, AND the accept/signal accent
+// family, which that structure sheet also paints with (drop indicators, chips, the
+// Signal-glow variant). The accents come from the shared `_preview-accents` partial so this
+// sheet resolves standalone: a host may load this file without ever loading DockPreview.css,
+// which is exactly what `additionalThemeFiles: ['Neo.dashboard.Container']` does.
+//
+// `:where()` is deliberate and load-bearing: it contributes ZERO specificity, so these
+// engine defaults lose to every application projection (`:root .neo-theme-*` and higher)
+// regardless of stylesheet load order — component-mount order decides which sheet loads
+// first, and an engine default must never win that race against an app skin. The body-
+// mounted drag proxy carries the theme class directly, so it resolves these values the
+// same way whether or not an app projects its own.
+//
+// Provenance: the converged application language — light chips float (near-white grounds),
+// and the deep-pigment daylight signal keeps the identity legible on paper. The proxy
+// shadow is the one value without an app antecedent: the workstation's light proxy shadow
+// is its near-white ground (effectively invisible), so the engine default carries a real
+// soft shadow; apps re-skin it via their own projections as always.
+@use 'preview-accents' as *;
+
+:where(.neo-theme-neo-light) {
+    // The accent family this sheet's structure reader paints indicators, chips and the
+    // Signal-glow variant with. `--agent-dock-preview-signal{,-fill}` are read WITHOUT a
+    // literal fallback over there, so omitting them here does not degrade to a default —
+    // the whole declaration drops and the chip renders with no ground and no border.
+    @include preview-accents;
+
+    // Indicator/chip surfaces (default family): a floating paper ground + the converged line.
+    --agent-dock-preview-signal-ground: rgba(255, 255, 255, 0.94);
+    --dock-preview-ground             : rgba(247, 249, 252, 0.94);
+    --dock-preview-line               : #d3dae4;
+
+    // Cross-window arrival pulse: the deep-pigment signal at outline strength.
+    --dock-arrival-outline            : rgba(15, 118, 110, 0.45);
+
+    // The drag proxy (mounts at document.body with the theme class stamped on it).
+    // The border literal duplicates the signal pigment from DockPreview.scss on purpose:
+    // each values file must resolve standalone.
+    --agent-dock-proxy-border         : color-mix(in srgb, #0f766e 38%, #d3dae4);
+    --agent-dock-proxy-ground         : #ffffff;
+    --agent-dock-proxy-shadow         : rgba(90, 107, 128, 0.45);
+    --agent-dock-proxy-text           : #1f2733;
+}

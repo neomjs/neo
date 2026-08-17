@@ -1,0 +1,25 @@
+// The accept/reject/signal accent family (dark), shared by BOTH dashboard values sheets.
+//
+// Why a partial rather than a value in one file: the family has two independent readers in the
+// structure layer — `src/dashboard/DockPreview.scss` paints the preview affordances with it, and
+// `src/dashboard/Container.scss` paints the drop indicators, chips and the Signal-glow variant with
+// the same accents. Each values sheet must resolve STANDALONE (a host may load either one first,
+// or only one at all: `additionalThemeFiles` names a single class and is not transitive, because it
+// takes a className string precisely for classes that were never imported). So both output sheets
+// carry the family — but a colour duplicated in four places is a colour that drifts in three of
+// them, so the source lives here once per theme and is included where it is needed.
+//
+// Provenance: the converged application language — agentos and the workstation independently
+// project these exact values. The signal teal is the preview design artifact's «Signal glow»
+// identity.
+@mixin preview-accents {
+    --agent-dock-preview-accept      : #5eead4;
+    --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
+    --agent-dock-preview-reject      : #f4718b;
+    --agent-dock-preview-reject-fill : rgba(244, 113, 139, 0.16);
+
+    // «Signal glow» variant: glow teal + an 18% flood on the deep ground (the ground itself is an
+    // indicator/chip surface and lives in the Container values sheet).
+    --agent-dock-preview-signal      : #5eead4;
+    --agent-dock-preview-signal-fill : rgba(94, 234, 212, 0.18);
+}
