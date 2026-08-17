@@ -14,7 +14,7 @@
  * Uses the gatekeep pattern (lightweight stateless utility — no Base inheritance, no
  * reactive configs, no lifecycle hooks), mirroring `src/core/IdGenerator.mjs` precedent.
  *
- * @namespace Neo.util.Env
+ * @namespace Neo.ai.Env
  */
 const Env = {
     /**
@@ -52,7 +52,7 @@ const Env = {
         const normalized = String(rawValue).trim().toLowerCase();
         if (Env.TRUE_TOKENS.includes(normalized))  return true;
         if (Env.FALSE_TOKENS.includes(normalized)) return false;
-        warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be one of true/false/yes/no/on/off/1/0); falling back.`);
+        warn(`[Neo.ai.Env] Invalid ${envVarName}="${rawValue}" (must be one of true/false/yes/no/on/off/1/0); falling back.`);
     },
 
     /**
@@ -73,7 +73,7 @@ const Env = {
         if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isFinite(num)) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a finite number); falling back.`);
+            warn(`[Neo.ai.Env] Invalid ${envVarName}="${rawValue}" (must be a finite number); falling back.`);
             return;
         }
         return num;
@@ -137,7 +137,7 @@ const Env = {
         if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isInteger(num) || num <= 0 || num > 65535) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be integer in 1..65535); falling back.`);
+            warn(`[Neo.ai.Env] Invalid ${envVarName}="${rawValue}" (must be integer in 1..65535); falling back.`);
             return;
         }
         return num;
@@ -168,7 +168,7 @@ const Env = {
         if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isInteger(num) || num < min) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be an integer >= ${min}); falling back.`);
+            warn(`[Neo.ai.Env] Invalid ${envVarName}="${rawValue}" (must be an integer >= ${min}); falling back.`);
             return;
         }
         return num;
@@ -203,9 +203,9 @@ const Env = {
             const url = new URL(rawValue);
             return url.href.endsWith('/') ? url.href.slice(0, -1) : url.href;
         } catch (e) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a valid URL); falling back.`);
+            warn(`[Neo.ai.Env] Invalid ${envVarName}="${rawValue}" (must be a valid URL); falling back.`);
         }
     }
 };
 
-export default Neo.gatekeep(Env, 'Neo.util.Env');
+export default Neo.gatekeep(Env, 'Neo.ai.Env');
