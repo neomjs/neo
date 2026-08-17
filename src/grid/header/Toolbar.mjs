@@ -96,6 +96,31 @@ class Toolbar extends BaseToolbar {
     pendingScrollTarget = null
 
     /**
+     * @summary The grid body this toolbar drives — the single source of truth for header→body routing.
+     *
+     * In the multi-body architecture a grid owns up to three toolbar/body pairs, matched by
+     * {@link #layoutLock}: 'start' → `bodyStart`, 'end' → `bodyEnd`, null (center) → `body`.
+     *
+     * Consumers MUST resolve the body through this getter, never by walking the component tree:
+     * `grid.header.Wrapper` sits between a toolbar and the `grid.Container` (it owns the header
+     * region's lifecycle), so a `parent.parent.body` walk silently yields `undefined` — no throw,
+     * just a body update that stops happening.
+     * @returns {Neo.grid.Body|null}
+     */
+    get body() {
+        let {gridContainer, layoutLock} = this;
+
+        if (!gridContainer) {
+            return null
+        }
+
+        if (layoutLock === 'start') { return gridContainer.bodyStart }
+        if (layoutLock === 'end')   { return gridContainer.bodyEnd   }
+
+        return gridContainer.body
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -305,7 +330,8 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * @summary Derives `columnPositions` + `availableWidth` from the rendered header buttons.
+     * @summary Derives `columnPositions` + `availableWidth` from the rendered header buttons,
+     * then repaints the body rows against the new geometry (unless `silent`).
      *
      * Dynamic-width buttons are measured via LAYOUT-box metrics (`getLayoutRect()`), never
      * `getBoundingClientRect()`: this measurement races presentation windows (committed dock
@@ -317,10 +343,7 @@ class Toolbar extends BaseToolbar {
      */
     async passSizeToBody(silent = false) {
         let me              = this,
-            gridContainer   = me.gridContainer,
-            layoutLock      = me.layoutLock,
-            body            = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
-            { items }       = me,
+            {body, items}   = me,
             columnPositions = [],
             currentX        = 0,
             hasDynamicWidth = false,
@@ -388,7 +411,12 @@ class Toolbar extends BaseToolbar {
                 availableWidth: currentX
             });
 
-            !silent && body.updateMountedAndVisibleColumns()
+            // refreshColumns(true), not updateMountedAndVisibleColumns(): we just replaced the
+            // column geometry above, and a pure width change (a column resize) leaves the mounted
+            // range [startIndex, endIndex] equal — so neither the range side effect nor
+            // createViewData's own change-detection would repaint, and the cells would keep the
+            // geometry we just discarded. `true` marks this as a geometry change.
+            !silent && body.refreshColumns(true)
         }
     }
 
