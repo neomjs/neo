@@ -369,6 +369,39 @@ test.describe('buildScripts/devCockpit — the live-plane journey (cockpit:live)
         }
     });
 
+    test('resolveLivePlaneConfig: the gh fallback is COUPLED to a loopback destination — a pinned remote or unreadable base with no explicit bearer refuses, gh never consulted', async () => {
+        // The axis that decides trust is the HOST, not the port: every pre-existing witness varies
+        // the port on loopback; this one pins the dangerous field. gh is a throwing seam — reaching
+        // it at all is the failure being guarded.
+        for (const base of ['https://plane.example.internal', 'not-a-url']) {
+            const resolved = await resolveLivePlaneConfig({
+                env        : {NEO_FLEET_PLANE_BASE: base},
+                readGhToken: async () => { throw new Error('the gh seam must never run for a non-loopback base without an explicit bearer') }
+            });
+
+            expect(resolved.refuse, base).toBe(true);
+            expect(resolved.planeBearer, base).toBe('');
+            expect(resolved.bearerSource, base).toBe(null);
+            expect(resolved.notes.at(-1), base).toContain('REFUSED');
+            expect(resolved.notes.at(-1), base).toContain('non-loopback');
+            expect(resolved.notes.at(-1), base).toContain('NEO_FLEET_PLANE_BEARER');
+            expect(resolved.notes.at(-1), base).toContain('canonical local journey')
+        }
+    });
+
+    test('resolveLivePlaneConfig: a pinned remote base with an EXPLICIT bearer proceeds — the credential decision matches the destination decision', async () => {
+        // The gate couples the IMPLICIT fallback only: an explicit credential is an explicit
+        // decision, valid for any destination the operator pins.
+        const resolved = await resolveLivePlaneConfig({
+            env        : {NEO_FLEET_PLANE_BASE: 'https://plane.example.internal', NEO_FLEET_PLANE_BEARER: 'explicit-remote-token'},
+            readGhToken: async () => { throw new Error('the gh seam must not run when the env pins the bearer') }
+        });
+
+        expect(resolved.refuse).toBe(false);
+        expect(resolved.planeBearer).toBe('explicit-remote-token');
+        expect(resolved.bearerSource).toBe('env')
+    });
+
     test('resolveLivePlaneConfig: all-three-empty refuses with the remediation — and no resolved value ever reaches the notes', async () => {
         const resolved = await resolveLivePlaneConfig({env: {}, readGhToken: async () => ''});
 

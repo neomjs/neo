@@ -50,8 +50,9 @@
  * is composed against the containerized plane — one command for the real-fleet journey, no
  * hand-assembled wiring. Before any spawn, the launcher resolves the plane binding
  * ({@link resolveLivePlaneConfig}: `NEO_FLEET_PLANE_BASE` else the canonical local plane address;
- * bearer from `NEO_FLEET_PLANE_BEARER`, else a `NEO_FLEET_PLANE_BEARER_FILE` secret file, else the
- * `gh auth token` identity — the same account the viewer claim resolves through) and probes the
+ * bearer from `NEO_FLEET_PLANE_BEARER`, else a `NEO_FLEET_PLANE_BEARER_FILE` secret file, else —
+ * LOOPBACK bases only — the `gh auth token` identity, whose implicit PAT never travels to a
+ * non-loopback host) and probes the
  * plane's MCP ingress unauthenticated ({@link probePlaneIdentity}: the auth guard's 401 IS the
  * plane signature). Bearer custody is deliberate: the value materializes ONLY into the fleet
  * child's env ({@link buildFleetChildEnv}) — never `process.env`, never the webpack child, never
@@ -245,6 +246,27 @@ function readGhAuthToken() {
 }
 
 /**
+ * @summary The loopback gate for the implicit gh credential: parses the resolved plane base and
+ * answers whether it names THIS machine — the only destination the viewer-claim identity's PAT may
+ * travel to without an explicit operator credential decision. Same loopback vocabulary the app's
+ * bridge installer enforces. An unparseable base answers false: fail-closed, and the probe or the
+ * fleet entry owns the downstream diagnosis.
+ * @param {String} planeBase
+ * @returns {Boolean}
+ */
+function isLoopbackPlaneBase(planeBase) {
+    let hostname;
+
+    try {
+        hostname = new URL(planeBase).hostname
+    } catch {
+        return false
+    }
+
+    return ['127.0.0.1', 'localhost', '[::1]'].includes(hostname)
+}
+
+/**
  * @summary Resolves the live journey's plane binding — the pure decision seam the witnesses pin.
  *
  * Precedence, each half named in the notes so a boot log always shows WHICH source armed the run:
@@ -252,6 +274,13 @@ function readGhAuthToken() {
  *  - bearer: `NEO_FLEET_PLANE_BEARER` (direct) else the `NEO_FLEET_PLANE_BEARER_FILE` secret file
  *    (materialized into the direct env channel for the fleet child — the dev fleet entry reads only
  *    the direct leaf, so the launcher is where the file's value crosses) else `gh auth token`.
+ *
+ * The two halves are deliberately NOT independent: the implicit `gh auth token` fallback fires only
+ * for a LOOPBACK base. It resolves the viewer-claim identity's own PAT, and a credential like that
+ * may travel implicitly to this machine and nowhere else — the probe's 401 signature proves
+ * reachability, never that the host should receive a credential. A pinned non-loopback base with no
+ * explicit bearer is REFUSED with the remediation: a remote deployment pins an explicit credential
+ * (an explicit decision for an explicit destination).
  *
  * Fail-closed: a pinned-but-unreadable file REFUSES (a launcher that thinks it pinned a credential
  * must not silently run on a different one), and all-three-empty refuses with the remediation.
@@ -310,6 +339,23 @@ export async function resolveLivePlaneConfig({env = process.env, readGhToken = r
     }
 
     if (!planeBearer) {
+        // The implicit gh fallback is COUPLED to the destination: it resolves the viewer-claim
+        // identity's own PAT, which may travel implicitly to a loopback plane (the canonical local
+        // journey) and nowhere else. A pinned non-loopback base with no explicit bearer refuses —
+        // the probe's 401 signature proves reachability, never that the host should receive one.
+        if (!isLoopbackPlaneBase(planeBase)) {
+            return {
+                refuse      : true,
+                planeBase,
+                planeBearer : '',
+                bearerSource: null,
+                notes       : [
+                    ...notes,
+                    `REFUSED: ${planeBase} is not a loopback plane and no explicit credential is pinned — the \`gh auth token\` identity's PAT never travels to a non-loopback host implicitly. Set NEO_FLEET_PLANE_BEARER or NEO_FLEET_PLANE_BEARER_FILE for a remote deployment (an explicit credential for an explicit destination), or unset NEO_FLEET_PLANE_BASE for the canonical local journey.`
+                ]
+            }
+        }
+
         planeBearer = (await readGhToken()).trim();
         source      = planeBearer ? 'gh' : null
     }

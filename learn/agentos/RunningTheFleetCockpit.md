@@ -158,10 +158,13 @@ The launcher resolves the plane binding itself, naming every source it used:
    (`http://127.0.0.1:3102`). Pin the variable to target a different deployment.
 2. **Bearer** — `NEO_FLEET_PLANE_BEARER` wins, then the `NEO_FLEET_PLANE_BEARER_FILE` secret file,
    then `gh auth token` (the same identity the viewer claim resolves through, which is exactly the
-   subject the plane's provider-PAT authority verifies). All three empty refuses with the
-   remediation; a pinned-but-unreadable file refuses rather than falling through to a different
-   credential. The resolved value is held in launcher memory and injected into the fleet child's
-   environment only — never the webpack child, never a log line.
+   subject the plane's provider-PAT authority verifies). The `gh auth token` fallback is **coupled
+   to the destination**: it fires only for a loopback base — the implicit PAT never travels to a
+   non-loopback host, so a pinned remote base needs an explicit credential (an explicit decision
+   for an explicit destination). All three empty refuses with the remediation; a
+   pinned-but-unreadable file refuses rather than falling through to a different credential. The
+   resolved value is held in launcher memory and injected into the fleet child's environment only —
+   never the webpack child, never a log line.
 3. **Plane probe** — before anything spawns, an unauthenticated call to the plane's MCP ingress
    must answer with its auth guard's `401` (that refusal IS the plane's identity signature).
    Nothing serving there fails fast with the plane-start command
