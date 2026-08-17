@@ -121,6 +121,7 @@
         "devindex:optout"                      : "node ./apps/devindex/services/cli.mjs optout",
         "devindex:spider"                      : "node ./apps/devindex/services/cli.mjs spider",
         "cockpit"                              : "node ./buildScripts/devCockpit.mjs",
+        "cockpit:live"                         : "node ./buildScripts/devCockpit.mjs --live",
         "devindex:update"                      : "node ./apps/devindex/services/cli.mjs update --limit 200",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
         "install-brain"                        : "node ./buildScripts/util/installBrain.mjs",
