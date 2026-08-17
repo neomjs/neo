@@ -1,0 +1,53 @@
+name: Engine/Brain Boundary Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'buildScripts/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary-baseline.json'
+      - '.github/workflows/engine-brain-boundary-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'buildScripts/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary.mjs'
+      - 'buildScripts/util/check-engine-brain-boundary-baseline.json'
+      - '.github/workflows/engine-brain-boundary-lint.yml'
+
+concurrency:
+  group: engine-brain-boundary-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # The guard parses with acorn rather than matching text: `../ai/Client.mjs` resolves to the
+      # Brain from buildScripts/ and to `src/ai/` from src/worker/, and a dynamic import carries no
+      # `from` keyword — neither distinction survives a line scan. Hence the install.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
+      #
+      # An earlier revision skipped the install and claimed the guard was dependency-free. That was
+      # true of the regex draft and stopped being true at the acorn rewrite; the comment outlived the
+      # change, the same shape as the module JSDoc that kept asserting a census its own code had
+      # already disproved. CI caught it.
+      - name: Install dependencies (acorn — the import-declaration parser)
+        run: npm ci --ignore-scripts
+
+      - name: Check engine does not import the Brain
+        run: node ./buildScripts/util/check-engine-brain-boundary.mjs

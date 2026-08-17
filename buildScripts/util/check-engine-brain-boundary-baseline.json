@@ -1,0 +1,58 @@
+[
+    {
+        "file": "buildScripts/devCockpit.mjs",
+        "specifier": "../ai/mcp/server/shared/helpers/localBearer.mjs",
+        "count": 2,
+        "class": "B",
+        "note": "Class B (agent-serving script misfiled in an engine directory). Dynamic import, TWO occurrences — the count is why the row carries one: keyed on file+specifier alone, removing one of the two would leave the key present and the burndown silent."
+    },
+    {
+        "file": "buildScripts/devCockpit.mjs",
+        "specifier": "../ai/services/fleet/fleetLaunchContract.mjs",
+        "count": 1,
+        "class": "B",
+        "note": "Class B. Dynamic import. devCockpit.mjs is the one file no hand-grep found — all three of its crossings are dynamic imports, which have no `from` keyword."
+    },
+    {
+        "file": "buildScripts/docs/index/labels.mjs",
+        "specifier": "../../../ai/services/github-workflow/LabelService.mjs",
+        "count": 1,
+        "class": "A",
+        "note": "Class A (engine tooling reaching a Brain service). Pages GitHub labels for the docs index. The fix moves a concern."
+    },
+    {
+        "file": "buildScripts/docs/rebuildContentIndexesAndSeo.mjs",
+        "specifier": "../../ai/services/github-workflow/shared/reconcileActiveChunks.mjs",
+        "count": 1,
+        "class": "A",
+        "note": "Class A. Derives indexes over resources/content/**, which the Data Sync pipeline writes — content sync is produced by the swarm and merely rendered by the portal."
+    },
+    {
+        "file": "buildScripts/release/publish.mjs",
+        "specifier": "../../ai/services.host.mjs",
+        "count": 1,
+        "class": "A",
+        "note": "Class A, and the sharp end: performs the atomic dev -> main release commit, so releasing the framework currently requires the agent OS to be present and importable. Its relocation must keep the release workflow's entry point reachable — the one sequencing constraint in the burndown."
+    },
+    {
+        "file": "buildScripts/util/agent-preflight.mjs",
+        "specifier": "../../ai/scripts/setup/initServerConfigs.mjs",
+        "count": 1,
+        "class": "B",
+        "note": "Class B. Agent-serving build tooling misfiled under buildScripts/util/."
+    },
+    {
+        "file": "buildScripts/util/agentCoAuthorEmails.mjs",
+        "specifier": "../../ai/graph/identityRoots.mjs",
+        "count": 1,
+        "class": "B",
+        "note": "Class B, and the worst smell in the set: a misfiled file reaching the identity graph itself rather than a service boundary."
+    },
+    {
+        "file": "buildScripts/util/deriveFleetRoster.mjs",
+        "specifier": "../../ai/graph/identityRoots.mjs",
+        "count": 1,
+        "class": "B",
+        "note": "Class B. Second consumer of the identity graph from a misfiled engine-directory script; shares a destination with agentCoAuthorEmails.mjs, so the two move together."
+    }
+]
