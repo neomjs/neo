@@ -142,6 +142,13 @@ export function makeLandscapeCensusSource({
      *   reasons: String[], unavailable: Boolean}}>} `unavailable` separates the two ways a census can
      *   be incomplete: a deployment that cannot see the source at all, versus something that broke.
      *   Both leave `exhausted: false`, and only one is worth waking somebody for.
+     *
+     *   **This manifest is where the boolean currently stops.** `buildLaneLandscape` composes
+     *   `coverage` from `exhausted` and `reasons` only, so the distinction reaches an operator as text
+     *   and not yet as a field a caller can branch on. That is a bounded gap rather than an oversight:
+     *   an unavailable source leaves the landscape `degraded: true` as well, so surfacing both today
+     *   would publish two true flags and no rule for which one a consumer should believe. Supplying
+     *   the discriminator is this module's job; choosing the vocabulary that consumes it is not.
      */
     const queryOpenWorkCensus = async () => {
         const [issues, pullRequests] = await Promise.all([

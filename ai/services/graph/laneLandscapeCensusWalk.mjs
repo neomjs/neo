@@ -39,7 +39,11 @@
  *   hitting the bound is an honest truncation rather than a silent stop.
  * @returns {Promise<{items: Object[], pages: Number, exhausted: Boolean, reason: String|null,
  *   unavailable: Boolean}>} `unavailable` marks the one incompleteness that is a deployment fact
- *   rather than a fault, so a consumer branches on a flag instead of string-matching the reason.
+ *   rather than a fault. **Today it is carried, not surfaced:** the `reason` text reaches an operator,
+ *   while the boolean stops at the census manifest and no consumer branches on it yet — deliberately,
+ *   because a landscape whose source is unavailable is also `degraded: true`, so exposing both flags
+ *   at once would hand a caller a precedence question this module has no authority to answer. Deciding
+ *   which word wins is the seam-wide vocabulary change; this is the discriminator that change needs.
  * @throws {TypeError} When a required injection is missing — an unbound walk is a wiring bug, not a
  *   degradation, and must fail loud rather than report an empty census as complete.
  */
