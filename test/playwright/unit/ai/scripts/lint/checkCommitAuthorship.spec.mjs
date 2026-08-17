@@ -6,8 +6,8 @@ import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const
-    repoRoot  = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'),
-    guardPath = path.join(repoRoot, 'buildScripts/util/check-commit-authorship.mjs');
+    repoRoot  = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..'),
+    guardPath = path.join(repoRoot, 'ai/scripts/lint/check-commit-authorship.mjs');
 
 /**
  * @summary The authorship guard, run against real git repositories rather than a mocked `execSync`.
@@ -375,7 +375,7 @@ test.describe('bootstrapWorktree — inspectGitIdentity', () => {
     let inspectGitIdentity;
 
     test.beforeAll(async () => {
-        inspectGitIdentity = (await import('../../../../ai/scripts/migrations/bootstrapWorktree.mjs')).inspectGitIdentity
+        inspectGitIdentity = (await import('../../../../../../ai/scripts/migrations/bootstrapWorktree.mjs')).inspectGitIdentity
     });
 
     /** @param {Object} values `{global, local, effective}` git config answers. */
@@ -458,7 +458,7 @@ test.describe('#15337 bootstrapWorktree — configureAgentGitIdentity', () => {
 
     test.beforeAll(async () => {
         configureAgentGitIdentity =
-            (await import('../../../../ai/scripts/migrations/bootstrapWorktree.mjs')).configureAgentGitIdentity
+            (await import('../../../../../../ai/scripts/migrations/bootstrapWorktree.mjs')).configureAgentGitIdentity
     });
 
     test.beforeEach(() => {

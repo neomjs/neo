@@ -1,7 +1,7 @@
 import fs                      from 'node:fs';
 import path                    from 'node:path';
-import {FLEET_COCKPIT_SOURCES} from '../../apps/agentos/config/cockpitSources.mjs';
-import {IDENTITIES}            from '../../ai/graph/identityRoots.mjs';
+import {FLEET_COCKPIT_SOURCES} from '../../../apps/agentos/config/cockpitSources.mjs';
+import {IDENTITIES}            from '../../graph/identityRoots.mjs';
 
 /**
  * @summary Derives the AgentOS cockpit roster seed (`apps/agentos/resources/data/fleetRoster.json`)
@@ -33,7 +33,7 @@ import {IDENTITIES}            from '../../ai/graph/identityRoots.mjs';
  * - `participationStatus` is stamped per row (the roster-DTO tri-state truth) — the fleet view's
  *   eligibility logic reads it, so the derived seed feeds the authoritative field, not just prose.
  *
- * Usage: `node buildScripts/util/deriveFleetRoster.mjs [--check]` (with `--check`: verify the
+ * Usage: `node ai/scripts/fleet/deriveFleetRoster.mjs [--check]` (with `--check`: verify the
  * committed file is STRUCTURALLY equal to a fresh derivation, comparing every field except
  * `_meta.generatedAt` — the CI guard against hand-painting. Not a byte comparison: the timestamp
  * changes on every run, so a byte check would fail on a clock tick rather than on data drift).
@@ -126,7 +126,7 @@ export function deriveFleetRoster() {
             generatedAt,
             authority : 'ai/graph/identityRoots.mjs',
             engineTags: 'learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)',
-            generator : 'buildScripts/util/deriveFleetRoster.mjs',
+            generator : 'ai/scripts/fleet/deriveFleetRoster.mjs',
             note      : 'Registry snapshot — participation truth, not live session state. Regenerate, do not hand-edit.'
         },
         data
@@ -151,7 +151,7 @@ if (isMain) {
             process.exit(0);
         }
 
-        console.error('deriveFleetRoster: committed seed is STALE — run `node buildScripts/util/deriveFleetRoster.mjs`');
+        console.error('deriveFleetRoster: committed seed is STALE — run `node ai/scripts/fleet/deriveFleetRoster.mjs`');
         process.exit(1);
     }
 

@@ -14,7 +14,7 @@ on:
     paths:
       - 'ai/graph/identityRoots.mjs'
       - 'learn/agentos/ModelStats.md'
-      - 'buildScripts/util/deriveFleetRoster.mjs'
+      - 'ai/scripts/fleet/deriveFleetRoster.mjs'
       - 'ai/scripts/lint/lint-identity-engine-coherence.mjs'
       - '.github/workflows/identity-engine-coherence-lint.yml'
   push:
@@ -22,7 +22,7 @@ on:
     paths:
       - 'ai/graph/identityRoots.mjs'
       - 'learn/agentos/ModelStats.md'
-      - 'buildScripts/util/deriveFleetRoster.mjs'
+      - 'ai/scripts/fleet/deriveFleetRoster.mjs'
       - 'ai/scripts/lint/lint-identity-engine-coherence.mjs'
       - '.github/workflows/identity-engine-coherence-lint.yml'
 

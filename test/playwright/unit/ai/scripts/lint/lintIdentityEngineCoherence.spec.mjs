@@ -107,7 +107,7 @@ test.describe('lint-identity-engine-coherence — the RED cases (each place, one
         expect(violations).toHaveLength(1);
         expect(violations[0].kind).toBe('engineTag');
         expect(violations[0].detail).toContain('opus-4.8');
-        expect(violations[0].sources[0]).toBe('buildScripts/util/deriveFleetRoster.mjs')
+        expect(violations[0].sources[0]).toBe('ai/scripts/fleet/deriveFleetRoster.mjs')
     });
 
     test('all three disagreeing report separately rather than collapsing into one', () => {

@@ -1,8 +1,8 @@
-import {execSync}             from 'node:child_process';
-import {readFileSync}         from 'node:fs';
-import {findUnknownCoAuthors, rosterEmailForLogin} from './agentCoAuthorEmails.mjs';
-import path                   from 'node:path';
-import process                from 'node:process';
+import {execSync}                                  from 'node:child_process';
+import {readFileSync}                              from 'node:fs';
+import {findUnknownCoAuthors, rosterEmailForLogin} from '../../graph/agentCoAuthorEmails.mjs';
+import path                                        from 'node:path';
+import process                                     from 'node:process';
 
 /**
  * Pre-push authorship check. ticket-ref-ok: implementing tickets #15337 and #16143
@@ -238,7 +238,7 @@ if (advisoryOnly.length > 0) {
     console.warn('');
     console.warn('GitHub resolves trailers by email, so an unknown address credits nobody — the co-author');
     console.warn('is silently dropped from the contribution record with nothing failing.');
-    console.warn('Look the address up in buildScripts/util/agentCoAuthorEmails.mjs, or add the seat there.');
+    console.warn('Look the address up in ai/graph/agentCoAuthorEmails.mjs, or add the seat there.');
     console.warn('This commit is not agent-authored, so this is advisory — the push proceeds.')
 }
 
@@ -253,7 +253,7 @@ check is not limited to the project domain: off-domain is precisely where a pers
 
 Addresses cannot be derived from a handle or a display name. Three logins do not match their email
 local part, so deriving is guaranteed wrong for them. Read the address from EMAIL_BY_LOGIN in
-buildScripts/util/agentCoAuthorEmails.mjs, add the seat there, or omit the trailer entirely.
+ai/graph/agentCoAuthorEmails.mjs, add the seat there, or omit the trailer entirely.
 
 To repair the commits before pushing:
 

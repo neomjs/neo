@@ -166,7 +166,21 @@ test.describe('ai/scripts/migrations/renameAgentIdentities', () => {
 
         const allowed = new Set([
             'ai/scripts/migrations/renameAgentIdentities.mjs',
-            'test/playwright/unit/ai/scripts/migrations/renameAgentIdentities.spec.mjs'
+            'test/playwright/unit/ai/scripts/migrations/renameAgentIdentities.spec.mjs',
+            // The co-author roster carries `neo-opus-4-7@` and `neo-gemini-3-1-pro@` as live COMMIT
+            // ADDRESSES, not as stale handles. They are observed in `origin/dev` history and are the
+            // reason that module exists: two of the three logins whose email local part does NOT
+            // match the login, so the mapping cannot be computed and a rename cannot rewrite them
+            // without mis-crediting an account. Renaming these strings would reintroduce the exact
+            // defect the file documents — 19 commits credited to an address nobody owns.
+            //
+            // It appears here only as of the engine/Brain Class B relocation: the file moved from
+            // `buildScripts/util/` (outside every scan root above) into `ai/graph/`, beside the
+            // registry it is keyed to. The guard
+            // did not change and was not weakened — the relocation moved a real occurrence out of a
+            // blind spot and into its view, which is the guard working, so it is allowlisted with
+            // its reason rather than silenced.
+            'ai/graph/agentCoAuthorEmails.mjs'
         ]);
         const unexpected = output
             .filter(file => !allowed.has(file));

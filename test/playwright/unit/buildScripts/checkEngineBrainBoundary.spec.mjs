@@ -98,10 +98,16 @@ test.describe('check-engine-brain-boundary — one-way direction, ratchet fails 
     });
 
     test('PARTIAL burndown of a multi-occurrence crossing fails — the collapsed-key defect', () => {
-        // devCockpit.mjs imports localBearer.mjs at two lines. A set keyed on file+specifier holds
-        // ONE member for both, so removing one occurrence would leave the key present and the diff
-        // silent. This is the measured shape from a sibling baseline where 83 rows collapsed to 9
-        // keys and deleting 63 of 64 occurrences still reported green.
+        // The dev cockpit launcher imported localBearer.mjs at two lines. A set keyed on
+        // file+specifier holds ONE member for both, so removing one occurrence would leave the key
+        // present and the diff silent. This is the measured shape from a sibling baseline where 83
+        // rows collapsed to 9 keys and deleting 63 of 64 occurrences still reported green.
+        //
+        // The path below is a FIXTURE, not a live file — that launcher moved to
+        // `ai/scripts/fleet/devCockpit.mjs` in the Class B burndown. It stays spelled under
+        // `buildScripts/` deliberately: the property under test is "a multi-occurrence crossing FROM
+        // an engine-tooling path burns down atomically", and pinning the fixture to whichever real
+        // file happens to cross today would make this unit test fail on an unrelated relocation.
         const baseline = [{file: 'buildScripts/devCockpit.mjs', specifier: '../ai/x.mjs', count: 2}],
               oneLeft  = [{file: 'buildScripts/devCockpit.mjs', specifier: '../ai/x.mjs'}];
 
@@ -143,8 +149,9 @@ test.describe('check-engine-brain-boundary — one-way direction, ratchet fails 
     });
 
     test('a DYNAMIC import is a crossing — the shape no hand-grep could see', () => {
-        // All three of devCockpit.mjs's crossings are dynamic imports, which is why every
-        // `from`-anchored sweep missed that file entirely.
+        // All three of the dev cockpit launcher's crossings were dynamic imports, which is why every
+        // `from`-anchored sweep missed that file entirely. It has since moved Brain-side;
+        // the fixture path stays engine-side because the SHAPE is what this asserts.
         const findings = findBrainImports(
             `const {localBearer} = await import('../ai/mcp/server/shared/helpers/localBearer.mjs');`,
             'buildScripts/devCockpit.mjs'
