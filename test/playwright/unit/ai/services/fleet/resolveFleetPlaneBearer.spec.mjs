@@ -4,16 +4,17 @@ import os              from 'node:os';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-import {resolveFleetPlaneBearer} from '../../../../../../ai/services/fleet/fleetServer.mjs';
+import {assertFleetPlaneBearerClass, resolveFleetPlaneBearer} from '../../../../../../ai/services/fleet/fleetServer.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 /**
- * The two-home plane-bearer contract the dev fleet entry now consumes: direct value wins, the
+ * The two-home plane-bearer contract the dev fleet entry consumes: direct value wins, the
  * declared secret file materializes otherwise, and every empty/unreadable path resolves `''` so
  * the caller's own fail-closed admission owns the refusal. Plus the consuming-site ratchet: the
- * dev entry builds its plane client THROUGH this resolver — never by reading the direct leaf —
- * so the documented file indirection cannot silently go inert on the dev journey again.
+ * dev entry arms its plane client through the ASSERT variant — never by reading the direct leaf,
+ * never by the bare resolver — so the file indirection and the credential-class teeth are both
+ * pinned against regressions at the consuming site (source-form pins, not a behavior proof).
  */
 test.describe('resolveFleetPlaneBearer — the two-home plane credential contract', () => {
     const config = ({direct = '', file = ''} = {}) => ({fleet: {planeBearer: direct, planeBearerFile: file}});
@@ -52,32 +53,88 @@ test.describe('resolveFleetPlaneBearer — the two-home plane credential contrac
         expect(resolveFleetPlaneBearer({aiConfig: config()})).toBe('')
     });
 
-    test('the REAL config tree honors the file the leaf documents — end-to-end through the default AiConfig binding', () => {
-        // Not a mock: the resolver's default aiConfig is the real tree, so this proves the leaf
-        // names the file indirection reads. Env is scrubbed by the UNIT_TEST_MODE construction;
-        // the direct leaf stays empty on a stock checkout, so the file half is the only branch
-        // a hermetic spec can drive — through the readFile seam, against the real leaf paths.
+    test('the default readFileSync seam materializes the file the leaf documents — no injected reader', () => {
+        // Proves the DEFAULT file seam (readFile: null → the real readFileSync), not just the
+        // injection path: a minimal tree carrying the REAL leaf names, a real file on disk.
         const dir  = fs.mkdtempSync(path.join(os.tmpdir(), 'plane-bearer-')),
               file = path.join(dir, 'token');
 
         fs.writeFileSync(file, 'real-tree-file-token\n');
 
-        // The live binding is env-driven; rather than mutating shared config (forbidden), assert
-        // the resolver against a minimal tree carrying the REAL leaf names — the shape the real
-        // tree answers with, keyed by the same properties the leaf declares.
         const resolved = resolveFleetPlaneBearer({
             aiConfig: {fleet: {planeBearer: '', planeBearerFile: file}},
-            readFile: null // the real readFileSync — proves the default seam, not just the injection
+            readFile: null
         });
 
         expect(resolved).toBe('real-tree-file-token')
     });
+});
 
-    test('ratchet: the dev fleet entry constructs its plane client THROUGH the resolver — never the direct leaf', () => {
+/**
+ * The credential-class ledger's teeth at the arming site: the assert variant resolves through the
+ * same two-home read, then refuses a bearer that aliases the deployment's bootstrap/healthcheck
+ * admission token — the refusal production has and the dev journey must match. `''` early when
+ * nothing resolves, so the tokenless path is preserved byte-for-byte; a missing or unreadable
+ * admission file disables the comparison, never the resolution.
+ */
+test.describe('assertFleetPlaneBearerClass — the credential-class non-alias teeth', () => {
+    const config = ({direct = '', file = '', admissionFile = ''} = {}) => ({
+        fleet: {planeBearer: direct, planeBearerFile: file, admissionTokenFile: admissionFile}
+    });
+
+    test('a bearer aliasing the admission token throws the named ledger refusal', () => {
+        expect(() => assertFleetPlaneBearerClass({
+            aiConfig: config({direct: 'shared-token', admissionFile: '/deploy/secrets/admission'}),
+            readFile: target => {
+                expect(target).toBe('/deploy/secrets/admission');
+                return 'shared-token\n'
+            }
+        })).toThrow(/credential-class ledger forbids that aliasing/)
+    });
+
+    test('distinct bearer + admission token passes through the resolved bearer', () => {
+        const resolved = assertFleetPlaneBearerClass({
+            aiConfig: config({direct: 'plane-token', admissionFile: '/deploy/secrets/admission'}),
+            readFile: () => 'admission-token\n'
+        });
+
+        expect(resolved).toBe('plane-token')
+    });
+
+    test('an unreadable admission file disables the COMPARISON, never the resolution', () => {
+        const resolved = assertFleetPlaneBearerClass({
+            aiConfig: config({direct: 'plane-token', admissionFile: '/deploy/secrets/gone'}),
+            readFile: () => { throw new Error('ENOENT') }
+        });
+
+        expect(resolved).toBe('plane-token')
+    });
+
+    test('no admission file declared disables the comparison', () => {
+        const resolved = assertFleetPlaneBearerClass({
+            aiConfig: config({direct: 'plane-token'}),
+            readFile: () => { throw new Error('must not be consulted without an admission file') }
+        });
+
+        expect(resolved).toBe('plane-token')
+    });
+
+    test('nothing resolves returns empty EARLY — the tokenless path never touches the comparison', () => {
+        const resolved = assertFleetPlaneBearerClass({
+            aiConfig: config({admissionFile: '/deploy/secrets/admission'}),
+            readFile: () => { throw new Error('must not be consulted when nothing resolved') }
+        });
+
+        expect(resolved).toBe('')
+    });
+
+    test('ratchet: the dev fleet entry arms its plane client through the ASSERT variant — never the direct leaf, never the bare resolver', () => {
         const source = fs.readFileSync(path.join(repoRoot, 'ai/services/fleet/devFleetServer.mjs'), 'utf8');
 
-        expect(source).toContain('resolveFleetPlaneBearer');
-        // the gap this ticket closes: the direct-leaf credential read at the construction site
-        expect(source).not.toMatch(/credential:\s*AiConfig\.fleet\.planeBearer\b/)
+        expect(source).toContain('assertFleetPlaneBearerClass');
+        // the gaps this ticket line closes, pinned as source forms: the direct-leaf credential
+        // read, and the teeth-free bare-resolver arm
+        expect(source).not.toMatch(/credential:\s*AiConfig\.fleet\.planeBearer\b/);
+        expect(source).not.toMatch(/credential:\s*resolveFleetPlaneBearer\(/)
     });
 });
