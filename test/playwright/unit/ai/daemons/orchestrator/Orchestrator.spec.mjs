@@ -877,6 +877,89 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         })).toBe(true);
     });
 
+    // The actuator used to inspect-and-skip — it logged on every deferred poll and
+    // registered nothing, so it could never enter the population `foldHeavyMaintenanceStarvation`
+    // scores. On a live plane it deferred every ~30s for hours while the starvation surface
+    // reported three breaches and not this one. These arms pin the wait as a MEASURED fact.
+    test('a deferred provider-residency repair REGISTERS its wait, with the blocking task named', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false}),
+              deferrals    = [];
+
+        orchestrator.writeLog = () => {};
+        orchestrator.maintenanceBackpressureService.getActiveHeavyMaintenanceTask = () => 'tenant-repo-sync';
+        orchestrator.maintenanceBackpressureService.recordDeferral = entry => deferrals.push(entry);
+
+        expect(orchestrator.isProviderWarmStillAdmitted(10_000)).toBe(false);
+        expect(deferrals).toHaveLength(1);
+        expect(deferrals[0].taskName).toBe('provider-residency-repair');
+        expect(deferrals[0].blockingTaskName).toBe('tenant-repo-sync');
+
+        // Mutation control on the reasonCode, not merely its presence: `recordDeferral` promotes a
+        // deferral to a registered waiter ONLY for the contention classes. A policy class here
+        // would log identically, register nothing, and restore the invisibility this fixes.
+        expect(['heavy-maintenance-lease-held', 'heavy-maintenance-backpressure', 'heavy-maintenance-yield-to-waiter'])
+            .toContain(deferrals[0].reasonCode);
+    });
+
+    test('a lease-held deferral registers too, with no blocking task to name', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false}),
+              deferrals    = [];
+
+        orchestrator.writeLog = () => {};
+        orchestrator.maintenanceBackpressureService.getActiveHeavyMaintenanceTask = () => null;
+        orchestrator.inspectHeavyMaintenanceLeaseFn = () => ({status: 'active', active: true});
+        orchestrator.maintenanceBackpressureService.recordDeferral = entry => deferrals.push(entry);
+
+        expect(orchestrator.isProviderWarmStillAdmitted(10_000)).toBe(false);
+        expect(deferrals).toHaveLength(1);
+        expect(deferrals[0].blockingTaskName).toBeNull();
+    });
+
+    test('an inspection FAULT does not register — a broken read is not a starving actuator', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false}),
+              deferrals    = [];
+
+        orchestrator.writeLog = () => {};
+        orchestrator.maintenanceBackpressureService.getActiveHeavyMaintenanceTask = () => {
+            throw new Error('task-state unreadable')
+        };
+        orchestrator.maintenanceBackpressureService.recordDeferral = entry => deferrals.push(entry);
+
+        expect(orchestrator.isProviderWarmStillAdmitted(10_000)).toBe(false);
+        // There is no competitor to wait on. Registering here would attribute an unreadable read
+        // to contention and put a phantom waiter in front of real acquirers.
+        expect(deferrals).toEqual([]);
+    });
+
+    test('admission CLEARS the waiter — a running actuator must stop making acquirers yield', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false}),
+              cleared      = [];
+
+        orchestrator.writeLog = () => {};
+        orchestrator.maintenanceBackpressureService.getActiveHeavyMaintenanceTask = () => null;
+        orchestrator.inspectHeavyMaintenanceLeaseFn = () => ({status: 'missing', active: false});
+        orchestrator.maintenanceBackpressureService.clearWaiter = taskName => cleared.push(taskName);
+
+        expect(orchestrator.isProviderWarmStillAdmitted(10_000)).toBe(true);
+        expect(cleared).toEqual(['provider-residency-repair']);
+    });
+
+    test('observability never takes down the actuator it observes', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false}),
+              logs         = [];
+
+        orchestrator.writeLog = (level, message) => logs.push({level, message});
+        orchestrator.maintenanceBackpressureService.getActiveHeavyMaintenanceTask = () => 'tenant-repo-sync';
+        orchestrator.maintenanceBackpressureService.recordDeferral = () => {
+            throw new Error('ledger unwritable')
+        };
+
+        // A failed registration is a lost observation, never a changed admission decision.
+        expect(() => orchestrator.isProviderWarmStillAdmitted(10_000)).not.toThrow();
+        expect(orchestrator.isProviderWarmStillAdmitted(10_000)).toBe(false);
+        expect(logs.some(entry => entry.level === 'ERROR' && /deferral record failed/i.test(entry.message))).toBe(true);
+    });
+
     test('provider warm admission yields to task, lease or inspection uncertainty', () => {
         const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
         let   activeTask   = 'tenant-repo-sync',
