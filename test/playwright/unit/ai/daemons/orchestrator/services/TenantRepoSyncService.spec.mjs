@@ -6677,6 +6677,88 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // zero fails here rather than passing quietly on a plausible-looking number.
         expect(state.corpusOutstanding.outstanding).not.toBe(0);
     });
+
+    /*
+     * The slice-budget witness, driven through `syncTenantRepos` rather than `syncRepo`.
+     *
+     * A fixture calling one repo directly proves the branch and not the FAIRNESS, which only exists
+     * as a property of the sweep: four due repos at the live `concurrencyLimit = 2`, where the head
+     * repo yields on its budget. What must be observable is that repos beyond the first two admitted
+     * are ingested IN THE SAME SWEEP — the tail no longer waits for a head repo to complete.
+     *
+     * The assertion is ORDERING, never elapsed time. `embedChunks` checks its predicate between
+     * batches and never before the first, so a wall-clock arm ("A released within sliceBudgetMs")
+     * would fail against the primitive's own forward-progress guarantee and be the wrong shape.
+     */
+    test('a yielded head repo rotates its slot and the tail is admitted in the SAME sweep, with zero failure accounting (#17132 AC2/AC6)', async () => {
+        const
+            captureCalls = [],
+            repos        = ['org/alpha', 'org/beta', 'org/gamma', 'org/delta'].map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }));
+
+        TenantRepoSyncService.concurrencyLimit = 2;
+
+        await TenantRepoSyncService.syncTenantRepos({
+            taskStateService             : createInMemoryTaskStateService(),
+            revisionsFilePath            : revisionsFile,
+            leaseGuard                   : async () => {},
+            tenantReposConfig            : {tenantRepos: repos},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({includeManifest: true}),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                captureCalls,
+                // Only the head repo outruns its budget. The others exhaust their corpus normally,
+                // which is what makes the sweep a MIXED one rather than a uniformly-yielding
+                // fixture that could pass without the rotation working.
+                summaryFactory: payload => ({
+                    ingested           : 1,
+                    deleted            : 0,
+                    embeddingsGenerated: 1,
+                    errors             : [],
+                    yielded            : payload.repoSlug === 'org/alpha',
+                    tenantId           : payload.tenantId,
+                    durationMs         : 1
+                })
+            }),
+            globalCadenceMs: 0,
+            jitterRatio    : 0,
+            seedBootstrap  : false
+        });
+
+        const ingested = captureCalls
+            .filter(call => call.op === 'ingestSourceFiles')
+            .map(call => call.payload.repoSlug);
+
+        // Tail admission: with K=2 and a yielding head, all four still reach ingestion this sweep.
+        expect(ingested.length, 'every due repo must be admitted within the sweep').toBe(4);
+        expect(new Set(ingested).size).toBe(4);
+
+        const revisions = (await fs.readJson(revisionsFile)).revisions;
+
+        // The yielded repo records progress WITHOUT failure accounting. Being large is not a fault:
+        // an incremented streak here would climb a healthy rotating repo toward its backoff cap.
+        expect(revisions['t1/org/alpha'].consecutiveFailures, 'a budgeted rotation is not a failure').toBe(0);
+        expect(revisions['t1/org/alpha'].lastSourceErrorCode ?? null, 'nothing failed, so no cause may be retained').toBeNull();
+
+        // THE NEGATIVE ARM, and the one this test exists for. A partial positive effect must not
+        // mint full-materialization proof: the next sweep matches that receipt against the envelope
+        // digest and, on a hit, skips ingestion entirely — settling a checkpoint over a remainder
+        // that never landed. The complete repos SHOULD carry proof; the yielded one must not.
+        expect(
+            ingested.includes('org/alpha'),
+            'the head repo was never ingested, so the checkpoint arm below would pass vacuously'
+        ).toBe(true);
+        expect(
+            revisions['t1/org/alpha'].lastIngestedRev ?? null,
+            'the checkpoint must NOT advance for a corpus with an outstanding remainder'
+        ).toBeNull();
+        expect(
+            revisions['t1/org/beta'].lastIngestedRev,
+            'a repo that exhausted its corpus DOES advance — otherwise this arm passes by breaking everything'
+        ).toBeTruthy();
+    });
 });
 
 test.describe('the persisted cause DISCRIMINATES, and still leaks nothing (#16056)', () => {

@@ -1316,6 +1316,53 @@ test.describe('IngestionService.persistManifestSnapshot receipt-absence diagnost
 
         expect(warnings.find(entry => entry.message.includes('without a materialization receipt'))).toBeFalsy()
     });
+
+    /*
+     * The receipt shortcut a slice budget opens.
+     *
+     * A materialization receipt asserts the corpus is WHOLE: the next tenant sweep matches it
+     * against the envelope digest and, on a hit, skips ingestion entirely. A budgeted slice has
+     * positive effect — chunks really landed — so an effect-only mint produces proof of
+     * completeness for a corpus with an outstanding remainder, and the following sweep settles a
+     * checkpoint over work that never landed.
+     *
+     * Asserted against the real `persistManifestSnapshot` rather than through the tenant sweep,
+     * because the sweep's own `partial-progress` branch returns before the checkpoint advances and
+     * would make this pass with the veto removed — a vacuous arm. This drives the rule directly.
+     */
+    test('REGRESSION: a yielded summary mints NO materialization receipt, however much landed', async () => {
+        const persist = yielded => Service.persistManifestSnapshot({
+            manifestSnapshot      : {repoSlug: 'slice-repo', pathsAfterPush: ['c.txt']},
+            files                 : [{sourcePath: 'c.txt', repoSlug: 'slice-repo', content: 'z'}],
+            headRevision          : 'sha-slice',
+            materializationAttempt: {attemptId: 'c'.repeat(32), ingestContractVersion: 2},
+            tenantContext         : {tenantId: 'slice-tenant', repoSlug: 'slice-repo'},
+            // Substantial positive effect on BOTH runs — the discriminator under test is `yielded`
+            // alone, so effect cannot be what separates them.
+            summary               : {ingested: 500, deleted: 0, errors: [], yielded}
+        });
+
+        await persist(true);
+
+        const afterYield = await Service.getTenantManifest({tenantId: 'slice-tenant', repoSlug: 'slice-repo'});
+
+        expect(
+            afterYield?.materializationReceipt ?? null,
+            'a bounded slice minted proof that the corpus is complete — the next sweep will match it and skip ingestion'
+        ).toBeNull();
+
+        // CONTROL: the identical call with `yielded: false` MUST mint. Without this the arm passes
+        // by proving receipts never mint at all, which would break crash-after-complete recovery
+        // and look like a fix.
+        await persist(false);
+
+        const afterComplete = await Service.getTenantManifest({tenantId: 'slice-tenant', repoSlug: 'slice-repo'});
+
+        expect(
+            afterComplete?.materializationReceipt ?? null,
+            'a run that exhausted its corpus must still mint — the veto is scoped to yielded runs'
+        ).toBeTruthy();
+    });
 });
 
 test.describe('IngestionService.classifyIngestionFailureCode (#16566)', () => {
