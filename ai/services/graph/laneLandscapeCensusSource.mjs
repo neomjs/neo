@@ -60,7 +60,30 @@ export function makeRefusingCensusPageReader(reason) {
     }
 
     return async () => {
-        throw new Error(reason)
+        throw new CensusSourceUnavailable(reason)
+    }
+}
+
+/**
+ * @summary A source that is out of reach **by design** — carried as a type so the walk can render it
+ * as a deployment fact rather than as a fault.
+ *
+ * **Why a type and not just a message.** A deliberate boundary and a genuine transient are different
+ * events that call for different responses: one is a fact about where this code runs, the other is an
+ * invitation to go and find a fault. Signalled with a plain `Error`, the two arrive at the walk
+ * identically and are distinguishable only by reading the prose — so any consumer wanting to branch
+ * would have to string-match, which is a coupling rather than a seam.
+ *
+ * `unavailable` is an own property rather than an `instanceof` check on purpose: the walk must classify
+ * correctly even when the error crosses a module realm or is reconstructed by a transport, and a
+ * duck-typed flag survives both.
+ */
+export class CensusSourceUnavailable extends Error {
+    constructor(reason) {
+        super(reason);
+
+        this.name        = 'CensusSourceUnavailable';
+        this.unavailable = true
     }
 }
 
@@ -115,7 +138,10 @@ export function makeLandscapeCensusSource({
      * the manifest is exhausted only when BOTH reported no next page: a landscape missing an entire
      * family is not a complete landscape.
      *
-     * @returns {Promise<{items: Object[], manifest: {exhausted: Boolean, pages: Number, reasons: String[]}}>}
+     * @returns {Promise<{items: Object[], manifest: {exhausted: Boolean, pages: Number,
+     *   reasons: String[], unavailable: Boolean}}>} `unavailable` separates the two ways a census can
+     *   be incomplete: a deployment that cannot see the source at all, versus something that broke.
+     *   Both leave `exhausted: false`, and only one is worth waking somebody for.
      */
     const queryOpenWorkCensus = async () => {
         const [issues, pullRequests] = await Promise.all([
@@ -130,12 +156,22 @@ export function makeLandscapeCensusSource({
             ...pullRequests.items.map(item => ({...item, kind: 'pr'}))
         ];
 
+        const families = [issues, pullRequests];
+
         return {
             items,
             manifest: {
                 exhausted: issues.exhausted && pullRequests.exhausted,
                 pages    : issues.pages + pullRequests.pages,
-                reasons  : [issues.reason, pullRequests.reason].filter(Boolean)
+                reasons  : [issues.reason, pullRequests.reason].filter(Boolean),
+                // Deliberately narrower than "some family was refused". This flag is what lets a
+                // consumer say "nothing is broken, this plane simply cannot see that source" — so one
+                // family failing for any OTHER cause has to revoke it, even while the other family was
+                // cleanly refused. A mixed outcome still deserves someone looking at it, and a flag
+                // that stayed true through a real fault would be the confident-wrong answer wearing a
+                // different hat.
+                unavailable: families.some(family => family.unavailable) &&
+                             families.every(family => family.exhausted || family.unavailable)
             }
         }
     };

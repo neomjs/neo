@@ -199,8 +199,11 @@ test.describe('laneLandscapeCensusSource — a source this plane cannot reach (#
 
         // The boundary reaches the operator, not just the symptom: `degraded` alone would not say WHY.
         for (const entry of manifest.reasons) {
-            expect(entry).toContain('host-edge')
+            expect(entry).toContain('host-edge');
+            // rendered as a deployment fact, never as a fault — see the DISCRIMINATOR test below
+            expect(entry).toContain('unavailable on this plane')
         }
+        expect(manifest.unavailable).toBe(true);
         expect(manifest.reasons.some(entry => entry.includes('open issues'))).toBe(true);
         expect(manifest.reasons.some(entry => entry.includes('open pull requests'))).toBe(true);
     });
@@ -218,6 +221,61 @@ test.describe('laneLandscapeCensusSource — a source this plane cannot reach (#
         // …whereas the refusing reader resolves normally. The relation leg still works, because the
         // graph DOES own edges on this plane — only the census source is out of reach.
         await expect(source.queryOpenWorkCensus()).resolves.toBeTruthy()
+    });
+
+    test('DISCRIMINATOR: a by-design refusal and a genuine transient are not the same outcome', async () => {
+        // The finding this test exists for, caught by @neo-opus-grace in review: both leave the census
+        // incomplete, and rendering both as "page N failed" made them differ only by the prose inside
+        // the parentheses. A consumer wanting to branch would have had to string-match, which is a
+        // coupling rather than a seam — and it would have sent someone hunting a fault that does not
+        // exist. Asserted as a PAIR, because "the refusal says unavailable" is worth nothing unless a
+        // real fault still says failed.
+        const refused = makeLandscapeCensusSource(depsWith({
+            fetchIssuesPage      : makeRefusingCensusPageReader(reason),
+            fetchPullRequestsPage: makeRefusingCensusPageReader(reason)
+        }));
+
+        const broken = makeLandscapeCensusSource(depsWith({
+            fetchIssuesPage      : async () => { throw new Error('socket hang up') },
+            fetchPullRequestsPage: async () => { throw new Error('socket hang up') }
+        }));
+
+        const refusedResult = await refused.queryOpenWorkCensus(),
+              brokenResult  = await broken.queryOpenWorkCensus();
+
+        // Identical on the axis that says "incomplete"…
+        expect(refusedResult.manifest.exhausted).toBe(false);
+        expect(brokenResult.manifest.exhausted).toBe(false);
+
+        // …and separable on the axis that says "and here is what to do about it".
+        expect(refusedResult.manifest.unavailable).toBe(true);
+        expect(brokenResult.manifest.unavailable).toBe(false);
+
+        // The vocabulary follows the type, so a reader is not told a deployment fact "failed".
+        for (const entry of refusedResult.manifest.reasons) {
+            expect(entry).toContain('unavailable on this plane');
+            expect(entry).not.toContain('failed')
+        }
+        for (const entry of brokenResult.manifest.reasons) {
+            expect(entry).toContain('failed')
+        }
+    });
+
+    test('a MIXED outcome revokes the flag — one refused family cannot vouch for a broken one', async () => {
+        // The narrow reading of `unavailable`: it means "nothing is broken, this plane just cannot see
+        // that source". A genuine fault alongside a clean refusal has to revoke it, or the flag would
+        // tell an operator to stand down while something is actually wrong.
+        const source = makeLandscapeCensusSource(depsWith({
+            fetchIssuesPage      : makeRefusingCensusPageReader(reason),
+            fetchPullRequestsPage: async () => { throw new Error('socket hang up') }
+        }));
+
+        const {manifest} = await source.queryOpenWorkCensus();
+
+        expect(manifest.exhausted).toBe(false);
+        expect(manifest.unavailable).toBe(false);
+        expect(manifest.reasons.some(entry => entry.includes('unavailable on this plane'))).toBe(true);
+        expect(manifest.reasons.some(entry => entry.includes('failed'))).toBe(true)
     });
 
     test('an unexplained refusal is refused: the reason is required', async () => {
