@@ -128,3 +128,44 @@ export function getDueTask({state, now, heavyMaintenanceStarvationWatchdogCheckM
 
     return null;
 }
+
+/**
+ * @summary Is the starvation verdict readable on every poll, or only just after each stamp?
+ * A receipt is restamped once per watchdog run and consumed only while inside `staleAfterMs`, so a
+ * window shorter than the cadence leaves a gap in which a continuously starved plane reports
+ * healthy — the detector fires, and almost nobody sees it. That is the unspannable-geometry class
+ * `describeMemoryWindowReachability` refuses for the memory window, arriving through a second door:
+ * a bound sized against the wrong producer rather than a window nothing can span.
+ *
+ * Shipped once as 600,000ms restamped against a 120,000ms window — readable ~20% of the time, with
+ * green CI throughout.
+ *
+ * Disabled lanes are reachable by definition: `checkMs <= 0` stops the producer, and a verdict that
+ * is never stamped cannot go unread. A disabled detector is a loud, deliberate state; a live one
+ * nobody can observe is the quiet failure this refuses.
+ * @param {Object} options
+ * @param {Number} options.checkMs Producer cadence — `intervals.heavyMaintenanceStarvationWatchdogCheckMs`.
+ * @param {Number} options.staleAfterMs Consumer window — `heavyMaintenanceLease.starvationReceiptStaleAfterMs`.
+ * @returns {{reachable: Boolean, checkMs: Number, staleAfterMs: Number, unreadableMs: Number}}
+ *   `unreadableMs` is the gap per cycle in which a stamped verdict is already stale.
+ */
+export function describeStarvationReceiptReachability({checkMs, staleAfterMs}) {
+    const finite = [checkMs, staleAfterMs].every(Number.isFinite);
+
+    if (!finite) {
+        return {reachable: false, checkMs, staleAfterMs, unreadableMs: NaN};
+    }
+
+    if (checkMs <= 0) {
+        return {reachable: true, checkMs, staleAfterMs, unreadableMs: 0};
+    }
+
+    // A window equal to the cadence is the floor, not a safe setting — it leaves zero tolerance for
+    // a late run. Equality passes; the config default buys a second cadence of slack on purpose.
+    return {
+        reachable   : staleAfterMs >= checkMs,
+        checkMs,
+        staleAfterMs,
+        unreadableMs: Math.max(0, checkMs - staleAfterMs)
+    };
+}

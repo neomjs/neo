@@ -76,9 +76,107 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
             });
 
             expect(payload.status).toBe('healthy');
-            expect(payload.details).toEqual([]);
+        }
+    });
+
+    test('healthy and disabled postures read CLEAR and keep the all-clear line', () => {
+        for (const posture of ['healthy', 'disabled']) {
+            const payload = makePayload();
+
+            payload.details.push('All features are operational');
+
+            foldHeavyMaintenanceStarvation({
+                payload,
+                inspection  : makeInspection({receipt: makeReceipt({posture, breaches: []})}),
+                now         : NOW,
+                staleAfterMs: STALE_AFTER_MS
+            });
+
+            expect(payload.status).toBe('healthy');
+            expect(payload.details).toEqual(['All features are operational']);
             expect(payload.heavyMaintenanceStarvation).toMatchObject({state: 'consumed-clear', posture});
         }
+    });
+
+    // `unknown` used to fall through to `consumed-clear`, which left the all-clear line
+    // standing — the fold asserting "operational" on the strength of a verdict the watchdog
+    // explicitly could not reach. Inconclusive may neither degrade nor claim green.
+    test('a FRESH unknown posture neither degrades nor asserts green — the all-clear line is withdrawn', () => {
+        const payload = makePayload();
+
+        payload.details.push('All features are operational');
+
+        foldHeavyMaintenanceStarvation({
+            payload,
+            inspection  : makeInspection({receipt: makeReceipt({posture: 'unknown', breaches: []})}),
+            now         : NOW,
+            staleAfterMs: STALE_AFTER_MS
+        });
+
+        expect(payload.status).toBe('healthy');
+        expect(payload.details).not.toContain('All features are operational');
+        expect(payload.details.join(' ')).toContain('unknown, not clear');
+        expect(payload.heavyMaintenanceStarvation).toMatchObject({state: 'consumed-unknown', posture: 'unknown'});
+    });
+
+    // Duty cycle: the receipt is only restamped once per watchdog cadence, so the worst-case
+    // age a live verdict ever reaches is one full cadence. The bound must cover that age; the
+    // superseded bridge-write clock did not, which is the whole 8-of-10-minutes defect.
+    test('a receipt aged one full producer cadence stays consumable under the derived bound', () => {
+        const cadenceMs = 10 * 60 * 1000,
+              derived   = cadenceMs * 2,
+              payload   = makePayload();
+
+        foldHeavyMaintenanceStarvation({
+            payload,
+            inspection  : makeInspection({receipt: makeReceipt({checkedAgoMs: cadenceMs})}),
+            now         : NOW,
+            staleAfterMs: derived
+        });
+
+        expect(payload.status).toBe('degraded');
+        expect(payload.heavyMaintenanceStarvation).toMatchObject({state: 'consumed-degraded'});
+    });
+
+    // The bound's upper end is the other half of the contract: it exists to expire a DEAD producer,
+    // not to widen a live one. Two cadences is the tolerance (one full period plus a missed run);
+    // past that the receipt stops being evidence and the fold must decline to degrade on it.
+    test('the derived bound spans two producer cadences and expires past them', () => {
+        const cadenceMs = 10 * 60 * 1000,
+              derived   = cadenceMs * 2;
+
+        for (const [checkedAgoMs, expectedState, expectedStatus] of [
+            [cadenceMs * 2,     'consumed-degraded', 'degraded'],
+            [cadenceMs * 2 + 1, 'receipt-stale',     'healthy']
+        ]) {
+            const payload = makePayload();
+
+            foldHeavyMaintenanceStarvation({
+                payload,
+                inspection  : makeInspection({receipt: makeReceipt({checkedAgoMs})}),
+                now         : NOW,
+                staleAfterMs: derived
+            });
+
+            expect(payload.status).toBe(expectedStatus);
+            expect(payload.heavyMaintenanceStarvation.state).toBe(expectedState);
+        }
+    });
+
+    test('mutation control: the same receipt under the superseded bridge bound reads stale and stays green', () => {
+        const cadenceMs        = 10 * 60 * 1000,
+              supersededBridge = 2 * 60 * 1000,
+              payload          = makePayload();
+
+        foldHeavyMaintenanceStarvation({
+            payload,
+            inspection  : makeInspection({receipt: makeReceipt({checkedAgoMs: cadenceMs})}),
+            now         : NOW,
+            staleAfterMs: supersededBridge
+        });
+
+        expect(payload.status).toBe('healthy');
+        expect(payload.heavyMaintenanceStarvation).toMatchObject({state: 'receipt-stale', posture: 'degraded'});
     });
 
     test('a STALE receipt cannot authorize degradation even when its posture is degraded', () => {

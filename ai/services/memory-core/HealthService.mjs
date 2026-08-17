@@ -1073,9 +1073,11 @@ export function foldServiceMemoryPressure({payload, inspection, now, staleAfterM
  *   `heavyMaintenanceStarvation` consumed-observation descriptor).
  * @param {Object|null} options.inspection `readDeploymentStateSnapshot()` result, or null when the read threw.
  * @param {Number} options.now Epoch-ms clock for receipt freshness.
- * @param {Number} options.staleAfterMs Freshness bound applied to the RECEIPT's `checkedAt` — the same
- *   deployment-state authority that bounds the snapshot itself, so one config leaf governs the whole
- *   consumed surface.
+ * @param {Number} options.staleAfterMs Freshness bound applied to the RECEIPT's `checkedAt`, sized
+ *   from the cadence of the watchdog that stamps it (`heavyMaintenanceLease.starvationReceiptStaleAfterMs`).
+ *   It must NOT be the snapshot's own bridge-write bound: the bridge rewrites every 30s while the
+ *   receipt is restamped only per watchdog run, so borrowing that clock left this fold able to
+ *   degrade for 2 minutes in every 10. `<= 0` disables consumption entirely.
  * @returns {Object} The consumed-observation descriptor written onto the payload.
  */
 export function foldHeavyMaintenanceStarvation({payload, inspection, now, staleAfterMs}) {
@@ -1110,6 +1112,14 @@ export function foldHeavyMaintenanceStarvation({payload, inspection, now, staleA
             // the two statements cannot coexist in one response.
             payload.details = payload.details.filter(detail => detail !== 'All features are operational');
             payload.details.push(`Heavy-maintenance starvation: ${(receipt.breaches ?? []).map(breach => `${breach.taskName} deferred since ${breach.deferredSince}`).join(', ') || 'degraded receipt'} (lease holder: ${receipt.leaseHolder ?? 'none'})`);
+        } else if (receipt.posture === 'unknown') {
+            // Inconclusive is its own answer. A fresh `unknown` means the watchdog READ the ledger
+            // and could not decide (unreadable entries, or a watchdog fault) — so it may not
+            // degrade, and it may equally not ride the all-clear line into a green report. Folding
+            // it into `consumed-clear` asserted exactly the claim it cannot support.
+            observation.state = 'consumed-unknown';
+            payload.details   = payload.details.filter(detail => detail !== 'All features are operational');
+            payload.details.push('Heavy-maintenance starvation: the watchdog could not determine a verdict — starvation state is unknown, not clear.');
         } else {
             observation.state = 'consumed-clear';
         }
