@@ -141,6 +141,50 @@ For deployment-side auth, identity, and readiness details, continue with
 [Cloud deployment security](./cloud-deployment/Security.md) and the
 [Day-0 tutorial](./cloud-deployment/Day0Tutorial.md).
 
+## The one command against the live plane
+
+```bash
+npm run cockpit:live
+```
+
+Same supervised boot as above — but the fleet transport binds to the **containerized plane**, so
+the cockpit renders the real fleet's truth: presence bands from the live presence surface, the
+activity stream from the real A2A/PR lanes, and the mailbox, memories, and catch-up panes reading
+plane content — no hand-assembled wiring, no exported credential ritual.
+
+The launcher resolves the plane binding itself, naming every source it used:
+
+1. **Base URL** — `NEO_FLEET_PLANE_BASE` wins; otherwise the canonical local plane
+   (`http://127.0.0.1:3102`). Pin the variable to target a different deployment.
+2. **Bearer** — `NEO_FLEET_PLANE_BEARER` wins, then the `NEO_FLEET_PLANE_BEARER_FILE` secret file,
+   then `gh auth token` (the same identity the viewer claim resolves through, which is exactly the
+   subject the plane's provider-PAT authority verifies). The `gh auth token` fallback is **coupled
+   to the destination**: it fires only for a loopback base — the implicit PAT never travels to a
+   non-loopback host, so a pinned remote base needs an explicit credential (an explicit decision
+   for an explicit destination). All three empty refuses with the remediation; a
+   pinned-but-unreadable file refuses rather than falling through to a different credential. The
+   resolved value is held in launcher memory and injected into the fleet child's environment only —
+   never the webpack child, never a log line.
+3. **Plane probe** — before anything spawns, an unauthenticated call to the plane's MCP ingress
+   must answer with its auth guard's `401` (that refusal IS the plane's identity signature).
+   Nothing serving there fails fast with the plane-start command
+   (`docker compose --env-file .env -f ai/deploy/docker-compose.yml -f ai/deploy/docker-compose.local-agent-os.yml --profile cloud --profile ingress --profile fleet up -d --wait`,
+   see [`local-agent-os/README.md`](../../ai/scripts/lifecycle/local-agent-os/README.md)).
+
+Live mode **never adopts an incumbent** fleet transport: an existing server on `:8083` cannot
+report which plane it reads through `/fleet/probe`, so adopting it could point the cockpit at the
+wrong plane. Stop the old transport and re-run, or use `npm run cockpit` for the in-process
+journey. Bearer *validity* is verified where it has always been verified — the fleet entry's
+plane-side admission refuses a bearer whose subject is not the resolved viewer, fail-closed.
+
+What renders real, and what stays honestly degraded: the roster itself is still **this checkout's
+managed fleet** (the seats registered here) — plane mode moves the truth axes (presence, activity,
+mailbox, memories, catch-up, wake subscriptions), not the roster's ownership. A checkout that
+manages no seats renders the labelled empty-registry state, never resurrected sample residents.
+The wake **push** lane arms only when the deployment declares a fleet-surface credential
+(`fleet.planeAdmissionBearer` / `…File`); without one the stream axis renders its honest
+not-armed reason and the brokered digest poll remains the truth lane.
+
 ## Without the fleet transport
 
 The cockpit itself always boots — `npm run server-start` alone still serves it. Without the

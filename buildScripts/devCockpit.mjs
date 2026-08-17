@@ -45,9 +45,26 @@
  * Signals: SIGINT/SIGTERM forward to every child this launcher spawned; a webpack exit tears the
  * session down; a fleet-server exit logs loudly while the cockpit degrades to its honest
  * seed/stale states (the operable-cold banner names it on the surface).
+ *
+ * Live mode (`--live`, the `cockpit:live` script): the same supervised boot, but the fleet child
+ * is composed against the containerized plane — one command for the real-fleet journey, no
+ * hand-assembled wiring. Before any spawn, the launcher resolves the plane binding
+ * ({@link resolveLivePlaneConfig}: `NEO_FLEET_PLANE_BASE` else the canonical local plane address;
+ * bearer from `NEO_FLEET_PLANE_BEARER`, else a `NEO_FLEET_PLANE_BEARER_FILE` secret file, else —
+ * LOOPBACK bases only — the `gh auth token` identity, whose implicit PAT never travels to a
+ * non-loopback host) and probes the
+ * plane's MCP ingress unauthenticated ({@link probePlaneIdentity}: the auth guard's 401 IS the
+ * plane signature). Bearer custody is deliberate: the value materializes ONLY into the fleet
+ * child's env ({@link buildFleetChildEnv}) — never `process.env`, never the webpack child, never
+ * a log line. Bearer VALIDITY stays with the fleet entry's plane-side verified admission (one
+ * verification authority); this launcher fails fast only on "no plane serving there at all".
+ * Live mode never adopts an incumbent fleet transport: the incumbent's plane binding is not
+ * observable through `/fleet/probe`, so reuse could silently point the cockpit at the wrong
+ * plane — an occupied endpoint refuses with the remediation named.
  */
-import {spawn} from 'node:child_process';
-import http    from 'node:http';
+import {spawn}        from 'node:child_process';
+import {readFileSync} from 'node:fs';
+import http           from 'node:http';
 
 const FLEET_PORT_DEFAULT = 8083;
 
@@ -202,16 +219,272 @@ export function planCockpitBoot({fleetPort, endpointStatus, endpointDetail = '',
 }
 
 /**
+ * @summary The canonical local Agent OS plane's published loopback base — the deployment fact the
+ * live journey defaults to when `NEO_FLEET_PLANE_BASE` is not pinned. Path-routed `/mc/mcp` +
+ * `/kb/mcp` live behind this address in the canonical local profile; the literal names the
+ * DEPLOYMENT's published port (never a hash-derived or guessed one), and the env leaf always wins.
+ * @type {String}
+ */
+export const CANONICAL_LOCAL_PLANE_BASE = 'http://127.0.0.1:3102';
+
+/**
+ * @summary Default gh-CLI seam for {@link resolveLivePlaneConfig}: `gh auth token` resolves the
+ * active gh identity's PAT — the same account the fleet viewer claim resolves through, which is
+ * exactly the subject the plane's provider-PAT authority verifies. Captured into launcher memory
+ * only: stdout is read, never echoed; a missing/failing gh resolves `''` and the caller decides.
+ * @returns {Promise<String>} The trimmed token, or `''` on every failure path.
+ */
+function readGhAuthToken() {
+    return new Promise(resolve => {
+        const child = spawn('gh', ['auth', 'token'], {stdio: ['ignore', 'pipe', 'ignore']});
+        let   out   = '';
+
+        child.stdout.on('data', chunk => out += chunk);
+        child.on('error', () => resolve(''));
+        child.on('close', code => resolve(code === 0 ? out.trim() : ''));
+    })
+}
+
+/**
+ * @summary The loopback gate for the implicit gh credential: parses the resolved plane base and
+ * answers whether it names THIS machine — the only destination the viewer-claim identity's PAT may
+ * travel to without an explicit operator credential decision. Same loopback vocabulary the app's
+ * bridge installer enforces. An unparseable base answers false: fail-closed, and the probe or the
+ * fleet entry owns the downstream diagnosis.
+ * @param {String} planeBase
+ * @returns {Boolean}
+ */
+function isLoopbackPlaneBase(planeBase) {
+    let hostname;
+
+    try {
+        hostname = new URL(planeBase).hostname
+    } catch {
+        return false
+    }
+
+    return ['127.0.0.1', 'localhost', '[::1]'].includes(hostname)
+}
+
+/**
+ * @summary Resolves the live journey's plane binding — the pure decision seam the witnesses pin.
+ *
+ * Precedence, each half named in the notes so a boot log always shows WHICH source armed the run:
+ *  - base: `NEO_FLEET_PLANE_BASE` (an explicit pin always wins) else {@link CANONICAL_LOCAL_PLANE_BASE}.
+ *  - bearer: `NEO_FLEET_PLANE_BEARER` (direct) else the `NEO_FLEET_PLANE_BEARER_FILE` secret file
+ *    (materialized into the direct env channel for the fleet child — the dev fleet entry reads only
+ *    the direct leaf, so the launcher is where the file's value crosses) else `gh auth token`.
+ *
+ * The two halves are deliberately NOT independent: the implicit `gh auth token` fallback fires only
+ * for a LOOPBACK base. It resolves the viewer-claim identity's own PAT, and a credential like that
+ * may travel implicitly to this machine and nowhere else — the probe's 401 signature proves
+ * reachability, never that the host should receive a credential. A pinned non-loopback base with no
+ * explicit bearer is REFUSED with the remediation: a remote deployment pins an explicit credential
+ * (an explicit decision for an explicit destination).
+ *
+ * Fail-closed: a pinned-but-unreadable file REFUSES (a launcher that thinks it pinned a credential
+ * must not silently run on a different one), and all-three-empty refuses with the remediation.
+ * The bearer VALUE never enters the notes — sources are named, secrets are not.
+ *
+ * @param {Object}   [options]
+ * @param {Object}   [options.env=process.env]        Environment to resolve from.
+ * @param {Function} [options.readGhToken]            Injectable gh seam; default {@link readGhAuthToken}.
+ * @param {Function} [options.readFile]               Injectable file seam for tests; defaults to `readFileSync`.
+ * @returns {Promise<{refuse: Boolean, planeBase: String, planeBearer: String, bearerSource: ('env'|'file'|'gh'|null), notes: String[]}>}
+ */
+export async function resolveLivePlaneConfig({env = process.env, readGhToken = readGhAuthToken, readFile = null} = {}) {
+    const
+        planeBase = env.NEO_FLEET_PLANE_BASE?.trim() || CANONICAL_LOCAL_PLANE_BASE,
+        notes     = [
+            env.NEO_FLEET_PLANE_BASE?.trim()
+                ? `plane base pinned via NEO_FLEET_PLANE_BASE (${planeBase})`
+                : `plane base defaulted to the canonical local plane (${planeBase}) — pin NEO_FLEET_PLANE_BASE to target a different deployment`
+        ];
+
+    let planeBearer = env.NEO_FLEET_PLANE_BEARER?.trim() || '',
+        source      = planeBearer ? 'env' : null;
+
+    if (!planeBearer && env.NEO_FLEET_PLANE_BEARER_FILE?.trim()) {
+        const bearerFile = env.NEO_FLEET_PLANE_BEARER_FILE.trim();
+
+        try {
+            const read = readFile ?? (target => readFileSync(target, 'utf8'));
+            planeBearer = String(read(bearerFile)).trim();
+            source      = planeBearer ? 'file' : null
+        } catch (error) {
+            return {
+                refuse      : true,
+                planeBase,
+                planeBearer : '',
+                bearerSource: null,
+                notes       : [
+                    ...notes,
+                    `REFUSED: NEO_FLEET_PLANE_BEARER_FILE is pinned but unreadable (${bearerFile}: ${error.message}) — a pinned credential must never silently fall through to another source. Fix the file or unset the variable.`
+                ]
+            }
+        }
+
+        if (!planeBearer) {
+            return {
+                refuse      : true,
+                planeBase,
+                planeBearer : '',
+                bearerSource: null,
+                notes       : [
+                    ...notes,
+                    `REFUSED: NEO_FLEET_PLANE_BEARER_FILE (${bearerFile}) read empty — a pinned credential must never silently fall through to another source. Fix the file or unset the variable.`
+                ]
+            }
+        }
+    }
+
+    if (!planeBearer) {
+        // The implicit gh fallback is COUPLED to the destination: it resolves the viewer-claim
+        // identity's own PAT, which may travel implicitly to a loopback plane (the canonical local
+        // journey) and nowhere else. A pinned non-loopback base with no explicit bearer refuses —
+        // the probe's 401 signature proves reachability, never that the host should receive one.
+        if (!isLoopbackPlaneBase(planeBase)) {
+            return {
+                refuse      : true,
+                planeBase,
+                planeBearer : '',
+                bearerSource: null,
+                notes       : [
+                    ...notes,
+                    `REFUSED: ${planeBase} is not a loopback plane and no explicit credential is pinned — the \`gh auth token\` identity's PAT never travels to a non-loopback host implicitly. Set NEO_FLEET_PLANE_BEARER or NEO_FLEET_PLANE_BEARER_FILE for a remote deployment (an explicit credential for an explicit destination), or unset NEO_FLEET_PLANE_BASE for the canonical local journey.`
+                ]
+            }
+        }
+
+        planeBearer = (await readGhToken()).trim();
+        source      = planeBearer ? 'gh' : null
+    }
+
+    if (!planeBearer) {
+        return {
+            refuse      : true,
+            planeBase,
+            planeBearer : '',
+            bearerSource: null,
+            notes       : [
+                ...notes,
+                'REFUSED: no plane credential resolved — export NEO_FLEET_PLANE_BEARER, point NEO_FLEET_PLANE_BEARER_FILE at a token file, or `gh auth login`. The live journey authenticates to the plane as your gh identity, and a credential it cannot resolve must never become a guess.'
+            ]
+        }
+    }
+
+    notes.push(`plane bearer resolved from ${source === 'env' ? 'NEO_FLEET_PLANE_BEARER' : source === 'file' ? 'NEO_FLEET_PLANE_BEARER_FILE' : '`gh auth token` (the viewer-claim identity)'} — value held in launcher memory, injected into the fleet child only`);
+
+    return {refuse: false, planeBase, planeBearer, bearerSource: source, notes}
+}
+
+/**
+ * @summary Probes the live plane's MCP ingress WITHOUT credentials: the auth guard's 401 before
+ * any session is the plane's identity signature — deterministic, side-effect-free, and exactly as
+ * unforgeable-by-accident as the fleet transport's own refusal envelope. Reachability is the only
+ * question this probe answers; bearer validity stays with the fleet entry's verified admission.
+ * @param {Object}   options
+ * @param {String}   options.planeBase                    The resolved plane base URL.
+ * @param {Function} [options.fetchImpl=globalThis.fetch] Injectable fetch for tests.
+ * @param {Number}   [options.timeoutMs=3000]             Probe patience.
+ * @returns {Promise<{status: ('plane'|'unreachable'|'incompatible'), detail: String}>}
+ */
+export async function probePlaneIdentity({planeBase, fetchImpl = globalThis.fetch, timeoutMs = 3000}) {
+    const url = `${planeBase.replace(/\/+$/, '')}/mc/mcp`;
+
+    let response;
+
+    try {
+        response = await fetchImpl(url, {
+            method : 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body   : JSON.stringify({jsonrpc: '2.0', id: 0, method: 'initialize', params: {}}),
+            signal : AbortSignal.timeout(timeoutMs)
+        })
+    } catch (error) {
+        return {
+            status: 'unreachable',
+            detail: `no plane answering at ${url} (${error.cause?.code || error.message}) — start the canonical local plane first: docker compose --env-file .env -f ai/deploy/docker-compose.yml -f ai/deploy/docker-compose.local-agent-os.yml --profile cloud --profile ingress --profile fleet up -d --wait (see ai/scripts/lifecycle/local-agent-os/README.md)`
+        }
+    }
+
+    if (response.status === 401) {
+        return {status: 'plane', detail: 'plane identity confirmed (authenticated ingress refusal)'}
+    }
+
+    return {status: 'incompatible', detail: `${url} answered HTTP ${response.status} — not the plane's authenticated MCP ingress; check NEO_FLEET_PLANE_BASE`}
+}
+
+/**
+ * @summary Builds the fleet child's environment — the ONE place launch-resolved credentials cross
+ * into a process. The transport bearer + handshake arm always ride; the live plane binding rides
+ * only in live mode. Custody rule: this env goes to the fleet child ALONE — the webpack child
+ * keeps the launcher's own environment untouched, so a gh/file-materialized plane bearer never
+ * reaches a process that does not need it. Pure: the input env is copied, never mutated.
+ * @param {Object}      options
+ * @param {Object}      options.baseEnv            The launcher's environment to extend.
+ * @param {String}      options.fleetBearer        The process-lifetime transport bearer.
+ * @param {Object|null} [options.livePlane=null]   The resolved live binding ({planeBase, planeBearer}).
+ * @returns {Object} The child environment.
+ */
+export function buildFleetChildEnv({baseEnv, fleetBearer, livePlane = null}) {
+    const env = {...baseEnv, NEO_FLEET_BEARER: fleetBearer, NEO_FLEET_BEARER_HANDSHAKE: '1'};
+
+    if (livePlane) {
+        env.NEO_FLEET_PLANE_BASE   = livePlane.planeBase;
+        env.NEO_FLEET_PLANE_BEARER = livePlane.planeBearer
+    }
+
+    return env
+}
+
+/**
  * @summary Process entry: resolve authority, probe, plan, spawn, supervise. The webpack child is
  * spawned via an injectable command seam (`NEO_COCKPIT_WEBPACK_CMD`, JSON `[cmd, ...args]`) so the
  * composed-boot integration witness can substitute a stub without touching the production default.
+ * Live mode (`--live`) resolves + probes the plane binding BEFORE anything spawns, never adopts an
+ * incumbent fleet transport (its plane binding is not probe-observable), and refuses named.
  * @returns {Promise<void>}
  * @protected
  */
 async function main() {
     const
-        fleetPort = Number(process.env.NEO_FLEET_PORT) || FLEET_PORT_DEFAULT,
-        probe     = fleetPort === FLEET_PORT_DEFAULT ? await probeFleetEndpoint(fleetPort) : null;
+        liveMode  = process.argv.includes('--live'),
+        fleetPort = Number(process.env.NEO_FLEET_PORT) || FLEET_PORT_DEFAULT;
+
+    // Live journey first: resolve the plane binding and prove the plane serves BEFORE anything
+    // spawns — a misresolved credential or an absent plane fails fast with no browser opened.
+    let livePlane = null;
+
+    if (liveMode) {
+        const resolved = await resolveLivePlaneConfig({env: process.env});
+
+        resolved.notes.forEach(note => console.log(`[cockpit:live] ${note}`));
+
+        if (resolved.refuse) {
+            process.exit(1)
+        }
+
+        const planeProbe = await probePlaneIdentity({planeBase: resolved.planeBase});
+
+        if (planeProbe.status !== 'plane') {
+            console.error(`[cockpit:live] REFUSED: ${planeProbe.detail}`);
+            process.exit(1)
+        }
+
+        console.log(`[cockpit:live] ${planeProbe.detail} at ${resolved.planeBase}`);
+        livePlane = resolved
+    }
+
+    const probe = fleetPort === FLEET_PORT_DEFAULT ? await probeFleetEndpoint(fleetPort) : null;
+
+    // Live mode never adopts an incumbent: the reuse proof binds token + viewer but NOT the
+    // incumbent's plane read — an in-process incumbent would silently boot the cockpit off the
+    // wrong plane. Refuse named; the operator stops it or takes the in-process journey.
+    if (liveMode && probe?.status === 'fleet') {
+        console.error(`[cockpit:live] REFUSED: :${fleetPort} already serves a fleet transport — its plane binding is not observable through /fleet/probe, so adopting it could point the cockpit at the wrong plane. Stop the incumbent and re-run, or use \`npm run cockpit\` for the in-process journey.`);
+        process.exit(1)
+    }
 
     // A protocol-identity occupant needs the AUTHENTICATED reuse proof before it may become the
     // page's credential authority. The proof can only be attempted when this environment pins the
@@ -284,9 +557,10 @@ async function main() {
         // NEO_FLEET_BEARER_HANDSHAKE: this launcher opens the page AND holds the bearer, so it is
         // the one place arming the browser handshake is a coherent custody decision — the page the
         // webpack child opens redeems the secret itself (apps/agentos/fleet/redeemFleetBearerHandshake.mjs),
-        // closing the launcher→page hand-off without an agent seam.
+        // closing the launcher→page hand-off without an agent seam. The live plane binding (when
+        // `--live` resolved one) rides the same child-only channel — never the webpack env.
         const fleet = spawn(fleetCmd[0], fleetCmd.slice(1), {
-            env  : {...process.env, NEO_FLEET_BEARER: fleetBearer, NEO_FLEET_BEARER_HANDSHAKE: '1'},
+            env  : buildFleetChildEnv({baseEnv: process.env, fleetBearer, livePlane}),
             stdio: 'inherit'
         });
 
