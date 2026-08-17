@@ -30,6 +30,41 @@ import {walkCensusToExhaustion} from './laneLandscapeCensusWalk.mjs';
 const LANDSCAPE_EDGE_TYPES = Object.freeze(['PARENT_OF', 'BLOCKS']);
 
 /**
+ * @summary Builds a page reader that refuses, so a structurally unreachable source degrades the census
+ * instead of either crashing the tool or inventing a complete-looking empty one.
+ *
+ * **Why a refusing reader rather than no reader.** `makeLandscapeCensusSource` is fail-closed on its
+ * injections — an unbound source is a wiring bug, not a degradation — so simply omitting the reader
+ * throws and takes the whole tool down. A deployment that legitimately cannot reach the owning source
+ * is not a wiring bug, and it should not have to look like one.
+ *
+ * **Why not a reader that returns nothing.** The obvious stand-in, `{items: [], hasNextPage: false}`,
+ * is the worse answer: the walk would read it as the source proving there is no next page, report
+ * `exhausted: true`, and the landscape would confidently assert **zero** open issues and zero open
+ * pull requests — indistinguishable from a genuinely empty backlog. Reporting a count the source
+ * never supplied is the failure this whole seam is built to make impossible. Refusing keeps the count
+ * `unknown`: the walk records `exhausted: false` with this reason, callers derive `degraded` from
+ * that, and the narrative is withheld with its cause attached.
+ *
+ * The reason is supplied by the caller rather than composed here, for the same reason the page
+ * readers themselves are injected: *why* a source is out of reach is a deployment fact owned by the
+ * composition edge, and burning one plane's vocabulary into a shared graph helper would make this
+ * module assert something it cannot know.
+ *
+ * @param {String} reason Why this deployment cannot reach the source, in the caller's own vocabulary.
+ * @returns {Function} A page reader matching the `fetchIssuesPage` / `fetchPullRequestsPage` contract.
+ */
+export function makeRefusingCensusPageReader(reason) {
+    if (typeof reason !== 'string' || reason.length === 0) {
+        throw new TypeError('makeRefusingCensusPageReader: a non-empty `reason` is required — an unexplained refusal is indistinguishable from a bug')
+    }
+
+    return async () => {
+        throw new Error(reason)
+    }
+}
+
+/**
  * @summary Binds the injected source readers into the census + relation reads the landscape needs.
  *
  * Every impure edge is injected: the page readers so the walk stays hermetic and the owning service

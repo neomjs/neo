@@ -133,3 +133,97 @@ test.describe('laneLandscapeCensusSource — owning source for facts, graph for 
         expect(() => makeLandscapeCensusSource({...baseDeps(), edgeLimit: undefined})).toThrow(/edgeLimit/);
     });
 });
+
+/**
+ * A structurally unreachable census source.
+ *
+ * A deployment can legitimately be unable to reach the source that owns the facts — the cloud-plane
+ * server cannot read GitHub, because that capability is host-edge by design. That is not a wiring bug
+ * and not an outage, and it has exactly two wrong answers available, both of which look reasonable:
+ *
+ * - **Omit the readers.** `makeLandscapeCensusSource` is fail-closed, so the tool throws and dies.
+ * - **Return an empty page.** The walk reads `hasNextPage: false` as the source PROVING there is no
+ *   next page, so the landscape asserts zero open issues and zero open PRs — confident and wrong.
+ *
+ * The second is the dangerous one, and the control below is what makes these tests mean anything: it
+ * pins that an empty reader really does produce `exhausted: true`, so the refusing reader is shown to
+ * differ from the tempting alternative rather than merely from nothing.
+ */
+test.describe('laneLandscapeCensusSource — a source this plane cannot reach (#17285)', () => {
+    let makeLandscapeCensusSource, makeRefusingCensusPageReader;
+
+    const reason       = 'the open-work census reads GitHub, which is a host-edge capability this cloud-plane server does not carry',
+          emptyPage    = async () => ({items: [], hasNextPage: false}),
+          stubEdgeSeam = () => ({records: [], truncated: false});
+
+    const depsWith = readers => ({
+        listEdgeRecordsByType: stubEdgeSeam,
+        pageLimit            : 50,
+        maxPages             : 10,
+        edgeLimit            : 5000,
+        ...readers
+    });
+
+    test.beforeAll(async () => {
+        ({makeLandscapeCensusSource, makeRefusingCensusPageReader} =
+            await import('../../../../../../ai/services/graph/laneLandscapeCensusSource.mjs'))
+    });
+
+    test('POSITIVE CONTROL: an EMPTY reader reports proven exhaustion — the confident-wrong answer', async () => {
+        // Without this, the refusal test below would pass against an implementation that changed nothing:
+        // it is only meaningful because the obvious alternative genuinely produces `exhausted: true`.
+        const source = makeLandscapeCensusSource(depsWith({
+            fetchIssuesPage      : emptyPage,
+            fetchPullRequestsPage: emptyPage
+        }));
+
+        const {items, manifest} = await source.queryOpenWorkCensus();
+
+        expect(items).toHaveLength(0);
+        expect(manifest.exhausted).toBe(true);   // ← zero open work, asserted as FACT
+        expect(manifest.reasons).toEqual([]);
+    });
+
+    test('a refusing reader degrades the census instead: unknown, never zero', async () => {
+        const source = makeLandscapeCensusSource(depsWith({
+            fetchIssuesPage      : makeRefusingCensusPageReader(reason),
+            fetchPullRequestsPage: makeRefusingCensusPageReader(reason)
+        }));
+
+        const {items, manifest} = await source.queryOpenWorkCensus();
+
+        // Same zero rows as the control — and the opposite meaning, which is the entire point.
+        expect(items).toHaveLength(0);
+        expect(manifest.exhausted).toBe(false);
+        expect(manifest.reasons).toHaveLength(2);   // both families refused, neither erases the other
+
+        // The boundary reaches the operator, not just the symptom: `degraded` alone would not say WHY.
+        for (const entry of manifest.reasons) {
+            expect(entry).toContain('host-edge')
+        }
+        expect(manifest.reasons.some(entry => entry.includes('open issues'))).toBe(true);
+        expect(manifest.reasons.some(entry => entry.includes('open pull requests'))).toBe(true);
+    });
+
+    test('the refusal degrades the census WITHOUT taking the tool down', async () => {
+        // The failure mode this whole shape exists to avoid: removing the readers entirely throws from
+        // the constructor, so a plane boundary would surface as a dead tool rather than a degraded one.
+        expect(() => makeLandscapeCensusSource(depsWith({}))).toThrow(/fetchIssuesPage/);
+
+        const source = makeLandscapeCensusSource(depsWith({
+            fetchIssuesPage      : makeRefusingCensusPageReader(reason),
+            fetchPullRequestsPage: makeRefusingCensusPageReader(reason)
+        }));
+
+        // …whereas the refusing reader resolves normally. The relation leg still works, because the
+        // graph DOES own edges on this plane — only the census source is out of reach.
+        await expect(source.queryOpenWorkCensus()).resolves.toBeTruthy()
+    });
+
+    test('an unexplained refusal is refused: the reason is required', async () => {
+        // A refusal with no reason is indistinguishable from a bug once it reaches the walk's output,
+        // and the caller owns the vocabulary — so an empty one fails at construction, not at read time.
+        expect(() => makeRefusingCensusPageReader()).toThrow(TypeError);
+        expect(() => makeRefusingCensusPageReader('')).toThrow(/reason/);
+    })
+});
