@@ -174,15 +174,36 @@ class FleetManager extends Base {
      * @summary Turnkey fleet runtime observability: the per-agent process-runtime state across the whole
      * fleet — the live-process view complementing {@link fleetRepoStatus}'s repo view. Composes the
      * registry roster with the lifecycle service's per-agent {@link
-     * Neo.ai.services.fleet.FleetLifecycleService#status} read, so every *registered* agent gets a row (an
-     * agent with no live process reads `state:'stopped'`) and the cockpit renders the whole fleet, not
-     * only running processes. Read-only; never carries a secret (`status` holds none — `stderrBytes` is a
-     * count). Lifecycle records expose running / stopped directly; richer idle / wedged /
-     * rate-limited states need watchdog signals this service does not yet surface (a separate
-     * watchdog-signals follow-up), so a row is `observed` when a process record backs it and `inferred`
-     * otherwise — the
-     * state is never invented.
-     * @returns {Object[]} one `{agentId, state, running, confidence, source}` entry per registered agent.
+     * Neo.ai.services.fleet.FleetLifecycleService#status} read, so every *registered* agent gets a row and
+     * the cockpit renders the whole fleet, not only running processes. Read-only; never carries a secret
+     * (`status` holds none — `stderrBytes` is a count). Lifecycle records expose running / stopped
+     * directly; richer idle / wedged / rate-limited states need watchdog signals this service does not yet
+     * surface (a separate watchdog-signals follow-up).
+     *
+     * **The row-per-agent guarantee is about row EXISTENCE, never about asserting a session state for
+     * every agent**, and conflating the two publishes fiction. `status()` answers `stopped` for an agent
+     * it holds no record of, which is a sound lifecycle default and an INVENTED VERDICT the moment it is
+     * republished as fleet truth: never-launched is not stopped. A fleet running external-harness seats
+     * it never launched once rendered every one of them `benched / offline` on exactly that confusion,
+     * while the same rows carried `participationStatus: 'active'`.
+     *
+     * So a row with no backing process record reports `state: 'unmanaged'` with `confidence: 'none'` and
+     * a reason naming the absence — **absence of signal, never a verdict** — and the state is never
+     * invented. A record the fleet does own keeps `running` / `stopped` verbatim: that IS the
+     * operator-benched fact, and it stays observable.
+     *
+     * **`running: false` on an unmanaged row is a KNOWN residual assertion, kept deliberately — not
+     * inherited by oversight.** The sentence above is honest about `state` and `confidence` and only
+     * approximately honest here: if never-launched is not stopped, then no-record is equally not
+     * not-running, and an external-harness seat may well be running right now. It survives because
+     * `running` is a Boolean with no room for *unknown*, so correcting it means widening a PUBLISHED
+     * wire-method field to a tri-state — a contract change, not a fix, and out of scope for the defect
+     * this method's split addresses. The cost is bounded and was measured rather than assumed: the only
+     * consumer that reads the field is `ai/scripts/fleet/onboardPeer.mjs`, and `Boolean(null) === false`
+     * means it would behave identically either way. Widen it when a consumer actually needs to
+     * distinguish "not running" from "we do not know" — and delete this paragraph when you do.
+     * @returns {Object[]} one `{agentId, state, running, confidence, source}` entry per registered agent;
+     *     unmanaged rows additionally carry `reason`.
      */
     fleetRuntimeStatus() {
         const lifecycle = this.getLifecycleService();
@@ -193,11 +214,15 @@ class FleetManager extends Base {
 
             const row = {
                 agentId   : agent.id,
-                state     : status.state,
+                state     : observed ? status.state : 'unmanaged',
                 running   : status.running,
-                confidence: observed ? 'observed' : 'inferred',
+                confidence: observed ? 'observed' : 'none',
                 source    : 'fleet:runtimeStatus'
             };
+
+            // The cause travels with the fact: downstream normalization keeps a producer's reason
+            // verbatim and is forbidden from inventing one, so the honest "why" has to originate here.
+            if (!observed) row.reason = 'no fleet process record: this agent runs outside fleet supervision';
 
             if (status.failureReason != null) row.failureReason = status.failureReason;
 
