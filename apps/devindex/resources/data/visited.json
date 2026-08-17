@@ -33712,6 +33712,7 @@
   "repo:nix-community/nixd",
   "repo:nix-community/nixos-anywhere",
   "repo:nix-community/nixos-apple-silicon",
+  "repo:nix-community/nixos-facter",
   "repo:nix-community/nixpkgs-update",
   "repo:nix-community/nixvim",
   "repo:nix-community/nur-packages-template",
