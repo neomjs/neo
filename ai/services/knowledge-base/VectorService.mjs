@@ -2237,6 +2237,12 @@ class VectorService extends Base {
         const embedResult = await this.embedChunks({
             collection,
             chunksToProcess,
+            // The shadow-swap branch has forwarded this since it was introduced; the incremental
+            // branch did not, so the whole cooperative-yield contract was live on one path and
+            // absent on the other — and the tenant lane runs incrementally. Without it a caller
+            // supplying a budget gets no yielding at all, silently, because a missing predicate is
+            // indistinguishable from one that never votes to stop.
+            shouldYield,
             signal,
             onProviderTimeout,
             knownPoisonEntries,
@@ -2262,7 +2268,13 @@ class VectorService extends Base {
             embedded: embedResult.embedded,
             deleted : idsToDelete.length,
             failedBatches,
-            poisonedChunks
+            poisonedChunks,
+            // The discriminator between "this corpus is done" and "this slice stopped early". Dropping
+            // it made the two indistinguishable to every caller, so a bounded slice reported the same
+            // shape as a complete run — the caller then persists a checkpoint over work that never
+            // landed. Absent predicate ⇒ `embedChunks` never yields ⇒ `false`, so this is additive and
+            // every existing caller keeps today's semantics.
+            yielded : embedResult.yielded === true
         };
     }
 
