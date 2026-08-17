@@ -1,0 +1,50 @@
+name: Package Contents Check
+
+# Deliberately narrow `paths`. This gate runs a real `npm pack --dry-run`, which is the only thing
+# that can settle what ships — reasoning about ignore-file patterns is what produced the two defects
+# it guards (a rule pinned to a path+extension that silently stopped matching, and a negation that
+# removed the exclusion it sat under instead of narrowing it). That costs a full install plus the
+# `prepare` lifecycle, so it fires only when the packaging rules themselves change, not on every PR.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - '.npmignore'
+      - 'package.json'
+      - 'buildScripts/util/check-package-contents.mjs'
+      - '.github/workflows/check-package-contents.yml'
+  push:
+    branches: [dev]
+    paths:
+      - '.npmignore'
+      - 'package.json'
+      - 'buildScripts/util/check-package-contents.mjs'
+      - '.github/workflows/check-package-contents.yml'
+
+concurrency:
+  group: check-package-contents-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # A CI checkout has no live `.neo-ai-data/logs`, `sqlite/` or `wake-daemon/`, so a green here
+      # proves the DevIndex and resources/content rules but CANNOT prove the Agent OS one — the
+      # files it guards do not exist on this runner. That half is covered by the unit spec over the
+      # rule logic, and by the pre-fix package listing this check was red-proofed against. Stated
+      # rather than left implicit, because "CI is green" reading as "the plane data is excluded"
+      # would rebuild the exact false confidence that let the original defect survive.
+      - name: Check npm package contents
+        run: npm run check-package-contents

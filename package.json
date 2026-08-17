@@ -107,6 +107,7 @@
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-examples-body-only"             : "node ./buildScripts/util/check-examples-body-only.mjs",
+        "check-package-contents"               : "node ./buildScripts/util/check-package-contents.mjs",
         "check-reactive-tags"                  : "node ./buildScripts/helpers/checkReactiveTags.mjs",
         "convert-design-tokens"                : "node ./buildScripts/helpers/convertDesignTokens.mjs",
         "create-app"                           : "node ./buildScripts/create/app.mjs",
