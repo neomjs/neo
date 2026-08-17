@@ -1522,13 +1522,36 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
     });
 
     test('reconnectFleet re-drives every liveness seam immediately — the one-click recovery', () => {
+        const
+            driven = [],
+            panes  = {
+                'catch-up'  : {onRefreshClick: () => driven.push('catchUpHistory')},
+                'memories'  : {onRefreshClick: () => driven.push('memoriesHistory')},
+                'wakeRoutes': {onRefreshClick: () => driven.push('wakeRoutesHistory')}
+            };
+
+        FleetCockpit.prototype.reconnectFleet.call({
+            loadActivity          : () => driven.push('activity'),
+            loadBrainHealth       : () => driven.push('brainHealth'),
+            loadRoster            : () => driven.push('roster'),
+            ensureViewerWakeStream: () => driven.push('viewerWake'),
+            getReference          : reference => panes[reference] ?? null
+        });
+
+        expect(driven.sort()).toEqual([
+            'activity', 'brainHealth', 'catchUpHistory', 'memoriesHistory', 'roster', 'viewerWake', 'wakeRoutesHistory'
+        ])
+    });
+
+    test('reconnectFleet tolerates unmounted panes — a missing reference is silence, never a throw', () => {
         const driven = [];
 
         FleetCockpit.prototype.reconnectFleet.call({
             loadActivity          : () => driven.push('activity'),
             loadBrainHealth       : () => driven.push('brainHealth'),
             loadRoster            : () => driven.push('roster'),
-            ensureViewerWakeStream: () => driven.push('viewerWake')
+            ensureViewerWakeStream: () => driven.push('viewerWake'),
+            getReference          : () => null
         });
 
         expect(driven.sort()).toEqual(['activity', 'brainHealth', 'roster', 'viewerWake'])

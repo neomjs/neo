@@ -111,13 +111,55 @@ test.describe('fleetMemoriesSource — viewer-bound session-summary recall', () 
         const result = await source.readMemories({agentIdentity: '@neo-opus-ada'});
 
         expect(result).toMatchObject({
-            capability: {state: 'unavailable', reason: 'memories-read-failed'},
+            capability: {state: 'unavailable', reason: 'memories-read-failed', detail: 'plane down'},
             viewer    : '@neo-fable-clio',
             target    : '@neo-opus-ada',
             sessions  : [],
             count     : 0,
             total     : null
         })
+    });
+
+    test('the failure detail is sanitized: credentials masked, whitespace collapsed, length bounded', async () => {
+        const {source, state} = harness();
+
+        // credential family + multi-line noise + oversized tail in one thrown message
+        state.result = new Error(`bearer github_pat_11ABCDEF0123456789abcdef refused\n   by   upstream ${'x'.repeat(400)}`);
+
+        const result = await source.readMemories({}),
+              detail = result.capability.detail;
+
+        expect(result.capability).toMatchObject({state: 'unavailable', reason: 'memories-read-failed'});
+        expect(detail).not.toContain('github_pat_');
+        expect(detail).not.toMatch(/\s{2,}/);
+        expect(detail.length).toBeLessThanOrEqual(240)
+    });
+
+    test('the 240 bound holds in the EXPANSION direction — redaction runs before the cap, so growing replacements cannot exceed it', async () => {
+        const {source, state} = harness();
+
+        // the fixture that can fail: each `ghp_a` fragment (5 chars) redacts to a LONGER literal
+        // label, so a raw message already at the cap grows far past it unless the bound is applied
+        // AFTER redaction — under slice-then-redact this measured 611
+        state.result = new Error('ghp_a '.repeat(40).trim());
+
+        const result = await source.readMemories({}),
+              detail = result.capability.detail;
+
+        expect(result.capability).toMatchObject({state: 'unavailable', reason: 'memories-read-failed'});
+        expect(detail).not.toContain('ghp_a');
+        expect(detail.length).toBeLessThanOrEqual(240)
+    });
+
+    test('a message-less failure omits the detail field rather than carrying an empty claim', async () => {
+        const {source, state} = harness();
+
+        state.result = new Error('');
+
+        const result = await source.readMemories({});
+
+        expect(result.capability).toMatchObject({state: 'unavailable', reason: 'memories-read-failed'});
+        expect(result.capability).not.toHaveProperty('detail')
     });
 
     test('an unrecognized payload is named rather than rendered', async () => {
