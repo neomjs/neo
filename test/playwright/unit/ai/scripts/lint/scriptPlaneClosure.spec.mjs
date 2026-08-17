@@ -27,12 +27,26 @@ import {
 } from '../../../../../../ai/scripts/lint/lint-script-plane.mjs';
 
 /**
- * The complete unresolved-edge population of `backup.mjs` — one edge, the config provider's
- * runtime-path dynamic import. MEASURED against the live tree, which is what makes the substitution
- * arm below a real falsifier rather than a fixture arguing with itself.
+ * The complete unresolved-edge population of `backup.mjs` — MEASURED against the live tree, which is
+ * what makes the substitution arm below a real falsifier rather than a fixture arguing with itself.
+ *
+ * **Two edges, and the second one is why this fixture is worth keeping honest.** The config
+ * provider's runtime-path dynamic import has always been here. The tenant-parser loader arrived with
+ * per-tenant parser registration: `IngestionService` imports it statically, so every closure that
+ * reaches that service now reaches the loader's runtime-path `import()` too — including a maintenance
+ * entrypoint like `backup.mjs`, which has nothing to do with parsing.
+ *
+ * That widening is real and this fixture caught it, so it is recorded rather than trimmed. Moving the
+ * loader behind a lazy import inside `resolveTenantParser` was considered and does NOT help: the
+ * inner specifier is a static literal the closure follows anyway, so it adds a hop and removes
+ * nothing. The edge is genuinely in the population; a fixture that said otherwise would be the
+ * count-keeping this suite exists to prevent.
  * @type {String[]}
  */
-const KNOWN_BACKUP_EDGES = ['ai/ConfigProvider.mjs::dynamic-import::load'];
+const KNOWN_BACKUP_EDGES = [
+    'ai/ConfigProvider.mjs::dynamic-import::load',
+    'ai/services/knowledge-base/source/tenantParserLoader.mjs::dynamic-import::importModule'
+];
 
 /**
  * The subject is the DISTINCTION, not the detection.

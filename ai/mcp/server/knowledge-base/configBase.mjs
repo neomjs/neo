@@ -557,6 +557,30 @@ class ConfigBase extends ConfigProvider {
              */
             customParsers: leaf([]),
             /**
+             * @summary Absolute root the deployment pins for tenant-declared parser modules.
+             *
+             * **Empty by default, and that default is load-bearing.** A tenant's config tiers (the
+             * `KnowledgeBaseTenantConfig` graph node and `kb-config.yaml`) can only hold strings, so a
+             * parser declared there is loaded by resolving its name against this root. That makes the
+             * root an *execution root* — whatever it points at can be imported into this process.
+             * There is therefore deliberately no fallback path: empty means tenant parser loading is
+             * disabled, never "resolve against the repo".
+             *
+             * The tenant names a module BELOW this root and can never name the root, escape it, or
+             * reach a bare dependency — enforced in `source/tenantParserLoader.mjs`, which takes the
+             * root as an argument and reads no config of its own.
+             *
+             * **Must sit under the application root** (`/app` in the container image). Node resolves a
+             * bare specifier by walking `node_modules` up from the *importing* module, so a parser at
+             * `/app/kb-parsers` can import the server's own dependencies while the same file at
+             * `/mnt/parsers` resolves in a dev checkout and fails in the container — the worst place
+             * for that difference to surface. Mount the directory read-only.
+             *
+             * Operator env var: `NEO_KB_TENANT_PARSER_ROOT`.
+             * @type {String}
+             */
+            tenantParserRoot: leaf('', 'NEO_KB_TENANT_PARSER_ROOT', 'string'),
+            /**
              * Per-source path overrides keyed by Source-class registry name.
              * Empty entries or missing keys fall through to each Source class's hardcoded fallback
              * (preserves byte-equivalence with existing deployment behavior). Shape varies per Source class —

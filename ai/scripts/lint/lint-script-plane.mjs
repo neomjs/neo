@@ -106,6 +106,14 @@ export const UNRESOLVED_EDGE_LEDGER = Object.freeze([
     // these live in ONE module, and until the identity carried its member they collapsed into a
     // single entry. The measured population was 9 while the real one was 12.
     'ai/ConfigProvider.mjs::dynamic-import::load',
+    // The tenant-parser loader. Unfollowable is this edge's PURPOSE, not a limitation of it: a
+    // deployment pins a root, a tenant names a module below it, and the module is chosen at runtime
+    // — so no static closure can name the target, by construction. The soundness the closure loses
+    // here is bought back by containment rather than by analysis: the specifier is resolved against
+    // the pinned root and re-verified to sit under it after symlinks, in one module that reads no
+    // config of its own (`source/tenantParserLoader.mjs`). Recorded rather than special-cased,
+    // per this ledger's own rule.
+    'ai/services/knowledge-base/source/tenantParserLoader.mjs::dynamic-import::importModule',
     'ai/mcp/client/config.mjs::dynamic-import::load',
     'ai/scripts/diagnostics/printAiConfig.mjs::dynamic-import::main',
     'ai/scripts/lint/lint-config-template-ssot.mjs::dynamic-import::buildConfigEnvDefaultsForTemplate',
