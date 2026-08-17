@@ -8,6 +8,8 @@
  * honest capability state, never a fabricated empty history.
  */
 
+import {redactCredentials} from './redactCredentials.mjs';
+
 const
     CANONICAL_IDENTITY = /^@[A-Za-z0-9][A-Za-z0-9._-]*$/,
     MAX_LIMIT          = 50,
@@ -28,6 +30,27 @@ function toMs(value, name) {
     }
 
     return ms
+}
+
+/**
+ * @summary Reduce one read failure to a projection-safe diagnostic detail: message extracted,
+ * whitespace collapsed, credential families masked through the shared redaction authority, and
+ * ONLY THEN bounded to 240 chars — redaction replaces, and a replacement can be longer than its
+ * match, so a cap applied before it does not bind. Redacting the whole message first is also
+ * strictly safer than redacting a truncation of it. The consuming catch used to discard the
+ * error entirely, leaving `memories-read-failed` as the whole story — a diagnosis that costs
+ * probes exactly one carried field would have made free.
+ * @param {*} error The thrown value; non-Errors are coerced.
+ * @returns {String|null} the sanitized detail, or `null` when nothing legible remains.
+ * @private
+ */
+function redactReadFailure(error) {
+    // an Error owns its message even when empty — falling through to String(error) would turn a
+    // message-less throw into the literal word "Error", a detail that details nothing
+    const raw  = typeof error?.message === 'string' ? error.message : error == null ? '' : String(error),
+          text = redactCredentials(raw.replace(/\s+/g, ' ').trim()).slice(0, 240);
+
+    return text || null
 }
 
 /**
@@ -110,7 +133,10 @@ export function createFleetMemoriesSource({
          * operation. Success passes the operation's rows through untouched under a `wired`
          * capability with the honest corpus `total`; an operation failure or unrecognized payload
          * becomes an `unavailable` envelope carrying zero rows — a wired empty page is claimed
-         * ONLY when the operation itself answered one.
+         * ONLY when the operation itself answered one. A failure envelope additionally carries a
+         * sanitized `detail` (whitespace-collapsed, 240-bounded, credential-redacted) so the
+         * surface can say WHY beside the constant reason — absence of the field means the error
+         * had no legible message, never that nothing failed.
          * @param {Object} [params]
          * @param {String} [params.agentIdentity] Canonical `@identity` target; defaults to the viewer.
          * @param {Number} [params.offset] Paging offset into the target's summaries, newest-first.
@@ -148,8 +174,15 @@ export function createFleetMemoriesSource({
                     ...(offset > 0 ? {offset} : {})
                 })
             } catch (error) {
+                const detail = redactReadFailure(error);
+
+                // one fact, two consumers: the envelope carries it to the operator surface, the
+                // warn is the fleet child's own copy — the log line whose absence made this
+                // failure class silently undiagnosable server-side
+                console.warn(`[fleet] memories read failed (${target}): ${detail ?? 'no legible error'}`);
+
                 return {
-                    capability: {state: 'unavailable', reason: 'memories-read-failed', capturedAt},
+                    capability: {state: 'unavailable', reason: 'memories-read-failed', capturedAt, ...(detail ? {detail} : {})},
                     ...shared,
                     sessions: [],
                     count   : 0,
