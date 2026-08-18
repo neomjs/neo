@@ -69,6 +69,7 @@ import {wireBootIdentityReadSource}                                      from '.
 import {wireFleetActivityReadSource}                                     from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}                                          from './wireFleetCatchUpSource.mjs';
 import {wireFleetMemoriesSource}                                         from './wireFleetMemoriesSource.mjs';
+import {wireFleetSessionMemoriesSource}                                  from './wireFleetSessionMemoriesSource.mjs';
 import {wireFleetWakeRoutesSource}                                       from './wireFleetWakeRoutesSource.mjs';
 import {wireOperatorComposeWriter}                                       from './wireOperatorComposeWriter.mjs';
 import path                                                              from 'node:path';
@@ -340,6 +341,15 @@ async function boot() {
     // authority is simulated here.
     wireFleetMemoriesSource({
         getAllSummaries      : args => callHistoryOperation('get_all_summaries', args),
+        resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
+    });
+
+    // The memories DRILL-IN rides the same operation boundary one level deeper: the single
+    // registered `get_session_memories` op serves the turn-level records a summary card points
+    // at. Same posture as the summaries source — the memory corpus is the deployment's settled
+    // team-visible read; the plane's own sharing policy governs what the operation answers.
+    wireFleetSessionMemoriesSource({
+        getSessionMemories   : args => callHistoryOperation('get_session_memories', args),
         resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
     });
 

@@ -289,6 +289,27 @@ class FleetCockpitController extends Controller {
     }
 
     /**
+     * @summary Relay a MemoriesPane drill-in read intent (one session's turn-level memories) to
+     * the cockpit-owned authenticated bridge.
+     * @param {Object} data `{sessionId, title?, offset?}`
+     * @returns {Promise<Object>}
+     */
+    onSessionDetailRequest(data) {
+        const {source, ...params} = data;
+
+        return this.component.loadSessionMemories(params)
+    }
+
+    /**
+     * @summary Clear the owner-held drill-in when the pane closes it — rematerialization truth:
+     * a drill the operator left must not reopen.
+     * @param {Object} data
+     */
+    onSessionDetailClosed(data) {
+        this.component.clearSessionMemoriesDrill()
+    }
+
+    /**
      * @summary Relay a WakeRoutePane read intent to the cockpit-owned authenticated bridge.
      * @param {Object} data
      * @returns {Promise<Object>}

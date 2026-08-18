@@ -924,6 +924,7 @@ test.describe('Fleet S1 wire policy', () => {
             restartAgent          : 'awaiting-s5',
             removeAgent           : 'awaiting-s5',
             fleetMemories         : 'awaiting-s5',
+            fleetSessionMemories  : 'awaiting-s5',
             fleetMailboxMirror    : 'awaiting-s5',
             connectTenant         : 'awaiting-c1'
         };
