@@ -35,6 +35,11 @@
     --fm-rail          : #0e131a;
     --fm-line          : #262f3d;
     --fm-line-soft     : #1c242f;
+    /* Elevation for FLOATING surfaces only (the switcher menu, the manage drawer) — the cockpit's
+       in-flow panels stay border-carried. Follows the framework's per-component overlay-shadow
+       precedent (--pickerfield-container-box-shadow, --neo-app-content-sidenav-shadow): the value
+       is skin-native, the structure files consume the token only. */
+    --fm-shadow-overlay: 0 8px 24px rgba(0, 0, 0, .55);
     --fm-ink           : #d6dce6;
     --fm-ink-dim       : #8b97a8;
     --fm-ink-faint     : #5a6575;

@@ -5,5 +5,12 @@
     "mainPath"        : "./Main.mjs",
     "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"],
     "useAiClient"     : true,
-    "useSharedWorkers": true
+    "useSharedWorkers": true,
+
+    "mainThreadAddons": [
+        "DocumentHead",
+        "DragDrop",
+        "Navigator",
+        "Stylesheet"
+    ]
 }
