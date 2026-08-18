@@ -8,6 +8,8 @@ import {isProviderTimeoutCode} from '../../provider/createTimeoutError.mjs';
 import Base                    from '../../../src/core/Base.mjs';
 import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
                               from '../../embeddingProviders.mjs';
+import {resolveEmbeddingAdmissionBand}
+                              from '../../embeddingSafeBand.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -599,7 +601,20 @@ class VectorService extends Base {
             return [chunk];
         }
 
-        const maxInputBytes   = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
+        // The SAME band the detection uses. Cutting to a different one than `measureEmbeddingInput`
+        // measured against would either leave parts still over the ceiling (silent re-refusal) or
+        // shred them finer than needed; one resolver keeps the two halves from drifting apart again.
+        const {resolved, estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail);
+
+        // An unresolvable band cannot plan a split, and falling back to a declared-but-invalid
+        // configuration's sibling ceiling would cut against the very band this path exists to stop
+        // trusting. Whole is the only honest output: the callers' unmeasurable branches, and the
+        // pre-invocation boundary behind them, refuse it with a reason attached.
+        if (!resolved) {
+            return [chunk];
+        }
+
+        const maxInputBytes   = Math.max(1, estimateBandTokens * 3),
               prefixBytes     = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
               maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
               parts           = this.splitTextByByteBudget(content, maxContentBytes);
@@ -743,25 +758,39 @@ class VectorService extends Base {
      * finite number — refuses (`skip: true`) and says so (`measured: false`), because
      * "cannot check" must never read as "checked, tiny".
      *
+     * The band is {@link resolveEmbeddingAdmissionBand}'s, not the safe-processing leaf directly:
+     * admission is governed by the SMALLER of the engine's per-slot ceiling and the safe band, and
+     * compared in estimate space. Reading `safeProcessingLimitTokens` here alone let a deployment
+     * running a narrower slot admit inputs its own engine refused.
+     *
      * @param {Object} options
      * @param {String} options.text Provider input text.
      * @param {Object} options.guardrail Resolved embedding guardrail.
-     * @returns {{skip: Boolean, measured: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     * @returns {{skip: Boolean, measured: Boolean, inputBytes: Number, inputTokensEstimate: Number, estimateBandTokens: Number|null, admissionCeilingTokens: Number|null}}
      */
     measureEmbeddingInput({text, guardrail}) {
         const inputBytes          = Buffer.byteLength(text || '', 'utf8'),
               inputTokensEstimate = bytesToTokens(inputBytes),
-              band                = Number(guardrail.safeProcessingLimitTokens);
+              {resolved, admissionCeilingTokens, estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail);
 
-        if (!Number.isFinite(band) || band <= 0) {
-            return {skip: true, measured: false, inputBytes, inputTokensEstimate};
+        if (!resolved) {
+            return {
+                skip                  : true,
+                measured              : false,
+                inputBytes,
+                inputTokensEstimate,
+                estimateBandTokens    : null,
+                admissionCeilingTokens: null
+            };
         }
 
         return {
-            skip    : inputTokensEstimate > band,
+            skip    : inputTokensEstimate > estimateBandTokens,
             measured: true,
             inputBytes,
-            inputTokensEstimate
+            inputTokensEstimate,
+            estimateBandTokens,
+            admissionCeilingTokens
         };
     }
 
@@ -781,8 +810,8 @@ class VectorService extends Base {
             return evaluation;
         }
 
-        const {inputBytes, inputTokensEstimate} = evaluation,
-              unmeasurable                      = evaluation.measured === false;
+        const {inputBytes, inputTokensEstimate, estimateBandTokens, admissionCeilingTokens} = evaluation,
+              unmeasurable                                                                  = evaluation.measured === false;
 
         emitConsumerFriction({
             assetRef                 : chunk.id || chunk.source || chunk.name || 'kb-chunk',
@@ -795,6 +824,11 @@ class VectorService extends Base {
             inputTokensEstimate,
             contextLimitTokens       : guardrail.contextLimitTokens,
             safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
+            // The figures the decision actually used, beside the two leaves it derived them from.
+            // Without these a reader sees an input under both declared ceilings and a refusal, and
+            // has to re-derive the drift factor to understand why.
+            admissionCeilingTokens,
+            estimateBandTokens,
             serviceDomain            : 'other',
             note                     : unmeasurable
                 ? 'Embedding safe-processing band is unresolvable; refusing to send an unmeasured input.'
