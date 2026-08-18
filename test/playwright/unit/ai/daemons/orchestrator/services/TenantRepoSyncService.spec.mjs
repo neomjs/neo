@@ -7266,6 +7266,78 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
         });
     });
 
+    // The clear rewrites the same revisions manifest a sweep reads at its top and writes at its end,
+    // so it has to hold the lease for the same reason the sweep does. The sibling lease cases above
+    // all drive `runTaskImpl`; without these two, hoisting the clear outside `withLease` — the exact
+    // shape a later refactor would reach for, since the clear needs no taskStateService — passes.
+    test('a held lease defers the CLEAR as well, so a reset never races a sweep mid-flight', async () => {
+        await withTempLease(async ({leasePath}) => {
+            const incumbent = await acquireHeavyMaintenanceLease({
+                leasePath,
+                owner       : 'dream',
+                reason      : 'scheduled',
+                staleAfterMs: 60_000
+            });
+            const clearBackoffCalls = [];
+
+            try {
+                const outcome = await runTenantRepoSyncWithGlobalLease({
+                    parsed          : {fullReplay: false, repoSlugs: ['org/a'], clearBackoff: true},
+                    taskStateService: {name: 'task-state'},
+                    writeLog        : () => {},
+                    runTaskImpl     : () => { throw new Error('the clear path must never run a sweep'); },
+                    clearBackoffImpl: options => {
+                        clearBackoffCalls.push(options);
+                        return {status: 'completed', details: {cleared: [], unchanged: []}};
+                    },
+                    withLeaseImpl: injectLeasePath(leasePath)
+                });
+
+                expect(outcome.status).toBe('held');
+                expect(outcome.lease.owner).toBe('dream');
+                expect(clearBackoffCalls).toHaveLength(0);
+            } finally {
+                await releaseHeavyMaintenanceLease({
+                    leasePath,
+                    token: incumbent.lease.token
+                });
+            }
+        });
+    });
+
+    test('the clear dispatches under the lease with its own reason, maps selectors, and releases', async () => {
+        for (const [repoSlugs, expectedOnlyRepoSlugs] of [[['org/a', 'org/b'], ['org/a', 'org/b']], [[], null]]) {
+            await withTempLease(async ({leasePath}) => {
+                const writeLog          = () => {};
+                const clearBackoffCalls = [];
+                const leaseOptions      = [];
+                const outcome           = await runTenantRepoSyncWithGlobalLease({
+                    parsed          : {fullReplay: false, repoSlugs, clearBackoff: true},
+                    taskStateService: {name: 'task-state'},
+                    writeLog,
+                    runTaskImpl     : () => { throw new Error('the clear path must never run a sweep'); },
+                    clearBackoffImpl: async options => {
+                        clearBackoffCalls.push(options);
+                        return {status: 'completed', details: {cleared: [{repoSlug: 'org/a', previousConsecutiveFailures: 42}], unchanged: []}};
+                    },
+                    withLeaseImpl: (task, options) => {
+                        leaseOptions.push(options);
+                        return injectLeasePath(leasePath)(task, options);
+                    }
+                });
+
+                expect(outcome.status).toBe('completed');
+                expect(outcome.result.details.cleared).toEqual([{repoSlug: 'org/a', previousConsecutiveFailures: 42}]);
+                // The reset takes its own lease reason: an operator reading a held-lease refusal has to
+                // be able to tell which of the two container-plane paths is holding it.
+                expect(leaseOptions[0].reason).toBe('container-clear-backoff');
+                expect(leaseOptions[0].owner).toBe('tenant-repo-sync');
+                expect(clearBackoffCalls).toEqual([{onlyRepoSlugs: expectedOnlyRepoSlugs, writeLog}]);
+                expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
+            });
+        }
+    });
+
     test('resolveExitCode maps runTask results onto the documented exit-code contract (#15763)', () => {
         expect(resolveExitCode({status: 'completed', details: {}})).toBe(0);
         expect(resolveExitCode({status: 'skipped', details: {reasonCode: 'KB_TENANT_REPO_SYNC_LEASE_HELD'}})).toBe(4);
