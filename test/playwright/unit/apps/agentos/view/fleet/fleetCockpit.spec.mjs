@@ -2762,16 +2762,23 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
 
         const paneSets = [],
               pane     = {set(cfg) { paneSets.push(cfg) }},
-              cockpit  = {operatorRecord: null, getOperatorMailboxPane: () => pane};
+              cockpit  = {
+                  operatorRecord               : null,
+                  deriveOperatorIdentityPosture: FleetCockpit.prototype.deriveOperatorIdentityPosture,
+                  getReference                 : () => null,
+                  getOperatorMailboxPane       : () => pane
+              };
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
 
         // the record MUST carry `githubUsername` — MailboxPane's possession guard canonicalizes it to
         // `@<username>` and matches the admission's subjectAgentId; seeding only the node id fails
         // possession closed and the own inbox never renders (the exact review finding).
+        // The push also carries the seat-conflation posture (null here: no roster in this fake —
+        // absence of roster truth is not a clean bill).
         const expected = {agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'};
         expect(cockpit.operatorRecord).toEqual(expected);
-        expect(paneSets).toEqual([{record: expected}])
+        expect(paneSets).toEqual([{record: expected, identityPosture: null}])
     });
 
     test('identity · a refusal (ok:false — unbound / source-not-wired) never seeds a wrong subject', async () => {
@@ -2788,11 +2795,72 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: '@neo-opus-grace'})});
 
         // the pane is not materialized yet (accessor → null); the `?.set` no-ops but the record is held
-        // owner-side (with the possession authority), so a later projection materializes the pane and reads
-        const cockpit = {operatorRecord: null, getOperatorMailboxPane: () => null};
+        // owner-side (with the possession authority), so a later projection materializes the pane and reads.
+        // The posture derive rides the same resolution over the cockpit surface (an absent grid → null posture).
+        const cockpit = {
+            operatorRecord               : null,
+            deriveOperatorIdentityPosture: FleetCockpit.prototype.deriveOperatorIdentityPosture,
+            getReference                 : () => null,
+            getOperatorMailboxPane       : () => null
+        };
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
 
         expect(cockpit.operatorRecord).toEqual({agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'})
+    });
+});
+
+
+test.describe('Fleet cockpit — operator-seat identity posture (the conflation honesty half)', () => {
+    let FleetCockpit;
+
+    test.beforeAll(async () => {
+        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+    });
+
+    const derive = (viewerIdentity, rows) => FleetCockpit.prototype.deriveOperatorIdentityPosture.call(
+        {getReference: reference => reference === 'fleet-grid' ? {store: {items: rows}} : null},
+        viewerIdentity
+    );
+
+    const ROWS = [{agentId: 'neo-fable-clio'}, {agentId: 'neo-opus-vega'}, {agentId: 'neo-opus-ada'}];
+
+    test('a viewer matching a roster agent identity is conflated; an outside viewer is clean', () => {
+        expect(derive('@neo-fable-clio', ROWS)).toEqual({conflated: true, seatIdentity: '@neo-fable-clio'});
+        expect(derive('@tobiu', ROWS)).toEqual({conflated: false, seatIdentity: '@tobiu'})
+    });
+
+    test('an empty roster answers null — absence of roster truth is not a clean bill', () => {
+        expect(derive('@tobiu', [])).toBeNull();
+        expect(derive(null, ROWS)).toBeNull();
+        expect(derive('   ', ROWS)).toBeNull()
+    });
+
+    test('loadOperatorIdentity holds the posture owner-side and pushes record + posture through the accessor', async () => {
+        const pushes = [],
+              me     = {
+                  isDestroyed                  : false,
+                  deriveOperatorIdentityPosture: FleetCockpit.prototype.deriveOperatorIdentityPosture,
+                  getReference                 : reference => reference === 'fleet-grid' ? {store: {items: ROWS}} : null,
+                  getOperatorMailboxPane       : () => ({set: config => pushes.push(config)})
+              },
+              previousNs = globalThis.AgentOS;
+
+        globalThis.AgentOS = {fleet: {registryBridge: {
+            resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: '@neo-fable-clio'})
+        }}};
+
+        try {
+            await FleetCockpit.prototype.loadOperatorIdentity.call(me);
+
+            expect(me.operatorRecord).toEqual({agentIdentityNodeId: '@neo-fable-clio', githubUsername: 'neo-fable-clio'});
+            expect(me.operatorIdentityPosture).toEqual({conflated: true, seatIdentity: '@neo-fable-clio'});
+            expect(pushes).toEqual([{
+                record         : {agentIdentityNodeId: '@neo-fable-clio', githubUsername: 'neo-fable-clio'},
+                identityPosture: {conflated: true, seatIdentity: '@neo-fable-clio'}
+            }])
+        } finally {
+            globalThis.AgentOS = previousNs
+        }
     });
 });
