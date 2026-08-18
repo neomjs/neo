@@ -342,6 +342,7 @@
         "orchestrator.deploymentStateBridge.logTail",
         "orchestrator.deploymentStateBridge.maxSnapshotBytes",
         "orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys",
+        "orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys",
         "orchestrator.deploymentStateBridge.providerResidencyServiceKeys",
         "orchestrator.deploymentStateBridge.recoveryRunLimit",
         "orchestrator.deploymentStateBridge.selfHealRecentEventLimit",
