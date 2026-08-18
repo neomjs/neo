@@ -1,0 +1,27 @@
+/* AgentOS.view.fleet.ActorChip — the actor-identity badge on feed rows: avatar-first, handle
+   always, canonical id on the title. Sized for the one-line row contract — the chip may never
+   add a second text line to the density-frozen window. Colors read from the --fm-* token layer;
+   the chip family reconciliation (one designed system) owns any future anatomy change. */
+.fm-actor-chip {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 4px;
+    max-width  : 148px;
+    flex       : none;
+
+    .fm-actor-chip-avatar {
+        width        : 14px;
+        height       : 14px;
+        border-radius: 50%;
+        flex         : none;
+    }
+
+    .fm-actor-chip-text {
+        color        : var(--fm-ink-dim);
+        font-family  : var(--fm-font-mono);
+        font-size    : 10.5px;
+        overflow     : hidden;
+        white-space  : nowrap;
+        text-overflow: ellipsis;
+    }
+}

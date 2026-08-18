@@ -1298,11 +1298,12 @@ class FleetCockpit extends Container {
                 };
             case 'activity-stream':
                 return {
-                    module      : ActivityStream,
-                    adapterState: me.streamAdapterState,
-                    cls         : [marker],
-                    events      : me.streamEvents,
-                    reference   : 'activity-stream'
+                    module        : ActivityStream,
+                    adapterState  : me.streamAdapterState,
+                    actorDirectory: me.buildActivityActorDirectory(),
+                    cls           : [marker],
+                    events        : me.streamEvents,
+                    reference     : 'activity-stream'
                 };
             case 'agent-detail':
                 // the pane lives in its vessel window — a preset restore (or an NL-driven addTab)
@@ -2585,6 +2586,8 @@ class FleetCockpit extends Container {
             grid.presenceCapability = capabilities?.presence ?? null;
             me.getReference('catch-up')?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
             me.getMemoriesPane()?.set({agentOptions: me.buildMemoriesAgentOptions()});
+            // the activity rows' actor chips join the same roster truth (avatar + display name)
+            me.getReference('activity-stream')?.set({actorDirectory: me.buildActivityActorDirectory()});
             me.clearDegradedReason('grid')
         } catch (error) {
             // fenced: a slow failure must not overwrite a newer success (see the stream twin)
@@ -2609,6 +2612,25 @@ class FleetCockpit extends Container {
      * roster resolves — the pane picks recipients from a real current fleet, never a hand-mapped list.
      * @returns {Object[]}
      */
+    /**
+     * @summary Roster-joined actor facts for the activity stream's chips — `agentId →
+     * {avatarUrl, displayName}` from the SAME provider-owned roster every other surface reads
+     * (no second resident list). Rows without the facts contribute nothing: the stream renders a
+     * missing entry handle-only, per its honest-absence contract.
+     * @returns {Object}
+     */
+    buildActivityActorDirectory() {
+        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+
+        return Object.fromEntries(rows
+            .filter(row => row.agentId)
+            .map(row => [row.agentId, {
+                ...(row.avatarUrl   ? {avatarUrl: row.avatarUrl}     : {}),
+                ...(row.displayName ? {displayName: row.displayName} : {})
+            }])
+        )
+    }
+
     buildOperatorRecipientOptions() {
         const rows = this.getReference('fleet-grid')?.store?.items ?? [];
 

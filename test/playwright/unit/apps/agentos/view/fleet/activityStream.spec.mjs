@@ -261,3 +261,83 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
         stream.destroy()
     });
 });
+
+
+test.describe('ActivityStream — the actor chip and the recipient piece (row identity rendering)', () => {
+    let ActivityStream, proto;
+
+    test.beforeAll(async () => {
+        ActivityStream = (await import('../../../../../../../apps/agentos/view/fleet/ActivityStream.mjs')).default;
+        proto          = ActivityStream.prototype
+    });
+
+    const host = directory => ({
+              actorDirectory : directory,
+              actorChipConfig: proto.actorChipConfig,
+              recipientConfig: proto.recipientConfig,
+              timeVdom       : proto.timeVdom,
+              eventText      : proto.eventText,
+              stallText      : proto.stallText
+          });
+
+    const a2aEvent = (over = {}) => ({
+        type      : 'a2a-activity',
+        agentId   : '@neo-fable-clio',
+        occurredAt: '2026-08-18T10:00:00.000Z',
+        payload   : {subject: 'ping', from: '@neo-fable-clio', to: '@neo-opus-ada', recipientClass: 'agent', ...over}
+    });
+
+    test('the actor chip renders the coalescing key: roster facts when known, handle-only when not, NOTHING when anonymous', () => {
+        const h = host({'@neo-fable-clio': {avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', displayName: 'Clio'}});
+
+        const known = proto.actorChipConfig.call(h, {agentId: '@neo-fable-clio'});
+        expect(known).toMatchObject({agentId: '@neo-fable-clio', avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', label: 'Clio'});
+
+        const unknown = proto.actorChipConfig.call(h, {agentId: '@neo-gpt'});
+        expect(unknown).toMatchObject({agentId: '@neo-gpt', avatarUrl: null, label: null});
+
+        // honest absence: an anonymous event composes NO chip, never a blank identity
+        expect(proto.actorChipConfig.call(h, {agentId: null})).toBeNull()
+    });
+
+    test('the recipient piece: directed renders → @to, broadcast renders the distinct ⇒ fleet, non-A2A renders nothing', () => {
+        const h = host({});
+
+        const direct = proto.recipientConfig.call(h, a2aEvent());
+        expect(direct.text).toBe('→ @neo-opus-ada');
+        expect(direct.cls).toContain('is-direct');
+        expect(direct.vdom.title).toBe('@neo-opus-ada');
+
+        const broadcast = proto.recipientConfig.call(h, a2aEvent({to: 'AGENT:*', recipientClass: 'broadcast'}));
+        expect(broadcast.text).toBe('⇒ fleet');
+        expect(broadcast.cls).toContain('is-broadcast');
+
+        expect(proto.recipientConfig.call(h, {type: 'pr-activity', payload: {}})).toBeNull();
+        expect(proto.recipientConfig.call(h, a2aEvent({to: null, recipientClass: 'unknown'}))).toBeNull()
+    });
+
+    test('a lane-claim row is A2A enough for the recipient piece — the claim broadcast reads as one', () => {
+        const claim = proto.recipientConfig.call(host({}), {type: 'lane-claim', payload: {to: 'AGENT:*', recipientClass: 'broadcast'}});
+
+        expect(claim.text).toBe('⇒ fleet')
+    });
+
+    test('the row composes ONE line: time · kind · actor · recipient · text — the actor once per coalesced run', () => {
+        const h   = host({'@neo-fable-clio': {displayName: 'Clio'}}),
+              row = {agentId: '@neo-fable-clio', count: 3, newest: a2aEvent(), events: []},
+              cfg = proto.rowConfig.call(h, row);
+
+        // structural density bound: every cell is an inline hbox child; only the text flexes
+        expect(cfg.layout.ntype).toBe('hbox');
+        expect(cfg.items).toHaveLength(5);
+        expect(cfg.items.filter(item => item.flex === 1)).toHaveLength(1);
+
+        // the actor renders once beside the ×N count, the run key visible instead of implied
+        expect(cfg.items[2]).toMatchObject({agentId: '@neo-fable-clio', label: 'Clio'});
+        expect(cfg.items[4].text).toContain('×3');
+
+        // an anonymous single event: no actor cell, the row shrinks by exactly that cell
+        const anon = proto.rowConfig.call(h, {agentId: null, count: 1, newest: {type: 'pr-activity', payload: {text: 'x'}}, events: []});
+        expect(anon.items).toHaveLength(3)
+    })
+});
