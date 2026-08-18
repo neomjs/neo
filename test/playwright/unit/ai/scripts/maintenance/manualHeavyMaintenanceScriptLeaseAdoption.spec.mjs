@@ -86,9 +86,13 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
             heldExitPattern: /process\.exit\(0\)/
         },
         {
-            file           : 'maintenance/syncTenantRepos.mjs',
-            owner          : 'tenant-repo-sync',
-            reason         : 'container-one-shot',
+            file : 'maintenance/syncTenantRepos.mjs',
+            owner: 'tenant-repo-sync',
+            // Two container-plane modes, so two declared reasons. The distinction is operational,
+            // not cosmetic: a held lease reading 'container-one-shot' means a full sweep is running
+            // and the caller should wait it out, while 'container-clear-backoff' means another
+            // operator is doing the near-instant reset. Same owner cannot tell those apart.
+            reason         : ['container-clear-backoff', 'container-one-shot'],
             invocation     : 'withLeaseImpl ?? withHeavyMaintenanceLease',
             heldExitPattern: /process\.exit\(4\)/
         }
@@ -128,9 +132,22 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
             expect(optionsStart, `${file}: wrapper options must begin before leasePath`).toBeGreaterThan(invocationIndex);
 
             const wrapperOptions = source.slice(optionsStart);
+            // A script may declare more than one container-plane mode, and then `reason` is a
+            // ternary rather than a bare literal. The set stays STATIC either way: every branch must
+            // be a literal drawn from the declared list, so a script that grows a third mode — or
+            // computes its reason at runtime — fails here instead of shipping a lease reason no
+            // reader of this table knows about. Widening this to "any expression" would retire the
+            // only check that keeps the declared owners/reasons honest against the source.
+            const reasons = (Array.isArray(reason) ? reason : [reason])
+                .map(item => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const reasonLit   = `['"](?:${reasons.join('|')})['"]`;
+            const reasonMatch = reasons.length > 1
+                ? `(?:${reasonLit}|[^,\\n]*\\?\\s*${reasonLit}\\s*:\\s*${reasonLit})`
+                : reasonLit;
+
             expect(wrapperOptions).toMatch(new RegExp(
                 `^\\{\\s*leasePath\\s*:\\s*resolveHeavyMaintenanceLeasePath\\(\\{dataDir\\s*:\\s*AiConfig\\.orchestrator\\.dataDir\\}\\)\\s*,` +
-                `\\s*owner\\s*:\\s*['"]${owner}['"]\\s*,\\s*reason\\s*:\\s*['"]${reason}['"]`
+                `\\s*owner\\s*:\\s*['"]${owner}['"]\\s*,\\s*reason\\s*:\\s*${reasonMatch}`
             ));
         });
 
