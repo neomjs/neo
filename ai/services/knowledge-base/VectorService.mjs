@@ -604,8 +604,17 @@ class VectorService extends Base {
         // The SAME band the detection uses. Cutting to a different one than `measureEmbeddingInput`
         // measured against would either leave parts still over the ceiling (silent re-refusal) or
         // shred them finer than needed; one resolver keeps the two halves from drifting apart again.
-        const {estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail),
-              maxInputBytes        = Math.max(1, (estimateBandTokens ?? guardrail.safeProcessingLimitTokens) * 3),
+        const {resolved, estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail);
+
+        // An unresolvable band cannot plan a split, and falling back to a declared-but-invalid
+        // configuration's sibling ceiling would cut against the very band this path exists to stop
+        // trusting. Whole is the only honest output: the callers' unmeasurable branches, and the
+        // pre-invocation boundary behind them, refuse it with a reason attached.
+        if (!resolved) {
+            return [chunk];
+        }
+
+        const maxInputBytes   = Math.max(1, estimateBandTokens * 3),
               prefixBytes     = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
               maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
               parts           = this.splitTextByByteBudget(content, maxContentBytes);

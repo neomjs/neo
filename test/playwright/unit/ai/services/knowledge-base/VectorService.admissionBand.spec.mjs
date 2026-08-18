@@ -147,6 +147,26 @@ test.describe('VectorService — embedding admission band (#17343)', () => {
         }
     });
 
+    test('an unresolvable band REFUSES to split rather than cutting to the sibling ceiling', () => {
+        // The defect this covers: the splitter previously fell back to safeProcessingLimitTokens
+        // when the band did not resolve, so a declared-invalid ceiling cut against the very band
+        // admission had stopped trusting — silently shipping parts nobody validated.
+        const chunk = {
+            id     : 'unresolvable-band-chunk', type: 'doc', name: 'oversized', className: '',
+            content: textOfEstimatedTokens(14923)
+        };
+
+        for (const invalid of [Number.NaN, 0, -1]) {
+            const parts = KB_VectorService.splitOversizedEmbeddingChunk({
+                chunk,
+                guardrail: {...narrowSlotGuardrail, safeProcessingLimitTokens: invalid}
+            });
+
+            expect(parts, `safeProcessingLimitTokens=${invalid} must not plan a split`).toHaveLength(1);
+            expect(parts[0].oversizedSplit, 'the chunk must come back whole and unmarked').toBeUndefined();
+        }
+    });
+
     test('the shipped default geometry is unchanged — the safe band still governs a 32,768 slot', () => {
         // Regression fence: this change must not narrow deployments that were already correct.
         const {admissionCeilingTokens} = resolveEmbeddingAdmissionBand({

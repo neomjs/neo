@@ -1508,6 +1508,16 @@ class IngestionService extends Base {
                 continue;
             }
 
+            // An unresolvable band is not an oversized chunk — it is a configuration defect, and a
+            // split planned against it would be planned against nothing. Record the skip and leave
+            // the chunk whole, mirroring `VectorService.expandOversizedEmbeddingChunks`; the send
+            // boundary refuses it with the same unmeasurable flag rather than silently shipping
+            // parts cut to a band nobody validated.
+            if (budget.estimateBandTokens === null) {
+                this.recordOversizedEmbeddingSkip({chunk, guardrail, summary, tenantContext, ...budget});
+                continue;
+            }
+
             const splitChunks = this.vectorService.splitOversizedEmbeddingChunk({
                 chunk,
                 guardrail,
