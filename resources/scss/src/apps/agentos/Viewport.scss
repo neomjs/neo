@@ -17,9 +17,27 @@
        it was the tab container directly under the viewport root — three levels ABOVE the tab body
        that a previous attempt pinned. The fleet activity stream was pushed to y=1695 while
        reporting mounted and unhidden: present, correct, and entirely below the fold.
-       Scoped to this app's viewport rather than to the framework classes it names — the same boxes
-       serve layouts elsewhere that legitimately size to content. The scroll seats already exist one
-       level down in the panes; this only stops the spine growing past the screen so they engage. */
+       Scoped to the `agent-os-viewport` cls rather than to the framework classes it names — the
+       same boxes serve layouts elsewhere that legitimately size to content.
+
+       That cls reaches TWO viewports, and the second one is deliberate rather than incidental:
+       `AgentOSWidget.view.Viewport` (the multi-window popup host, loaded when a docked panel is
+       promoted into its own browser window) carries the same cls AND declares
+       `additionalThemeFiles: ['AgentOS.view.Viewport']`, so it opts into this sheet by name. The
+       rule is harmless there — an OS window bounds the pane for free, and that childapp hosts no
+       dock or cockpit — and it is the sharing mechanism a future shell would use rather than a leak
+       to be sealed: one declared line, greppable and opt-in per consumer, which is a better
+       property than a framework default nobody can see reaching them.
+
+       The scroll seats already exist one level down in the panes; this only stops the spine growing
+       past the screen so they engage.
+
+       Watch the WIDTH axis if this grows: four of these are `min-width: 0`, nothing in the repo
+       exercises this app below 900px, and per-level `min-*` work across this same spine has
+       collapsed dock zones before (#15657, still open — the direction there was the inverse of this
+       one, so it is a caution rather than a precedent).
+       ticket-ref-ok: #15657 is the open regression this axis has to be checked against, and naming
+       it is the entire value of the caution. */
     .neo-tab-container,
     .neo-tab-body-container,
     .neo-dashboard-dock-tabs,
