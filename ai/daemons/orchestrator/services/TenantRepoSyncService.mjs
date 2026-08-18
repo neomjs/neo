@@ -44,7 +44,7 @@ import {
     hasPendingEmbeddingRecoveryBypass,
     isRepoDue,
     isStarvedOrderInverted,
-    resolveUnknownRepoSelectors
+    resolveUnknownRepoSelectorFailure
 } from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,
@@ -1667,7 +1667,7 @@ class TenantRepoSyncService extends Base {
         // mistyped selector synced the known subset and dropped the rest silently at exit 0 — the
         // operator was told the run completed while the repo they meant went untouched. Shared with
         // the backoff-clear path so one typo cannot mean two things on one CLI.
-        const unknownSelectors = resolveUnknownRepoSelectors({onlyRepoSlugs, knownSlugs: allRepos.map(r => r.repoSlug)});
+        const unknownSelectors = resolveUnknownRepoSelectorFailure({onlyRepoSlugs, knownSlugs: allRepos.map(r => r.repoSlug)});
 
         if (unknownSelectors) {
             const details = {...unknownSelectors, repoCount: repos.length};
@@ -3268,7 +3268,7 @@ class TenantRepoSyncService extends Base {
         // an operator who mistypes a slug gets one vocabulary and one disposition back, whichever
         // flag they typed. The two paths tested this separately once and disagreed — the sweep
         // refused only an all-unknown set — so the question now has a single name.
-        const unknownSelectors = resolveUnknownRepoSelectors({onlyRepoSlugs, knownSlugs});
+        const unknownSelectors = resolveUnknownRepoSelectorFailure({onlyRepoSlugs, knownSlugs});
 
         if (unknownSelectors) {
             writeLog?.('WARN', `[TenantRepoSync] clear-backoff: requested repoSlug(s) not configured: ${unknownSelectors.unknownSlugs.join(', ')}. Configured: ${unknownSelectors.configuredSlugs.join(', ') || '(none)'}.`);
