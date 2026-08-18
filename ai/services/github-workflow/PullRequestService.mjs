@@ -831,7 +831,11 @@ async function buildMergeReadinessProjection({
                 // merge-ready statement travels beside `[merge-eligible]` to the human gate. A
                 // sentence that says "strict merge-ready" and stops is, at a stale anchor, true and
                 // misleading in the same breath.
-                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} advisory/advisories require a reader judgement before merge — see 'advisories'.` : ''}`
+                // The plural agrees rather than hedging with a slash: this sentence is the whole
+                // deliverable — it travels beside `[merge-eligible]` to the human gate — so it is
+                // the one string where wording carries weight, and `1 advisory/advisories require`
+                // reads as generated text a reader discounts.
+                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} ${predicate.advisories.length === 1 ? 'advisory requires' : 'advisories require'} a reader judgement before merge — see 'advisories'.` : ''}`
                 : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
         blockers: [
             ...(!identityBindingComplete ? [{

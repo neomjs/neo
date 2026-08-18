@@ -535,8 +535,12 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
             message: result.predicate.advisories[0]
         }]);
         // the statement carries it too — that sentence travels beside `[merge-eligible]`, and one
-        // that says "strict merge-ready" and stops is true and misleading in the same breath
-        expect(result.statement).toContain('advisory');
+        // that says "strict merge-ready" and stops is true and misleading in the same breath.
+        // Asserted with the singular AGREEING, not merely present: this is the one human-facing
+        // string in the observation, and `1 advisory/advisories require` reads as generated text a
+        // reader discounts — so the grammar is part of the deliverable, not polish on top of it.
+        expect(result.statement).toContain('1 advisory requires a reader judgement');
+        expect(result.statement).not.toContain('advisory/advisories');
         expect(result.marker).toMatch(/^\[merge-eligible]/)
     });
 
