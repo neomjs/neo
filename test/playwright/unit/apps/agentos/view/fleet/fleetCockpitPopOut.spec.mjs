@@ -490,3 +490,276 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
         cockpit = null
     })
 });
+
+/**
+ * Contract specs for the Memories click pop-out: the shell verb rides the GENERIC
+ * tear-out substrate — no second vessel state machine. The pins: document truth + the established
+ * `?tearout=` param shape, selection-carry BY IDENTITY (live and rail-lazy materialization paths),
+ * owner-push routing through {@link getMemoriesPane} in every phase (vesseled, returning-parked),
+ * intent routing from the vessel (the explicit listener scope — a vesseled pane has no controller
+ * chain), exact-position reintegration on vessel death, the blocked-popup refusal before any
+ * document mutation, and toggle routing incl. the mid-gesture guard.
+ */
+test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out (#17315)', () => {
+    let cockpit, vessel;
+
+    const RAIL_HOME = ['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator'];
+
+    /**
+     * A minimal wired memories envelope for owner-held state and push assertions.
+     * @param {String} target
+     * @param {String} title
+     * @returns {Object}
+     */
+    function wiredEnvelope(target, title) {
+        return {
+            capability: {state: 'wired', capturedAt: '2026-08-18T08:00:00.000Z'},
+            viewer    : '@operator',
+            target,
+            page      : {offset: 0, limit: 5},
+            sessions  : [{id: `${title}-1`, sessionId: 'abcdef12-0000-0000-0000-000000000000', timestamp: '2026-08-18T07:00:00.000Z', title, summary: 'summary', category: 'analysis', memoryCount: 3, quality: 4}],
+            count     : 1,
+            total     : 1
+        }
+    }
+
+    /**
+     * Reveals the auto-hidden memories pane through the standard commit loop — the materialized
+     * pre-state of the "live pane" pop-out path.
+     * @returns {Promise<Neo.container.Base>} the projected MemoriesPane instance
+     */
+    async function revealMemories() {
+        const result = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'memories', autoHidden: false});
+
+        expect(result.errors).toEqual([]);
+        cockpit.onDockZoneDocumentChange(result.document);
+        await cockpit.refreshPromise;
+
+        const pane = cockpit.getReference('memories');
+
+        expect(pane).toBeTruthy();
+        return pane
+    }
+
+    /**
+     * The canonical tear-out vessel URL the connect handler's tear-out branch matches on.
+     * @returns {String}
+     */
+    function memoriesVesselUrl() {
+        return `https://unit.test/apps/agentos/childapps/widget/index.html?tearout=memories&cockpitId=${cockpit.id}`
+    }
+
+    /**
+     * Simulates the vessel window joining the shared heap (tear-out branch).
+     * @param {String} windowId
+     * @returns {Promise<Neo.container.Base>} the vessel's mainView
+     */
+    async function simulateConnect(windowId) {
+        const mainView = Neo.create(Container, {});
+
+        Neo.apps ??= {};
+        Neo.apps[windowId] = {mainView};
+
+        await cockpit.onWindowConnect({windowId});
+
+        return mainView
+    }
+
+    test.beforeEach(() => {
+        cockpit = Neo.create(FleetCockpit, {
+            stateProvider: {
+                module: StateProvider,
+                stores: {fleetRoster: {module: FleetRoster, autoLoad: false}}
+            }
+        })
+    });
+
+    test.afterEach(() => {
+        cockpit?.destroy();
+        cockpit = null;
+        vessel?.restore();
+        vessel = null;
+        Neo.apps = {}
+    });
+
+    test('pop-out of the REVEALED pane: same instance, document truth, the established param shape', async () => {
+        vessel = installWindowVessel({popupUrl: null});
+
+        const pane   = await revealMemories(),
+              result = await cockpit.popOutMemories();
+
+        expect(result).toEqual({detached: true, errors: []});
+
+        // document truth: the item left the rail but keeps its catalog record
+        const doc = cockpit.getDockZoneDocument();
+
+        expect(doc.items.memories).toBeTruthy();
+        expect(doc.nodes['secondary-rail'].items).not.toContain('memories');
+
+        // the LIVE pane is vessel-owned — same instance, never a recreation
+        expect(cockpit.tearOutPaneHandles.memories).toBe(pane);
+        expect(pane.isDestroyed).toBeFalsy();
+        expect(cockpit.getMemoriesPane()).toBe(pane);
+
+        // one vessel open on the established tear-out param shape
+        expect(vessel.openCalls).toHaveLength(1);
+        expect(vessel.openCalls[0].url).toContain('tearout=memories');
+        expect(vessel.openCalls[0].url).toContain(`cockpitId=${cockpit.id}`);
+
+        // the shell affordance now names the reverse action
+        expect(cockpit.getReference('memories-window-toggle').text).toBe('Return memories')
+    });
+
+    test('pop-out of the RAIL-LAZY pane materializes from owner-held state — selection carries', async () => {
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+
+        // never revealed: the rail's lazy projection holds no live pane
+        expect(cockpit.getReference('memories')).toBeFalsy();
+
+        cockpit.memoriesTarget   = '@neo-fable-clio';
+        cockpit.memoriesSnapshot = wiredEnvelope('@neo-fable-clio', 'owner-held');
+
+        const result = await cockpit.popOutMemories();
+
+        expect(result).toEqual({detached: true, errors: []});
+
+        const pane = cockpit.tearOutPaneHandles.memories;
+
+        expect(pane).toBeTruthy();
+        expect(pane.activeAgent).toBe('@neo-fable-clio');
+        expect(pane.snapshot?.sessions?.[0]?.title).toBe('owner-held');
+
+        // the vessel adopts the materialized pane on connect
+        const mainView = await simulateConnect('mem-vessel-lazy');
+
+        expect(mainView.items).toContain(pane)
+    });
+
+    test('owner pushes reach the vesseled pane; vessel-fired intents reach the controller', async () => {
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+
+        const pane = await revealMemories();
+
+        await cockpit.popOutMemories();
+        await simulateConnect('mem-vessel-push');
+
+        // vessel-fired intent → controller → bridge: the explicit listener scope is what makes
+        // this resolve OUTSIDE the controller chain (a vesseled pane has none above it).
+        // `globalThis.AgentOS` is the app CLASS NAMESPACE root, not a test-owned object — stub
+        // only the `fleet` key and restore it, never delete the namespace (that unregisters
+        // every AgentOS.* class for the rest of the worker).
+        const bridgeCalls = [],
+              prevFleet   = globalThis.AgentOS?.fleet;
+
+        globalThis.AgentOS.fleet = {registryBridge: {
+            fleetMemories: async params => {
+                bridgeCalls.push(params);
+                return wiredEnvelope(params.agentIdentity, 'pushed')
+            }
+        }};
+
+        try {
+            // the REAL user path: the agent-chip click sets the pane's own selection AND fires
+            // the intent — exactly what a click in the vessel window does
+            pane.onAgentClick('@neo-opus-grace');
+
+            await expect.poll(() => bridgeCalls.length, {timeout: 2000}).toBe(1);
+            expect(bridgeCalls[0].agentIdentity).toBe('@neo-opus-grace');
+
+            // the accepted snapshot lands on the VESSELED pane through the accessor route
+            await expect.poll(() => pane.snapshot?.sessions?.[0]?.title, {timeout: 2000}).toBe('pushed');
+            expect(pane.activeAgent).toBe('@neo-opus-grace')
+        } finally {
+            prevFleet === undefined ? delete globalThis.AgentOS.fleet : globalThis.AgentOS.fleet = prevFleet
+        }
+    });
+
+    test('vessel death brings the pane home at its exact rail position — state intact', async () => {
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+
+        const pane = await revealMemories();
+
+        pane.activeAgent = '@neo-fable-clio';
+
+        await cockpit.popOutMemories();
+        await simulateConnect('mem-vessel-home');
+
+        cockpit.onWindowDisconnect({windowId: 'mem-vessel-home'});
+        await cockpit.refreshPromise;
+
+        // exact-position restore: memories back at its stored rail index, full order preserved
+        await expect.poll(() => cockpit.getDockZoneDocument().nodes['secondary-rail'].items, {timeout: 2000}).toEqual(RAIL_HOME);
+
+        // the same live instance survived the return; owner pushes still reach it while parked
+        expect(pane.isDestroyed).toBeFalsy();
+        expect(cockpit.getMemoriesPane()).toBe(pane);
+        expect(pane.activeAgent).toBe('@neo-fable-clio');
+
+        // the shell affordance names the forward action again
+        expect(cockpit.getReference('memories-window-toggle').text).toBe('Pop out memories')
+    });
+
+    test('blocked popup refuses BEFORE any document mutation — commit-or-neither', async () => {
+        vessel = installWindowVessel({openResult: false, popupUrl: null});
+
+        await revealMemories();
+
+        // the silent edge carries a log witness — captured with a PAIRED restore
+        const warns    = [],
+              origWarn = console.warn;
+
+        console.warn = (...args) => warns.push(args);
+
+        try {
+            const result = await cockpit.popOutMemories();
+
+            expect(result.detached).toBe(false);
+            expect(result.errors[0]).toContain('popup blocked');
+
+            // zero mutation: the rail still holds the item, nothing is vessel-owned, nothing closed
+            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(RAIL_HOME);
+            expect(cockpit.tearOutPanes.memories).toBeFalsy();
+            expect(cockpit.tearOutPaneHandles.memories).toBeFalsy();
+            expect(vessel.closeCalls).toHaveLength(0);
+
+            // the flap witness names ITS vessel — a blocked memories click is distinguishable
+            // from a dead button AND from a detail-vessel flap in the same log
+            expect(warns.some(args => String(args[0]).includes('memories-vessel admission failed (blocked)'))).toBe(true)
+        } finally {
+            console.warn = origWarn
+        }
+    });
+
+    test('toggle routes by vessel state; a mid-gesture capture refuses instead of racing', async () => {
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+
+        await revealMemories();
+
+        // docked → toggle detaches
+        const out = await cockpit.onMemoriesWindowToggle();
+
+        expect(out.detached).toBe(true);
+
+        await simulateConnect('mem-vessel-toggle');
+
+        // vesseled → toggle returns (window close by the immutable vessel name)
+        const back = await cockpit.onMemoriesWindowToggle();
+
+        expect(back.returned).toBe(true);
+        expect(vessel.closeCalls).toHaveLength(1);
+        expect(vessel.closeCalls[0].names).toEqual([`fm-tearout-memories-${cockpit.id}`]);
+
+        // mid-gesture ownership (captured handle, no adopted vessel) → guarded refusal
+        cockpit.onWindowDisconnect({windowId: 'mem-vessel-toggle'});
+        await cockpit.refreshPromise;
+
+        cockpit.tearOutPaneHandles.memories = {isDestroyed: false};
+
+        const guarded = await cockpit.onMemoriesWindowToggle();
+
+        expect(guarded.detached).toBe(false);
+        expect(guarded.errors[0]).toContain('gesture');
+
+        delete cockpit.tearOutPaneHandles.memories
+    })
+});

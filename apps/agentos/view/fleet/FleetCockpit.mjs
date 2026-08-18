@@ -1028,6 +1028,21 @@ class FleetCockpit extends Container {
                 text    : torn ? 'Detail torn out' : (out ? 'Reattach detail' : 'Pop out detail')
             })
         }
+
+        let memoriesToggle = me.getReference('memories-window-toggle');
+
+        if (memoriesToggle) {
+            // click pop-out and gesture tear-out are ONE pathway for this pane, so an adopted
+            // vessel honestly offers the return action either way; only the mid-gesture window
+            // (captured handle, no adopted vessel yet) disables instead of racing the gesture
+            let adopted    = Boolean(me.tearOutPanes?.memories),
+                midGesture = !adopted && Boolean(me.tearOutPaneHandles?.memories);
+
+            memoriesToggle.set({
+                disabled: midGesture,
+                text    : adopted ? 'Return memories' : 'Pop out memories'
+            })
+        }
     }
 
     /**
@@ -1107,6 +1122,16 @@ class FleetCockpit extends Container {
                     cls      : ['fm-fleet-start-summary'],
                     hidden   : true,
                     reference: 'fleet-start-summary'
+                }, {
+                    // SHELL-owned pop-out affordance for the Memories pane — the detail
+                    // toggle's grammar on the tear-out pathway. Provisional bar placement pending
+                    // the shell navigation-model redesign (per-pane chrome is that pass's scope).
+                    module   : Button,
+                    cls      : ['fm-memories-window-toggle'],
+                    handler  : me.onMemoriesWindowToggle.bind(me),
+                    iconCls  : 'fa-solid fa-arrow-up-right-from-square',
+                    reference: 'memories-window-toggle',
+                    text     : 'Pop out memories'
                 }, {
                     // SHELL-owned pop-out affordance — panes are layout-blind and the shell owns
                     // docking behavior. Routes by the vessel state machine; the label is synced
@@ -1333,13 +1358,17 @@ class FleetCockpit extends Container {
                 // The selected target travels WITH the snapshot (one coherent state key), so a
                 // rematerialized pane never shows cards no selection points at. Agent choices
                 // derive from the same provider-owned roster as the cards — no second resident list.
+                // The listener scope is bound EXPLICITLY to the owning controller: string handlers
+                // resolve through the component's controller chain at fire time, and a vesseled
+                // pane (click pop-out / gesture tear-out) has no controller above it — an
+                // unscoped string would resolve dead in the vessel and cache that miss.
                 return {
                     module      : MemoriesPane,
                     cls         : [marker],
                     activeAgent : me.memoriesTarget ?? me.memoriesSnapshot?.target ?? null,
                     snapshot    : me.memoriesSnapshot,
                     agentOptions: me.buildMemoriesAgentOptions(),
-                    listeners   : {memoriesRequest: 'onMemoriesRequest'},
+                    listeners   : {memoriesRequest: 'onMemoriesRequest', scope: me.getController()},
                     reference   : 'memories'
                 };
             case 'wakeRoutes':
@@ -1457,6 +1486,22 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the live {@link AgentOS.view.fleet.MemoriesPane} instance whether it is
+     * docked, revealed, or vesseled — the click pop-out ({@link #popOutMemories}) and the gesture
+     * tear-out share one pathway, so one handle map answers both. Owner-side pushes (snapshot
+     * writes, roster option refreshes, reconnect re-drives) must route through this accessor
+     * instead of stopping at `getReference()`: a vesseled pane lives outside this cockpit's
+     * projected tree.
+     * @returns {Neo.container.Base|null} The memories pane, or `null` before materialization.
+     */
+    getMemoriesPane() {
+        // returningTearOutPanes covers the vessel-death parking window: the rail's lazy reveal may
+        // not adopt the returning pane for a while, and an owner push landing in that window must
+        // still reach the LIVE instance — otherwise the eventual adoption renders a stale snapshot.
+        return this.tearOutPaneHandles?.memories || this.returningTearOutPanes?.memories || this.getReference('memories')
+    }
+
+    /**
      * The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit,
      * reusing the SAME widget-childapp shell the click pop-out proves (an empty pane host — the
      * cockpit reparents on connect). Fail-closed per the admission contract: `Neo.Main.windowOpen`
@@ -1467,10 +1512,13 @@ class FleetCockpit extends Container {
      * @param {Object} request
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
+     * @param {Boolean} [request.requireProjectedPane=true] The gesture needs a LIVE projected pane
+     *     (you tear what you can see); the click pop-out ({@link #popOutMemories}) materializes a
+     *     rail-lazy pane from owner-held state itself, so it opts out of this precondition only.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect}) {
+    async openTearOutVessel({itemId, proxyRect, requireProjectedPane = true}) {
         let me         = this,
             windowName = `fm-tearout-${itemId}-${me.id}`;
 
@@ -1478,7 +1526,7 @@ class FleetCockpit extends Container {
         if (
             me.tearOutPanes?.[itemId] || me.tearOutPaneHandles?.[itemId] ||
             (itemId === 'detail' && me.detachedDetail) ||
-            !me.findProjectedDockPane(itemId)
+            (requireProjectedPane && !me.findProjectedDockPane(itemId))
         ) {
             return null
         }
@@ -1947,11 +1995,12 @@ class FleetCockpit extends Container {
      * App-Worker console bridges into the Neural Link console stream, so harnesses and agents can
      * distinguish an admission failure from a deliberate return without polling cockpit state.
      * @param {String} kind The failure edge: 'blocked' or 'timeout'.
-     * @param {Object} meta Window name + bound context, so the line stands alone in a log.
+     * @param {Object} meta Window name + bound context, so the line stands alone in a log;
+     *     `meta.itemId` names the vessel's item (absent → the click-detail pathway's 'detail').
      * @protected
      */
     warnVesselAdmissionFailure(kind, meta) {
-        console.warn(`[FleetCockpit] detail-vessel admission failed (${kind}):`, meta)
+        console.warn(`[FleetCockpit] ${meta?.itemId ?? 'detail'}-vessel admission failed (${kind}):`, meta)
     }
 
     /**
@@ -1970,6 +2019,117 @@ class FleetCockpit extends Container {
         }
 
         return me.detachedDetail ? me.reattachAgentDetail() : me.popOutAgentDetail()
+    }
+
+    /**
+     * @summary Detach the Memories pane into its own OS window on the shared heap — the click
+     * pop-out riding the GENERIC tear-out substrate, never a second vessel state machine.
+     *
+     * The vessel URL rides the established tear-out param shape —
+     * `?tearout=memories&cockpitId=<id>` — the same widget childapp the click pop-out's
+     * `?detail=agent-detail` shape loads; {@link #onWindowConnect}'s tear-out branch adopts it.
+     * The dock document stays the layout SSOT: {@link #applyTearOutOperation} captures the exact
+     * `{tabsNodeId, index}` placement before the `detachItem` commit, so the vessel-death return
+     * ({@link #reintegrateTearOutItem}) restores the item at its stored rail position.
+     *
+     * Selection travel is BY IDENTITY: the vessel hosts the LIVE pane instance (or one
+     * materialized from the owner-held `memoriesTarget`/`memoriesSnapshot` when the rail's lazy
+     * reveal never projected it), so the active agent and cards move with the window — stronger
+     * than a URL parameter, and exactly the rematerialization contract the memories source
+     * documents. A blocked popup (`windowOpen` resolves `false`, it never throws) refuses before
+     * any document mutation — commit-or-neither.
+     * @returns {Promise<{detached: Boolean, errors: String[]}>}
+     */
+    async popOutMemories() {
+        let me     = this,
+            itemId = 'memories';
+
+        if (me.tearOutPanes?.[itemId] || me.tearOutPaneHandles?.[itemId]) {
+            return {detached: false, errors: ['memories is already in a vessel']}
+        }
+
+        if (!DockZoneModel.findContainingTabsId(me.dockModel, itemId)) {
+            return {detached: false, errors: ['memories is not a docked item']}
+        }
+
+        let vessel = await me.openTearOutVessel({itemId, proxyRect: null, requireProjectedPane: false});
+
+        if (!vessel) {
+            // the silent-refusal witness (the detail pathway's observability contract): the click
+            // mutates nothing on this edge, so without this line a blocked popup is visually
+            // indistinguishable from a dead button
+            me.warnVesselAdmissionFailure('blocked', {itemId, windowName: `fm-tearout-${itemId}-${me.id}`});
+
+            return {detached: false, errors: ['popup blocked: the vessel window did not open']}
+        }
+
+        if (me.isDestroyed) {
+            return {detached: false, errors: ['cockpit destroyed during vessel open']}
+        }
+
+        // the item record is read BEFORE the commit prunes the tree entry (the catalog record
+        // survives a detach, so this is belt-and-braces ordering, not a correctness dependency)
+        let item   = me.dockModel.items[itemId],
+            result = me.applyTearOutOperation({operation: 'detachItem', itemId});
+
+        if (result.errors.length) {
+            await me.closeTearOutVessel({itemId, windowName: vessel.windowName});
+            return {detached: false, errors: result.errors}
+        }
+
+        // capture the live pane synchronously before the commit's re-projection can destroy it
+        // (the gesture order); a rail-lazy pane that was never projected materializes from
+        // owner-held state instead — same resolver, vessel-bound rather than projection-bound
+        me.captureTearOutPane(itemId);
+
+        if (!me.tearOutPaneHandles[itemId]) {
+            me.tearOutPaneHandles[itemId] = Neo.create(me.resolveDockComponentRef(item?.componentRef, item, itemId))
+        }
+
+        me.onDockZoneDocumentChange(result.document);
+        me.adoptTearOutPane(itemId);
+
+        return {detached: true, errors: []}
+    }
+
+    /**
+     * @summary Bring the vesseled Memories pane home by closing its OS window: vessel death IS
+     * the return path — {@link #onWindowDisconnect}'s tear-out branch correlates the close and
+     * {@link #reintegrateTearOutItem} restores the same live instance at its stored rail
+     * position. Closing by the immutable window NAME covers the not-yet-connected window too.
+     * @returns {Promise<{returned: Boolean, errors: String[]}>}
+     */
+    async returnMemories() {
+        let me    = this,
+            entry = me.tearOutPanes?.memories;
+
+        if (!entry) {
+            return {returned: false, errors: ['memories is not in a vessel']}
+        }
+
+        try {
+            await Neo.Main.windowClose({names: [entry.windowName], windowId: me.windowId})
+        } catch (error) {
+            // best-effort: a already-gone window still fires (or already fired) the disconnect
+        }
+
+        return {returned: true, errors: []}
+    }
+
+    /**
+     * @summary SHELL-owned toggle routing for the Memories pane vessel — the
+     * {@link #onDetailWindowToggle} grammar on the tear-out pathway. Mid-gesture ownership
+     * (captured handle without an adopted vessel) refuses instead of racing the gesture.
+     * @returns {Promise<Object>} The routed operation's result.
+     */
+    onMemoriesWindowToggle() {
+        let me = this;
+
+        if (!me.tearOutPanes?.memories && me.tearOutPaneHandles?.memories) {
+            return Promise.resolve({errors: ['a gesture tear-out owns the pane'], detached: false})
+        }
+
+        return me.tearOutPanes?.memories ? me.returnMemories() : me.popOutMemories()
     }
 
     /**
@@ -2385,7 +2545,7 @@ class FleetCockpit extends Container {
             // next poll. Absent/malformed envelopes plumb null — the chip claims nothing.
             grid.presenceCapability = capabilities?.presence ?? null;
             me.getReference('catch-up')?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
-            me.getReference('memories')?.set({agentOptions: me.buildMemoriesAgentOptions()});
+            me.getMemoriesPane()?.set({agentOptions: me.buildMemoriesAgentOptions()});
             me.clearDegradedReason('grid')
         } catch (error) {
             // fenced: a slow failure must not overwrite a newer success (see the stream twin)
@@ -2583,7 +2743,7 @@ class FleetCockpit extends Container {
             // rematerialized while this read was in flight — a call-time reference would write
             // the accepted truth into the DESTROYED instance and leave the live pane pending
             // forever. The owner state above plus this live-resolve keep both variants coherent.
-            const livePane = me.getReference('memories');
+            const livePane = me.getMemoriesPane();
 
             livePane && (livePane.snapshot = snapshot)
         }
@@ -3039,7 +3199,7 @@ class FleetCockpit extends Container {
         // envelope until SOME re-request happens, and before this line the only such request was a
         // manual pane action — the dead-pane gap. Each pane's own refresh handler carries its
         // guards (active agent / partition), so re-driving through it is exactly the button's path.
-        me.getReference('memories')?.onRefreshClick();
+        me.getMemoriesPane()?.onRefreshClick();
         me.getReference('catch-up')?.onRefreshClick();
         me.getReference('wakeRoutes')?.onRefreshClick()
     }

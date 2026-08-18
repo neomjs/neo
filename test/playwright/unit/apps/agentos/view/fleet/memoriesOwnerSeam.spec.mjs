@@ -25,7 +25,12 @@ function ownerStub({memoriesTarget = null, memoriesSnapshot = null, pane = null}
         memoriesSnapshot,
         memoriesReadGeneration   : 0,
         buildMemoriesAgentOptions: () => [],
-        getReference             : () => pane
+        // the cockpit surface the seam methods consume: the explicit listener scope
+        // resolves through getController, and owner pushes route through the phase-blind
+        // accessor instead of a raw reference read
+        getController  : () => null,
+        getMemoriesPane: () => pane,
+        getReference   : () => pane
     }
 }
 
@@ -72,7 +77,9 @@ test.describe('FleetCockpit — memories owner seam (pending selection + write-t
                 memoriesTarget        : null,
                 memoriesSnapshot      : null,
                 memoriesReadGeneration: 0,
-                getReference          : () => currentPane
+                // the WRITE-time resolve rides the phase-blind accessor
+                getMemoriesPane: () => currentPane,
+                getReference   : () => currentPane
             };
 
             const read = proto.loadMemories.call(me, {agentIdentity: '@neo-gpt-bob'});
