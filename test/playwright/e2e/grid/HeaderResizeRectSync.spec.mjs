@@ -159,5 +159,43 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
             .toBeLessThan(before.width - 20);
 
         assertAligned(await readPairs(page), 'after narrowing "Number 7"')
+    });
+
+    /**
+     * The MIXED surface: one genuinely flex-sized column beside explicitly-sized ones.
+     *
+     * This is the case the per-column width decision exists for. When the toolbar contains any
+     * column whose width only layout can answer, the geometry pass still has to measure — but it
+     * must measure ONLY that column, and keep reading the explicit px widths from the configs that
+     * own them. Sizing the whole header from one layout read is what let a stale rect repaint every
+     * cell; a spec that only ever runs all-explicit columns cannot tell the two designs apart.
+     */
+    test('a flex column beside explicit ones does not drag the others onto a stale measurement', async ({page, neuralLink}) => {
+        await page.goto('/examples/grid/bigData/');
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+
+        await expect(page.locator('[role="grid"]').first()).toBeVisible({timeout: 30000});
+        await expect(page.locator('.neo-grid-body [role="row"]').first()).toBeVisible({timeout: 30000});
+        await page.waitForTimeout(600);
+
+        const app     = await neuralLink.connectToApp('Neo.examples.grid.bigData'),
+              buttons = await app.queryComponent({className: 'Neo.grid.header.Button'}, ['dataField', 'id']),
+              flexCol = buttons.find(b => b.properties.dataField === 'number13');
+
+        expect(flexCol, 'the surface exposes a column to make dynamic').toBeTruthy();
+
+        // make it genuinely measured: no explicit width, a real flex value
+        await app.setProperties(flexCol.properties.id, {flex: 1, width: null});
+        await page.waitForTimeout(800);
+
+        assertAligned(await readPairs(page), 'baseline with a flex column present');
+
+        const before = await resizeColumn(page, 'Number 7', 160),
+              after  = await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox();
+
+        expect(after.width, `the widen gesture engaged (before=${before.width} after=${after.width})`)
+            .toBeGreaterThan(before.width + 20);
+
+        assertAligned(await readPairs(page), 'after widening beside a flex column')
     })
 });
