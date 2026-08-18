@@ -916,7 +916,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-08-18T16:59:43Z</lastmod>
+    <lastmod>2026-08-18T17:53:56Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -936,7 +936,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-18T16:59:45Z</lastmod>
+    <lastmod>2026-08-18T17:54:00Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2284,8 +2284,12 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/17363</loc>
+    <lastmod>2026-08-18T17:49:32Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/17360</loc>
-    <lastmod>2026-08-18T16:18:25Z</lastmod>
+    <lastmod>2026-08-18T17:49:32Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17358</loc>
@@ -2297,7 +2301,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17356</loc>
-    <lastmod>2026-08-18T16:18:25Z</lastmod>
+    <lastmod>2026-08-18T17:49:32Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17354</loc>
@@ -48024,13 +48028,18 @@
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/news/pulls/17364</loc>
+    <lastmod>2026-08-18T17:49:37Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/pulls/17362</loc>
-    <lastmod>2026-08-18T16:55:01Z</lastmod>
+    <lastmod>2026-08-18T17:49:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17361</loc>
-    <lastmod>2026-08-18T16:18:36Z</lastmod>
+    <lastmod>2026-08-18T17:49:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -48040,7 +48049,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17355</loc>
-    <lastmod>2026-08-18T16:18:36Z</lastmod>
+    <lastmod>2026-08-18T17:49:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
