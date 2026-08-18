@@ -25,7 +25,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
-import {classifyEmbeddingRecoveryState, isRepoDue}
+import {classifyEmbeddingRecoveryState, isRepoDue, resolveUnknownRepoSelectors}
                             from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
     classifyTenantRepoCheckpoint,
@@ -315,6 +315,46 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // rather than a manifest-wide one.
         expect(dueStateFor(persisted[throttled])).toMatchObject({due: true, dueReason: 'cadence'});
         expect(dueStateFor(persisted[untouched]).due).toBe(false)
+    });
+
+    test('both entry paths refuse the SAME selector sets — the divergence cannot reopen silently', async () => {
+        // The two paths tested this question separately and answered it differently: the sweep
+        // refused only an all-unknown set, the clear refused any unknown. A per-path assertion
+        // cannot catch that — each was internally consistent and green. This drives BOTH through
+        // the same cases and compares refusals, so a future edit to one is only green if the other
+        // moved with it.
+        const config     = {tenantRepos: [{repoSlug: 'acme/known', tenantId: 't1'}]},
+              knownSlugs = ['acme/known'],
+              cases      = [
+                  {label: 'all known',      slugs: ['acme/known']},
+                  {label: 'partly unknown', slugs: ['acme/known', 'acme/typo']},
+                  {label: 'all unknown',    slugs: ['acme/typo']},
+                  {label: 'no selector',    slugs: null}
+              ];
+
+        for (const {label, slugs} of cases) {
+            const predicate = resolveUnknownRepoSelectors({onlyRepoSlugs: slugs, knownSlugs});
+            const clear     = await TenantRepoSyncService.clearTenantRepoBackoff({
+                onlyRepoSlugs    : slugs,
+                revisionsFilePath: revisionsFile,
+                tenantReposConfig: config
+            });
+            const clearRefused = clear.status === 'failed';
+
+            expect(clearRefused, `${label}: clear must follow the shared predicate`).toBe(Boolean(predicate));
+
+            if (predicate) {
+                expect(clear.details.unknownSlugs, `${label}: same unknown set`).toEqual(predicate.unknownSlugs);
+                expect(clear.details.reasonCode).toBe(predicate.reasonCode)
+            }
+        }
+
+        // and the predicate itself refuses on ANY unknown, which is the property the sweep lacked
+        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: ['acme/known', 'acme/typo'], knownSlugs}).unknownSlugs).toEqual(['acme/typo']);
+        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: ['acme/known'], knownSlugs})).toBeNull();
+        // an empty or absent selector selects everything and can never refuse
+        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: [], knownSlugs})).toBeNull();
+        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: null, knownSlugs})).toBeNull()
     });
 
     test('clear-backoff refuses an unknown slug with the sweep\'s own error code, rather than clearing nothing quietly', () => {
@@ -4274,6 +4314,64 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // that defers every repo must not read as "1 completed, 0 failed" on the one line an
         // operator actually scans.
         expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 deferred, 0 failed/);
+    });
+
+    test('a PARTIALLY unknown selector refuses whole — the known subset is not quietly synced', async () => {
+        // The defect this pins: keyed on "nothing matched", a run with one good slug and one typo
+        // synced the good one, dropped the typo without a word, and exited 0 — the operator reads a
+        // completed run while the repo they meant was never touched. The known-good repo IS
+        // provisioned and would sync happily, so the refusal has to come from the selector check
+        // rather than from the run failing for some unrelated reason.
+        const taskStateService = createInMemoryTaskStateService();
+        const ingestion        = makeFakeIngestionService();
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/known'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            writeLog         : () => {},
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://github.com/neomjs/known.git'}
+            ]},
+            onlyRepoSlugs                : ['org/known', 'org/typo'],
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestion,
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED');
+        // ONLY the typo is named — a refusal that listed the good slug would send the operator
+        // hunting a second, non-existent mistake.
+        expect(result.details.unknownSlugs).toEqual(['org/typo']);
+        expect(result.details.requestedSlugs).toEqual(['org/known', 'org/typo']);
+        // and nothing was ingested: the refusal precedes the work, it does not undo it
+        expect(ingestion.calls?.length ?? 0).toBe(0)
+    });
+
+    test('an ALL-known selector is unaffected — the stricter trigger does not over-refuse', async () => {
+        // Non-vacuity control for the case above. Without it, a predicate that refused every
+        // non-empty selector would pass the partial-unknown test and break every legitimate run.
+        const taskStateService = createInMemoryTaskStateService();
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/known'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            writeLog         : () => {},
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://github.com/neomjs/known.git'}
+            ]},
+            onlyRepoSlugs                : ['org/known'],
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).not.toBe('failed');
+        expect(result.details.reasonCode).toBeUndefined()
     });
 
     test('--repo-slug filter against unknown slug surfaces stable KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED', async () => {

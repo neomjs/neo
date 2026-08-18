@@ -1,7 +1,55 @@
 import {
     KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
+    KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     TenantRepoSyncError
 } from '../services/TenantRepoSyncErrors.mjs';
+
+/**
+ * @summary Refuses an operator selector naming any repo the config does not hold.
+ *
+ * ANY unknown slug refuses, never only an all-unknown set. The distinction is the whole reason this
+ * exists: keyed on "nothing matched", `--repo-slug good --repo-slug typo` processes `good`, drops
+ * `typo` without a word, and exits `0` — the operator is told the run completed while the repo they
+ * most likely cared about was never touched. A partial no-op hides better than a total one because
+ * something did happen, and `0` is the code a runbook or wrapper branches on.
+ *
+ * Named and shared rather than inlined at each entry path, because two sites asking this question
+ * had already answered it differently — the sweep on "nothing matched", the backoff clear on "any
+ * unknown". Two call sites with one question is where the question earns a name; a third entry path
+ * would otherwise inherit whichever copy it was written beside.
+ *
+ * Returns the failure DETAILS rather than throwing or returning a boolean: both callers surface the
+ * same envelope to the CLI, whose `resolveExitCode` branches on `reasonCode` for exit `3`. A boolean
+ * would make each caller rebuild the payload, which is how the two drifted in the first place.
+ *
+ * Pure, and here rather than beside its callers for the reason the module's other validators are —
+ * the callers import Neo, and a validator that cannot be exercised without booting the class system
+ * is a validator whose own contract goes untested.
+ *
+ * @param {Object} options
+ * @param {String[]|null} [options.onlyRepoSlugs] Operator-supplied selector; empty/absent selects everything and cannot refuse.
+ * @param {String[]} [options.knownSlugs=[]] Configured `repoSlug` values.
+ * @returns {Object|null} Failure details when any requested slug is unknown, else `null`.
+ */
+export function resolveUnknownRepoSelectors({onlyRepoSlugs, knownSlugs = []}) {
+    if (!(onlyRepoSlugs?.length > 0)) {
+        return null
+    }
+
+    const unknownSlugs = onlyRepoSlugs.filter(slug => !knownSlugs.includes(slug));
+
+    if (unknownSlugs.length === 0) {
+        return null
+    }
+
+    return {
+        reason         : 'repo-not-configured',
+        reasonCode     : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
+        requestedSlugs : onlyRepoSlugs,
+        unknownSlugs,
+        configuredSlugs: knownSlugs
+    }
+}
 
 /**
  * @summary Rejects a `tenantRepoSync.sliceBudgetMs` that cannot bound anything.
