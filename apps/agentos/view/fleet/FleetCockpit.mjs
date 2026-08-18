@@ -2606,13 +2606,6 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary Build the operator-compose recipient options from the LIVE roster — `{id, name}` records
-     * the picker's ChipField store renders. The `id` is the mailbox IDENTITY (`@githubUsername`), NOT the
-     * roster `agentId` (a Fleet key like `vega`), plus the `AGENT:*` broadcast sentinel. Empty until the
-     * roster resolves — the pane picks recipients from a real current fleet, never a hand-mapped list.
-     * @returns {Object[]}
-     */
-    /**
      * @summary Roster-joined actor facts for the activity stream's chips — `agentId →
      * {avatarUrl, displayName}` from the SAME provider-owned roster every other surface reads
      * (no second resident list). Rows without the facts contribute nothing: the stream renders a
@@ -2631,6 +2624,13 @@ class FleetCockpit extends Container {
         )
     }
 
+    /**
+     * @summary Build the operator-compose recipient options from the LIVE roster — `{id, name}` records
+     * the picker's ChipField store renders. The `id` is the mailbox IDENTITY (`@githubUsername`), NOT the
+     * roster `agentId` (a Fleet key like `vega`), plus the `AGENT:*` broadcast sentinel. Empty until the
+     * roster resolves — the pane picks recipients from a real current fleet, never a hand-mapped list.
+     * @returns {Object[]}
+     */
     buildOperatorRecipientOptions() {
         const rows = this.getReference('fleet-grid')?.store?.items ?? [];
 

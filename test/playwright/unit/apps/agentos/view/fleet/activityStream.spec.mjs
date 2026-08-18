@@ -339,5 +339,34 @@ test.describe('ActivityStream — the actor chip and the recipient piece (row id
         // an anonymous single event: no actor cell, the row shrinks by exactly that cell
         const anon = proto.rowConfig.call(h, {agentId: null, count: 1, newest: {type: 'pr-activity', payload: {text: 'x'}}, events: []});
         expect(anon.items).toHaveLength(3)
+    });
+
+    test('constructed, not borrowed: the recipient cell sets BOTH text and vdom — after real creation, both survive', () => {
+        const stream = Neo.create(ActivityStream, {
+            appName,
+            actorDirectory: {'@neo-fable-clio': {displayName: 'Clio'}},
+            events        : [a2aEvent()]
+        });
+
+        const row = stream.items.find(item => item.cls.includes('fm-ev-row'));
+
+        // the five cells compose in order as REAL instances — a config literal cannot green this
+        expect(row.items.map(item => item.className)).toEqual([
+            'Neo.component.Base',           // time
+            'AgentOS.view.fleet.EventChip', // kind
+            'AgentOS.view.fleet.ActorChip', // actor — the coalescing key
+            'Neo.component.Base',           // recipient
+            'Neo.component.Base'            // text
+        ]);
+
+        // the merge the config assertions cannot see: recipientConfig is the one cell setting BOTH
+        // `text` and `vdom` on one config while `set vdom` replaces wholesale — the citable hover
+        // title and the arrow text must coexist on the constructed component, not just in the literal
+        const recipient = row.items[3];
+        expect(recipient.vdom.title).toBe('@neo-opus-ada');
+        expect(recipient.text).toBe('→ @neo-opus-ada');
+        expect(recipient.cls).toContain('is-direct');
+
+        stream.destroy()
     })
 });
