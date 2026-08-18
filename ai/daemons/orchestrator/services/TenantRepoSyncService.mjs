@@ -43,7 +43,8 @@ import {
     detectStarvedTenantSync,
     hasPendingEmbeddingRecoveryBypass,
     isRepoDue,
-    isStarvedOrderInverted
+    isStarvedOrderInverted,
+    resolveUnknownRepoSelectors
 } from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,
@@ -53,7 +54,6 @@ import {
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_LEASE_LOST,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
-    KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
     KB_TENANT_REPO_SYNC_STARVED,
@@ -1356,7 +1356,7 @@ class TenantRepoSyncService extends Base {
      * | `KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` | per-repo `lastErrorCode` | full materialization produced NO positive effect and no matching unacknowledged retry receipt — nothing arrived; look at the embed stage |
      * | `KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN` | per-repo `lastErrorCode` | full materialization DID take effect, but no receipt proves this attempt — the rows landed and the proof is missing, so do NOT re-ingest |
      * | `KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE` | per-repo `lastErrorCode` | the repo declares content and every candidate chunk was refused BEFORE the provider — re-ingesting cannot help; the actionable surface is chunking or the safe band |
-     * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
+     * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` requested ANY slug that is not in `tenantRepos[]` — the run refuses whole rather than processing the recognised subset |
      * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle settles the unacknowledged graph receipt idempotently) |
      * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |
      * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | per-repo `lastErrorCode` | concurrency-gate slot-acquisition timeout after `concurrencyGateTimeoutMs` |
@@ -1370,7 +1370,7 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.tenantReposConfig] Pre-normalized tenantRepos config. If omitted, resolved across config tiers via `KnowledgeBaseIngestionService.listConfiguredTenantRepos`.
      * @param {Object} [options.gitMirror=GitMirror] Injectable mirror primitive (test seam).
      * @param {Object} [options.knowledgeBaseIngestionService] KB ingestion service singleton (test seam). Resolved from `ai/services.mjs` if omitted.
-     * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
+     * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. ANY requested slug that is not configured surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` and syncs nothing — a partially mistyped selector refuses rather than silently processing the subset it recognised.
      * @param {Boolean} [options.fullReplay=false] Build selected-repo envelopes from a null revision base. Requires non-empty `onlyRepoSlugs`; persisted checkpoints remain unchanged until each replay completes without summary errors.
      * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<orchestrator dataDir leaf>/tenant-repo-sync-revisions.json`.
      * @param {Number} [options.leaseStaleAfterMs] Override the cross-process lease TTL (test seam). Defaults to the `orchestrator.tenantRepoSync.leaseStaleAfterMs` leaf. Crashed owners recover immediately via pid-liveness; the TTL only bounds a live-but-wedged owner.
@@ -1662,21 +1662,17 @@ class TenantRepoSyncService extends Base {
             ? allRepos.filter(r => onlyRepoSlugs.includes(r.repoSlug))
             : allRepos;
 
-        // Distinguish "operator-requested-unknown-slug" from "no config at all".
-        // Empty filter result with non-empty onlyRepoSlugs = stable REPO_NOT_CONFIGURED
-        // error so the CLI / future API surface can branch on `error.code`.
-        if (repos.length === 0 && onlyRepoSlugs?.length > 0) {
-            const knownSlugs   = allRepos.map(r => r.repoSlug);
-            const unknownSlugs = onlyRepoSlugs.filter(s => !knownSlugs.includes(s));
-            const details      = {
-                reason         : 'repo-not-configured',
-                reasonCode     : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
-                repoCount      : 0,
-                requestedSlugs : onlyRepoSlugs,
-                unknownSlugs,
-                configuredSlugs: knownSlugs
-            };
-            writeLog?.('WARN', `[TenantRepoSync] Requested repoSlug(s) not configured: ${unknownSlugs.join(', ')}. Configured: ${knownSlugs.join(', ') || '(none)'}.`);
+        // Distinguish "operator-requested-unknown-slug" from "no config at all", and refuse on ANY
+        // unknown slug rather than only an all-unknown set. Keyed on "nothing matched", a partially
+        // mistyped selector synced the known subset and dropped the rest silently at exit 0 — the
+        // operator was told the run completed while the repo they meant went untouched. Shared with
+        // the backoff-clear path so one typo cannot mean two things on one CLI.
+        const unknownSelectors = resolveUnknownRepoSelectors({onlyRepoSlugs, knownSlugs: allRepos.map(r => r.repoSlug)});
+
+        if (unknownSelectors) {
+            const details = {...unknownSelectors, repoCount: repos.length};
+
+            writeLog?.('WARN', `[TenantRepoSync] Requested repoSlug(s) not configured: ${unknownSelectors.unknownSlugs.join(', ')}. Configured: ${unknownSelectors.configuredSlugs.join(', ') || '(none)'}.`);
             return {status: 'failed', details};
         }
 
@@ -3268,24 +3264,16 @@ class TenantRepoSyncService extends Base {
               allRepos       = resolvedConfig.tenantRepos || [],
               knownSlugs     = allRepos.map(repo => repo.repoSlug);
 
-        // The SAME refusal the sweep gives an unknown selector, deliberately: an operator who
-        // mistypes a slug must get one vocabulary back, not a second one invented for this path.
-        if (onlyRepoSlugs?.length > 0) {
-            const unknownSlugs = onlyRepoSlugs.filter(slug => !knownSlugs.includes(slug));
+        // The same refusal the sweep gives an unknown selector, through the same shared predicate:
+        // an operator who mistypes a slug gets one vocabulary and one disposition back, whichever
+        // flag they typed. The two paths tested this separately once and disagreed — the sweep
+        // refused only an all-unknown set — so the question now has a single name.
+        const unknownSelectors = resolveUnknownRepoSelectors({onlyRepoSlugs, knownSlugs});
 
-            if (unknownSlugs.length > 0) {
-                const details = {
-                    reason         : 'repo-not-configured',
-                    reasonCode     : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
-                    requestedSlugs : onlyRepoSlugs,
-                    unknownSlugs,
-                    configuredSlugs: knownSlugs
-                };
+        if (unknownSelectors) {
+            writeLog?.('WARN', `[TenantRepoSync] clear-backoff: requested repoSlug(s) not configured: ${unknownSelectors.unknownSlugs.join(', ')}. Configured: ${unknownSelectors.configuredSlugs.join(', ') || '(none)'}.`);
 
-                writeLog?.('WARN', `[TenantRepoSync] clear-backoff: requested repoSlug(s) not configured: ${unknownSlugs.join(', ')}. Configured: ${knownSlugs.join(', ') || '(none)'}.`);
-
-                return {status: 'failed', details}
-            }
+            return {status: 'failed', details: unknownSelectors}
         }
 
         const targetSlugs = onlyRepoSlugs?.length > 0 ? onlyRepoSlugs : knownSlugs;
