@@ -1,3 +1,4 @@
+import ActorChip          from './ActorChip.mjs';
 import Component          from '../../../../src/component/Base.mjs';
 import Container          from '../../../../src/container/Base.mjs';
 import EventChip          from './EventChip.mjs';
@@ -150,7 +151,17 @@ class ActivityStream extends Container {
          * @member {String} adapterState_='live'
          * @reactive
          */
-        adapterState_: 'live'
+        adapterState_: 'live',
+        /**
+         * Roster-joined actor facts, injected by the owner (`agentId → {avatarUrl, displayName}`,
+         * both fields optional). The stream renders identity it is GIVEN: an actor missing from
+         * the directory renders handle-only, an event without an `agentId` composes no actor chip
+         * at all — honest absence, never a fabricated identity (the stream's existing
+         * null-agentId contract, now visible instead of implied).
+         * @member {Object} actorDirectory_={}
+         * @reactive
+         */
+        actorDirectory_: {}
     }
 
     /**
@@ -244,6 +255,15 @@ class ActivityStream extends Container {
     }
 
     /**
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetActorDirectory(value, oldValue) {
+        this.isConstructed && this.refreshFeed()
+    }
+
+    /**
      * @summary Guard the ring bound itself: only a positive integer can BE a buffer bound — zero,
      * negatives, and non-finite values would silently disable the ring (`slice(-0)` retains
      * everything), so an invalid value is refused and the previous bound (or the density default)
@@ -331,8 +351,12 @@ class ActivityStream extends Container {
      * @returns {Object}
      */
     rowConfig(row) {
-        const event     = row.newest,
-              coalesced = row.count > 1;
+        const
+            me        = this,
+            event     = row.newest,
+            coalesced = row.count > 1,
+            actor     = me.actorChipConfig(row),
+            recipient = me.recipientConfig(event);
 
         return {
             module: Container,
@@ -340,10 +364,68 @@ class ActivityStream extends Container {
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'start'},
             items : [
-                {module: Component, cls: ['fm-ev-time'], flex: 'none', vdom: this.timeVdom(event?.occurredAt)},
+                {module: Component, cls: ['fm-ev-time'], flex: 'none', vdom: me.timeVdom(event?.occurredAt)},
                 {module: EventChip, flex: 'none', kind: event?.type},
-                {module: Component, cls: ['fm-ev-text'], flex: 1, text: coalesced ? `×${row.count} · ${this.eventText(event)}` : this.eventText(event)}
+                // the actor chip renders the coalescing KEY: a run row shows its actor ONCE
+                // beside the count instead of implying it; an anonymous event composes no chip
+                ...(actor ? [actor] : []),
+                ...(recipient ? [recipient] : []),
+                {module: Component, cls: ['fm-ev-text'], flex: 1, text: coalesced ? `×${row.count} · ${me.eventText(event)}` : me.eventText(event)}
             ]
+        }
+    }
+
+    /**
+     * @summary The row's actor chip config — the coalescing key made visible. Roster facts join
+     * from the injected {@link #actorDirectory}; a missing directory entry renders handle-only,
+     * a null `agentId` composes NO chip (honest absence per the stream's null-agentId contract).
+     * @param {Object} row A `coalesceActivity` row.
+     * @returns {Object|null}
+     */
+    actorChipConfig(row) {
+        const agentId = row?.agentId;
+
+        if (!agentId) {
+            return null
+        }
+
+        const facts = this.actorDirectory?.[agentId] ?? this.actorDirectory?.[String(agentId).replace(/^@/, '')] ?? {};
+
+        return {
+            module   : ActorChip,
+            flex     : 'none',
+            agentId,
+            avatarUrl: facts.avatarUrl ?? null,
+            label    : facts.displayName ?? null
+        }
+    }
+
+    /**
+     * @summary The A2A row's recipient piece — sender→recipient as a compact cell: a directed
+     * send renders `→ @recipient`, a broadcast renders the visually distinct `⇒ fleet` (class +
+     * arrow both differ — the reader distinguishes them without color). Non-A2A kinds and rows
+     * whose payload names no recipient compose nothing — the DTO's absence renders as absence.
+     * @param {Object} event The row's newest event.
+     * @returns {Object|null}
+     */
+    recipientConfig(event) {
+        const
+            payload   = event?.payload,
+            isA2A     = event?.type === 'a2a-activity' || event?.type === 'lane-claim',
+            to        = typeof payload?.to === 'string' && payload.to !== '' ? payload.to : null,
+            broadcast = payload?.recipientClass === 'broadcast';
+
+        if (!isA2A || (!to && !broadcast)) {
+            return null
+        }
+
+        return {
+            module: Component,
+            cls   : ['fm-ev-recipient', broadcast ? 'is-broadcast' : 'is-direct'],
+            flex  : 'none',
+            text  : broadcast ? '⇒ fleet' : `→ ${to}`,
+            // the raw address stays citable on hover — `AGENT:*` for broadcasts, the exact id otherwise
+            vdom  : {title: to ?? 'AGENT:*'}
         }
     }
 

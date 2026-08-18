@@ -52,6 +52,22 @@
         text-overflow: ellipsis;
     }
 
+    /* the A2A recipient piece — sender→recipient at a glance. The broadcast form differs by
+       arrow AND weight, never by color alone: the reader distinguishes a fleet-wide send from a
+       directed one without relying on the signal wash. */
+    .fm-ev-recipient {
+        padding-top: 1px;
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+        color      : var(--fm-ink-dim);
+        white-space: nowrap;
+
+        &.is-broadcast {
+            color      : color-mix(in srgb, var(--fm-signal) 70%, var(--fm-ink-dim));
+            font-weight: 600;
+        }
+    }
+
     /* a coalesced same-actor run — the ×N text carries the count; the row reads slightly
        stronger so a burst is glanceable without flooding the window */
     .fm-ev-coalesced .fm-ev-text {
