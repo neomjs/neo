@@ -1,7 +1,8 @@
-import AgentWakeRoutes from '../../store/AgentWakeRoutes.mjs';
-import Button          from '../../../../src/button/Base.mjs';
-import Component       from '../../../../src/component/Base.mjs';
-import Container       from '../../../../src/container/Base.mjs';
+import AgentWakeRoutes                     from '../../store/AgentWakeRoutes.mjs';
+import Button                              from '../../../../src/button/Base.mjs';
+import Component                           from '../../../../src/component/Base.mjs';
+import Container                           from '../../../../src/container/Base.mjs';
+import {formatViewerTime, viewerTimeTitle} from './viewerTime.mjs';
 
 /**
  * The invoked Fleet wake-routes surface: can each seat be woken right now — and if not, WHICH leg
@@ -183,7 +184,12 @@ class WakeRoutePane extends Container {
                     ? `${me.seatStore.count} seat routes · every axis observed · captured ${me.formatStamp(snapshot.capability.capturedAt)}`
                     : partial
                         ? `${me.seatStore.count} seat routes · silent axes: ${snapshot.capability.reason || 'unnamed'} · captured ${me.formatStamp(snapshot.capability.capturedAt)}`
-                        : `Wake routes unavailable · ${snapshot.capability?.reason || 'unknown reason'}`
+                        : `Wake routes unavailable · ${snapshot.capability?.reason || 'unknown reason'}`;
+
+            // The T5 receipt for the meta line. `changeVdomRootKey` DELETES on a falsy value, so the
+            // unavailable branch — which renders no stamp — drops any title a previous snapshot left
+            // behind, rather than carrying a stale instant beside fresh copy.
+            metaEl.changeVdomRootKey('title', wired || partial ? viewerTimeTitle(snapshot.capability.capturedAt) : null)
         }
 
         me.renderRows(snapshot, wired || partial)
@@ -243,10 +249,11 @@ class WakeRoutePane extends Container {
                 me.axisConfig('delivery',     record.deliveryState,     record.deliveryReason),
                 me.axisConfig('last failure', record.failureErrorClass
                     ? `${record.failureErrorClass} at ${me.formatStamp(record.failureAt)}`
-                    : record.failureState, record.failureErrorClass ? null : record.failureReason),
+                    : record.failureState, record.failureErrorClass ? null : record.failureReason,
+                    record.failureErrorClass ? record.failureAt : null),
                 me.axisConfig('presence', record.presenceLastSeenAt
                     ? `${record.presenceState} · last seen ${me.formatStamp(record.presenceLastSeenAt)}`
-                    : record.presenceState, record.presenceReason)
+                    : record.presenceState, record.presenceReason, record.presenceLastSeenAt)
             ]
 
         return {
@@ -270,21 +277,31 @@ class WakeRoutePane extends Container {
      * @param {String|null} reason
      * @returns {Object}
      */
-    axisConfig(label, state, reason) {
-        const stateWord = state || 'unreported'
+    axisConfig(label, state, reason, instant = null) {
+        const
+            stateWord = state || 'unreported',
+            title     = viewerTimeTitle(instant);
 
         return {
             module: Component,
             cls   : ['fm-wakeroutes-axis', `is-${stateWord.replace(/[^a-zA-Z0-9-]/g, '-')}`],
-            text  : `${label}: ${stateWord}${reason ? ` — ${reason}` : ''}`
+            text  : `${label}: ${stateWord}${reason ? ` — ${reason}` : ''}`,
+            // The T5 receipt, on the containing line because the stamp is interpolated mid-sentence.
+            // Omitted entirely when the axis carries no instant — an empty title is a worse lie than
+            // no title, since a hover that yields nothing reads as "no receipt exists" rather than
+            // "this line has no time in it".
+            ...(title ? {vdom: {title}} : {})
         }
     }
 
-    /** @param {Date|String|Number|null} value @returns {String} */
+    /**
+     * @summary Viewer-local stamp via the shared cockpit formatter — see `viewerTime.mjs` for why
+     * format is single-sourced while this pane keeps its own "unknown time" miss-copy.
+     * @param {Date|String|Number|null} value
+     * @returns {String}
+     */
     formatStamp(value) {
-        const date = new Date(value);
-
-        return Number.isFinite(date.getTime()) ? date.toISOString().replace('T', ' ').slice(0, 16) + 'Z' : 'unknown time'
+        return formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 

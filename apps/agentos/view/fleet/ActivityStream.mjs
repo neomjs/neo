@@ -1,6 +1,7 @@
-import Component from '../../../../src/component/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
-import EventChip from './EventChip.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
+import EventChip          from './EventChip.mjs';
+import {formatViewerTime} from './viewerTime.mjs';
 
 /**
  * @summary Bound an activity-event list to the render window — the load-bearing backpressure core.
@@ -339,7 +340,7 @@ class ActivityStream extends Container {
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'start'},
             items : [
-                {module: Component, cls: ['fm-ev-time'], flex: 'none', text: this.formatTime(event?.occurredAt)},
+                {module: Component, cls: ['fm-ev-time'], flex: 'none', vdom: this.timeVdom(event?.occurredAt)},
                 {module: EventChip, flex: 'none', kind: event?.type},
                 {module: Component, cls: ['fm-ev-text'], flex: 1, text: coalesced ? `×${row.count} · ${this.eventText(event)}` : this.eventText(event)}
             ]
@@ -362,19 +363,25 @@ class ActivityStream extends Container {
     }
 
     /**
-     * @summary UTC HH:MM for a row timestamp — deterministic (no locale / timezone drift); an em dash
-     * when the event carries no time.
+     * @summary The row's time cell: viewer-local text with the exact UTC instant on hover.
+     *
+     * Previously this rendered `toISOString().slice(11, 16)` — UTC HH:MM, defended as "deterministic
+     * (no locale / timezone drift)". That determinism was real and aimed at the wrong reader: the
+     * WIRE must be zone-free so receipts cross-check, but a human scanning a live stream in
+     * Europe/Berlin was doing offset arithmetic on every glance at a surface built for at-a-glance
+     * truth. Both readers are now served — local text for the eye, `title` carrying the ISO instant
+     * for anyone citing the row as evidence.
+     *
+     * The em dash stays HERE rather than moving into the shared formatter: `viewerTime` owns the
+     * format and returns null for an unformattable instant, while each surface keeps its own
+     * miss-copy, because a dense stream row and a prose pane want different words for "no time".
      * @param {String|Number|null} occurredAt
-     * @returns {String}
+     * @returns {Object} vdom node — `text` always, `title` only when there is an instant to cite
      */
-    formatTime(occurredAt) {
-        if (occurredAt == null) {
-            return '—'
-        }
+    timeVdom(occurredAt) {
+        const view = formatViewerTime(occurredAt);
 
-        const date = new Date(occurredAt);
-
-        return Number.isNaN(date.getTime()) ? '—' : date.toISOString().slice(11, 16)
+        return view ? {text: view.text, title: view.title} : {text: '—'}
     }
 
     /**

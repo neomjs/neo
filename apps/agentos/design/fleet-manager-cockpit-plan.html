@@ -253,7 +253,7 @@
         <span style="margin-left:auto">▎ family: <i class="sw" style="background:var(--f-claude);border-radius:2px"></i>Claude <i class="sw" style="background:var(--f-gpt);border-radius:2px"></i>GPT <i class="sw" style="background:var(--f-gemini);border-radius:2px"></i>Gemini</span>
       </div>
     </div>
-    <p class="caption">Static direction mock — the cockpit's default view. Click an agent → its thought-stream, lane, repo, and PRs; drag it out → its own OS window on the same heap.<br>Identities, model labels, and lanes are an illustrative snapshot (bearer-checked 2026-07-16); they demonstrate card anatomy, not live state.</p>
+    <p class="caption">Static direction mock — the cockpit's default view. Click an agent → its thought-stream, lane, repo, and PRs; drag it out → its own OS window on the same heap.<br>Identities, model labels, and lanes are an illustrative snapshot (bearer-checked 2026-07-16); they demonstrate direction, not live state.<br><b>The shipped agent card has moved past this mock and the CODE is authoritative for its anatomy</b> (operator note, 2026-08-17): `AgentCard` renders a real profile image from `record.avatarUrl` where the mock draws a 20px monogram, and spans it across a two-line identity column with container-query width modes. This section stays as the direction that produced the card; for what the card IS, read `view/fleet/AgentCard.mjs` and `CARD-CONTRACT.md`. The §04 ladders below are unaffected — they specify a bar rather than depicting a state, which is why they do not go stale the same way.</p>
 
     <div class="principles">
       <div class="pr"><h3>State reads at a glance</h3><p>Status is encoded in form, not just text — an avatar (the keeper from the implemented view), a colored pulse, a family rail, a one-line "what it's doing now." You know the fleet's health before you read a word.</p></div>
@@ -403,7 +403,7 @@
   <section class="sec">
     <div class="sec-head"><span class="sec-num">06</span><h2>The design bar — type, density, chip &amp; motion, specified</h2>
       <span class="faint mono" style="margin-left:auto;font-size:12px">the contract the §04-pass implementation subs score against</span></div>
-    <p class="muted" style="max-width:74ch">The cockpit's mechanics landed leaf by leaf; its visual language was never designed — three status-chip idioms grew up independently in one month, type and density were never laddered, iconography is library default, motion is one mechanism. This section is the bar, at implementable depth: four ladders, each with its token contract (values live in <span class="mono">TOKENS.md</span> — the §04 token appendix) and an acceptance sketch. It specifies; it does not restate the honesty SEMANTICS the idioms already share — those are landed and referenced, never re-litigated. The token contract is a floor, not a ceiling: a delta is a recorded design decision on a ticket, never silent drift (the standing TOKENS.md rule).</p>
+    <p class="muted" style="max-width:74ch">The cockpit's mechanics landed leaf by leaf; its visual language was never designed — three status-chip idioms grew up independently in one month, type and density were never laddered, iconography is library default, motion is one mechanism. This section is the bar, at implementable depth: five ladders, each with its token contract (values live in <span class="mono">TOKENS.md</span> — the §04 token appendix) and an acceptance sketch. It specifies; it does not restate the honesty SEMANTICS the idioms already share — those are landed and referenced, never re-litigated. The token contract is a floor, not a ceiling: a delta is a recorded design decision on a ticket, never silent drift (the standing TOKENS.md rule).</p>
 
     <!-- ── ladder 1 · type + density ── -->
     <div class="lanes" style="margin-top:18px">
@@ -481,6 +481,28 @@
         </div>
       </div>
     </div>
-    <p class="caption">The §04 bar, specified: four ladders, token values in TOKENS.md, semantics unchanged where the honesty discipline already landed. Implementation subs score against this page.</p>
+    <!-- ── ladder 5 · instant presentation ── -->
+    <div class="lanes" style="margin-top:18px">
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">T5</span><h3>Instants — viewer-local presentation, UTC wire</h3><span class="lane-own"><b>consumers:</b> activity stream, catch-up, memories, wake-route; every future pane rendering a time</span></div>
+        <div class="lane-body"><p>Four surfaces rendered instants and all four derived their string from UTC. The drift was not four competing formats — it was <b>one format copy-pasted three times</b> plus a variant, which is the harder kind to see, because each surface looks locally consistent and no one owns the rule. An operator seat in Europe/Berlin did offset arithmetic on every glance at surfaces whose whole purpose is at-a-glance truth. This ladder makes the presentation edge a rule rather than a habit; it does <b>not</b> touch the wire, and the distinction between the two is the substance.</p>
+          <div class="reg-table-wrap"><table class="reg-table">
+            <tr><th>layer</th><th>rule</th><th>why it is that way</th></tr>
+            <tr><td>wire (DTOs, envelopes, receipts)</td><td><b>ISO-8601 UTC, always.</b> Never localised, never written back from a view</td><td>receipts and cross-agent evidence tables depend on wire-time being zone-free — two agents citing one instant must produce the same string</td></tr>
+            <tr><td>human text</td><td><b>Viewer locale + zone via <span class="mono">Intl.DateTimeFormat</span></b>, through the one shared helper (<span class="mono">view/fleet/viewerTime.mjs</span>)</td><td>the reader is a person in a chair, not a log parser; a surface built for glancing must not require arithmetic</td></tr>
+            <tr><td>same-day vs older</td><td>same viewer-calendar day → <b>time only</b>; older → compact locale date + time</td><td>a bare <span class="mono">10:15</span> on a three-day-old row is misleading rather than terse; the day boundary is judged in the VIEWER's calendar, never UTC's</td></tr>
+            <tr><td>receipt</td><td>the exact ISO instant rides <span class="mono">title</span> / hover</td><td>the operator and the agent citing the row as evidence are both served, so neither has to lose</td></tr>
+            <tr><td>miss-copy</td><td>the helper returns <span class="mono">null</span>; the <b>surface</b> owns its own empty words</td><td>a dense stream row wants <span class="mono">—</span>, a prose pane wants <span class="mono">unknown time</span> — collapsing them trades a real duplication for a fake uniformity</td></tr>
+          </table></div>
+          <ul class="subs" style="margin-top:12px">
+            <li><span class="s-tag">binding</span><span class="s-txt"><b>No bespoke per-surface formatter.</b> A surface that needs a time imports the helper; a surface that needs a NEW shape extends the helper and this row, never its own local copy. That is the rule the four duplicates existed for want of.</span></li>
+            <li><span class="s-tag">testing</span><span class="s-txt"><b>Pin the zone in specs that assert formatted output</b> — an ambient-zone assertion passes in a UTC runner while proving nothing about the defect, since the runner's own zone is the one case that cannot detect it. Pane specs assert the SENTENCE they compose; the format contract is proven once, against a pinned locale and zone.</span></li>
+            <li><span class="s-tag">sketch</span><span class="s-txt"><b>Acceptance:</b> zero <span class="mono">toISOString()</span>-derived human strings in cockpit views (greppable); a viewer in a non-UTC zone reads local wall-clock with the ISO instant on hover; the same-day ladder flips on the viewer's midnight, not UTC's.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <p class="caption">The §04 bar, specified: five ladders, token values in TOKENS.md, semantics unchanged where the honesty discipline already landed. Implementation subs score against this page.</p>
   </section>
 </div>

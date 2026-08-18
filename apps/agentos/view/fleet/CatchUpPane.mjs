@@ -1,7 +1,8 @@
-import Button         from '../../../../src/button/Base.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import Container      from '../../../../src/container/Base.mjs';
-import CatchUpEntries from '../../store/CatchUpEntries.mjs';
+import Button                              from '../../../../src/button/Base.mjs';
+import Component                           from '../../../../src/component/Base.mjs';
+import Container                           from '../../../../src/container/Base.mjs';
+import CatchUpEntries                      from '../../store/CatchUpEntries.mjs';
+import {formatViewerTime, viewerTimeTitle} from './viewerTime.mjs';
 
 /**
  * @summary Resolve a citation to a canonical public drill target. Only the source-owned PR
@@ -245,7 +246,11 @@ class CatchUpPane extends Container {
 
         target.text = value?.status === 'advanced'
             ? `Caught up through ${this.formatStamp(value.lastSeen)}`
-            : value?.reason ? `Mark refused · ${value.reason}` : ''
+            : value?.reason ? `Mark refused · ${value.reason}` : '';
+
+        // T5 receipt on the containing line. Falsy removes, so a refusal or a cleared outcome cannot
+        // keep the previous advance's instant hovering behind unrelated copy.
+        target.changeVdomRootKey('title', value?.status === 'advanced' ? viewerTimeTitle(value.lastSeen) : null)
     }
 
     /** @summary Request a daily first-use window. */
@@ -323,7 +328,11 @@ class CatchUpPane extends Container {
         if (windowEl) {
             windowEl.text = window
                 ? `${this.formatStamp(window.windowStart)} → ${this.formatStamp(window.windowEnd)} · ${snapshot.partition === 'unified' ? 'whole fleet' : snapshot.partition}`
-                : firstUse ? 'No runtime anchor yet' : 'History not observed yet'
+                : firstUse ? 'No runtime anchor yet' : 'History not observed yet';
+
+            // Both bounds ride the receipt, in the order the sentence reads them — a catch-up window
+            // is only citable as a PAIR, and a hover naming one end would be worse than naming none.
+            windowEl.changeVdomRootKey('title', window ? viewerTimeTitle(window.windowStart, window.windowEnd) : null)
         }
 
         firstEl && (firstEl.hidden = !firstUse);
@@ -391,7 +400,11 @@ class CatchUpPane extends Container {
             cls   : ['fm-catch-up-source-meta'],
             text  : envelope
                 ? `${envelope.notAuthority === true ? 'not authority' : 'authority unproven'} · generated ${this.formatStamp(envelope.generatedAt)} · coverage ${coverage.included ?? 0}/${coverage.totalResolved ?? '?'} · manifest ${envelope.sourceManifestHash || 'unavailable'}`
-                : 'No source envelope returned'
+                : 'No source envelope returned',
+            // Built as config rather than assigned, so the receipt rides `vdom` here — same rule, the
+            // other construction shape. This line is the one an agent quotes when citing a source
+            // envelope, which makes its instant the least affordable one to lose.
+            ...(envelope && viewerTimeTitle(envelope.generatedAt) ? {vdom: {title: viewerTimeTitle(envelope.generatedAt)}} : {})
         }, {
             module: Component,
             cls   : ['fm-catch-up-source-body'],
@@ -438,11 +451,16 @@ class CatchUpPane extends Container {
         }
     }
 
-    /** @param {Date|String|Number|null} value @returns {String} */
+    /**
+     * @summary Viewer-local stamp via the shared cockpit formatter. This pane, `MemoriesPane` and
+     * `WakeRoutePane` each carried a byte-identical UTC formatter — one implementation copy-pasted
+     * three times, which reads as consistency right up until the rule needs to change in one place.
+     * The miss-copy stays here because a prose pane says "unknown time" where a dense row says "—".
+     * @param {Date|String|Number|null} value
+     * @returns {String}
+     */
     formatStamp(value) {
-        const date = new Date(value);
-
-        return Number.isFinite(date.getTime()) ? date.toISOString().replace('T', ' ').slice(0, 16) + 'Z' : 'unknown time'
+        return formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 
