@@ -213,7 +213,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     const makeCockpit = (grid, rosterWired = false, gridAdapterState = 'sample', rosterSourceMode = 'sample') => ({
         clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
         degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
-        getReference       : reference => reference === 'fleet-grid' ? grid : null,
+        // the memories owner push routes through the phase-blind accessor; an
+        // unmaterialized pane resolves null — the same silence contract as getReference
+        getMemoriesPane: () => null,
+        getReference   : reference => reference === 'fleet-grid' ? grid : null,
         // mirrors the class field default — the loss edge reads it to keep a never-wired surface
         // on its honest sample seed instead of claiming last-known data
         gridAdapterState,
@@ -597,8 +600,11 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const cockpit = {
             // the real accessor runs against this fake's getReference — the detail consumers
             // route through it (docked: projected pane; detached: the owner-held handle)
-            detachedDetailPane : null,
-            getAgentDetailPane : FleetCockpit.prototype.getAgentDetailPane,
+            detachedDetailPane: null,
+            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
+            // the REAL phase-blind memories accessor over this fake's surface: no
+            // tear-out maps here → safe-nav falls through to getReference, same as the detail twin
+            getMemoriesPane    : FleetCockpit.prototype.getMemoriesPane,
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
             getReference       : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
@@ -1270,14 +1276,17 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         const cockpit = {
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
-            getReference       : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
-            gridAdapterState   : 'sample',
-            gridReadGeneration : 0,
-            mapRosterRow       : FleetCockpit.prototype.mapRosterRow,
-            reconcileRoster    : FleetCockpit.prototype.reconcileRoster,
-            reconcileSelection : FleetCockpit.prototype.reconcileSelection,
-            loadRoster         : FleetCockpit.prototype.loadRoster,
-            rosterWired        : false,
+            // the memories owner push routes through the phase-blind accessor; an
+            // unmaterialized pane resolves null — the same silence contract as getReference
+            getMemoriesPane   : () => null,
+            getReference      : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            gridAdapterState  : 'sample',
+            gridReadGeneration: 0,
+            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
+            loadRoster        : FleetCockpit.prototype.loadRoster,
+            rosterWired       : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
             syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
@@ -1535,7 +1544,10 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             loadBrainHealth       : () => driven.push('brainHealth'),
             loadRoster            : () => driven.push('roster'),
             ensureViewerWakeStream: () => driven.push('viewerWake'),
-            getReference          : reference => panes[reference] ?? null
+            // the memories re-drive routes through the phase-blind accessor: a vesseled
+            // pane must receive the reconnect re-drive too, so the seam is the accessor, not the raw reference
+            getMemoriesPane: () => panes.memories,
+            getReference   : reference => panes[reference] ?? null
         });
 
         expect(driven.sort()).toEqual([
@@ -1551,6 +1563,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             loadBrainHealth       : () => driven.push('brainHealth'),
             loadRoster            : () => driven.push('roster'),
             ensureViewerWakeStream: () => driven.push('viewerWake'),
+            getMemoriesPane       : () => null,
             getReference          : () => null
         });
 
