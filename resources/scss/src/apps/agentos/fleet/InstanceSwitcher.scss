@@ -1,0 +1,152 @@
+/* AgentOS.view.fleet.InstanceSwitcher — the top-chrome instance scope control (#17328).
+   Chip class: AFFORDANCE (§06 T2 third class — an action, never an observation; 6px radius is the
+   recorded affordance-class distinction). Colors read the --fm-* token layer only; the dot binds
+   --fm-dot through the state class exactly like StateDot (one token indirection, unmatched class
+   renders quiet). Font sizes are literals AT the §06 role values (chrome 11/1 · body 12/1.45 ·
+   detail 11/1.4 · micro 10/1.3) pending the T1 tokenization pass — each is annotated with its
+   role so the migration is mechanical. Menu motion: reveal/dismiss class on the standards
+   vocabulary (--motion-panel), with the reduced-motion collapse in-file (the StateDot
+   inclusion-gate precedent — outside the dock's token-layer scope). */
+.fm-instance-switcher {
+    position: relative;
+
+    .fm-instance-trigger {
+        align-items  : center;
+        background   : transparent;
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;            /* affordance-class distinction, recorded in §06 T2 */
+        color        : var(--fm-ink-dim);
+        cursor       : pointer;
+        display      : inline-flex;
+        font-family  : var(--fm-font-mono);
+        font-size    : 11px;           /* role: --fm-text-chrome */
+        gap          : 8px;
+        letter-spacing: .08em;
+        line-height  : 1;
+        padding      : 4px 8px;
+        text-transform: uppercase;
+
+        &:hover {
+            border-color: var(--fm-line-soft);
+            color       : var(--fm-ink)
+        }
+    }
+
+    /* the dot IS the family's mark-only member — the shared .fm-state-dot class carries geometry,
+       halo, and the state-class → --fm-dot mapping (StateDot.scss); nothing re-styled here */
+
+    .fm-instance-label {
+        max-width    : 180px;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .fm-instance-caret {
+        color: var(--fm-ink-faint);
+    }
+
+    .fm-instance-menu {
+        background   : var(--fm-panel-2);
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        box-shadow   : 0 8px 24px rgba(0, 0, 0, .35);
+        display      : flex;
+        flex-direction: column;
+        min-width    : 320px;
+        padding      : 4px;
+        position     : absolute;
+        right        : 0;
+        top          : calc(100% + 4px);
+        z-index      : 50;
+
+        /* reveal class (§06 T4): chrome enters from its edge; dismissal removes the node, so only
+           the reveal needs a rule — and reduced-motion collapses it below */
+        animation: fm-instance-menu-reveal var(--motion-panel, 280ms) cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .fm-instance-row,
+    .fm-instance-manage {
+        align-items  : center;
+        background   : transparent;
+        border       : 1px solid transparent;
+        border-radius: 4px;
+        color        : var(--fm-ink-dim);
+        cursor       : pointer;
+        display      : flex;
+        gap          : 8px;
+        padding      : 8px;
+        text-align   : left;
+
+        &:hover {
+            background: var(--fm-panel);
+            color     : var(--fm-ink)
+        }
+    }
+
+    /* the bound row is marked STRUCTURALLY — border + weight, never hue-alone (§06 law-1) */
+    .fm-instance-row.is-bound {
+        border-color: var(--fm-line-soft);
+
+        .fm-instance-row-name {
+            color      : var(--fm-ink);
+            font-weight: 600;
+        }
+    }
+
+    .fm-instance-row-name {
+        font-family: var(--fm-font-sans);
+        font-size  : 12px;             /* role: --fm-text-body */
+        line-height: 1.45;
+    }
+
+    .fm-instance-row-endpoint {
+        color        : var(--fm-ink-faint);
+        flex         : 1;
+        font-family  : var(--fm-font-mono);
+        font-size    : 11px;           /* role: --fm-text-detail */
+        line-height  : 1.4;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .fm-instance-row-custodian {
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 4px;
+        color        : var(--fm-ink-dim);
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 10px;           /* role: --fm-text-micro */
+        line-height  : 1.3;
+        padding      : 2px 8px;
+    }
+
+    .fm-instance-menu-sep {
+        border-top: 1px solid var(--fm-line-soft);
+        margin    : 4px 0;
+    }
+
+    .fm-instance-manage {
+        font-family: var(--fm-font-sans);
+        font-size  : 12px;             /* role: --fm-text-body */
+    }
+}
+
+@keyframes fm-instance-menu-reveal {
+    from {
+        opacity  : 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity  : 1;
+        transform: translateY(0);
+    }
+}
+
+/* reduced-motion collapse (§06 T4): the state change lands instantly, never removed */
+@media (prefers-reduced-motion: reduce) {
+    .fm-instance-switcher .fm-instance-menu {
+        animation: none;
+    }
+}

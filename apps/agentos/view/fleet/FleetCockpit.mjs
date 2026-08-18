@@ -2210,6 +2210,11 @@ class FleetCockpit extends Container {
             } else {
                 (me.tearOutConnects ??= {})[tearOutItemId] = {windowId}
             }
+
+            // scope is a per-window fact — the torn-out window's OS chrome (its title)
+            // names the instance it serves, from its first connected moment; the switch owner
+            // re-pushes over `tearOutConnects` on every rebind
+            me.pushInstanceTitle(windowId);
             return
         }
 
@@ -3535,6 +3540,21 @@ class FleetCockpit extends Container {
                 transport: me.shellTransport
             });
 
+            // the banner is the main window's SECOND scope-speaking place — every visible
+            // verdict carries the bound instance's label, composed HERE where provider truth lives
+            // so the pure derivation (and its spec matrix) stays label-free. The chrome switcher's
+            // dot mirrors the SAME verdict (one truth, two renderers): live→ok · degraded→limited
+            // · cold→off.
+            const
+                provider      = me.getStateProvider(),
+                boundId       = provider?.getData('boundProfileId'),
+                boundRecord   = boundId ? provider.getStore('fleetInstances')?.get(boundId) : null,
+                instanceLabel = boundRecord ? (boundRecord.label || String(boundRecord.canonicalEndpoint).replace(/^https?:\/\//, '')) : null;
+
+            text = instanceLabel && !hidden ? `${instanceLabel} — ${text}` : text;
+
+            provider?.setData({instanceState: hidden ? 'ok' : (kind === 'degraded' ? 'limited' : 'off')});
+
             // The manual recovery affordance shares the banner's visibility verdict: a fully live
             // spine earns zero pixels from BOTH; any visible verdict (cold or degraded) offers the
             // one-click re-drive. Same control in both topologies — the browser flow has the
@@ -3554,6 +3574,29 @@ class FleetCockpit extends Container {
                 text
             })
         }
+    }
+
+    /**
+     * @summary Pushes the bound instance's label into one torn-out window's `document.title` —
+     * the scope rule made mechanical: a torn-out window has no chrome switcher and no spine
+     * banner, so its OS title is the one place its scope can live. Reads the SAME provider truth
+     * the banner composes from (bound profileId → roster row → label-or-endpoint); a missing
+     * roster row pushes nothing — absence stays absence, never an invented name. Rides the
+     * DocumentHead addon per target window; deliberately NOT the torn-out pane's controller chain,
+     * so the known torn-out handler-loss class (a vessel's controller resolving to a cached null)
+     * cannot reach it.
+     * @param {String} windowId The torn-out window to title.
+     */
+    pushInstanceTitle(windowId) {
+        let provider = this.getStateProvider(),
+            boundId  = provider?.getData('boundProfileId'),
+            record   = boundId ? provider.getStore('fleetInstances')?.get(boundId) : null,
+            label    = record ? (record.label || String(record.canonicalEndpoint).replace(/^https?:\/\//, '')) : null;
+
+        label && windowId && Neo.main.addon.DocumentHead.setTitle({
+            value: `${label} — Agent OS`,
+            windowId
+        })
     }
 
     /**
