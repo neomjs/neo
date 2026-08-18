@@ -411,6 +411,21 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
     const reviewConnection = pullRequest.reviewRequests;
     const reviewers        = (reviewConnection?.nodes || []).map(normalizeRequestedReviewer)
         .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
+    // Only APPROVED reviews are carried, and the narrowing is deliberate rather than incidental.
+    // This collection exists to answer "which commit earned the approval", and it also enters the
+    // double-read drift comparison — so keeping COMMENTED/PENDING reviews would fail observations
+    // with SOURCE_CHANGED_DURING_READ every time a peer left a comment mid-read, for a change that
+    // moves no readiness. A CHANGES_REQUESTED landing mid-read still trips the comparison, through
+    // `reviewDecision`, which is where that state actually lives.
+    const reviewsConnection = pullRequest.reviews;
+    const approvals         = (reviewsConnection?.nodes || [])
+        .filter(node => node?.state === 'APPROVED' && node?.commit?.oid && node?.submittedAt)
+        .map(node => ({oid: node.commit.oid, submittedAt: node.submittedAt}))
+        // Sorted rather than trusting connection order: the caller reads `.at(-1)` as "latest", and
+        // an ordering assumption that holds today would fail silently — as a WRONG anchor, not a
+        // missing one. `oid` breaks ties so two approvals sharing a timestamp stay deterministic
+        // across the two reads, which the drift comparison requires.
+        .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.oid.localeCompare(b.oid));
     const commit            = pullRequest.commits?.nodes?.[0]?.commit || null;
     const rollup            = commit?.statusCheckRollup;
     const contextConnection = rollup?.contexts;
@@ -431,6 +446,11 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
             available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),
             hasNextPage: Boolean(reviewConnection?.pageInfo?.hasNextPage),
             nodes      : reviewers
+        },
+        approvals       : {
+            available      : Boolean(reviewsConnection && Array.isArray(reviewsConnection.nodes)),
+            hasPreviousPage: Boolean(reviewsConnection?.pageInfo?.hasPreviousPage),
+            nodes          : approvals
         },
         checks: {
             commitAvailable  : Boolean(commit),
@@ -745,13 +765,23 @@ async function buildMergeReadinessProjection({
             message: `Required context '${item.context}' is ${item.state}.`
         }));
 
+    // The approval anchor is a REPORTING channel, not part of the predicate, so an unreadable
+    // connection yields `undefined` — which the validator reads as "not reported", never as
+    // "fresh". That inverts the fail-closed rule every other field here follows, and it has to:
+    // the other fields certify readiness, so an un-queried one must block; this one certifies
+    // nothing, and a caller that never asks for it is not making a weaker claim.
+    const approvedAtOid = snapshot.approvals.available
+        ? snapshot.approvals.nodes.at(-1)?.oid
+        : undefined;
     const predicate = validateMergeReady({
         state           : snapshot.state,
         mergedAt        : snapshot.mergedAt,
         reviewDecision  : snapshot.reviewDecision,
         checksGreen,
         mergeStateStatus: snapshot.mergeStateStatus,
-        reviewRequests
+        reviewRequests,
+        approvedAtOid,
+        headRefOid      : snapshot.headRefOid
     });
     const sourceMergeReady    = predicate.strictMergeReady && sourceBlockers.length === 0;
     const certifiedMergeReady = sourceMergeReady && identityBindingComplete;

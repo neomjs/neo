@@ -385,6 +385,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         reviewDecision = 'APPROVED',
         reviewHasNextPage = false,
         reviewers = [],
+        // `null` models a connection GitHub did not return at all — the silence case — which is
+        // distinct from an empty node list (fetched, no approvals).
+        reviews = [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}}],
+        reviewsHasPreviousPage = false,
         state = 'OPEN'
     } = {}) => ({
         number        : 16029,
@@ -399,6 +403,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
             nodes   : reviewers.map(login => ({
                 requestedReviewer: {__typename: 'User', login}
             }))
+        },
+        reviews: reviews === null ? null : {
+            pageInfo: {hasPreviousPage: reviewsHasPreviousPage},
+            nodes   : reviews
         },
         commits: {
             nodes: [{
@@ -484,6 +492,68 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(Object.isFrozen(result)).toBe(true);
         expect(Object.isFrozen(result.requiredSet.contexts)).toBe(true);
         expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
+    });
+
+    // The approval anchor. `validateMergeReady`'s own spec covers the advisory text; these cover the
+    // WIRING, which is the half that can silently not exist. The predicate grew the channel before
+    // any caller supplied it, and a parameter with no producer reports nothing and fails nothing —
+    // so each case below is written to go red against a call site that never passes an oid.
+    test('#17339: an approval earned on the current head raises no anchor advisory', async () => {
+        const result = await project(dependencies());
+
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.predicate.advisories).toEqual([]);
+    });
+
+    test('#17339: an approval earned on a superseded commit is reported without blocking readiness', async () => {
+        // Approved at HEAD, then the head MOVED — the real shape of this defect, and it also proves
+        // the anchor is compared against the observed head rather than against a fixed constant.
+        // `checkCommit` moves with it: an exact-head rollup is required for the observation to stay
+        // positive, which is what makes this an advisory-on-a-green-PR rather than a red one.
+        const moved = () => pullRequest({
+            checkCommit: NEXT_HEAD,
+            headRefOid : NEXT_HEAD,
+            reviews    : [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}}]
+        });
+        const result = await project(dependencies({snapshots: [moved(), moved()]}));
+
+        // ADVISORY, not blocker: the badge is genuinely APPROVED and CI is genuinely green, so the
+        // observation must stay positive. A stale anchor that flipped the verdict would red every
+        // rebased PR in the repo and train readers to ignore the signal.
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.predicate.strictMergeReady).toBe(true);
+        expect(result.predicate.advisories).toHaveLength(1);
+        expect(result.predicate.advisories[0]).toContain(HEAD);
+        expect(result.predicate.advisories[0]).toContain(NEXT_HEAD);
+    });
+
+    test('#17339: the LATEST approval is the anchor, whatever order the connection arrives in', async () => {
+        const stale   = 'c'.repeat(40);
+        const reviews = [
+            // newest FIRST in the payload: if the derivation trusted connection order instead of
+            // sorting, it would anchor on the stale one and report a false advisory — a WRONG
+            // anchor rather than a missing one, which is the failure that would not look like a bug.
+            {state: 'APPROVED',          submittedAt: '2026-07-29T07:30:00.000Z', commit: {oid: HEAD}},
+            {state: 'APPROVED',          submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: stale}},
+            {state: 'CHANGES_REQUESTED', submittedAt: '2026-07-29T07:45:00.000Z', commit: {oid: stale}},
+            {state: 'COMMENTED',         submittedAt: '2026-07-29T07:50:00.000Z', commit: {oid: stale}}
+        ];
+        const result = await project(dependencies({snapshots: [pullRequest({reviews}), pullRequest({reviews})]}));
+
+        // and a later COMMENTED/CHANGES_REQUESTED review does not become the anchor: only an
+        // APPROVED review earns one.
+        expect(result.predicate.advisories).toEqual([]);
+    });
+
+    test('#17339: an unfetched review connection yields silence, never a fresh-anchor claim', async () => {
+        const deps   = dependencies({snapshots: [pullRequest({reviews: null}), pullRequest({reviews: null})]});
+        const result = await project(deps);
+
+        // The inverse of this module's fail-closed rule, and deliberately so: the anchor certifies
+        // nothing, so a caller that never asked for it is not making a weaker claim. What must NOT
+        // happen is an advisory asserting freshness it never observed.
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.predicate.advisories).toEqual([]);
     });
 
     test('#16902: query carries exact workflow-run coordinates instead of inferring attempts by job name', () => {
