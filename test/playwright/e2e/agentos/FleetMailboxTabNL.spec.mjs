@@ -304,7 +304,11 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
             .toBeLessThan(geo.viewport.height);
 
         // AC-1 across EVERY tab + AC-3: each header label is readable at the rail's shipped width.
-        const tabButtons = detail.locator('.neo-tab-header-toolbar .neo-tab-button'),
+        // `.neo-tab-header-button` is the header-strip class; `.neo-tab-button` matches only in some
+        // themes/versions, and grabbing that alone counted zero here — the sibling test above uses
+        // the same `.or()` pair for exactly this reason.
+        const tabButtons = detail.locator('.neo-tab-header-button')
+                  .or(detail.locator('.neo-tab-header-toolbar .neo-tab-button')),
               tabCount   = await tabButtons.count();
 
         expect(tabCount, 'the detail rail renders its three tabs').toBeGreaterThanOrEqual(3);
