@@ -253,6 +253,26 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             }
         });
 
+        // AC-1's "reflected in the next sweep" clause, asserted through the production derivation
+        // rather than through the streak value that feeds it. `consecutiveFailures === 0` is a PROXY
+        // for release; `isRepoDue` is what the sweep actually calls, so it is what has to flip.
+        // The window is chosen to discriminate: at a streak of 42 the cadence caps at backoffCapMs
+        // (120s) and the repo is suppressed at now-111; cleared, it falls back to the 60s base and
+        // is due. A `now` outside that band would pass in both directions and prove nothing.
+        const dueStateFor = state => isRepoDue({
+            repo              : {tenantId: 't1', repoSlug: throttled},
+            persistedRepoState: state,
+            now               : 100_000,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        });
+
+        const beforeClear = await TenantRepoSyncService.readPersistedRevisions({filePath: revisionsFile});
+
+        // and the suppression is attributable to the STREAK: no embeddingRecovery in this fixture,
+        // so `recoveryBypass` cannot be what releases the lane a moment from now.
+        expect(dueStateFor(beforeClear[throttled])).toMatchObject({due: false, recoveryBypass: false, backoffCapped: true});
+
         const result = await TenantRepoSyncService.clearTenantRepoBackoff({
             onlyRepoSlugs    : [throttled, healthy],
             revisionsFilePath: revisionsFile,
@@ -288,7 +308,13 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // that materializes every field, so "never cleared" is present-and-null exactly like every
         // other unobserved field in that shape.
         expect(persisted[healthy].backoffClearedAt).toBeNull();
-        expect(persisted[untouched].backoffClearedAt).toBeNull()
+        expect(persisted[untouched].backoffClearedAt).toBeNull();
+
+        // the other half of the clause: the same derivation, same instant, now releases the lane —
+        // and the repo left outside the selector stays suppressed, so this is a scoped release
+        // rather than a manifest-wide one.
+        expect(dueStateFor(persisted[throttled])).toMatchObject({due: true, dueReason: 'cadence'});
+        expect(dueStateFor(persisted[untouched]).due).toBe(false)
     });
 
     test('clear-backoff refuses an unknown slug with the sweep\'s own error code, rather than clearing nothing quietly', () => {
