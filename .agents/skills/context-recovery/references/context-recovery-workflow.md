@@ -42,10 +42,13 @@ message already redirects it.
      self-DM (`from == to == @me`) in full, *regardless of read status* — bulk
      `mark_read` and read-projection rollbacks hide it from `unread` scoping.
      None → `sunset-body: none-found`.
-   - **Outbox:** `list_messages({box:'outbox'})` over the current window — relayed
-     rulings, lane claims, review verdicts. A ruling you RELAYED lives only in what
-     you SENT, and contradicting your own broadcast is worse than not knowing it,
-     because peers have already acted. None → `outbox: none-in-window`.
+   - **Outbox:** `list_messages({box:'outbox'})` over the current window. The test is
+     not what KIND of thing you sent but whether the outbox is its ONLY durable
+     holder — a relayed ruling, a lane claim, a verdict, a measurement, a negative
+     result: none of these reach your inbox, your turn memories, or GitHub. Harm
+     needs no reader. A row with `readAt: null` still costs silent re-derivation and
+     a second, contradicting answer published beside the first, both yours. None →
+     `outbox: none-in-window`.
 2. **Recency feed:** call `query_recent_turns({agentIdentity: '@me', detail:
    'summary', limit: 20})` first. This is the chronological axis: identify the
    last lane, PR/ticket ids, branch, review verdicts, blockers, and unresolved
