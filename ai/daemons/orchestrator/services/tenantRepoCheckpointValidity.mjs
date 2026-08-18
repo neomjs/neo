@@ -113,7 +113,10 @@ export function normalizeTenantRepoCheckpointState(value) {
             corpusOutstanding  : null,
             // And the fence censuses: null is "never observed", never "zero fenced".
             undeliverableChunks: null,
-            contentPoisonChunks: null
+            contentPoisonChunks: null,
+            // A bare SHA predates the operator-clear marker too, so no intervention was recorded.
+            backoffClearedAt          : null,
+            backoffClearedFromFailures: null
         };
     }
 
@@ -151,7 +154,16 @@ export function normalizeTenantRepoCheckpointState(value) {
         // Two fence families, two censuses, one reader. A record written before the content-poison
         // census existed normalizes to null — "never observed", which is exactly what it is.
         undeliverableChunks: normalizeFenceCensus(value.undeliverableChunks),
-        contentPoisonChunks: normalizeFenceCensus(value.contentPoisonChunks)
+        contentPoisonChunks: normalizeFenceCensus(value.contentPoisonChunks),
+        // Operator-consumed backoff clear. This normalizer is an ALLOWLIST — a field absent from it
+        // is silently dropped on read, so a marker written by the clear path would vanish before any
+        // reader saw it. Kept as a plain ISO string / count rather than parsed: the snapshot renders
+        // it, nothing branches on it, and a stricter shape would turn an old record into a malformed
+        // checkpoint over a field that is purely informational.
+        backoffClearedAt          : typeof value.backoffClearedAt === 'string' && value.backoffClearedAt
+            ? value.backoffClearedAt
+            : null,
+        backoffClearedFromFailures: normalizeFailureCount(value.backoffClearedFromFailures) || null
     };
 }
 

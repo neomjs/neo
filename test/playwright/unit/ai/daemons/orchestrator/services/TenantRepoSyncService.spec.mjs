@@ -275,7 +275,20 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(persisted[throttled].lastRunAttemptAt).toBe(111);
         expect(persisted[throttled].ingestContractVersion).toBe(3);
         // and a repo outside the selector is not collateral
-        expect(persisted[untouched].consecutiveFailures).toBe(7)
+        expect(persisted[untouched].consecutiveFailures).toBe(7);
+
+        // AC-1's third clause: the consumption is RECORDED, not just performed. Persisted beside the
+        // reset so the deployment-state snapshot can surface it to an operator with no shell — and
+        // carrying what the streak was, because "cleared 42 -> 0" answers a question "cleared" does
+        // not: whether the suppression removed was the one being chased.
+        expect(persisted[throttled].backoffClearedFromFailures).toBe(42);
+        expect(typeof persisted[throttled].backoffClearedAt).toBe('string');
+        // an unchanged repo earns no marker — a clear that did nothing must not read as an
+        // intervention later. NULL rather than absent: the checkpoint normalizer is an allowlist
+        // that materializes every field, so "never cleared" is present-and-null exactly like every
+        // other unobserved field in that shape.
+        expect(persisted[healthy].backoffClearedAt).toBeNull();
+        expect(persisted[untouched].backoffClearedAt).toBeNull()
     });
 
     test('clear-backoff refuses an unknown slug with the sweep\'s own error code, rather than clearing nothing quietly', () => {

@@ -3302,7 +3302,8 @@ class TenantRepoSyncService extends Base {
               // over every checkpoint on disk.
               revisions = await this.readPersistedRevisions({filePath, strict: true}),
               cleared   = [],
-              unchanged = [];
+              unchanged = [],
+              clearedAt = new Date().toISOString();
 
         for (const slug of targetSlugs) {
             const state  = revisions[slug],
@@ -3313,7 +3314,17 @@ class TenantRepoSyncService extends Base {
                 continue
             }
 
-            revisions[slug] = {...state, consecutiveFailures: 0};
+            // The consumption marker is PERSISTED beside the reset, not merely logged: a log line
+            // lives in one container's stdout, while the deployment-state snapshot is the surface an
+            // operator reads without shell access. Recording what the streak WAS matters as much as
+            // when — "cleared at 12:40" tells you an intervention happened, "cleared 42 → 0 at
+            // 12:40" tells you whether the suppression it removed was the one you were chasing.
+            revisions[slug] = {
+                ...state,
+                consecutiveFailures       : 0,
+                backoffClearedAt          : clearedAt,
+                backoffClearedFromFailures: streak
+            };
             cleared.push({repoSlug: slug, previousConsecutiveFailures: streak})
         }
 
