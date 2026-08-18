@@ -559,6 +559,17 @@ class FleetCockpit extends Container {
      */
     operatorRecord = null
     /**
+     * Owner-held operator-seat identity posture — `{conflated, seatIdentity}` once the resolved
+     * viewer identity has been compared against the roster's registered agent identities, `null`
+     * while unresolved or while the roster holds no rows to judge against (unknown renders as
+     * unknown, never as a clean bill). A conflated posture means every send through this
+     * transport is attributed to an AGENT seat — the pane renders that truth beside the compose
+     * surface instead of letting the operator send unknowingly.
+     * @member {Object|null} operatorIdentityPosture=null
+     * @protected
+     */
+    operatorIdentityPosture = null
+    /**
      * The last operator-inbox mailbox-mirror snapshot — OWNER-held so a re-projected operator-mailbox pane
      * re-materializes at current truth (written by {@link #loadOperatorInbox}). `null` = `unobserved`.
      * @member {Object|null} operatorSnapshot=null
@@ -1352,6 +1363,7 @@ class FleetCockpit extends Container {
                     record          : me.operatorRecord,
                     snapshot        : me.operatorSnapshot,
                     recipientOptions: me.buildOperatorRecipientOptions(),
+                    identityPosture : me.operatorIdentityPosture,
                     listeners       : {compose: 'onOperatorCompose', inboxPageRequest: 'onOperatorInboxPageRequest'},
                     reference       : 'operator-mailbox'
                 };
@@ -3001,10 +3013,40 @@ class FleetCockpit extends Container {
             // `@`-form authority, so carry both: `githubUsername` for the possession match, the node id as
             // the explicit read subject (they canonicalize to the same value).
             me.operatorRecord = {agentIdentityNodeId: nodeId, githubUsername: nodeId.replace(/^@/, '')};
+            // the seat-conflation honesty check rides the same resolution: the roster the cockpit
+            // already holds knows every registered agent identity, and a viewer claim matching one
+            // means sends are attributed to that seat — a truth the pane must render, not swallow
+            me.operatorIdentityPosture = me.deriveOperatorIdentityPosture(nodeId);
             // a materialized pane picks up the identity live and reads; an autoHidden one materializes from
             // the held record on reveal
-            me.getOperatorMailboxPane()?.set({record: me.operatorRecord})
+            me.getOperatorMailboxPane()?.set({record: me.operatorRecord, identityPosture: me.operatorIdentityPosture})
         }
+    }
+
+    /**
+     * @summary Compare the resolved viewer identity against the provider-owned roster's agent
+     * identities — the cockpit half of the seat-conflation honesty contract (the fleet server
+     * runs the same decision server-side at boot over the registry; the check is trivial enough
+     * that duplicating it beats an app→Brain import across the parity boundary).
+     *
+     * An empty roster answers `null` (cannot judge) rather than `{conflated: false}` — absence of
+     * roster truth is not a clean bill, and the pane renders unknown as unknown.
+     * @param {String} viewerIdentity The resolved `@`-form viewer identity.
+     * @returns {{conflated: Boolean, seatIdentity: String}|null}
+     */
+    deriveOperatorIdentityPosture(viewerIdentity) {
+        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+
+        if (typeof viewerIdentity !== 'string' || !viewerIdentity.trim() || rows.length < 1) {
+            return null
+        }
+
+        const
+            bare      = id => String(id).trim().replace(/^@/, ''),
+            viewer    = bare(viewerIdentity),
+            conflated = rows.some(row => bare(row.agentId ?? '') === viewer);
+
+        return {conflated, seatIdentity: `@${viewer}`}
     }
 
     /**

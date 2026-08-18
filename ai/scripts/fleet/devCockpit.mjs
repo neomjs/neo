@@ -58,6 +58,20 @@
  * child's env ({@link buildFleetChildEnv}) — never `process.env`, never the webpack child, never
  * a log line. Bearer VALIDITY stays with the fleet entry's plane-side verified admission (one
  * verification authority); this launcher fails fast only on "no plane serving there at all".
+ *
+ * **The operator-seat credential journey (seat-conflation honesty).** The implicit `gh auth token`
+ * fallback resolves whatever identity the CHECKOUT's gh CLI is logged in as — on a multi-seat
+ * machine that is typically an AGENT seat's account, so the plane admits the session as that
+ * agent and every operator action through the transport (compose sends above all) is attributed
+ * to the agent's identity: graph pollution of the worst class, messages an agent never wrote
+ * reading as their own words. The fleet entry detects the collision at boot (resolved viewer ∈
+ * registered agent identities → a loud OPERATOR-SEAT CONFLATION warn) and the cockpit renders the
+ * same truth beside the compose surface. To make the transport fact TRUE instead of merely
+ * honest, run the operator seat with an operator-class subject: EITHER pin
+ * `NEO_FLEET_PLANE_BEARER` (or the `_FILE` variant) to a PAT whose subject is the operator's own
+ * account, OR run the launcher from a checkout whose `gh auth` identity is the operator's. The
+ * detection never blocks the boot — sending knowingly is the operator's call; sending unknowingly
+ * was the defect.
  * Live mode never adopts an incumbent fleet transport: the incumbent's plane binding is not
  * observable through `/fleet/probe`, so reuse could silently point the cockpit at the wrong
  * plane — an occupied endpoint refuses with the remediation named.

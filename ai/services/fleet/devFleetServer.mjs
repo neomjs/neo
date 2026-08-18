@@ -43,15 +43,16 @@
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate globalThis.Neo so
 // the fleet singletons' `Neo.setupClass` succeeds at module-load; `InstanceManager` binds the aliases.
-import Neo                      from '../../../src/Neo.mjs';
-import * as core                from '../../../src/core/_export.mjs';
-import InstanceManager          from '../../../src/manager/Instance.mjs';
-import AiConfig                 from '../../config.mjs';
-import memoryCoreConfig         from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import FleetControlBridge       from './FleetControlBridge.mjs';
-import FleetManager             from './FleetManager.mjs';
-import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
+import Neo                                                             from '../../../src/Neo.mjs';
+import * as core                                                       from '../../../src/core/_export.mjs';
+import InstanceManager                                                 from '../../../src/manager/Instance.mjs';
+import AiConfig                                                        from '../../config.mjs';
+import memoryCoreConfig                                                from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService                                           from '../../mcp/server/shared/services/RequestContextService.mjs';
+import FleetControlBridge                                              from './FleetControlBridge.mjs';
+import FleetManager                                                    from './FleetManager.mjs';
+import {describeOperatorSeatConflation, operatorSeatConflationWarning} from './operatorSeatConflation.mjs';
+import {startFleetBridgeServer}                                        from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {assertFleetPlaneAdmissionBearerClass,
@@ -408,7 +409,32 @@ async function boot() {
 
         // Identity facts only — the bearer is deliberately absent from every log line this
         // process emits; the launcher that supplied (or will inject) it owns the hand-off.
-        console.log(`[fleet] authenticated app<->fleet transport listening on http://127.0.0.1:${server.address().port}/fleet (viewer: ${viewer.agentIdentityNodeId}, bearer: ${AiConfig.fleet.bearer ? 'supplied' : 'generated'})`)
+        console.log(`[fleet] authenticated app<->fleet transport listening on http://127.0.0.1:${server.address().port}/fleet (viewer: ${viewer.agentIdentityNodeId}, bearer: ${AiConfig.fleet.bearer ? 'supplied' : 'generated'})`);
+
+        // Seat-conflation honesty at boot: a viewer claim that IS a registered agent identity
+        // means every operator action through this transport inherits agent attribution — the
+        // gh-auth fallback on a seat machine produces exactly this. The transport stays up (the
+        // admission is truthful about its subject); the operator sends knowingly or fixes the
+        // credential. All three check outcomes are named or deliberately silent: conflated warns
+        // loudly; a null decision (empty id list — the registry reader swallows missing/corrupt
+        // files into empty, so [] is genuinely ambiguous between "no agents" and "unreadable",
+        // and the reader's own warn is the disambiguator) logs that it CANNOT judge; only a
+        // verified-clean posture is silent — the healthy operator case earns no noise. A throwing
+        // check degrades the CHECK (named), never the boot.
+        try {
+            const conflation = describeOperatorSeatConflation({
+                viewerIdentity: viewer.agentIdentityNodeId,
+                registeredIds : FleetManager.getLifecycleService().getRegistry().listAgents().map(entry => entry.id)
+            });
+
+            if (conflation?.conflated) {
+                console.warn(`[fleet] ${operatorSeatConflationWarning(conflation.seatIdentity)}`)
+            } else if (conflation === null) {
+                console.log('[fleet] operator-seat conflation check: the registry lists no agents — cannot judge (a fresh plane, or an unreadable registry; an unreadable one warns separately).')
+            }
+        } catch (error) {
+            console.warn(`[fleet] operator-seat conflation check unavailable (non-fatal): ${error.message}`)
+        }
     } catch (error) {
         // EVERY exit below this line closes the proven plane session AWAITED — startup failures,
         // probe failures, reuse, and refusal alike would otherwise orphan it on the plane. The

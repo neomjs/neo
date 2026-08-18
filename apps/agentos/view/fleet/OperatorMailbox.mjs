@@ -78,6 +78,18 @@ class OperatorMailbox extends Container {
          */
         composeOutcome_: null,
         /**
+         * The operator-seat identity posture (`{conflated, seatIdentity}` | `null`), injected by the
+         * cockpit from its resolved viewer identity vs the roster. A conflated posture renders the
+         * truth marker directly above the compose surface: sends through this transport are
+         * attributed to an AGENT seat, and the operator must see that BEFORE writing — the marker
+         * changes honesty, never authority (the form stays senderless either way). `null` and
+         * `{conflated: false}` both render nothing: unknown is not a warning, and a clean posture
+         * needs no chrome.
+         * @member {Object|null} identityPosture_=null
+         * @reactive
+         */
+        identityPosture_: null,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
@@ -90,6 +102,15 @@ class OperatorMailbox extends Container {
             flex     : 1,
             header   : {text: 'Your inbox'},
             reference: 'operator-inbox-pane'
+        }, {
+            // the seat-conflation truth marker — hidden until a conflated posture is injected;
+            // placed directly above the compose surface so the fact sits where the writing starts
+            ntype    : 'component',
+            cls      : ['fm-operator-identity-warning'],
+            flex     : 'none',
+            hidden   : true,
+            reference: 'operator-identity-warning',
+            role     : 'alert'
         }, {
             // shrinkable, never 'none': in the height-bounded drawer slot the form's natural
             // height exceeds the well, and a rigid form starves the inbox above it to 0px —
@@ -129,10 +150,40 @@ class OperatorMailbox extends Container {
             me.snapshot && (inbox.snapshot = me.snapshot)
         }
         form && me.recipientOptions?.length && (form.recipientOptions = me.recipientOptions);
+        me.applyIdentityPosture();
 
         // a construction-time identity lands its first inbox read without a page gesture (afterSetRecord
         // was skipped pre-construct, so this is the single fire for the reveal path)
         me.record && me.onInboxPageRequest({offset: 0})
+    }
+
+    /**
+     * Triggered after the identity posture changed — rendered by the marker, never held anywhere else.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetIdentityPosture(value, oldValue) {
+        this.isConstructed && this.applyIdentityPosture()
+    }
+
+    /**
+     * @summary Render the seat-conflation truth marker from the injected posture. Only a POSITIVE
+     * conflation shows chrome; `null` (cannot judge) and a clean posture both stay silent — the
+     * marker asserts a verified fact, never a suspicion.
+     * @protected
+     */
+    applyIdentityPosture() {
+        const
+            marker    = this.getReference('operator-identity-warning'),
+            conflated = this.identityPosture?.conflated === true;
+
+        marker?.set({
+            hidden: !conflated,
+            text  : conflated
+                ? `Sending as agent seat ${this.identityPosture.seatIdentity} — operator principal not established. Messages will carry that seat's identity.`
+                : null
+        })
     }
 
     /**
