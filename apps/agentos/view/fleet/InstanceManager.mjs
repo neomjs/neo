@@ -76,22 +76,14 @@ class InstanceManager extends Container {
          */
         notice_: null,
         /**
+         * The skeleton is DECLARATIVE: header, list slot, editor form, connect form, plane form,
+         * notice slot. Every handler is a `up.` string so the tree stays free of closures — the
+         * lookup strips the prefix and walks `parent` until it finds the method on this class
+         * (`resolveCallback`), which is what keeps the whole structure declarable here instead of
+         * assembled in a lifecycle hook. Row CONTENT re-renders via {@link #updateInstanceList}.
          * @member {Object[]} items
          */
-        items: []
-    }
-
-    /**
-     * @summary Builds the static skeleton once: header, list slot, editor form, plane form,
-     * notice slot. Row CONTENT re-renders via {@link #updateInstanceList}.
-     * @param {...*} args
-     */
-    onConstructed(...args) {
-        super.onConstructed(...args);
-
-        let me = this;
-
-        me.add([{
+        items: [{
             module: Container,
             cls   : ['fm-im-head'],
             flex  : 'none',
@@ -104,7 +96,7 @@ class InstanceManager extends Container {
             }, {
                 module : Button,
                 cls    : ['fm-im-close'],
-                handler: () => me.fire('closemanager', {source: me}),
+                handler: 'up.onCloseClick',
                 text   : 'Close'
             }]
         }, {
@@ -238,10 +230,26 @@ class InstanceManager extends Container {
             cls      : ['fm-im-notice'],
             flex     : 'none',
             reference: 'notice-line'
-        }]);
+        }]
+    }
 
-        me.updateInstanceList();
-        me.updateNotice()
+    /**
+     * @summary Renders the initial list + notice once the declared skeleton exists — the only work
+     * this hook still owns, because the structure itself is config.
+     * @param {...*} args
+     */
+    onConstructed(...args) {
+        super.onConstructed(...args);
+
+        this.updateInstanceList();
+        this.updateNotice()
+    }
+
+    /**
+     * @summary Close verb → the dismiss intent; the controller owns unmounting the drawer.
+     */
+    onCloseClick() {
+        this.fire('closemanager', {source: this})
     }
 
     /**
