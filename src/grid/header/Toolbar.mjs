@@ -330,6 +330,29 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary Whether a header item's width has to be MEASURED, because the config does not own it.
+     *
+     * A column sized by `flex`, by no width at all, or by a non-px string (`'20%'`, `'auto'`) has its
+     * real width decided by layout, so only the DOM can answer. Anything with an explicit px width
+     * already carries the answer in its config, and the DOM is merely a projection of it.
+     *
+     * `flex` must be compared, never merely tested for truthiness: {@link Neo.grid.header.Button}
+     * defaults it to the STRING `'none'`, which is the CSS keyword for "do not flex" — and truthy.
+     * A bare `item.flex` check therefore called every column in every grid dynamic, so the whole
+     * header was always sized from a layout read even when every width was an explicit px config.
+     *
+     * The distinction is the single source of truth for {@link #passSizeToBody}'s two questions —
+     * "does this toolbar need a layout read at all?" and "where does THIS column's width come from?"
+     * @param {Neo.grid.header.Button} item
+     * @returns {Boolean}
+     */
+    isMeasuredWidth(item) {
+        let {flex, width} = item;
+
+        return !!((flex && flex !== 'none') || !width || (Neo.isString(width) && !width.endsWith('px')))
+    }
+
+    /**
      * @summary Derives `columnPositions` + `availableWidth` from the rendered header buttons,
      * then repaints the body rows against the new geometry (unless `silent`).
      *
@@ -350,13 +373,10 @@ class Toolbar extends BaseToolbar {
             layoutFinished  = true,
             i               = 0,
             len             = items.length,
-            item, rects, w, width;
+            item, rects, width;
 
         for (; i < len; i++) {
-            item = items[i];
-            w = item.width;
-
-            if (item.flex || !w || (Neo.isString(w) && !w.endsWith('px'))) {
+            if (me.isMeasuredWidth(items[i])) {
                 hasDynamicWidth = true;
                 break
             }
@@ -379,29 +399,26 @@ class Toolbar extends BaseToolbar {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
-            if (hasDynamicWidth) {
-                for (i = 0; i < len; i++) {
-                    columnPositions.push({
-                        dataField: items[i].dataField,
-                        width    : rects[i].width,
-                        x        : currentX
-                    });
+            for (i = 0; i < len; i++) {
+                item = items[i];
 
-                    currentX += rects[i].width
-                }
-            } else {
-                for (i = 0; i < len; i++) {
-                    item = items[i];
-                    width = item.hidden ? 0 : parseInt(item.width, 10);
+                // Per COLUMN, not per toolbar. A single flex column used to force every sibling's
+                // width to come from the layout read below — including columns whose width the
+                // config already owns. Those two sources agree at rest and disagree for exactly one
+                // frame after a write, which is the whole resize-drop defect: `Resizable#onDragEnd`
+                // writes the button's new width and calls this synchronously, so the rect still
+                // carried the PRE-resize width and every cell was repainted onto the geometry the
+                // drag had just replaced — while the header, whose config was set directly, kept the
+                // new one. Measure only what we do not own, and the race has nothing to bite on.
+                width = item.hidden ? 0 : (me.isMeasuredWidth(item) ? rects[i].width : parseInt(item.width, 10));
 
-                    columnPositions.push({
-                        dataField: item.dataField,
-                        width,
-                        x        : currentX
-                    });
+                columnPositions.push({
+                    dataField: item.dataField,
+                    width,
+                    x        : currentX
+                });
 
-                    currentX += width
-                }
+                currentX += width
             }
 
             body.columnPositions.clear();
