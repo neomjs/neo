@@ -236,6 +236,65 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
     });
 
+    test('clear-backoff resets ONLY the streak, leaves every checkpoint field untouched, and never silently no-ops', async () => {
+        // The safety property is the second assertion, not the first. Resetting `lastIngestedRev`
+        // alongside the streak would turn "let this lane retry now" into "re-ingest from a null
+        // base" — a far more expensive request than the operator made, and one they cannot undo.
+        const throttled = 'acme/throttled',
+              healthy   = 'acme/healthy',
+              untouched = 'acme/untouched';
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                [throttled]: {lastIngestedRev: 'sha-throttled', lastRunAttemptAt: 111, consecutiveFailures: 42, ingestContractVersion: 3},
+                [healthy]  : {lastIngestedRev: 'sha-healthy',   lastRunAttemptAt: 222, consecutiveFailures: 0},
+                [untouched]: {lastIngestedRev: 'sha-untouched', lastRunAttemptAt: 333, consecutiveFailures: 7}
+            }
+        });
+
+        const result = await TenantRepoSyncService.clearTenantRepoBackoff({
+            onlyRepoSlugs    : [throttled, healthy],
+            revisionsFilePath: revisionsFile,
+            tenantReposConfig: {tenantRepos: [throttled, healthy, untouched].map(repoSlug => ({repoSlug, tenantId: 't1'}))}
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.cleared).toEqual([{repoSlug: throttled, previousConsecutiveFailures: 42}]);
+        // Already-clear is REPORTED, not folded into success: an operator who clears a backoff and
+        // is told nothing cannot distinguish a completed no-op from a mistyped selector.
+        expect(result.details.unchanged).toEqual([
+            {repoSlug: healthy, consecutiveFailures: 0, reason: 'already-clear'}
+        ]);
+
+        const persisted = await TenantRepoSyncService.readPersistedRevisions({filePath: revisionsFile});
+
+        expect(persisted[throttled].consecutiveFailures).toBe(0);
+        // every other field survives verbatim — the streak is the only thing this operation owns
+        expect(persisted[throttled].lastIngestedRev).toBe('sha-throttled');
+        expect(persisted[throttled].lastRunAttemptAt).toBe(111);
+        expect(persisted[throttled].ingestContractVersion).toBe(3);
+        // and a repo outside the selector is not collateral
+        expect(persisted[untouched].consecutiveFailures).toBe(7)
+    });
+
+    test('clear-backoff refuses an unknown slug with the sweep\'s own error code, rather than clearing nothing quietly', () => {
+        // Same vocabulary as `syncTenantRepos`, deliberately: an operator who mistypes a slug gets
+        // one error code across both entry paths, and the CLI's existing exit-code-3 mapping needed
+        // no change to cover this mode.
+        return TenantRepoSyncService.clearTenantRepoBackoff({
+            onlyRepoSlugs    : ['acme/known', 'acme/typo'],
+            revisionsFilePath: revisionsFile,
+            tenantReposConfig: {tenantRepos: [{repoSlug: 'acme/known', tenantId: 't1'}]}
+        }).then(result => {
+            expect(result.status).toBe('failed');
+            expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED');
+            expect(result.details.unknownSlugs).toEqual(['acme/typo']);
+            // the valid half is NOT partially applied — a refused selector clears nothing
+            expect(result.details.cleared).toBeUndefined()
+        })
+    });
+
     test('embedding recovery checkpoints degrade by omission, retain restart truth, and consumed grants become history (#16692)', async () => {
         const
             episodeId    = 'a'.repeat(32),
@@ -7059,14 +7118,37 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
             '-r',
             'org/b'
         ])).toEqual({
-            fullReplay: true,
-            repoSlugs : ['org/a', 'org/b']
+            clearBackoff: false,
+            fullReplay  : true,
+            repoSlugs   : ['org/a', 'org/b']
         });
     });
 
     test('rejects full replay without a repo selector', () => {
         expect(() => parseArgs(['node', 'syncTenantRepos.mjs', '--full']))
             .toThrow('--full requires at least one --repo-slug selector.')
+    });
+
+    test('parses --clear-backoff, scoped and unscoped', () => {
+        expect(parseArgs(['node', 'syncTenantRepos.mjs', '--clear-backoff'])).toEqual({
+            clearBackoff: true,
+            fullReplay  : false,
+            repoSlugs   : []
+        });
+
+        expect(parseArgs(['node', 'syncTenantRepos.mjs', '--clear-backoff', '-r', 'org/a'])).toEqual({
+            clearBackoff: true,
+            fullReplay  : false,
+            repoSlugs   : ['org/a']
+        });
+    });
+
+    test('refuses --clear-backoff combined with --full', () => {
+        // The two modes answer different questions — "re-ingest from a null base" versus "let this
+        // lane attempt again on its normal cadence". Running one while the operator asked for both
+        // is the silent no-op this whole path exists to remove, so the parser refuses instead.
+        expect(() => parseArgs(['node', 'syncTenantRepos.mjs', '--clear-backoff', '--full', '-r', 'org/a']))
+            .toThrow('--clear-backoff cannot be combined with --full')
     });
 
     test('dispatches full replay and selectors to TenantRepoSyncService', () => {
