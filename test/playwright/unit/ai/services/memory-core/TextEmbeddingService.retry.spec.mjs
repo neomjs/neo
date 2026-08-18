@@ -105,8 +105,10 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     let originalLmsPort;
     let originalLoadedModelsProbe;
 
+    let EMBEDDING_RESIDENCY_NEVER_RESIDENT;
+
     test.beforeAll(async () => {
-        ({default: TextEmbeddingService} = await import(
+        ({default: TextEmbeddingService, EMBEDDING_RESIDENCY_NEVER_RESIDENT} = await import(
             '../../../../../../ai/services/memory-core/TextEmbeddingService.mjs'
         ));
 
@@ -352,6 +354,131 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         clearAggregatedFrictions();
     });
 
+    /*
+     * The incident, reproduced. A production plane served `Qwen3-Embedding-8B-Q4_K_M` while
+     * configured for `qwen3-embedding-0.6b`, across two deploys, every container healthy — and the
+     * only symptom was slow embeddings, read as a performance problem rather than a configuration
+     * one. Proving it took reading two literals out of a container log by hand.
+     *
+     * Neo already had the check and the right words for it; it was gated behind an LM Studio port
+     * comparison, so identity verification existed for the developer laptop and not for the
+     * deployment. These arms pin the widened gate and, just as importantly, the two ways it must
+     * NOT harden into a refusal.
+     */
+    test('REGRESSION: a served model that is not the configured one is named, on a non-LMS endpoint', async () => {
+        const originalUnitTestMode = Neo.config.unitTestMode;
+
+        try {
+            Neo.config.unitTestMode = false;
+            // Not the LMS lane: the host port is the test server, the LMS port is something else.
+            aiConfig.orchestrator.lms.port                        = '1234';
+            aiConfig.openAiCompatible.embeddingModel              = 'qwen3-embedding-0.6b';
+            // What `/v1/models` actually answered on the incident plane.
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{id: 'Qwen3-Embedding-8B-Q4_K_M'}];
+
+            let thrown;
+            try { await TextEmbeddingService.embedText('hello', 'openAiCompatible') } catch (error) { thrown = error }
+
+            expect(thrown, 'a wrong served model must not embed silently — this is the whole incident').toBeTruthy();
+            // The served identifier must be NAMED. "not resident" without it sends an operator back
+            // to the container logs, which is the manual step this check exists to replace.
+            expect(thrown.message).toContain('Qwen3-Embedding-8B-Q4_K_M');
+            expect(thrown.message).toContain('qwen3-embedding-0.6b');
+            expect(thrown.residencyDisposition).toBe(EMBEDDING_RESIDENCY_NEVER_RESIDENT);
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
+    });
+
+    test('CONTROL: the matching model on the same non-LMS path embeds normally', async () => {
+        // Without this the arm above could pass by refusing everything — an identity check that
+        // never confirms is indistinguishable from one that always rejects, and would take the lane
+        // down rather than observe it.
+        serverBehavior = 'succeed';
+
+        const originalUnitTestMode = Neo.config.unitTestMode;
+
+        try {
+            Neo.config.unitTestMode                                = false;
+            aiConfig.orchestrator.lms.port                         = '1234';
+            aiConfig.openAiCompatible.embeddingModel               = 'qwen3-embedding-0.6b';
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{id: 'qwen3-embedding-0.6b'}];
+
+            expect(await TextEmbeddingService.embedText('hello', 'openAiCompatible')).toEqual([0.1, 0.2, 0.3]);
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
+    });
+
+    test('an UNTAGGED configured model embeds against Ollama\'s implicit :latest', async () => {
+        // The shipped default, not an exotic topology: `openAiCompatible.host` defaults to
+        // `http://127.0.0.1:11434` — byte-identical to `ollama.host` — and the lane's config JSDoc
+        // names Ollama's OpenAI-compatible surface among what it covers. Ollama reports an untagged
+        // pull as `name:latest` and `/v1/models` returns ids verbatim, so an exact compare refused
+        // to embed against a model that was loaded and serving. This path only became reachable for
+        // non-LMS endpoints when the identity gate split from the context gate, which is why the
+        // case is new rather than pre-existing.
+        serverBehavior = 'succeed';
+
+        const originalUnitTestMode = Neo.config.unitTestMode;
+
+        try {
+            Neo.config.unitTestMode                                = false;
+            aiConfig.orchestrator.lms.port                         = '1234';
+            aiConfig.openAiCompatible.embeddingModel               = 'qwen3-embedding';
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{id: 'qwen3-embedding:latest'}];
+
+            expect(await TextEmbeddingService.embedText('hello', 'openAiCompatible')).toEqual([0.1, 0.2, 0.3]);
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
+    });
+
+    test('FENCE: a configured tag is still not satisfied by an untagged served id', async () => {
+        // Passes in BOTH directions by design — it is what stops the tolerance above widening into
+        // "equal", not evidence that the tolerance works. Counting it as red-proof would be the
+        // vacuous-control mistake; it is recorded here as a fence so nobody later reads it as one.
+        serverBehavior = 'succeed';
+
+        const originalUnitTestMode = Neo.config.unitTestMode;
+
+        try {
+            Neo.config.unitTestMode                                = false;
+            aiConfig.orchestrator.lms.port                         = '1234';
+            aiConfig.openAiCompatible.embeddingModel               = 'qwen3-embedding:latest';
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{id: 'qwen3-embedding'}];
+
+            let thrown;
+            try { await TextEmbeddingService.embedText('hello', 'openAiCompatible') } catch (error) { thrown = error }
+
+            expect(thrown, 'a pinned tag must not be satisfied by the bare name').toBeTruthy();
+            expect(thrown.residencyDisposition).toBe(EMBEDDING_RESIDENCY_NEVER_RESIDENT);
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
+    });
+
+    test('an UNREACHABLE model list degrades to unknown rather than refusing the embed', async () => {
+        // AC-5's other half. `/v1/models` is conventional, not guaranteed, and a transient 503 must
+        // not take embedding down — an identity check that cannot run is an unanswered question, not
+        // a confirmed mismatch. The inverse failure (probe outage reads as identity-confirmed) is
+        // covered by the arm above, which throws on a real disagreement.
+        serverBehavior = 'succeed';
+
+        const originalUnitTestMode = Neo.config.unitTestMode;
+
+        try {
+            Neo.config.unitTestMode                                = false;
+            aiConfig.orchestrator.lms.port                         = '1234';
+            aiConfig.openAiCompatible.embeddingModel               = 'qwen3-embedding-0.6b';
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => { throw new Error('connect ECONNREFUSED') };
+
+            expect(await TextEmbeddingService.embedText('hello', 'openAiCompatible')).toEqual([0.1, 0.2, 0.3]);
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
+    });
+
     test('first-call-succeeds-no-retry path', async () => {
         serverBehavior = 'succeed';
         const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
@@ -511,7 +638,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount, 'the resident-model preflight fails before transport').toBe(0);
     });
 
-    test('openAiCompatible skips LM Studio context probe for non-LMS endpoints (#13944)', async () => {
+    test('openAiCompatible verifies identity provider-shaped on non-LMS endpoints, and still skips the LM Studio context probe (#13944)', async () => {
         serverBehavior = 'succeed';
 
         const originalUnitTestMode = Neo.config.unitTestMode;
@@ -521,12 +648,27 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             aiConfig.orchestrator.lms.port = '1234';
             TextEmbeddingService.openAiCompatibleLoadedModelsProbe = null;
 
+            allRequests.length = 0;
+
             const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
 
             expect(result).toEqual([0.1, 0.2, 0.3]);
 
-            expect(requestCount).toBe(1);
+            // Asserted as SHAPE rather than as a count. The original arm proved "no LM Studio probe"
+            // with `requestCount === 1`, which never actually established it — `lms ps` is a CLI, so
+            // it would not have shown up in an HTTP count either way. Identity verification is now
+            // provider-shaped, so a second request exists BY DESIGN and a bare count would have to be
+            // loosened to a number that asserts nothing.
+            const urls = allRequests.map(entry => entry.url);
+
+            expect(urls.filter(url => url.includes('/v1/models')), 'the provider-shaped identity probe must run').toHaveLength(1);
+            expect(urls.filter(url => url.includes('/embeddings')), 'exactly one embedding request').toHaveLength(1);
             expect(lastRequest.body.input).toBe('hello');
+
+            // The mock answers `/v1/models` with embedding rows carrying no `id`, so the parsed list
+            // is EMPTY — the "endpoint does not really enumerate" case. That must degrade to unknown
+            // and let the embed proceed, never harden into a confident not-resident refusal.
+            expect(result, 'an unenumerable endpoint must not block embedding').toEqual([0.1, 0.2, 0.3]);
         } finally {
             Neo.config.unitTestMode = originalUnitTestMode;
         }

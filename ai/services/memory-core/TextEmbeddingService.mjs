@@ -918,9 +918,32 @@ class TextEmbeddingService extends Base {
             return this.openAiCompatibleLoadedModelsProbe({timeoutMs, signal});
         }
 
-        const {fetchLmsLoadedModels} = await import('../graph/providerReadinessHelper.mjs');
+        const helper = await import('../graph/providerReadinessHelper.mjs');
         throwIfEmbeddingAborted(signal, operationLabel);
-        return fetchLmsLoadedModels({timeoutMs, signal});
+
+        if (this.#shouldAssertOpenAiCompatibleEmbeddingContext()) {
+            return helper.fetchLmsLoadedModels({timeoutMs, signal});
+        }
+
+        // Provider-shaped fallback: `GET /v1/models`, which every OpenAI-compatible server answers.
+        // Ids only — no `contextLength`, which is precisely why the context assertion stays behind
+        // the LM Studio gate. Normalised to the same row shape so the identity comparison below is
+        // one code path rather than two.
+        const ids = await helper.fetchOpenAiCompatibleModelIds({
+            host: aiConfig.openAiCompatible.host,
+            timeoutMs
+        });
+
+        // `null` means UNANSWERABLE; `[]` means answered-and-empty. Only this source can be
+        // unanswerable-while-succeeding: `/v1/models` is conventional rather than guaranteed, so a
+        // proxy or minimal runtime can return 200 carrying nothing enumerable, and zero rows cannot
+        // distinguish "serves no models" from "does not answer this question".
+        //
+        // The distinction is scoped to this source deliberately. An empty `lms ps` is a real
+        // negative on a surface we own, and an injected test probe returning `[]` is an explicit
+        // statement that nothing is resident — collapsing all three would silently retire the
+        // not-resident preflight everywhere.
+        return ids.length > 0 ? ids.map(id => ({id})) : null;
     }
 
     /**
@@ -959,6 +982,41 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary Whether the served model IDENTITY can be verified on this endpoint. Provider-shaped.
+     *
+     * Distinct from {@link #isLmStudioEmbeddingLane}, and the split is the whole point. Two different
+     * assertions used to share one vendor gate:
+     *
+     * - **Identity** — is the configured model the one actually being served? Answerable on ANY
+     *   OpenAI-compatible endpoint via `GET /v1/models`.
+     * - **Context** — is the loaded context window large enough? Answerable only from `lms ps`,
+     *   because `/v1/models` reports no context length.
+     *
+     * Gating both behind the LM Studio port meant identity verification existed for the developer
+     * laptop and not for the deployment — the inverse of where it is needed. A production plane then
+     * served `Qwen3-Embedding-8B-Q4_K_M` while configured for `qwen3-embedding-0.6b` across two
+     * deploys, every container healthy, the only symptom slow embeddings read as a performance
+     * problem.
+     *
+     * Widening the SHARED gate instead of splitting it would have been worse than the gap: the
+     * context assertion would then fire on llama.cpp, where `contextLength` is structurally unknown,
+     * and refuse every embed with a spurious unknown-context error.
+     *
+     * @returns {Boolean}
+     * @private
+     */
+    #shouldAssertOpenAiCompatibleEmbeddingIdentity() {
+        if (this.openAiCompatibleLoadedModelsProbe) {
+            return true;
+        }
+        if (Neo.config.unitTestMode) {
+            return false;
+        }
+
+        return Boolean(aiConfig.openAiCompatible.host && aiConfig.openAiCompatible.embeddingModel);
+    }
+
+    /**
      * @summary Determines whether the active OpenAI-compatible endpoint is the orchestrator-owned LM Studio lane.
      *
      * OpenAI-compatible covers LM Studio, Ollama's compatibility surface, llama.cpp, vLLM, and
@@ -969,9 +1027,11 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #shouldAssertOpenAiCompatibleEmbeddingContext() {
-        if (this.openAiCompatibleLoadedModelsProbe) {
-            return true;
-        }
+        // The probe seam deliberately does NOT answer this one. It means "use this instead of the
+        // real fetch", not "you are LM Studio" — and while both assertions shared a gate the two
+        // readings were indistinguishable. Now that context enforcement is lane-specific, letting an
+        // injected probe imply the LMS lane would demand a `contextLength` from every seam that
+        // supplies only ids, and refuse the embed for a context nobody ever claimed to observe.
         if (Neo.config.unitTestMode) {
             return false;
         }
@@ -1011,7 +1071,7 @@ class TextEmbeddingService extends Base {
         operation.phase = 'preflight';
         throwIfEmbeddingAborted(signal, operationLabel);
 
-        if (!this.#shouldAssertOpenAiCompatibleEmbeddingContext()) {
+        if (!this.#shouldAssertOpenAiCompatibleEmbeddingIdentity()) {
             return null;
         }
 
@@ -1039,17 +1099,54 @@ class TextEmbeddingService extends Base {
                 throw getEmbeddingAbortError(signal, operationLabel);
             }
 
-            throw new Error(`TextEmbeddingService: unable to verify LM Studio embedding context for '${model}': ${error.message}`);
+            // The LM Studio lane keeps refusing: `lms ps` is orchestrator-owned, so a probe failure
+            // there means the lane we manage is not answering, and proceeding would embed blind
+            // against a provider we are supposed to control.
+            if (this.#shouldAssertOpenAiCompatibleEmbeddingContext()) {
+                throw new Error(`TextEmbeddingService: unable to verify LM Studio embedding context for '${model}': ${error.message}`);
+            }
+
+            // Every other OpenAI-compatible endpoint degrades to UNKNOWN instead. `/v1/models` is
+            // conventional, not guaranteed — vLLM, a CI fixture server or a proxy may not serve it,
+            // and a transient 503 must not take embedding down. An identity check that cannot run is
+            // an unanswered question, never a confirmed match, and never grounds for refusing work
+            // that was previously allowed: turning an observability gap into an outage is a worse
+            // failure than the gap.
+            //
+            // A probe that DOES answer and disagrees still throws — that path is below, and it is
+            // the one this ticket exists for.
+            return null;
         }
 
         throwIfEmbeddingAborted(signal, operationLabel);
 
-        const loadedModel = loadedModels.find(item => item.id === model);
+        // `null` is the UNANSWERABLE signal from the provider-shaped probe (see its return site).
+        // Distinct from `[]`, which is a real "nothing is resident" from a source that can say so.
+        // An identity check that cannot run is an unanswered question, never a confirmed match.
+        if (loadedModels === null) {
+            return null;
+        }
+
+        // Implicit-tag tolerant, because this compare is NOT LM Studio-only any more: the identity
+        // gate now reaches every OpenAI-compatible endpoint, and the lane's default host is
+        // byte-identical to `ollama.host`. Ollama reports an untagged pull as `name:latest` and
+        // `/v1/models` returns ids verbatim, so an exact compare refuses a model that is loaded and
+        // serving, and it is the shipped default rather than an exotic host. The rule stays directional: a
+        // requirement that names a tag still gets an exact compare.
+        const {satisfiesRequiredModelIdOnOpenAiCompatibleLane} = await import('../graph/providerReadinessHelper.mjs');
+
+        throwIfEmbeddingAborted(signal, operationLabel);
+
+        const loadedModel = loadedModels.find(item => satisfiesRequiredModelIdOnOpenAiCompatibleLane(model, item.id));
 
         if (!loadedModel) {
-            const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none',
+            // The lane, not the vendor: this path serves LM Studio only when the context gate is on,
+            // and naming LM Studio to an operator running Ollama is the "confident wrong instruction"
+            // this ticket's own config JSDoc argues against.
+            const lane        = this.#shouldAssertOpenAiCompatibleEmbeddingContext() ? 'LM Studio' : 'OpenAI-compatible',
+                  observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none',
                   error       = markEmbeddingModelNotResidentError(
-                      new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
+                      new Error(`TextEmbeddingService: ${lane} embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
                   );
 
             // The preflight rejection is the OTHER origin of "not resident", and it carries the same
@@ -1060,7 +1157,12 @@ class TextEmbeddingService extends Base {
 
             throw error
         }
-        if (!Neo.isNumber(loadedModel.contextLength)) {
+        // Context enforcement is LM-Studio-only BY EVIDENCE, not by preference: `lms ps` reports the
+        // loaded context window and `GET /v1/models` does not. On any other OpenAI-compatible lane
+        // the number is structurally unknown, so demanding it here would refuse every embed with a
+        // spurious unknown-context error — turning an observability fix into an outage. Identity has
+        // already been asserted above and is the half that catches a wrong model.
+        if (this.#shouldAssertOpenAiCompatibleEmbeddingContext() && !Neo.isNumber(loadedModel.contextLength)) {
             throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' has unknown loaded context; configured>=${configuredContextLength}`);
         }
 
@@ -1082,6 +1184,19 @@ class TextEmbeddingService extends Base {
      */
     #assertOpenAiCompatibleEmbeddingContext(inputData, runtime) {
         if (!runtime) {
+            return;
+        }
+
+        // An unknown loaded context is UNKNOWN, and enforcement declines rather than guesses. Only
+        // `lms ps` reports a context window; a provider-shaped `/v1/models` row carries an id and
+        // nothing else, so this runs on rows where the number was never observable.
+        //
+        // Stated explicitly rather than left to fall through: every comparison below happens to be
+        // false against `undefined`, so the correct behaviour is currently an accident of JS
+        // coercion. One change to `isEmbeddingContextBelowSafeBand`'s handling of a non-number and
+        // this silently starts refusing every embed on llama.cpp — a spurious outage produced by a
+        // helper that never knew it had become load-bearing.
+        if (!Neo.isNumber(runtime.loadedModel?.contextLength)) {
             return;
         }
 

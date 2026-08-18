@@ -5,8 +5,10 @@ import Base         from '../../../../src/core/Base.mjs';
 import AiConfig     from '../../../config.mjs';
 import {
     fetchEmbeddingLaneSlots,
+    fetchOpenAiCompatibleModelIds,
     getOpenAiCompatibleHost,
-    probeProviderParallelModelCapacity
+    probeProviderParallelModelCapacity,
+    satisfiesRequiredModelIdOnOpenAiCompatibleLane
 }                                          from '../../../services/graph/providerReadinessHelper.mjs';
 import {
     classifyProviderLaneLiveShape,
@@ -216,6 +218,18 @@ export class DeploymentStateBridgeService extends Base {
          * @protected
          */
         providerLaneShapeReceipt: null,
+        /**
+         * One-shot OpenAI-compatible `GET /v1/models` reader: `async ({host, timeoutMs}) => String[]`.
+         * Injected so specs can drive every arm — match, mismatch, empty list, unreachable — without a
+         * live engine. Falls back to {@link fetchOpenAiCompatibleModelIds}.
+         *
+         * Deliberately NOT memoized by a sibling receipt member: the lane's slot geometry cannot change
+         * without a restart, but the model a running endpoint serves can, and a cached `match` would
+         * outlive the fact it reported.
+         * @member {Function|null} providerModelIdentityProbe=null
+         * @protected
+         */
+        providerModelIdentityProbe: null,
         /**
          * Read-only provider-activity seam. The orchestrator injects the recorder-owned ledger
          * projection; this service never opens or mutates the telemetry database itself.
@@ -642,6 +656,15 @@ export class DeploymentStateBridgeService extends Base {
             ? await this.collectProviderLaneShape({observedAt: observationNow()})
             : null;
 
+        // The identity axis, gated by its OWN predicate for the same reason the shape is: geometry
+        // and identity are different assertions with different answerability, and the remediation
+        // vocabularies differ too. Unmemoized on purpose — the shape receipt is a boot reading of a
+        // value that cannot change without a restart, while a served model CAN change under a
+        // running endpoint, and a cached "match" would outlive the fact it reported.
+        const providerModelIdentity = this.isProviderModelIdentityServiceKey(serviceKey)
+            ? await this.collectProviderModelIdentity({observedAt: observationNow()})
+            : null;
+
         // The SECOND evidence channel. Until this existed, `endpointProbe` had no producer anywhere in
         // the orchestrator, so ADR-0025 §2.4's authoritative pair could never form and a wedged // ticket-ref-ok: the ADR clause is the reason this call exists at all
         // container was diagnosed and never acted on.
@@ -729,6 +752,7 @@ export class DeploymentStateBridgeService extends Base {
                 providerResidency,
                 providerActivity,
                 providerLaneShape,
+                providerModelIdentity,
                 providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
                 churnBaseline            : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts          : plannedRestarts.count,
@@ -841,6 +865,12 @@ export class DeploymentStateBridgeService extends Base {
             // point is that the answer is now in the artifact either way. `observable: false` carries
             // its own reason, so a blank shape is never mistaken for a verified one.
             providerLaneShape,
+            // Published on a MATCH too, for the same reason the shape is: an operator asking "is this
+            // plane serving the model I configured?" needs the answer in the artifact either way, and
+            // proving it right previously meant reading two literals out of a container log by hand.
+            // Every non-match arm carries its own `reason`, so a `null` here means the service is not
+            // an identity participant — never that identity was checked and found fine.
+            providerModelIdentity,
             heapObservation,
             restartChurn,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
@@ -1072,6 +1102,102 @@ export class DeploymentStateBridgeService extends Base {
      */
     isProviderLaneShapeServiceKey(serviceKey) {
         return AiConfig.orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys.includes(serviceKey);
+    }
+
+    /**
+     * @summary Resolves whether a Compose service carries the embedding-lane MODEL-IDENTITY receipt.
+     *
+     * A third predicate rather than a reuse of either sibling. Against residency the reason is
+     * remediation: that verdict's advice is vendor-coupled (`ollama pull <model>`), so attaching
+     * identity there tells a llama.cpp container to run a command that cannot work — on the surface
+     * an operator reads without shell access. Against lane-shape the reason is answerability:
+     * geometry and identity are different assertions, and one gate over two assertions is precisely
+     * the defect this ticket's runtime half repaired.
+     *
+     * @param {String} serviceKey Compose service key.
+     * @returns {Boolean}
+     */
+    isProviderModelIdentityServiceKey(serviceKey) {
+        return AiConfig.orchestrator.deploymentStateBridge.providerModelIdentityServiceKeys.includes(serviceKey);
+    }
+
+    /**
+     * @summary Observe whether the configured embedding model is the one the endpoint actually
+     * serves — the operator-visible half of the identity check the embed path enforces at runtime.
+     *
+     * The runtime guard throws at embed time, which only ever reaches whoever is reading a stack
+     * trace. This publishes the same comparison where an operator or agent reads deployment state
+     * with no shell, so a wrong model is legible BEFORE it is inferred from slow embeddings — which
+     * is how a production plane served an 8B model against a 0.6B configuration across two deploys.
+     *
+     * **Every arm is an observation, never a verdict.** No host or no configured model means the
+     * question was never asked (`unconfigured`); an endpoint that will not answer means it could not
+     * be asked (`unobservable`); an answer that omits the configured id is the finding. A probe that
+     * cannot run is an unanswered question, never a confirmed match — the same rule the runtime half
+     * follows, because a health surface that reports "fine" on an unmeasured axis is the defect.
+     *
+     * **Remediation speaks THIS lane's language.** `/v1/models` is served by llama.cpp, vLLM, LM
+     * Studio and any OpenAI-compatible runtime, so the advice names the served-vs-configured pair and
+     * leaves the fix to whoever owns that runtime, rather than borrowing a vendor's pull command.
+     *
+     * @param {Object} [options={}]
+     * @param {Date|String} [options.observedAt] Observation stamp.
+     * @returns {Promise<Object|null>} `{state, configuredModel, servedModelIds, host, reason, observedAt}`
+     *     — `null` only when no OpenAI-compatible host is configured at all.
+     */
+    async collectProviderModelIdentity({observedAt = this.now()} = {}) {
+        const host = getOpenAiCompatibleHost(AiConfig);
+
+        if (!host) {
+            return null;
+        }
+
+        const configuredModel = AiConfig.openAiCompatible.embeddingModel;
+
+        if (!configuredModel) {
+            return {
+                state : 'unconfigured', configuredModel: null, servedModelIds: null, host, observedAt,
+                reason: 'no embedding model is configured for the OpenAI-compatible lane; nothing to compare against'
+            };
+        }
+
+        const probe = this.providerModelIdentityProbe || fetchOpenAiCompatibleModelIds;
+
+        let servedModelIds = null;
+
+        try {
+            servedModelIds = await probe({
+                host,
+                timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs
+            });
+        } catch (error) {
+            return {
+                state : 'unobservable', configuredModel, servedModelIds: null, host, observedAt,
+                reason: `the endpoint did not answer GET /v1/models (${error.message}); identity is unobserved, not confirmed`
+            };
+        }
+
+        // `/v1/models` is conventional rather than guaranteed: a proxy or minimal runtime can answer
+        // 200 carrying nothing enumerable, and zero rows there cannot separate "serves no models"
+        // from "does not answer this question". Unobservable, not a mismatch.
+        if (!Array.isArray(servedModelIds) || servedModelIds.length === 0) {
+            return {
+                state : 'unobservable', configuredModel, servedModelIds: null, host, observedAt,
+                reason: 'the endpoint answered with no enumerable model list; identity is unobserved, not confirmed'
+            };
+        }
+
+        // Implicit-tag tolerant for the same reason the embed path is: this lane's default host is
+        // byte-identical to `ollama.host`, Ollama reports an untagged pull as `name:latest`, and an
+        // exact compare would publish `mismatch` — telling the operator to re-point a lane that is
+        // already correct. A confident wrong instruction is a worse failure than silence, which is
+        // the argument this service's own remediation prose makes.
+        return servedModelIds.some(servedId => satisfiesRequiredModelIdOnOpenAiCompatibleLane(configuredModel, servedId))
+            ? {state: 'match', configuredModel, servedModelIds, host, observedAt, reason: null}
+            : {
+                state : 'mismatch', configuredModel, servedModelIds, host, observedAt,
+                reason: `configured embedding model '${configuredModel}' is not served by this endpoint; observed=${servedModelIds.join(', ')}. Point the lane at a served id, or load the configured model on the runtime that owns this endpoint.`
+            };
     }
 
     isProviderResidencyServiceKey(serviceKey) {
