@@ -35,6 +35,9 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         const
             host   = Object.create(FleetCockpit.prototype),
             values = {
+                // the stream resolver joins roster actor facts; this host owns no roster, and
+                // the honest empty directory is exactly what an unmaterialized grid yields
+                buildActivityActorDirectory: () => ({}),
                 dockModel         : cockpitDockDocument(),
                 gridAdapterState  : 'sample',
                 isDestroyed       : false,
@@ -318,6 +321,9 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
             store  = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()}),
             host   = Object.create(FleetCockpit.prototype),
             values = {
+                // the stream resolver joins roster actor facts; the preset host owns no roster,
+                // and the honest empty directory is exactly what an unmaterialized grid yields
+                buildActivityActorDirectory: () => ({}),
                 dockModel         : (await import('../../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs')).default(),
                 gridAdapterState  : 'sample',
                 isDestroyed       : false,

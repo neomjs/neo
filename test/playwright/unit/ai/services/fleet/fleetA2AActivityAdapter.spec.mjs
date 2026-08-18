@@ -25,7 +25,7 @@ import {
 import {FLEET_COCKPIT_SOURCES} from '../../../../../../ai/services/fleet/fleetCockpitStatus.mjs'
 
 test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () => {
-    test('maps mailbox summaries without exposing bodies or exact recipient ids', () => {
+    test('maps mailbox summaries without exposing bodies or task inputs — the recipient id rides deliberately', () => {
         const [event] = createA2AMessageActivityEvents([{
             messageId          : 'MESSAGE:123',
             subject            : '[review-request] PR #14703 token=secret',
@@ -51,6 +51,10 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
                 kind               : 'a2a-message',
                 messageId          : 'MESSAGE:123',
                 from               : 'neo-opus-ada',
+                // the recipient id is a DELIBERATE disclosure: the adapter runs under the
+                // viewer's own mailbox read, which already returns it — class-only was the old
+                // bound, relaxed for the sender→recipient row (operator-directed)
+                to                 : '@neo-gpt',
                 recipientClass     : 'agent',
                 relatedTickets     : [14572, 14703],
                 relatedPullRequests: [14703],
@@ -65,7 +69,6 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         expect(serialized).toContain('token=[redacted]')
         expect(serialized).not.toContain('ghp_secret')
         expect(serialized).not.toContain('full body')
-        expect(serialized).not.toContain('neo-gpt')
         expect(serialized).not.toContain('secret=hidden')
     })
 
@@ -269,3 +272,23 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         expect(JSON.stringify(failed)).not.toContain('token=secret')
     })
 })
+
+
+test.describe('fleetA2AActivityAdapter — the recipient rides beside its class', () => {
+    test('a directed send carries the raw recipient; a broadcast carries AGENT:* — the surface renders sender→recipient from it', () => {
+        const [direct, broadcast] = createA2AMessageActivityEvents([
+            {from: '@neo-fable-clio', to: '@neo-opus-ada', subject: 'S1', sentAt: '2026-08-18T10:00:00.000Z'},
+            {from: '@neo-opus-vega',  to: 'AGENT:*',       subject: 'S2', sentAt: '2026-08-18T10:01:00.000Z'}
+        ]);
+
+        expect(direct.payload).toMatchObject({to: '@neo-opus-ada', recipientClass: 'agent'});
+        expect(broadcast.payload).toMatchObject({to: 'AGENT:*', recipientClass: 'broadcast'})
+    });
+
+    test('a missing recipient is null beside its unknown class — absence stays absence', () => {
+        const [event] = createA2AMessageActivityEvents([{from: '@neo-fable-clio', subject: 'S', sentAt: '2026-08-18T10:00:00.000Z'}]);
+
+        expect(event.payload.to).toBeNull();
+        expect(event.payload.recipientClass).toBe('unknown')
+    })
+});

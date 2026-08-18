@@ -11,8 +11,11 @@ import {redactCredentials}      from './redactCredentials.mjs'
  *
  * The adapter consumes MailboxService-compatible `listMessages()` output instead of importing the
  * singleton directly, so callers keep ownership of identity binding and read permissions. It never
- * copies full message bodies into the cockpit DTO; the operator surface gets sender, recipient class,
- * subject/status metadata, related ticket ids, timestamps, and a source label only.
+ * copies full message bodies or task inputs into the cockpit DTO; the operator surface gets sender,
+ * recipient (id + class — the viewer's own mailbox read already returns both, so the DTO discloses
+ * nothing the caller could not read; the earlier class-only bound was relaxed deliberately for the
+ * sender→recipient row rendering), subject/status metadata, related ticket ids, timestamps, and a
+ * source label.
  *
  * Lane-claim detection rides the shared structural reader (`a2aCollisionTags`) — the same definition
  * the wake guard uses, so the two surfaces can never drift again. The adapter's question stays NARROW:
@@ -166,6 +169,7 @@ export function createA2AMessageActivityEvents(messages = [], {capturedAt = new 
                 messageId          : message.messageId,
                 subject            : message.subject,
                 from               : message.from,
+                to                 : message.to,
                 priority           : message.priority,
                 recipientClass     : message.recipientClass,
                 relatedTickets     : message.relatedTickets,
@@ -181,9 +185,12 @@ function normalizeA2AMessage(message, capturedAt) {
     const subject = normalizeSubject(message.subject)
 
     return {
-        messageId          : typeof message.messageId === 'string' ? message.messageId : null,
+        messageId: typeof message.messageId === 'string' ? message.messageId : null,
         subject,
-        from               : normalizeAgentId(message.from),
+        from     : normalizeAgentId(message.from),
+        // the raw recipient rides beside its class: the class answers "what kind of send", the
+        // identity answers "to whom" — the operator surface renders sender→recipient from it
+        to                 : typeof message.to === 'string' && message.to !== '' ? message.to : null,
         priority           : message.priority || null,
         recipientClass     : getRecipientClass(message.to),
         relatedTickets     : normalizeRelatedTickets(message.relatedTickets),
