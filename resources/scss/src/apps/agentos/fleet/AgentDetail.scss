@@ -171,9 +171,41 @@
        inherits the framework tab theme; content panes keep the detail's spacing rhythm */
     .fm-detail-tabs {
         min-height: 0;
+        min-width : 0;
+
+        /* The tab BODY is the containment seat, and it is a DIFFERENT box from .fm-detail-tabs
+           above — which is why the min-height already there did not hold the shell (#17313).
+           A flex item's automatic minimum size is its CONTENT size on the main axis, so the body
+           container grew to the mailbox's full 2454px and carried the whole detail rail with it,
+           pushing the fleet activity stream's top edge to y=1695.8 in a 1084px viewport: present,
+           mounted, unhidden, and entirely below the fold. Both axes are pinned because the pane
+           overran horizontally too (1081.64px inside a 256px slot) — a height-only fix restores
+           the stream and leaves the sideways overrun standing. Scroll belongs INSIDE the tab
+           body's pane, never on the shell; the shell's geometry stays sovereign. */
+        .neo-tab-body-container {
+            min-height: 0;
+            min-width : 0;
+        }
+
+        /* The header row carried 309.4px of buttons in a 256px bar, so "Configuration" rendered
+           as "Configurat" (operator-reported). Tightened padding lets all three fit at the rail's
+           shipped width; the scroll is the guarantee rather than the mechanism — the rail is
+           resizable, so a padding tune alone would only move the clipping width rather than
+           retire it. No label is ever unreachable, and none is ellipsized at the shipped size. */
+        .neo-tab-header-toolbar {
+            min-width : 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
+        }
 
         .neo-tab-button {
             font-size: 11px;
+            padding  : 0 8px;
         }
     }
 

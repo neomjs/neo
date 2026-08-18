@@ -173,5 +173,165 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await expect(pane.locator('.fm-mail-row')).toHaveCount(3, {timeout: 15000});
         await expect(pane.locator('.fm-mail-row').nth(2).locator('.fm-mail-subject')).toHaveText('thread member live');
         await expect(pane.locator('.fm-mail-thread-toggle')).toHaveAttribute('aria-expanded', 'true')
+    });
+
+    /**
+     * @summary Detail-rail containment witnessed as PIXELS: with a FULL page of mail injected, the
+     * rail must not outgrow its slot on either axis, and the fleet activity stream must stay inside
+     * the viewport with EVERY tab active.
+     *
+     * Non-vacuity is the entire design of this guard. The sibling test above injects three rows —
+     * three rows overflow nothing, so these same assertions would pass on the unfixed tree and
+     * prove only that the page loads. The defect cannot exist below a full page: fifty rows carry
+     * ~2454px of intrinsic content, which drove the stream's top edge to y=1695.8 in a 1084px
+     * viewport while it reported `mounted: true, hidden: false`. So the fixture seeds the hard
+     * shape deliberately, and every assertion reads a CLIENT RECT rather than component state,
+     * because during the incident the state layer was telling the truth and the pixels were not.
+     *
+     * Both axes are asserted, because the pane overran horizontally too (1081.64px inside a 256px
+     * slot) and a height-only guard would let that half of the defect back in silently.
+     *
+     * The injection seam is what makes this runnable at all: on the live plane the cockpit viewer
+     * holds no `CAN_READ_INBOX_OF` grant, so the pane renders its denied line for every agent and
+     * a measurement taken there would be vacuous. `setProperties` drives real rows past the
+     * admission gate exactly as the sibling test does.
+     *
+     * @see resources/scss/src/apps/agentos/fleet/AgentDetail.scss (the `.neo-tab-body-container` seat)
+     * @see resources/scss/src/apps/agentos/fleet/MailboxPane.scss (the pane's own `min-width`)
+     */
+    test('a full mailbox page never pushes the activity stream out of the shell, on either axis (#17313)', async ({page, neuralLink}) => {
+        await page.goto('/apps/agentos/index.html');
+        await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
+        await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
+        await expect(page.locator('.fm-activity-stream')).toBeVisible({timeout: 30000});
+
+        const app    = await neuralLink.connectToApp('AgentOS'),
+              cards  = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+              target = cards.find(entry => entry?.properties?.record?.agentId && entry?.properties?.id);
+
+        expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
+
+        await page.locator(`[id="${target.properties.id}"] .fm-card-drill`).click();
+
+        const detail = page.locator('.fm-agent-detail');
+        await expect(detail).toBeVisible({timeout: 15000});
+
+        const mailboxTab = detail.locator('.neo-tab-header-button', {hasText: 'Mailbox'})
+            .or(detail.locator('.neo-tab-button', {hasText: 'Mailbox'}));
+
+        await mailboxTab.first().click();
+
+        const pane = detail.locator('.fm-mailbox-pane');
+        await expect(pane).toBeVisible({timeout: 15000});
+
+        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.MailboxPane'}, ['id']);
+        expect(mounted?.properties?.id, 'the mailbox pane is mounted and addressable').toBeTruthy();
+
+        // A FULL page. The subject lines are deliberately long: intrinsic WIDTH is what drove the
+        // horizontal half of this defect, and short fixtures would never reproduce it.
+        const capturedAt = new Date().toISOString(),
+              rowCount   = 50,
+              rows       = Array.from({length: rowCount}, (_, i) => ({
+                  messageId     : `MESSAGE:e2e-fullpage-${i}`,
+                  subject       : `full page message ${i} — a realistically long subject line carrying the intrinsic width this guard exists to bound`,
+                  from          : '@neo-gpt',
+                  recipientClass: 'agent',
+                  priority      : i % 5 === 0 ? 'high' : 'normal',
+                  status        : i % 3 === 0 ? 'unread' : 'read',
+                  taskState     : null,
+                  partOfThread  : null,
+                  relatedTickets: [],
+                  wakeSuppressed: false,
+                  sentAt        : new Date(Date.UTC(2026, 6, 16, 12, 0, 0) - i * 60000).toISOString(),
+                  readAt        : i % 3 === 0 ? null : '2026-07-16T12:05:00.000Z'
+              }));
+
+        await app.setProperties(mounted.properties.id, {
+            snapshot: {
+                capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt, reason: null},
+                admission : {state: 'granted', viewerIdentity: '@operator', subjectAgentId: `@${target.properties.record.githubUsername}`, checkedAt: capturedAt, reason: null},
+                page      : {limit: 50, offset: 0, count: rowCount},
+                rows
+            }
+        });
+
+        await expect(pane.locator('.fm-mail-row')).toHaveCount(rowCount, {timeout: 15000});
+
+        /** Client-rect truth for the shell, the rail, the pane and the scroll seat — one pass. */
+        const readGeometry = () => page.evaluate(() => {
+            const rect = el => {
+                const r = el.getBoundingClientRect();
+                return {top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width, height: r.height}
+            };
+
+            const stream = document.querySelector('.fm-activity-stream'),
+                  detail = document.querySelector('.fm-agent-detail'),
+                  pane   = document.querySelector('.fm-mailbox-pane'),
+                  rowsEl = document.querySelector('.fm-mailbox-rows'),
+                  doc    = document.documentElement;
+
+            return {
+                viewport : {width: window.innerWidth, height: window.innerHeight},
+                stream   : stream ? rect(stream) : null,
+                detail   : detail ? rect(detail) : null,
+                pane     : pane   ? rect(pane)   : null,
+                rows     : rowsEl ? {...rect(rowsEl), scrollHeight: rowsEl.scrollHeight, clientHeight: rowsEl.clientHeight} : null,
+                docScroll: {scrollHeight: doc.scrollHeight, clientHeight: doc.clientHeight}
+            }
+        });
+
+        const geo  = await readGeometry(),
+              dump = JSON.stringify(geo);
+
+        // AC-2 non-vacuity control: unless the rows container genuinely overflows, the containment
+        // assertions below are unfalsifiable and this guard proves nothing.
+        expect(geo.rows, `the rows container is present — ${dump}`).toBeTruthy();
+        expect(geo.rows.scrollHeight, `the fixture seeds real overflow (hard shape) — ${dump}`)
+            .toBeGreaterThan(geo.rows.clientHeight);
+
+        // AC-2: the scroll lives INSIDE the tab body; the shell's own geometry stays sovereign.
+        expect(geo.docScroll.scrollHeight, `the shell itself never scrolls — ${dump}`)
+            .toBeLessThanOrEqual(geo.docScroll.clientHeight + 1);
+
+        // AC-1, horizontal half: the pane fits its rail slot (1081.64px inside a 256px slot before).
+        expect(geo.pane.width, `the mailbox pane fits the detail rail — ${dump}`)
+            .toBeLessThanOrEqual(geo.detail.width + 1);
+
+        // AC-1, vertical half: the stream keeps a real slot in the shell, witnessed as pixels.
+        expect(geo.stream, `the activity stream is in the DOM — ${dump}`).toBeTruthy();
+        expect(geo.stream.height, `the stream has a non-empty client rect — ${dump}`).toBeGreaterThan(0);
+        expect(geo.stream.top, `the stream's top edge stays inside the viewport — ${dump}`)
+            .toBeLessThan(geo.viewport.height);
+
+        // AC-1 across EVERY tab + AC-3: each header label is readable at the rail's shipped width.
+        // `.neo-tab-header-button` is the header-strip class; `.neo-tab-button` matches only in some
+        // themes/versions, and grabbing that alone counted zero here — the sibling test above uses
+        // the same `.or()` pair for exactly this reason.
+        const tabButtons = detail.locator('.neo-tab-header-button')
+                  .or(detail.locator('.neo-tab-header-toolbar .neo-tab-button')),
+              tabCount   = await tabButtons.count();
+
+        expect(tabCount, 'the detail rail renders its three tabs').toBeGreaterThanOrEqual(3);
+
+        for (let i = 0; i < tabCount; i++) {
+            const button = tabButtons.nth(i),
+                  label  = (await button.innerText()).trim();
+
+            await button.click();
+            await page.waitForTimeout(250);
+
+            const perTab = await readGeometry();
+
+            expect(perTab.stream.height, `stream keeps a client rect with the "${label}" tab active — ${JSON.stringify(perTab)}`)
+                .toBeGreaterThan(0);
+            expect(perTab.stream.top, `stream stays inside the viewport with the "${label}" tab active — ${JSON.stringify(perTab)}`)
+                .toBeLessThan(perTab.viewport.height);
+
+            // AC-3: no clipped label at the shipped width — "Configuration" rendered as "Configurat".
+            const clipping = await button.evaluate(el => ({scrollWidth: el.scrollWidth, clientWidth: el.clientWidth}));
+
+            expect(clipping.scrollWidth, `the "${label}" tab label is not clipped — ${JSON.stringify(clipping)}`)
+                .toBeLessThanOrEqual(clipping.clientWidth + 1)
+        }
     })
 });
