@@ -1,4 +1,5 @@
 import AgentSessionSummaries               from '../../store/AgentSessionSummaries.mjs';
+import AgentSessionTurns                   from '../../store/AgentSessionTurns.mjs';
 import Button                              from '../../../../src/button/Base.mjs';
 import Component                           from '../../../../src/component/Base.mjs';
 import Container                           from '../../../../src/container/Base.mjs';
@@ -57,6 +58,20 @@ class MemoriesPane extends Container {
          * @reactive
          */
         snapshot_: null,
+        /**
+         * The open drill-in target — `{sessionId, title}` while a summary card's session detail
+         * is open, `null` for the summary-list view. Owner-passable, so a rematerialized pane
+         * reopens exactly the depth the operator was reading.
+         * @member {Object|null} drillSession_=null
+         * @reactive
+         */
+        drillSession_: null,
+        /**
+         * Latest session-memories (drill-in) envelope. `null` is unobserved, never empty.
+         * @member {Object|null} drillSnapshot_=null
+         * @reactive
+         */
+        drillSnapshot_: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
@@ -134,6 +149,14 @@ class MemoriesPane extends Container {
      * @member {String|null} renderedTarget=null
      */
     renderedTarget = null
+    /** @member {AgentOS.store.AgentSessionTurns|null} turnStore=null */
+    turnStore = null
+    /**
+     * The session whose turn rows the drill Store currently holds — the drill append guard,
+     * the {@link #renderedTarget} twin one level down.
+     * @member {String|null} renderedDrillSession=null
+     */
+    renderedDrillSession = null
 
     /**
      * @summary Create the pane-local Store and render held owner state. No read fires here:
@@ -147,6 +170,7 @@ class MemoriesPane extends Container {
         const me = this;
 
         me.summaryStore = Neo.create(AgentSessionSummaries);
+        me.turnStore    = Neo.create(AgentSessionTurns);
 
         // Rematerialization coherence: a pane rebuilt from an owner-held snapshot must not render
         // cards for a target no selection points at — the selection is derived from the rendered
@@ -156,13 +180,19 @@ class MemoriesPane extends Container {
         }
 
         me.refreshAgents();
-        me.applySnapshot()
+        me.applySnapshot();
+
+        // Drill rematerialization: an owner-passed open drill reopens at the depth the operator
+        // was reading; its snapshot re-projects through the same coherence gate as a live push.
+        me.drillSession && me.applyDrillSnapshot()
     }
 
     /** @param {...*} args */
     destroy(...args) {
         this.summaryStore?.destroy();
         this.summaryStore = null;
+        this.turnStore?.destroy();
+        this.turnStore = null;
         super.destroy(...args)
     }
 
@@ -184,6 +214,16 @@ class MemoriesPane extends Container {
     /** @param {Object|null} value @param {Object|null} oldValue */
     afterSetSnapshot(value, oldValue) {
         this.isConstructed && this.applySnapshot()
+    }
+
+    /** @param {Object|null} value @param {Object|null} oldValue */
+    afterSetDrillSession(value, oldValue) {
+        this.isConstructed && this.applySnapshot()
+    }
+
+    /** @param {Object|null} value @param {Object|null} oldValue */
+    afterSetDrillSnapshot(value, oldValue) {
+        this.isConstructed && this.applyDrillSnapshot()
     }
 
     /**
@@ -226,6 +266,61 @@ class MemoriesPane extends Container {
         me.fire('memoriesRequest', {
             agentIdentity: me.activeAgent,
             offset       : me.summaryStore.count
+        })
+    }
+
+    /**
+     * @summary Open one summary card's session detail: the drill-in switches the rows zone to the
+     * session's turn-level records. The drill target is part of the rendered drill KEY — the old
+     * session's rows and continuation affordance are invalidated IMMEDIATELY, so no stale depth
+     * can anchor an offset request into the new session.
+     * @param {Neo.data.Model} record The summary card's record — its `sessionId` is the pointer.
+     */
+    onCardOpen(record) {
+        const
+            me        = this,
+            sessionId = typeof record?.sessionId === 'string' ? record.sessionId : null;
+
+        if (!sessionId || me.drillSession?.sessionId === sessionId) return;
+
+        me.turnStore?.clear();
+        me.renderedDrillSession = null;
+        me.drillSession         = {sessionId, title: record.title ?? null};
+        me.fire('sessionDetailRequest', {sessionId, title: record.title ?? null})
+    }
+
+    /**
+     * @summary Leave the drill-in and return to the summary list. The close is an INTENT like the
+     * open: the owner clears its held drill state, so a later rematerialization reopens the list,
+     * never a drill the operator already left.
+     */
+    onDrillBackClick() {
+        const me = this;
+
+        me.drillSession = null;
+        me.turnStore?.clear();
+        me.renderedDrillSession = null;
+        me.fire('sessionDetailClosed', {});
+        me.applySnapshot()
+    }
+
+    /**
+     * @summary Page back through the session's turns by the drill Store's own rendered depth —
+     * the summary twin's guard one level down: fires ONLY once the open session's page zero has
+     * been accepted.
+     */
+    onDrillMoreClick() {
+        const me = this,
+              id = me.drillSession?.sessionId;
+
+        if (!id || !me.turnStore || me.renderedDrillSession !== id || me.drillSnapshot?.sessionId !== id) {
+            return
+        }
+
+        me.fire('sessionDetailRequest', {
+            sessionId: id,
+            title    : me.drillSession.title,
+            offset   : me.turnStore.count
         })
     }
 
@@ -301,10 +396,50 @@ class MemoriesPane extends Container {
             metaEl.changeVdomRootKey('title', !pending && adopted && wired ? viewerTimeTitle(adopted.capability.capturedAt) : null)
         }
 
-        refreshEl && (refreshEl.hidden = !me.activeAgent);
-        moreEl    && (moreEl.hidden    = !(wired && !pending && Number.isFinite(adopted.total) && me.summaryStore.count < adopted.total));
+        // the actions bar is summary-owned chrome: while the drill is open its affordances hide
+        // (the drill region carries its own back / older-turns controls)
+        refreshEl && (refreshEl.hidden = !me.activeAgent || Boolean(me.drillSession));
+        moreEl    && (moreEl.hidden    = Boolean(me.drillSession) || !(wired && !pending && Number.isFinite(adopted.total) && me.summaryStore.count < adopted.total));
 
         me.renderRows(adopted, wired, pending)
+    }
+
+    /**
+     * @summary Project the latest drill envelope into turn rows under the summary twin's
+     * coherence contract, one level down: the open session is part of the rendered drill KEY. An
+     * envelope whose `sessionId` mismatches the open drill is NOT adopted — a stale or late
+     * foreign-session page can never resurrect old rows or re-enable continuation. Replace is the
+     * default; append happens only for a same-session `page.offset > 0` continuation on an
+     * already-accepted page zero.
+     */
+    applyDrillSnapshot() {
+        const
+            me       = this,
+            open     = me.drillSession,
+            snapshot = me.drillSnapshot;
+
+        if (!me.turnStore || !open) return;
+
+        const
+            coherent = !snapshot || snapshot.sessionId === open.sessionId,
+            adopted  = coherent ? snapshot : null,
+            wired    = adopted?.capability?.state === 'wired',
+            append   = wired && adopted.page?.offset > 0 && adopted.sessionId === me.renderedDrillSession;
+
+        if (!append) {
+            me.turnStore.clear()
+        }
+
+        if (wired) {
+            const fresh = adopted.turns.filter(turn => turn?.id && !me.turnStore.get(turn.id));
+
+            fresh.length > 0 && me.turnStore.add(fresh);
+            me.renderedDrillSession = adopted.sessionId
+        } else {
+            me.renderedDrillSession = null
+        }
+
+        me.renderRows(me.snapshot, me.snapshot?.capability?.state === 'wired', false)
     }
 
     /**
@@ -321,6 +456,13 @@ class MemoriesPane extends Container {
         if (!target) return;
 
         target.removeAll(true);
+
+        // the drill-in owns the rows zone while a session is open — the summary states below
+        // resume untouched when the operator comes back (their Store never left)
+        if (this.drillSession) {
+            this.renderDrillRows(target);
+            return
+        }
 
         if (pending) {
             target.add({
@@ -377,9 +519,30 @@ class MemoriesPane extends Container {
             ].filter(Boolean),
             coAuthors = (record.sourceAgentIdentities || []).filter(identity => identity !== me.renderedTarget),
             items     = [{
-                module: Component,
-                cls   : ['fm-memories-card-title'],
-                text  : record.title ?? 'Title unavailable for this session.'
+                // the card head: title + the provenance vocabulary + the drill affordance. The
+                // affordance is a real BUTTON (keyboard-reachable), never a click region on the
+                // whole card — the mailbox rows' a11y ruling, applied here from birth.
+                module: Container,
+                cls   : ['fm-memories-card-head'],
+                flex  : 'none',
+                layout: {ntype: 'hbox', align: 'center'},
+                items : [{
+                    module: Component,
+                    cls   : ['fm-memories-card-title'],
+                    flex  : 1,
+                    text  : record.title ?? 'Title unavailable for this session.'
+                }, {
+                    module: Component,
+                    cls   : ['fm-memories-provenance', 'is-derived'],
+                    text  : 'derived'
+                }, {
+                    module : Button,
+                    cls    : ['fm-memories-card-open'],
+                    iconCls: 'fa fa-angles-right',
+                    text   : 'Turns',
+                    ui     : 'ghost',
+                    handler: () => me.onCardOpen(record)
+                }]
             }, {
                 module: Component,
                 cls   : ['fm-memories-card-meta'],
@@ -411,6 +574,148 @@ class MemoriesPane extends Container {
             layout: {ntype: 'vbox', align: 'stretch'},
             items
         }
+    }
+
+    /**
+     * @summary Render the open session's turn rows (or the honest pending/empty/unavailable
+     * state) into the rows zone — the drill-in view. The header carries the back affordance, the
+     * session identity, and the provenance vocabulary: these rows are AUTHORED records (the
+     * agent's own prompt/response trail), visually distinct from the DERIVED summaries one level
+     * up. Absence renders as absence, exactly like the summary twin.
+     * @param {Neo.container.Base} target The rows zone.
+     */
+    renderDrillRows(target) {
+        const
+            me       = this,
+            open     = me.drillSession,
+            snapshot = me.drillSnapshot,
+            coherent = snapshot && snapshot.sessionId === open.sessionId ? snapshot : null,
+            wired    = coherent?.capability?.state === 'wired',
+            pending  = !coherent;
+
+        target.add({
+            module: Container,
+            cls   : ['fm-memories-drill-head'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center'},
+            items : [{
+                module : Button,
+                cls    : ['fm-memories-drill-back'],
+                iconCls: 'fa fa-arrow-left',
+                text   : 'Summaries',
+                ui     : 'ghost',
+                handler: 'up.onDrillBackClick'
+            }, {
+                module: Component,
+                cls   : ['fm-memories-drill-title'],
+                flex  : 1,
+                text  : open.title ?? `session ${open.sessionId.slice(0, 8)}`
+            }, {
+                module: Component,
+                cls   : ['fm-memories-provenance', 'is-authored'],
+                text  : 'authored records'
+            }]
+        });
+
+        if (pending) {
+            target.add({
+                module: Component,
+                cls   : ['fm-memories-empty'],
+                text  : 'Reading this session’s turns. Nothing here claims to be its history yet.'
+            });
+            return
+        }
+
+        if (!wired) {
+            const detail = coherent.capability?.detail;
+
+            target.add({
+                module: Component,
+                cls   : ['fm-memories-empty'],
+                text  : `The session-memories source did not answer${detail ? ` · ${detail}` : ''}. Nothing here claims to be history.`
+            });
+            return
+        }
+
+        if (me.turnStore.count === 0) {
+            target.add({module: Component, cls: ['fm-memories-empty'], text: 'No turn records in this session.'});
+            return
+        }
+
+        target.add(me.turnStore.items.map(record => me.turnRowConfig(record)));
+
+        if (Number.isFinite(coherent.total) && me.turnStore.count < coherent.total) {
+            target.add({
+                module : Button,
+                cls    : ['fm-memories-drill-more'],
+                flex   : 'none',
+                iconCls: 'fa fa-angles-down',
+                text   : 'Older turns',
+                ui     : 'ghost',
+                handler: 'up.onDrillMoreClick'
+            })
+        }
+    }
+
+    /**
+     * @summary Build one turn row from a drill Store record. The response is the row's primary
+     * prose, the prompt its secondary context — both render-bounded (the wire returns the
+     * authored records untruncated; the BOUND is presentation, and it says so with an ellipsis).
+     * Guarded-null fields are named rather than silently coerced.
+     * @param {Neo.data.Model} record
+     * @returns {Object}
+     */
+    turnRowConfig(record) {
+        const
+            me       = this,
+            metaBits = [
+                me.formatStamp(record.timestamp),
+                record.agentIdentity || null,
+                Number.isFinite(record.amountToolCalls) ? `${record.amountToolCalls} tool calls` : null
+            ].filter(Boolean),
+            items    = [{
+                module: Component,
+                cls   : ['fm-memories-turn-meta'],
+                text  : metaBits.join(' · '),
+                ...(viewerTimeTitle(record.timestamp) ? {vdom: {title: viewerTimeTitle(record.timestamp)}} : {})
+            }, {
+                module: Component,
+                cls   : ['fm-memories-turn-response'],
+                text  : me.boundProse(record.response) ?? 'Response unavailable for this turn.'
+            }];
+
+        const prompt = me.boundProse(record.prompt, 240);
+
+        if (prompt) {
+            items.push({
+                module: Component,
+                cls   : ['fm-memories-turn-prompt'],
+                text  : `prompt · ${prompt}`
+            })
+        }
+
+        return {
+            module: Container,
+            cls   : ['fm-memories-turn'],
+            flex  : 'none',
+            layout: {ntype: 'vbox', align: 'stretch'},
+            items
+        }
+    }
+
+    /**
+     * @summary Presentation bound for authored prose: whitespace-collapsed and ellipsis-cut. The
+     * record keeps the full text — this bounds the ROW, never the data.
+     * @param {String|null} value
+     * @param {Number} max=600
+     * @returns {String|null}
+     */
+    boundProse(value, max = 600) {
+        if (typeof value !== 'string') return null;
+
+        const text = value.replace(/\s+/g, ' ').trim();
+
+        return text ? (text.length > max ? `${text.slice(0, max)}…` : text) : null
     }
 
     /**

@@ -104,4 +104,59 @@ test.describe('FleetCockpit — memories owner seam (pending selection + write-t
             globalThis.AgentOS = previousNs
         }
     });
+
+    test('loadSessionMemories owner-holds the drill BEFORE the await, strips display state off the wire, and writes into the WRITE-time pane', async () => {
+        const
+            proto      = FleetCockpit.prototype,
+            oldPane    = {},
+            newPane    = {},
+            previousNs = globalThis.AgentOS;
+
+        let releaseRead,
+            wireParams,
+            currentPane = oldPane;
+
+        globalThis.AgentOS = {fleet: {registryBridge: {
+            fleetSessionMemories: params => {
+                wireParams = params;
+                return new Promise(resolve => { releaseRead = resolve })
+            }
+        }}};
+
+        try {
+            const me = {
+                memoriesDrillSession       : null,
+                memoriesDrillSnapshot      : null,
+                memoriesDrillReadGeneration: 0,
+                getMemoriesPane            : () => currentPane
+            };
+
+            const read = proto.loadSessionMemories.call(me, {sessionId: 'abcd1234-session', title: 'The witnessed day'});
+
+            // owner-held synchronously, before any settlement — the rematerialization key exists
+            // the moment the intent passes through the owner; the TITLE is owner/display state
+            // only and never rides the wire
+            expect(me.memoriesDrillSession).toEqual({sessionId: 'abcd1234-session', title: 'The witnessed day'});
+            expect(wireParams).toEqual({sessionId: 'abcd1234-session'});
+
+            // the pane is destroyed and rebuilt while the read is in flight
+            currentPane = newPane;
+
+            const envelope = {capability: {state: 'wired'}, sessionId: 'abcd1234-session', page: {offset: 0, limit: 20}, turns: [], count: 0, total: 0};
+            releaseRead(envelope);
+            await read;
+
+            // the truth lands in the LIVE pane through the phase-blind accessor
+            expect(newPane.drillSnapshot).toBe(envelope);
+            expect(oldPane.drillSnapshot).toBe(undefined);
+            expect(me.memoriesDrillSnapshot).toBe(envelope);
+
+            // the close intent clears BOTH halves of the owner state — a left drill cannot reopen
+            proto.clearSessionMemoriesDrill.call(me);
+            expect(me.memoriesDrillSession).toBe(null);
+            expect(me.memoriesDrillSnapshot).toBe(null)
+        } finally {
+            globalThis.AgentOS = previousNs
+        }
+    });
 });
