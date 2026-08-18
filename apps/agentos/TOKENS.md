@@ -55,6 +55,8 @@ The token appendix the design-bar section (SSOT §06) points at: four new groups
 
 **Contrast duty for the new text roles.** The roles are size/leading/stack only — color still comes from the ink tier, so the measured table above governs. The one new exposure is `--fm-text-micro` at 10px: below the comfortable prose floor, which is exactly why its binding rule caps it at short mono runs on `--fm-ink` / `--fm-ink-dim` (both measured ≥4.6 against every surface in both skins). A new micro consumer on a different ink token re-measures first — same rule as every value here.
 
+**Instant presentation is a rule, not a token (SSOT §06 ladder T5).** Human-facing times carry no token because there is no value to bind — the ladder is a *behaviour*: human text renders viewer-local through `Intl` via the one shared helper (`view/fleet/viewerTime.mjs`), the wire stays ISO-8601 UTC because receipts must be zone-free, the exact instant rides `title`, and the same-day/older switch is judged on the **viewer's** calendar rather than UTC's. Recorded here so the appendix and the bar do not disagree about what §06 covers: a surface needing a time imports the helper; a surface needing a new shape extends the helper and the T5 row, never its own local copy. Type-wise these strings are `--fm-text-micro` consumers (short mono runs — the timestamps named in that role's binding rule).
+
 **What this contract deliberately does NOT define:** the dashboard THEME layer (dock-package tokens are #17242/#17244's concern — this appendix consumes, never defines, theme tokens) and any new state/kind color (the existing `--fm-state-*` / `--fm-kind-*` sets are closed; a new state is a design decision on its own ticket).
 
 ## Adding a token

@@ -1,7 +1,8 @@
-import AgentSessionSummaries from '../../store/AgentSessionSummaries.mjs';
-import Button                from '../../../../src/button/Base.mjs';
-import Component             from '../../../../src/component/Base.mjs';
-import Container             from '../../../../src/container/Base.mjs';
+import AgentSessionSummaries               from '../../store/AgentSessionSummaries.mjs';
+import Button                              from '../../../../src/button/Base.mjs';
+import Component                           from '../../../../src/component/Base.mjs';
+import Container                           from '../../../../src/container/Base.mjs';
+import {formatViewerTime, viewerTimeTitle} from './viewerTime.mjs';
 
 /**
  * The invoked Fleet memories surface: what one agent has been doing, session by session.
@@ -293,7 +294,11 @@ class MemoriesPane extends Container {
                     ? 'Pick an agent to read their recent sessions.'
                     : wired
                         ? `${adopted.target} · ${me.summaryStore.count} of ${adopted.total ?? '?'} sessions · captured ${me.formatStamp(adopted.capability.capturedAt)}`
-                        : `Memories unavailable · ${adopted.capability?.reason || 'unknown reason'}`
+                        : `Memories unavailable · ${adopted.capability?.reason || 'unknown reason'}`;
+
+            // T5 receipt; falsy removes, so the pending and unavailable branches — which render no
+            // stamp — cannot leave a previous read's instant hovering behind their copy.
+            metaEl.changeVdomRootKey('title', !pending && adopted && wired ? viewerTimeTitle(adopted.capability.capturedAt) : null)
         }
 
         refreshEl && (refreshEl.hidden = !me.activeAgent);
@@ -378,7 +383,11 @@ class MemoriesPane extends Container {
             }, {
                 module: Component,
                 cls   : ['fm-memories-card-meta'],
-                text  : metaBits.join(' · ')
+                text  : metaBits.join(' · '),
+                // T5 receipt, config shape. A session summary's own timestamp is the field an agent
+                // cites when pointing at a session, so losing its exact instant to a local-only
+                // rendering would cost more here than on any other pane.
+                ...(viewerTimeTitle(record.timestamp) ? {vdom: {title: viewerTimeTitle(record.timestamp)}} : {})
             }];
 
         if (coAuthors.length > 0) {
@@ -404,11 +413,14 @@ class MemoriesPane extends Container {
         }
     }
 
-    /** @param {Date|String|Number|null} value @returns {String} */
+    /**
+     * @summary Viewer-local stamp via the shared cockpit formatter — see `viewerTime.mjs` for why
+     * format is single-sourced while this pane keeps its own "unknown time" miss-copy.
+     * @param {Date|String|Number|null} value
+     * @returns {String}
+     */
     formatStamp(value) {
-        const date = new Date(value);
-
-        return Number.isFinite(date.getTime()) ? date.toISOString().replace('T', ' ').slice(0, 16) + 'Z' : 'unknown time'
+        return formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 
