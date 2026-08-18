@@ -37,7 +37,13 @@
  * @param {Number}   params.limit Page size, injected from the caller's config — no local default.
  * @param {Number}   params.maxPages Hard walk bound, injected — a runaway cursor must terminate, and
  *   hitting the bound is an honest truncation rather than a silent stop.
- * @returns {Promise<{items: Object[], pages: Number, exhausted: Boolean, reason: String|null}>}
+ * @returns {Promise<{items: Object[], pages: Number, exhausted: Boolean, reason: String|null,
+ *   unavailable: Boolean}>} `unavailable` marks the one incompleteness that is a deployment fact
+ *   rather than a fault. **Today it is carried, not surfaced:** the `reason` text reaches an operator,
+ *   while the boolean stops at the census manifest and no consumer branches on it yet — deliberately,
+ *   because a landscape whose source is unavailable is also `degraded: true`, so exposing both flags
+ *   at once would hand a caller a precedence question this module has no authority to answer. Deciding
+ *   which word wins is the seam-wide vocabulary change; this is the discriminator that change needs.
  * @throws {TypeError} When a required injection is missing — an unbound walk is a wiring bug, not a
  *   degradation, and must fail loud rather than report an empty census as complete.
  */
@@ -57,10 +63,11 @@ export async function walkCensusToExhaustion({fetchPage, kind, limit, maxPages} 
 
     const items = [];
 
-    let cursor    = null,
-        pages     = 0,
-        exhausted = false,
-        reason    = null;
+    let cursor      = null,
+        pages       = 0,
+        exhausted   = false,
+        reason      = null,
+        unavailable = false;
 
     while (pages < maxPages) {
         let page;
@@ -68,7 +75,18 @@ export async function walkCensusToExhaustion({fetchPage, kind, limit, maxPages} 
         try {
             page = await fetchPage({cursor, limit})
         } catch (error) {
-            reason = `${kind}: page ${pages + 1} failed (${error.message})`;
+            // A source that is out of reach BY DESIGN is not a failed page, and saying "failed" about
+            // it sends a reader hunting a fault that does not exist. The two outcomes are equally
+            // incomplete and are not equally actionable, so they are rendered — and flagged —
+            // differently. Duck-typed rather than `instanceof`, so the classification survives a
+            // module realm boundary or a reconstructed error.
+            if (error?.unavailable === true) {
+                unavailable = true;
+                reason      = `${kind}: unavailable on this plane (${error.message})`
+            } else {
+                reason = `${kind}: page ${pages + 1} failed (${error.message})`
+            }
+
             break
         }
 
@@ -107,5 +125,5 @@ export async function walkCensusToExhaustion({fetchPage, kind, limit, maxPages} 
         reason = `${kind}: walk stopped at the ${maxPages}-page bound before the source reported exhaustion`
     }
 
-    return {items, pages, exhausted, reason}
+    return {items, pages, exhausted, reason, unavailable}
 }
