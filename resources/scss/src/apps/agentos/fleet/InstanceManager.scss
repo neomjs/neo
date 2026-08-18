@@ -1,0 +1,219 @@
+/* AgentOS.view.fleet.InstanceManager — the manage-instances drawer (#17328 §5): Settings-class,
+   right-edge reveal over the main viewport, reached from the switcher menu. Colors/fonts read the
+   --fm-* token layer only; font sizes are literals AT the §06 role values (display 14/1.3·600 ·
+   body 12/1.45 · detail 11/1.4 · micro 10/1.3), annotated for the T1 tokenization pass. Motion:
+   reveal/dismiss on the standards vocabulary with the in-file reduced-motion collapse. Spacing on
+   the 4/8/12/16 rhythm. */
+.fm-instance-manager {
+    background   : var(--fm-panel);
+    border-left  : 1px solid var(--fm-line);
+    bottom       : 0;
+    box-shadow   : var(--fm-shadow-overlay);
+    padding      : 16px;
+    position     : absolute;
+    right        : 0;
+    top          : 0;
+    width        : 420px;
+    z-index      : 60;
+
+    /* reveal class (§06 T4): chrome enters from its edge, settles toward it */
+    animation: fm-im-reveal var(--motion-panel, 280ms) cubic-bezier(0.22, 1, 0.36, 1);
+
+    .fm-im-head {
+        border-bottom : 1px solid var(--fm-line-soft);
+        margin-bottom : 12px;
+        padding-bottom: 8px;
+    }
+
+    .fm-im-title {
+        color      : var(--fm-ink);
+        font-family: var(--fm-font-sans);
+        font-size  : 14px;             /* role: --fm-text-display */
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .fm-im-close {
+        background: transparent;
+        border    : none;
+        color     : var(--fm-ink-dim);
+        cursor    : pointer;
+
+        &:hover {
+            color: var(--fm-ink)
+        }
+    }
+
+    .fm-im-empty {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-sans);
+        font-size  : 12px;             /* role: --fm-text-body */
+        padding    : 8px 0;
+    }
+
+    .fm-im-row {
+        align-items: center;
+        display    : flex;
+        gap        : 8px;
+        padding    : 4px 0;
+
+        /* the bound row is marked structurally (border + the "bound" WORD, never hue-alone) */
+        &.is-bound .fm-im-row-main {
+            border-color: var(--fm-line-soft);
+        }
+
+        &.is-selected .fm-im-row-main {
+            background: var(--fm-panel-2);
+        }
+    }
+
+    .fm-im-row-main {
+        align-items  : center;
+        background   : transparent;
+        border       : 1px solid transparent;
+        border-radius: 4px;
+        color        : var(--fm-ink-dim);
+        cursor       : pointer;
+        display      : flex;
+        flex         : 1;
+        gap          : 8px;
+        min-width    : 0;
+        padding      : 8px;
+        text-align   : left;
+
+        &:hover {
+            background: var(--fm-panel-2);
+        }
+    }
+
+    .fm-im-row-name {
+        color      : var(--fm-ink);
+        font-family: var(--fm-font-sans);
+        font-size  : 12px;             /* role: --fm-text-body */
+        line-height: 1.45;
+    }
+
+    .fm-im-row-endpoint {
+        color        : var(--fm-ink-dim);
+        flex         : 1;
+        font-family  : var(--fm-font-mono);
+        font-size    : 11px;           /* role: --fm-text-detail */
+        line-height  : 1.4;
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .fm-im-row-custodian,
+    .fm-im-row-boundword {
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 4px;
+        color        : var(--fm-ink-dim);
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 10px;           /* role: --fm-text-micro */
+        line-height  : 1.3;
+        padding      : 2px 8px;
+    }
+
+    .fm-im-row-boundword {
+        color: var(--fm-ink);
+    }
+
+    .fm-im-probe,
+    .fm-im-retire {
+        background   : transparent;
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 4px;
+        color        : var(--fm-ink-dim);
+        cursor       : pointer;
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 10px;           /* role: --fm-text-micro */
+        padding      : 2px 8px;
+
+        &:hover {
+            color: var(--fm-ink)
+        }
+    }
+
+    .fm-im-section-label {
+        color         : var(--fm-ink-dim);
+        font-family   : var(--fm-font-mono);
+        font-size     : 11px;          /* role: --fm-text-chrome */
+        letter-spacing: .08em;
+        line-height   : 1;
+        margin        : 16px 0 8px;
+        text-transform: uppercase;
+    }
+
+    .fm-im-custodians {
+        display       : flex;
+        flex-direction: column;
+        gap           : 4px;
+        margin        : 8px 0;
+    }
+
+    .fm-im-custodian {
+        font-family: var(--fm-font-mono);
+        font-size  : 11px;             /* role: --fm-text-detail */
+        line-height: 1.4;
+
+        /* both tiers sit ABOVE the 4.5:1 text floor — the available/unavailable distinction is
+           carried by the WORDS ("not available in this build"), with ink weight as the accent;
+           --fm-ink-faint stays decorative-only per the token contract's D4 ruling */
+        &.is-available {
+            color: var(--fm-ink);
+        }
+
+        /* unavailable custody legs stay VISIBLE with their reason — honest absence as text */
+        &.is-unavailable {
+            color: var(--fm-ink-dim);
+        }
+    }
+
+    .fm-im-plane-note {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-sans);
+        font-size  : 12px;             /* role: --fm-text-body */
+        line-height: 1.45;
+        margin     : 0 0 8px;
+        max-width  : 68ch;
+    }
+
+    .fm-im-actions {
+        gap       : 8px;
+        margin-top: 8px;
+    }
+
+    .fm-im-notice {
+        font-family: var(--fm-font-mono);
+        font-size  : 11px;             /* role: --fm-text-detail */
+        line-height: 1.4;
+        margin-top : 12px;
+        min-height : 16px;
+
+        /* tone classes carry no hue-alone meaning: the TEXT is the outcome, the ink weight the accent */
+        &.is-ok      { color: var(--fm-ink); }
+        &.is-refused { color: var(--fm-ink-dim); }
+    }
+}
+
+@keyframes fm-im-reveal {
+    from {
+        opacity  : 0;
+        transform: translateX(24px);
+    }
+    to {
+        opacity  : 1;
+        transform: translateX(0);
+    }
+}
+
+/* reduced-motion collapse (§06 T4): instant, never removed */
+@media (prefers-reduced-motion: reduce) {
+    .fm-instance-manager {
+        animation: none;
+    }
+}

@@ -1341,11 +1341,15 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         return {calls, set(config) { calls.push(config) }}
     };
 
+    // A cockpit with no provider in its chain is the DEFAULT fixture: the banner speaks its verdict
+    // unlabeled, and the instance mirror writes nowhere. Every existing case below asserts the
+    // verdict itself, so provider-less is exactly the shape that keeps them about the verdict.
     const makeHost = (gridAdapterState, streamAdapterState, banner) => ({
-        getReference   : reference => reference === 'fleet-spine-banner' ? banner : null,
+        getReference    : reference => reference === 'fleet-spine-banner' ? banner : null,
+        getStateProvider: () => null,
         gridAdapterState,
         streamAdapterState,
-        syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+        syncSpineBanner : FleetCockpit.prototype.syncSpineBanner
     });
 
     // ⭐ The daemon surface reaching the REAL slot. The derivation being correct is a separate suite;
@@ -1369,6 +1373,65 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         expect(text).toContain('orchestrator exited');
         // The stale feed is the symptom; it must not be the sentence.
         expect(text).not.toContain('last-known data')
+    });
+
+    test('the bound instance NAMES itself on every spoken line, and the chrome dot mirrors the same verdict', () => {
+        // The scope rule: the switcher and this banner are the only two places in the main window
+        // that speak the instance name. The banner composes it HERE (the pure derivation stays
+        // label-free), and the SAME verdict is mirrored into provider data so the chrome dot cannot
+        // disagree with the sentence beside it — one truth, two renderers.
+        const
+            banner       = makeBanner(),
+            written      = [],
+            record       = {canonicalEndpoint: 'https://fleet.example.io/fleet', label: 'cloud-eu', profileId: 'p1'},
+            withProvider = (data, storeHit) => ({
+                ...makeHost('live', 'stale', banner),
+                getStateProvider: () => ({
+                    getData : key => data[key],
+                    getStore: name => name === 'fleetInstances' ? {get: id => (storeHit && id === 'p1' ? record : null)} : null,
+                    setData : patch => written.push(patch)
+                }),
+                daemonDegradedReason: 'orchestrator exited',
+                daemonState         : 'stopped'
+            });
+
+        withProvider({boundProfileId: 'p1'}, true).syncSpineBanner();
+
+        // the label PREFIXES the verdict; the verdict itself is untouched
+        expect(banner.calls[0].text).toMatch(/^cloud-eu — /);
+        expect(banner.calls[0].text).toContain('orchestrator exited');
+        // a degraded verdict mirrors as the limited dot state — never as ok
+        expect(written.at(-1)).toEqual({instanceState: 'limited'});
+
+        // honest absence, both halves: a bound id the roster does not hold names NOTHING (the row
+        // may be retired or not yet hydrated), and the mirror still writes the verdict
+        banner.calls.length = 0;
+        withProvider({boundProfileId: 'p1'}, false).syncSpineBanner();
+        expect(banner.calls[0].text).not.toContain('cloud-eu');
+        expect(banner.calls[0].text).toContain('orchestrator exited');
+        expect(written.at(-1)).toEqual({instanceState: 'limited'})
+    });
+
+    test('a LIVE spine mirrors ok and stays label-free — a hidden banner speaks no scope', () => {
+        // The label rides SPOKEN lines only: a fully live spine renders zero pixels, so prefixing a
+        // hidden empty string would put an instance name into a sentence nobody sees.
+        const
+            banner  = makeBanner(),
+            written = [],
+            host    = {
+                ...makeHost('live', 'live', banner),
+                getStateProvider: () => ({
+                    getData : () => 'p1',
+                    getStore: () => ({get: () => ({canonicalEndpoint: 'http://127.0.0.1:8083/fleet', label: 'local'})}),
+                    setData : patch => written.push(patch)
+                })
+            };
+
+        host.syncSpineBanner();
+
+        expect(banner.calls[0].hidden).toBe(true);
+        expect(banner.calls[0].text).toBe('');
+        expect(written.at(-1)).toEqual({instanceState: 'ok'})
     });
 
     test('⭐ an unfed daemon surface stays SILENT on a live owner — absence claims nothing', () => {
@@ -1612,6 +1675,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             getReference       : reference =>
                 reference === 'fleet-spine-banner' ? banner :
                 reference === 'activity-stream'    ? stream : null,
+            getStateProvider    : () => null,
             gridAdapterState    : 'live',
             gridDegradedReason  : null,
             loadActivity        : FleetCockpit.prototype.loadActivity,

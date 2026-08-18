@@ -3,7 +3,9 @@ import AgentDefinitions   from '../store/AgentDefinitions.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import FleetCockpit       from './fleet/FleetCockpit.mjs';
+import FleetInstances     from '../store/FleetInstances.mjs';
 import FleetTenants       from '../store/FleetTenants.mjs';
+import InstanceSwitcher   from './fleet/InstanceSwitcher.mjs';
 import StateProvider      from '../../../src/state/Provider.mjs';
 import TabContainer       from '../../../src/tab/Container.mjs';
 import ViewportController from './ViewportController.mjs';
@@ -55,9 +57,20 @@ class Viewport extends BaseViewport {
          */
         stateProvider: {
             module: StateProvider,
+            data  : {
+                // the bound instance's profileId — MIRRORED from the published bridge's
+                // `profileId` (the SSOT) by the switch/boot owner; consumers bind, never derive
+                boundProfileId: null,
+                // the bound instance's connection state as a session-state key — written at the
+                // spine banner's sync point, so the chrome dot and the banner share ONE truth
+                instanceState: 'off'
+            },
             stores: {
                 agentDefinitions: {
                     module: AgentDefinitions
+                },
+                fleetInstances: {
+                    module: FleetInstances
                 },
                 fleetTenants: {
                     module: FleetTenants
@@ -65,7 +78,9 @@ class Viewport extends BaseViewport {
             }
         },
         /**
-         * Top chrome (logo · title · theme switch) over the left-rail keeper-view nav.
+         * Top chrome (logo · title · instance switcher · theme switch) over the left-rail
+         * keeper-view nav. The switcher sits in the LEFT cluster directly after the title — scope
+         * reads left-to-right: product → instance → everything below is instance-relative.
          * @member {Object[]} items
          */
         items: [{
@@ -79,6 +94,18 @@ class Viewport extends BaseViewport {
             }, {
                 ntype: 'label',
                 text : 'Agent OS'
+            }, {
+                module   : InstanceSwitcher,
+                reference: 'instance-switcher',
+                bind     : {
+                    boundProfileId: data => data.boundProfileId,
+                    instanceState : data => data.instanceState,
+                    instanceStore : 'stores.fleetInstances'
+                },
+                listeners: {
+                    manageinstances: 'onManageInstances',
+                    switchinstance : 'onSwitchInstance'
+                }
             }, '->', {
                 ntype    : 'button',
                 cls      : ['agent-button', 'agent-theme-button'],
