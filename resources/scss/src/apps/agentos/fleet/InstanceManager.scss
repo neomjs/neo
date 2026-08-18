@@ -8,7 +8,7 @@
     background   : var(--fm-panel);
     border-left  : 1px solid var(--fm-line);
     bottom       : 0;
-    box-shadow   : -12px 0 32px rgba(0, 0, 0, .35);
+    box-shadow   : var(--fm-shadow-overlay);
     padding      : 16px;
     position     : absolute;
     right        : 0;
@@ -45,7 +45,7 @@
     }
 
     .fm-im-empty {
-        color      : var(--fm-ink-faint);
+        color      : var(--fm-ink-dim);
         font-family: var(--fm-font-sans);
         font-size  : 12px;             /* role: --fm-text-body */
         padding    : 8px 0;
@@ -94,7 +94,7 @@
     }
 
     .fm-im-row-endpoint {
-        color        : var(--fm-ink-faint);
+        color        : var(--fm-ink-dim);
         flex         : 1;
         font-family  : var(--fm-font-mono);
         font-size    : 11px;           /* role: --fm-text-detail */
@@ -160,18 +160,21 @@
         font-size  : 11px;             /* role: --fm-text-detail */
         line-height: 1.4;
 
+        /* both tiers sit ABOVE the 4.5:1 text floor — the available/unavailable distinction is
+           carried by the WORDS ("not available in this build"), with ink weight as the accent;
+           --fm-ink-faint stays decorative-only per the token contract's D4 ruling */
         &.is-available {
-            color: var(--fm-ink-dim);
+            color: var(--fm-ink);
         }
 
         /* unavailable custody legs stay VISIBLE with their reason — honest absence as text */
         &.is-unavailable {
-            color: var(--fm-ink-faint);
+            color: var(--fm-ink-dim);
         }
     }
 
     .fm-im-plane-note {
-        color      : var(--fm-ink-faint);
+        color      : var(--fm-ink-dim);
         font-family: var(--fm-font-sans);
         font-size  : 12px;             /* role: --fm-text-body */
         line-height: 1.45;

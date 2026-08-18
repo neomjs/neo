@@ -43,14 +43,14 @@
     }
 
     .fm-instance-caret {
-        color: var(--fm-ink-faint);
+        color: var(--fm-ink-dim);
     }
 
     .fm-instance-menu {
         background   : var(--fm-panel-2);
         border       : 1px solid var(--fm-line);
         border-radius: 6px;
-        box-shadow   : 0 8px 24px rgba(0, 0, 0, .35);
+        box-shadow   : var(--fm-shadow-overlay);
         display      : flex;
         flex-direction: column;
         min-width    : 320px;
@@ -101,7 +101,7 @@
     }
 
     .fm-instance-row-endpoint {
-        color        : var(--fm-ink-faint);
+        color        : var(--fm-ink-dim);
         flex         : 1;
         font-family  : var(--fm-font-mono);
         font-size    : 11px;           /* role: --fm-text-detail */
