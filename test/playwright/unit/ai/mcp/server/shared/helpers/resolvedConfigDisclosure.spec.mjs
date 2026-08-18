@@ -189,6 +189,39 @@ test.describe('resolvedConfigDisclosure — the disclosure boundary (#17356)', (
         }
     });
 
+    test('INTEGRATION: paths resolve against the REAL config proxy, not just plain objects', async () => {
+        // The arm every fixture above structurally cannot reach. A resolved config is a Proxy that
+        // exposes its leaves through a `get` trap and implements NO `has` trap, so `'batchSize' in
+        // config` is false while `config.batchSize` reads fine. An `in`-based walk passes every
+        // plain-object test in this file and discloses NOTHING in production — a reader that works on
+        // the fixture and silently fails on the subject.
+        //
+        // This is why the case exists: the plain-object corpus above is not a weaker version of this
+        // one, it is blind to the defect by construction.
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
+
+        // Control first: the proxy really does hide these from `in`, so the assertion below is testing
+        // the hazard rather than a config that happens to be plain.
+        expect('batchSize' in aiConfig, 'if this becomes true the proxy grew a `has` trap').toBe(false);
+        expect(aiConfig.batchSize, 'the value nonetheless resolves through the get trap').toEqual(expect.any(Number));
+
+        const {disclosed, omitted} = projectDisclosedConfig({
+            config   : aiConfig,
+            allowlist: assertDisclosureAllowlist([
+                {path: 'batchSize',  kind: 'number'},
+                {path: 'batchDelay', kind: 'number'},
+                {path: 'maxRetries', kind: 'number'}
+            ])
+        });
+
+        expect(omitted, 'a proxy-resolved path must not be reported absent').toEqual([]);
+        expect(Object.keys(disclosed)).toEqual(['batchSize', 'batchDelay', 'maxRetries']);
+        expect(disclosed.batchSize.value).toEqual(expect.any(Number));
+
+        // And the boundary still holds against the real tree: nothing outside the allowlist rides along.
+        expect(Object.keys(disclosed)).toHaveLength(3);
+    });
+
     test('the allowlist is frozen, and duplicates are refused', () => {
         const allowlist = seedAllowlist();
 

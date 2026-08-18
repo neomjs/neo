@@ -130,9 +130,16 @@ export function assertDisclosureAllowlist(allowlist) {
 /**
  * Reads one literal dot-path out of a resolved config object.
  *
- * Walks segment by segment and stops at the first missing link rather than optional-chaining to
- * `undefined`, so "the path does not exist in this config" is distinguishable from "the path exists
- * and holds nothing".
+ * **Presence is decided by the resolved VALUE, never by `in`, and that is a production requirement
+ * rather than a style choice.** A resolved config here is a Proxy that exposes its leaves through a
+ * `get` trap and implements no `has` trap, so `'batchSize' in config` is `false` while
+ * `config.batchSize` resolves correctly. An `in`-based walk therefore reports `path-absent` for every
+ * value that actually reads — a reader that works against a plain object and silently discloses
+ * nothing against the real thing.
+ *
+ * The cost is that a path holding `undefined` is indistinguishable from an absent one. That costs
+ * nothing here: an `undefined` behind an allowlisted path would fail its declared kind anyway, so both
+ * cases end up omitted, and the reason differs only in precision.
  * @param {Object} config
  * @param {String} path
  * @returns {{found: Boolean, value: *}}
@@ -142,11 +149,17 @@ function readPath(config, path) {
     let cursor = config;
 
     for (const segment of path.split('.')) {
-        if (cursor === null || typeof cursor !== 'object' || !(segment in cursor)) {
+        if (cursor === null || typeof cursor !== 'object') {
             return {found: false, value: undefined}
         }
 
-        cursor = cursor[segment]
+        const value = cursor[segment];
+
+        if (value === undefined) {
+            return {found: false, value: undefined}
+        }
+
+        cursor = value
     }
 
     return {found: true, value: cursor}

@@ -11,6 +11,7 @@ import {
 } from '../../planeConfig.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
 import HeapObservationReporterService                                    from './shared/services/HeapObservationReporterService.mjs';
+import ResolvedConfigReporterService                                     from './shared/services/ResolvedConfigReporterService.mjs';
 
 // The durable-root reference for the plane fail-closed check: THIS checkout's ANCHOR plane root.
 // The anchor computation reads no env by construction, so this reference cannot drift with the
@@ -308,6 +309,27 @@ class BaseServer extends Base {
      * @returns {String|null} Compose service label, or `null` to publish nothing.
      */
     getHeapObservationServiceKey() { return null }
+
+    /**
+     * @summary Declares which of this server's resolved config values it may publish about itself.
+     *
+     * ONE hook returning both halves, for the reason the identity hook above is one line: a server
+     * that could declare an allowlist separately from a config source can half-integrate — name the
+     * values and never supply the tree, or the reverse — and both halves are useless alone.
+     *
+     * `null` is the default because a server publishes nothing until someone decides what is safe to
+     * disclose. That decision is reviewed code, never a runtime input: a deployment that could extend
+     * the allowlist could name a credential path.
+     *
+     * Identity comes from {@link #getHeapObservationServiceKey} rather than a second hook. The name is
+     * heap-specific for historical reasons — heap was the first fact a service published about itself
+     * — but the value it returns is the compose service label, which is exactly the identity this
+     * channel needs. A parallel identity hook could disagree with it, and two service keys for one
+     * process is the mis-attribution hazard the heap channel already documents.
+     *
+     * @returns {Object|null} `{config, allowlist}` — the resolved tree and its `{path, kind}` entries — or `null` to publish nothing.
+     */
+    getResolvedConfigDisclosure() { return null }
 
     // ===== Building blocks (callable from overridden initAsync) =====
 
@@ -789,6 +811,7 @@ class BaseServer extends Base {
         await super.initAsync();
         await this.boot();
         this.startHeapObservation();
+        this.startResolvedConfigReport();
     }
 
     /**
@@ -822,6 +845,54 @@ class BaseServer extends Base {
         // Matches the embedding-probe teardown idiom: the interval is unref'd and so never holds the
         // process open, but an explicit stop keeps the timer from firing against a torn-down config.
         process.once('exit', () => this.stopHeapObservation());
+    }
+
+    /**
+     * @summary Publishes this server's allowlisted resolved config, once, after `boot()`.
+     *
+     * **After `boot()` for the same reason the heap observation is**, and here it is load-bearing
+     * rather than merely tidy: `loadCustomConfig()` runs inside `boot()`, so publishing earlier would
+     * disclose the PRE-OVERLAY values. That is not a missing report but a *wrong* one — it would name
+     * the defaults as this deployment's effective configuration, which is precisely the false answer
+     * this channel exists to replace. A late report reads as `absent` and gets checked; an early one
+     * reads as authoritative and does not.
+     *
+     * No teardown counterpart: the report is written once and owns no timer, so there is nothing to
+     * stop and no interval that could fire against a torn-down config.
+     *
+     * The hook call is guarded because this runs on a booting server. A server must not fail to come
+     * up because it could not describe its own configuration — the reporter's `start()` is already
+     * total by contract, and this closes the one gap outside it.
+     * @returns {void}
+     * @protected
+     */
+    startResolvedConfigReport() {
+        const serviceKey = this.getHeapObservationServiceKey();
+
+        if (!serviceKey) return;
+
+        const writeLog = (level, message) => (level === 'WARN' ? this.logger?.error : this.logger?.info)?.call(this.logger, message);
+
+        let disclosure;
+
+        try {
+            disclosure = this.getResolvedConfigDisclosure()
+        } catch (error) {
+            try { writeLog('WARN', `[ResolvedConfigReporter] disclosure declaration FAILED for ${serviceKey}: ${error.message}. This server's effective configuration stays unobservable.`) } catch (ignored) {}
+
+            return
+        }
+
+        if (!disclosure) return;
+
+        // Thunks rather than materialised values: the reporter reads them inside its own guard, so a
+        // getter that throws degrades the channel instead of the boot.
+        ResolvedConfigReporterService.start({
+            serviceKey,
+            writeLog,
+            readConfig   : () => disclosure.config,
+            readAllowlist: () => disclosure.allowlist
+        })
     }
 
     /**
