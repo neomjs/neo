@@ -3,7 +3,6 @@ import {fileURLToPath}           from 'url';
 import AiConfig                  from '../../../config.mjs';
 import mcConfig                  from './config.mjs';
 import ToolService               from '../../ToolService.mjs';
-import GraphqlService            from '../../../services/github-workflow/GraphqlService.mjs';
 import PullRequestHistoryService from '../../../services/github-workflow/PullRequestHistoryService.mjs';
 import GraphService              from '../../../services/memory-core/GraphService.mjs';
 import HealthService, {
@@ -23,14 +22,15 @@ import {readSandmanHandoff}          from '../../../services/memory-core/helpers
 import {exploreLaneLandscape}        from '../../../services/graph/exploreLaneLandscape.mjs';
 import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
 import {makeChatModelGenerate}       from '../../../services/memory-core/helpers/chatModelGenerate.mjs';
-import {makeLandscapeCensusSource}   from '../../../services/graph/laneLandscapeCensusSource.mjs';
-import {makeOpenWorkCensusReader}    from '../../../services/github-workflow/openWorkCensusReader.mjs';
+import {
+    makeLandscapeCensusSource,
+    makeRefusingCensusPageReader
+}                                    from '../../../services/graph/laneLandscapeCensusSource.mjs';
 import {synthesizeTemporalBirdView}  from '../../../services/memory-core/helpers/temporalBirdViewSynthesizer.mjs';
 import {
     projectVectorGenerationHealth,
     resolveVectorGenerationElectionDir
 }                                    from '../../../services/shared/vector/generationElectionStore.mjs';
-import GitHubWorkflowConfig from '../github-workflow/config.mjs';
 import MemoryCoreConfig     from './config.mjs';
 import {
     admitCommunityBatch,
@@ -92,44 +92,58 @@ const readSandmanHandoffTool = args => readSandmanHandoff({
 // the graph census reads and the live chat model. Both reads resolve through their owning service at
 // call time (never captured here), so a store re-open cannot leave the census reading a dead database.
 /**
- * @summary Reads the lane-landscape binding leaves from the child Provider that owns each domain.
+ * @summary Reads the lane-landscape census traversal bounds from the Memory Core child Provider.
  *
- * GitHub repository/query fan-out belongs to the GitHub Workflow child; census traversal bounds belong
- * to the Memory Core child. Reading both at call time preserves reactive overlay/env resolution and
- * fails loud when either provider is not wired, instead of masking the boundary with local defaults.
+ * Only the census bounds are read here now. The GitHub repository/query fan-out that used to sit
+ * beside them came from the GitHub Workflow child — a HOST-EDGE provider — and reading it from the
+ * cloud plane's own server was the plane violation this ticket exists for. Reading at call time still
+ * preserves reactive overlay/env resolution and fails loud when the provider is not wired, instead of
+ * masking the boundary with local defaults.
  *
- * @returns {{census: {edgeLimit: Number, maxPages: Number, pageLimit: Number}, source: {
- *   maxAssignees: Number, maxLabels: Number, owner: String, repo: String}}}
+ * @returns {{census: {edgeLimit: Number, maxPages: Number, pageLimit: Number}}}
  */
 const readLaneLandscapeConfig = () => ({
     census: {
         edgeLimit: MemoryCoreConfig.laneLandscapeRelationEdgeLimit,
         maxPages : MemoryCoreConfig.laneLandscapeCensusMaxPages,
         pageLimit: MemoryCoreConfig.laneLandscapeCensusPageLimit
-    },
-    source: {
-        maxAssignees: GitHubWorkflowConfig.issueSync.maxAssigneesPerIssue,
-        maxLabels   : GitHubWorkflowConfig.issueSync.maxLabelsPerIssue,
-        owner       : GitHubWorkflowConfig.owner,
-        repo        : GitHubWorkflowConfig.repo
     }
 });
 
+/**
+ * Why the open-work census is unavailable from this server, in this plane's own vocabulary.
+ *
+ * A GitHub read is host-edge **by design**, not by accident or outage: the credentials and the
+ * workflow services that own them live at the edge. A container should therefore say which boundary
+ * it cannot cross rather than report a generic degradation, since the two call for different
+ * responses — one is a deployment fact, the other invites someone to go looking for a fault. The
+ * string reaches an operator through the census walk's reason, so it names the boundary, not the
+ * symptom.
+ * @type {String}
+ */
+const censusUnavailableOnThisPlane =
+    'the open-work census reads GitHub, which is a host-edge capability this cloud-plane server does not carry';
+
 const exploreLaneLandscapeOp = () => {
-    const {census, source} = readLaneLandscapeConfig();
+    const {census} = readLaneLandscapeConfig();
 
     return exploreLaneLandscape({
         now : new Date(),
         deps: {
-            // The census reads the source that OWNS the facts (live, cursor-walked to exhaustion); the graph
-            // supplies only relation edges, which is the one thing it does own, through its RLS seam. A local
-            // projection cannot answer a current-state question: both the graph and the synced corpus lag,
-            // and neither carries assignee truth.
+            // The graph still supplies relation edges — the one thing it genuinely owns — through its RLS
+            // seam. The open-work census does NOT resolve here: it reads GitHub, which is host-edge, so
+            // this server refuses the read instead of reaching across the plane for it.
+            //
+            // Refusing rather than omitting, because `makeLandscapeCensusSource` is fail-closed on its
+            // injections: dropping the readers would throw and take `explore_lane_landscape` down with the
+            // plane violation. Refusing rather than returning an empty page, because an empty page reports
+            // `hasNextPage: false` — the walk would call that PROVEN exhaustion and the tool would assert
+            // zero open issues and zero open pull requests, a confident-wrong answer indistinguishable
+            // from a genuinely empty backlog. A refusal lands as `exhausted: false` with a reason,
+            // callers derive `coverage.degraded` from that, and the counts stay `unknown`.
             ...makeLandscapeCensusSource({
-                ...makeOpenWorkCensusReader({
-                    query : (queryString, variables) => GraphqlService.query(queryString, variables),
-                    config: source
-                }),
+                fetchIssuesPage      : makeRefusingCensusPageReader(censusUnavailableOnThisPlane),
+                fetchPullRequestsPage: makeRefusingCensusPageReader(censusUnavailableOnThisPlane),
                 listEdgeRecordsByType: args => GraphService.listEdgeRecordsByType(args),
                 pageLimit            : census.pageLimit,
                 maxPages             : census.maxPages,

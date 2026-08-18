@@ -41,20 +41,28 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         };
     });
 
-    test('explore_lane_landscape resolves both owning child-config domains (#15468)', () => {
-        expect(toolService.readLaneLandscapeConfig()).toEqual({
+    test('explore_lane_landscape resolves ONLY the census domain — the source domain is host-edge (#15468 two-domain contract retired by #17285)', () => {
+        // The two-domain contract was RETIRED, not broken. This seam used to resolve a second domain
+        // from the GitHub Workflow child — a host-edge provider — which is precisely the cross-plane
+        // read the census fix removed. Spelled out because the next reader of this diff would
+        // otherwise see a dropped assertion and "restore" the violation.
+        // ticket-ref-ok: names the superseded contract so the supersession is legible rather than
+        // looking like an accidental regression
+        const config = toolService.readLaneLandscapeConfig();
+
+        expect(config).toEqual({
             census: {
                 edgeLimit: 5000,
                 maxPages : 50,
                 pageLimit: 100
-            },
-            source: {
-                maxAssignees: 10,
-                maxLabels   : 20,
-                owner       : 'neomjs',
-                repo        : 'neo'
             }
-        })
+        });
+
+        // `toEqual` above already fails on a re-added domain, so this line is not what CATCHES the
+        // regression — it is what states that the absence is the contract. Its value is against a
+        // future loosening to `toMatchObject`, which would keep the assertion looking intact while
+        // silently permitting any second domain back in.
+        expect(Object.keys(config)).toEqual(['census'])
     });
 
     test('All Memory Core tools must respect description length constraints', async () => {
