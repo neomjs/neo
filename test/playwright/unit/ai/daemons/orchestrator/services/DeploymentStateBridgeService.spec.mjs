@@ -3706,3 +3706,204 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — identity
         bridge.destroy()
     });
 });
+
+/**
+ * @summary The relayed resolved config is bounded, and the reader never resolves a value itself.
+ *
+ * The arms that matter are the ones proving this reader cannot manufacture an answer. A bridge-side
+ * resolution would publish the orchestrator's own config under another service's name, which on a
+ * deployment with a per-service override is a confidently wrong number — worse than the absence it
+ * replaces, because an absent field gets checked and an answered one does not.
+ *
+ * Validity is bounded by INCARNATION rather than by elapsed time: config is fixed at boot, so an old
+ * record is not degraded, while a record predating the current container start describes env that no
+ * longer applies.
+ *
+ * A real temporary directory rather than a mocked `fs`, and `AiConfig` is never mutated to redirect it.
+ */
+test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — resolved config relay', () => {
+    const
+        BOOT    = 1_786_234_600_000,
+        SECRET  = 'glpat-SECRET-must-never-appear',
+        cfg     = dir => ({dir, enabled: true, maxSkewMs: 15_000, staleAfterMs: 60_000, writeIntervalMs: 10_000}),
+        makeDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'neo-resolved-config-read-')),
+        write   = (dir, serviceKey, observedAt, extra = {}) => {
+            fs.writeFileSync(path.join(dir, `${serviceKey}.resolved-config.json`), JSON.stringify({
+                schemaVersion: 1,
+                recordType   : 'deployment-resolved-config',
+                serviceKey,
+                provenance   : 'self-reported',
+                observedAt,
+                disclosed    : {'embedding.batchSize': {value: 1, kind: 'number'}},
+                omitted      : [{path: 'transport', kind: 'enum', reason: 'path-absent'}],
+                ...extra
+            }));
+
+            return dir
+        },
+        read = (dir, overrides = {}) => createService({}).readResolvedConfig({
+            serviceKey          : 'kb-server',
+            nodeCommand         : true,
+            incarnationStartedAt: new Date(BOOT).toISOString(),
+            config              : cfg(dir),
+            ...overrides
+        });
+
+    test('a record from the current incarnation is relayed verbatim', () => {
+        const result = read(write(makeDir(), 'kb-server', BOOT + 2_000));
+
+        expect(result.status).toBe('available');
+        expect(result.provenance).toBe('self-reported');
+        // The incident value, relayed — NOT the shipped default of 50.
+        expect(result.disclosed['embedding.batchSize']).toEqual({value: 1, kind: 'number'});
+        expect(result.omitted).toEqual([{path: 'transport', kind: 'enum', reason: 'path-absent'}]);
+        expect(result.unavailableReason).toBeNull();
+    });
+
+    test('an OLD record from this incarnation is still relayed — age is not a validity signal', () => {
+        // The deliberate divergence from the heap reader. Config does not drift, so refusing on age
+        // would discard a correct answer; `staleAfterMs` is in the config object and must be ignored.
+        const result = read(write(makeDir(), 'kb-server', BOOT + 1));
+
+        expect(result.status).toBe('available');
+        expect(result.disclosed['embedding.batchSize'].value).toBe(1);
+    });
+
+    test('the field reaches the PUBLISHED record — the reader being correct is not the same as wired', () => {
+        // Everything above tests the reader in isolation, and an isolated corpus cannot catch an
+        // unreachable or mis-wired call site: a reader that works perfectly and is never called leaves
+        // every assertion above green while the snapshot carries nothing. So the field is exercised
+        // through `collectServiceSnapshot`, the way the identity gate above had to be.
+        const bridge = Neo.create(DeploymentStateBridgeService, {
+            runtimeAccessService  : {
+                async readObserve(request) {
+                    // A Node `Cmd` on purpose: it carries the reader PAST the identity gate to the
+                    // file read, so the arm this test lands on proves the whole path ran rather than
+                    // that it refused early. An inspect without `Config.Cmd` would stop at the gate
+                    // and prove much less.
+                    return request.operation === 'inspect'
+                        ? {
+                            data : {Id: 'c-x', State: {Status: 'running'}, Config: {Cmd: ['node', 'server.mjs']}},
+                            proof: {operation: 'inspect'}
+                        }
+                        : {data: null, proof: {operation: request.operation}}
+                }
+            },
+            diagnosisService      : Neo.create(ContainerHealthDiagnosisService, {}),
+            providerResidencyProbe: async () => null,
+            writeLog              : () => {},
+            nowFn                 : () => OBSERVED_AT
+        });
+
+        return bridge.collectServiceSnapshot({serviceKey: 'kb-server', observedAt: OBSERVED_AT}).then(record => {
+            // Present as an ENVELOPE, not merely defined. `undefined` is what a mis-wired call site
+            // produces, and `toBeDefined()` alone would also pass for a stray literal.
+            expect(record.resolvedConfig).toBeTruthy();
+            expect(record.resolvedConfig.recordType).toBe('deployment-resolved-config');
+            expect(record.resolvedConfig.serviceKey).toBe('kb-server');
+            expect(record.resolvedConfig.provenance).toBe('self-reported');
+
+            // `absent` rather than an identity refusal: this service never published a report, so the
+            // reader passed the identity gate, resolved the path and found nothing. That is the arm
+            // proving the whole path executed, and it carries a REASON rather than a silent absence.
+            expect(record.resolvedConfig.status).toBe('unavailable');
+            expect(record.resolvedConfig.unavailableReason).toBe('absent');
+            expect(record.resolvedConfig.disclosed).toBeNull();
+
+            bridge.destroy()
+        })
+    });
+
+    test('a record predating the current container start is refused as stale-incarnation', () => {
+        // The restart case: same file, new env, values that no longer apply.
+        const result = read(write(makeDir(), 'kb-server', BOOT - 1));
+
+        expect(result.status).toBe('unavailable');
+        expect(result.unavailableReason).toBe('stale-incarnation');
+        expect(result.disclosed).toBeNull();
+    });
+
+    test('an UNPARSEABLE incarnation start does not discard an otherwise-current record', () => {
+        // An instrument gap must not become a claim about the configuration. Refusing here would
+        // convert "cannot tell which incarnation" into "configuration unknown".
+        for (const incarnationStartedAt of [null, undefined, '', 'not-a-date']) {
+            const result = read(write(makeDir(), 'kb-server', BOOT + 5_000), {incarnationStartedAt});
+
+            expect(result.status, `incarnationStartedAt=${JSON.stringify(incarnationStartedAt)}`).toBe('available');
+        }
+    });
+
+    test('HONESTY: every unavailable arm nulls `disclosed`, never publishing an empty object', () => {
+        // `{}` reads as "reported and disclosed nothing", which is a different claim from "did not
+        // report". Collapsing them is how a reader believes a configuration was checked when it was not.
+        const arms = [
+            ['channel-disabled', () => read(makeDir(), {config: {...cfg(makeDir()), enabled: false}})],
+            ['not-node',         () => read(makeDir(), {nodeCommand: false})],
+            ['identity-unknown', () => read(makeDir(), {nodeCommand: null})],
+            ['absent',           () => read(makeDir())]
+        ];
+
+        for (const [expectedReason, run] of arms) {
+            const result = run();
+
+            expect(result.status, expectedReason).toBe('unavailable');
+            expect(result.unavailableReason, expectedReason).toBe(expectedReason);
+            expect(result.disclosed, `${expectedReason}: disclosed must be null, not {}`).toBeNull();
+            expect(result.omitted, `${expectedReason}: omitted must be null, not []`).toBeNull();
+        }
+    });
+
+    test('a report stamped for another service is refused rather than mis-attributed', () => {
+        // A copied file or a mixed-up mount would otherwise attribute one service's configuration to
+        // another — the wrong-process answer this design exists to prevent, arriving by another route.
+        const result = read(write(makeDir(), 'kb-server', BOOT + 1_000, {serviceKey: 'mc-server'}));
+
+        expect(result.status).toBe('unavailable');
+        expect(result.unavailableReason).toBe('identity-mismatch');
+    });
+
+    test('a malformed record is refused, and a wrong recordType is not silently accepted', () => {
+        const wrongType = read(write(makeDir(), 'kb-server', BOOT + 1_000, {recordType: 'process-heap-observation'}));
+
+        expect(wrongType.unavailableReason).toBe('malformed');
+
+        // `disclosed` must be a plain object: an array would pass a naive truthiness check and then
+        // serialise as a list nobody can read by path.
+        const arrayDisclosed = read(write(makeDir(), 'kb-server', BOOT + 1_000, {disclosed: []}));
+
+        expect(arrayDisclosed.unavailableReason).toBe('malformed');
+
+        const noStamp = read(write(makeDir(), 'kb-server', BOOT + 1_000, {observedAt: 'yesterday'}));
+
+        expect(noStamp.unavailableReason).toBe('malformed');
+    });
+
+    test('an unreadable file is distinguished from an absent one', () => {
+        const dir = makeDir();
+
+        fs.writeFileSync(path.join(dir, 'kb-server.resolved-config.json'), '{ not json');
+
+        expect(read(dir).unavailableReason).toBe('unreadable');
+        expect(read(makeDir()).unavailableReason).toBe('absent');
+    });
+
+    test('SECURITY: the reader adds no resolution of its own, so it cannot supply a missing value', () => {
+        // The defect the ticket was corrected for: a bridge-side read would answer from the
+        // orchestrator's tree. Proven by absence of an answer rather than by inspection — with no file
+        // present the envelope must carry a reason and no value, even though this process could
+        // trivially resolve a `batchSize` of its own.
+        const result = read(makeDir());
+
+        expect(result.disclosed).toBeNull();
+        expect(JSON.stringify(result)).not.toContain('batchSize');
+
+        // And a secret sitting in a hand-placed file is not laundered into the envelope by the relay:
+        // the writer's allowlist is upstream, so anything unallowlisted never arrives — but if it did,
+        // the relay must not be the place that publishes it under `disclosed`.
+        const withSecret = read(write(makeDir(), 'kb-server', BOOT + 1_000, {
+            disclosed: {'embedding.batchSize': {value: 1, kind: 'number'}}
+        }));
+
+        expect(JSON.stringify(withSecret)).not.toContain(SECRET);
+    });
+});

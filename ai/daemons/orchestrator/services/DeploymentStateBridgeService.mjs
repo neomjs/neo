@@ -708,6 +708,15 @@ export class DeploymentStateBridgeService extends Base {
                 serviceKey,
                 nodeCommand: inspectSummary?.nodeCommand ?? null,
                 observedAt : statsObservedAt
+            }),
+            // Consumes the same `nodeCommand` observation for the same reason the heap read does, and
+            // additionally the incarnation start — because config is invalidated by a restart rather
+            // than by elapsed time. Both are already resolved on `inspectSummary`; nothing here
+            // re-derives what a Node service is or when this container came up.
+            resolvedConfig  = this.readResolvedConfig({
+                serviceKey,
+                nodeCommand         : inspectSummary?.nodeCommand ?? null,
+                incarnationStartedAt: inspectSummary?.state?.startedAt ?? null
             });
 
         // Remembered HERE rather than at the read above, because the heap observation rides ON the
@@ -872,6 +881,13 @@ export class DeploymentStateBridgeService extends Base {
             // an identity participant — never that identity was checked and found fine.
             providerModelIdentity,
             heapObservation,
+            // Published on EVERY record, including the arms that answer nothing. The gap this closes
+            // is that a service's health was observable while the configuration it was given was not,
+            // so an incident diagnosed against assumed inputs — and the assumed value can differ from
+            // the real one by the whole factor that matters, because a per-service env override is
+            // invisible from outside. Every unavailable arm carries its own reason, so a null here is
+            // never mistaken for "configured with the defaults".
+            resolvedConfig,
             restartChurn,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
             // it, and the measured window state used to live only inside a sustained-saturation fact,
@@ -1473,6 +1489,124 @@ export class DeploymentStateBridgeService extends Base {
             maxSkewMs,
             staleAfterMs,
             observation      : record.observation
+        }
+    }
+
+    /**
+     * @summary Relays one service's self-reported resolved config without ever resolving it here.
+     *
+     * **This reader must not resolve any value itself, and that is the whole contract.** A
+     * deployment's health is Docker-observable; its configuration is not. The values that matter
+     * during an incident belong to other services, and resolving them in this process would publish
+     * the orchestrator's own tree under another service's name. On a deployment whose per-service env
+     * diverges from the compose default — the only deployment anyone consults this field for — that is
+     * a confidently wrong answer, and a wrong answer is worse than an absent one: an absent field gets
+     * checked, an answered one does not. So the owning process publishes, and this relays.
+     *
+     * **The disclosure boundary is upstream of here.** The writer applies its allowlist before
+     * anything reaches disk, so an unallowlisted value never enters this process at all and there is
+     * no second place a filter has to be re-applied correctly. This reader adds no filtering because
+     * filtering here would imply the unfiltered set had already crossed the boundary.
+     *
+     * **Validity is bounded by INCARNATION, not by a duration, and that is the deliberate difference
+     * from {@link #readHeapObservation}.** A heap number is resampled because it moves, so age
+     * measures how well it still describes the process. Resolved config does not move: it is fixed
+     * when the process boots and runtime mutation of the shared tree is forbidden. An old record is
+     * therefore not a degraded record — refusing it on age would hide a correct answer. What DOES
+     * invalidate it is a restart: the container may have come back with different env, so a record
+     * stamped before the current incarnation started describes configuration that no longer applies.
+     * That is `stale-incarnation`, and it is the same falsifier `incarnationBounded` applies to log
+     * slices. There is no `pairable` equivalent here because nothing puts this in a ratio.
+     *
+     * `disclosed` and `omitted` are `null` — never `{}` and never `[]` — on every unavailable arm. An
+     * empty object reads as "this service reported and disclosed nothing", which is a different claim
+     * from "this service did not report", and collapsing them is how a reader comes to believe a
+     * configuration was checked when it never was.
+     *
+     * @param {Object}        options
+     * @param {String}        options.serviceKey            Service whose report to read.
+     * @param {Boolean|null}  options.nodeCommand           Whether the container runs a Node process.
+     * @param {String|null}   options.incarnationStartedAt  Current incarnation's start, ISO.
+     * @param {Object}       [options.config]               Resolved self-report channel leaves.
+     * @returns {Object} Always an envelope; `disclosed` is `null` whenever `status` is `unavailable`.
+     */
+    readResolvedConfig({serviceKey, nodeCommand, incarnationStartedAt, config = AiConfig.heapObservation}) {
+        const unavailable = reason => ({
+            schemaVersion    : 1,
+            recordType       : 'deployment-resolved-config',
+            serviceKey,
+            provenance       : 'self-reported',
+            status           : 'unavailable',
+            unavailableReason: reason,
+            observedAt       : null,
+            disclosed        : null,
+            omitted          : null
+        });
+
+        if (!config.enabled) {
+            // A disabled channel is not evidence that the configuration is the default.
+            return unavailable('channel-disabled')
+        }
+
+        // Fail closed on identity, and split the reason exactly as the heap reader does: `not-node` is
+        // a positive classification ("this container cannot run a reporter"), `identity-unknown` is the
+        // absence of one. Collapsing them once let an unreadable inspect masquerade as a structural
+        // fact, and the remedy differs — the first is permanent, the second is an instrument problem.
+        if (nodeCommand !== true) {
+            return unavailable(nodeCommand === false ? 'not-node' : 'identity-unknown')
+        }
+
+        let record;
+
+        try {
+            record = fs.readJsonSync(path.resolve(config.dir, `${serviceKey}.resolved-config.json`))
+        } catch (error) {
+            return unavailable(error.code === 'ENOENT' ? 'absent' : 'unreadable')
+        }
+
+        if (record?.recordType !== 'deployment-resolved-config') {
+            return unavailable('malformed')
+        }
+
+        // The reader resolved this path from `serviceKey`; the writer stamped the record with its own.
+        // Comparing them makes a mixed-up mount or a copied file detectable instead of silently
+        // attributing one service's configuration to another — which on this field would be the exact
+        // wrong-process answer the whole design exists to avoid, arriving by a different route.
+        if (record.serviceKey !== serviceKey) {
+            return unavailable('identity-mismatch')
+        }
+
+        if (!record.disclosed || typeof record.disclosed !== 'object' || Array.isArray(record.disclosed)) {
+            return unavailable('malformed')
+        }
+
+        if (!Number.isFinite(record.observedAt)) {
+            return unavailable('malformed')
+        }
+
+        const incarnationStart = Date.parse(incarnationStartedAt ?? '');
+
+        // Only refuse when the incarnation start is KNOWN and the record predates it. An unparseable
+        // start is an instrument gap, and refusing on it would convert "we cannot tell which
+        // incarnation this is from" into "the configuration is unknown" — discarding a record that is
+        // almost certainly current.
+        if (Number.isFinite(incarnationStart) && record.observedAt < incarnationStart) {
+            return unavailable('stale-incarnation')
+        }
+
+        return {
+            schemaVersion    : 1,
+            recordType       : 'deployment-resolved-config',
+            serviceKey,
+            provenance       : 'self-reported',
+            status           : 'available',
+            unavailableReason: null,
+            observedAt       : new Date(record.observedAt).toISOString(),
+            disclosed        : record.disclosed,
+            // Normalised to an array so a consumer never has to distinguish a writer that omitted
+            // nothing from one that predates the field. An empty array is a real claim here — "every
+            // allowlisted path reported" — while a null `disclosed` above is the absence of any claim.
+            omitted          : Array.isArray(record.omitted) ? record.omitted : []
         }
     }
 
