@@ -170,4 +170,38 @@ test.describe('AgentOS OperatorMailbox — the operator mailbox surface (#15377)
 
         box.destroy()
     })
+
+    test('the seat-conflation marker renders ONLY a verified conflation — null and clean stay silent', () => {
+        const box    = createBox(),
+              marker = box.getReference('operator-identity-warning');
+
+        // default: no posture → hidden (unknown is not a warning)
+        expect(marker.hidden).toBe(true);
+
+        // a clean posture needs no chrome
+        box.identityPosture = {conflated: false, seatIdentity: '@tobiu'};
+        expect(marker.hidden).toBe(true);
+
+        // a verified conflation renders the truth beside the compose surface
+        box.identityPosture = {conflated: true, seatIdentity: '@neo-fable-clio'};
+        expect(marker.hidden).toBe(false);
+        expect(marker.text).toContain('@neo-fable-clio');
+        expect(marker.text).toContain('operator principal not established');
+
+        // posture withdrawal hides it again — the marker asserts current truth only
+        box.identityPosture = null;
+        expect(marker.hidden).toBe(true);
+
+        box.destroy()
+    });
+
+    test('a construction-time posture flushes to the marker on the reveal path', () => {
+        const box    = createBox({identityPosture: {conflated: true, seatIdentity: '@neo-opus-vega'}}),
+              marker = box.getReference('operator-identity-warning');
+
+        expect(marker.hidden).toBe(false);
+        expect(marker.text).toContain('@neo-opus-vega');
+
+        box.destroy()
+    });
 });

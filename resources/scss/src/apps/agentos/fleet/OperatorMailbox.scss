@@ -14,6 +14,20 @@
         min-height: 96px;
     }
 
+    /* the seat-conflation truth marker — sits directly above the compose surface so the fact is
+       read before the writing starts. Alert-kind wash: this is a verified identity fact with
+       consequences, not decoration; it must not be mistakable for the quiet meta family. */
+    > .fm-operator-identity-warning {
+        margin       : 8px 0 0;
+        padding      : 7px 10px;
+        border       : 1px solid var(--fm-kind-alert);
+        border-radius: 6px;
+        background   : color-mix(in srgb, var(--fm-kind-alert) 12%, transparent);
+        color        : var(--fm-ink);
+        font-size    : 11.5px;
+        line-height  : 1.4;
+    }
+
     /* the compose form sits under a soft divider — the read half above, the write half below;
        when squeezed it owns its vertical overflow instead of starving the inbox */
     > .fm-operator-compose-form {
