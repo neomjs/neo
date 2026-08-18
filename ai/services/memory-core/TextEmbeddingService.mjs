@@ -1127,12 +1127,26 @@ class TextEmbeddingService extends Base {
             return null;
         }
 
-        const loadedModel = loadedModels.find(item => item.id === model);
+        // Implicit-tag tolerant, because this compare is NOT LM Studio-only any more: the identity
+        // gate now reaches every OpenAI-compatible endpoint, and the lane's default host is
+        // byte-identical to `ollama.host`. Ollama reports an untagged pull as `name:latest` and
+        // `/v1/models` returns ids verbatim, so an exact compare refuses a model that is loaded and
+        // serving, and it is the shipped default rather than an exotic host. The rule stays directional: a
+        // requirement that names a tag still gets an exact compare.
+        const {satisfiesRequiredModelIdOnOpenAiCompatibleLane} = await import('../graph/providerReadinessHelper.mjs');
+
+        throwIfEmbeddingAborted(signal, operationLabel);
+
+        const loadedModel = loadedModels.find(item => satisfiesRequiredModelIdOnOpenAiCompatibleLane(model, item.id));
 
         if (!loadedModel) {
-            const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none',
+            // The lane, not the vendor: this path serves LM Studio only when the context gate is on,
+            // and naming LM Studio to an operator running Ollama is the "confident wrong instruction"
+            // this ticket's own config JSDoc argues against.
+            const lane        = this.#shouldAssertOpenAiCompatibleEmbeddingContext() ? 'LM Studio' : 'OpenAI-compatible',
+                  observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none',
                   error       = markEmbeddingModelNotResidentError(
-                      new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
+                      new Error(`TextEmbeddingService: ${lane} embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
                   );
 
             // The preflight rejection is the OTHER origin of "not resident", and it carries the same

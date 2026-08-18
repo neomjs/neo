@@ -3512,6 +3512,49 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — embeddin
         bridge.destroy()
     });
 
+    test('an UNTAGGED configured model matches Ollama\'s implicit :latest — the shipped default host', async () => {
+        // The fixtures around this one are tagged on BOTH sides, so they match by exact compare and
+        // pass whichever rule is in force — they conceal this case rather than covering it. Here the
+        // tag exists on ONE side only, which is production's actual shape: `openAiCompatible.host`
+        // defaults to `http://127.0.0.1:11434` (byte-identical to `ollama.host`), Ollama reports an
+        // untagged pull as `name:latest`, and `/v1/models` returns ids verbatim. Under an exact
+        // compare this published `mismatch` and told the operator to re-point a lane that was
+        // already correct — the same mechanism previously measured on the ollama lane, arriving here.
+        AiConfig.openAiCompatible.embeddingModel = 'qwen3-embedding';
+
+        const bridge = createService({
+                  providerModelIdentityProbe: async () => ['qwen3-embedding:latest']
+              }),
+              identity = await bridge.collectProviderModelIdentity({observedAt: 11});
+
+        expect(identity.state).toBe('match');
+        expect(identity.reason).toBeNull();
+        // the SERVED id is still reported verbatim — tolerating the tag must not launder what the
+        // endpoint actually answered
+        expect(identity.servedModelIds).toEqual(['qwen3-embedding:latest']);
+
+        bridge.destroy()
+    });
+
+    test('the tolerance is DIRECTIONAL: a configured tag is not satisfied by an untagged served id', async () => {
+        // The fence, and it is the half that stops this fix widening into a false negative. An
+        // operator who pinned `:latest` asked for that exact id; answering with the bare name is a
+        // different model as far as the requirement is concerned, and must still read as a mismatch.
+        // Without this, "tolerant" would quietly mean "equal", and the previous test would pass for
+        // the wrong reason.
+        AiConfig.openAiCompatible.embeddingModel = 'qwen3-embedding:latest';
+
+        const bridge = createService({
+                  providerModelIdentityProbe: async () => ['qwen3-embedding']
+              }),
+              identity = await bridge.collectProviderModelIdentity({observedAt: 12});
+
+        expect(identity.state).toBe('mismatch');
+        expect(identity.reason).toContain('qwen3-embedding:latest');
+
+        bridge.destroy()
+    });
+
     test('an endpoint that will not answer is UNOBSERVABLE, never a mismatch', async () => {
         const bridge = createService({
             providerModelIdentityProbe: async () => { throw new Error('ECONNREFUSED') }

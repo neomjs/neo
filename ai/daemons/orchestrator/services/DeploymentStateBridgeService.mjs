@@ -7,7 +7,8 @@ import {
     fetchEmbeddingLaneSlots,
     fetchOpenAiCompatibleModelIds,
     getOpenAiCompatibleHost,
-    probeProviderParallelModelCapacity
+    probeProviderParallelModelCapacity,
+    satisfiesRequiredModelIdOnOpenAiCompatibleLane
 }                                          from '../../../services/graph/providerReadinessHelper.mjs';
 import {
     classifyProviderLaneLiveShape,
@@ -1186,7 +1187,12 @@ export class DeploymentStateBridgeService extends Base {
             };
         }
 
-        return servedModelIds.includes(configuredModel)
+        // Implicit-tag tolerant for the same reason the embed path is: this lane's default host is
+        // byte-identical to `ollama.host`, Ollama reports an untagged pull as `name:latest`, and an
+        // exact compare would publish `mismatch` — telling the operator to re-point a lane that is
+        // already correct. A confident wrong instruction is a worse failure than silence, which is
+        // the argument this service's own remediation prose makes.
+        return servedModelIds.some(servedId => satisfiesRequiredModelIdOnOpenAiCompatibleLane(configuredModel, servedId))
             ? {state: 'match', configuredModel, servedModelIds, host, observedAt, reason: null}
             : {
                 state : 'mismatch', configuredModel, servedModelIds, host, observedAt,

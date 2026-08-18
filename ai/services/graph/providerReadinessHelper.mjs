@@ -100,6 +100,36 @@ export function satisfiesRequiredModelId(required, observed, provider) {
 }
 
 /**
+ * @summary The `openAiCompatible` lane's form of {@link satisfiesRequiredModelId}: it tolerates
+ * Ollama's implicit `:latest`, because on this lane Ollama cannot be ruled out.
+ *
+ * The lane is defined by a wire protocol rather than by a runtime, so a call site here never learns
+ * which provider answered. It does not have to: `aiConfig.openAiCompatible.host` defaults to
+ * `http://127.0.0.1:11434` — byte-identical to `aiConfig.ollama.host` — and the lane's own config
+ * JSDoc names "Ollama's OpenAI-compatible surface" among what it covers. So the shipped default IS
+ * Ollama, and an exact compare refuses a model that is loaded and serving: Ollama reports an
+ * untagged pull as `name:latest`, `/v1/models` returns ids verbatim, and `qwen3-embedding` therefore
+ * never equals the `qwen3-embedding:latest` it is looking at. The same mechanism was measured on a
+ * real plane once already, on the ollama lane; this is it arriving on a second one.
+ *
+ * **The `'ollama'` argument selects the RULE, and is not a claim about who answered.** The rule is
+ * the right one regardless: it is directional and tag-only, so it accepts a more specific observed
+ * id for an untagged requirement and never the reverse — a requirement that names a tag still gets
+ * an exact compare.
+ *
+ * Delegating rather than restating the predicate is deliberate. The sibling `redactCredentials`
+ * module exists because five private copies of one rule drifted; a second copy of the implicit-tag
+ * rule would start that story here, and the copy that drifts is always the one nobody is looking at.
+ *
+ * @param {*} required Configured model id (owns the requirement).
+ * @param {*} observed Model id reported by the endpoint.
+ * @returns {Boolean}
+ */
+export function satisfiesRequiredModelIdOnOpenAiCompatibleLane(required, observed) {
+    return satisfiesRequiredModelId(required, observed, 'ollama');
+}
+
+/**
  * @summary Resolves which REQUIRED id (if any) an observed id satisfies — the keyed-lookup form of
  * `satisfiesRequiredModelId`, for maps whose keys are configured ids.
  *
