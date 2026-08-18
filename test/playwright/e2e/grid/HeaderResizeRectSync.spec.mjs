@@ -38,13 +38,19 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
     test.setTimeout(90000);
     test.use({viewport: {width: 1600, height: 900}});
 
-    /** Visible headers + first-row cells, x-sorted and clipped to the body box. */
-    const readPairs = page => page.evaluate(() => {
-        const body   = document.querySelector('.neo-grid-body'),
+    /**
+     * Visible headers + first-row cells, x-sorted and clipped to the body box.
+     *
+     * The region index matters on a locked grid: a grid owns up to three toolbar/body pairs and
+     * `grid.header.Toolbar#body` routes between them, so a pairing read that always took index 0
+     * would silently assert the locked-start region while the gesture happened in the centre.
+     */
+    const readPairs = (page, region = 0) => page.evaluate(({region}) => {
+        const body   = document.querySelectorAll('.neo-grid-body')[region],
               clip   = body.getBoundingClientRect(),
               inClip = r => r.width > 0 && r.right > clip.left + 1 && r.left < clip.right - 1;
 
-        const toolbar = document.querySelector('.neo-grid-header-toolbar'),
+        const toolbar = document.querySelectorAll('.neo-grid-header-toolbar')[region],
               headers = [...toolbar.children]
                   .map(b => ({b, r: b.getBoundingClientRect()}))
                   .filter(({b, r}) => inClip(r) && getComputedStyle(b).visibility !== 'hidden')
@@ -67,7 +73,7 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
                   .sort((a, b2) => a.x - b2.x);
 
         return {headers, cells};
-    });
+    }, {region});
 
     /**
      * Every visible header must sit pixel-exactly on a first-row cell. A drop that leaves the cells
@@ -197,5 +203,57 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
             .toBeGreaterThan(before.width + 20);
 
         assertAligned(await readPairs(page), 'after widening beside a flex column')
+    });
+
+    /**
+     * The LOCKED surface: a grid owning three toolbar/body pairs.
+     *
+     * `grid.header.Toolbar#body` routes each toolbar to its own region's body, and the geometry
+     * pass this fix changes runs per toolbar. So a resize in the centre must move the centre's
+     * cells and leave the locked regions exactly where they were — a repair that accidentally
+     * sized every region from the centre's items would still satisfy the single-body specs above.
+     */
+    test('resizing a centre column leaves the locked regions untouched', async ({page}) => {
+        await page.goto('/examples/grid/lockedColumns/');
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+
+        await expect(page.locator('[role="grid"]').first()).toBeVisible({timeout: 30000});
+        await expect(page.locator('.neo-grid-body [role="row"]').first()).toBeVisible({timeout: 30000});
+        await page.waitForTimeout(800);
+
+        const lockedBefore = await readPairs(page, 0);
+
+        assertAligned(lockedBefore, 'locked-start baseline');
+        assertAligned(await readPairs(page, 1), 'centre baseline');
+
+        // the centre toolbar owns the resizable target; grab its first header
+        const centreHeader = page.locator('.neo-grid-header-toolbar').nth(1).locator('.neo-grid-header-button').first(),
+              label        = (await centreHeader.locator('.neo-button-text').innerText()).trim();
+
+        const box = await centreHeader.boundingBox(),
+              y   = box.y + box.height / 2,
+              x   = box.x + box.width - 3;
+
+        await page.mouse.move(x, y);
+        await expect(centreHeader.locator('.neo-resizable-right')).toBeAttached({timeout: 5000});
+        await page.mouse.down();
+        await page.mouse.move(x + 140, y, {steps: 40});
+        await page.waitForTimeout(400);
+        await page.mouse.up();
+        await page.waitForTimeout(900);
+
+        const after = await centreHeader.boundingBox();
+
+        expect(after.width, `the centre widen engaged on "${label}" (before=${box.width} after=${after.width})`)
+            .toBeGreaterThan(box.width + 20);
+
+        assertAligned(await readPairs(page, 1), `centre after widening "${label}"`);
+
+        // the locked region is not a participant in this gesture and must not have moved
+        const lockedAfter = await readPairs(page, 0);
+
+        assertAligned(lockedAfter, 'locked-start after the centre resize');
+        expect(JSON.stringify(lockedAfter.cells), 'the locked-start cells are byte-identical across a centre resize')
+            .toBe(JSON.stringify(lockedBefore.cells))
     })
 });
