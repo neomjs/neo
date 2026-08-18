@@ -154,7 +154,23 @@ test.describe('FleetCockpit — memories owner seam (pending selection + write-t
             // the close intent clears BOTH halves of the owner state — a left drill cannot reopen
             proto.clearSessionMemoriesDrill.call(me);
             expect(me.memoriesDrillSession).toBe(null);
-            expect(me.memoriesDrillSnapshot).toBe(null)
+            expect(me.memoriesDrillSnapshot).toBe(null);
+
+            // the close is TERMINAL for in-flight reads: the generation bump makes a read that
+            // was racing the close land inert — no owner state, no pane write, for a drill the
+            // operator already left (the reviewer's race, pinned)
+            const lateRead = proto.loadSessionMemories.call(me, {sessionId: 'abcd1234-session'});
+
+            expect(me.memoriesDrillSession).toEqual({sessionId: 'abcd1234-session', title: null});
+            proto.clearSessionMemoriesDrill.call(me);
+
+            const lateEnvelope = {capability: {state: 'wired'}, sessionId: 'abcd1234-session', page: {offset: 0, limit: 20}, turns: [], count: 0, total: 0};
+            releaseRead(lateEnvelope);
+            await lateRead;
+
+            expect(me.memoriesDrillSession).toBe(null);
+            expect(me.memoriesDrillSnapshot).toBe(null);
+            expect(newPane.drillSnapshot).not.toBe(lateEnvelope)
         } finally {
             globalThis.AgentOS = previousNs
         }

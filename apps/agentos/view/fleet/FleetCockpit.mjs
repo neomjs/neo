@@ -2838,8 +2838,15 @@ class FleetCockpit extends Container {
      * later rematerialization reopens the summary list, never a drill the operator already left.
      * The last accepted drill snapshot leaves with the session: holding it would rematerialize
      * rows no open drill points at.
+     *
+     * The generation bump makes the close TERMINAL for in-flight reads: the counter is the
+     * change-proxy for "is this read still wanted", and close is a second way to make a read
+     * unwanted — without the bump, a read landing after close would repopulate the owner state
+     * (and the pane) for exactly the drill the operator left, held harmless only as long as
+     * every render stays keyed on the session rather than the snapshot.
      */
     clearSessionMemoriesDrill() {
+        this.memoriesDrillReadGeneration++;
         this.memoriesDrillSession  = null;
         this.memoriesDrillSnapshot = null
     }
