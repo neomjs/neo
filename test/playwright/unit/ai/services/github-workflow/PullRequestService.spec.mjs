@@ -525,6 +525,29 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(result.predicate.advisories).toHaveLength(1);
         expect(result.predicate.advisories[0]).toContain(HEAD);
         expect(result.predicate.advisories[0]).toContain(NEXT_HEAD);
+
+        // …and it REACHES the surface that travels to the merge gate. Nested inside `predicate` the
+        // advisory fires only on an otherwise-green observation, so it competes with nothing and is
+        // seen by no one: `verdict` still reads merge-ready, `marker` still reads merge-eligible.
+        // Top-level and coded, in the same shape as `blockers`.
+        expect(result.advisories).toEqual([{
+            code   : 'APPROVAL_ANCHOR_STALE',
+            message: result.predicate.advisories[0]
+        }]);
+        // the statement carries it too — that sentence travels beside `[merge-eligible]`, and one
+        // that says "strict merge-ready" and stops is true and misleading in the same breath
+        expect(result.statement).toContain('advisory');
+        expect(result.marker).toMatch(/^\[merge-eligible]/)
+    });
+
+    test('#17339: a clean observation carries an EMPTY advisories surface, not an absent one', async () => {
+        const result = await project(dependencies());
+
+        // The non-vacuity control for the case above: a top-level surface that only appears when
+        // non-empty is a surface a consumer has to guard for, and `blockers` is unconditionally
+        // present. An absent key and an empty one read the same at a glance and differently in code.
+        expect(result.advisories).toEqual([]);
+        expect(result.statement).not.toContain('advisory')
     });
 
     test('#17339: the LATEST approval is the anchor, whatever order the connection arrives in', async () => {

@@ -826,7 +826,12 @@ async function buildMergeReadinessProjection({
         statement       : !identityBindingComplete
             ? `Observed GitHub checks verdict '${checksVerdict}' at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}; B-prime certification is unavailable because Memory Core identity is unbound.`
             : certifiedMergeReady
-                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`
+                // An advisory rides INSIDE the merge-ready sentence rather than after it. It fires
+                // only when everything else is green — exactly when nothing draws the eye — and the
+                // merge-ready statement travels beside `[merge-eligible]` to the human gate. A
+                // sentence that says "strict merge-ready" and stops is, at a stale anchor, true and
+                // misleading in the same breath.
+                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} advisory/advisories require a reader judgement before merge — see 'advisories'.` : ''}`
                 : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
         blockers: [
             ...(!identityBindingComplete ? [{
@@ -838,6 +843,13 @@ async function buildMergeReadinessProjection({
             ...sourceBlockers,
             ...predicate.blockers.map(message => ({code: 'STRICT_MERGE_READINESS', message}))
         ],
+        // Lifted to top level and coded, in the same shape as `blockers`, and the symmetry is the
+        // point rather than tidiness. A blocker is discoverable three other ways — it flips
+        // `verdict`, rewrites `statement`, and suppresses `marker` — so burying it would still leave
+        // three signals. An advisory has NO redundancy: it fires only on an otherwise-green
+        // observation, so nested inside `predicate` it reaches no reader of the surface that
+        // actually travels to the merge gate.
+        advisories: predicate.advisories.map(message => ({code: 'APPROVAL_ANCHOR_STALE', message})),
         audit: [
             ...audit,
             {source: 'validateMergeReady', call: 1, outcome: sourceMergeReady ? 'positive' : 'negative'},
