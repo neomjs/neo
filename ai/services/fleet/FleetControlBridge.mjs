@@ -524,6 +524,28 @@ class FleetControlBridge extends Base {
     }
 
     /**
+     * @summary READ-OBSERVE: read one page of a session's turn-level memories for the
+     * authenticated viewer — the memories drill-in, one level below the summaries read. The
+     * source envelope passes through untouched; an unwired source is named as unavailable
+     * rather than fabricated empty history.
+     * @param {Object} [params]
+     * @returns {Promise<Object>|Object}
+     */
+    fleetSessionMemories(params = {}) {
+        return typeof this.sessionMemoriesSource?.readSessionMemories === 'function'
+            ? this.sessionMemoriesSource.readSessionMemories(params)
+            : {
+                capability: {state: 'unavailable', reason: 'fleet session-memories source not wired'},
+                viewer    : null,
+                sessionId : params.sessionId || null,
+                page      : {offset: params.offset ?? 0, limit: null},
+                turns     : [],
+                count     : 0,
+                total     : null
+            };
+    }
+
+    /**
      * @summary READ-OBSERVE: read the decomposed per-seat wake-route snapshot for the authenticated
      * viewer — every axis of the wake path answering as itself, never fused. The source envelope
      * passes through untouched; an unwired source is named as unavailable rather than fabricated

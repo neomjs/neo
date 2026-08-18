@@ -94,4 +94,90 @@
         padding: 14px 4px;
         color  : var(--fm-ink-dim);
     }
+
+    /* provenance vocabulary — DERIVED (summaries) vs AUTHORED (turn records) must read as two
+       different kinds of truth at a glance: derived stays quiet-neutral, authored carries the
+       signal wash the cockpit reserves for primary facts */
+    .fm-memories-provenance {
+        border       : 1px solid var(--fm-line);
+        border-radius: 4px;
+        color        : var(--fm-ink-dim);
+        font-family  : var(--fm-font-mono);
+        font-size    : 9.5px;
+        padding      : 1px 6px;
+        white-space  : nowrap;
+
+        &.is-authored {
+            background  : color-mix(in srgb, var(--fm-signal) 14%, transparent);
+            border-color: var(--fm-signal);
+            color       : var(--fm-ink);
+        }
+    }
+
+    .fm-memories-card-head {
+        gap: 8px;
+    }
+
+    .neo-button.fm-memories-card-open,
+    .neo-button.fm-memories-drill-back,
+    .neo-button.fm-memories-drill-more {
+        background : none;
+        box-shadow : none;
+        color      : var(--fm-ink-dim);
+        font-size  : 11px;
+        font-weight: 500;
+        min-width  : 0;
+
+        &:hover {
+            color: var(--fm-ink);
+        }
+
+        .neo-button-text {
+            color: inherit;
+        }
+    }
+
+    /* the drill-in view: head (back · session title · provenance) over the turn rows */
+    .fm-memories-drill-head {
+        gap          : 8px;
+        padding      : 0 0 8px;
+        border-bottom: 1px solid var(--fm-line-soft);
+    }
+
+    .fm-memories-drill-title {
+        color      : var(--fm-ink);
+        font-weight: 650;
+        font-size  : 12.5px;
+        overflow   : hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .fm-memories-turn {
+        gap          : 6px;
+        padding      : 9px 10px;
+        border       : 1px solid var(--fm-line-soft);
+        border-left  : 2px solid var(--fm-signal);
+        border-radius: 6px;
+        background   : var(--fm-panel);
+    }
+
+    .fm-memories-turn-meta {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+    }
+
+    .fm-memories-turn-response {
+        color      : var(--fm-ink);
+        font-size  : 12.5px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    .fm-memories-turn-prompt {
+        color      : var(--fm-ink-dim);
+        font-size  : 11.5px;
+        line-height: 1.4;
+    }
 }

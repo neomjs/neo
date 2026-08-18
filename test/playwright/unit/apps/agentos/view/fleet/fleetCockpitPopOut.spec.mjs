@@ -730,6 +730,65 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         }
     });
 
+    test('the drill-in works in the vessel: intents resolve without a controller chain, pushes land through the accessor', async () => {
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+
+        const pane = await revealMemories();
+
+        await cockpit.popOutMemories();
+        await simulateConnect('mem-vessel-drill');
+
+        // seed a summary card so the drill has a pointer, then open it FROM THE VESSEL — the
+        // explicit listener scope is what lets sessionDetailRequest resolve out there
+        const drillCalls = [],
+              prevFleet  = globalThis.AgentOS?.fleet;
+
+        globalThis.AgentOS.fleet = {registryBridge: {
+            fleetSessionMemories: async params => {
+                drillCalls.push(params);
+                return {
+                    capability: {state: 'wired', capturedAt: '2026-08-18T10:00:00.000Z'},
+                    viewer    : '@e2e-operator',
+                    sessionId : params.sessionId,
+                    page      : {offset: 0, limit: 20},
+                    turns     : [{id: 'vt1', sessionId: params.sessionId, timestamp: '2026-08-17T18:00:00.000Z', prompt: 'p', thought: 't', response: 'vessel drill row', agentIdentity: '@neo-fable-clio', amountToolCalls: 1}],
+                    count     : 1,
+                    total     : 1
+                }
+            }
+        }};
+
+        try {
+            pane.snapshot = {
+                capability: {state: 'wired', capturedAt: '2026-08-18T10:00:00.000Z'},
+                viewer    : '@e2e-operator',
+                target    : '@neo-fable-clio',
+                page      : {offset: 0, limit: 20},
+                sessions  : [{id: 's1', sessionId: 'vessel-session-1', timestamp: '2026-08-17T18:00:00.000Z', title: 'Vessel session', summary: 'x', category: 'analysis', memoryCount: 1, quality: 90}],
+                count     : 1,
+                total     : 1
+            };
+            pane.activeAgent = '@neo-fable-clio';
+
+            pane.onCardOpen(pane.summaryStore.first());
+
+            await expect.poll(() => drillCalls.length, {timeout: 2000}).toBe(1);
+            expect(drillCalls[0]).toEqual({sessionId: 'vessel-session-1'});
+
+            // the drill snapshot lands on the VESSELED pane through the accessor route, and the
+            // owner holds the drill for rematerialization truth
+            await expect.poll(() => pane.turnStore.count, {timeout: 2000}).toBe(1);
+            expect(cockpit.memoriesDrillSession).toEqual({sessionId: 'vessel-session-1', title: 'Vessel session'});
+
+            // closing the drill from the vessel clears the OWNER state the same way
+            pane.onDrillBackClick();
+            expect(cockpit.memoriesDrillSession).toBeNull();
+            expect(cockpit.memoriesDrillSnapshot).toBeNull()
+        } finally {
+            prevFleet === undefined ? delete globalThis.AgentOS.fleet : globalThis.AgentOS.fleet = prevFleet
+        }
+    });
+
     test('toggle routes by vessel state; a mid-gesture capture refuses instead of racing', async () => {
         vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
 

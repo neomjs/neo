@@ -608,6 +608,26 @@ class FleetCockpit extends Container {
      */
     memoriesTarget = null
     /**
+     * Owner-held OPEN memories drill-in — `{sessionId, title}` set at REQUEST time, before any
+     * await (the {@link #memoriesTarget} discipline one level down), cleared by the pane's close
+     * intent. A rematerialized pane receives this as `drillSession` and reopens at the depth the
+     * operator was reading — and never a drill they already left.
+     * @member {Object|null} memoriesDrillSession=null
+     */
+    memoriesDrillSession = null
+    /**
+     * Latest session-memories (drill-in) envelope, owner-held so rail re-projection
+     * rematerializes from current truth.
+     * @member {Object|null} memoriesDrillSnapshot=null
+     */
+    memoriesDrillSnapshot = null
+    /**
+     * Read-generation fence for {@link #loadSessionMemories} — a slow older read never overwrites
+     * a newer one.
+     * @member {Number} memoriesDrillReadGeneration=0
+     */
+    memoriesDrillReadGeneration = 0
+    /**
      * Latest wake-routes envelope, owner-held so rail re-projection rematerializes from current truth.
      * @member {Object|null} wakeRoutesSnapshot=null
      */
@@ -1363,13 +1383,20 @@ class FleetCockpit extends Container {
                 // pane (click pop-out / gesture tear-out) has no controller above it — an
                 // unscoped string would resolve dead in the vessel and cache that miss.
                 return {
-                    module      : MemoriesPane,
-                    cls         : [marker],
-                    activeAgent : me.memoriesTarget ?? me.memoriesSnapshot?.target ?? null,
-                    snapshot    : me.memoriesSnapshot,
-                    agentOptions: me.buildMemoriesAgentOptions(),
-                    listeners   : {memoriesRequest: 'onMemoriesRequest', scope: me.getController()},
-                    reference   : 'memories'
+                    module       : MemoriesPane,
+                    cls          : [marker],
+                    activeAgent  : me.memoriesTarget ?? me.memoriesSnapshot?.target ?? null,
+                    snapshot     : me.memoriesSnapshot,
+                    drillSession : me.memoriesDrillSession,
+                    drillSnapshot: me.memoriesDrillSnapshot,
+                    agentOptions : me.buildMemoriesAgentOptions(),
+                    listeners    : {
+                        memoriesRequest     : 'onMemoriesRequest',
+                        sessionDetailRequest: 'onSessionDetailRequest',
+                        sessionDetailClosed : 'onSessionDetailClosed',
+                        scope               : me.getController()
+                    },
+                    reference: 'memories'
                 };
             case 'wakeRoutes':
                 // The snapshot travels with rematerialization like the memories sibling: a torn or
@@ -2749,6 +2776,79 @@ class FleetCockpit extends Container {
         }
 
         return snapshot
+    }
+
+    /**
+     * @summary Read one page of a session's turn-level memories through the cockpit-owned
+     * authenticated bridge — the memories drill-in, {@link #loadMemories}' discipline one level
+     * down: the open drill is owner-held BEFORE any await (a pane rematerialized mid-read reopens
+     * on the pending drill), the read is generation-fenced, an unwired verb or throwing bridge
+     * lands as a typed unavailable envelope, and the pane resolves at WRITE time through the
+     * phase-blind accessor so a vesseled or returning-parked pane receives the truth too.
+     * @param {Object} params `{sessionId, title?, offset?, limit?}` — `title` is owner/display
+     *     state only and never rides the wire call.
+     * @returns {Promise<Object>}
+     */
+    async loadSessionMemories(params = {}) {
+        const me         = this,
+              bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+              generation = ++me.memoriesDrillReadGeneration;
+
+        if (params.sessionId) {
+            me.memoriesDrillSession = {sessionId: params.sessionId, title: params.title ?? null}
+        }
+
+        const
+              {title, ...wireParams} = params,
+              fallback               = reason => ({
+                  capability: {state: 'unavailable', reason},
+                  viewer    : null,
+                  sessionId : params.sessionId || null,
+                  page      : {offset: params.offset ?? 0, limit: null},
+                  turns     : [],
+                  count     : 0,
+                  total     : null
+              });
+
+        let snapshot;
+
+        if (typeof bridge?.fleetSessionMemories !== 'function') {
+            snapshot = fallback('fleet session-memories verb not wired')
+        } else {
+            try {
+                snapshot = await bridge.fleetSessionMemories(wireParams)
+            } catch (error) {
+                snapshot = fallback('fleet session-memories read failed')
+            }
+        }
+
+        if (generation === me.memoriesDrillReadGeneration && !me.isDestroyed) {
+            me.memoriesDrillSnapshot = snapshot;
+
+            const livePane = me.getMemoriesPane();
+
+            livePane && (livePane.drillSnapshot = snapshot)
+        }
+
+        return snapshot
+    }
+
+    /**
+     * @summary Clear the owner-held memories drill-in — the pane's close intent lands here, so a
+     * later rematerialization reopens the summary list, never a drill the operator already left.
+     * The last accepted drill snapshot leaves with the session: holding it would rematerialize
+     * rows no open drill points at.
+     *
+     * The generation bump makes the close TERMINAL for in-flight reads: the counter is the
+     * change-proxy for "is this read still wanted", and close is a second way to make a read
+     * unwanted — without the bump, a read landing after close would repopulate the owner state
+     * (and the pane) for exactly the drill the operator left, held harmless only as long as
+     * every render stays keyed on the session rather than the snapshot.
+     */
+    clearSessionMemoriesDrill() {
+        this.memoriesDrillReadGeneration++;
+        this.memoriesDrillSession  = null;
+        this.memoriesDrillSnapshot = null
     }
 
     /**
