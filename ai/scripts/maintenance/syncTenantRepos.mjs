@@ -54,7 +54,7 @@ import {
  * @returns {Object} Parsed replay intent, optional help flag, and selected repo slugs.
  */
 function parseArgs(argv) {
-    const args = {fullReplay: false, repoSlugs: []};
+    const args = {fullReplay: false, repoSlugs: [], clearBackoff: false};
     for (let i = 2; i < argv.length; i++) {
         const v = argv[i];
         if (v === '--repo-slug' || v === '-r') {
@@ -66,6 +66,8 @@ function parseArgs(argv) {
             i++;
         } else if (v === '--full') {
             args.fullReplay = true;
+        } else if (v === '--clear-backoff') {
+            args.clearBackoff = true;
         } else if (v === '--help' || v === '-h') {
             args.help = true;
         } else {
@@ -77,11 +79,19 @@ function parseArgs(argv) {
         throw new Error('--full requires at least one --repo-slug selector.')
     }
 
+    // The two modes answer different questions and must not be combined: --full says "re-ingest
+    // this repo from a null base", --clear-backoff says "let this repo attempt again on its normal
+    // cadence". Silently running one while the operator asked for both is the kind of no-op this
+    // path exists to eliminate.
+    if (args.clearBackoff && args.fullReplay) {
+        throw new Error('--clear-backoff cannot be combined with --full; clear the backoff, then run the replay if you still want one.')
+    }
+
     return args;
 }
 
 function printHelp() {
-    console.log(`Usage: node ./ai/scripts/maintenance/syncTenantRepos.mjs [--repo-slug <slug>]... [--full]
+    console.log(`Usage: node ./ai/scripts/maintenance/syncTenantRepos.mjs [--repo-slug <slug>]... [--full | --clear-backoff]
 
 Forces a single tenant-repo-sync sweep. With no flags, processes every configured
 tenantRepo. Pass --repo-slug to scope to a specific repo (repeatable).
@@ -92,6 +102,13 @@ Runs first acquire the deployment-wide heavy-maintenance lease, then the
 tenant-repo-sync lease next to the revisions manifest. If Dream/REM, another
 heavy lane, or another sync is active, this CLI exits immediately with code 4
 instead of racing it. Crashed lease owners recover automatically; simply re-run.
+
+Pass --clear-backoff to reset the per-repo failure streak that drives suppression,
+without a process restart and without touching stored checkpoints. Scope it with
+--repo-slug, or omit the selector to clear every configured repo. The next sweep
+re-reads the manifest, so the release is observed without restarting the daemon.
+Use it after repairing a shared dependency, when the streak recorded during the
+outage would otherwise suppress a lane that now works.
 
 Exit codes:
   0  completed (or partial-completed with at least one repo successful)
@@ -158,23 +175,37 @@ function buildRunTaskOptions({parsed, taskStateService, writeLog}) {
  * @param {Function} options.writeLog
  * @param {Function} [options.runTaskImpl] Test seam for the service dispatch.
  * @param {Function|null} [options.withLeaseImpl] Test seam for the lease wrapper.
+ * @param {Function} [options.clearBackoffImpl] Test seam for the clear-backoff dispatch.
  * @returns {Promise<Object>} Global lease outcome containing the service result when admitted.
  */
 function runTenantRepoSyncWithGlobalLease({
     parsed,
     taskStateService,
     writeLog,
-    runTaskImpl   = options => TenantRepoSyncService.runTask(options),
-    withLeaseImpl = null
+    runTaskImpl      = options => TenantRepoSyncService.runTask(options),
+    withLeaseImpl    = null,
+    clearBackoffImpl = options => TenantRepoSyncService.clearTenantRepoBackoff(options)
 }) {
     const withLease = withLeaseImpl ?? withHeavyMaintenanceLease;
 
+    // Both modes run UNDER the same lease, and that is not symmetry for its own sake: the clear
+    // rewrites the very revisions manifest a concurrent sweep reads at its top and writes at its
+    // end. Outside the lease this would race a sweep mid-flight and could drop a checkpoint the
+    // sweep had just committed — losing ingestion progress to fix a backoff, which is a strictly
+    // worse trade than the wait it removes.
+    const invoke = parsed.clearBackoff
+        ? () => clearBackoffImpl({
+            onlyRepoSlugs: parsed.repoSlugs.length > 0 ? parsed.repoSlugs : null,
+            writeLog
+        })
+        : () => runTaskImpl(buildRunTaskOptions({parsed, taskStateService, writeLog}));
+
     return withLease(
-        () => runTaskImpl(buildRunTaskOptions({parsed, taskStateService, writeLog})),
+        invoke,
         {
             leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
             owner       : 'tenant-repo-sync',
-            reason      : 'container-one-shot',
+            reason      : parsed.clearBackoff ? 'container-clear-backoff' : 'container-one-shot',
             staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
             metadata    : {script: 'ai/scripts/maintenance/syncTenantRepos.mjs'}
         }

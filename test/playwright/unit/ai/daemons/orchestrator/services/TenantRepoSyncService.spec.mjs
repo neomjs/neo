@@ -236,6 +236,104 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
     });
 
+    test('clear-backoff resets ONLY the streak, leaves every checkpoint field untouched, and never silently no-ops', async () => {
+        // The safety property is the second assertion, not the first. Resetting `lastIngestedRev`
+        // alongside the streak would turn "let this lane retry now" into "re-ingest from a null
+        // base" — a far more expensive request than the operator made, and one they cannot undo.
+        const throttled = 'acme/throttled',
+              healthy   = 'acme/healthy',
+              untouched = 'acme/untouched';
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                [throttled]: {lastIngestedRev: 'sha-throttled', lastRunAttemptAt: 111, consecutiveFailures: 42, ingestContractVersion: 3},
+                [healthy]  : {lastIngestedRev: 'sha-healthy',   lastRunAttemptAt: 222, consecutiveFailures: 0},
+                [untouched]: {lastIngestedRev: 'sha-untouched', lastRunAttemptAt: 333, consecutiveFailures: 7}
+            }
+        });
+
+        // AC-1's "reflected in the next sweep" clause, asserted through the production derivation
+        // rather than through the streak value that feeds it. `consecutiveFailures === 0` is a PROXY
+        // for release; `isRepoDue` is what the sweep actually calls, so it is what has to flip.
+        // The window is chosen to discriminate: at a streak of 42 the cadence caps at backoffCapMs
+        // (120s) and the repo is suppressed at now-111; cleared, it falls back to the 60s base and
+        // is due. A `now` outside that band would pass in both directions and prove nothing.
+        const dueStateFor = state => isRepoDue({
+            repo              : {tenantId: 't1', repoSlug: throttled},
+            persistedRepoState: state,
+            now               : 100_000,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        });
+
+        const beforeClear = await TenantRepoSyncService.readPersistedRevisions({filePath: revisionsFile});
+
+        // and the suppression is attributable to the STREAK: no embeddingRecovery in this fixture,
+        // so `recoveryBypass` cannot be what releases the lane a moment from now.
+        expect(dueStateFor(beforeClear[throttled])).toMatchObject({due: false, recoveryBypass: false, backoffCapped: true});
+
+        const result = await TenantRepoSyncService.clearTenantRepoBackoff({
+            onlyRepoSlugs    : [throttled, healthy],
+            revisionsFilePath: revisionsFile,
+            tenantReposConfig: {tenantRepos: [throttled, healthy, untouched].map(repoSlug => ({repoSlug, tenantId: 't1'}))}
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.cleared).toEqual([{repoSlug: throttled, previousConsecutiveFailures: 42}]);
+        // Already-clear is REPORTED, not folded into success: an operator who clears a backoff and
+        // is told nothing cannot distinguish a completed no-op from a mistyped selector.
+        expect(result.details.unchanged).toEqual([
+            {repoSlug: healthy, consecutiveFailures: 0, reason: 'already-clear'}
+        ]);
+
+        const persisted = await TenantRepoSyncService.readPersistedRevisions({filePath: revisionsFile});
+
+        expect(persisted[throttled].consecutiveFailures).toBe(0);
+        // every other field survives verbatim — the streak is the only thing this operation owns
+        expect(persisted[throttled].lastIngestedRev).toBe('sha-throttled');
+        expect(persisted[throttled].lastRunAttemptAt).toBe(111);
+        expect(persisted[throttled].ingestContractVersion).toBe(3);
+        // and a repo outside the selector is not collateral
+        expect(persisted[untouched].consecutiveFailures).toBe(7);
+
+        // AC-1's third clause: the consumption is RECORDED, not just performed. Persisted beside the
+        // reset so the deployment-state snapshot can surface it to an operator with no shell — and
+        // carrying what the streak was, because "cleared 42 -> 0" answers a question "cleared" does
+        // not: whether the suppression removed was the one being chased.
+        expect(persisted[throttled].backoffClearedFromFailures).toBe(42);
+        expect(typeof persisted[throttled].backoffClearedAt).toBe('string');
+        // an unchanged repo earns no marker — a clear that did nothing must not read as an
+        // intervention later. NULL rather than absent: the checkpoint normalizer is an allowlist
+        // that materializes every field, so "never cleared" is present-and-null exactly like every
+        // other unobserved field in that shape.
+        expect(persisted[healthy].backoffClearedAt).toBeNull();
+        expect(persisted[untouched].backoffClearedAt).toBeNull();
+
+        // the other half of the clause: the same derivation, same instant, now releases the lane —
+        // and the repo left outside the selector stays suppressed, so this is a scoped release
+        // rather than a manifest-wide one.
+        expect(dueStateFor(persisted[throttled])).toMatchObject({due: true, dueReason: 'cadence'});
+        expect(dueStateFor(persisted[untouched]).due).toBe(false)
+    });
+
+    test('clear-backoff refuses an unknown slug with the sweep\'s own error code, rather than clearing nothing quietly', () => {
+        // Same vocabulary as `syncTenantRepos`, deliberately: an operator who mistypes a slug gets
+        // one error code across both entry paths, and the CLI's existing exit-code-3 mapping needed
+        // no change to cover this mode.
+        return TenantRepoSyncService.clearTenantRepoBackoff({
+            onlyRepoSlugs    : ['acme/known', 'acme/typo'],
+            revisionsFilePath: revisionsFile,
+            tenantReposConfig: {tenantRepos: [{repoSlug: 'acme/known', tenantId: 't1'}]}
+        }).then(result => {
+            expect(result.status).toBe('failed');
+            expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED');
+            expect(result.details.unknownSlugs).toEqual(['acme/typo']);
+            // the valid half is NOT partially applied — a refused selector clears nothing
+            expect(result.details.cleared).toBeUndefined()
+        })
+    });
+
     test('embedding recovery checkpoints degrade by omission, retain restart truth, and consumed grants become history (#16692)', async () => {
         const
             episodeId    = 'a'.repeat(32),
@@ -7059,14 +7157,37 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
             '-r',
             'org/b'
         ])).toEqual({
-            fullReplay: true,
-            repoSlugs : ['org/a', 'org/b']
+            clearBackoff: false,
+            fullReplay  : true,
+            repoSlugs   : ['org/a', 'org/b']
         });
     });
 
     test('rejects full replay without a repo selector', () => {
         expect(() => parseArgs(['node', 'syncTenantRepos.mjs', '--full']))
             .toThrow('--full requires at least one --repo-slug selector.')
+    });
+
+    test('parses --clear-backoff, scoped and unscoped', () => {
+        expect(parseArgs(['node', 'syncTenantRepos.mjs', '--clear-backoff'])).toEqual({
+            clearBackoff: true,
+            fullReplay  : false,
+            repoSlugs   : []
+        });
+
+        expect(parseArgs(['node', 'syncTenantRepos.mjs', '--clear-backoff', '-r', 'org/a'])).toEqual({
+            clearBackoff: true,
+            fullReplay  : false,
+            repoSlugs   : ['org/a']
+        });
+    });
+
+    test('refuses --clear-backoff combined with --full', () => {
+        // The two modes answer different questions — "re-ingest from a null base" versus "let this
+        // lane attempt again on its normal cadence". Running one while the operator asked for both
+        // is the silent no-op this whole path exists to remove, so the parser refuses instead.
+        expect(() => parseArgs(['node', 'syncTenantRepos.mjs', '--clear-backoff', '--full', '-r', 'org/a']))
+            .toThrow('--clear-backoff cannot be combined with --full')
     });
 
     test('dispatches full replay and selectors to TenantRepoSyncService', () => {
@@ -7169,6 +7290,78 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
 
             expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
         });
+    });
+
+    // The clear rewrites the same revisions manifest a sweep reads at its top and writes at its end,
+    // so it has to hold the lease for the same reason the sweep does. The sibling lease cases above
+    // all drive `runTaskImpl`; without these two, hoisting the clear outside `withLease` — the exact
+    // shape a later refactor would reach for, since the clear needs no taskStateService — passes.
+    test('a held lease defers the CLEAR as well, so a reset never races a sweep mid-flight', async () => {
+        await withTempLease(async ({leasePath}) => {
+            const incumbent = await acquireHeavyMaintenanceLease({
+                leasePath,
+                owner       : 'dream',
+                reason      : 'scheduled',
+                staleAfterMs: 60_000
+            });
+            const clearBackoffCalls = [];
+
+            try {
+                const outcome = await runTenantRepoSyncWithGlobalLease({
+                    parsed          : {fullReplay: false, repoSlugs: ['org/a'], clearBackoff: true},
+                    taskStateService: {name: 'task-state'},
+                    writeLog        : () => {},
+                    runTaskImpl     : () => { throw new Error('the clear path must never run a sweep'); },
+                    clearBackoffImpl: options => {
+                        clearBackoffCalls.push(options);
+                        return {status: 'completed', details: {cleared: [], unchanged: []}};
+                    },
+                    withLeaseImpl: injectLeasePath(leasePath)
+                });
+
+                expect(outcome.status).toBe('held');
+                expect(outcome.lease.owner).toBe('dream');
+                expect(clearBackoffCalls).toHaveLength(0);
+            } finally {
+                await releaseHeavyMaintenanceLease({
+                    leasePath,
+                    token: incumbent.lease.token
+                });
+            }
+        });
+    });
+
+    test('the clear dispatches under the lease with its own reason, maps selectors, and releases', async () => {
+        for (const [repoSlugs, expectedOnlyRepoSlugs] of [[['org/a', 'org/b'], ['org/a', 'org/b']], [[], null]]) {
+            await withTempLease(async ({leasePath}) => {
+                const writeLog          = () => {};
+                const clearBackoffCalls = [];
+                const leaseOptions      = [];
+                const outcome           = await runTenantRepoSyncWithGlobalLease({
+                    parsed          : {fullReplay: false, repoSlugs, clearBackoff: true},
+                    taskStateService: {name: 'task-state'},
+                    writeLog,
+                    runTaskImpl     : () => { throw new Error('the clear path must never run a sweep'); },
+                    clearBackoffImpl: async options => {
+                        clearBackoffCalls.push(options);
+                        return {status: 'completed', details: {cleared: [{repoSlug: 'org/a', previousConsecutiveFailures: 42}], unchanged: []}};
+                    },
+                    withLeaseImpl: (task, options) => {
+                        leaseOptions.push(options);
+                        return injectLeasePath(leasePath)(task, options);
+                    }
+                });
+
+                expect(outcome.status).toBe('completed');
+                expect(outcome.result.details.cleared).toEqual([{repoSlug: 'org/a', previousConsecutiveFailures: 42}]);
+                // The reset takes its own lease reason: an operator reading a held-lease refusal has to
+                // be able to tell which of the two container-plane paths is holding it.
+                expect(leaseOptions[0].reason).toBe('container-clear-backoff');
+                expect(leaseOptions[0].owner).toBe('tenant-repo-sync');
+                expect(clearBackoffCalls).toEqual([{onlyRepoSlugs: expectedOnlyRepoSlugs, writeLog}]);
+                expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
+            });
+        }
     });
 
     test('resolveExitCode maps runTask results onto the documented exit-code contract (#15763)', () => {

@@ -2686,7 +2686,12 @@ function summarizeTenantRepoState({
         lastIngestedRev    : shortRevision(normalizedCheckpoint?.lastIngestedRev),
         lastRunAttemptAt   : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
         consecutiveFailures: failures,
-        stopReasonCode     : failures > 0
+        // Operator-consumed backoff clears, surfaced where an operator can see them without a
+        // shell. Absent until one happens, and NOT cleared by later sweeps: it answers "did someone
+        // intervene here, and what did they release", which stays true after the streak moves on.
+        backoffClearedAt          : normalizedCheckpoint?.backoffClearedAt ?? null,
+        backoffClearedFromFailures: numberOrNull(normalizedCheckpoint?.backoffClearedFromFailures),
+        stopReasonCode            : failures > 0
             ? (normalizedCheckpoint?.embeddingRecovery?.causeCode
                 || normalizedCheckpoint?.lastSourceErrorCode
                 || normalizedCheckpoint?.lastErrorCode

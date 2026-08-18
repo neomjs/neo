@@ -3228,6 +3228,115 @@ class TenantRepoSyncService extends Base {
             );
         }
     }
+
+    /**
+     * @summary Clears the persisted backoff streak for tenant repos, without restarting the process.
+     *
+     * The backoff itself is correct congestion control; what it lacked was an EXIT. Every failure in
+     * a shared-dependency outage lands on the per-repo `consecutiveFailures` counter, so when the
+     * cause is repaired the repos stay suppressed for up to `backoffCapMs` each — and the operator's
+     * only levers were to wait out the cap or restart the orchestrator to clear a counter. That
+     * makes every fix cost a fix plus a wait, and it makes the fix unverifiable in the meantime:
+     * "the repair did not work" and "the lane has not been allowed to try yet" look identical.
+     *
+     * **Why a second process can do this at all.** The streak is not daemon memory — it lives in the
+     * persisted revisions manifest, and {@link #syncTenantRepos} re-reads that manifest at the top of
+     * EVERY sweep. So a one-shot container-plane run that rewrites the counter is observed by the
+     * next sweep of the long-running daemon with no restart and nothing shared but the file. The
+     * caller must hold the same cross-process heavy-maintenance lease the sweep takes; without it
+     * this races a sweep mid-write on the one manifest they share.
+     *
+     * **Only the streak is cleared.** `lastIngestedRev` and the materialization proofs are left
+     * exactly as found: they are the record of what was successfully ingested, and resetting them
+     * would turn "let this lane retry now" into "re-ingest everything from a null base" — a far more
+     * expensive request than the operator made.
+     *
+     * Repos with no persisted entry, or already at zero, are reported as `unchanged` rather than
+     * silently succeeding: an operator who clears a backoff and is told nothing has no way to tell a
+     * completed no-op from a misspelled selector, which is the ambiguity this whole path exists to
+     * remove.
+     *
+     * @param {Object} [options]
+     * @param {String[]|null} [options.onlyRepoSlugs=null] Restrict to these configured slugs; omit for every configured repo. An unknown slug is refused, never silently skipped.
+     * @param {Object|null} [options.tenantReposConfig=null] Injected repo config; defaults to the deployment's. Mirrors {@link #syncTenantRepos}'s seam rather than reading the singleton directly, so a caller can scope this the same way the sweep is scoped.
+     * @param {String|null} [options.revisionsFilePath=null] Manifest path override; defaults to {@link #defaultRevisionsFilePath}.
+     * @param {Function|null} [options.writeLog=null] Structured log sink.
+     * @returns {Promise<{status: String, details: Object}>} `completed` with a per-repo outcome list, or `failed` carrying `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
+     */
+    async clearTenantRepoBackoff({onlyRepoSlugs = null, revisionsFilePath = null, writeLog = null, tenantReposConfig = null} = {}) {
+        const resolvedConfig = tenantReposConfig || AiConfig.data.orchestrator.tenantRepoSync,
+              allRepos       = resolvedConfig.tenantRepos || [],
+              knownSlugs     = allRepos.map(repo => repo.repoSlug);
+
+        // The SAME refusal the sweep gives an unknown selector, deliberately: an operator who
+        // mistypes a slug must get one vocabulary back, not a second one invented for this path.
+        if (onlyRepoSlugs?.length > 0) {
+            const unknownSlugs = onlyRepoSlugs.filter(slug => !knownSlugs.includes(slug));
+
+            if (unknownSlugs.length > 0) {
+                const details = {
+                    reason         : 'repo-not-configured',
+                    reasonCode     : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
+                    requestedSlugs : onlyRepoSlugs,
+                    unknownSlugs,
+                    configuredSlugs: knownSlugs
+                };
+
+                writeLog?.('WARN', `[TenantRepoSync] clear-backoff: requested repoSlug(s) not configured: ${unknownSlugs.join(', ')}. Configured: ${knownSlugs.join(', ') || '(none)'}.`);
+
+                return {status: 'failed', details}
+            }
+        }
+
+        const targetSlugs = onlyRepoSlugs?.length > 0 ? onlyRepoSlugs : knownSlugs;
+
+        if (targetSlugs.length === 0) {
+            writeLog?.('INFO', '[TenantRepoSync] clear-backoff: no tenantRepos configured; nothing to clear.');
+
+            return {status: 'completed', details: {reason: 'no-tenant-repos-configured', cleared: [], unchanged: []}}
+        }
+
+        const filePath = revisionsFilePath || this.defaultRevisionsFilePath(),
+              // strict: a corrupt manifest must not be overwritten by a well-meaning reset — the
+              // fail-open read would hand back {} and this method would then persist that emptiness
+              // over every checkpoint on disk.
+              revisions = await this.readPersistedRevisions({filePath, strict: true}),
+              cleared   = [],
+              unchanged = [],
+              clearedAt = new Date().toISOString();
+
+        for (const slug of targetSlugs) {
+            const state  = revisions[slug],
+                  streak = state?.consecutiveFailures ?? 0;
+
+            if (!state || streak === 0) {
+                unchanged.push({repoSlug: slug, consecutiveFailures: streak, reason: state ? 'already-clear' : 'no-persisted-state'});
+                continue
+            }
+
+            // The consumption marker is PERSISTED beside the reset, not merely logged: a log line
+            // lives in one container's stdout, while the deployment-state snapshot is the surface an
+            // operator reads without shell access. Recording what the streak WAS matters as much as
+            // when — "cleared at 12:40" tells you an intervention happened, "cleared 42 → 0 at
+            // 12:40" tells you whether the suppression it removed was the one you were chasing.
+            revisions[slug] = {
+                ...state,
+                consecutiveFailures       : 0,
+                backoffClearedAt          : clearedAt,
+                backoffClearedFromFailures: streak
+            };
+            cleared.push({repoSlug: slug, previousConsecutiveFailures: streak})
+        }
+
+        if (cleared.length > 0) {
+            await this.writePersistedRevisions({filePath, revisions})
+        }
+
+        writeLog?.('INFO', `[TenantRepoSync] clear-backoff: cleared ${cleared.length} of ${targetSlugs.length} selected repo(s)${cleared.length ? ` (${cleared.map(entry => `${entry.repoSlug} ${entry.previousConsecutiveFailures}->0`).join(', ')})` : ''}; ${unchanged.length} already clear.`);
+
+        return {status: 'completed', details: {cleared, unchanged, filePath}}
+    }
+
 }
 
 export default Neo.setupClass(TenantRepoSyncService);
