@@ -17,6 +17,8 @@ import {createTenantRepoMaterializationDigest}
                             from './helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {isChromaConnectionError}
                             from '../shared/vector/chromaClientPrimitives.mjs';
+import {resolveEmbeddingAdmissionBand}
+                            from '../../embeddingSafeBand.mjs';
 import {
     KB_VECTOR_EMBED_UNCLASSIFIED,
     KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
@@ -1506,6 +1508,16 @@ class IngestionService extends Base {
                 continue;
             }
 
+            // An unresolvable band is not an oversized chunk — it is a configuration defect, and a
+            // split planned against it would be planned against nothing. Record the skip and leave
+            // the chunk whole, mirroring `VectorService.expandOversizedEmbeddingChunks`; the send
+            // boundary refuses it with the same unmeasurable flag rather than silently shipping
+            // parts cut to a band nobody validated.
+            if (budget.estimateBandTokens === null) {
+                this.recordOversizedEmbeddingSkip({chunk, guardrail, summary, tenantContext, ...budget});
+                continue;
+            }
+
             const splitChunks = this.vectorService.splitOversizedEmbeddingChunk({
                 chunk,
                 guardrail,
@@ -1554,12 +1566,20 @@ class IngestionService extends Base {
     evaluateEmbeddingInputBudget(chunk, guardrail) {
         const text                = this.buildEmbeddingInputText(chunk),
               inputBytes          = Buffer.byteLength(text, 'utf8'),
-              inputTokensEstimate = bytesToTokens(inputBytes);
+              inputTokensEstimate = bytesToTokens(inputBytes),
+              // Same resolver as `VectorService.measureEmbeddingInput` and the splitter. This site
+              // used to compare against `safeProcessingLimitTokens` directly, so a deployment whose
+              // engine slot is narrower than the safe band admitted inputs here that the provider
+              // then refused — and admitting at one band while cutting at another is how the three
+              // copies of this rule drifted apart in the first place.
+              {resolved, admissionCeilingTokens, estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail);
 
         return {
-            skip: inputTokensEstimate > guardrail.safeProcessingLimitTokens,
+            skip                  : !resolved || inputTokensEstimate > estimateBandTokens,
             inputBytes,
-            inputTokensEstimate
+            inputTokensEstimate,
+            estimateBandTokens    : resolved ? estimateBandTokens     : null,
+            admissionCeilingTokens: resolved ? admissionCeilingTokens : null
         };
     }
 
