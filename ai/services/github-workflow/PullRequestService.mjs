@@ -411,6 +411,21 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
     const reviewConnection = pullRequest.reviewRequests;
     const reviewers        = (reviewConnection?.nodes || []).map(normalizeRequestedReviewer)
         .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
+    // Only APPROVED reviews are carried, and the narrowing is deliberate rather than incidental.
+    // This collection exists to answer "which commit earned the approval", and it also enters the
+    // double-read drift comparison — so keeping COMMENTED/PENDING reviews would fail observations
+    // with SOURCE_CHANGED_DURING_READ every time a peer left a comment mid-read, for a change that
+    // moves no readiness. A CHANGES_REQUESTED landing mid-read still trips the comparison, through
+    // `reviewDecision`, which is where that state actually lives.
+    const reviewsConnection = pullRequest.reviews;
+    const approvals         = (reviewsConnection?.nodes || [])
+        .filter(node => node?.state === 'APPROVED' && node?.commit?.oid && node?.submittedAt)
+        .map(node => ({oid: node.commit.oid, submittedAt: node.submittedAt}))
+        // Sorted rather than trusting connection order: the caller reads `.at(-1)` as "latest", and
+        // an ordering assumption that holds today would fail silently — as a WRONG anchor, not a
+        // missing one. `oid` breaks ties so two approvals sharing a timestamp stay deterministic
+        // across the two reads, which the drift comparison requires.
+        .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.oid.localeCompare(b.oid));
     const commit            = pullRequest.commits?.nodes?.[0]?.commit || null;
     const rollup            = commit?.statusCheckRollup;
     const contextConnection = rollup?.contexts;
@@ -431,6 +446,11 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
             available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),
             hasNextPage: Boolean(reviewConnection?.pageInfo?.hasNextPage),
             nodes      : reviewers
+        },
+        approvals       : {
+            available      : Boolean(reviewsConnection && Array.isArray(reviewsConnection.nodes)),
+            hasPreviousPage: Boolean(reviewsConnection?.pageInfo?.hasPreviousPage),
+            nodes          : approvals
         },
         checks: {
             commitAvailable  : Boolean(commit),
@@ -745,13 +765,23 @@ async function buildMergeReadinessProjection({
             message: `Required context '${item.context}' is ${item.state}.`
         }));
 
+    // The approval anchor is a REPORTING channel, not part of the predicate, so an unreadable
+    // connection yields `undefined` — which the validator reads as "not reported", never as
+    // "fresh". That inverts the fail-closed rule every other field here follows, and it has to:
+    // the other fields certify readiness, so an un-queried one must block; this one certifies
+    // nothing, and a caller that never asks for it is not making a weaker claim.
+    const approvedAtOid = snapshot.approvals.available
+        ? snapshot.approvals.nodes.at(-1)?.oid
+        : undefined;
     const predicate = validateMergeReady({
         state           : snapshot.state,
         mergedAt        : snapshot.mergedAt,
         reviewDecision  : snapshot.reviewDecision,
         checksGreen,
         mergeStateStatus: snapshot.mergeStateStatus,
-        reviewRequests
+        reviewRequests,
+        approvedAtOid,
+        headRefOid      : snapshot.headRefOid
     });
     const sourceMergeReady    = predicate.strictMergeReady && sourceBlockers.length === 0;
     const certifiedMergeReady = sourceMergeReady && identityBindingComplete;
@@ -796,7 +826,16 @@ async function buildMergeReadinessProjection({
         statement       : !identityBindingComplete
             ? `Observed GitHub checks verdict '${checksVerdict}' at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}; B-prime certification is unavailable because Memory Core identity is unbound.`
             : certifiedMergeReady
-                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`
+                // An advisory rides INSIDE the merge-ready sentence rather than after it. It fires
+                // only when everything else is green — exactly when nothing draws the eye — and the
+                // merge-ready statement travels beside `[merge-eligible]` to the human gate. A
+                // sentence that says "strict merge-ready" and stops is, at a stale anchor, true and
+                // misleading in the same breath.
+                // The plural agrees rather than hedging with a slash: this sentence is the whole
+                // deliverable — it travels beside `[merge-eligible]` to the human gate — so it is
+                // the one string where wording carries weight, and `1 advisory/advisories require`
+                // reads as generated text a reader discounts.
+                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} ${predicate.advisories.length === 1 ? 'advisory requires' : 'advisories require'} a reader judgement before merge — see 'advisories'.` : ''}`
                 : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
         blockers: [
             ...(!identityBindingComplete ? [{
@@ -808,6 +847,13 @@ async function buildMergeReadinessProjection({
             ...sourceBlockers,
             ...predicate.blockers.map(message => ({code: 'STRICT_MERGE_READINESS', message}))
         ],
+        // Lifted to top level and coded, in the same shape as `blockers`, and the symmetry is the
+        // point rather than tidiness. A blocker is discoverable three other ways — it flips
+        // `verdict`, rewrites `statement`, and suppresses `marker` — so burying it would still leave
+        // three signals. An advisory has NO redundancy: it fires only on an otherwise-green
+        // observation, so nested inside `predicate` it reaches no reader of the surface that
+        // actually travels to the merge gate.
+        advisories: predicate.advisories.map(message => ({code: 'APPROVAL_ANCHOR_STALE', message})),
         audit: [
             ...audit,
             {source: 'validateMergeReady', call: 1, outcome: sourceMergeReady ? 'positive' : 'negative'},

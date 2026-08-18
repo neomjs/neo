@@ -134,3 +134,76 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
         expect(result.blockers.join(' ')).toContain('already merged');
     });
 });
+
+test.describe('validateMergeReady — the approval anchor', () => {
+    const openSource = overrides => ({state: 'OPEN', mergedAt: null, ...overrides});
+
+    test('a stale anchor is REPORTED, never a blocker', () => {
+        const result = validateMergeReady(openSource({
+            reviewDecision  : 'APPROVED',
+            checksGreen     : true,
+            mergeStateStatus: 'CLEAN',
+            reviewRequests  : [],
+            approvedAtOid   : '8a24e213c1',
+            headRefOid      : '23588b661a'
+        }));
+
+        // The load-bearing half: a rebase that moves every sha and changes nothing anyone reviewed
+        // is the COMMON case. Blocking it would red every rebased PR in the repo and train reviewers
+        // to ignore the signal, which costs more than the gap it closes.
+        expect(result.strictMergeReady).toBe(true);
+        expect(result.blockers).toEqual([]);
+        expect(result.advisories).toHaveLength(1);
+        // both shas named — a report that says "stale" without saying stale-against-what sends the
+        // reader back to the API to reconstruct what the check already had in hand
+        expect(result.advisories[0]).toContain('8a24e213c1');
+        expect(result.advisories[0]).toContain('23588b661a')
+    });
+
+    test('a fresh anchor reports nothing', () => {
+        const result = validateMergeReady(openSource({
+            reviewDecision  : 'APPROVED',
+            checksGreen     : true,
+            mergeStateStatus: 'CLEAN',
+            reviewRequests  : [],
+            approvedAtOid   : '23588b661a',
+            headRefOid      : '23588b661a'
+        }));
+
+        expect(result.strictMergeReady).toBe(true);
+        expect(result.advisories).toEqual([])
+    });
+
+    test('an UNFETCHED anchor is silence, not a fail-closed block — and this inverts the module rule on purpose', () => {
+        // Every other field here fails closed when un-queried, because each is part of the
+        // merge-ready PREDICATE and an unasked question cannot certify. The anchor certifies
+        // nothing; it is a reporting channel. A caller that never asks for it is not making a
+        // weaker claim, and blocking it would break every existing call site for no added safety.
+        const result = validateMergeReady(openSource({
+            reviewDecision  : 'APPROVED',
+            checksGreen     : true,
+            mergeStateStatus: 'CLEAN',
+            reviewRequests  : []
+        }));
+
+        expect(result.strictMergeReady).toBe(true);
+        expect(result.advisories).toEqual([])
+    });
+
+    test('a stale anchor does not rescue an otherwise-blocked PR, nor mask its blockers', () => {
+        // The fence: advisories and blockers are separate channels, and neither may leak into the
+        // other. Without this, "advisory" could quietly become "downgraded blocker".
+        const result = validateMergeReady(openSource({
+            reviewDecision  : 'CHANGES_REQUESTED',
+            checksGreen     : true,
+            mergeStateStatus: 'CLEAN',
+            reviewRequests  : [],
+            approvedAtOid   : 'aaaaaaaaaa',
+            headRefOid      : 'bbbbbbbbbb'
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.some(entry => entry.includes('not APPROVED'))).toBe(true);
+        expect(result.advisories).toHaveLength(1)
+    })
+});
