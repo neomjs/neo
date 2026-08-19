@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-08-19T07:08:37.019Z",
-  "releasesLastFetched": "2026-08-19T06:58:13.932Z",
+  "lastSync": "2026-08-19T07:58:29.829Z",
+  "releasesLastFetched": "2026-08-19T07:48:36.907Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -99286,8 +99286,8 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-13/issue-16617.md",
       "closedAt": null,
-      "updatedAt": "2026-08-19T07:03:13Z",
-      "contentHash": "0b9b37f329be0d3385864770ec19751c67dd53c0a814753ad3a6df4d75d41377",
+      "updatedAt": "2026-08-19T07:09:05Z",
+      "contentHash": "d1a35fb8c347a6634d2c805669efab9616c34c9c6cfd400cc1cede4f4720e948",
       "milestone": null,
       "commentsTotal": 1
     },
@@ -102964,11 +102964,20 @@
       "commentsTotal": 0
     },
     "17371": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-17/issue-17371.md",
+      "closedAt": "2026-08-19T07:44:51Z",
+      "updatedAt": "2026-08-19T07:44:51Z",
+      "contentHash": "a57bddf1c8e6d1331a8c33699475fc31d4f88005291ec7612ae74eca6311a118",
+      "milestone": null,
+      "commentsTotal": 0
+    },
+    "17373": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-17/issue-17373.md",
       "closedAt": null,
-      "updatedAt": "2026-08-19T06:29:55Z",
-      "contentHash": "a7818fc67e1294de0af549710fed866f0ae8951560fc9bf1ec900245cee624ca",
+      "updatedAt": "2026-08-19T07:43:54Z",
+      "contentHash": "c26340a07049af9b5dc6f52c1d0b3b2595856e313cabf5c0bc6f69eab23980c7",
       "milestone": null,
       "commentsTotal": 0
     }
@@ -106994,13 +107003,13 @@
       "contentHash": "d1ecd11177de534c29859994bc3980cde7aa57f32bf3712e692b3d0b5eaa4149"
     },
     "17372": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-13/pr-17372.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-08-19T07:44:50Z",
+      "mergedAt": "2026-08-19T07:44:50Z",
       "milestone": null,
-      "updatedAt": "2026-08-19T07:07:28Z",
-      "contentHash": "998e2fb525e545a0d903d65171f82d9dfe0218cf0830b41b1b1c5de4eff9c0a3"
+      "updatedAt": "2026-08-19T07:44:58Z",
+      "contentHash": "632d3d77142a7fc020b6b7e6bf11c06c346c03182d73485db40b586de394ea89"
     }
   },
   "discussions": {
