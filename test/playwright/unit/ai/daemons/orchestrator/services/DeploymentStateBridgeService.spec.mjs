@@ -491,6 +491,40 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(selfHeal.limit).toBe(10);                              // the snapshot reports its OWN recent-event cap
     });
 
+    test('collectSelfHealSnapshot publishes each freeze with its escalation, evidence and thaw condition', async () => {
+        // `currentlyFrozen` is a bare target list, so a frozen target published no reason and no way out.
+        const events = [
+            {type: 'freeze', collection: 'embedding-model', status: 'contained', at: 5, detail: {
+                escalation: 'no-admitted-remedy',
+                verdict   : {rung: 'rung-2', reasonCode: 'throttle-shed-has-no-admitted-action', recoveryClass: 'exhaustion'}
+            }}
+        ];
+        const service  = createService({healLedgerDir: '/heal', healLedgerReader: async () => events}),
+              selfHeal = await service.collectSelfHealSnapshot();
+
+        expect(selfHeal.summary.currentlyFrozen).toEqual(['embedding-model']);
+        expect(selfHeal.freezeState.frozen).toHaveLength(1);
+        expect(selfHeal.freezeState.frozen[0]).toMatchObject({
+            target    : 'embedding-model',
+            tier      : 1,
+            escalation: 'no-admitted-remedy'
+        });
+        expect(selfHeal.freezeState.frozen[0].evidence.reasonCode).toBe('throttle-shed-has-no-admitted-action');
+        expect(selfHeal.freezeState.frozen[0].requiredQuietMs, 'a thaw condition must be published, not implied').toBeGreaterThan(0);
+    });
+
+    test('every selfHeal envelope carries freezeState, so a consumer never branches on its absence', async () => {
+        const disabled = await createService({}).collectSelfHealSnapshot(),
+              degraded = await createService({healLedgerDir: '/heal', healLedgerReader: async () => { throw new Error('disk gone'); }}).collectSelfHealSnapshot();
+
+        expect(disabled.status).toBe('disabled');
+        expect(degraded.status).toBe('degraded');
+        for (const envelope of [disabled, degraded]) {
+            expect('freezeState' in envelope, `${envelope.status} envelope must declare freezeState`).toBe(true);
+            expect(envelope.freezeState).toBeNull();
+        }
+    });
+
     test('collectSelfHealSnapshot is disabled (graceful) when no heal-ledger dir is wired', async () => {
         const selfHeal = await createService({}).collectSelfHealSnapshot();
         expect(selfHeal).toMatchObject({status: 'disabled', summary: null, recentEvents: []});

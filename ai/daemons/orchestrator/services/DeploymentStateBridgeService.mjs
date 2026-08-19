@@ -93,6 +93,7 @@ import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers
 import {
     queryHealLedger,
     readHealLedger,
+    foldFutilityFreezeState,
     summarizeHealLedger
 } from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
@@ -2053,7 +2054,7 @@ export class DeploymentStateBridgeService extends Base {
      * `readHealLedger` throw, which this catches as `status: 'degraded'` + an error reason — a real storage fault
      * is visible, NOT a false-empty `available` snapshot (a missing file stays `available` with empty counts).
      * Mirrors `collectRecoveryRunSnapshot`'s status/source/errors shape.
-     * @returns {Promise<Object>} `{status, source, limit, summary, recentEvents, errors}`.
+     * @returns {Promise<Object>} `{status, source, limit, summary, freezeState, recentEvents, errors}`.
      */
     async collectSelfHealSnapshot() {
         const
@@ -2071,7 +2072,7 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         if (!this.healLedgerDir) {
-            return {status: 'disabled', source, limit, summary: null, recentEvents: [], errors: []};
+            return {status: 'disabled', source, limit, summary: null, freezeState: null, recentEvents: [], errors: []};
         }
 
         try {
@@ -2083,6 +2084,10 @@ export class DeploymentStateBridgeService extends Base {
                 source,
                 limit,
                 summary     : summarizeHealLedger(events),
+                // `summary.currentlyFrozen` is a bare target list; this carries each freeze's escalation,
+                // verdict evidence and thaw condition, so an operator can see WHY a target is frozen and
+                // what clears it without reading the ledger.
+                freezeState : foldFutilityFreezeState(events, {now: Date.now()}),
                 recentEvents: queryHealLedger(events, {limit}), // validated >= 0; limit 0 → [] (queryHealLedger caps)
                 errors      : []
             };
@@ -2094,6 +2099,7 @@ export class DeploymentStateBridgeService extends Base {
                 source,
                 limit,
                 summary     : null,
+                freezeState : null,
                 recentEvents: [],
                 errors      : [{reason: 'heal-ledger-read-failed', code: error.code || null}]
             };
