@@ -328,7 +328,7 @@ export function queryHealLedger(events = [], {sinceMs, untilMs, types, collectio
  * the first time, so each successive freeze multiplies the required quiet window.
  * @type {{baseThawQuietMs: Number, tierMultiplier: Number}}
  */
-export const DEFAULT_THAW_BOUNDS = Object.freeze({baseThawQuietMs: 1800000, tierMultiplier: 2});
+export const DEFAULT_THAW_BOUNDS = Object.freeze({baseThawQuietMs: 1800000, tierMultiplier: 2, maxThawQuietMs: 86400000});
 
 /**
  * @summary Folds freeze / unfreeze ledger events into each target's current freeze state, evidence and
@@ -349,7 +349,7 @@ export const DEFAULT_THAW_BOUNDS = Object.freeze({baseThawQuietMs: 1800000, tier
  *     `{target, at, tier, escalation, evidence, requiredQuietMs, thawEligibleAt, thawEligible}`.
  */
 export function foldFutilityFreezeState(events = [], {now, bounds = DEFAULT_THAW_BOUNDS} = {}) {
-    const {baseThawQuietMs, tierMultiplier} = {...DEFAULT_THAW_BOUNDS, ...(bounds ?? {})},
+    const {baseThawQuietMs, tierMultiplier, maxThawQuietMs} = {...DEFAULT_THAW_BOUNDS, ...(bounds ?? {})},
           rows                              = Array.isArray(events) ? events : [],
           active                            = new Map(),
           tiers                             = {};
@@ -380,11 +380,15 @@ export function foldFutilityFreezeState(events = [], {now, bounds = DEFAULT_THAW
         }
     }
 
-    const usable = Number.isFinite(baseThawQuietMs) && Number.isFinite(tierMultiplier) && baseThawQuietMs > 0 && tierMultiplier >= 1;
+    const usable = Number.isFinite(baseThawQuietMs) && Number.isFinite(tierMultiplier) && Number.isFinite(maxThawQuietMs) &&
+                   baseThawQuietMs > 0 && tierMultiplier >= 1 && maxThawQuietMs >= baseThawQuietMs;
 
     const frozen = [...active.values()]
         .map(entry => {
-            const requiredQuietMs = usable ? baseThawQuietMs * Math.pow(tierMultiplier, entry.tier - 1) : null,
+            // Capped: without a ceiling, enough flap cycles freeze a target permanently with no
+            // operator in the loop, which turns containment into abandonment.
+            const grown           = usable ? baseThawQuietMs * Math.pow(tierMultiplier, entry.tier - 1) : null,
+                  requiredQuietMs = grown === null ? null : Math.min(grown, maxThawQuietMs),
                   thawEligibleAt  = requiredQuietMs === null ? null : entry.at + requiredQuietMs;
 
             return {

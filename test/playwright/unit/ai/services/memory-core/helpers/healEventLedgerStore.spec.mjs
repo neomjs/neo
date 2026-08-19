@@ -392,6 +392,29 @@ test.describe('foldFutilityFreezeState — freeze state, evidence and thaw condi
         expect(entry.thawEligible).toBe(true);
     });
 
+    test('the escalating window is CAPPED — containment must not become abandonment', () => {
+        // Without a ceiling, enough flap cycles make a target permanently frozen with no operator in
+        // the loop.
+        const flapped = [];
+
+        for (let i = 0; i < 12; i++) {
+            flapped.push(freeze('a', i * 2), thaw('a', i * 2 + 1))
+        }
+        flapped.push(freeze('a', 100));
+
+        const [entry] = foldFutilityFreezeState(flapped, {now: 100}).frozen;
+
+        expect(entry.tier).toBeGreaterThan(10);
+        expect(entry.requiredQuietMs, 'saturates at the ceiling').toBe(DEFAULT_THAW_BOUNDS.maxThawQuietMs);
+    });
+
+    test('an unusable ceiling below the base window is refused rather than applied', () => {
+        const [entry] = foldFutilityFreezeState([freeze('a', 0)], {now: BASE, bounds: {maxThawQuietMs: 1}}).frozen;
+
+        expect(entry.requiredQuietMs).toBeNull();
+        expect(entry.thawEligible).toBe(false);
+    });
+
     test('never eligible without a clock or with unusable bounds', () => {
         expect(foldFutilityFreezeState([freeze('a', 0)], {}).frozen[0].thawEligible).toBe(false);
         expect(foldFutilityFreezeState([freeze('a', 0)], {now: BASE, bounds: {baseThawQuietMs: 0}}).frozen[0].thawEligible).toBe(false);

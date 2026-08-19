@@ -32,7 +32,7 @@
             "lifetime": "persisted",
             "boundCarrier": "max-delay",
             "witness": "`MAX_RECORD_COOLDOWN_MS` clamp in the same expression; test/playwright/unit/ai/daemons/embed/drainCycle.spec.mjs",
-            "note": "Per-record attempt persists across cycles in retryState, so a delay cap is required — an attempt budget would not bound wall-clock."
+            "note": "Per-record attempt persists across cycles in retryState, so a delay cap is required \u2014 an attempt budget would not bound wall-clock."
         },
         "ai/daemons/message/drainCycle.mjs#getMessageDrainBackoffDelayMs:39b52338": {
             "kind": "retry-growth",
@@ -64,7 +64,7 @@
             "kind": "retry-growth",
             "lifetime": "process-local",
             "boundCarrier": "max-delay",
-            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) — the spec `fleetWakeSseConsumer.spec.mjs` drives a drop→reconnect cycle on the injected floor and `stop()` ends the loop."
+            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) \u2014 the spec `fleetWakeSseConsumer.spec.mjs` drives a drop\u2192reconnect cycle on the injected floor and `stop()` ends the loop."
         },
         "ai/services/github-workflow/GraphqlService.mjs##getRetryDelay:626883e2": {
             "kind": "retry-growth",
@@ -92,7 +92,7 @@
             "lifetime": "in-cycle",
             "boundCarrier": "max-attempts",
             "witness": "`retries++` precedes the sleep and `if (retries >= maxRetries) throw writeError` exits before the delay can run again; the write retries spend the surrounding batch's shared `maxRetries` budget",
-            "note": "Carried-prefix WRITE retry shared by the yield AND failure arms (persistCarriedPrefix): vectors already in hand retry the upsert only — never the provider — and budget exhaustion rethrows the storage error so the sweep ends loudly. The backoff BASE is now the kb.backoffBaseMs leaf rather than a hardcoded 1000, so a test context pins it; the bound is unchanged because the base scales the delay and never the attempt count."
+            "note": "Carried-prefix WRITE retry shared by the yield AND failure arms (persistCarriedPrefix): vectors already in hand retry the upsert only \u2014 never the provider \u2014 and budget exhaustion rethrows the storage error so the sweep ends loudly. The backoff BASE is now the kb.backoffBaseMs leaf rather than a hardcoded 1000, so a test context pins it; the bound is unchanged because the base scales the delay and never the attempt count."
         },
         "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:a17aac7c#1": {
             "kind": "retry-growth",
@@ -112,7 +112,7 @@
             "lifetime": "in-cycle",
             "boundCarrier": "max-attempts",
             "witness": "`attempt <= maxRetries` guard in the same loop",
-            "note": "Multiplicative mutation (`backoff *= 2`) — the syntax family a base-2 exponent census misses entirely."
+            "note": "Multiplicative mutation (`backoff *= 2`) \u2014 the syntax family a base-2 exponent census misses entirely."
         },
         "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe:5b01edc6": {
             "kind": "retry-growth",
@@ -121,14 +121,19 @@
             "witness": "`attempts >= maxUnfreezeAttempts` => status `contained` in the same function; test/playwright/unit/ai/services/memory-core/helpers/freezeReprobeDecision.spec.mjs",
             "note": "The delay value GROWS without a cap by design (anti-thrash widening); the series is bounded because a terminal state stops it. No delay-shaped check can see this bound."
         },
+        "ai/services/memory-core/helpers/healEventLedgerStore.mjs#foldFutilityFreezeState:a8244d4b": {
+            "kind": "not-a-retry",
+            "witness": "`Math.min(grown, maxThawQuietMs)` at healEventLedgerStore.mjs#foldFutilityFreezeState; `maxThawQuietMs: 86400000` in DEFAULT_THAW_BOUNDS; spec arm \"the escalating window is CAPPED\" asserts saturation at the ceiling after 12 flap cycles",
+            "note": "Nothing is re-attempted: the growth is how long a futile heal target stays contained before it may thaw, so each successive freeze demands a longer quiet window. Capped so enough flapping cannot turn containment into permanent abandonment."
+        },
         "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:092bcbf7": {
             "kind": "not-a-retry",
-            "witness": "`16 * 1024 ** 3` — the same GiB-to-bytes unit arithmetic for the band cap; literal exponent 3, module-load constant.",
+            "witness": "`16 * 1024 ** 3` \u2014 the same GiB-to-bytes unit arithmetic for the band cap; literal exponent 3, module-load constant.",
             "note": "Sibling of bf9ea77a; the two constants ARE the bound a growth curve would need, which is why they look adjacent to one."
         },
         "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:bf9ea77a": {
             "kind": "not-a-retry",
-            "witness": "`8 * 1024 ** 3` is byte-unit arithmetic — GiB to bytes for the container-memory-ceiling knob's band floor. The exponent is the literal 3 (KiB→MiB→GiB), evaluated once at module load; no loop, no attempt series.",
+            "witness": "`8 * 1024 ** 3` is byte-unit arithmetic \u2014 GiB to bytes for the container-memory-ceiling knob's band floor. The exponent is the literal 3 (KiB\u2192MiB\u2192GiB), evaluated once at module load; no loop, no attempt series.",
             "note": "The band itself is the anti-thrash VALUE bound: growth terminates at the registry max by thrown violation, asserted in recoveryKnobRegistry.spec.mjs."
         },
         "ai/services/shared/boundedRetryGate.mjs#settleFlight:e1ea3176": {
@@ -142,7 +147,7 @@
             "kind": "retry-growth",
             "lifetime": "process-local",
             "boundCarrier": "max-delay",
-            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) — the spec `fleetWakeStreamConsumer.spec.mjs` drives a drop→reconnect cycle on the injected floor and `stop()` ends the loop.",
+            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) \u2014 the spec `fleetWakeStreamConsumer.spec.mjs` drives a drop\u2192reconnect cycle on the injected floor and `stop()` ends the loop.",
             "note": "The App-Worker twin of the relay consumer's identical site (same fingerprint 5f68f770): the parity spec binds the parser, this entry binds the bound."
         },
         "apps/devindex/services/GitHub.mjs##getRetryDelay:41482917": {
@@ -154,16 +159,16 @@
         "apps/devindex/services/Spider.mjs#pickStrategy:af20cfdb": {
             "kind": "not-a-retry",
             "witness": "`Math.pow(Math.random(), 3)` is a cubic-bias power-law over [0,1) shaping a jitter offset; the exponent is the constant 3 and cannot grow.",
-            "note": "The nearest true-positive shape in the tree — a random offset in a crawler — and still not a retry series: nothing re-attempts on it."
+            "note": "The nearest true-positive shape in the tree \u2014 a random offset in a crawler \u2014 and still not a retry series: nothing re-attempts on it."
         },
         "apps/portal/canvas/HomeCanvas.mjs#drawNetwork:3d84b270": {
             "kind": "not-a-retry",
-            "witness": "Euclidean distance from a wave origin — `(posX - wave.x)**2`; squares a coordinate delta with a literal exponent.",
+            "witness": "Euclidean distance from a wave origin \u2014 `(posX - wave.x)**2`; squares a coordinate delta with a literal exponent.",
             "note": "First of two exponentiations on this line; the second is keyed `#1`."
         },
         "apps/portal/canvas/HomeCanvas.mjs#drawNetwork:3d84b270#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same Euclidean distance — `(posY - wave.y)**2`.",
+            "witness": "Second term of the same Euclidean distance \u2014 `(posY - wave.y)**2`.",
             "note": "Represented separately because occurrence multiplicity is what the key ordinal exists to preserve."
         },
         "apps/portal/canvas/HomeCanvas.mjs#drawShockwaves:085f4fbe": {
@@ -173,62 +178,62 @@
         },
         "apps/portal/canvas/HomeCanvas.mjs#updateAgents:9d5b2f14": {
             "kind": "not-a-retry",
-            "witness": "Vector magnitude of an agent velocity — `agents[idx + 2]**2`; squares a velocity component.",
+            "witness": "Vector magnitude of an agent velocity \u2014 `agents[idx + 2]**2`; squares a velocity component.",
             "note": "First of two exponentiations on this line."
         },
         "apps/portal/canvas/HomeCanvas.mjs#updateAgents:9d5b2f14#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same velocity magnitude — `agents[idx + 3]**2`.",
+            "witness": "Second term of the same velocity magnitude \u2014 `agents[idx + 3]**2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "apps/portal/canvas/HomeCanvas.mjs#updatePhysics:085f4fbe": {
             "kind": "not-a-retry",
             "witness": "The same cubic ease-out expression as `drawShockwaves`, in the physics tick; identical text, different enclosing symbol, so a distinct key.",
-            "note": "Shares a fingerprint with the drawShockwaves site — the symbol component of the key is what separates them."
+            "note": "Shares a fingerprint with the drawShockwaves site \u2014 the symbol component of the key is what separates them."
         },
         "apps/portal/canvas/HomeCanvas.mjs#updatePhysics:9e2d05f4": {
             "kind": "not-a-retry",
-            "witness": "Euclidean distance to a buffered point — `(px - buffer[idx])**2`.",
+            "witness": "Euclidean distance to a buffered point \u2014 `(px - buffer[idx])**2`.",
             "note": "First of two exponentiations on this line."
         },
         "apps/portal/canvas/HomeCanvas.mjs#updatePhysics:9e2d05f4#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same distance — `(py - buffer[idx + 1])**2`.",
+            "witness": "Second term of the same distance \u2014 `(py - buffer[idx + 1])**2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#findNearestNode:173ce0f0": {
             "kind": "not-a-retry",
-            "witness": "Squared-distance comparison — `(nx - x) ** 2`; kept squared to avoid a sqrt in the nearest-node scan.",
+            "witness": "Squared-distance comparison \u2014 `(nx - x) ** 2`; kept squared to avoid a sqrt in the nearest-node scan.",
             "note": "First of two exponentiations on this line."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#findNearestNode:173ce0f0#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same squared distance — `(ny - y) ** 2`.",
+            "witness": "Second term of the same squared distance \u2014 `(ny - y) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#findNeighbors:822f999b": {
             "kind": "not-a-retry",
-            "witness": "Euclidean distance in the neighbour scan — `(x - cx) ** 2`.",
+            "witness": "Euclidean distance in the neighbour scan \u2014 `(x - cx) ** 2`.",
             "note": "First of two exponentiations on this line."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#findNeighbors:822f999b#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same distance — `(y - cy) ** 2`.",
+            "witness": "Second term of the same distance \u2014 `(y - cy) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#updatePhysics:a46dec3a": {
             "kind": "not-a-retry",
             "witness": "`Math.pow(active, 2)` squares a normalized activation for a falloff curve; the exponent is the literal 2.",
-            "note": "Reassigns its own input, which is the shape `mutate` exists to catch — but the multiplier is a constant square, not a growth factor."
+            "note": "Reassigns its own input, which is the shape `mutate` exists to catch \u2014 but the multiplier is a constant square, not a growth factor."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#updateRunners:4255fb33": {
             "kind": "not-a-retry",
-            "witness": "Squared cursor distance — `(tx - me.mouse.x) ** 2`.",
+            "witness": "Squared cursor distance \u2014 `(tx - me.mouse.x) ** 2`.",
             "note": "First of two exponentiations on this line."
         },
         "apps/portal/canvas/ServicesCanvas.mjs#updateRunners:4255fb33#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same squared distance — `(ty - me.mouse.y) ** 2`.",
+            "witness": "Second term of the same squared distance \u2014 `(ty - me.mouse.y) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "src/canvas/Header.mjs#getStreamOffset:08d3b17b": {
@@ -238,17 +243,17 @@
         },
         "src/canvas/Sparkline.mjs#renderLoop:649bd37d": {
             "kind": "not-a-retry",
-            "witness": "`1 - Math.pow(1 - progress, 3)` — cubic ease-out on a 0..1 render progress.",
+            "witness": "`1 - Math.pow(1 - progress, 3)` \u2014 cubic ease-out on a 0..1 render progress.",
             "note": "Same easing shape as the HomeCanvas sites."
         },
         "src/dashboard/DockDropIndicators.mjs#getCandidateHitPoint:47d9a25f": {
             "kind": "not-a-retry",
-            "witness": "Squared hit-test distance — `(pointX - center.x) ** 2`; squared to rank candidates without a sqrt.",
+            "witness": "Squared hit-test distance \u2014 `(pointX - center.x) ** 2`; squared to rank candidates without a sqrt.",
             "note": "First of two exponentiations on this line."
         },
         "src/dashboard/DockDropIndicators.mjs#getCandidateHitPoint:47d9a25f#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same squared distance — `(pointY - center.y) ** 2`.",
+            "witness": "Second term of the same squared distance \u2014 `(pointY - center.y) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "src/data/connection/WebSocket.mjs#<module>:a5cd8f47": {
@@ -261,16 +266,16 @@
         "src/form/field/FileUpload.mjs#formatSize:38dbd980": {
             "kind": "not-a-retry",
             "witness": "`bytes / (1000 ** i)` converts to an SI magnitude; `i` is an index into the `sizes` unit array, bounded by that array's length.",
-            "note": "The candidate the discovery patterns were first tuned against — it survives inside a template literal, which is why stripLiterals retains substitutions."
+            "note": "The candidate the discovery patterns were first tuned against \u2014 it survives inside a template literal, which is why stripLiterals retains substitutions."
         },
         "src/main/DomEvents.mjs#getDistance:841a9de1": {
             "kind": "not-a-retry",
-            "witness": "Euclidean distance between two pointer positions — `(x2 - x1) ** 2`.",
+            "witness": "Euclidean distance between two pointer positions \u2014 `(x2 - x1) ** 2`.",
             "note": "First of two exponentiations on this line."
         },
         "src/main/DomEvents.mjs#getDistance:841a9de1#1": {
             "kind": "not-a-retry",
-            "witness": "Second term of the same distance — `(y2 - y1) ** 2`.",
+            "witness": "Second term of the same distance \u2014 `(y2 - y1) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
         "src/manager/DragCoordinator.mjs#settleNativeWindowDisposition:acca199c": {
@@ -278,7 +283,7 @@
             "lifetime": "process-local",
             "boundCarrier": "max-delay",
             "witness": "`Math.min(5000, ...)` plus a clamped exponent `Math.min(dispositionAttempts - 1, 4)`",
-            "note": "Bounded twice — the delay is capped AND the exponent itself is clamped."
+            "note": "Bounded twice \u2014 the delay is capped AND the exponent itself is clamped."
         }
     }
 }
