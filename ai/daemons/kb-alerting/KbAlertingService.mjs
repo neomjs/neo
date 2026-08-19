@@ -3,7 +3,7 @@
 // canonical Orchestrator class+wrapper pattern. `Neo.setupClass(KbAlertingService)`
 // at file bottom uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
 import Base                           from '../../../src/core/Base.mjs';
-import {Memory_Config as aiConfig}    from '../../services.mjs';
+import aiConfig                       from '../../mcp/server/memory-core/config.mjs';
 import KBRecorderService              from '../../services/knowledge-base/KBRecorderService.mjs';
 import MailboxService                 from '../../services/memory-core/MailboxService.mjs';
 import RequestContextService          from '../../mcp/server/shared/services/RequestContextService.mjs';

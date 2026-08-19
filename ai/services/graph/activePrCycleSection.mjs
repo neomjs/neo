@@ -1,5 +1,5 @@
-import {Memory_Config as aiConfig} from '../../services.mjs';
-import {hasCrossFamilyReview}      from './agentFamilyResolution.mjs';
+import aiConfig               from '../../mcp/server/memory-core/config.mjs';
+import {hasCrossFamilyReview} from './agentFamilyResolution.mjs';
 
 /**
  * @module ai/services/graph/activePrCycleSection

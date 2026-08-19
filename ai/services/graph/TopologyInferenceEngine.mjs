@@ -1,10 +1,10 @@
-import fs                            from 'fs';
-import path                          from 'path';
-import { Memory_Config as AiConfig } from '../../services.mjs';
-import {writeFileAtomic}             from '../shared/atomicFileWrite.mjs';
-import Base                          from '../../../src/core/Base.mjs';
-import Json                          from '../../../src/util/Json.mjs';
-import logger                        from '../../mcp/server/memory-core/logger.mjs';
+import fs                from 'fs';
+import path              from 'path';
+import AiConfig          from '../../mcp/server/memory-core/config.mjs';
+import {writeFileAtomic} from '../shared/atomicFileWrite.mjs';
+import Base              from '../../../src/core/Base.mjs';
+import Json              from '../../../src/util/Json.mjs';
+import logger            from '../../mcp/server/memory-core/logger.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction,
