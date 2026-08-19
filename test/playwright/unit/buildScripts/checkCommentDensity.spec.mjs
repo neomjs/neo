@@ -21,42 +21,68 @@ import {
  */
 test.describe('check-comment-density — the axes measured on real commits', () => {
     /**
-     * The red-proof runs the TOOL over named commits rather than asserting hand-written numbers.
+     * The red-proof supplies LINES and lets the tool compute the number.
      *
-     * An earlier version of this file fed `longestRun: 36` in as a fixture, which passed while the
-     * tool computed 9 on the same commit — the bar logic was proven and the measurement was not. The
-     * defect that hid behind it: the run broke on tag lines, so a 45-line docblock scored 9 and the
-     * axis fired on 0 of 92 recent commits.
+     * An earlier version supplied the number: `longestRun: 36` as a fixture field, which passed while
+     * the tool computed 9 on the commit the AC named. Bar logic proven, measurement never proven — and
+     * the defect hiding behind it was that the run broke on tag lines, so a 45-line docblock scored 9
+     * and the axis fired on 0 of 92 post-rotation commits.
+     *
+     * These arms cannot repeat that: every number below comes out of `measureProseDensity`. The real
+     * commits stay in the ticket as calibration evidence, since CI checks out too shallow to reach
+     * them and an arm that skips where it matters most is the same failure wearing a green tick.
+     *
+     * @param {Number} blockLines How many comment lines the docblock spans, tags included.
+     * @param {Number} codeLines Added code lines, the share axis's denominator.
+     * @returns {Object} A one-file measurement, computed.
      */
-    const commit = range => summarizeDensity(measureRange(range, execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf-8'}).trim()));
+    function commitShaped(blockLines, codeLines) {
+        const lines = ['/**'];
 
-    test('RED-PROOF, run axis: the tool warns where the share axis provably cannot', () => {
-        // a17ade4264 — the head the operator change-requested for a 45-line docblock.
-        const summary = commit('a17ade4264~1..a17ade4264');
+        for (let i = 1; i < blockLines - 1; i++) {
+            // Interleave real tag lines: the docblock a reader faces does not stop at `@param`.
+            lines.push(i % 4 === 0 ? ` * @param {String} arg${i} a value` : ` * narrative line ${i}`)
+        }
 
-        expect(summary.longestRun, 'the docblock the operator flagged').toBe(45);
-        expect(summary.shareExceeded, '19% share is comfortably under the bar').toBe(false);
+        lines.push(' */');
+
+        for (let i = 0; i < codeLines; i++) lines.push(`const value${i} = ${i};`);
+
+        return {file: 'shaped.mjs', ...measureProseDensity(lines, new Set(lines.map((_, i) => i + 1)))}
+    }
+
+    test('RED-PROOF, run axis: warns where the share axis provably cannot', () => {
+        // The shape of a17ade4264 — the head the operator change-requested: a 45-line docblock diluted
+        // by ~270 other added lines. Tag lines inside it must NOT break the run; that break is the
+        // defect, and with it this arm computes single digits and goes green on nothing.
+        const summary = summarizeDensity([commitShaped(45, 271)]);
+
+        expect(summary.longestRun, 'the whole docblock, tags included').toBe(45);
+        expect(summary.shareExceeded, 'a diluted share is comfortably under the bar').toBe(false);
         expect(summary.runExceeded).toBe(true);
         expect(summary.warn).toBe(true);
     });
 
     test('SILENT ARM: a commit at the repo median warns on neither axis', () => {
-        const summary = commit('087114e8ab~1..087114e8ab');
+        // 11-line block, the measured median shape. Without this arm, a guard that warns on
+        // everything passes the red-proof above.
+        const summary = summarizeDensity([commitShaped(11, 60)]);
 
         expect(summary.longestRun).toBe(11);
         expect(summary.shareExceeded).toBe(false);
         expect(summary.runExceeded).toBe(false);
-        expect(summary.warn, 'without this, a guard that warns on everything passes the arm above').toBe(false);
+        expect(summary.warn).toBe(false);
     });
 
     test('the share axis catches what the run axis misses — the two are independent', () => {
-        // 027125dcf7, the change-request FIX: the run collapses 45 -> 5, and 27 of its 32 added lines
-        // are comment, so the share axis is what still has something to say.
-        const summary = commit('027125dcf7~1..027125dcf7');
+        // The shape of the change-request FIX: the block collapses, and most added lines are still
+        // comment, so the share axis is what still has something to say. 6 of 17 added lines prose.
+        const summary = summarizeDensity([commitShaped(9, 8)]);
 
-        expect(summary.longestRun).toBe(5);
+        expect(summary.longestRun).toBe(9);
         expect(summary.runExceeded).toBe(false);
         expect(summary.shareExceeded).toBe(true);
+        expect(summary.warn).toBe(true);
     });
 
     const measured = {
@@ -297,7 +323,20 @@ test.describe('check-comment-density — pre-push consumer', () => {
               head    = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: gitRoot, encoding: 'utf-8'}).trim(),
               files   = measureRange(`${head}~1..${head}`, gitRoot);
 
-        expect(Array.isArray(files)).toBe(true);
+        // NOT just `Array.isArray`: measureRange returns [] on any git failure, so a shape-only
+        // assertion passes vacuously on a broken git path — the same vacuity as asserting a number the
+        // fixture supplied. Asserting a fixed non-zero count instead would break on any commit that
+        // touches no in-scope file, so the arm compares against an INDEPENDENT git read: whatever that
+        // says is in scope, measureRange must have measured.
+        // `--numstat` rather than `--name-only`, to match the tool's contract exactly: measureRange
+        // skips a file with no ADDED lines, which a pure rename is, and name-only would list it.
+        const expected = execFileSync('git', ['diff', '--numstat', '--diff-filter=ACMR', `${head}~1..${head}`], {cwd: gitRoot, encoding: 'utf-8'})
+            .split('\n')
+            .map(line => line.split('\t'))
+            .filter(([added, , file]) => Number(added) > 0 && file && isInScopePath(file))
+            .map(([, , file]) => file);
+
+        expect(files.map(row => row.file).sort()).toEqual(expected.sort());
         files.forEach(row => {
             expect(row.added).toBeGreaterThan(0);
             expect(isInScopePath(row.file)).toBe(true);
