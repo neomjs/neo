@@ -190,11 +190,11 @@ class View extends Base {
      * @param {Number} scrollTop
      */
     syncBodies(scrollTop) {
-        let me        = this,
-            container = me.gridContainer,
+        let me                                        = this,
+            container                                 = me.gridContainer,
             {body, bodyEnd, bodyStart, scrollManager} = container,
-            {bufferRowRange, rowHeight} = body,
-            newStartIndex = Math.floor(scrollTop / rowHeight);
+            {bufferRowRange, rowHeight}               = body,
+            newStartIndex                             = Math.floor(scrollTop / rowHeight);
 
         let updateBody = _body => {
             let isCenter = _body === body;
@@ -220,8 +220,22 @@ class View extends Base {
         bodyStart && updateBody(bodyStart);
         bodyEnd   && updateBody(bodyEnd);
 
-        me.scrollTop   = scrollTop;
-        me.updateDepth = 3;
+        me.scrollTop = scrollTop;
+
+        // View → Body → Row → cell component. `updateDepth` is 1-based, so depth N expands
+        // distances 0..N-1 and everything beyond is emitted by `util/vdom/TreeBuilder` as
+        // `{componentId, neoIgnore: true}` — a reference the worker leaves untouched.
+        //
+        // At 3 the boundary falls exactly on the cell components: rows repaint while component-backed
+        // cells keep whatever they last rendered, which is why plain and renderer cells track a scroll
+        // and `grid.column.Component` cells do not. 4 puts the boundary one level lower, so the cells
+        // themselves are expanded.
+        //
+        // It stays capped rather than going to -1, because the cap is what keeps the payload sparse.
+        // And it must be solved here rather than by un-silencing the cells: a non-silent
+        // `component.set` lets each cell update on its own schedule, which tears under rapid
+        // scrolling — the row advances a frame before its cell content follows.
+        me.updateDepth = 4;
         me.update()
     }
 }
