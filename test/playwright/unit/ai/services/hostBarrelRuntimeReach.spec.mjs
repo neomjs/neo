@@ -162,5 +162,38 @@ test.describe('host-plane runtime reach — a store handle must be unreachable b
             `the host barrel died, but not of the js-yaml denial — so this control does not show ` +
             `the probe observes its resolution.\n\n--- probe output ---\n${stdout}`
         ).toMatch(/js-yaml/)
+    });
+
+    test('the shared Playwright fixture survives the same denial — a consumer must not inherit the Brain (#17369)', () => {
+        // 104 spec files import this fixture, so whatever it resolves, every consumer's test process
+        // resolves too. It reached the Brain through `ai/services.mjs` for seven Neural Link symbols,
+        // and a downstream adopter's CI aborted at teardown on the native `better-sqlite3` binding it
+        // never used.
+        //
+        // This lives here rather than in a lint because the property is a RUNTIME one and the static
+        // guard cannot see it twice over: `engine-brain-boundary-lint.yml` path-filters on
+        // `buildScripts/**` and `src/**`, and a walk cannot see that `initAsync()` is scheduled by
+        // `setupClass` on the next microtask — the same reason this file exists at all. e2e is not in
+        // the CI matrix, so before this arm nothing in CI stopped the regression returning.
+        //
+        // Discriminating, not merely green: at `dev`'s barrel-importing revision this same call dies
+        // with `DENIED_CLOUD_PLANE_PACKAGE: chromadb`. The two CONTROL arms above license that
+        // reading — they establish the denial is real and that the probe observes the target's own
+        // resolution, so this arm does not have to re-prove either.
+        const {survived, stdout} = probe({
+            target: 'test/playwright/fixtures.mjs',
+            denied: CLOUD_ONLY
+        });
+
+        expect(
+            survived,
+            'the shared Playwright fixture resolved a cloud-plane package, so every project using it ' +
+            'pulls the Brain into its test process. Import the seven Neural Link services directly ' +
+            'from `ai/services/neural-link/*` rather than through `ai/services.mjs`, and keep the ' +
+            '`Neo` / `core/_export` pair — the barrel supplied that class-system bootstrap ' +
+            'incidentally, and without it this dies as `ReferenceError: Neo is not defined` from ' +
+            '`src/core/Compare.mjs`, a file the fixture never names.' +
+            `\n\n--- probe output ---\n${stdout}`
+        ).toBe(true)
     })
 });
