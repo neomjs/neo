@@ -3788,6 +3788,13 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup 
         expect(calls).toHaveLength(2);
         expect(third.incarnationStartedAt).toBe(restarted);
         expect(third.text).toContain(restarted);
+
+        // REPLACES rather than appends, and this is the half that carries the property. Asserting the
+        // new incarnation's content is present cannot distinguish a replacement from an accumulation —
+        // both contain it. The old incarnation being ABSENT is what rules out two boots reading as one,
+        // where the earlier values would still look current to anyone reading the head.
+        expect(third.text,
+            "a restart's head must not carry the previous incarnation's output").not.toContain(STARTED);
     });
 
     test('HONESTY: every unavailable arm names a reason and nulls `text` — never an empty string', async () => {
