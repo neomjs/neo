@@ -7489,10 +7489,8 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
                 writeLog
             });
 
-        // Kept as an exact-shape `toEqual` rather than relaxed to `toMatchObject`: this pin is what
-        // caught the new key, and a pin that tolerates additions stops being able to. `null` is the
-        // no-outer-lease default — a caller holding no lease must dispatch a sweep that behaves
-        // exactly as it did before the fairness vote existed.
+        // Exact-shape on purpose: a pin that tolerates added keys cannot detect them. `null` is the
+        // no-outer-lease default.
         expect(options).toEqual({
             reason          : 'manual',
             taskStateService,
@@ -7506,9 +7504,8 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
     test('threads the outer lease fairness vote into the dispatched sweep, and it votes on the LEASE age', () => {
         const dispatched = [];
 
-        // A lease acquired far enough in the past to be past any sane hold bound. The predicate must
-        // read THIS lease's age — not the sweep's, and not the slice budget's — so the fixture proves
-        // which clock the vote consults rather than only that a function arrived.
+        // Past any sane hold bound, so the arm proves which clock the vote reads — this lease's age,
+        // not the sweep's.
         const acquisition = {lease: {owner: 'tenant-repo-sync', acquiredAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()}};
 
         dispatched.push(buildLeaseYieldPredicate(acquisition));
@@ -7577,10 +7574,8 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
                 expect(outcome.status).toBe('completed');
                 expect(outcome.result.status).toBe(status);
 
-                // This path holds a REAL acquisition, so the fairness vote must arrive as a live
-                // function — asserted by kind, then excluded from the exact-shape comparison below.
-                // Comparing a closure by value would pin an identity nothing owns; dropping the key
-                // from the pin entirely would let the vote silently stop being threaded.
+                // A real acquisition ⇒ the vote is a live function: asserted by kind, then excluded
+                // from the exact-shape pin (a closure has no stable identity to compare).
                 const {leaseShouldYield, ...pinned} = outcome.result.options;
 
                 expect(typeof leaseShouldYield, 'a sweep dispatched under the outer lease receives its fairness vote').toBe('function');

@@ -107,15 +107,9 @@ test.describe('TenantRepoSyncService — sliceBudgetMs value contract (#17132 AC
 });
 
 /**
- * The two-bound composition.
- *
- * A tenant sweep sits under two independent fairness bounds that answer different questions, and the
- * live starvation this closes happened while every bound the holder could see was satisfied: the
- * slice budget rotates WITHIN a sweep, so a sweep over N repos honours all N budgets and still
- * occupies the shared exclusive-heavy slot for roughly N x sliceBudgetMs. Five waiters were measured
- * starved between 4 and 34 hours under exactly that shape.
- *
- * Composition is therefore OR, and each arm below is written so that deleting one voter turns it red.
+ * The two-bound composition: the slice budget bounds a repo's share of the sweep, the lease bound
+ * bounds the sweep's occupancy of the shared slot, and a sweep can satisfy every budget while holding
+ * that slot for roughly N x sliceBudgetMs. Each arm below reddens if a voter is dropped.
  */
 test.describe('TenantRepoSyncService — the slice budget and the lease bound compose', () => {
     const never  = () => false,
@@ -129,9 +123,8 @@ test.describe('TenantRepoSyncService — the slice budget and the lease bound co
     });
 
     test('MUTATION GUARD: dropping the lease voter turns the lease-only case red and nothing else', () => {
-        // This is the arm that fails if `leaseShouldYield` stops being composed in — the exact edit
-        // that reintroduces the defect. The slice-only and neither cases are unaffected by that
-        // mutation, which is what makes this arm specific rather than merely sensitive.
+        // Specific, not merely sensitive: the slice-only and neither-bound arms are unaffected by
+        // this mutation.
         const composed = composeYieldPredicates(never, always);
         const mutated  = composeYieldPredicates(never);
 
@@ -142,26 +135,23 @@ test.describe('TenantRepoSyncService — the slice budget and the lease bound co
     test('a null / absent voter is ignored, so a caller with no outer lease keeps slice-only behaviour', () => {
         const slice = createSliceBudgetPredicate({startedMs: 0, sliceBudgetMs: 300_000, now: () => 100_000});
 
-        // Byte-for-byte the pre-change behaviour: same answer as the raw predicate, both before and
-        // after the budget elapses. A composition that changed this would be a silent regression for
-        // every caller that holds no outer lease — which is every in-process scheduler path.
+        // Must equal the raw predicate's own answer: every in-process scheduler path holds no outer
+        // lease.
         expect(composeYieldPredicates(slice, null)()).toBe(slice());
         expect(composeYieldPredicates(slice, undefined)()).toBe(false);
         expect(composeYieldPredicates(null, undefined)(), 'no voters at all never yields').toBe(false);
     });
 
     test('NEGATIVE CONTROL: a holder inside the bound is not preempted', () => {
-        // The other half of the fairness contract. A bound that yields eagerly starves the holder
-        // instead of the waiters, so the short-hold case must stay false — and it is asserted on the
-        // real predicate rather than a stub, so a change to the comparison operator is caught here.
+        // A bound that yields eagerly starves the holder instead of the waiters. Asserted on the real
+        // predicate so a changed comparison operator is caught.
         const youngSlice = createSliceBudgetPredicate({startedMs: 0, sliceBudgetMs: 300_000, now: () => 1_000});
 
         expect(composeYieldPredicates(youngSlice, never)(), 'a 1s hold against a 5m budget must not yield').toBe(false);
     });
 
     test('a throwing voter fails loudly rather than reading as "do not yield"', () => {
-        // Swallowing here would convert a broken bound into permanent starvation that looks healthy,
-        // which is the exact failure shape this ticket is about.
+        // Swallowing converts a broken bound into starvation that looks healthy.
         const boom = () => { throw new Error('voter-broken') };
 
         expect(() => composeYieldPredicates(never, boom)()).toThrow('voter-broken');
