@@ -322,3 +322,80 @@ export function queryHealLedger(events = [], {sinceMs, untilMs, types, collectio
 
     return Number.isFinite(limit) && limit >= 0 ? filtered.slice(0, limit) : filtered;
 }
+
+/**
+ * Escalating freeze tiers. A target thawed and refrozen must be harder to unfreeze than one frozen for
+ * the first time, so each successive freeze multiplies the required quiet window.
+ * @type {{baseThawQuietMs: Number, tierMultiplier: Number}}
+ */
+export const DEFAULT_THAW_BOUNDS = Object.freeze({baseThawQuietMs: 1800000, tierMultiplier: 2});
+
+/**
+ * @summary Folds freeze / unfreeze ledger events into each target's current freeze state, evidence and
+ * thaw condition — the snapshot-visible surface, and the `refreezeTier` the next freeze escalates on.
+ *
+ * A `freeze` row records; a matching `unfreeze` clears it and increments that target's tier. Tier N
+ * requires `baseThawQuietMs * tierMultiplier^(N-1)` of quiet before the declared condition is met, so a
+ * target that keeps returning becomes progressively harder to thaw.
+ *
+ * `operatorThaw: true` on an unfreeze marks the clear as manual, which does NOT raise the tier — an
+ * operator judging a target healthy is evidence, not another failure.
+ *
+ * @param {Object[]} [events=[]] Heal-event entries in append order, oldest → newest.
+ * @param {Object}   [options]
+ * @param {Number}   [options.now] Epoch ms; required for `thawEligible`.
+ * @param {{baseThawQuietMs: Number, tierMultiplier: Number}} [options.bounds=DEFAULT_THAW_BOUNDS]
+ * @returns {{frozen: Object[], tiers: Object}} `frozen` entries carry
+ *     `{target, at, tier, escalation, evidence, requiredQuietMs, thawEligibleAt, thawEligible}`.
+ */
+export function foldFutilityFreezeState(events = [], {now, bounds = DEFAULT_THAW_BOUNDS} = {}) {
+    const {baseThawQuietMs, tierMultiplier} = {...DEFAULT_THAW_BOUNDS, ...(bounds ?? {})},
+          rows                              = Array.isArray(events) ? events : [],
+          active                            = new Map(),
+          tiers                             = {};
+
+    for (const event of rows) {
+        if (!event || typeof event !== 'object') continue;
+
+        const target = typeof event.collection === 'string' && event.collection.length > 0 ? event.collection : null;
+
+        if (!target) continue;
+
+        if (event.type === HEAL_LEDGER_FROZEN_TRANSITIONS.FREEZE && Number.isFinite(event.at)) {
+            tiers[target] = (tiers[target] ?? 0) + 1;
+            active.set(target, {
+                target,
+                at        : event.at,
+                tier      : tiers[target],
+                escalation: event.detail?.escalation ?? null,
+                evidence  : event.detail?.verdict ?? null
+            })
+        } else if (event.type === HEAL_LEDGER_FROZEN_TRANSITIONS.UNFREEZE) {
+            active.delete(target);
+
+            // A manual clear is not another failure, so it does not raise the bar for the next freeze.
+            if (event.detail?.operatorThaw === true) {
+                tiers[target] = Math.max(0, (tiers[target] ?? 1) - 1)
+            }
+        }
+    }
+
+    const usable = Number.isFinite(baseThawQuietMs) && Number.isFinite(tierMultiplier) && baseThawQuietMs > 0 && tierMultiplier >= 1;
+
+    const frozen = [...active.values()]
+        .map(entry => {
+            const requiredQuietMs = usable ? baseThawQuietMs * Math.pow(tierMultiplier, entry.tier - 1) : null,
+                  thawEligibleAt  = requiredQuietMs === null ? null : entry.at + requiredQuietMs;
+
+            return {
+                ...entry,
+                requiredQuietMs,
+                thawEligibleAt,
+                // Never eligible without a clock or usable bounds: an unbounded thaw would defeat the freeze.
+                thawEligible: Number.isFinite(now) && thawEligibleAt !== null && now >= thawEligibleAt
+            }
+        })
+        .sort((a, b) => a.target.localeCompare(b.target));
+
+    return {frozen, tiers}
+}
