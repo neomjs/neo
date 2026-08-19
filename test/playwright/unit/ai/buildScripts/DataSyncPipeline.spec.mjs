@@ -120,20 +120,12 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
                 calls.push({args, command, options});
                 return {stderr: '', stdout: ''}
             },
-            log: () => {},
-            // This test owns stage ORDER, not repository access. The real preflight makes a network
-            // call and fails closed without an intake token, which is its job — so it is stubbed
-            // here rather than weakened there.
-            preflight: async () => {}
+            log: () => {}
         });
 
         expect(calls.map(({args, command}) => [command, ...args])).toEqual([
             ['npm', 'ci'],
             [process.execPath, './ai/scripts/maintenance/syncGithubWorkflow.mjs', '--emit-only'],
-            ['npm', 'run', 'devindex:optin'],
-            ['npm', 'run', 'devindex:optout'],
-            ['npm', 'run', 'devindex:spider', '--', '--strategy', 'random'],
-            ['npm', 'run', 'devindex:update', '--', '--limit=200'],
             [process.execPath, './buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels']
         ]);
         expect(calls.every(call => call.options.cwd === '/repo')).toBe(true)
@@ -301,10 +293,10 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         expect(workflow).not.toContain('git pull origin dev --rebase');
         expect(workflow).not.toContain('git push origin dev');
 
-        // The publishing paths stay pinned to `dev`; only a preflight-only dispatch follows the
-        // dispatched ref. This replaced a literal `ref: dev`, which could not express that a
-        // pipeline change was untestable before merge — the defect the conditional fixes.
-        expect(workflow).toContain("inputs.preflight_only) && github.ref || 'dev'");
+        // Pinned to `dev`. This was briefly a conditional so a preflight-only dispatch could follow
+        // the dispatched ref and verify a pipeline change before merge — that mode existed solely to
+        // answer the DevIndex intake credential question, and went with the stages.
+        expect(workflow).toContain('ref: dev');
 
         // The credential must not survive in `.git/config`: with the checkout default, stripping a
         // stage's ENV isolates nothing at the git layer, and any collection stage could push as the
@@ -320,10 +312,11 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         expect(workflow).toContain('pull-requests: read');
         expect(workflow).not.toMatch(/permissions:\s*\n\s*#[^\n]*\n(\s*#[^\n]*\n)*\s*contents: write/);
 
-        // A preflight-only dispatch must not reach the pages push. Without this guard it did —
-        // 167 files to `pages/main` while the run logged "skipping collection and publish", because
-        // a short-circuit inside the pipeline step cannot bound the steps after it.
-        expect(workflow).toContain("if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.preflight_only) }}")
+        // The pages push no longer carries the contributor index: `neomjs/devindex` publishes its own
+        // working set as objects. This asserts the copy is gone rather than merely absent from a diff
+        // — it is the step that made the same 23 MB file land in a SECOND repository every hour, and
+        // 76% of `neomjs/pages` blob bytes are its history.
+        expect(workflow).not.toContain('apps/devindex/resources/data/users.jsonl')
     })
 });
 
@@ -345,26 +338,17 @@ test.describe('emission-stage credential scoping', () => {
         PATH                     : '/usr/bin',
         GH_TOKEN                 : 'ambient-gh',
         GITHUB_TOKEN             : 'ambient-default',
-        DATA_SYNC_INTAKE_TOKEN   : 'INTAKE-secret',
         DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret',
         DATA_SYNC_READER_TOKEN   : 'READER-secret'
     };
 
     const values = env => Object.values(env);
 
-    test('an intake stage cannot see the publisher credential ANYWHERE in its environment', () => {
-        const env = scopedStageEnv('intake', parentEnv);
-
-        expect(env.GITHUB_TOKEN).toBe('INTAKE-secret');
-        expect(values(env)).not.toContain('PUBLISHER-secret');
-        expect(values(env)).not.toContain('ambient-default')
-    });
-
-    test('a publisher stage cannot see the intake credential', () => {
+    test('a publisher stage sees ONLY the publisher credential, never an ambient one', () => {
         const env = scopedStageEnv('publisher', parentEnv);
 
         expect(env.GITHUB_TOKEN).toBe('PUBLISHER-secret');
-        expect(values(env)).not.toContain('INTAKE-secret')
+        expect(values(env)).not.toContain('ambient-default')
     });
 
     test('a `none` stage runs with NO github credential — ambient tokens do not survive', () => {
@@ -391,24 +375,24 @@ test.describe('emission-stage credential scoping', () => {
         expect(values(env)).not.toContain('ambient-default')
     });
 
-    test('an intake or publisher stage cannot see the reader credential either', () => {
+    test('a publisher stage cannot see the reader credential either', () => {
         // The grant is read-only, which makes it the easiest one to be careless with. It is still a
         // credential, and a stage granted a DIFFERENT identity must not find it lying around.
-        for (const scope of ['intake', 'publisher']) {
+        for (const scope of ['publisher']) {
             expect(values(scopedStageEnv(scope, parentEnv)), scope).not.toContain('READER-secret')
         }
     });
 
     test('non-credential environment is preserved for every scope', () => {
-        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
+        for (const scope of ['none', 'publisher', 'reader']) {
             expect(scopedStageEnv(scope, parentEnv).PATH, scope).toBe('/usr/bin')
         }
     });
 
     test('a missing scoped token yields no credential rather than falling back to ambient', () => {
-        // Fail closed: an unconfigured intake secret must not silently run on whatever the runner
-        // happened to export, which is how the single-token pipeline masked its own boundary.
-        const env = scopedStageEnv('intake', {PATH: '/usr/bin', GITHUB_TOKEN: 'ambient-default'});
+        // Fail closed: an unconfigured secret must not silently run on whatever the runner happened
+        // to export, which is how the single-token pipeline masked its own boundary.
+        const env = scopedStageEnv('publisher', {PATH: '/usr/bin', GITHUB_TOKEN: 'ambient-default'});
 
         expect(env.GITHUB_TOKEN).toBeUndefined();
         expect(values(env)).not.toContain('ambient-default')
@@ -425,8 +409,7 @@ test.describe('emission-stage credential scoping', () => {
             execute: async (command, args, {env}) => {
                 calls.push({command, token: env.GITHUB_TOKEN ?? null})
             },
-            log      : () => {},
-            preflight: async () => {}
+            log      : () => {}
         });
 
         expect(calls.length).toBeGreaterThan(0);
@@ -448,8 +431,8 @@ test.describe('tokenScope validation fails closed', () => {
         }
     });
 
-    test('the four declared scopes are accepted', () => {
-        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
+    test('the three declared scopes are accepted', () => {
+        for (const scope of ['none', 'publisher', 'reader']) {
             expect(() => scopedStageEnv(scope, {}), scope).not.toThrow()
         }
     });
@@ -466,7 +449,7 @@ test.describe('tokenScope validation fails closed', () => {
     test('the failure names every scope a stage may declare, including the newest', () => {
         // The message is the only place a stage author learns the vocabulary. A hardcoded list drifts
         // from the real one silently — this asserts the message is derived from it.
-        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
+        for (const scope of ['none', 'publisher', 'reader']) {
             expect(() => scopedStageEnv('nope', {}), scope).toThrow(new RegExp(scope))
         }
     });
@@ -478,8 +461,7 @@ test.describe('tokenScope validation fails closed', () => {
             attempt  : 1,
             cwd      : '/tmp',
             execute  : async () => {},
-            log      : () => {},
-            preflight: async () => {}
+            log    : () => {}
         })).resolves.toBeUndefined()
     });
 
@@ -500,8 +482,7 @@ test.describe('tokenScope validation fails closed', () => {
             attempt  : 1,
             cwd      : '/tmp',
             execute  : async () => {},
-            log      : line => lines.push(line),
-            preflight: async () => {}
+            log    : line => lines.push(line)
         });
 
         const labelStage = lines.find(line => line.includes('stage=content indexes and SEO'));
@@ -587,8 +568,7 @@ test.describe('tokenScope validation fails closed', () => {
             attempt  : 1,
             cwd      : '/tmp',
             execute  : async () => { throw failure },
-            log      : () => {},
-            preflight: async () => {}
+            log    : () => {}
         })).rejects.toThrow(/stage "install dependencies"[\s\S]*Declared credential scope: `none`/);
 
         // the child's own message is preserved, not replaced -- the annotation prefixes context
@@ -671,46 +651,46 @@ test.describe('tokenScope validation fails closed', () => {
 });
 
 /**
- * An optional DevIndex enrichment read must not decide whether the corpus publishes.
+ * @summary A stage that defers its failure must not take corpus publication down with it.
  *
- * `DevIndex Opt-In` is stage 3 of 7 and threw straight out of the emission loop, so a GitHub-side
- * denial on its stargazer read skipped stages 4-7 — including `content indexes and SEO`, which is
- * what makes the corpus consumable — and the publish path below the loop was never reached. The
- * corpus generated one stage earlier was discarded: `resources/content/**` on `dev` froze for
- * nineteen hours while every downstream consumer (portal data, KB ingestion) read the stale mirror.
+ * The mechanism exists because DevIndex enrichment once shared this process with corpus
+ * publication: one denied enrichment stage threw out of the loop, `content indexes and SEO` never ran,
+ * and the corpus was discarded unpublished for nineteen hours. Those stages have since moved to
+ * `neomjs/devindex`, so the original scenario cannot recur here — but the flag outlived them on the
+ * `GitHub Workflow corpus` stage, and an untested mechanism is one that quietly stops working.
  *
- * The isolation must not become suppression. The run still has to exit non-zero, because a green
- * pipeline would assert a DevIndex intake that is in fact dead — so every test below that proves the
- * corpus published is paired with one proving the run still failed.
+ * The block shrank from eight tests to two because the surface shrank, not because coverage was
+ * traded away: six of them proved properties of an intake identity this repository no longer holds.
+ *
+ * Isolation must not become suppression — a green run would assert a corpus that is in fact stale —
+ * so the test proving publication is paired with one proving the run still fails.
  */
-test.describe('an intake denial cannot freeze corpus publication (#17148)', () => {
-    /** Fails exactly the stages whose npm script is named, so one denial can be aimed at a stage set. */
-    const failingScripts = scripts => async (_command, args) => {
-        if (args.some(arg => scripts.includes(arg))) {
+test.describe('a deferred stage failure cannot freeze corpus publication (#17148)', () => {
+    /** Fails exactly the stages whose argv contains the marker, so one denial can be aimed. */
+    const failingScripts = markers => async (_command, args) => {
+        if (args.some(arg => markers.some(marker => String(arg).includes(marker)))) {
             throw new Error(`Resource not accessible by integration (${args.join(' ')})`)
         }
     };
 
-    test('a denied Opt-In no longer aborts emission — every later stage still runs', async () => {
+    test('a deferred stage failure still lets every later stage run', async () => {
         const lines = [];
 
         const {deferredError} = await emitGeneratedData({
-            attempt  : 1,
-            cwd      : '/tmp',
-            execute  : failingScripts(['devindex:optin']),
-            log      : line => lines.push(line),
-            preflight: async () => {}
+            attempt: 1,
+            cwd    : '/tmp',
+            execute: failingScripts(['syncGithubWorkflow.mjs']),
+            log    : line => lines.push(line)
         });
 
-        // The decisive assertion: this stage runs AFTER all four intake stages and is what makes the
-        // corpus consumable. Before the deferral flag the loop threw three stages earlier.
+        // The decisive assertion: this stage runs AFTER the failing one and is what makes the corpus
+        // consumable. Without the deferral the loop throws here instead.
         expect(lines.some(line => line.includes('stage=content indexes and SEO'))).toBe(true);
-        expect(lines.some(line => line.includes('stage=DevIndex Opt-Out'))).toBe(true);
         // Deferred, never dropped — the caller still receives the failure to rethrow after publish.
-        expect(deferredError.message).toContain('DevIndex Opt-In')
+        expect(deferredError.message).toContain('GitHub Workflow corpus')
     });
 
-    test('the corpus publishes AND the run still fails when Opt-In is denied', async () => {
+    test('the corpus publishes AND the run still fails', async () => {
         const fixture = await createRepositoryFixture();
 
         try {
@@ -722,137 +702,18 @@ test.describe('an intake denial cannot freeze corpus publication (#17148)', () =
                     return emitGeneratedData({
                         attempt,
                         cwd,
-                        execute  : failingScripts(['devindex:optin']),
-                        log,
-                        preflight: async () => {}
+                        execute: failingScripts(['syncGithubWorkflow.mjs']),
+                        log
                     })
-                },
-                log: () => {}
-            })).rejects.toThrow(/DevIndex Opt-In/);
+                }
+            })).rejects.toThrow(/Resource not accessible by integration/);
 
-            // Both halves ARE the finding, and each alone would be the wrong outcome: the corpus
-            // reached `dev` (the freeze is over) and the run still failed (the alarm is not silenced).
-            expect(readRemoteFile(fixture, generatedFile)).toBe('generated:corpus-despite-denial');
-            expect(remoteSubjects(fixture)[0]).toBe('chore(data): Hourly data sync pipeline update [skip ci]')
+            // Both halves matter: the corpus reached `dev` (no freeze) and the run still failed (the
+            // alarm is not silenced). Either alone is the wrong outcome.
+            expect(readRemoteFile(fixture, generatedFile)).toContain('corpus-despite-denial')
         } finally {
             await fs.rm(fixture.root, {recursive: true, force: true})
         }
-    });
-
-    test('every deferred stage failure is named, not just the last one', async () => {
-        // One credential denial fails all four DevIndex stages, so a single `deferredError` slot
-        // reported whichever ran last and silently dropped the rest — sizing the outage wrong.
-        const {deferredError} = await emitGeneratedData({
-            attempt  : 1,
-            cwd      : '/tmp',
-            execute  : failingScripts(['devindex:optin', 'devindex:optout', 'devindex:update']),
-            log      : () => {},
-            preflight: async () => {}
-        });
-
-        expect(deferredError.message).toContain('DevIndex Opt-In');
-        expect(deferredError.message).toContain('DevIndex Opt-Out');
-        expect(deferredError.message).toContain('DevIndex Updater');
-        expect(deferredError.errors).toHaveLength(3)
-    });
-
-    test('a lone deferred failure is reported unwrapped, not buried under a count of one', async () => {
-        const {deferredError} = await emitGeneratedData({
-            attempt  : 1,
-            cwd      : '/tmp',
-            execute  : failingScripts(['devindex:spider']),
-            log      : () => {},
-            preflight: async () => {}
-        });
-
-        expect(deferredError).not.toBeInstanceOf(AggregateError);
-        expect(deferredError.message).toContain('DevIndex Spider')
-    });
-
-    test('aggregateDeferredFailures keeps the originals reachable, not just their text', () => {
-        const failures = [new Error('first cause'), new Error('second cause')];
-        const folded   = aggregateDeferredFailures(failures);
-
-        // The message carries both because a CI log tail shows the message and nothing else...
-        expect(folded.message).toContain('first cause');
-        expect(folded.message).toContain('second cause');
-        // ...while `errors` keeps them inspectable for anything reading them programmatically.
-        expect(folded.errors).toEqual(failures);
-        expect(aggregateDeferredFailures([failures[0]])).toBe(failures[0])
-    });
-
-    test('an ABSENT intake token degrades exactly like a denied one (#17162)', async () => {
-        // The runtime contract the workflow's `continue-on-error` on the intake mint depends on. A
-        // failed mint leaves the token empty rather than wrong, which reaches `assertDataSyncAccess`
-        // as "No intake token was provided" — a different message on the same deferral path. Pinning
-        // it here because the workflow change is otherwise trusting an unasserted code path: if this
-        // ever threw instead of deferring, a credential fault would resume killing publication and
-        // the workflow guard would look like it was working.
-        const
-            absent   = new Error('[DataSync preflight] No intake token was provided.'),
-            executed = [];
-
-        const {deferredError} = await emitGeneratedData({
-            attempt  : 1,
-            cwd      : '/tmp',
-            execute  : async (_command, args) => {executed.push(args.join(' '))},
-            log      : () => {},
-            preflight: async () => {throw absent}
-        });
-
-        expect(deferredError).toBe(absent);
-        // The corpus stages are reader-scoped and never consumed the intake token, so they must be
-        // wholly unaffected by its absence — that is the entire point of moving the failure later.
-        expect(executed.some(args => args.includes('--emit-only'))).toBe(true);
-        expect(executed.some(args => args.includes('--include-labels'))).toBe(true)
-    });
-
-    test('a preflight denial defers and does NOT abort the run', async () => {
-        const
-            denial   = new Error('[DataSync preflight] neomjs/devindex-opt-in DENIED (OptIn stargazer read)'),
-            executed = [];
-
-        const {deferredError} = await emitGeneratedData({
-            attempt  : 1,
-            cwd      : '/tmp',
-            execute  : async (_command, args) => {executed.push(args.join(' '))},
-            log      : () => {},
-            preflight: async () => {throw denial}
-        });
-
-        // Rethrowing here would re-couple publication to the intake identity one layer ABOVE the
-        // stage table that just decoupled it — the corpus would stay frozen, only faster.
-        expect(deferredError).toBe(denial);
-
-        // The reader-scoped stages still run — that is what leaves a corpus worth publishing.
-        expect(executed.some(args => args.includes('--emit-only'))).toBe(true);
-        expect(executed.some(args => args.includes('--include-labels'))).toBe(true)
-    });
-
-    test('one denied capability does not stop the stages that never consume it', async () => {
-        // The decisive regression for the review finding. An earlier revision skipped every stage
-        // declaring `tokenScope: 'intake'` the moment ANY preflight probe failed — so a denied
-        // `devindex-opt-in.stargazers` read stopped Opt-Out, Spider and Updater as well. Verified
-        // against the services: Spider queries search/community endpoints and Updater reads
-        // `users/:name/orgs`, so NEITHER touches a DevIndex repository. `tokenScope` says which
-        // credential to inject, never which capability a stage consumes, and the skip made it mean
-        // both.
-        const executed = [];
-
-        const {deferredError} = await emitGeneratedData({
-            attempt  : 1,
-            cwd      : '/tmp',
-            execute  : async (_command, args) => {executed.push(args.join(' '))},
-            log      : () => {},
-            preflight: async () => {throw new Error('neomjs/devindex-opt-in DENIED (OptIn stargazer read)')}
-        });
-
-        for (const script of ['devindex:optout', 'devindex:spider', 'devindex:update']) {
-            expect(executed.some(args => args.includes(script)), `${script} must still run`).toBe(true)
-        }
-
-        // ...and the run still carries the denial to a non-zero exit after publication.
-        expect(deferredError.message).toContain('devindex-opt-in')
     });
 });
 

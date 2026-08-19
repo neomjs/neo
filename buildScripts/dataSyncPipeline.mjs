@@ -4,7 +4,6 @@ import {spawn}                from 'node:child_process';
 import path                   from 'node:path';
 import process                from 'node:process';
 import {fileURLToPath}        from 'node:url';
-import {assertDataSyncAccess} from './dataSyncPreflight.mjs';
 
 /**
  * @module buildScripts.dataSyncPipeline
@@ -32,14 +31,13 @@ export const GENERATED_DATA_PATHS = [
  * silent rather than loud.
  *
  * `reader` is the implicit Actions token, not an App: it reads this repository and writes nothing.
- * It exists because NO App identity can read this repo's labels — `intake` is installed only on the
+ * It exists because no App identity can read this repo's labels — the DevIndex intake App was installed only on the
  * DevIndex repos and `publisher` holds `contents`, while labels are `issues` scope. See the
  * `permissions:` block in `data-sync-pipeline.yml`.
  * @type {Object<String,String|null>}
  * @private
  */
 const stageTokenSources = {
-    intake   : 'DATA_SYNC_INTAKE_TOKEN',
     none     : null,
     publisher: 'DATA_SYNC_PUBLISHER_TOKEN',
     reader   : 'DATA_SYNC_READER_TOKEN'
@@ -97,34 +95,6 @@ const
         // run still exits non-zero and the standing alarm still fires. It only stops an optional
         // enrichment read from deciding whether the corpus gets published.
         {
-            args                             : ['run', 'devindex:optin'],
-            command                          : 'npm',
-            label                            : 'DevIndex Opt-In',
-            publishGeneratedProgressOnFailure: true,
-            tokenScope                       : 'intake'
-        },
-        {
-            args                             : ['run', 'devindex:optout'],
-            command                          : 'npm',
-            label                            : 'DevIndex Opt-Out',
-            publishGeneratedProgressOnFailure: true,
-            tokenScope                       : 'intake'
-        },
-        {
-            args                             : ['run', 'devindex:spider', '--', '--strategy', 'random'],
-            command                          : 'npm',
-            label                            : 'DevIndex Spider',
-            publishGeneratedProgressOnFailure: true,
-            tokenScope                       : 'intake'
-        },
-        {
-            args                             : ['run', 'devindex:update', '--', '--limit=200'],
-            command                          : 'npm',
-            label                            : 'DevIndex Updater',
-            publishGeneratedProgressOnFailure: true,
-            tokenScope                       : 'intake'
-        },
-        {
             // `--include-labels` reaches `LabelService.listLabels`, which pages this repository's
             // labels over GraphQL. That is a credentialled read, so `none` was a mis-declaration —
             // not a deliberate denial — and it failed exactly as `scopedStageEnv` promises a
@@ -174,7 +144,7 @@ const
  * to need one fails loudly on its own missing-auth path rather than quietly succeeding on a more
  * privileged identity than it was granted.
  *
- * @param {String} tokenScope A key of `stageTokenSources` — `intake`, `publisher`, `reader` or `none`.
+ * @param {String} tokenScope A key of `stageTokenSources` — `publisher`, `reader` or `none`.
  * @param {Object} [env=process.env] Parent environment.
  * @returns {Object} A copy carrying at most one GitHub credential.
  */
@@ -199,7 +169,7 @@ export function scopedStageEnv(tokenScope, env = process.env) {
 
     const
         // EVERY source variable is stripped, not merely the consumed one. Removing only
-        // GH_TOKEN/GITHUB_TOKEN leaves `DATA_SYNC_PUBLISHER_TOKEN` readable in an intake stage's
+        // GH_TOKEN/GITHUB_TOKEN leaves `DATA_SYNC_PUBLISHER_TOKEN` readable in another stage's
         // environment, so the repository-write credential stays one `process.env` lookup away from every
         // data-collection child — the isolation would be nominal, not real. DERIVED from the
         // vocabulary, so a scope cannot be added without its source joining the strip set.
@@ -618,61 +588,23 @@ export function aggregateDeferredFailures(errors) {
  * @param {String}   options.cwd Repository root.
  * @param {Function} options.execute Child-process executor.
  * @param {Function} options.log Telemetry sink.
- * @param {Function} [options.preflight=assertDataSyncAccess] Intake credential-topology probe. Its
- * denial is deferred rather than thrown, so it cannot re-couple corpus publication to the intake
  * identity that the stage table just decoupled it from.
- * @returns {Promise<void|{deferredError: Error}>} Deferred failure — a preflight denial and/or every
+ * @returns {Promise<void|{deferredError: Error}>} Deferred failure — every
  * stage that deferred one — whose safe generated progress must be published before it is reported.
  */
 export async function emitGeneratedData({
     attempt,
     cwd,
-    execute   = executeCommand,
-    log       = console.log,
-    preflight = assertDataSyncAccess
+    execute = executeCommand,
+    log     = console.log
 }) {
-    // Before any expensive stage: prove the intake identity can actually reach the repositories the
-    // collection stages depend on. A denial here survives its full retry budget AND precedes all work, so
-    // it is the installation answering rather than a transient read — the distinction the shared
-    // message string cannot make, and the one whose absence cost sixty silent scheduled runs.
-    //
-    // DEFERRED, not fatal. This probe guards exactly the `intake` identity, and every stage declaring
-    // that identity now defers its failure so an enrichment denial cannot decide whether the corpus
-    // publishes. Rethrowing here would reinstate that coupling one layer earlier — the guard becoming
-    // the single point of failure the stages below no longer are — and the corpus would stay frozen
-    // for the same reason, just faster. It still reaches the run's exit non-zero via the deferral.
-    let preflightError = null;
-
-    try {
-        await preflight({log, token: scopedStageEnv('intake').GITHUB_TOKEN})
-    } catch (error) {
-        // Preflight-only mode exists to ANSWER the credential-topology question, so there the denial
-        // is the requested result and must surface directly rather than as a deferral nothing reads.
-        if (process.env.DATA_SYNC_PREFLIGHT_ONLY === 'true') {
-            throw error
-        }
-
-        preflightError = error;
-        log(
-            `[DataSync] emit attempt=${attempt} stage=preflight result=deferred-failure ` +
-            'action=run-all-stages-publish-generated-progress-then-fail'
-        )
-    }
-
-    // Credential-topology check with no side effects. The collection stages mutate — OptOut comments
-    // on and closes real issues — so a configuration check that must run them is one nobody repeats
-    // while iterating on an installation. Stopping here keeps it cheap enough to re-run freely.
-    if (process.env.DATA_SYNC_PREFLIGHT_ONLY === 'true') {
-        log('[DataSync] preflight-only: repository access verified; skipping collection and publish.');
-        return
-    }
 
     // EVERY deferred failure, not the last one. A single slot silently dropped three of the four
     // DevIndex stages when one denial failed them all, so the run reported one cause and hid the
     // rest — and the operator sized the outage from whichever happened to run last.
-    const deferredErrors = preflightError ? [preflightError] : [];
+    const deferredErrors = [];
 
-    // NOTHING is skipped on a preflight denial, and the earlier `tokenScope === 'intake'` skip was
+    // NOTHING is skipped on a stage denial, and the earlier per-scope skip was
     // wrong for a reason worth keeping: a credential-scope declaration says which identity to INJECT,
     // never which capability a stage CONSUMES. One denied `devindex-opt-in.stargazers` probe was
     // enough to skip Opt-Out, Spider and Updater purely because all four name the same token — yet

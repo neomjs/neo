@@ -125,13 +125,14 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/pulls.mjs');
         expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/discussions.mjs');
         expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/tickets.mjs');
-        // The pipeline step receives the two SCOPED credentials and no ambient repository token.
-        // This previously pinned `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` on that step — one
-        // token for cross-repository intake reads AND for the publish push. Those are different
-        // authorization contracts, and the default token satisfies neither: it has no installation
-        // on the DevIndex repos at all, and it cannot bypass the code-scanning ruleset that a
-        // freshly generated commit can never pre-satisfy.
-        expect(workflow).toContain('DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}');
+        // The pipeline step receives SCOPED credentials and no ambient repository token. This
+        // previously pinned `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` — one token for the publish
+        // push AND for cross-repository intake reads, two different authorization contracts that the
+        // default token satisfies neither of.
+        //
+        // The intake half went with the DevIndex stages, so one scoped credential
+        // remains here. The property under test is unchanged: the step names what it is entitled to.
+        expect(workflow).not.toContain('DATA_SYNC_INTAKE_TOKEN');
         expect(workflow).toContain('DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}');
 
         // The assertion that matters: the ambient repository token is gone from the run step, so a
