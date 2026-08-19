@@ -262,15 +262,12 @@ export function isProviderDeathError(error) {
  * `KB_VECTOR_EMBED_CONNECTION_REFUSED` is the opposite — nothing was listening, which proves the provider
  * was ALREADY dead and attributes nothing to the input.
  *
- * **Why this matters for the death-class graduation in `VectorService`.** Attribution needs
- * "the provider was alive, and *this* input killed it". The obvious way to get the liveness half is to probe
- * for recovery afterwards — but a probe costs a provider request per death, and it is *unreachable* once the
- * suspect is the only chunk left in the corpus: nothing further is dispatched, so no recovery is ever
- * observed and the automaton freezes one strike below its threshold. An accepted-then-died code supplies the
- * same liveness half from the failure itself, at zero cost, on every sweep including the last.
+ * `VectorService`'s death-class graduation needs "the provider was alive, and *this* input killed it".
+ * This code supplies the liveness half from the failure itself, so no recovery probe is needed and the
+ * evidence is available even when the suspect is the last chunk in the corpus.
  *
- * A single sample is still only a sample — a network blip can reset a connection without the input being at
- * fault — which is why the caller's strike threshold, not this predicate, is what gates a graduation.
+ * A reset can also come from a network blip with the input blameless, so the caller's strike threshold —
+ * not this predicate — gates a graduation.
  *
  * @param {*} error Error-like value whose `code` / `cause` chain should be classified.
  * @returns {Boolean} `true` only when the classified code means an established connection died mid-request.

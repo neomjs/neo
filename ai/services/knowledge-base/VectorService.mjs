@@ -1707,7 +1707,7 @@ class VectorService extends Base {
 
                         // Death-class RECORDING, and this is the only path a death reaches: the
                         // end-sweep branch above fires on circuit-open and timeout, so a death falls
-                        // through to here. Placing it there instead would have been dead code.
+                        // through to here.
                         //
                         // The timeout path graduates on its own evidence, because a fired deadline
                         // proves itself. A death splits in two, and the failure code is what tells
@@ -1759,11 +1759,6 @@ class VectorService extends Base {
                             // input left and this input is the one that was in flight. That is the whole
                             // "provider was alive AND this killed it" pair, at zero extra provider cost.
                             //
-                            // A recovery probe was the first design and it is unreachable in the case that
-                            // matters: once the suspect is the only chunk left, nothing further is
-                            // dispatched, no recovery is ever observed, and the counter freezes one strike
-                            // below threshold while the corpus never converges. Measured on the fixture —
-                            // strikes stuck at 1 across six sweeps with the chunk fenced by nothing.
                             if (isAcceptedThenDiedError(err)) {
                                 entry.strikes                += 1;
                                 entry.pendingSeq              = null;
@@ -1772,11 +1767,9 @@ class VectorService extends Base {
                                 entry.failureCode             = classifyEmbedFailureError(err);
                                 evidence.deaths.set(deathSuspect.id, entry);
 
-                                // Graduate HERE, on the failure path, because the case this ticket
-                                // exists for never reaches the success path: once the suspect is the
-                                // only chunk left, no dispatch after it succeeds, so a success-gated
-                                // graduation is unreachable exactly when it is needed. Measured — the
-                                // counter sat one strike below threshold across six sweeps.
+                                // Graduating here and not only on the success path: once the suspect is
+                                // the only chunk left, no later dispatch succeeds, so a success-gated
+                                // graduation is unreachable exactly when it is needed.
                                 await graduateDeathSuspect(deathSuspect.id, entry, suspectTokens);
                             }
                             // A REFUSED connection proves the provider was already dead, so it says nothing

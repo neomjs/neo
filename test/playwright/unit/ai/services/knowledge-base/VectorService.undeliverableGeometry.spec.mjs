@@ -322,10 +322,8 @@ test.describe('VectorService.embed — DEATH-class graduation through the produc
         // hashing `hashInputs`, so the stored keys are content hashes and never the fixture's
         // logical names. An id-literal assertion here failed on shape and masked the assertion
         // below, which is the one that carries the ticket.
-        // Aggregated across sweeps ON PURPOSE, and the earlier per-sweep form was wrong for a
-        // reason worth keeping: graduation is a ONE-TIME event, so `findLast(non-error)` reads the
-        // last SUCCESSFUL sweep — which, once the fix works, is a quiet sweep long after the
-        // graduating one. The assertion has to span the run the AC describes, not one frame of it.
+        // Aggregated across sweeps: graduation is a one-time event, so a per-sweep read lands on a
+        // quiet sweep long after the graduating one.
         const graduations = outcomes
             .filter(value => !(value instanceof Error))
             .flatMap(value => value?.deathGraduations ?? []);
@@ -343,9 +341,7 @@ test.describe('VectorService.embed — DEATH-class graduation through the produc
         expect(spy.storedByIds.size).toBe(2);
         expect([...spy.storedByIds.keys()]).not.toContain(killerId);
 
-        // THE discriminator, and the whole point of the ticket: the killer ends up fenced under
-        // *geometry*, never under a content verdict. Before this change it was fenced as content
-        // poison carrying a transport-death reason code — a false claim about the bytes.
+        // The discriminator: the killer ends up fenced under *geometry*, never a content verdict.
         const finalPoison = outcomes.findLast(value => !(value instanceof Error))?.poisonedChunks ?? [];
 
         expect(finalPoison.map(entry => entry.chunkId)).toContain(killerId);
