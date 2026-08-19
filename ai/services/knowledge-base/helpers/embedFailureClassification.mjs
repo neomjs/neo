@@ -86,6 +86,22 @@ export const KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN = 'KB_VECTOR_EMBED_PROVIDER_C
 export const KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY = 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY';
 
 /**
+ * @summary Bounded cause for a transport that closed mid-request — the provider stopped answering
+ * rather than answering slowly.
+ *
+ * Deliberately NOT folded into {@link KB_VECTOR_EMBED_CONNECTION_REFUSED}, for the reason this whole
+ * map exists: a refused connection means nothing was listening when we dialled, while a reset or a
+ * half-closed socket means a live process accepted the request and then stopped existing. Those have
+ * different fixes — start the service, versus find out what killed it — and an operator who reads
+ * "refused" for a mid-request death looks at the wrong thing first.
+ *
+ * Both are nonetheless *death* for classification purposes ({@link isProviderDeathError}), because the
+ * question that disposition asks is "did the provider stop answering", not "at which instant".
+ * @type {String}
+ */
+export const KB_VECTOR_EMBED_TRANSPORT_CLOSED = 'KB_VECTOR_EMBED_TRANSPORT_CLOSED';
+
+/**
  * @summary The codes our OWN layers raise on the embed path, and the only ones allowed through
  * unchanged.
  *
@@ -120,6 +136,13 @@ const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
 const PROVIDER_ERROR_CODE_MAP = Object.freeze({
     ABORT_ERR                        : 'KB_VECTOR_EMBED_ABORTED',
     ECONNREFUSED                     : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+    // Three vocabularies for one event: the peer reset the connection (`ECONNRESET`), we wrote to a
+    // socket the peer had already closed (`EPIPE`), or undici observed the socket end mid-request
+    // (`UND_ERR_SOCKET`). All three mean a live process took the request and stopped existing, which
+    // is why they share a code and why that code is not `…CONNECTION_REFUSED`.
+    ECONNRESET                       : 'KB_VECTOR_EMBED_TRANSPORT_CLOSED',
+    EPIPE                            : 'KB_VECTOR_EMBED_TRANSPORT_CLOSED',
+    UND_ERR_SOCKET                   : 'KB_VECTOR_EMBED_TRANSPORT_CLOSED',
     EMBEDDING_CONTEXT_INSUFFICIENT   : 'KB_VECTOR_EMBED_CONTEXT_INSUFFICIENT',
     EMBEDDING_INPUT_TRUNCATED        : 'KB_VECTOR_EMBED_INPUT_TRUNCATED',
     EMBEDDING_MODEL_NOT_RESIDENT     : 'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
@@ -185,6 +208,75 @@ export function classifyEmbedFailureError(error) {
     }
 
     return KB_VECTOR_EMBED_UNCLASSIFIED
+}
+
+/**
+ * @summary The bounded codes that mean the provider stopped answering, as opposed to answering slowly.
+ *
+ * **Module-private, and a `Set` rather than an exported list, for the reason `createTimeoutError.mjs`
+ * records about its own timeout set:** `Object.freeze` does not stop `.add()`, so an exported set is a
+ * shared mutable classifier any consumer could widen for every other consumer at once. Only the
+ * predicate crosses the boundary.
+ *
+ * **Disjoint from the timeout vocabulary, and that disjointness is load-bearing rather than tidy.** A
+ * timeout already has a disposition — the call-ceiling strike path graduates it — and a chunk that
+ * merely times out must never reach the death path, because the death path's evidence is weaker: it
+ * infers attributability from a later success rather than from a repeated deadline. Folding
+ * `ETIMEDOUT` in here would let the weaker evidence fence chunks the stronger path already handles,
+ * and a fixture built on a timeout stub would pass before and after the change while proving nothing.
+ * @type {Set<String>}
+ */
+const PROVIDER_DEATH_CODES = Object.freeze(new Set([
+    'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+    KB_VECTOR_EMBED_TRANSPORT_CLOSED
+]));
+
+/**
+ * @summary Whether an embed failure means the provider stopped answering mid-flight or refused outright.
+ *
+ * Classified through {@link classifyEmbedFailureError} rather than by reading `error.code` directly, so
+ * a transport death wrapped by a stage-naming error still classifies — the same reason that walker
+ * exists. Reusing it also means the death vocabulary cannot drift from the map: a code absent from
+ * `PROVIDER_ERROR_CODE_MAP` classifies as unclassified and is therefore not death, which is the
+ * conservative direction.
+ *
+ * **Not a content claim, deliberately.** A dead provider says nothing about whether the bytes were
+ * valid, which is why `isolateFirstFailedBatch` refuses to bisect one into a poison disposition. This
+ * predicate answers only "did the provider stop answering"; whether that is *attributable to one
+ * input* is a separate question the caller answers with paired evidence.
+ *
+ * @param {*} error Error-like value whose `code` / `cause` chain should be classified.
+ * @returns {Boolean} `true` only for a classified provider-death code.
+ */
+export function isProviderDeathError(error) {
+    return PROVIDER_DEATH_CODES.has(classifyEmbedFailureError(error))
+}
+
+/**
+ * @summary Whether the provider ACCEPTED this request and then stopped existing, as opposed to refusing it.
+ *
+ * The distinction is load-bearing and it is free. `ECONNRESET` / `EPIPE` / `UND_ERR_SOCKET` all require an
+ * **established connection** before they can be observed — a peer cannot reset, or close under our write, a
+ * connection it never accepted. So this code carries its own liveness proof: the provider was answering at
+ * the moment the request left, and the request that was in flight is the one that was in flight.
+ * `KB_VECTOR_EMBED_CONNECTION_REFUSED` is the opposite — nothing was listening, which proves the provider
+ * was ALREADY dead and attributes nothing to the input.
+ *
+ * **Why this matters for the death-class graduation in `VectorService`.** Attribution needs
+ * "the provider was alive, and *this* input killed it". The obvious way to get the liveness half is to probe
+ * for recovery afterwards — but a probe costs a provider request per death, and it is *unreachable* once the
+ * suspect is the only chunk left in the corpus: nothing further is dispatched, so no recovery is ever
+ * observed and the automaton freezes one strike below its threshold. An accepted-then-died code supplies the
+ * same liveness half from the failure itself, at zero cost, on every sweep including the last.
+ *
+ * A single sample is still only a sample — a network blip can reset a connection without the input being at
+ * fault — which is why the caller's strike threshold, not this predicate, is what gates a graduation.
+ *
+ * @param {*} error Error-like value whose `code` / `cause` chain should be classified.
+ * @returns {Boolean} `true` only when the classified code means an established connection died mid-request.
+ */
+export function isAcceptedThenDiedError(error) {
+    return classifyEmbedFailureError(error) === KB_VECTOR_EMBED_TRANSPORT_CLOSED
 }
 
 /**

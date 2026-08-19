@@ -214,3 +214,142 @@ test.describe('VectorService.embed — undeliverable-at-geometry through the pro
         ).toBeGreaterThan(monsterDispatchesBefore);
     });
 });
+
+test.describe('VectorService.embed — DEATH-class graduation through the production path (#17336)', () => {
+    let SDK, KB_VectorService, KB_Config, TextEmbeddingService, ChromaManager;
+    let originalEmbedTexts, originalBatchConfig, originalGetCollection, originalResumeStateDir;
+    let tmpDir, corpusFile;
+
+    const isKillerText = text => text.includes('killer body');
+
+    const chunks = [
+        {id: 'd-a', type: 'guide', name: 'typical-a', hash: 'd'.repeat(64), content: 'typical body a'},
+        {id: 'd-k', type: 'guide', name: 'killer',    hash: 'e'.repeat(64), content: 'killer body'},
+        {id: 'd-b', type: 'guide', name: 'typical-b', hash: 'f'.repeat(64), content: 'typical body b'}
+    ];
+
+    const tenantContext = {tenantId: 't-death', repoSlug: 'org/death-class'};
+
+    test.beforeAll(async () => {
+        SDK                  = await import('../../../../../../ai/services.mjs');
+        KB_Config            = SDK.KB_Config;
+        TextEmbeddingService = SDK.Memory_TextEmbeddingService;
+
+        const VectorServiceModule = await import('../../../../../../ai/services/knowledge-base/VectorService.mjs');
+        const ChromaManagerModule = await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs');
+
+        KB_VectorService = VectorServiceModule.default;
+        ChromaManager    = ChromaManagerModule.default;
+
+        originalEmbedTexts     = TextEmbeddingService.embedTexts.bind(TextEmbeddingService);
+        originalGetCollection  = ChromaManager.getKnowledgeBaseCollection;
+        originalResumeStateDir = KB_VectorService.resumeStateDir;
+        originalBatchConfig    = {
+            batchSize : KB_Config.data.batchSize,
+            batchDelay: KB_Config.data.batchDelay,
+            maxRetries: KB_Config.data.maxRetries
+        };
+
+        tmpDir     = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-kb-death-'));
+        corpusFile = path.join(tmpDir, 'corpus.jsonl');
+
+        await fs.writeFile(corpusFile, chunks.map(chunk => JSON.stringify(chunk)).join('\n') + '\n');
+
+        KB_VectorService.resumeStateDir = path.join(tmpDir, 'state');
+        Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 3});
+    });
+
+    test.afterAll(async () => {
+        TextEmbeddingService.embedTexts           = originalEmbedTexts;
+        ChromaManager.getKnowledgeBaseCollection  = originalGetCollection;
+        KB_VectorService.resumeStateDir           = originalResumeStateDir;
+        Object.assign(KB_Config.data, originalBatchConfig);
+
+        await fs.remove(tmpDir);
+    });
+
+    test('a killer chunk graduates on death-class evidence, and the corpus advances past it', async () => {
+        const spy              = createSpyCollection();
+        const dispatchedInputs = [];
+
+        ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        // DEATH, not timeout — and the distinction is the red-proof. `ECONNRESET` is what a provider
+        // that accepted the request and then stopped existing looks like on the wire. A timeout stub
+        // here would exercise the pre-existing call-ceiling path and pass identically before and after
+        // this change.
+        TextEmbeddingService.embedTexts = async texts => {
+            dispatchedInputs.push([...texts]);
+
+            if (!texts.some(isKillerText)) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            const error = new Error('socket hang up');
+
+            error.code             = 'ECONNRESET';
+            error.failedTextOffset = 0;
+            error.failedTextCount  = texts.length;
+            throw error
+        };
+
+        // MULTIPLE sweeps, and the reason is architectural rather than incidental: the isolation gate
+        // is evaluated at BATCH ASSEMBLY, outside the retry loop, so suspicion recorded during a
+        // failure is only acted on by a later sweep. The retry loop re-dispatches the identical batch.
+        // The timeout automaton gets away with a single call because a timeout ENDS the sweep; a death
+        // falls through to the retry path, so a one-sweep fixture can only ever observe the abort.
+        const outcomes = [];
+
+        for (let sweep = 0; sweep < 8; sweep++) {
+            outcomes.push(await KB_VectorService.embed(corpusFile, {
+                deleteStale: false,
+                tenantContext
+            }).then(value => value, error => error));
+        }
+
+        const outcome = outcomes.findLast(value => !(value instanceof Error)) ?? outcomes.at(-1);
+
+        // Instrumentation first: what the sweep ACTUALLY dispatched, so the assertions below are
+        // calibrated against observed interleaving rather than predicted interleaving.
+        console.log('[#17336 fixture] dispatches:', JSON.stringify(dispatchedInputs.map(texts => texts.map(t => t.slice(0, 14)))));
+        outcomes.forEach((value, index) => console.log(`[#17336 fixture] sweep ${index}:`, value instanceof Error
+            ? `ERROR ${value.message}`
+            : JSON.stringify({e: value?.embedded, grad: value?.deathGraduations, prog: value?.deathStrikeProgress, poison: (value?.poisonedChunks||[]).map(x=>({id:(x.chunkId||'').slice(0,8), r:x.reasonCode}))})));
+        console.log('[#17336 fixture] stored ids:', JSON.stringify([...spy.storedByIds.keys()]));
+
+        // The corpus advances past the killer: both typicals land. Asserted on count plus the
+        // killer's ABSENCE rather than on two literal ids — production derives a chunk id by
+        // hashing `hashInputs`, so the stored keys are content hashes and never the fixture's
+        // logical names. An id-literal assertion here failed on shape and masked the assertion
+        // below, which is the one that carries the ticket.
+        // Aggregated across sweeps ON PURPOSE, and the earlier per-sweep form was wrong for a
+        // reason worth keeping: graduation is a ONE-TIME event, so `findLast(non-error)` reads the
+        // last SUCCESSFUL sweep — which, once the fix works, is a quiet sweep long after the
+        // graduating one. The assertion has to span the run the AC describes, not one frame of it.
+        const graduations = outcomes
+            .filter(value => !(value instanceof Error))
+            .flatMap(value => value?.deathGraduations ?? []);
+
+        // Exactly once, on death-class evidence, naming the code that proved liveness.
+        expect(graduations).toHaveLength(1);
+        expect(graduations[0].failureCode).toBe('KB_VECTOR_EMBED_TRANSPORT_CLOSED');
+        expect(graduations[0].attempts).toBeGreaterThanOrEqual(2);
+
+        const killerId = graduations[0].chunkId;
+
+        // The corpus advances past the killer: both typicals land, and the killer is not among
+        // them. Asserted on count plus the killer's absence rather than on two literal ids —
+        // production derives a chunk id by hashing `hashInputs`, so stored keys are content hashes.
+        expect(spy.storedByIds.size).toBe(2);
+        expect([...spy.storedByIds.keys()]).not.toContain(killerId);
+
+        // THE discriminator, and the whole point of the ticket: the killer ends up fenced under
+        // *geometry*, never under a content verdict. Before this change it was fenced as content
+        // poison carrying a transport-death reason code — a false claim about the bytes.
+        const finalPoison = outcomes.findLast(value => !(value instanceof Error))?.poisonedChunks ?? [];
+
+        expect(finalPoison.map(entry => entry.chunkId)).toContain(killerId);
+        expect(finalPoison.find(entry => entry.chunkId === killerId).reasonCode)
+            .toBe('KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY');
+    });
+});

@@ -16,7 +16,9 @@ import {
     classifyEmbedFailureCode,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition,
-    isEmbedFailureCode
+    isEmbedFailureCode,
+    KB_VECTOR_EMBED_TRANSPORT_CLOSED,
+    isProviderDeathError
 } from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {normalizeTenantRepoCheckpointState}
     from '../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
@@ -527,5 +529,64 @@ test.describe('classifyEmbedDisposition (retry-or-discard)', () => {
         expect(classifyEmbedDisposition('')).toBe(EMBED_DISPOSITION.deferrable);
         expect(classifyEmbedDisposition('constructor')).toBe(EMBED_DISPOSITION.deferrable);
         expect(classifyEmbedDisposition({code: 'KB_TENANT_SPOOF_REJECTED'})).toBe(EMBED_DISPOSITION.deferrable);
+    });
+});
+
+test.describe('isProviderDeathError (#17336)', () => {
+    test('the three transport-death vocabularies all classify, and refusal stays its own code', () => {
+        // One event, three vocabularies: the peer reset us, we wrote to an already-closed socket, or
+        // undici saw the socket end mid-request. All are death; only the pre-connect refusal is
+        // `…CONNECTION_REFUSED`, because "nothing was listening" and "it died holding my request" have
+        // different first things to look at.
+        expect(isProviderDeathError({code: 'ECONNRESET'})).toBe(true);
+        expect(isProviderDeathError({code: 'EPIPE'})).toBe(true);
+        expect(isProviderDeathError({code: 'UND_ERR_SOCKET'})).toBe(true);
+        expect(isProviderDeathError({code: 'ECONNREFUSED'})).toBe(true);
+
+        expect(classifyEmbedFailureCode('ECONNRESET')).toBe(KB_VECTOR_EMBED_TRANSPORT_CLOSED);
+        expect(classifyEmbedFailureCode('ECONNREFUSED')).toBe('KB_VECTOR_EMBED_CONNECTION_REFUSED');
+        expect(classifyEmbedFailureCode('ECONNRESET')).not.toBe(classifyEmbedFailureCode('ECONNREFUSED'));
+    });
+
+    test('DISJOINT from the timeout vocabulary — the control the death path depends on', () => {
+        // Load-bearing, not tidy. A timeout already has a disposition: the call-ceiling strike path
+        // graduates it on self-proving evidence. A death is self-proving only when the provider
+        // ACCEPTED the request before dying, which a timeout never establishes — so a timeout code
+        // must never enter the death set. If this arm goes green with one added, a fixture built on
+        // a timeout stub would pass before and after the change and prove nothing, which is exactly
+        // the trap the red-proof exists to close.
+        for (const code of ['ETIMEDOUT', 'ESOCKETTIMEDOUT', 'PROVIDER_TIMEOUT', 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT', 'EMBEDDING_PROBE_TIMEOUT']) {
+            expect(isProviderDeathError({code}), `${code} must not classify as provider death`).toBe(false);
+        }
+
+        // And the adjacent non-death faults stay out too: an abort is caller-owned, an open circuit
+        // never dispatched, and an oversize refusal is an answer rather than a silence.
+        for (const code of ['ABORT_ERR', 'EMBEDDING_INPUT_TRUNCATED', 'EMBEDDING_CONTEXT_INSUFFICIENT']) {
+            expect(isProviderDeathError({code}), `${code} must not classify as provider death`).toBe(false);
+        }
+    });
+
+    test('classifies through a WRAPPED cause, which is the shape a real death arrives in', () => {
+        // The reason this predicate goes through `classifyEmbedFailureError` instead of reading
+        // `error.code`: a transport death routinely arrives wrapped by a stage-naming error, and
+        // reading only the outer code would report the sentinel and silently skip the death path.
+        expect(isProviderDeathError(new Error('embedding stage failed', {cause: {code: 'ECONNRESET'}}))).toBe(true);
+        expect(isProviderDeathError({code: 'KB_STAGE', cause: {code: 'UND_ERR_SOCKET'}})).toBe(true);
+
+        // Depth and cycle safety are inherited from the walker rather than re-implemented.
+        const cyclic = {code: 'KB_STAGE'};
+        cyclic.cause = cyclic;
+        expect(isProviderDeathError(cyclic)).toBe(false);
+    });
+
+    test('total over hostile and absent input, and an unmapped code is NOT death', () => {
+        // Conservative direction on purpose: a code absent from the map classifies as unclassified and
+        // is therefore not death, so an unknown transport error cannot start fencing chunks.
+        expect(isProviderDeathError(undefined)).toBe(false);
+        expect(isProviderDeathError(null)).toBe(false);
+        expect(isProviderDeathError({})).toBe(false);
+        expect(isProviderDeathError({code: 'constructor'})).toBe(false);
+        expect(isProviderDeathError({code: 'ESOMETHINGNEW'})).toBe(false);
+        expect(isProviderDeathError({code: KB_VECTOR_EMBED_UNCLASSIFIED})).toBe(false);
     });
 });
