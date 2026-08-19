@@ -1,15 +1,36 @@
 import { test as base, expect } from '@playwright/test';
 import * as RmaHelpers          from './util/RmaHelpers.mjs';
-import {
-    NeuralLink_ConnectionService,
-    NeuralLink_InstanceService,
-    NeuralLink_ComponentService,
-    NeuralLink_DataService,
-    NeuralLink_DockService,
-    NeuralLink_RuntimeService,
-    NeuralLink_InteractionService
-} from '../../ai/services.mjs';
-import aiConfig from '../../ai/mcp/server/neural-link/config.template.mjs';
+
+// `Neo` plus the core class system, imported for their SIDE EFFECT and not for these bindings.
+//
+// They are the half of this change that is easy to delete and expensive to restore. `ai/services.mjs`
+// used to supply them incidentally, because a barrel that reaches the whole Brain also reaches
+// whatever bootstraps the class system. Importing the Neural Link services directly removes that,
+// and the failure is a `ReferenceError: Neo is not defined` thrown from `src/core/Compare.mjs` —
+// a file this module does not name, during a service construction it did not obviously trigger.
+// `ai/mcp/server/neural-link/run-bridge.mjs` carries the same pair for the same reason.
+import Neo       from '../../src/Neo.mjs';
+import * as core from '../../src/core/_export.mjs';
+
+// Imported per-service rather than from `ai/services.mjs`, deliberately.
+//
+// This fixture needs seven Neural Link symbols. `ai/services.mjs` re-exports them alongside the
+// knowledge-base, memory-core and ingestion families, so importing it pulls the entire Brain into
+// the test process of every project that uses this fixture — including `ai/graph/storage/SQLite.mjs`
+// and, through it, the native `better-sqlite3` binding. A downstream adopter's CI showed the cost:
+// every test passing, then `Statement::~Statement()` aborting at teardown, on a repository with zero
+// first-party SQLite importers that could not drop the dependency because this file demanded it.
+//
+// These modules import only `src/core/Base.mjs`, their own config and logger, `RuntimeFreshnessService`,
+// their siblings, and node builtins — no graph, no vector store, no native bindings.
+import NeuralLink_ComponentService   from '../../ai/services/neural-link/ComponentService.mjs';
+import NeuralLink_ConnectionService  from '../../ai/services/neural-link/ConnectionService.mjs';
+import NeuralLink_DataService        from '../../ai/services/neural-link/DataService.mjs';
+import NeuralLink_DockService        from '../../ai/services/neural-link/DockService.mjs';
+import NeuralLink_InstanceService    from '../../ai/services/neural-link/InstanceService.mjs';
+import NeuralLink_InteractionService from '../../ai/services/neural-link/InteractionService.mjs';
+import NeuralLink_RuntimeService     from '../../ai/services/neural-link/RuntimeService.mjs';
+import aiConfig                      from '../../ai/mcp/server/neural-link/config.template.mjs';
 
 export const test = base.extend({
     /**
