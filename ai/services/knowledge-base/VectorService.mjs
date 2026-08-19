@@ -154,7 +154,51 @@ function buildChunkMetadata(chunk) {
 const TENANT_GUARDED_FIELDS             = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES                  = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
 const STALE_STRATEGY_SKIP               = 'skip';
-const EMBEDDING_POISON_STRATEGY_VERSION = 'kb-embedding-input-v1';
+/**
+ * Family prefix for the embedding input-strategy coordinate.
+ *
+ * Deliberately still a literal, and deliberately no longer the whole value. It bumps when the input
+ * strategy changes *shape* — a different splitting algorithm, a different estimate space — which no
+ * measurement can infer. What it must NOT carry is the band, because the band moves without anyone
+ * editing this file, and that is the case the generation exists to notice.
+ * @type {String}
+ * @protected
+ */
+const EMBEDDING_POISON_STRATEGY_FAMILY = 'kb-embedding-input-v1';
+
+/**
+ * Derives the input-strategy coordinate from the resolved admission band.
+ *
+ * **This value used to be `EMBEDDING_POISON_STRATEGY_FAMILY` alone, and that was the defect.**
+ * `resolveEmbeddingPoisonGeneration`'s contract is that "a provider, model, vector-schema, or
+ * input-strategy change invalidates prior poison evidence", and `createVectorGenerationIdentity`
+ * guarantees any coordinate change yields a new generation id. The plumbing was complete and this one
+ * coordinate was frozen — so the commonest repair, moving the admission band, changed nothing the
+ * fence could see. A chunk fenced as undeliverable at a 28,672-token band stayed fenced after the
+ * band was corrected to the engine's actual slot, because nothing told the fence the band had moved.
+ *
+ * Both numbers are carried, and neither is redundant: `admissionCeilingTokens` moves when a ceiling
+ * leaf changes, `estimateBandTokens` additionally moves when
+ * {@link EMBEDDING_TOKEN_ESTIMATE_DRIFT_FACTOR} does. A drift-factor change leaves the ceiling
+ * identical and is exactly as capable of making a fenced chunk deliverable.
+ *
+ * **An unresolvable band is a stable coordinate, not a churning one.** A configuration with no usable
+ * ceiling cannot characterise its own input strategy, so it gets one marker rather than a new
+ * generation per call — and the transition *out* of that state is a real repair, which invalidates
+ * evidence exactly as it should.
+ *
+ * @summary Input-strategy coordinate: the strategy family plus the band it is currently applying.
+ * @param {Object} guardrail From {@link VectorService#resolveEmbeddingGuardrail}.
+ * @returns {String}
+ * @protected
+ */
+function resolveEmbeddingInputStrategyVersion(guardrail) {
+    const {resolved, admissionCeilingTokens, estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail);
+
+    return resolved
+        ? `${EMBEDDING_POISON_STRATEGY_FAMILY}:band-${admissionCeilingTokens}-est-${estimateBandTokens}`
+        : `${EMBEDDING_POISON_STRATEGY_FAMILY}:band-unresolved`
+}
 
 /**
  * @summary Manages vector database operations including embedding generation and storage.
@@ -488,7 +532,11 @@ class VectorService extends Base {
             embedCallCeilingMs: provider === 'ollama'
                 ? Number(mcConfig.ollama.embeddingTimeoutMs)
                 : Number(mcConfig.openAiCompatible.batchEmbeddingTimeoutMs),
-            strategyVersion: EMBEDDING_POISON_STRATEGY_VERSION
+            // Derived from the resolved admission band rather than a literal, so the commonest repair
+            // — moving the band — is a change this generation can see. See
+            // {@link resolveEmbeddingInputStrategyVersion} for why a frozen value silently outlived
+            // every band correction that would have released the chunks it was fencing.
+            strategyVersion: resolveEmbeddingInputStrategyVersion(this.resolveEmbeddingGuardrail())
         }
     }
 
