@@ -100,6 +100,13 @@ export const test = base.extend({
     },
 
     neuralLink: async ({ page }, use) => {
+        // This fixture is the second Bridge entrypoint, alongside the MCP server, and the only one
+        // for which `process.cwd()` is correct by construction: Playwright resolves its config and
+        // `testDir` from the invocation directory, so a run always starts at the consuming project's
+        // root. `spawnBridge` refuses an unresolved cwd precisely because a GUI-launched server has
+        // no such guarantee. `??=` yields to an entrypoint that already supplied one.
+        NeuralLink_ConnectionService.cwd ??= process.cwd();
+
         // 1. Ensure Bridge connects
         await NeuralLink_ConnectionService.manageConnection({action: 'start'});
 
