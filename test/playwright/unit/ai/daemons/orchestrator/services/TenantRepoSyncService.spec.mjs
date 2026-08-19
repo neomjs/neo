@@ -6899,6 +6899,88 @@ test.describe('TenantRepoSyncService (#11790)', () => {
      * batches and never before the first, so a wall-clock arm ("A released within sliceBudgetMs")
      * would fail against the primitive's own forward-progress guarantee and be the wrong shape.
      */
+    test('a clean slice CLEARS an inherited streak, while an error-bearing one still accrues it (#17349)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/rotating'});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/failing'});
+
+        // Imported rather than written as a literal. A seeded checkpoint on a foreign contract
+        // version is diverted before the outcome branch this test is about, so a hardcoded number
+        // that later goes stale would not fail — it would quietly stop exercising the fix and keep
+        // passing on a path nobody meant to test.
+        const {TENANT_REPO_INGEST_CONTRACT_VERSION: contractVersion} =
+            await import('../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs');
+
+        // Both repos start at the SAME inherited streak, accrued while a real fault was live. The
+        // pair is the point: without the failing arm this test cannot tell "clears on a clean slice"
+        // from "never holds a streak at all", and the second reading would be a live regression —
+        // the backoff would stop protecting anything.
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                't1/org/rotating': {lastIngestedRev: 'sha-rotating', lastRunAttemptAt: 111, consecutiveFailures: 42, ingestContractVersion: contractVersion, lastCommittedMaterializationAttemptId: 'a'.repeat(32)},
+                't1/org/failing' : {lastIngestedRev: 'sha-failing',  lastRunAttemptAt: 111, consecutiveFailures: 42, ingestContractVersion: contractVersion, lastCommittedMaterializationAttemptId: 'a'.repeat(32)}
+            }
+        });
+
+        await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/rotating', mirrorRoot, cloneUrl: 'https://github.com/neomjs/rotating.git'},
+                {tenantId: 't1', repoSlug: 'org/failing',  mirrorRoot, cloneUrl: 'https://github.com/neomjs/failing.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: payload => ({
+                    ingested           : 5916,
+                    deleted            : 0,
+                    embeddingsGenerated: 55,
+                    // The discriminator is NOT an error count on a partial slice — an error-bearing
+                    // summary is classified as a failure before the `yielded` check is ever reached,
+                    // so `partial-progress` is a clean run by construction. The two arms below are
+                    // therefore different OUTCOMES, not two flavours of one.
+                    errors             : payload.repoSlug === 'org/failing'
+                        ? [{code: 'KB_VECTOR_EMBED_INPUT_TRUNCATED', message: 'oversized chunk'}]
+                        : [],
+                    yielded   : payload.repoSlug === 'org/rotating',
+                    tenantId  : payload.tenantId,
+                    durationMs: 1
+                })
+            }),
+            revisionsFilePath: revisionsFile,
+            seedBootstrap    : false
+        });
+
+        const revisions = (await fs.readJson(revisionsFile)).revisions;
+
+        // The defect: `complete` was the only outcome that cleared the streak, and a repo whose
+        // corpus exceeds one slice budget never reaches `complete`. It could therefore never decay a
+        // streak it accrued while broken, no matter how cleanly it ran — measured live at streak 42
+        // with backoffX=4398046511104 and ~25 min between slices.
+        expect(
+            revisions['t1/org/rotating'].consecutiveFailures,
+            'a clean slice is evidence there is no fault left to back off from'
+        ).toBe(0);
+
+        // The control, and it is the reason this test can fail. It sits OUTSIDE the branch the fix
+        // touches: an error-bearing slice must still accrue, or the change did not clear a streak on
+        // success — it removed backoff.
+        expect(
+            revisions['t1/org/failing'].consecutiveFailures,
+            'a failing slice still accrues, so backoff still protects a genuinely broken repo'
+        ).toBe(43);
+
+        // Clearing the streak must not advance the checkpoint. The corpus is NOT exhausted; a
+        // rotating repo that also settled its checkpoint would silently claim a remainder landed.
+        expect(
+            revisions['t1/org/rotating'].lastIngestedRev,
+            'a budgeted slice clears the streak without claiming the corpus is whole'
+        ).toBe('sha-rotating');
+    });
+
     test('a yielded head repo rotates its slot and the tail is admitted in the SAME sweep, with zero failure accounting (#17132 AC2/AC6)', async () => {
         const
             captureCalls = [],
