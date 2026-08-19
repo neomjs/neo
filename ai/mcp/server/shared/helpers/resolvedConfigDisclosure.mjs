@@ -39,7 +39,11 @@
  *    such an entry at module load rather than trusting review to catch it.
  * 4. **Disclosure kinds as a second floor.** Every entry declares the primitive it may reveal. A path
  *    declared `number` cannot carry a token even if a later refactor moves something unexpected
- *    behind that path — the value fails its kind and is omitted with a reason.
+ *    behind that path — the value fails its kind and is omitted with a reason. `enum` earns the same
+ *    guarantee by declaring its `values`: membership in a reviewed set is checked, so the floor is
+ *    structural for every kind rather than for the two that happen to be non-string. An `enum` entry
+ *    without `values` is a wildcard over the string space and is refused at load for the same reason
+ *    clause 3 refuses `embedding.*`.
  *
  * **The kind is NOT the config leaf's type, and conflating them would define one thing twice.** The
  * leaf already owns the value domain: `leaf(50, 'NEO_KB_EMBEDDING_BATCH_SIZE', 'positiveInt')`
@@ -66,17 +70,24 @@
  * it is the only string-bearing kind, and it exists so a genuinely enumerated setting is reportable
  * without opening `string` as a category. There is deliberately no free `string` kind — a free string
  * is the shape a credential has.
+ *
+ * **`enum` must enumerate, and that is enforced rather than assumed.** An entry declaring `enum`
+ * declares the exact `values` it may disclose, and disclosure is membership in that set. Without it
+ * the kind was a *length* check wearing the name of a *set* check — and a credential shorter than the
+ * bound satisfies a length check, so the "cannot carry a token" guarantee held for `number` and
+ * `boolean` and quietly did not hold here. A name that promises a closed set has to have one.
  * @member {String[]} DISCLOSURE_KINDS
  * @protected
  */
 export const DISCLOSURE_KINDS = Object.freeze(['number', 'boolean', 'enum']);
 
 /**
- * Maximum characters an `enum` value may disclose.
+ * Maximum characters a declared `enum` value may be.
  *
- * A closed-set identifier is short by nature. The bound is a backstop for the case where a path
- * declared `enum` comes to hold something longer than an identifier: a token that somehow satisfied
- * the kind check would still fail the length check, and the entry is omitted rather than published.
+ * A closed-set identifier is short by nature, and this bounds what an allowlist author may *declare*
+ * rather than what a config may hold — it is checked once at load, against the reviewed set, not per
+ * disclosure. Membership is what refuses an unexpected value at runtime; keeping a length test there
+ * too would imply a value could pass on length alone, which is the confusion this bound used to be.
  * @member {Number} MAX_ENUM_VALUE_LENGTH
  * @protected
  */
@@ -88,7 +99,7 @@ export const MAX_ENUM_VALUE_LENGTH = 64;
  * Called by the module that declares an allowlist, so a malformed entry fails at import rather than
  * at the first disclosure. Failing loudly here is the point: a silently-ignored bad entry is
  * indistinguishable from a value the service chose not to report.
- * @param {Array<Object>} allowlist Entries of `{path, kind}`.
+ * @param {Array<Object>} allowlist Entries of `{path, kind}`; `enum` entries additionally carry `values`.
  * @returns {Array<Object>} The same entries, frozen.
  * @throws {Error} On a non-literal path, an unknown kind, or a duplicate path.
  */
@@ -115,6 +126,37 @@ export function assertDisclosureAllowlist(allowlist) {
 
         if (!DISCLOSURE_KINDS.includes(kind)) {
             throw new Error(`resolvedConfigDisclosure: entry "${path}" declares unknown kind "${kind}". Known kinds: ${DISCLOSURE_KINDS.join(', ')}.`)
+        }
+
+        // The `enum` counterpart to the wildcard clause. `{kind: 'enum'}` with no set is a match region
+        // covering every string a refactor could ever move behind the path — the same failure as
+        // `embedding.*`, arriving through the kind instead of the path. Refused here so it cannot be
+        // introduced by someone who reasonably reads `enum` as "a string, but a tidy one".
+        if (kind === 'enum') {
+            const {values} = entry;
+
+            if (!Array.isArray(values) || !values.length) {
+                throw new Error(`resolvedConfigDisclosure: entry "${path}" declares kind "enum" without a non-empty "values" array. An enum that does not enumerate is a free string, which is the shape a credential has.`)
+            }
+
+            for (const value of values) {
+                if (typeof value !== 'string' || !value) {
+                    throw new Error(`resolvedConfigDisclosure: entry "${path}" declares a non-string enum value ${JSON.stringify(value)}.`)
+                }
+
+                if (value.length > MAX_ENUM_VALUE_LENGTH) {
+                    throw new Error(`resolvedConfigDisclosure: entry "${path}" declares enum value "${value}" longer than ${MAX_ENUM_VALUE_LENGTH} characters. A closed-set identifier is short by nature; a long one is a sign the path holds something else.`)
+                }
+            }
+
+            if (new Set(values).size !== values.length) {
+                throw new Error(`resolvedConfigDisclosure: entry "${path}" declares duplicate enum values.`)
+            }
+        } else if (entry.values !== undefined) {
+            // A `values` list on a number or boolean would read as a constraint and enforce nothing.
+            // Refused rather than ignored: a decorative declaration is worse than an absent one,
+            // because the next reader believes it.
+            throw new Error(`resolvedConfigDisclosure: entry "${path}" declares "values" with kind "${kind}", where it would be decorative. Only "enum" carries a value set.`)
         }
 
         if (seen.has(path)) {
@@ -168,11 +210,13 @@ function readPath(config, path) {
 /**
  * Checks a value against its declared disclosure kind.
  * @param {*} value
- * @param {String} kind
+ * @param {Object} entry The frozen allowlist entry, whose `kind` and — for `enum` — `values` decide.
  * @returns {String|null} An omission reason, or `null` when the value may be disclosed.
  * @protected
  */
-function kindViolation(value, kind) {
+function kindViolation(value, entry) {
+    const {kind} = entry;
+
     if (kind === 'number') {
         return Number.isFinite(value) ? null : 'kind-mismatch-expected-finite-number'
     }
@@ -181,12 +225,14 @@ function kindViolation(value, kind) {
         return typeof value === 'boolean' ? null : 'kind-mismatch-expected-boolean'
     }
 
-    // `enum`: a short closed-set identifier. Length is checked as well as type, so a long string
-    // behind an `enum` path is refused rather than published.
+    // `enum`: membership in the reviewed set, which is the whole guarantee. A value that is a string
+    // of a plausible length is NOT evidence of anything — that was the old test, and a token satisfies
+    // it. Only "the allowlist author named this exact value" survives a refactor moving something
+    // unexpected behind the path.
     if (typeof value !== 'string') return 'kind-mismatch-expected-enum-string';
     if (!value) return 'kind-mismatch-empty-enum';
 
-    return value.length > MAX_ENUM_VALUE_LENGTH ? 'kind-mismatch-enum-too-long' : null
+    return entry.values.includes(value) ? null : 'kind-mismatch-enum-not-declared'
 }
 
 /**
@@ -214,15 +260,16 @@ export function projectDisclosedConfig({config, allowlist}) {
         return {disclosed, omitted: allowlist.map(({path, kind}) => ({path, kind, reason: 'config-unavailable'}))}
     }
 
-    for (const {path, kind} of allowlist) {
-        const {found, value} = readPath(config, path);
+    for (const entry of allowlist) {
+        const {path, kind}   = entry,
+              {found, value} = readPath(config, path);
 
         if (!found) {
             omitted.push({path, kind, reason: 'path-absent'});
             continue
         }
 
-        const violation = kindViolation(value, kind);
+        const violation = kindViolation(value, entry);
 
         if (violation) {
             omitted.push({path, kind, reason: violation});

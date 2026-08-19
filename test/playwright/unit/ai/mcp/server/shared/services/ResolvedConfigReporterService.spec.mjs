@@ -42,7 +42,7 @@ test.describe('ResolvedConfigReporterService — the self-report side (#17356)',
           allowlist = () => [
               {path: 'embedding.batchSize',  kind: 'number'},
               {path: 'embedding.batchDelay', kind: 'number'},
-              {path: 'transport',            kind: 'enum'}
+              {path: 'transport',            kind: 'enum', values: ['http', 'stdio']}
           ];
 
     test.beforeAll(async () => {

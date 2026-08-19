@@ -60,7 +60,7 @@ test.describe('resolvedConfigDisclosure — the disclosure boundary (#17356)', (
         {path: 'embedding.batchSize',  kind: 'number'},
         {path: 'embedding.batchDelay', kind: 'number'},
         {path: 'embedding.maxRetries', kind: 'number'},
-        {path: 'transport',            kind: 'enum'},
+        {path: 'transport',            kind: 'enum', values: ['http', 'stdio']},
         {path: 'debug',                kind: 'boolean'}
     ]);
 
@@ -150,15 +150,51 @@ test.describe('resolvedConfigDisclosure — the disclosure boundary (#17356)', (
         expect(DISCLOSURE_KINDS).toEqual(['number', 'boolean', 'enum']);
         expect(() => assertDisclosureAllowlist([{path: 'apiKey', kind: 'string'}])).toThrow();
 
-        // `enum` is the only string-bearing kind and it is length-bounded, so a token behind an
-        // enum-declared path is still refused.
+        // `enum` is the only string-bearing kind, and its floor is MEMBERSHIP. The fixture is
+        // credential-SHAPED — 26 opaque characters, comfortably under any plausible length bound —
+        // because a long-string fixture cannot tell a set check from a length check. This is the case
+        // that decides it: short, string-typed, and still refused.
+        //
+        // Deliberately carries no vendor prefix. The first version of this fixture used a realistic
+        // `glpat-` shape and GitHub push protection blocked the commit, classifying an invented string
+        // as a live GitLab token — the fixture was too good. Shape without grammar keeps the test
+        // honest and the push clean.
+        const credentialShaped = 'x7Kq2mNp9wRt4vZb8sHj3cLd6f';
+
         const {disclosed, omitted} = projectDisclosedConfig({
-            config   : {transport: 'x'.repeat(MAX_ENUM_VALUE_LENGTH + 1)},
-            allowlist: assertDisclosureAllowlist([{path: 'transport', kind: 'enum'}])
+            config   : {transport: credentialShaped},
+            allowlist: assertDisclosureAllowlist([{path: 'transport', kind: 'enum', values: ['http', 'stdio']}])
         });
 
         expect(disclosed).toEqual({});
-        expect(omitted[0].reason).toBe('kind-mismatch-enum-too-long');
+        expect(omitted[0].reason).toBe('kind-mismatch-enum-not-declared');
+        expect(JSON.stringify({disclosed, omitted})).not.toContain(credentialShaped);
+    });
+
+    test('an `enum` that does not enumerate is refused at load, like a wildcard path is', () => {
+        // The kind-side twin of the `embedding.*` clause. Without a declared set, `enum` matches every
+        // string a refactor could move behind the path — a wildcard arriving through the kind instead
+        // of the path, and the reason the "cannot carry a token" guarantee used to hold for two of
+        // three kinds.
+        expect(() => assertDisclosureAllowlist([{path: 'transport', kind: 'enum'}]))
+            .toThrow(/without a non-empty "values" array/);
+        expect(() => assertDisclosureAllowlist([{path: 'transport', kind: 'enum', values: []}]))
+            .toThrow(/without a non-empty "values" array/);
+
+        expect(() => assertDisclosureAllowlist([
+            {path: 'transport', kind: 'enum', values: ['http', 'x'.repeat(MAX_ENUM_VALUE_LENGTH + 1)]}
+        ])).toThrow(/longer than 64 characters/);
+
+        expect(() => assertDisclosureAllowlist([{path: 'transport', kind: 'enum', values: ['http', 'http']}]))
+            .toThrow(/duplicate enum values/);
+
+        // A value set on a kind that cannot enforce it is refused rather than ignored: a decorative
+        // constraint is worse than an absent one, because the next reader believes it.
+        expect(() => assertDisclosureAllowlist([{path: 'debug', kind: 'boolean', values: ['true']}]))
+            .toThrow(/where it would be decorative/);
+
+        expect(() => assertDisclosureAllowlist([{path: 'transport', kind: 'enum', values: ['http', 'stdio']}]))
+            .not.toThrow();
     });
 
     test('HONESTY: an absent path is reported with a reason and never defaulted', () => {
