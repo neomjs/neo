@@ -228,6 +228,48 @@ export function boundUtf8Tail(value, maxBytes) {
     };
 }
 
+/**
+ * @summary Bounds a UTF-8 string to the FIRST `maxBytes` bytes, cut on a line boundary.
+ *
+ * The twin of {@link boundUtf8Tail}, for the one case where the beginning is the payload: a
+ * container's startup output. A tail bound keeps the end because that is where a death is written;
+ * a head bound keeps the beginning because that is where a process reports what it decided — its
+ * resolved geometry, allocation plan and negotiated features, each emitted exactly once.
+ *
+ * **It cuts back to the last complete line, which its twin does not.** That is a deliberate
+ * difference rather than an inconsistency: a truncated head is read forward by a human looking for a
+ * specific reported value, so a dangling half-line invites misreading a number that was cut in two.
+ * Trimming to a line boundary also removes the split-multi-byte-character case for free.
+ *
+ * @param {String|null|undefined} value Text to bound.
+ * @param {Number} maxBytes Byte cap.
+ * @returns {{text: String, truncated: Boolean, maxBytes: Number}}
+ */
+export function boundUtf8Head(value, maxBytes) {
+    const text = value == null ? '' : String(value);
+
+    if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
+        return {text: '', truncated: text.length > 0, maxBytes};
+    }
+
+    const buffer = Buffer.from(text, 'utf8');
+
+    if (buffer.length <= maxBytes) {
+        return {text, truncated: false, maxBytes};
+    }
+
+    const sliced      = buffer.subarray(0, maxBytes).toString('utf8'),
+          lastNewline = sliced.lastIndexOf('\n');
+
+    return {
+        // No newline inside the cap means one line longer than the whole budget — keep the byte cut
+        // rather than returning nothing, since an over-long single line is still evidence.
+        text     : lastNewline > 0 ? sliced.slice(0, lastNewline + 1) : sliced,
+        truncated: true,
+        maxBytes
+    };
+}
+
 function unavailable({filePath = null, reason, details = null}) {
     return {
         ok      : false,

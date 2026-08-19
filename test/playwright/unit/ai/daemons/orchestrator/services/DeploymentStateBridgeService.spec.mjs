@@ -3706,3 +3706,230 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — identity
         bridge.destroy()
     });
 });
+
+/**
+ * @summary The startup-log head is bounded, incarnation-keyed, and never publishes an empty string.
+ *
+ * Startup output is emitted once, in the first seconds, and is where a process reports what it
+ * decided. The published tail cannot reach it on a long-running container — the banner's distance
+ * from the tail grows with uptime — so the arms that matter here are the ones proving the WINDOW is
+ * asked for server-side, that the cache invalidates on a restart rather than on a clock, and that an
+ * unreachable head reports a reason rather than an empty string.
+ */
+test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup log head', () => {
+    const
+        STARTED = '2026-08-18T10:00:00.000Z',
+        WINDOW  = 60_000,
+        cfg     = overrides => ({
+            includeLogs: true, logMaxBytes: 32 * 1024, logTail: 120, startupLogWindowMs: WINDOW, ...overrides
+        }),
+        // Records every readObserve call so the WINDOW itself can be asserted, not just its output.
+        //
+        // The stub returns the REAL `{data, proof}` envelope rather than a bare payload. An earlier
+        // version of this fixture returned `{logs}` directly, which happened to match a bug in the
+        // reader — it consumed the response without unwrapping `.data`. Every isolated test passed and
+        // only the published-record test caught it. A fixture shaped like the mistake cannot fail on it.
+        bridgeWith = (logsText, {calls = []} = {}) => {
+            const service = createService({});
+
+            service.runtimeAccessService = {
+                async readObserve(request) {
+                    calls.push(request);
+
+                    if (typeof logsText === 'function') return logsText(request);
+
+                    return {data: {logs: logsText}, proof: {operation: request.operation}}
+                }
+            };
+
+            return service
+        },
+        read = (service, overrides = {}) => service.readStartupLogHead({
+            serviceKey          : 'embedding-model',
+            incarnationStartedAt: STARTED,
+            config              : cfg(),
+            ...overrides
+        });
+
+    test('the head is requested as a server-side WINDOW, not a line count', async () => {
+        // The mechanism claim: `since`/`until` bound the read at Docker rather than trimming a tail
+        // client-side. Without both, `readTargetLogs` drops the interval entirely and returns a tail.
+        const calls  = [],
+              result = await read(bridgeWith('llama_kv_cache: size = 7168 MiB\nlistening\n', {calls}));
+
+        expect(result.status).toBe('available');
+        expect(calls).toHaveLength(1);
+        expect(calls[0].operation).toBe('logs');
+        expect(calls[0].since).toBe(STARTED);
+        expect(calls[0].until).toBe(new Date(Date.parse(STARTED) + WINDOW).toISOString());
+        expect(result.windowMs).toBe(WINDOW);
+        expect(result.text).toContain('llama_kv_cache');
+    });
+
+    test('the cache is keyed on the INCARNATION, so a restart invalidates and a re-read does not', async () => {
+        const calls   = [],
+              service = bridgeWith(
+                  request => ({data: {logs: `boot at ${request.since}\n`}, proof: {operation: request.operation}}),
+                  {calls}
+              );
+
+        const first  = await read(service),
+              second = await read(service);
+
+        // Same incarnation: one Docker call, identical record. This is the whole reason for the cache —
+        // the head is invariant for a container's life, so re-reading buys nothing.
+        expect(calls).toHaveLength(1);
+        expect(second).toEqual(first);
+
+        // A restart changes StartedAt. Invalidation is structural, not temporal — nothing expires.
+        const restarted = '2026-08-18T12:00:00.000Z',
+              third     = await read(service, {incarnationStartedAt: restarted});
+
+        expect(calls).toHaveLength(2);
+        expect(third.incarnationStartedAt).toBe(restarted);
+        expect(third.text).toContain(restarted);
+
+        // REPLACES rather than appends, and this is the half that carries the property. Asserting the
+        // new incarnation's content is present cannot distinguish a replacement from an accumulation —
+        // both contain it. The old incarnation being ABSENT is what rules out two boots reading as one,
+        // where the earlier values would still look current to anyone reading the head.
+        expect(third.text,
+            "a restart's head must not carry the previous incarnation's output").not.toContain(STARTED);
+    });
+
+    test('HONESTY: every unavailable arm names a reason and nulls `text` — never an empty string', async () => {
+        // `text: ''` would read as "this service printed nothing at startup", which is a confident
+        // claim about a process nobody watched boot. That is the failure this method exists to prevent.
+        const arms = [
+            ['channel-disabled',         () => read(bridgeWith('x\n'), {config: cfg({includeLogs: false})})],
+            ['incarnation-start-unknown', () => read(bridgeWith('x\n'), {incarnationStartedAt: null})],
+            ['incarnation-start-unknown', () => read(bridgeWith('x\n'), {incarnationStartedAt: 'not-a-date'})],
+            ['window-not-configured',    () => read(bridgeWith('x\n'), {config: cfg({startupLogWindowMs: 0})})],
+            ['window-empty-or-rotated',  () => read(bridgeWith('   \n  \n'))],
+            ['window-empty-or-rotated',  () => read(bridgeWith(null))],
+            ['unreadable',               () => read(bridgeWith(() => { throw new Error('docker said no') }))]
+        ];
+
+        for (const [expectedReason, run] of arms) {
+            const result = await run();
+
+            expect(result.status, expectedReason).toBe('unavailable');
+            expect(result.unavailableReason, expectedReason).toBe(expectedReason);
+            expect(result.text, `${expectedReason}: text must be null, not ''`).toBeNull();
+            expect(result.lines, `${expectedReason}: lines must be null`).toBeNull();
+        }
+    });
+
+    test('an empty window is distinguished from a failed read — rotation is not an error', async () => {
+        // Both produce no head, and conflating them would make a rotated-away banner look like a
+        // broken instrument. The remedies differ: one is expected on a long-lived container, the other
+        // is a Docker problem.
+        const rotated = await read(bridgeWith('')),
+              broken  = await read(bridgeWith(() => { throw new Error('boom') }));
+
+        expect(rotated.unavailableReason).toBe('window-empty-or-rotated');
+        expect(broken.unavailableReason).toBe('unreadable');
+    });
+
+    test('the head is byte-bounded from the correct END, cut on a line boundary', async () => {
+        // A tail bound would keep the LAST bytes, discarding exactly the banner this read exists for.
+        const lines  = Array.from({length: 500}, (_, i) => `line ${i} ${'x'.repeat(80)}`).join('\n') + '\n',
+              result = await read(bridgeWith(lines), {config: cfg({logMaxBytes: 2_000})});
+
+        expect(result.status).toBe('available');
+        expect(result.truncated).toBe(true);
+        expect(result.text.startsWith('line 0 '), 'the HEAD must survive, not the tail').toBe(true);
+        expect(result.text).not.toContain('line 499');
+
+        // Cut on a line boundary: no dangling half-line for a human reading forward for a value.
+        expect(result.text.endsWith('\n')).toBe(true);
+        expect(Buffer.byteLength(result.text, 'utf8')).toBeLessThanOrEqual(2_000);
+    });
+
+    test('the field reaches the PUBLISHED record under `logs`', async () => {
+        // An isolated reader corpus cannot catch an unreachable call site. The head answers a question
+        // about the same stream as the tail, so it is published inside `logs` where a reader chasing
+        // one will find the other.
+        const bridge = Neo.create(DeploymentStateBridgeService, {
+            runtimeAccessService  : {
+                async readObserve(request) {
+                    if (request.operation === 'inspect') {
+                        return {
+                            data : {
+                                Id    : 'c-x',
+                                State : {Status: 'running', StartedAt: STARTED},
+                                Config: {Cmd: ['node', 'server.mjs']}
+                            },
+                            proof: {operation: 'inspect'}
+                        }
+                    }
+
+                    if (request.operation === 'logs') {
+                        return {data: {logs: 'llama_kv_cache: size = 7168 MiB\n', bounded: true}, proof: {operation: 'logs'}}
+                    }
+
+                    return {data: null, proof: {operation: request.operation}}
+                }
+            },
+            diagnosisService      : Neo.create(ContainerHealthDiagnosisService, {}),
+            providerResidencyProbe: async () => null,
+            writeLog              : () => {},
+            nowFn                 : () => OBSERVED_AT
+        });
+
+        const record = await bridge.collectServiceSnapshot({serviceKey: 'embedding-model', observedAt: OBSERVED_AT});
+
+        expect(record.logs?.startup, 'the head must reach the record, not just the reader').toBeTruthy();
+        expect(record.logs.startup.recordType).toBe('deployment-startup-log-head');
+        expect(record.logs.startup.serviceKey).toBe('embedding-model');
+
+        bridge.destroy()
+    });
+
+    test('a failed TAIL read does not suppress a captured head — they fail independently', async () => {
+        // Two reads of the same operation, two failure modes. Collapsing them would hide a head that
+        // WAS captured behind an unrelated tail failure — the shape that kept this gap invisible.
+        //
+        // The stub separates them the way the code does: the tail read carries a null `until` (a
+        // running container has no FinishedAt), the head read carries a real one. No private function
+        // is exported to test this; the property is asserted through the published record.
+        const bridge = Neo.create(DeploymentStateBridgeService, {
+            runtimeAccessService  : {
+                async readObserve(request) {
+                    if (request.operation === 'inspect') {
+                        return {
+                            data : {
+                                Id    : 'c-x',
+                                State : {Status: 'running', StartedAt: STARTED},
+                                Config: {Cmd: ['node', 'server.mjs']}
+                            },
+                            proof: {operation: 'inspect'}
+                        }
+                    }
+
+                    if (request.operation === 'logs') {
+                        // The HEAD read (has `until`) succeeds; the TAIL read (no `until`) fails.
+                        if (request.until) {
+                            return {data: {logs: 'llama_kv_cache: size = 7168 MiB\n'}, proof: {operation: 'logs'}}
+                        }
+
+                        throw new Error('tail read failed')
+                    }
+
+                    return {data: null, proof: {operation: request.operation}}
+                }
+            },
+            diagnosisService      : Neo.create(ContainerHealthDiagnosisService, {}),
+            providerResidencyProbe: async () => null,
+            writeLog              : () => {},
+            nowFn                 : () => OBSERVED_AT
+        });
+
+        const record = await bridge.collectServiceSnapshot({serviceKey: 'embedding-model', observedAt: OBSERVED_AT});
+
+        expect(record.logs?.startup?.status, 'a tail failure must not take the head with it').toBe('available');
+        expect(record.logs.startup.text).toContain('llama_kv_cache');
+
+        bridge.destroy()
+    });
+});
