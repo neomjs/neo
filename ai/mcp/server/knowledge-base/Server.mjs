@@ -124,6 +124,40 @@ class Server extends BaseServer {
     getHeapObservationServiceKey() { return 'kb-server' }
 
     /**
+     * @summary Declares the resolved embedding knobs this server publishes about itself.
+     *
+     * **Chosen by one test: has not knowing this value cost an incident?** Each of these was needed
+     * during a live ingestion stall and could not be answered from outside the container, so the only
+     * remaining move was to ask an operator to read back a value we had configured for them. Nothing
+     * is listed for completeness — a path that has never been wanted is a path whose disclosure earns
+     * nothing and still has to be reviewed forever.
+     *
+     * `embedding.batchSize` is the sharpest case. It carries an env override precisely so an operator
+     * whose corpus will not start can shrink the durable unit until one batch lands, which means the
+     * shipped default is the value LEAST likely to be in effect on a deployment worth asking about.
+     * Reading it from the compose default is how a diagnosis proceeds against an input that is off by
+     * the whole factor that matters.
+     *
+     * Every entry is `number`, so nothing here can carry a string even if a later refactor moves
+     * something unexpected behind one of these paths. The `kind` is deliberately coarser than the
+     * leaf's own type, which already owns the value domain.
+     * @returns {Object}
+     */
+    getResolvedConfigDisclosure() {
+        return {
+            config   : aiConfig,
+            // Top-level paths, not `embedding.*`: the leaves live under `data` in the config base and
+            // the runtime config is a proxy that exposes them at the root, which is how every other
+            // consumer reads them (`VectorService` destructures `batchSize` straight off `aiConfig`).
+            allowlist: [
+                {path: 'batchSize',  kind: 'number'},
+                {path: 'batchDelay', kind: 'number'},
+                {path: 'maxRetries', kind: 'number'}
+            ]
+        }
+    }
+
+    /**
      * @summary Tools allowed without the aggregate health gate.
      *
      * Recovery reads stay available when only the embedding provider is degraded. The deployment
