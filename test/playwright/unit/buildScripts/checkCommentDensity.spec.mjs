@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import {
     DEFAULT_BOUNDS,
+    dropQuotedSpans,
     formatDensityWarning,
     isConfession,
     isInScopePath,
@@ -167,6 +168,30 @@ test.describe('check-comment-density — deferral detection', () => {
         expect(isConfession('scrolls we caused, because we know we caused them')).toBe(false);
         expect(isConfession('declared `number`, which accepts values that are not wrong-ish but INVALID')).toBe(false);
         expect(isConfession('rejects bad rows at the upsert boundary, but a replace-mode import truncates')).toBe(false);
+    });
+
+    test('USE vs MENTION: quoting a marker as an example is not owing work', () => {
+        // Any file documenting this vocabulary quotes the markers, this one included. Measured on the
+        // repo: the rule drops 3 of 49 hits and all 3 are mentions, so it costs no recall.
+        expect(isConfession('"Pass generic env for now" is the specimen')).toBe(false);
+        expect(isConfession('the marker form matched ("TODO: Implement geocoding")')).toBe(false);
+        expect(isConfession('`// TODO: remove when it lands` is observed by nobody')).toBe(false);
+        expect(isConfession('**for now** is the marker this names')).toBe(false);
+
+        // The same words UNQUOTED still fire — the rule reads quoting, not vocabulary.
+        expect(isConfession('Pass generic env for now')).toBe(true);
+        expect(isConfession('TODO: Implement geocoding')).toBe(true);
+    });
+
+    test('an unbalanced quote is treated as a span that OPENS here, not as unquoted text', () => {
+        expect(isConfession('unbalanced mention opens here ("for now')).toBe(false);
+        // An EVEN count pairs correctly, so the mention is dropped.
+        expect(dropQuotedSpans('a "b" c "TODO: x").').includes('TODO')).toBe(false);
+
+        // Stated limit, not a silent one, and this was a real line in this file: with THREE quotes the
+        // balanced pass consumes the first two, leaving the third dangling and the mention exposed.
+        // Deciding it needs cross-line quote state, which check-ticket-archaeology declines too.
+        expect(dropQuotedSpans('todo"); the form matched ("TODO: x").').includes('TODO')).toBe(true);
     });
 
     test('a bound obligation is not a confession, and the marker is the reachable escape', () => {

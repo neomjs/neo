@@ -85,8 +85,8 @@ export const CONFESSION_MARKERS = /\b(for now|left alone|would be nice|should re
 
 /**
  * Unticketed-work markers in MARKER form — a colon, a paren, or the end of the token — never the
- * English word. Bare `todo` matched 90 lines, most of them prose about obligations ("someone else's
- * todo"); the marker form matched 14 and every one was real ("TODO: Implement geocoding").
+ * English word. Bare `todo` matched 90 lines, most of them prose about obligations — one reads
+ * `an announcement becomes someone else's todo`. The marker form matched 14, every one real.
  * @type {RegExp}
  */
 export const TODO_MARKERS = /(?:^|[^\w])(?:TODO|FIXME|XXX|HACK)(?=[:(\s]|$)/;
@@ -118,6 +118,35 @@ export const DECIDED_MARKERS = /\b(intentionally|on purpose|by design)\b/i;
 export const BOUND_OBLIGATION = /ticket-ref-ok|#\d{4,}/;
 
 /**
+ * @summary Drops quoted spans, so a marker being MENTIONED is not read as a marker being USED.
+ *
+ * Any file that documents deferral vocabulary — this one, its spec, a guide — quotes the markers as
+ * examples, and quoting one is not owing work. Measured on this repo: the rule drops 3 of 49 hits and
+ * all 3 are mentions, so it costs no recall.
+ *
+ * An ODD quote count means a span crosses a line boundary, and the trailing-drop below covers the
+ * common case where it OPENS on this line. It cannot cover every pairing: when the balanced pass
+ * consumes the wrong two of three quotes, a mention can survive as a hit. Deciding that needs quote
+ * state carried across lines, which `check-ticket-archaeology` deliberately does not carry either —
+ * the ambiguity is in the input, so the honest boundary is stated rather than guessed at.
+ * @param {String} comment Comment text for one line.
+ * @returns {String}
+ */
+export function dropQuotedSpans(comment) {
+    const text = (comment ?? '')
+        .replace(/"[^"]*"/g, ' ')
+        .replace(/`[^`]*`/g, ' ')
+        .replace(/'[^']*'/g, ' ')
+        .replace(/\*\*[^*]*\*\*/g, ' ');
+
+    return ['"', '`'].reduce((carried, mark) => {
+        const parts = carried.split(mark);
+
+        return parts.length % 2 === 0 ? parts.slice(0, -1).join(mark) : carried
+    }, text)
+}
+
+/**
  * @summary Whether a comment defers work without binding the obligation anywhere.
  *
  * The discriminator is DEFER-vs-DECIDE, not the marker words: a decision with a rationale owes
@@ -128,10 +157,12 @@ export const BOUND_OBLIGATION = /ticket-ref-ok|#\d{4,}/;
  * Naming the ticket inside the comment is NOT the remedy: `check-ticket-archaeology` correctly keeps
  * decaying refs out of durable comments. The remedy is that the deferral belongs in a ticket, and the
  * comment describes behaviour.
- * @param {String} comment Comment text for one line.
+ * @param {String} rawComment Comment text for one line, quotes intact.
  * @returns {Boolean}
  */
-export function isConfession(comment) {
+export function isConfession(rawComment) {
+    const comment = dropQuotedSpans(rawComment);
+
     if (BOUND_OBLIGATION.test(comment)) {
         return false
     }
