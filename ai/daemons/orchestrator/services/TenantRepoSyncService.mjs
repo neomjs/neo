@@ -2487,8 +2487,55 @@ class TenantRepoSyncService extends Base {
                     //   settle a checkpoint over a remainder that never landed — the failure this
                     //   outcome exists to prevent, and the one AC-6's negative arm pins.
                     //
-                    // The streak is neither incremented nor reset, so a budgeted rotation cannot
-                    // climb a repo toward its backoff cap: being large is not a fault.
+                    // The streak is CLEARED, for the same reason `complete` clears it: this branch is
+                    // reachable only on a clean summary. An error-bearing summary throws before the
+                    // `yielded` check, so `partial-progress` is by construction a run in which nothing
+                    // failed. The streak exists to back off from FAILURES, and a clean slice is
+                    // positive evidence there is no longer a fault to back off from. The only thing
+                    // separating this outcome from `complete` is that the corpus is not exhausted,
+                    // which is not a fault signal.
+                    //
+                    // Holding it instead — the prior behaviour — was not neutral, because a repo whose
+                    // corpus exceeds one slice budget never REACHES `complete`, and `complete` is the
+                    // only outcome that cleared the streak. Such a repo could therefore never decay a
+                    // streak it accrued while a real fault was live, no matter how well it ran.
+                    // Observed on a live plane: `errors=0` printed beside `streak held at 42`.
+                    //
+                    // Decaying by one instead of clearing does not fix it, and the cap is why.
+                    // `effectiveCadence` is `min(2^streak x (base + jitter), cap)` with the shipped
+                    // leaves `backoffCapMs` 2 h, `intervals.tenantRepoSyncMs` 30 min and
+                    // `jitterRatio` 0.20 (`ai/configBase.mjs:2168`, `:1621`, `:2169`) — so the curve
+                    // is capped from streak 2 onward and every streak above it is indistinguishable.
+                    // Walking 42 down to 1 is 41 clean sweeps spaced at the 2 h cap: ~82 h, about
+                    // 3.4 days. At the 309 seen on the live plane it is ~25.7 days. A decrement the
+                    // cap absorbs is a fixed budget standing in for a condition, which is the shape
+                    // this ticket exists to remove.
+                    //
+                    // Do NOT read the `backoffX` in the sync log as a delay: it is the raw multiplier,
+                    // printed before the cap is applied two lines later in `isRepoDue`. Both
+                    // @neo-opus-vega and I quoted `4.4e12` as though it were an interval; it never was.
+                    //
+                    // A repo alternating clean and failing slices is still protected: the failure path
+                    // increments on the very next bad slice, and it alone retains `lastSourceErrorCode`
+                    // and arms the recovery canary. What stops happening is a repo being throttled for
+                    // delivering.
+                    //
+                    // An armed embedding-recovery episode needs no carve-out here.
+                    // `classifyEmbeddingRecoveryState` inspects `embeddingRecovery` BEFORE the failure
+                    // count — its own comment names that ordering as load-bearing — and all three
+                    // returns inside `if (recovery)` are reached without consulting `failures`, pacing
+                    // off `probeSnapshot.nextAttemptAt` instead. `...priorState` carries the episode
+                    // through untouched.
+                    //
+                    // Scoped deliberately to the ARMED arm, because the streak is not unread by that
+                    // function: the fall-through past `if (recovery)` is `failures <= 0 ? null :
+                    // 'ordinary-repo-backoff'`. So for a repo with NO episode this clear flips the
+                    // published `recoveryState` to `null`, and the `repoStates.push` below reads the
+                    // freshly-written state, so the flip reaches the operator row. Benign and correct —
+                    // `null` is the documented return, the repo genuinely is no longer in ordinary
+                    // backoff, and no consumer reads `null` as unknown — but it is a real effect, and
+                    // an earlier revision of this comment claimed the streak was never read at all.
+                    // Narrowed after @neo-opus-vega grepped the function rather than accepting it.
                     const partialOutstanding = buildCorpusOutstandingObservation({
                         summary   : rawSummary,
                         priorState,
@@ -2499,17 +2546,24 @@ class TenantRepoSyncService extends Base {
                         ...priorState,
                         lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
                         lastRunAttemptAt                  : startedMs,
-                        consecutiveFailures               : priorState?.consecutiveFailures ?? 0,
+                        consecutiveFailures               : 0,
                         lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
                         corpusOutstanding                 : partialOutstanding
                     };
+
+                    // Report the streak TRANSITION rather than a single number. `streak held at 42`
+                    // beside `errors=0` was true and unreadable: it named the state without naming
+                    // what the state was doing, so a reader could not tell a repo recovering from one
+                    // stuck at the cap. `42 -> 0` says which of the two this is in one glance.
+                    const priorStreak = priorState?.consecutiveFailures ?? 0;
 
                     writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} partial-progress: ` +
                         `slice budget reached, checkpoint held at ` +
                         `${priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : 'none'} ` +
                         `ingested=${rawSummary?.ingested ?? 0} ` +
                         `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
-                        `(streak held at ${priorState?.consecutiveFailures ?? 0}; repo stays due)`);
+                        `(clean slice: streak ${priorStreak} -> 0` +
+                        `${priorStreak > 0 ? ', backoff cleared' : ''}; repo due next cycle)`);
 
                     repoStates.push({
                         tenantId        : repo.tenantId,
