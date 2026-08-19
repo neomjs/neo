@@ -74,6 +74,7 @@ import {
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 
 import {
+    boundUtf8Head,
     boundUtf8Tail,
     createDeploymentStateSnapshot,
     writeDeploymentStateSnapshot
@@ -284,6 +285,20 @@ export class DeploymentStateBridgeService extends Base {
     lastWriteAt           = 0
     writeInFlight         = false
     statsSamplesByService = new Map()
+
+    /**
+     * Startup-log heads, keyed by `serviceKey`, holding `{startedAt, record}`.
+     *
+     * Cached because the head is invariant for the life of an incarnation — a process emits its
+     * startup output once and then stops — so re-reading it every collection would pay a Docker call
+     * per service per sweep to receive the same bytes. The cache key is the incarnation start, which
+     * makes invalidation structural rather than time-based: a restart changes `StartedAt`, the key
+     * misses, and the next collection fetches the new incarnation's head. Nothing expires; there is
+     * no staleness to expire against.
+     * @member {Map<String,Object>} startupLogHeadsByService
+     * @protected
+     */
+    startupLogHeadsByService = new Map()
     // Last service-state signature written to the log; gates the edge-triggered success line so a
     // healthy steady-state stops re-emitting an identical INFO line on every snapshot write.
     lastLoggedSignature   = null
@@ -699,7 +714,16 @@ export class DeploymentStateBridgeService extends Base {
                 proofByOperation.inspect.target.containerId === proofByOperation.stats?.target?.containerId
                 ? proofByOperation.inspect.target.containerId
                 : null,
-            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {sameTarget}),
+            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {
+                sameTarget,
+                // Published INSIDE `logs` rather than as a sibling field, because it answers a
+                // question about the same stream: the tail says what this service is doing, the head
+                // says what it decided. A reader chasing one will look where the other lives.
+                startup: await this.readStartupLogHead({
+                    serviceKey,
+                    incarnationStartedAt: inspectSummary?.state?.startedAt ?? null
+                })
+            }),
             // Consumes the SAME `nodeCommand` observation the heap attribution uses, rather than
             // re-deriving what "a Node service" means. Placed after the summary for that reason
             // alone; it is otherwise a sibling of `providerResidency` — nullable, non-Docker-derived,
@@ -1493,6 +1517,136 @@ export class DeploymentStateBridgeService extends Base {
     }
 
     /**
+     * @summary Reads the head of this incarnation's log stream, where a process reports what it decided.
+     *
+     * **The gap this closes.** Startup output is emitted exactly once, in the first seconds, and is
+     * where a process states its resolved geometry, allocation plan, model identity and negotiated
+     * features. The published tail is a rolling window sized for recent activity — correct for "what
+     * is this service doing now" and structurally wrong for "what did it decide when it started",
+     * because the banner's distance from the tail grows with uptime. On this plane an embedding
+     * provider's KV-cache and compute-buffer sizes were unreadable after four hours, so a memory
+     * footprint got attributed from a fitted formula while the engine's own numbers had been
+     * available and were discarded by retention.
+     *
+     * **Raising `logTail` is not the fix**, which is why this is a second read rather than a bigger
+     * one: any fixed line count is a bet on how soon someone looks, and the bet gets worse the longer
+     * a deployment runs well.
+     *
+     * **A time window, not a line count.** Docker bounds `since`/`until` server-side, so asking for
+     * `StartedAt → StartedAt + window` returns the banner instead of the banner plus hours of runtime
+     * traffic. That also makes the read self-limiting on a chatty service without needing to guess a
+     * line budget.
+     *
+     * **Nothing is stored, and that is the design.** An earlier shape for this captured the head once
+     * and retained it, with wholesale replacement on restart. Retention turned out to be unnecessary:
+     * the window keys off `StartedAt`, so the read is *always* about the current incarnation and can
+     * simply be re-derived. What remains is a cache keyed on that same value — invalidation is
+     * structural, not temporal, and there is no stale-record arm to get wrong.
+     *
+     * **Absence carries a reason, never an empty string.** A bridge that first observed a service
+     * already running, or whose window fell off the far side of log rotation, has no head to publish —
+     * and `text: ''` would read as *this service printed nothing at startup*, a confident claim about
+     * a process nobody watched boot. That is the failure this method exists to prevent, arriving by a
+     * different route.
+     *
+     * @param {Object}      options
+     * @param {String}      options.serviceKey           Service whose head to read.
+     * @param {String|null} options.incarnationStartedAt Current incarnation's start, ISO.
+     * @param {Object}     [options.config]              Resolved `deploymentStateBridge` leaves.
+     * @returns {Promise<Object>} Always an envelope; `text` is `null` whenever `status` is `unavailable`.
+     */
+    async readStartupLogHead({serviceKey, incarnationStartedAt, config = AiConfig.orchestrator.deploymentStateBridge}) {
+        const unavailable = reason => ({
+            schemaVersion       : 1,
+            recordType          : 'deployment-startup-log-head',
+            serviceKey,
+            status              : 'unavailable',
+            unavailableReason   : reason,
+            incarnationStartedAt: incarnationStartedAt ?? null,
+            windowMs            : null,
+            lines               : null,
+            text                : null,
+            truncated           : false
+        });
+
+        if (!config.includeLogs) {
+            // A disabled log channel is not evidence that the service reported nothing.
+            return unavailable('channel-disabled')
+        }
+
+        const startedAtMs = Date.parse(incarnationStartedAt ?? '');
+
+        // Without a known incarnation start there is no window to ask for, and guessing one would
+        // reach into a PREVIOUS incarnation — the exact poison `since` exists to remove on the tail.
+        if (!Number.isFinite(startedAtMs)) {
+            return unavailable('incarnation-start-unknown')
+        }
+
+        const windowMs = Number.isFinite(config.startupLogWindowMs) && config.startupLogWindowMs > 0
+            ? config.startupLogWindowMs
+            : null;
+
+        if (windowMs === null) {
+            return unavailable('window-not-configured')
+        }
+
+        const cached = this.startupLogHeadsByService.get(serviceKey);
+
+        // Structural invalidation: same incarnation start means the same head, byte for byte.
+        if (cached && cached.startedAt === incarnationStartedAt) {
+            return cached.record
+        }
+
+        let response;
+
+        try {
+            response = await this.runtimeAccessService.readObserve({
+                serviceKey,
+                operation: 'logs',
+                since    : incarnationStartedAt,
+                until    : new Date(startedAtMs + windowMs).toISOString(),
+                // Generous, because the WINDOW is the bound that matters here. A line cap would take
+                // the last N lines *of the window*, which is a tail of the head — the wrong end of the
+                // wrong thing. `logMaxBytes` is the real ceiling and it trims from the correct side.
+                tail     : 10_000
+            });
+        } catch (error) {
+            return unavailable(error.code === 'ENOENT' ? 'absent' : 'unreadable')
+        }
+
+        // `readObserve` answers `{data, proof}`; the payload is on `data`. Unwrapped here rather than
+        // consumed raw, because the collection path's own `read()` helper does the same and a reader
+        // that skipped it would find `undefined` and report an empty window — a wrong reason rather
+        // than a missing value, which is the harder failure to notice.
+        const bounded = boundUtf8Head(response?.data?.logs, config.logMaxBytes),
+              text    = bounded.text.trim();
+
+        if (!text) {
+            // Distinguished from a failed read: the window was asked for and came back empty, which on
+            // a long-running container means rotation has carried the head away. Naming that is what
+            // keeps a reader from concluding the service was silent at boot.
+            return unavailable('window-empty-or-rotated')
+        }
+
+        const record = {
+            schemaVersion    : 1,
+            recordType       : 'deployment-startup-log-head',
+            serviceKey,
+            status           : 'available',
+            unavailableReason: null,
+            incarnationStartedAt,
+            windowMs,
+            lines            : text.split('\n').length,
+            text             : bounded.text,
+            truncated        : bounded.truncated
+        };
+
+        this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record});
+
+        return record
+    }
+
+    /**
      * @summary Relays one service's self-reported resolved config without ever resolving it here.
      *
      * **This reader must not resolve any value itself, and that is the whole contract.** A
@@ -2266,12 +2420,19 @@ function summarizeStats(stats) {
     };
 }
 
-function summarizeLogs(logs, maxBytes, {sameTarget = false} = {}) {
-    if (!logs || typeof logs !== 'object') return null;
+function summarizeLogs(logs, maxBytes, {sameTarget = false, startup = null} = {}) {
+    // A missing tail read must not suppress the startup head: the two come from separate reads and
+    // fail independently, so collapsing them would hide a head that was successfully captured behind
+    // an unrelated tail failure.
+    if (!logs || typeof logs !== 'object') return startup ? {startup} : null;
 
     const bounded = boundUtf8Tail(logs.logs, maxBytes);
 
     return {
+        // The head of THIS incarnation, where the process reported what it decided. Always an
+        // envelope, never a bare string — every unavailable arm carries its own reason, so an absent
+        // head is never read as "this service printed nothing at startup".
+        startup,
         // `incarnationBounded` is set ONLY from the producer's echoed receipt — never from a
         // caller-supplied flag and never inferred here. A consumer that attributes a death to this
         // slice is trusting that the daemon actually applied the interval, so the claim has to

@@ -348,6 +348,7 @@
         "orchestrator.deploymentStateBridge.selfHealRecentEventLimit",
         "orchestrator.deploymentStateBridge.snapshotPath",
         "orchestrator.deploymentStateBridge.staleAfterMs",
+        "orchestrator.deploymentStateBridge.startupLogWindowMs",
         "orchestrator.deploymentStateBridge.statsSampleWindow",
         "orchestrator.deploymentStateBridge.writeIntervalMs",
         "orchestrator.devServer",

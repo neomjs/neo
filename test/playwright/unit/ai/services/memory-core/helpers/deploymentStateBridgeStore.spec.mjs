@@ -4,6 +4,7 @@ import os             from 'os';
 import path           from 'path';
 
 import {
+    boundUtf8Head,
     boundUtf8Tail,
     createDeploymentStateSnapshot,
     readDeploymentStateSnapshot,
@@ -139,6 +140,33 @@ test.describe('deploymentStateBridgeStore', () => {
             truncated: true,
             maxBytes : 4
         });
+    });
+
+    test('bounds log HEADS from the opposite end, cut on a line boundary (#17357)', () => {
+        // The twin of the tail bound, and the contrast IS the test: same input, same cap, opposite
+        // survivor. A tail keeps the end because that is where a death is written; a head keeps the
+        // beginning because that is where a process reports what it decided, exactly once.
+        expect(boundUtf8Tail('0123456789', 4).text).toBe('6789');
+        expect(boundUtf8Head('0123456789', 4).text).toBe('0123');
+
+        // Cuts back to the last complete line, which the tail deliberately does not: a truncated head
+        // is read FORWARD by a human hunting a reported value, so a dangling half-line invites
+        // misreading a number that was cut in two.
+        const lines = boundUtf8Head('aaaa\nbbbb\ncccc\n', 7);
+
+        expect(lines.text).toBe('aaaa\n');
+        expect(lines.truncated).toBe(true);
+
+        // A single line longer than the whole budget still yields bytes rather than nothing — an
+        // over-long line is evidence, and returning '' would read as "printed nothing".
+        expect(boundUtf8Head('xxxxxxxxxx', 4)).toEqual({text: 'xxxx', truncated: true, maxBytes: 4});
+
+        // Under the cap: untouched and not marked truncated, matching its twin.
+        expect(boundUtf8Head('short\n', 1024)).toEqual({text: 'short\n', truncated: false, maxBytes: 1024});
+
+        // Degenerate caps behave as the twin does rather than throwing.
+        expect(boundUtf8Head('abc', 0)).toEqual({text: '', truncated: true, maxBytes: 0});
+        expect(boundUtf8Head(null, 8)).toEqual({text: '', truncated: false, maxBytes: 8});
     });
 });
 
