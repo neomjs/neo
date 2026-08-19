@@ -150,6 +150,35 @@ test.describe('DevIndex Storage — the published index as the read side (#17374
         }
     });
 
+    test('a 200 carrying an unparseable body falls back on the BOOTSTRAP run, rather than throwing', async () => {
+        // The uncovered path, and the dangerous one. With provenance recorded, a mangled body fails
+        // the digest comparison and never reaches the parse. With provenance ABSENT — the first run
+        // after adoption, which the code itself calls expected — nothing has verified these bytes, so
+        // an HTML interstitial or a truncated transfer arrives at `JSON.parse`. Unguarded that throws
+        // out of `getUsers()` and takes the run down on the one run documented as normal.
+        stubFetch('<!DOCTYPE html><html>portal login</html>', {ok: true, status: 200});
+        stubProvenance(null);
+
+        Storage.readJson = async (path, defaultValue) =>
+            path === config.paths.indexProvenance ? null :
+            path === config.paths.users          ? RECORDS : originalReadJson(path, defaultValue);
+
+        const warned   = [];
+        const realWarn = console.warn;
+
+        console.warn = message => warned.push(String(message));
+
+        try {
+            // The assertion is that this RESOLVES at all. Before the guard it rejected.
+            const result = await Storage.getUsers();
+
+            expect(result).toEqual(RECORDS);
+            expect(warned.some(line => line.includes('not parseable JSONL'))).toBe(true);
+        } finally {
+            console.warn = realWarn
+        }
+    });
+
     test('AC-3: a digest mismatch falls back rather than mutating an artifact we did not write', async () => {
         stubFetch(SERIALIZED);
         stubProvenance({digest: 'f'.repeat(64)});

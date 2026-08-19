@@ -417,10 +417,20 @@ class Storage extends Base {
             )
         }
 
-        return text
-            .split('\n')
-            .filter(line => line.trim())
-            .map(line => JSON.parse(line))
+        // Guarded, and the bootstrap run is exactly why. With provenance recorded, a mangled body
+        // fails the digest comparison above and never reaches here. With provenance ABSENT — the
+        // first run after adoption, which the branch above calls expected — nothing has verified
+        // these bytes, so a 200 carrying an HTML interstitial, a truncated transfer or a captive
+        // -portal page reaches `JSON.parse`. Unguarded, that throws out of `getUsers()` and takes
+        // the run down on the one run this method documents as normal.
+        try {
+            return text
+                .split('\n')
+                .filter(line => line.trim())
+                .map(line => JSON.parse(line))
+        } catch (error) {
+            return this.rejectPublishedIndex(`published index is not parseable JSONL: ${error.message}`)
+        }
     }
 
     /**
