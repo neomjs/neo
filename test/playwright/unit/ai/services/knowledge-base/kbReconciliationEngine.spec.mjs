@@ -4,12 +4,13 @@ import {
     DEFAULT_ORPHAN_VERSION_GAP,
     diffTenantChunks,
     diffTenantManifest,
+    diffTenantParserIdentity,
     formatReconciliationDetail,
     resolveOrphanVersionGap
 } from '../../../../../../ai/services/knowledge-base/helpers/kbReconciliationEngine.mjs';
 
 /**
- * Phase 4B (#11640) — `KbReconciliationEngine` coverage: the pure config-invalidation
+ * Phase 4B (#11640) — `KbReconciliationEngine` coverage: the pure config-invalidation  ticket-ref-ok: implementing ticket
  * reconciliation core of the KB reconciliation daemon.
  *
  * The module is dependency-free (no Neo class system, no I/O, no clock) — so this spec
@@ -17,7 +18,7 @@ import {
  * against fixture rows whose shape mirrors `KnowledgeBaseIngestionService.getTenantRows`
  * (`{id, metadata}`).
  *
- * Covers the #11640 Contract Ledger Evidence column for the engine row: stale-detection,
+ * Covers the #11640 Contract Ledger Evidence column for the engine row: stale-detection,  ticket-ref-ok: implementing ticket
  * the version-gap partition, the `currentVersion: 0` no-op, and the missing-stamp skip.
  * The daemon I/O (poll loop, Chroma read, telemetry) is covered separately in
  * `KbReconciliationService.spec.mjs`.
@@ -248,6 +249,7 @@ test.describe('KbReconciliationEngine — formatReconciliationDetail (#11640)', 
         expect(detail).toEqual({
             staleCount         : 5,
             manifestOrphanCount: 2,
+            parserOrphanCount  : 0,
             totalOrphanCount   : 7,
             actionableCount    : 3,
             tombstonedCount    : 3,
@@ -270,11 +272,179 @@ test.describe('KbReconciliationEngine — formatReconciliationDetail (#11640)', 
         expect(detail).toEqual({
             staleCount         : 0,
             manifestOrphanCount: 0,
+            parserOrphanCount  : 0,
             totalOrphanCount   : 0,
             actionableCount    : 0,
             tombstonedCount    : 0,
             currentVersion     : 0,
             autoTombstone      : false
         });
+    });
+});
+
+
+test.describe('diffTenantParserIdentity — parser-identity orphans (#17392)', () => {
+    const DECLARED = {parserId: 'docker-mcp-source', parserVersion: '1.1.0'},
+          SUPERSED = {parserId: 'docker-mcp-source', parserVersion: '1.0.0'},
+          REPO     = 'org/repo';
+
+    /**
+     * @param {Object} overrides
+     * @returns {Object}
+     */
+    function row({id, path, parser = SUPERSED, tenantId = 't1', repoSlug = REPO, configVersion = 7}) {
+        return {
+            id,
+            metadata: {
+                tenantId,
+                repoSlug,
+                sourcePath         : path,
+                parserId           : parser.parserId,
+                parserVersion      : parser.parserVersion,
+                tenantConfigVersion: configVersion
+            }
+        }
+    }
+
+    test('RED-PROOF: a superseded generation surviving beside its replacement is classified — the state the defect leaves behind', () => {
+        // Advancing parserVersion changes every chunk id (`hashInputs`), so the new generation ADDS
+        // rows. Both live in the collection; only the old one is an orphan. If this arm passes with
+        // an empty result, the classifier is not exercising the defect at all.
+        const rows = [
+            row({id: 'old', path: 'a.md'}),
+            row({id: 'new', path: 'a.md', parser: DECLARED})
+        ];
+
+        const out = diffTenantParserIdentity({
+            rows, tenantId: 't1',
+            declaredByRepo    : {[REPO]: DECLARED},
+            yieldedPathsByRepo: {[REPO]: ['a.md']}
+        });
+
+        expect(out.parserOrphanCount, 'the superseded row must be seen').toBe(1);
+        expect(out.parserOrphans[0].id).toBe('old');
+        expect(out.parserOrphans[0].tier).toBe('superseded');
+        expect(out.actionableIds, 'its replacement exists, so it is reclaimable').toEqual(['old']);
+    });
+
+    test('CONTROL: an unchanged declared pair classifies nothing — without this, firing indiscriminately is equally green', () => {
+        const rows = [row({id: 'a', path: 'a.md', parser: DECLARED}), row({id: 'b', path: 'b.md', parser: DECLARED})];
+
+        const out = diffTenantParserIdentity({
+            rows, tenantId: 't1',
+            declaredByRepo    : {[REPO]: DECLARED},
+            yieldedPathsByRepo: {[REPO]: ['a.md', 'b.md']}
+        });
+
+        expect(out.parserOrphanCount).toBe(0);
+        expect(out.actionableCount).toBe(0);
+    });
+
+    test('NO-HOLE: a still-yielded path with no replacement yet is seen but NOT actionable', () => {
+        // The delete-before-embed window made concrete: at partial embedding progress the
+        // superseded row is the only copy of that path, so reclaiming it opens a retrieval hole.
+        const out = diffTenantParserIdentity({
+            rows              : [row({id: 'old', path: 'pending.md'})],
+            tenantId          : 't1',
+            declaredByRepo    : {[REPO]: DECLARED},
+            yieldedPathsByRepo: {[REPO]: ['pending.md']}
+        });
+
+        expect(out.parserOrphanCount, 'it is classified').toBe(1);
+        expect(out.parserOrphans[0].tier).toBe('superseded');
+        expect(out.actionableIds, 'but not reclaimable until its replacement lands').toEqual([]);
+    });
+
+    test('UNYIELDED: a path the declared parser no longer yields is immediately actionable — no replacement is ever coming', () => {
+        const out = diffTenantParserIdentity({
+            rows              : [row({id: 'gone', path: 'vendor/x.md'})],
+            tenantId          : 't1',
+            declaredByRepo    : {[REPO]: DECLARED},
+            yieldedPathsByRepo: {[REPO]: ['a.md']}
+        });
+
+        expect(out.parserOrphans[0].tier).toBe('unyielded');
+        expect(out.actionableIds).toEqual(['gone']);
+    });
+
+    test('tenantConfigVersion INDEPENDENCE: fires with the config version identical across both generations', () => {
+        // The signal that already exists cannot see this: `diffTenantChunks` keys on
+        // tenantConfigVersion, and a parser change never moves it. Both rows carry 7.
+        const rows = [row({id: 'old', path: 'a.md', configVersion: 7}), row({id: 'new', path: 'a.md', parser: DECLARED, configVersion: 7})];
+
+        expect(diffTenantChunks({rows, currentVersion: 7}).staleCount, 'the existing signal is blind here').toBe(0);
+
+        const out = diffTenantParserIdentity({
+            rows, tenantId: 't1',
+            declaredByRepo    : {[REPO]: DECLARED},
+            yieldedPathsByRepo: {[REPO]: ['a.md']}
+        });
+
+        expect(out.actionableIds).toEqual(['old']);
+    });
+
+    test('TENANT CONTAINMENT: with both tenants resident in the shared collection, classifying A yields no row carrying B', () => {
+        // One shared collection, metadata-scoped isolation. Asserted by per-tenantId count over
+        // the returned ids, not by the classifier reporting its own scope.
+        const rows = [
+            row({id: 'a-old', path: 'a.md', tenantId: 't1'}),
+            row({id: 'a-new', path: 'a.md', tenantId: 't1', parser: DECLARED}),
+            row({id: 'b-old', path: 'a.md', tenantId: 't2'}),
+            row({id: 'b-new', path: 'a.md', tenantId: 't2', parser: DECLARED})
+        ];
+
+        const out     = diffTenantParserIdentity({rows, tenantId: 't1', declaredByRepo: {[REPO]: DECLARED}, yieldedPathsByRepo: {[REPO]: ['a.md']}}),
+              byId    = new Map(rows.map(r => [r.id, r.metadata.tenantId])),
+              foreign = out.parserOrphans.filter(o => byId.get(o.id) !== 't1');
+
+        expect(out.actionableIds).toEqual(['a-old']);
+        expect(foreign, 'no row carrying tenant B may appear in tenant A classification').toEqual([]);
+    });
+
+    test('a row missing its parser stamp is SKIPPED, not classified — matching the garbage-collection engine precedent', () => {
+        const rows = [{id: 'legacy', metadata: {tenantId: 't1', repoSlug: REPO, sourcePath: 'a.md', tenantConfigVersion: 7}}];
+
+        const out = diffTenantParserIdentity({rows, tenantId: 't1', declaredByRepo: {[REPO]: DECLARED}, yieldedPathsByRepo: {[REPO]: ['a.md']}});
+
+        expect(out.parserOrphanCount).toBe(0);
+    });
+
+    test('an unresolvable declared pair classifies NOTHING — never guess a generation', () => {
+        const rows = [row({id: 'old', path: 'a.md'})];
+
+        expect(diffTenantParserIdentity({rows, tenantId: 't1', declaredByRepo: {}, yieldedPathsByRepo: {[REPO]: ['a.md']}}).parserOrphanCount).toBe(0);
+        expect(diffTenantParserIdentity({rows, tenantId: 't1', declaredByRepo: {[REPO]: {parserId: 'p'}}}).parserOrphanCount).toBe(0);
+    });
+
+    test('an absent yielded-path set means UNKNOWN, not empty — tier 1 does not run and the row stays replacement-gated', () => {
+        // Treating a missing envelope as "yields nothing" would classify an entire repo actionable.
+        const out = diffTenantParserIdentity({
+            rows          : [row({id: 'old', path: 'a.md'})],
+            tenantId      : 't1',
+            declaredByRepo: {[REPO]: DECLARED}
+        });
+
+        expect(out.parserOrphans[0].tier, 'never unyielded on a missing envelope').toBe('superseded');
+        expect(out.actionableIds, 'and not reclaimable without a replacement').toEqual([]);
+    });
+});
+
+test.describe('formatReconciliationDetail — the three signals stay distinguishable (#17392)', () => {  // ticket-ref-ok: names which signal the arm pins
+    test('parser-identity orphans are reported on their own key, never folded into the other two', () => {
+        const detail = formatReconciliationDetail({
+            diff          : {staleCount: 3, manifestOrphanCount: 5, parserOrphanCount: 7, actionableCount: 2, totalOrphanCount: 15},
+            currentVersion: 7,
+            autoTombstone : false
+        });
+
+        // Three signals answer three different questions. A reader who cannot tell which one fired
+        // cannot tell whether a reclaim followed a config change or a parser bump.
+        expect(detail.staleCount).toBe(3);
+        expect(detail.manifestOrphanCount).toBe(5);
+        expect(detail.parserOrphanCount).toBe(7);
+    });
+
+    test('a diff carrying no parser count reports 0 rather than undefined — the daemon predates this signal', () => {
+        expect(formatReconciliationDetail({diff: {staleCount: 1}, currentVersion: 2, autoTombstone: false}).parserOrphanCount).toBe(0);
     });
 });
