@@ -171,7 +171,58 @@ const defaultConfig = {
          * State tracking for the Opt-In service (last processed timestamp).
          * @type {string}
          */
-        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/data/optin-sync.json')
+        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/data/optin-sync.json'),
+
+        /**
+         * Provenance for the last index this pipeline published: a SHA-256 over the exact bytes
+         * written, plus line count, byte length and timestamp. Small, and deliberately tracked in git
+         * even though the index it describes is on its way out of git — it is the trusted anchor a
+         * fetched artifact is checked against, so it must live somewhere the artifact cannot
+         * influence.
+         *
+         * A content digest rather than the served `ETag`, which an earlier draft of this comment
+         * claimed: an `ETag` is host-assigned and survives neither recompression nor a CDN swap, so
+         * it answers *is this the same response* where this needs *is this the same content*.
+         * @type {string}
+         */
+        indexProvenance: path.resolve(projectRoot, 'apps/devindex/resources/data/index-provenance.json')
+    },
+
+    /**
+     * The published index, read rather than re-derived.
+     *
+     * The Data Factory used to obtain its previous state from whatever `actions/checkout` placed in
+     * the working tree, which is why it needed a clone of a multi-gigabyte repository to reach one
+     * file it only ever reads the tip of. The browser has always read this file over HTTPS from the
+     * deployed site; only the producer read it from git. This block moves the producer onto the
+     * consumer's path.
+     */
+    publishedIndex: {
+        /**
+         * Absolute URL of the deployed index. Declared once and read at the use site — the host is
+         * never reassembled from parts anywhere else.
+         *
+         * **Accepted risk, named rather than guarded: a fork reads production once, unverified.**
+         * There is no environment override here, and no other value in this file reads one, so a fork
+         * or staging deploy fetches the canonical index. On such a deployment `index-provenance.json`
+         * is absent, which takes the absence branch — the branch that accepts the fetched bytes
+         * without a digest to check them against — so upstream's contributor index is adopted as that
+         * deployment's own prior state on its first run.
+         *
+         * Accepted here because the destination is a late binding for the whole extraction and a seam
+         * invented now would encode a host layout that is about to change. It becomes wrong the moment
+         * anyone runs this pipeline outside the canonical deployment, and that is the trigger for
+         * adding the override rather than a reason to add it today.
+         * @type {string}
+         */
+        url: 'https://neomjs.com/node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl',
+
+        /**
+         * Request timeout in ms. Generous: the artifact is ~24 MB and a slow fetch that succeeds is
+         * worth more than a fast fall back to the checkout, which is the path this exists to retire.
+         * @type {number}
+         */
+        timeout: 120000
     }
 };
 
