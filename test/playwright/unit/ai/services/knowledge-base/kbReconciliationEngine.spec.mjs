@@ -10,7 +10,7 @@ import {
 } from '../../../../../../ai/services/knowledge-base/helpers/kbReconciliationEngine.mjs';
 
 /**
- * Phase 4B (#11640) — `KbReconciliationEngine` coverage: the pure config-invalidation  ticket-ref-ok: implementing ticket
+ * Phase 4B — `KbReconciliationEngine` coverage: the pure config-invalidation
  * reconciliation core of the KB reconciliation daemon.
  *
  * The module is dependency-free (no Neo class system, no I/O, no clock) — so this spec
@@ -18,7 +18,7 @@ import {
  * against fixture rows whose shape mirrors `KnowledgeBaseIngestionService.getTenantRows`
  * (`{id, metadata}`).
  *
- * Covers the #11640 Contract Ledger Evidence column for the engine row: stale-detection,  ticket-ref-ok: implementing ticket
+ * Covers the Contract Ledger Evidence column for the engine row: stale-detection,
  * the version-gap partition, the `currentVersion: 0` no-op, and the missing-stamp skip.
  * The daemon I/O (poll loop, Chroma read, telemetry) is covered separately in
  * `KbReconciliationService.spec.mjs`.
@@ -283,7 +283,7 @@ test.describe('KbReconciliationEngine — formatReconciliationDetail (#11640)', 
 });
 
 
-test.describe('diffTenantParserIdentity — parser-identity orphans (#17392)', () => {
+test.describe('diffTenantParserIdentity — parser-identity orphans', () => {
     const DECLARED = {parserId: 'docker-mcp-source', parserVersion: '1.1.0'},
           SUPERSED = {parserId: 'docker-mcp-source', parserVersion: '1.0.0'},
           REPO     = 'org/repo';
@@ -429,7 +429,7 @@ test.describe('diffTenantParserIdentity — parser-identity orphans (#17392)', (
     });
 });
 
-test.describe('formatReconciliationDetail — the three signals stay distinguishable (#17392)', () => {  // ticket-ref-ok: names which signal the arm pins
+test.describe('formatReconciliationDetail — the three signals stay distinguishable', () => {
     test('parser-identity orphans are reported on their own key, never folded into the other two', () => {
         const detail = formatReconciliationDetail({
             diff          : {staleCount: 3, manifestOrphanCount: 5, parserOrphanCount: 7, actionableCount: 2, totalOrphanCount: 15},

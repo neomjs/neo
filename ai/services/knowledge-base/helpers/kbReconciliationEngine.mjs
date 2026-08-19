@@ -1,7 +1,7 @@
 /**
- * @summary Pure config-invalidation reconciliation engine for the Phase 4B KB reconciliation daemon (#11640).  ticket-ref-ok: implementing ticket
+ * @summary Pure config-invalidation reconciliation engine for the Phase 4B KB reconciliation daemon.
  *
- * Phase 4B (#11640) substrate. The cloud KB reconciliation daemon (`KbReconciliationService`)  ticket-ref-ok: implementing ticket
+ * The cloud KB reconciliation daemon (`KbReconciliationService`)
  * periodically diffs each tenant's persisted Chroma chunks against the tenant's *current*
  * `KnowledgeBaseTenantConfig` version and (opt-in) tombstones the chunks left stale by a
  * config change. This module is the **pure core** of that daemon — no I/O, no clock, no
@@ -9,7 +9,7 @@
  * trivially unit-testable in isolation.
  *
  * **The V1 reconciliation signal.** Every chunk is stamped at ingest with the active
- * `tenantConfigVersion` (#11637 / `VectorService.resolveTenantStamp`). When a tenant mutates  ticket-ref-ok: implementing ticket
+ * `tenantConfigVersion` (`VectorService.resolveTenantStamp`). When a tenant mutates
  * its `KnowledgeBaseTenantConfig`, `getTenantConfig().version` increments — and every chunk
  * ingested under the prior config is now *config-stale*: it may carry paths or a parse
  * structure only the superseded config produced. A chunk whose `metadata.tenantConfigVersion`
@@ -22,7 +22,7 @@
  * each tenant's Chroma rows, calls this engine, emits Phase 4A telemetry, and (opt-in) issues
  * the `collection.delete`. This module only *classifies*.
  *
- * **The V1.x manifest signal.** #11711 adds a sibling claimed-state manifest per tenant:  ticket-ref-ok: implementing ticket
+ * **The V1.x manifest signal.** A sibling claimed-state manifest per tenant,
  * `kb-manifest:<tenantId>`. It is deliberately separate from `KnowledgeBaseTenantConfig`
  * because that config node's `version` is the config-staleness signal above; routine push
  * manifests must not bump it. `diffTenantManifest()` classifies rows whose `metadata.sourcePath`
@@ -33,7 +33,7 @@
  * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs — `getTenantConfig`, the version source.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `tenantConfigVersion` stamp.
- * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the sibling pure-helper precedent (#11642).  ticket-ref-ok: implementing ticket
+ * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the sibling pure-helper precedent.
  */
 
 /**
@@ -76,7 +76,7 @@ export function resolveOrphanVersionGap(value) {
  * - `currentVersion <= 0` — the tenant resolves to the `kb-config.yaml` / default config
  *   tier (no graph node, version `0`). No chunk can be stale; the result is empty.
  * - A row whose `tenantConfigVersion` is missing / non-numeric — a chunk ingested before the
- *   #11637 stamp existed. It is **not** flagged: its config epoch is unknowable.  ticket-ref-ok: implementing ticket
+ *   stamp existed. It is **not** flagged: its config epoch is unknowable.
  *
  * @param {Object} params
  * @param {Array<{id: String, metadata: Object}>} params.rows  Tenant Chroma rows (the
@@ -99,7 +99,7 @@ export function diffTenantChunks({rows, currentVersion, orphanVersionGap} = {}) 
     for (const row of rows) {
         const stampedVersion = row?.metadata?.tenantConfigVersion;
 
-        // Fail-safe: a missing / non-numeric stamp (pre-#11637 ingest) is unclassifiable — skip it.  ticket-ref-ok: implementing ticket
+        // Fail-safe: a missing / non-numeric stamp is unclassifiable — skip it.
         if (typeof stampedVersion !== 'number' || !(stampedVersion < currentVersion)) {
             continue;
         }
@@ -122,7 +122,7 @@ export function diffTenantChunks({rows, currentVersion, orphanVersionGap} = {}) 
 }
 
 /**
- * @summary Classifies one tenant's Chroma rows into claimed-manifest orphans (#11711).  ticket-ref-ok: implementing ticket
+ * @summary Classifies one tenant's Chroma rows into claimed-manifest orphans.
  *
  * Pure — no I/O, no clock. A row is a **manifest orphan** when all of the following are true:
  * the row has a `metadata.repoSlug`, the tenant has a persisted manifest for that repo, the
@@ -196,40 +196,25 @@ export function diffTenantManifest({rows, manifestsByRepo} = {}) {
 /**
  * @summary Classifies one tenant's Chroma rows into parser-identity orphans.
  *
- * Pure — no I/O, no clock, matching its two siblings. This is the **third** reconciliation signal,
- * and it exists because the first two are structurally blind to it: `diffTenantChunks` keys on
- * `metadata.tenantConfigVersion`, which a parser change never moves, and `diffTenantManifest` keys
- * on a `sourcePath` being absent from the claimed set, which says nothing about a path still present
- * under a superseded generation.
+ * Pure — no I/O, no clock, matching its two siblings. A row is a **parser-identity orphan** when its
+ * stamped `parserId` / `parserVersion` pair differs from the pair its repo currently declares. That
+ * pair is part of `hashInputs`, so advancing a parser version changes every chunk id: the new
+ * generation adds rows beside its predecessor rather than overwriting it, and the superseded rows
+ * persist until something reclaims them.
  *
- * **Why identity rather than an event.** `parserId` / `parserVersion` are `hashInputs`
- * (`IngestionService`), so advancing a parser version changes every chunk id: the new generation
- * ADDS rows and never overwrites its predecessor. A design firing *when* the version changes cannot
- * clear an already-orphaned set without another bump, and a bump re-materializes the whole corpus —
- * on a deployment partway through its initial embedding that costs far more than the orphans. So a
- * row is classified by comparing its stamped pair against the repo's **currently declared** pair,
- * which makes an existing orphan set self-healing on the next ordinary tick with no bump at all.
+ * Two tiers, neither of which deletes ahead of its replacement:
  *
- * **Two tiers, safety-ordered, and neither deletes ahead of its replacement.**
+ * 1. `unyielded` — the row's `sourcePath` is no longer among the paths the declared parser yields,
+ *    so no replacement is coming and the row is immediately actionable.
+ * 2. `superseded` — the path is still yielded, so the row becomes actionable only once a row
+ *    carrying the declared pair exists for that same path.
  *
- * 1. `unyielded` — the row's `sourcePath` is absent from the paths the declared parser currently
- *    yields, so no replacement is ever coming and reclaiming it opens no retrieval hole. This is the
- *    tier that clears a vendor-exclusion change. It runs only where the caller supplied a yielded-path
- *    set for the repo: an absent set is *unknown*, never *empty*, and treating it as empty would
- *    classify a whole repo actionable on a missing envelope.
- * 2. `superseded` — the path is still yielded, so a replacement is expected; the row becomes
- *    actionable only once a row carrying the declared pair exists for that same path. `#16577`  ticket-ref-ok: implementing ticket
- *    measured a materialization reporting success while leaving no durable proof, which is what makes
- *    the delete-before-embed window concrete rather than theoretical.
+ * A repo absent from `yieldedPathsByRepo` is *unknown*, never *empty*: it skips tier 1 entirely and
+ * every one of its rows falls to the replacement-gated tier, so a missing envelope cannot mark a
+ * whole repo actionable.
  *
- * Replacement presence is derived from `rows` themselves rather than taken as a parameter — the
- * evidence that a replacement landed is a row carrying the declared pair, and reading it from the
- * same snapshot the classification runs on removes a second authority that could disagree with it.
- *
- * **Tenant scoping is this function's own responsibility**, unlike its siblings. The mandated model is a
- * metadata-scoped, collection-shared one, so a classifier reading collection rows must filter by
- * `tenantId` itself; a caller-scoped contract would make containment untestable against the mixed
- * row set that actually exists in the collection.
+ * Unlike its siblings, this function filters by `tenantId` itself — the rows it reads come from the
+ * metadata-scoped shared collection rather than from a caller-scoped fetch.
  *
  * @param {Object}   params
  * @param {Object[]} params.rows                Chroma rows for the shared collection; each `{id, metadata}`.
@@ -248,8 +233,8 @@ export function diffTenantParserIdentity({rows, tenantId, declaredByRepo, yielde
         return empty;
     }
 
-    // Which paths already carry a row at the DECLARED pair. Built in one pass over the same snapshot
-    // the classification reads, so tier 2 can never gate on a replacement this view cannot see.
+    // Which paths already carry a row at the declared pair, read from the same snapshot the
+    // classification runs on so tier 2 cannot gate on a replacement this view cannot see.
     const replacedPaths = new Set();
 
     for (const row of rows) {
@@ -295,8 +280,7 @@ export function diffTenantParserIdentity({rows, tenantId, declaredByRepo, yielde
 
             tier = isYielded ? 'superseded' : 'unyielded';
         } else {
-            // Envelope unavailable for this repo: tier 1 does not run, so the row can only be the
-            // replacement-gated tier. Unknown is not empty.
+            // Unknown is not empty: with no envelope, only the replacement-gated tier can fire.
             tier = 'superseded';
         }
 
@@ -336,10 +320,8 @@ export function diffTenantParserIdentity({rows, tenantId, declaredByRepo, yielde
  * @returns {{staleCount: Number, manifestOrphanCount: Number, parserOrphanCount: Number, totalOrphanCount: Number, actionableCount: Number, tombstonedCount: Number, currentVersion: Number, autoTombstone: Boolean}}
  */
 export function formatReconciliationDetail({diff, currentVersion, autoTombstone, tombstonedCount = 0} = {}) {
-    // `parserOrphanCount` is reported separately and never folded into the others. Three signals
-    // answer three different questions — config epoch, claimed path set, parser generation — and a
-    // reader who cannot tell which one fired cannot tell whether a reclaim followed a config change
-    // or a parser bump.
+    // The three counts stay separate: folding them would leave a reader unable to tell whether a
+    // reclaim followed a config change, a path drop, or a parser bump.
     return {
         staleCount         : diff?.staleCount          ?? 0,
         manifestOrphanCount: diff?.manifestOrphanCount ?? 0,
