@@ -22,7 +22,7 @@ import {
  * lines in the same commit dilute a long docblock below the bar — so the run axis exists to catch what
  * the share cannot see.
  */
-test.describe('check-comment-density — the axes measured on real commits', () => {
+test.describe('check-comment-density — the two axes', () => {
     /**
      * The red-proof supplies LINES and lets the tool compute the number.
      *
@@ -88,34 +88,25 @@ test.describe('check-comment-density — the axes measured on real commits', () 
         expect(summary.warn).toBe(true);
     });
 
-    const measured = {
-        // 62% share, the worst share observed in the sampled window.
+    /**
+     * Rows for the FOLD, not for the measurement.
+     *
+     * These are inputs to `summarizeDensity` alone — how per-file rows combine, how a bound is applied,
+     * what an empty set does. They are deliberately not red-proofs: the arms above own that, by
+     * measuring. Naming a hand-written row a red-proof is what let a dead axis stay green for a day,
+     * so the distinction is kept in the names.
+     */
+    const rows = {
         highShare: {file: 'a.mjs', added: 343, prose: 214, longestRun: 20},
-        // 21% share with a 36-line run: under the share bar, operator change-requested for bloat.
-        dilutedRun: {file: 'b.mjs', added: 316, prose: 69, longestRun: 36},
-        // 20% share, 11-line run — at the repo median on both axes.
-        clean: {file: 'c.mjs', added: 105, prose: 21, longestRun: 11}
+        longRun  : {file: 'b.mjs', added: 316, prose: 69, longestRun: 36},
+        quiet    : {file: 'c.mjs', added: 105, prose: 21, longestRun: 11}
     };
 
-    test('the share axis warns high and stays silent at the median', () => {
-        expect(summarizeDensity([measured.highShare]).shareExceeded).toBe(true);
-        expect(summarizeDensity([measured.clean]).shareExceeded).toBe(false);
-    });
-
-    test('RED-PROOF: the run axis warns where the share axis provably cannot', () => {
-        const summary = summarizeDensity([measured.dilutedRun]);
-
-        expect(summary.shareExceeded, 'a 21% share is under the bar').toBe(false);
-        expect(summary.runExceeded, 'a 36-line run must still warn').toBe(true);
-        expect(summary.warn).toBe(true);
-        expect(summary.worstFile).toBe('b.mjs');
-    });
-
-    test('SILENT ARM for the run axis, so a guard that warns on everything fails here', () => {
-        const summary = summarizeDensity([measured.clean]);
-
-        expect(summary.runExceeded).toBe(false);
-        expect(summary.warn).toBe(false);
+    test('the fold applies each bar independently and names the worst file', () => {
+        expect(summarizeDensity([rows.highShare]).shareExceeded).toBe(true);
+        expect(summarizeDensity([rows.quiet]).shareExceeded).toBe(false);
+        expect(summarizeDensity([rows.longRun].map(row => ({...row}))).worstFile).toBe('b.mjs');
+        expect(summarizeDensity([rows.quiet]).worstFile, 'no worst file when nothing is exceeded').toBe(null);
     });
 
     test('both bars are the p90 of the seats whose behaviour did NOT change', () => {
@@ -129,12 +120,12 @@ test.describe('check-comment-density — the axes measured on real commits', () 
     });
 
     test('a changed bound changes the outcome — the bars are inputs, not baked-in numbers', () => {
-        expect(summarizeDensity([measured.dilutedRun], {maxProseRun: 100}).runExceeded).toBe(false);
-        expect(summarizeDensity([measured.clean], {maxProseShare: 0.05}).shareExceeded).toBe(true);
+        expect(summarizeDensity([rows.longRun], {maxProseRun: 100}).runExceeded).toBe(false);
+        expect(summarizeDensity([rows.quiet], {maxProseShare: 0.05}).shareExceeded).toBe(true);
     });
 
     test('partial bounds normalize onto the defaults rather than disabling an axis', () => {
-        expect(summarizeDensity([measured.dilutedRun], {maxProseShare: 0.9}).runExceeded).toBe(true);
+        expect(summarizeDensity([rows.longRun], {maxProseShare: 0.9}).runExceeded).toBe(true);
     });
 
     test('the run is a per-file maximum, never summed across files', () => {
