@@ -42,6 +42,7 @@ import {
     classifyEmbeddingRecoveryState,
     detectStarvedTenantSync,
     hasPendingEmbeddingRecoveryBypass,
+    isBackoffMarginCollapsed,
     isRepoDue,
     isStarvedOrderInverted,
     resolveUnknownRepoSelectorFailure
@@ -874,6 +875,15 @@ class TenantRepoSyncService extends Base {
      * @protected
      */
     starvedOrderWarned = false
+    /**
+     * Latches the once-per-process collapsed-backoff-margin warning (sweep boundary, where the
+     * repo set is resolved): the first sweep emits it, later sweeps stay quiet. Sibling of
+     * {@link TenantRepoSyncService#starvedOrderWarned} and process-local latch state for the
+     * same reason — it is not configuration.
+     * @member {Boolean} backoffMarginWarned=false
+     * @protected
+     */
+    backoffMarginWarned = false
 
     static config = {
         /**
@@ -1661,6 +1671,30 @@ class TenantRepoSyncService extends Base {
         const repos          = onlyRepoSlugs
             ? allRepos.filter(r => onlyRepoSlugs.includes(r.repoSlug))
             : allRepos;
+
+        // One-time deployment sanity check on the OTHER leaf relationship, and never a throw for the
+        // same reason as its sibling at the runTask boundary. A cap that does not clear the JITTERED
+        // base cadence binds at consecutiveFailures=0, so the 2^n curve never becomes a delay — a repo
+        // failing consecutively is retried exactly as often as a healthy one — and `backoffCapped`
+        // stops distinguishing a configured cadence from a capped one, which is the only reason it is
+        // published. This check lives here rather than beside the starved-order one because the bound
+        // is per-repo: a `tenantRepos[].cadenceMs` override larger than the global collapses the margin
+        // for that repo alone, and the repo set does not exist until the config resolves.
+        //
+        // Evaluated over ALL configured repos, not the selected subset: a scoped CLI run must not
+        // hide a collapsed margin on a repo it happened to skip.
+        if (!this.backoffMarginWarned) {
+            const collapsed = allRepos.filter(repo => isBackoffMarginCollapsed({
+                backoffCapMs,
+                baseCadenceMs: (Number.isFinite(repo.cadenceMs) && repo.cadenceMs > 0) ? repo.cadenceMs : globalCadenceMs,
+                jitterRatio
+            }));
+
+            if (collapsed.length > 0) {
+                this.backoffMarginWarned = true;
+                writeLog?.('WARN', `[TenantRepoSync] tenantRepoSync.backoffCapMs (${backoffCapMs}) does not clear the jittered base cadence for ${collapsed.length}/${allRepos.length} repo(s) [${collapsed.map(r => `${r.tenantId}/${r.repoSlug}`).join(', ')}]: the cap binds at consecutiveFailures=0, so failure backoff never becomes a delay and backoffCapped reads true for a healthy repo. Raise backoffCapMs above baseCadence + floor(baseCadence * jitterRatio) (global base ${globalCadenceMs}, jitterRatio ${jitterRatio}), or lower the cadence.`);
+            }
+        }
 
         // Distinguish "operator-requested-unknown-slug" from "no config at all", and refuse on ANY
         // unknown slug rather than only an all-unknown set. Keyed on "nothing matched", a partially

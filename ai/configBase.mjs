@@ -2101,10 +2101,21 @@ class ConfigBase extends ConfigProvider {
                  *   so a failing repo is guaranteed a retry inside the cap window regardless of
                  *   streak length — including across restarts, since the streak is persisted
                  *   state (an uncapped multiplier suppressed a never-ingested repo for 25+
-                 *   hours while sweeps read green). Must comfortably exceed the per-repo
-                 *   base cadence (floor `intervals.tenantRepoSyncMs`, 30min default) so it binds
-                 *   only on failure streaks; the 2-hour default mirrors the operator-visible
-                 *   recovery expectation for a transient mirror/credential outage.
+                 *   hours while sweeps read green). **Must be at least the per-repo base cadence
+                 *   plus its jitter ceiling** — `baseCadenceMs + floor(baseCadenceMs *
+                 *   jitterRatio)`, where the base is `tenantRepos[].cadenceMs` or the
+                 *   `intervals.tenantRepoSyncMs` floor (30min default) — so it binds only on
+                 *   failure streaks. The jitter term is load-bearing rather than pedantic: the
+                 *   cap comparison happens AFTER jitter is added, so a cap set merely above the
+                 *   base cadence still binds at `consecutiveFailures: 0` for most repo seeds.
+                 *   A cap that does not clear that bound makes the whole doubling curve inert —
+                 *   a repo failing consecutively is retried exactly as often as a healthy one —
+                 *   and pins `backoffCapped` to `true`, which is the one field that would
+                 *   otherwise distinguish a configured cadence from a capped one. Checked at the
+                 *   sweep boundary, which WARNs once per process and never throws. The 2-hour
+                 *   default mirrors the operator-visible recovery expectation for a transient
+                 *   mirror/credential outage. **`0` means no cap, never "no backoff":** the
+                 *   doubling then grows unbounded, so flat cadence is not expressible here.
                  * - `jitterRatio` caps the deterministic per-repo jitter offset as a fraction
                  *   of the base cadence. Default `0.20` keeps jitter within the operator-visible
                  *   cadence window.

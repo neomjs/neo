@@ -393,3 +393,39 @@ export function isStarvedOrderInverted({backoffCapMs, starvedAfterMs}) {
         && Number.isFinite(backoffCapMs) && backoffCapMs > 0
         && starvedAfterMs <= backoffCapMs
 }
+
+/**
+ * @summary Pure relationship check for the OTHER tenant-repo-sync ordering: the backoff cap must
+ * leave room above the JITTERED base cadence, or it binds at `consecutiveFailures: 0` and the whole
+ * `2^n` curve becomes inert — a repo failing consecutively is retried exactly as often as a healthy
+ * one. `isRepoDue` adds jitter BEFORE comparing against the cap, so the honest bound is
+ * `baseCadenceMs + maxJitter`, not `baseCadenceMs`: at `jitterRatio: 0.20` a cap set just above the
+ * base cadence still caps most repo seeds at streak zero.
+ *
+ * Collapsing the margin also silences the only field that reports it. `backoffCapped` exists to
+ * separate a *configured* cadence from a streak-driven one pinned at the cap; when every repo is
+ * capped from zero it reads `true` unconditionally and separates nothing.
+ *
+ * The bound mirrors `isRepoDue`'s arithmetic rather than restating it, `Math.floor` included, so the
+ * check cannot drift from the behaviour it describes. Two configurations are sound and must not be
+ * reported: `backoffCapMs: 0` is the documented no-cap value, and with jitter disabled a cap equal to
+ * the base cadence first binds at streak one, because the cap comparison is strictly-greater.
+ *
+ * Deliberately independent of `isRepoDue`, exactly as {@link isStarvedOrderInverted} is: the
+ * relationship binds how the values are CONFIGURED, not how the computation uses them.
+ *
+ * @param {Object} options
+ * @param {Number} options.backoffCapMs Failure-backoff ceiling (`tenantRepoSync.backoffCapMs`).
+ * @param {Number} options.baseCadenceMs The repo's effective base cadence — `tenantRepos[].cadenceMs` where set, else `intervals.tenantRepoSyncMs`.
+ * @param {Number} [options.jitterRatio=0] Deterministic jitter ceiling as a fraction of the base cadence (`tenantRepoSync.jitterRatio`).
+ * @returns {Boolean}
+ */
+export function isBackoffMarginCollapsed({backoffCapMs, baseCadenceMs, jitterRatio = 0}) {
+    if (!Number.isFinite(backoffCapMs) || backoffCapMs <= 0)     return false;
+    if (!Number.isFinite(baseCadenceMs) || baseCadenceMs <= 0)   return false;
+
+    const ratio       = Number.isFinite(jitterRatio) && jitterRatio > 0 ? jitterRatio : 0,
+          maxJitterMs = Math.floor(baseCadenceMs * ratio);
+
+    return backoffCapMs < baseCadenceMs + maxJitterMs
+}
