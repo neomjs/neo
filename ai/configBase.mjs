@@ -1423,6 +1423,22 @@ class ConfigBase extends ConfigProvider {
                     includeLogs                 : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
                     logTail                     : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
                     logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
+                    /**
+                     * How far past a container's start the startup-log head reaches, in ms.
+                     *
+                     * Startup output is emitted exactly once and then stops, so a *time* window bounds
+                     * it server-side far more tightly than a line count could: the read asks Docker
+                     * for `since=StartedAt, until=StartedAt+window` and gets the banner rather than
+                     * the banner plus hours of runtime traffic.
+                     *
+                     * `60_000` is sized against model loading, which is the slowest startup on this
+                     * plane and the one whose reported geometry is most wanted — a small embedding
+                     * model banners in seconds, a large one can take most of a minute. Too small
+                     * silently truncates the very facts the window exists to capture, which is the
+                     * expensive direction; too large only costs bytes that `logMaxBytes` already caps.
+                     * @type {number}
+                     */
+                    startupLogWindowMs          : leaf(60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STARTUP_LOG_WINDOW_MS', 'number'),
                     statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
                     providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
                     /**
