@@ -1439,6 +1439,24 @@ class ConfigBase extends ConfigProvider {
                      * @type {number}
                      */
                     startupLogWindowMs          : leaf(60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STARTUP_LOG_WINDOW_MS', 'number'),
+                    /**
+                     * @summary Line ceiling on the startup-head read — a guard against the tail
+                     * default, not a sizing knob.
+                     *
+                     * The head read must pass a line count because `readTargetLogs` falls back to
+                     * `tail ?? logTail ?? 200`, and `logTail` is sized for recent activity. Omitting
+                     * this would hand the head read the TAIL's budget, returning the last ~200 lines
+                     * *of the startup window* — a tail of the head, which is the wrong end of the
+                     * wrong thing and the exact failure the head read exists to avoid.
+                     *
+                     * So it is deliberately far above any real startup banner: `logMaxBytes` is meant
+                     * to be the binding ceiling, and this only engages on a window with more lines
+                     * than any boot legitimately emits. When it DOES engage it degrades the same way
+                     * the default would, just later — so a head arriving at exactly this many lines
+                     * is a signal the window is too wide, not that the ceiling is too low.
+                     * @type {number}
+                     */
+                    startupLogMaxLines          : leaf(10000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STARTUP_LOG_MAX_LINES', 'number'),
                     statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
                     providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
                     /**

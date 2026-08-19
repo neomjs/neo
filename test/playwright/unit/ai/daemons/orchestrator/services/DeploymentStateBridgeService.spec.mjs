@@ -3720,8 +3720,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup 
     const
         STARTED = '2026-08-18T10:00:00.000Z',
         WINDOW  = 60_000,
+        MAX_LINES = 10_000,
         cfg     = overrides => ({
-            includeLogs: true, logMaxBytes: 32 * 1024, logTail: 120, startupLogWindowMs: WINDOW, ...overrides
+            includeLogs       : true, logMaxBytes: 32 * 1024, logTail: 120, startupLogWindowMs: WINDOW,
+            startupLogMaxLines: MAX_LINES, ...overrides
         }),
         // Records every readObserve call so the WINDOW itself can be asserted, not just its output.
         //
@@ -3731,6 +3733,15 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup 
         // only the published-record test caught it. A fixture shaped like the mistake cannot fail on it.
         bridgeWith = (logsText, {calls = []} = {}) => {
             const service = createService({});
+
+            // The block's default clock: the startup window has CLOSED. That is the steady state a
+            // long-running deployment sits in, and it is what the caching assertions here are about.
+            //
+            // Set explicitly because the harness-wide `OBSERVED_AT` is 2024 while this block's
+            // `STARTED` is 2026 — two constants that never had to agree until the cache gained a
+            // window-closed gate. An injected clock BEFORE the incarnation it observes is not a
+            // scenario; it is a fixture that was free to be arbitrary while nothing read it.
+            service.nowFn = () => Date.parse(STARTED) + WINDOW + 1;
 
             service.runtimeAccessService = {
                 async readObserve(request) {
@@ -3764,6 +3775,130 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup 
         expect(calls[0].until).toBe(new Date(Date.parse(STARTED) + WINDOW).toISOString());
         expect(result.windowMs).toBe(WINDOW);
         expect(result.text).toContain('llama_kv_cache');
+    });
+
+    test('`lines` counts the string that is PUBLISHED, not a different one (#17371)', async () => {
+        // The fixture ends in a blank line ON PURPOSE. That is the ordinary shape for container logs
+        // and it is the only shape that separates the two implementations: with no trailing newline,
+        // trimmed and untrimmed have the same line count and a wrong `lines` passes unnoticed.
+        const result = await read(bridgeWith('boot\nready\n\n'));
+
+        expect(result.status).toBe('available');
+
+        // The property, stated as a consumer would compute it. NOT `text.split('\n').length` — that
+        // proxy counts the empty segment after the final terminator, and satisfying it would have
+        // meant publishing the TRIMMED text, which destroys the line-boundary guarantee the byte
+        // bound exists for. The ticket's AC named the proxy; the proxy was wrong, and the AC moved.
+        const consumerCount = result.text.replace(/\n$/, '').split('\n').length;
+
+        expect(result.lines).toBe(consumerCount);
+
+        // Pinned independently, so a change making BOTH sides wrong in the same direction still
+        // fails. An identity alone is satisfiable by publishing nonsense twice.
+        // 'boot', 'ready', and the blank line — three. The payload keeps its terminator untouched.
+        expect(result.lines).toBe(3);
+        expect(result.text).toBe('boot\nready\n\n');
+    });
+
+    test('the line ceiling is the CONFIGURED leaf, and an absent one refuses rather than falling back', async () => {
+        // `readTargetLogs` resolves `tail ?? logTail ?? 200`. The fallback exists and taking it is the
+        // failure: `logTail` is sized for recent activity, so the head read would return the last
+        // ~120 lines OF the startup window — a tail of the head. Refusing beats a wrong-looking answer.
+        const calls = [];
+
+        await read(bridgeWith('boot\n', {calls}));
+        expect(calls[0].tail).toBe(MAX_LINES);
+        expect(calls[0].tail).not.toBe(cfg().logTail);
+
+        for (const absent of [undefined, 0, -1, Number.NaN]) {
+            const missed = [],
+                  result = await read(bridgeWith('boot\n', {calls: missed}),
+                      {config: cfg({startupLogMaxLines: absent})});
+
+            expect(result.status).toBe('unavailable');
+            expect(result.unavailableReason).toBe('line-ceiling-not-configured');
+            expect(result.text).toBeNull();
+            // Refused BEFORE the Docker call, so a misconfiguration cannot spend a request to
+            // discover it had the tail's budget all along.
+            expect(missed).toHaveLength(0)
+        }
+    });
+
+    test('a rotated-away window is cached ONLY once the window has closed', async () => {
+        // `window-empty-or-rotated` is one reason over two situations and they cache oppositely.
+        // ROTATED is terminal. NOT-YET-WRITTEN is transient — and caching it loses the banner for the
+        // life of the incarnation, which is the unreadable-startup-facts failure this read exists to
+        // prevent, arriving through its own optimisation. The `or` in the reason name is the tell.
+        const closed = Date.parse(STARTED) + WINDOW + 1,
+              inside = Date.parse(STARTED) + 5_000;
+
+        // Window CLOSED: empty can only mean rotated, so it is terminal and cached.
+        const calls   = [],
+              service = bridgeWith('   \n  \n', {calls});   // inherits the closed-window clock
+
+        const first  = await read(service),
+              second = await read(service);
+
+        expect(first.unavailableReason).toBe('window-empty-or-rotated');
+        expect(second).toEqual(first);
+        expect(calls).toHaveLength(1);
+
+        // ...and still invalidates on a restart.
+        await read(service, {incarnationStartedAt: '2026-08-18T12:00:00.000Z'});
+        expect(calls).toHaveLength(2);
+
+        // Window still OPEN: the banner may not have flushed yet, so nothing is cached and a later
+        // sweep genuinely re-reads. Without this the 60s model-load case — the one the window is
+        // SIZED for — loses its geometry permanently.
+        const booting     = [],
+              bootService = bridgeWith('   \n', {calls: booting});
+
+        bootService.nowFn = () => inside;
+
+        await read(bootService);
+        await read(bootService);
+        await read(bootService);
+
+        expect(booting).toHaveLength(3)
+    });
+
+    test('a head read INSIDE the window is not frozen as the final answer', async () => {
+        // The sibling of the arm above, and the same defect one door down. A read at t+5s holds only
+        // what flushed by t+5s; caching it freezes a PARTIAL banner and loses precisely the resolved
+        // geometry line the head is read for.
+        const calls   = [],
+              service = bridgeWith(
+                  () => ({data: {logs: emitted}, proof: {operation: 'logs'}}),
+                  {calls}
+              );
+
+        let emitted = 'starting...\n';
+
+        service.nowFn = () => Date.parse(STARTED) + 5_000;
+
+        const partial = await read(service);
+
+        expect(partial.text).toBe('starting...\n');
+        expect(partial.text).not.toContain('llama_kv_cache');
+
+        // The rest of the banner lands, still inside the window.
+        emitted = 'starting...\nllama_kv_cache: size = 7168 MiB\n';
+
+        const complete = await read(service);
+
+        expect(calls).toHaveLength(2);
+        expect(complete.text).toContain('llama_kv_cache');
+
+        // Once the window closes, the answer is final and the cache engages as designed.
+        service.nowFn = () => Date.parse(STARTED) + WINDOW + 1;
+
+        const settled = await read(service);
+
+        expect(settled.text).toContain('llama_kv_cache');
+        expect(calls).toHaveLength(3);
+
+        await read(service);
+        expect(calls).toHaveLength(3)
     });
 
     test('the cache is keyed on the INCARNATION, so a restart invalidates and a re-read does not', async () => {

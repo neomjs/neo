@@ -1,4 +1,5 @@
 import fs                from 'fs-extra';
+import {StringDecoder}   from 'node:string_decoder';
 import {writeFileAtomic} from '../../shared/atomicFileWrite.mjs';
 
 export const DEPLOYMENT_STATE_BRIDGE_SCHEMA_VERSION = 1;
@@ -239,7 +240,14 @@ export function boundUtf8Tail(value, maxBytes) {
  * **It cuts back to the last complete line, which its twin does not.** That is a deliberate
  * difference rather than an inconsistency: a truncated head is read forward by a human looking for a
  * specific reported value, so a dangling half-line invites misreading a number that was cut in two.
- * Trimming to a line boundary also removes the split-multi-byte-character case for free.
+ *
+ * **The multi-byte guarantee holds on BOTH branches, and it used to hold on one.** Cutting to a line
+ * boundary removes the split-character case for free — but only when there IS a newline inside the
+ * cap. A single line longer than the whole budget takes the byte cut instead, and a byte cut can land
+ * mid-character, which `toString('utf8')` renders as U+FFFD. That is the branch a reader reaches
+ * exactly when the head is one enormous line, and a replacement character inside a reported number is
+ * the misreading this bound exists to prevent. The decoder below withholds an incomplete trailing
+ * sequence rather than emitting a broken one, so the claim is now unconditional.
  *
  * @param {String|null|undefined} value Text to bound.
  * @param {Number} maxBytes Byte cap.
@@ -258,7 +266,10 @@ export function boundUtf8Head(value, maxBytes) {
         return {text, truncated: false, maxBytes};
     }
 
-    const sliced      = buffer.subarray(0, maxBytes).toString('utf8'),
+    // `write()` retains an incomplete trailing multi-byte sequence instead of emitting it, so the
+    // slice never ends in a half character. Decoding with `toString('utf8')` would emit U+FFFD there,
+    // and the newline cut below only hides it when a newline exists to cut at.
+    const sliced      = new StringDecoder('utf8').write(buffer.subarray(0, maxBytes)),
           lastNewline = sliced.lastIndexOf('\n');
 
     return {

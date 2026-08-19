@@ -1590,6 +1590,19 @@ export class DeploymentStateBridgeService extends Base {
             return unavailable('window-not-configured')
         }
 
+        const maxLines = Number.isFinite(config.startupLogMaxLines) && config.startupLogMaxLines > 0
+            ? config.startupLogMaxLines
+            : null;
+
+        // Refused rather than defaulted, for the same reason the window is. There IS a usable
+        // fallback here — `readTargetLogs` resolves `tail ?? logTail ?? 200` — and taking it is the
+        // failure: `logTail` is sized for recent activity, so the head read would come back as the
+        // last ~200 lines OF the startup window. A missing ceiling that yields a tail-of-head is
+        // worse than no head at all, because the wrong answer looks like the right one.
+        if (maxLines === null) {
+            return unavailable('line-ceiling-not-configured')
+        }
+
         const cached = this.startupLogHeadsByService.get(serviceKey);
 
         // Structural invalidation: same incarnation start means the same head, byte for byte.
@@ -1605,10 +1618,12 @@ export class DeploymentStateBridgeService extends Base {
                 operation: 'logs',
                 since    : incarnationStartedAt,
                 until    : new Date(startedAtMs + windowMs).toISOString(),
-                // Generous, because the WINDOW is the bound that matters here. A line cap would take
-                // the last N lines *of the window*, which is a tail of the head — the wrong end of the
-                // wrong thing. `logMaxBytes` is the real ceiling and it trims from the correct side.
-                tail     : 10_000
+                // Passed rather than omitted, and that is the whole point: `readTargetLogs` resolves
+                // `tail ?? logTail ?? 200`, so leaving it off would hand this read the TAIL's budget
+                // and return the last ~200 lines *of the startup window* — a tail of the head. The
+                // leaf is set far above any real banner so `logMaxBytes` stays the binding ceiling
+                // and trims from the correct side.
+                tail     : maxLines
             });
         } catch (error) {
             return unavailable(error.code === 'ENOENT' ? 'absent' : 'unreadable')
@@ -1621,11 +1636,35 @@ export class DeploymentStateBridgeService extends Base {
         const bounded = boundUtf8Head(response?.data?.logs, config.logMaxBytes),
               text    = bounded.text.trim();
 
+        // Nothing is cached until the window has CLOSED, and that gate is the whole correctness of the
+        // cache. `since`/`until` name a fixed range in the past, so once `now` is beyond its end the
+        // content of that range is final and re-reading buys nothing. INSIDE the window it is still
+        // filling: a sweep landing at t+5s sees whatever flushed by t+5s, and caching that freezes a
+        // partial answer for the life of the incarnation.
+        //
+        // It is not a contrived window — `startupLogWindowMs` is sized at 60s against model loading,
+        // the slowest startup on this plane and the one whose geometry is most wanted, so the service
+        // most worth reading is exactly the one whose first observation lands in the empty part of its
+        // own window. A few uncached reads during the seconds a container boots is the entire cost.
+        const windowClosed = this.now() > startedAtMs + windowMs;
+
         if (!text) {
             // Distinguished from a failed read: the window was asked for and came back empty, which on
             // a long-running container means rotation has carried the head away. Naming that is what
             // keeps a reader from concluding the service was silent at boot.
-            return unavailable('window-empty-or-rotated')
+            //
+            // The reason carries an `or` and the two halves cache differently. **Rotated** is terminal.
+            // **Not yet written** is transient, and caching it loses the banner permanently — the exact
+            // unreadable-startup-facts failure this read exists to prevent, arriving through its own
+            // optimisation. `windowClosed` separates them: after the window ends, empty can only mean
+            // rotated.
+            const empty = unavailable('window-empty-or-rotated');
+
+            if (windowClosed) {
+                this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record: empty})
+            }
+
+            return empty
         }
 
         const record = {
@@ -1636,12 +1675,26 @@ export class DeploymentStateBridgeService extends Base {
             unavailableReason: null,
             incarnationStartedAt,
             windowMs,
-            lines            : text.split('\n').length,
+            // Counted on the string that is PUBLISHED. These used to disagree: the count came from
+            // the trimmed text while the payload carried the untrimmed one, so a head ending in a
+            // blank line — the ordinary shape for container logs — reported one number and shipped
+            // another. A record that contradicts itself is worse than one omitting the count.
+            //
+            // The trailing terminator is not a line, which is why this is not a bare `split().length`.
+            // Publishing the TRIMMED text would have made that identity true for free, and would also
+            // have destroyed the line-boundary guarantee `boundUtf8Head` exists for: a truncated head
+            // ends at a newline precisely so a human reading forward never meets half a value.
+            lines    : countLines(bounded.text),
             text             : bounded.text,
             truncated        : bounded.truncated
         };
 
-        this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record});
+        // Same gate as the empty arm, for the same reason: a head read at t+5s holds only what
+        // flushed by t+5s. Caching that freezes a PARTIAL banner, losing precisely the resolved
+        // geometry line — an engine's KV-cache and compute-buffer sizes — that the head is read for.
+        if (windowClosed) {
+            this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record})
+        }
 
         return record
     }
@@ -2402,6 +2455,27 @@ export function summarizeProbeReliability(health) {
         failureRate  : Math.round((failureCount / sampleCount) * 1000) / 1000,
         failingStreak: Number.isFinite(health.FailingStreak) ? health.FailingStreak : null
     };
+}
+
+/**
+ * Counts the lines of a published text, treating a trailing terminator as ending the last line
+ * rather than starting a new empty one.
+ *
+ * `'a\nb\n'.split('\n')` is three segments and two lines — the third is what follows the final
+ * terminator, which is nothing. Reporting three would put the record at odds with anyone who counts
+ * what they were given, and the count is the field that gets used.
+ *
+ * @summary Lines in a text, where a trailing newline terminates rather than opens a line.
+ * @param {String} text
+ * @returns {Number}
+ * @protected
+ */
+function countLines(text) {
+    if (!text) return 0;
+
+    const segments = text.split('\n').length;
+
+    return text.endsWith('\n') ? segments - 1 : segments
 }
 
 function summarizeStats(stats) {

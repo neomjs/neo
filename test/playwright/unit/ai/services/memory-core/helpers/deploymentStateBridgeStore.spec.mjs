@@ -168,6 +168,32 @@ test.describe('deploymentStateBridgeStore', () => {
         expect(boundUtf8Head('abc', 0)).toEqual({text: '', truncated: true, maxBytes: 0});
         expect(boundUtf8Head(null, 8)).toEqual({text: '', truncated: false, maxBytes: 8});
     });
+
+    test('the multi-byte guarantee holds on the NO-NEWLINE branch too (#17371)', () => {
+        // The JSDoc claimed cutting to a line boundary removes the split-character case "for free".
+        // True — when there IS a newline inside the cap. A single line longer than the budget takes
+        // the byte cut instead, and that is the branch this covers: exactly the shape a one-enormous-
+        // line head has, where a U+FFFD can land inside a reported value a human is reading forward.
+        const euro = '€'.repeat(10);                       // 3 bytes each, 30 total
+
+        // Cap of 8 lands mid-character (8 = 2 chars + 2 bytes of a third).
+        const cut = boundUtf8Head(euro, 8);
+
+        expect(cut.truncated).toBe(true);
+        expect(cut.text).toBe('€€');
+        expect(cut.text).not.toContain('�');
+        // The decoder withholds the partial sequence rather than emitting it, so the result is
+        // SHORTER than the cap. A byte-exact cut would have been 8 bytes ending in a broken char.
+        expect(Buffer.byteLength(cut.text, 'utf8')).toBe(6);
+
+        // The newline branch is unaffected — the guarantee it always had still holds.
+        const withNewline = boundUtf8Head(`€€\n${euro}`, 8);
+
+        expect(withNewline.text).toBe('€€\n');
+
+        // A clean boundary is not trimmed back: an exact multiple keeps every whole character.
+        expect(boundUtf8Head(euro, 9).text).toBe('€€€');
+    });
 });
 
 test.describe('#17049 — heavyMaintenanceStarvation snapshot section', () => {
