@@ -6,15 +6,6 @@ on:
     - cron: '0 * * * *' # Run hourly
   workflow_dispatch:
     inputs:
-      preflight_only:
-        # Verifies the credential topology WITHOUT side effects: mints both tokens, probes every
-        # required repository, then stops. The collection stages are the ones that mutate — OptOut
-        # comments on and closes real issues in `devindex-opt-out` — so a configuration check that
-        # has to run them is not a check anyone will repeat. This one is safe to run as often as
-        # needed, which is what makes it usable while an installation is being corrected.
-        description: 'Probe repository access and exit, without collecting or publishing'
-        type: boolean
-        default: false
 
 concurrency:
   group: data-sync-pipeline
@@ -54,18 +45,12 @@ jobs:
       pull-requests: read
 
     steps:
-      # Two identities, because they hold different authority and `create-github-app-token` scopes
-      # ONE permission set across a whole repository set — a single App spanning all three repos
-      # would let the publishing identity mutate the intake repos and let the intake identity
-      # publish here. That mutation-authority separation is the whole rationale and it stands on
-      # its own. The default GITHUB_TOKEN cannot do the intake job at all: it is scoped to this
-      # repository, so it has no installation on the DevIndex intake repos — absent, not merely
-      # underprivileged.
-      #
-      # It deliberately does NOT describe the Publisher as a ruleset-bypass identity. Whether a bypass
-      # exists is repository configuration this workflow cannot set and an admin can change at any time,
-      # so stating it here as a property of the credential is wrong the moment the ruleset is edited —
-      # in either direction. See the checkout note below for how to read it.
+      # ONE App identity remains. The pipeline used to hold two — a Publisher for this repository and
+      # an Intake installed on the DevIndex opt-in/opt-out repositories — split so that neither could
+      # act as the other. The DevIndex collection stages moved to `neomjs/devindex`, which took the
+      # Intake identity with them, so the separation now lives across repositories
+      # rather than across two tokens in one job. The Publisher still cannot mutate anything but this
+      # repository's contents, which was always the property that mattered here.
       - name: Mint Publisher installation token
         id: publisher-token
         uses: actions/create-github-app-token@v3
@@ -79,80 +64,6 @@ jobs:
           # in the diff and caps it independently of how the installation drifts.
           permission-contents: write
 
-      # Installed on the DevIndex repos, not this one, so the installation must be named explicitly.
-      #
-      # NON-FATAL, unlike the Publisher mint above. This step ran before checkout, before Node and
-      # before emission, with nothing tolerating its failure — so any intake credential fault killed
-      # the job before a single corpus byte existed. That is the #17148 blast radius one layer up:
-      # the corpus is emitted under the READER identity and does not consume this token at all, yet
-      # an ENRICHMENT credential decided whether the whole repository published.
-      #
-      # `create-github-app-token` fails the step when the credential cannot serve the request —
-      # measured both ways, and BOTH are real triggers:
-      #
-      #   permission not granted to the installation -> "The permissions requested are not granted
-      #     to this installation."                                          (run 31877595849)
-      #   named repository has no installation       -> "Not Found"         (run 31879164402)
-      #
-      # plus a rotated or expired private key, untestable here. So an ordinary administration action
-      # on `neomjs-devindex-intake` can fail this mint, and #17150 adds a `contents` grant that
-      # widens that surface — workflow line and App grant become a pair that must move together.
-      #
-      # READ THE LOG, NOT THE STEP STATUS, when checking whether this mint worked. `continue-on-error`
-      # sets `conclusion: success` on a FAILED step (`outcome` keeps the failure), so once this guard
-      # is in place a failed mint renders green in `gh run view --json jobs`. That is the guard
-      # working, not the mint succeeding — and reading the status instead of the log is how an earlier
-      # revision of this comment came to assert, wrongly, that the mint cannot fail at all.
-
-      - name: Mint Intake installation token
-        id: intake-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.DATA_SYNC_INTAKE_APP_ID }}
-          private-key: ${{ secrets.DATA_SYNC_INTAKE_PRIVATE_KEY }}
-          owner: neomjs
-          repositories: |
-            devindex-opt-in
-            devindex-opt-out
-          # `contents: write` is here for the STARGAZER READ, not to write anything. GitHub limited
-          # the stargazers endpoint to repository admins and collaborators (announced 2026-06-30) and
-          # infers that status from contents-write; `metadata: read` used to carry the read and no
-          # longer does. Measured, not assumed — four `preflight_only` probes, one variable each:
-          #
-          #   issues:write + metadata:read          -> DENIED   (run 31870344604)
-          #   + administration:read                 -> DENIED   (run 31874111382)
-          #   + contents:WRITE                      -> reachable (run 31875177082)
-          #   + contents:READ                       -> DENIED   (run 31875769230)
-          #
-          # So read does not suffice and there is no lesser lever. `devindex-opt-out.issues` stayed
-          # reachable in all four, which is what rules out a sick token and isolates the connection.
-          #
-          # THE COST, stated rather than buried: the previous note here said this token "must never be
-          # able to write code anywhere". That is no longer true and pretending otherwise would be the
-          # more expensive lie. What it can now write is `neomjs/devindex-opt-in` and
-          # `neomjs/devindex-opt-out` — 3 KB and 1 KB respectively, each a README, a `.gitignore` and
-          # issue templates, no code and no data. The DevIndex corpus lives in `neomjs/neo` under
-          # `apps/devindex/resources/data/`, which this App has no installation on and still cannot
-          # reach. The #15744 property that matters — the intake identity cannot publish to this
-          # repository — is intact.
-          #
-          # This line and the App grant are ONE unit, and the coupling has teeth in BOTH directions.
-          # Revoking `contents` on the App while this line stays does not merely lose the stargazer
-          # read: `create-github-app-token` FAILS the step outright, measured at run 31877595849 —
-          # "The permissions requested are not granted to this installation." So any future
-          # permission cleanup on `neomjs-devindex-intake` must leave `contents` in place or land in
-          # the same commit that removes this line.
-          #
-          # A revision of this comment briefly claimed the opposite, on the grounds that the failing
-          # step showed green. It did — because #17162's `continue-on-error` guard sets
-          # `conclusion: success` on a failed step while `outcome` keeps the failure. Check the mint
-          # by reading its LOG, never its step status.
-          permission-contents: write
-          # OptOut comments on and closes issues.
-          permission-issues: write
-          permission-metadata: read
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
@@ -161,10 +72,7 @@ jobs:
           # workflow against dev's code. Every change to the pipeline was therefore untestable
           # before merge, which is a poor property for the script that publishes to dev.
           #
-          # A preflight-only dispatch checks out the dispatched ref, because verifying a change
-          # is the entire point of it. Scheduled runs and full dispatches stay pinned to `dev`:
-          # they publish, and publishing must never emit from an unmerged branch.
-          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.preflight_only) && github.ref || 'dev' }}
+          ref: dev
           fetch-depth: 0
           # `actions/checkout` defaults this to TRUE, writing the token into `.git/config` as an
           # http.extraheader that survives for the whole job. Stripping credentials from a stage's
@@ -206,20 +114,10 @@ jobs:
       # arriving under either of those names would be discarded before any stage could read it.
       - name: Run bounded Data Sync emission and publish
         env:
-          DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}
-          DATA_SYNC_PREFLIGHT_ONLY: ${{ inputs.preflight_only }}
           DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
           DATA_SYNC_READER_TOKEN: ${{ github.token }}
         run: node ./buildScripts/dataSyncPipeline.mjs
-
-      # Guarded on the SAME input the pipeline reads. Without this, a preflight-only dispatch
-      # short-circuited the pipeline and then fell straight into this step, which pushed 167 files
-      # to `pages/main` (commit 189b7b8055) while the run reported "skipping collection and publish".
-      # The side-effect-free claim was made about the pipeline and was silently false about the JOB:
-      # a short-circuit inside one step cannot bound the steps after it, and the step list said
-      # `success Push Data to neomjs/pages` in plain sight the whole time.
       - name: Push Data to neomjs/pages
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.preflight_only) }}
         env:
           PAGES_DEPLOY_PAT: ${{ secrets.PAGES_DEPLOY_PAT }}
         run: |
@@ -232,13 +130,11 @@ jobs:
           git clone https://x-access-token:${PAGES_DEPLOY_PAT}@github.com/neomjs/pages.git temp_pages
 
           # Ensure target directories exist
-          mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
           mkdir -p temp_pages/node_modules/neo.mjs/apps/portal/resources/data
           mkdir -p temp_pages/node_modules/neo.mjs/resources/content
           mkdir -p temp_pages/resources_pub/website/examples/devmode
 
           # Copy the data files
-          cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
 
           # Portal data: deletion-synced recursive copy — the previous flat *.json glob missed the
           # chunked subdirectory trees (tickets/v*/, pulls/latest/), which drifted between full
@@ -276,11 +172,11 @@ jobs:
           cd temp_pages
 
           # Check for changes and push
-          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/ resources_pub/website/examples/devmode/workstation.png sitemap.xml llms.txt node_modules/neo.mjs/resources/content/ node_modules/neo.mjs/learn/) ]]; then
+          if [[ -n $(git status -s node_modules/neo.mjs/apps/portal/resources/data/ resources_pub/website/examples/devmode/workstation.png sitemap.xml llms.txt node_modules/neo.mjs/resources/content/ node_modules/neo.mjs/learn/) ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-            git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
+            git add
             git add -A node_modules/neo.mjs/apps/portal/resources/data/
             git add resources_pub/website/examples/devmode/workstation.png
             git add sitemap.xml 2>/dev/null || true
