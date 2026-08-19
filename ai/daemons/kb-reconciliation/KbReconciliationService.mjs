@@ -2,12 +2,12 @@
 // InstanceManager) lives in `ai/daemons/kb-reconciliation/daemon.mjs`, following the
 // canonical Orchestrator class+wrapper pattern. `Neo.setupClass(KbReconciliationService)`
 // at file bottom uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                          from '../../../src/core/Base.mjs';
-import {Memory_Config as aiConfig}   from '../../services.mjs';
-import ChromaManager                 from '../../services/knowledge-base/ChromaManager.mjs';
-import KBRecorderService             from '../../services/knowledge-base/KBRecorderService.mjs';
-import IngestionService              from '../../services/knowledge-base/IngestionService.mjs';
-import logger                        from '../../mcp/server/knowledge-base/logger.mjs';
+import Base              from '../../../src/core/Base.mjs';
+import aiConfig          from '../../mcp/server/memory-core/config.mjs';
+import ChromaManager     from '../../services/knowledge-base/ChromaManager.mjs';
+import KBRecorderService from '../../services/knowledge-base/KBRecorderService.mjs';
+import IngestionService  from '../../services/knowledge-base/IngestionService.mjs';
+import logger            from '../../mcp/server/knowledge-base/logger.mjs';
 import {
     diffTenantChunks,
     diffTenantManifest,
@@ -349,7 +349,7 @@ class KbReconciliationService extends Base {
      * @protected
      */
     async fetchTenantRows(collection, tenantId) {
-        const rows = [];
+        const rows   = [];
         let   offset = 0,
               batch;
 

@@ -2,11 +2,11 @@
 // InstanceManager) lives in `ai/daemons/kb-gc/daemon.mjs`, following the canonical
 // Orchestrator class+wrapper pattern. `Neo.setupClass(KbGarbageCollectionService)`
 // at file bottom uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                        from '../../../src/core/Base.mjs';
-import {Memory_Config as aiConfig} from '../../services.mjs';
-import ChromaManager               from '../../services/knowledge-base/ChromaManager.mjs';
-import KBRecorderService           from '../../services/knowledge-base/KBRecorderService.mjs';
-import logger                      from '../../mcp/server/knowledge-base/logger.mjs';
+import Base              from '../../../src/core/Base.mjs';
+import aiConfig          from '../../mcp/server/memory-core/config.mjs';
+import ChromaManager     from '../../services/knowledge-base/ChromaManager.mjs';
+import KBRecorderService from '../../services/knowledge-base/KBRecorderService.mjs';
+import logger            from '../../mcp/server/knowledge-base/logger.mjs';
 import {
     formatGcDetail,
     selectExpiredChunks
@@ -167,11 +167,11 @@ class KbGarbageCollectionService extends Base {
      */
     async pulse() {
         try {
-            const kbConfig    = this.getKbConfig(),
-                  retention   = kbConfig.gcRetention,
-                  autoDelete  = kbConfig.gcAutoDelete === true,
-                  defragGate  = Number.isFinite(kbConfig.gcDefragThreshold) ? kbConfig.gcDefragThreshold : 0,
-                  tenants     = await this.fetchTenants();
+            const kbConfig   = this.getKbConfig(),
+                  retention  = kbConfig.gcRetention,
+                  autoDelete = kbConfig.gcAutoDelete === true,
+                  defragGate = Number.isFinite(kbConfig.gcDefragThreshold) ? kbConfig.gcDefragThreshold : 0,
+                  tenants    = await this.fetchTenants();
 
             if (tenants.length === 0) {
                 return // no tenants have ingestion telemetry yet → nothing to collect
@@ -325,7 +325,7 @@ class KbGarbageCollectionService extends Base {
      * @protected
      */
     async fetchTenantRows(collection, tenantId) {
-        const rows = [];
+        const rows   = [];
         let   offset = 0,
               batch;
 
