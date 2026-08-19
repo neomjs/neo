@@ -3720,8 +3720,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup 
     const
         STARTED = '2026-08-18T10:00:00.000Z',
         WINDOW  = 60_000,
+        MAX_LINES = 10_000,
         cfg     = overrides => ({
-            includeLogs: true, logMaxBytes: 32 * 1024, logTail: 120, startupLogWindowMs: WINDOW, ...overrides
+            includeLogs       : true, logMaxBytes: 32 * 1024, logTail: 120, startupLogWindowMs: WINDOW,
+            startupLogMaxLines: MAX_LINES, ...overrides
         }),
         // Records every readObserve call so the WINDOW itself can be asserted, not just its output.
         //
@@ -3764,6 +3766,71 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup 
         expect(calls[0].until).toBe(new Date(Date.parse(STARTED) + WINDOW).toISOString());
         expect(result.windowMs).toBe(WINDOW);
         expect(result.text).toContain('llama_kv_cache');
+    });
+
+    test('`lines` counts the string that is PUBLISHED, not a different one (#17371)', async () => {
+        // The fixture ends in a blank line ON PURPOSE. That is the ordinary shape for container logs
+        // and it is the only shape that separates the two implementations: with no trailing newline,
+        // trimmed and untrimmed have the same line count and a wrong `lines` passes unnoticed.
+        const result = await read(bridgeWith('boot\nready\n\n'));
+
+        expect(result.status).toBe('available');
+
+        // The property, stated as a consumer would compute it. NOT `text.split('\n').length` — that
+        // proxy counts the empty segment after the final terminator, and satisfying it would have
+        // meant publishing the TRIMMED text, which destroys the line-boundary guarantee the byte
+        // bound exists for. The ticket's AC named the proxy; the proxy was wrong, and the AC moved.
+        const consumerCount = result.text.replace(/\n$/, '').split('\n').length;
+
+        expect(result.lines).toBe(consumerCount);
+
+        // Pinned independently, so a change making BOTH sides wrong in the same direction still
+        // fails. An identity alone is satisfiable by publishing nonsense twice.
+        // 'boot', 'ready', and the blank line — three. The payload keeps its terminator untouched.
+        expect(result.lines).toBe(3);
+        expect(result.text).toBe('boot\nready\n\n');
+    });
+
+    test('the line ceiling is the CONFIGURED leaf, and an absent one refuses rather than falling back', async () => {
+        // `readTargetLogs` resolves `tail ?? logTail ?? 200`. The fallback exists and taking it is the
+        // failure: `logTail` is sized for recent activity, so the head read would return the last
+        // ~120 lines OF the startup window — a tail of the head. Refusing beats a wrong-looking answer.
+        const calls = [];
+
+        await read(bridgeWith('boot\n', {calls}));
+        expect(calls[0].tail).toBe(MAX_LINES);
+        expect(calls[0].tail).not.toBe(cfg().logTail);
+
+        for (const absent of [undefined, 0, -1, Number.NaN]) {
+            const missed = [],
+                  result = await read(bridgeWith('boot\n', {calls: missed}),
+                      {config: cfg({startupLogMaxLines: absent})});
+
+            expect(result.status).toBe('unavailable');
+            expect(result.unavailableReason).toBe('line-ceiling-not-configured');
+            expect(result.text).toBeNull();
+            // Refused BEFORE the Docker call, so a misconfiguration cannot spend a request to
+            // discover it had the tail's budget all along.
+            expect(missed).toHaveLength(0)
+        }
+    });
+
+    test('a rotated-away window is cached like any other incarnation-invariant answer', async () => {
+        // This is the arm a long-lived healthy deployment SITS in: once the head has rotated out of
+        // retention it does not come back while the container keeps running. Uncached, it paid a
+        // Docker call per service per sweep to be told the same thing.
+        const calls   = [],
+              service = bridgeWith('   \n  \n', {calls}),
+              first   = await read(service),
+              second  = await read(service);
+
+        expect(first.unavailableReason).toBe('window-empty-or-rotated');
+        expect(second).toEqual(first);
+        expect(calls).toHaveLength(1);
+
+        // ...and it invalidates on the same key as the success arm — a restart may well have a head.
+        await read(service, {incarnationStartedAt: '2026-08-18T12:00:00.000Z'});
+        expect(calls).toHaveLength(2)
     });
 
     test('the cache is keyed on the INCARNATION, so a restart invalidates and a re-read does not', async () => {
