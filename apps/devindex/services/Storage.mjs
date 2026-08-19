@@ -1,3 +1,4 @@
+import {createHash} from 'crypto';
 import fs from 'fs/promises';
 import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
@@ -120,7 +121,7 @@ class Storage extends Base {
     async removeFromBlocklist(logins) {
         const current = await this.readJson(config.paths.blocklist, []);
         const targetSet = new Set(logins.map(l => l.toLowerCase()));
-        
+
         const initialLen = current.length;
         const filtered = current.filter(item => !targetSet.has(item.toLowerCase()));
 
@@ -353,11 +354,107 @@ class Storage extends Base {
     }
 
     /**
-     * Reads the rich users data (formerly data.json).
+     * @summary Reads the rich users data, preferring the artifact this pipeline published.
+     *
+     * **Why not the working tree.** The previous state used to come from whatever `actions/checkout`
+     * placed on disk, which is the reason the pipeline needed a clone of a multi-gigabyte repository
+     * to obtain one file it only reads the tip of. The browser has always fetched this file over
+     * HTTPS from the deployed site; only the producer read it from git. Reading the published copy
+     * puts the producer on the consumer's path and removes the last reason the index must live in
+     * git at all.
+     *
+     * **The fetched copy is used only when it is provably ours.** `index-provenance.json` records
+     * the digest of what this pipeline last wrote. A fetch that matches it is our own artifact and is
+     * safe to mutate. Anything else — a mismatch, a truncated body, an unreachable host — falls back
+     * to the checkout copy, which is the state we last wrote and therefore never a foreign artifact.
+     * Refusing outright was considered and rejected: a publish that has not propagated yet is an
+     * ordinary transient, and a hard refusal would wedge the pipeline on it indefinitely.
+     *
+     * **The fallback is deliberately loud.** A silent one would leave the git coupling in place while
+     * this method appears to have removed it, and nothing downstream would surface it.
      * @returns {Promise<Array<Object>>}
      */
     async getUsers() {
-        return this.readJson(config.paths.users, []);
+        const published = await this.readPublishedIndex();
+
+        return published ?? this.readJson(config.paths.users, [])
+    }
+
+    /**
+     * @summary Fetches the deployed index and returns it only if it matches recorded provenance.
+     * @returns {Promise<Array<Object>|null>} Parsed records, or `null` when the caller must fall back.
+     * @private
+     */
+    async readPublishedIndex() {
+        const {url, timeout} = config.publishedIndex;
+
+        let response, text;
+
+        try {
+            response = await fetch(url, {signal: AbortSignal.timeout(timeout)});
+
+            if (!response.ok) {
+                return this.rejectPublishedIndex(`HTTP ${response.status} from ${url}`)
+            }
+
+            text = await response.text()
+        } catch (error) {
+            return this.rejectPublishedIndex(`fetch failed for ${url}: ${error.message}`)
+        }
+
+        const
+            provenance = await this.readJson(config.paths.indexProvenance, null),
+            digest     = this.digestOf(text);
+
+        // Absence is not mismatch. The first run after adoption has nothing recorded to compare
+        // against, and treating that as a failure would make this path unreachable forever.
+        if (!provenance?.digest) {
+            console.warn('[Storage] No index provenance recorded yet — accepting the published index unverified. This is expected exactly once.');
+        } else if (provenance.digest !== digest) {
+            return this.rejectPublishedIndex(
+                `published index does not match what we last wrote (recorded ${provenance.digest.slice(0, 12)}, fetched ${digest.slice(0, 12)}). ` +
+                'Either the last publish has not propagated, or something else wrote to that URL.'
+            )
+        }
+
+        // Guarded, and the bootstrap run is exactly why. With provenance recorded, a mangled body
+        // fails the digest comparison above and never reaches here. With provenance ABSENT — the
+        // first run after adoption, which the branch above calls expected — nothing has verified
+        // these bytes, so a 200 carrying an HTML interstitial, a truncated transfer or a captive
+        // -portal page reaches `JSON.parse`. Unguarded, that throws out of `getUsers()` and takes
+        // the run down on the one run this method documents as normal.
+        try {
+            return text
+                .split('\n')
+                .filter(line => line.trim())
+                .map(line => JSON.parse(line))
+        } catch (error) {
+            return this.rejectPublishedIndex(`published index is not parseable JSONL: ${error.message}`)
+        }
+    }
+
+    /**
+     * @summary Reports why the published index was not usable and hands the caller back to the tree.
+     *
+     * Separated so every rejection reason travels the same, visible path. An inline `return null`
+     * per branch is how a fallback becomes quiet one branch at a time.
+     * @param {String} reason
+     * @returns {null}
+     * @private
+     */
+    rejectPublishedIndex(reason) {
+        console.warn(`[Storage] Falling back to the checkout copy of the index — ${reason}`);
+        return null
+    }
+
+    /**
+     * @summary Content digest used to prove a fetched index is the one this pipeline wrote.
+     * @param {String} content
+     * @returns {String} Hex-encoded SHA-256.
+     * @private
+     */
+    digestOf(content) {
+        return createHash('sha256').update(content, 'utf-8').digest('hex')
     }
 
     /**
@@ -496,6 +593,33 @@ class Storage extends Base {
         const tempPath = `${path}.tmp`;
         await fs.writeFile(tempPath, content, 'utf-8');
         await fs.rename(tempPath, path);
+
+        // Recorded here rather than at each call site: the index is written from three places
+        // (`saveUsers`, the prune path, and Cleanup's reconciliation), and provenance that only some
+        // of them update is worse than none — a stale digest reads as a foreign artifact and would
+        // send every subsequent run down the fallback path for a reason nobody could find.
+        if (path === config.paths.users) {
+            await this.recordIndexProvenance(content)
+        }
+    }
+
+    /**
+     * @summary Records what this pipeline just published, so the next run can recognise it.
+     *
+     * The digest is over the exact bytes written, which is what a later fetch returns — deriving it
+     * from the in-memory records instead would compare a re-serialisation against a transmission and
+     * drift on any formatting change, failing in a way that looks like tampering.
+     * @param {String} content Exact serialized index as written to disk.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async recordIndexProvenance(content) {
+        await this.writeJson(config.paths.indexProvenance, {
+            digest     : this.digestOf(content),
+            lines      : content.split('\n').filter(line => line.trim()).length,
+            bytes      : Buffer.byteLength(content, 'utf-8'),
+            publishedAt: new Date().toISOString()
+        })
     }
 }
 
