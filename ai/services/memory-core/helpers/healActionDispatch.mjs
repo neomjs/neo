@@ -285,3 +285,107 @@ export function detectChronicUnsafeInput(events = [], {threshold, windowMs, now}
     // Worst-first: descending count, then a stable JSON-key order for deterministic surfacing.
     return chronic.sort((a, b) => b.count - a.count || JSON.stringify([a.action, a.collection]).localeCompare(JSON.stringify([b.action, b.collection])))
 }
+
+/**
+ * Default futility bounds: five consecutive identical verdicts inside one hour freezes the target.
+ * @type {{maxIdenticalVerdicts: Number, windowMs: Number}}
+ */
+export const DEFAULT_FUTILITY_BOUNDS = Object.freeze({maxIdenticalVerdicts: 5, windowMs: 3600000});
+
+/**
+ * Escalation kinds a freeze carries. A failed remedy says the action does not work; an unactionable
+ * verdict says the class has no remedy on this target, which is a substrate gap rather than a retry
+ * to abandon.
+ * @type {{REMEDY_INEFFECTIVE: String, NO_ADMITTED_REMEDY: String}}
+ */
+export const FUTILITY_ESCALATIONS = Object.freeze({
+    REMEDY_INEFFECTIVE: 'remedy-ineffective',
+    NO_ADMITTED_REMEDY: 'no-admitted-remedy'
+});
+
+/**
+ * Dispositions that reached a rung without invoking an executor. Both routes carrying
+ * `actuatorAction: null` land here, so the majority of ledger rows are in this set.
+ * @type {String[]}
+ */
+export const UNACTIONED_DISPOSITIONS = Object.freeze(['recorded', 'declined', 'no-action', 'deferred']);
+
+/**
+ * @summary Decides whether a heal target has become futile and must freeze.
+ *
+ * Keys on **consecutive identical verdicts with no state change**, not on executor failures: the routes
+ * with `actuatorAction: null` never invoke an executor, so a failure counter cannot see them.
+ *
+ * A verdict's identity is `{target, recoveryClass, rung, reasonCode}`. `stateFingerprint` breaks the
+ * run — any change in the subject means the loop is observing something new, whatever the verdict says.
+ *
+ * Fails OPEN (no freeze) on a missing clock, non-positive threshold, or malformed bounds. A breaker that
+ * engaged on bad input would silence the immune system, which is the worse direction here.
+ *
+ * @param {Object}   options
+ * @param {Object[]} [options.verdicts=[]] Newest-last verdicts, each `{target, recoveryClass, rung, reasonCode, disposition, stateFingerprint, at}`.
+ * @param {{maxIdenticalVerdicts: Number, windowMs: Number}} [options.bounds=DEFAULT_FUTILITY_BOUNDS]
+ * @param {Number} [options.now] Epoch milliseconds (injected clock).
+ * @returns {Object} `{freeze, status, reason, streak, escalation, verdict}`. `status ∈ {freeze, below-threshold, verdict-changed, state-changed, unsafe-input, no-verdicts}`.
+ */
+export function decideFutilityFreeze({verdicts = [], bounds = DEFAULT_FUTILITY_BOUNDS, now} = {}) {
+    const {maxIdenticalVerdicts, windowMs} = {...DEFAULT_FUTILITY_BOUNDS, ...(bounds ?? {})};
+
+    if (!Number.isFinite(now) || !Number.isFinite(windowMs) || !Number.isFinite(maxIdenticalVerdicts) || maxIdenticalVerdicts <= 0) {
+        return {freeze: false, status: 'unsafe-input', reason: 'non-finite clock, window, or threshold', streak: 0, escalation: null, verdict: null}
+    }
+
+    const rows = (Array.isArray(verdicts) ? verdicts : [])
+        .filter(v => v && typeof v === 'object' && Number.isFinite(v.at) && v.at >= now - windowMs && v.at <= now);
+
+    if (rows.length === 0) {
+        return {freeze: false, status: 'no-verdicts', reason: 'no verdicts inside the window', streak: 0, escalation: null, verdict: null}
+    }
+
+    const identity = v => JSON.stringify([v.target ?? null, v.recoveryClass ?? null, v.rung ?? null, v.reasonCode ?? null]),
+          latest   = rows[rows.length - 1],
+          key      = identity(latest);
+
+    let streak = 0, broke = null;
+
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const row = rows[i];
+
+        if (identity(row) !== key)                                        { broke = 'verdict-changed'; break }
+        if (row.stateFingerprint !== latest.stateFingerprint)             { broke = 'state-changed';   break }
+
+        streak++
+    }
+
+    const verdict = {
+        target       : latest.target ?? null,
+        recoveryClass: latest.recoveryClass ?? null,
+        rung         : latest.rung ?? null,
+        reasonCode   : latest.reasonCode ?? null,
+        disposition  : latest.disposition ?? null
+    };
+
+    if (streak < maxIdenticalVerdicts) {
+        return {
+            freeze: false,
+            status: broke ?? 'below-threshold',
+            reason: broke
+                ? `run broken by ${broke} after ${streak} identical verdict(s)`
+                : `${streak} of ${maxIdenticalVerdicts} identical verdicts`,
+            streak,
+            escalation: null,
+            verdict
+        }
+    }
+
+    return {
+        freeze    : true,
+        status    : 'freeze',
+        reason    : `${streak} identical verdicts with no state change`,
+        streak,
+        escalation: UNACTIONED_DISPOSITIONS.includes(verdict.disposition)
+            ? FUTILITY_ESCALATIONS.NO_ADMITTED_REMEDY
+            : FUTILITY_ESCALATIONS.REMEDY_INEFFECTIVE,
+        verdict
+    }
+}

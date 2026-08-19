@@ -2,6 +2,9 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
+    DEFAULT_FUTILITY_BOUNDS,
+    FUTILITY_ESCALATIONS,
+    decideFutilityFreeze,
     decideHealAction,
     detectChronicUnsafeInput,
     dispatchHeal,
@@ -375,5 +378,103 @@ test.describe('healActionDispatch — throttle-shed vocabulary (#14284)', () => 
 
         expect(called).toBe(true); // reachable through the dispatch vocabulary — NOT rejected as unknown-action
         expect(outcome).toMatchObject({action: 'throttle-shed', collection: 'kbSync', status: 'shed', healedAt: NOW2});
+    });
+});
+
+/**
+ * The futility breaker: freeze a target whose verdict repeats with no state change.
+ *
+ * Keyed on repeated identical verdicts rather than executor failures, because the route table gives
+ * `throttle-shed` and `record` an `actuatorAction: null` — neither ever invokes an executor, and those
+ * two dispositions are the majority of live ledger rows.
+ */
+test.describe('decideFutilityFreeze — futility breaker', () => {
+    const NOW = 1_000_000;
+
+    const verdicts = ({count, disposition = 'recorded', fingerprint = 'f1', reasonCode = 'throttle-shed-has-no-admitted-action'}) =>
+        Array.from({length: count}, (_, i) => ({
+            target          : 'embedding-model',
+            recoveryClass   : 'exhaustion',
+            rung            : 'rung-2',
+            reasonCode,
+            disposition,
+            stateFingerprint: fingerprint,
+            at              : NOW - (count - i) * 1000
+        }));
+
+    test('freezes on the threshold for EVERY disposition, including the ones that invoke no executor', () => {
+        for (const disposition of ['recorded', 'declined', 'no-action', 'deferred', 'failed']) {
+            const result = decideFutilityFreeze({verdicts: verdicts({count: 5, disposition}), now: NOW});
+
+            expect(result.freeze, `${disposition} must freeze at the threshold`).toBe(true);
+            expect(result.streak).toBe(5);
+        }
+    });
+
+    test('RED-PROOF: a failure counter would see none of these — four of five dispositions never fail', () => {
+        // The arm that fails if the signal reverts to executor failures.
+        const unactioned = verdicts({count: 9, disposition: 'recorded'});
+
+        expect(unactioned.filter(v => v.disposition === 'failed')).toHaveLength(0);
+        expect(decideFutilityFreeze({verdicts: unactioned, now: NOW}).freeze).toBe(true);
+    });
+
+    test('escalation distinguishes an ineffective remedy from an absent one', () => {
+        expect(decideFutilityFreeze({verdicts: verdicts({count: 5, disposition: 'failed'}), now: NOW}).escalation)
+            .toBe(FUTILITY_ESCALATIONS.REMEDY_INEFFECTIVE);
+        expect(decideFutilityFreeze({verdicts: verdicts({count: 5, disposition: 'recorded'}), now: NOW}).escalation)
+            .toBe(FUTILITY_ESCALATIONS.NO_ADMITTED_REMEDY);
+    });
+
+    test('NEGATIVE CONTROL: below the threshold does not freeze', () => {
+        const result = decideFutilityFreeze({verdicts: verdicts({count: DEFAULT_FUTILITY_BOUNDS.maxIdenticalVerdicts - 1}), now: NOW});
+
+        expect(result.freeze).toBe(false);
+        expect(result.status).toBe('below-threshold');
+    });
+
+    test('a changed state fingerprint breaks the run — the loop is observing something new', () => {
+        const rows = verdicts({count: 5});
+
+        rows[2].stateFingerprint = 'f2';
+
+        const result = decideFutilityFreeze({verdicts: rows, now: NOW});
+
+        expect(result.freeze).toBe(false);
+        expect(result.status).toBe('state-changed');
+        expect(result.streak).toBe(2);
+    });
+
+    test('a changed verdict breaks the run', () => {
+        const rows = verdicts({count: 5});
+
+        rows[1].reasonCode = 'diagnosis-record';
+
+        const result = decideFutilityFreeze({verdicts: rows, now: NOW});
+
+        expect(result.freeze).toBe(false);
+        expect(result.status).toBe('verdict-changed');
+    });
+
+    test('verdicts older than the window do not count toward the streak', () => {
+        const stale = verdicts({count: 9}).map(v => ({...v, at: NOW - DEFAULT_FUTILITY_BOUNDS.windowMs - 1}));
+
+        expect(decideFutilityFreeze({verdicts: stale, now: NOW}).status).toBe('no-verdicts');
+    });
+
+    test('fails OPEN on unsafe input — a breaker must never silence healing on a bad clock', () => {
+        for (const bad of [{verdicts: verdicts({count: 9})}, {verdicts: verdicts({count: 9}), now: NaN},
+                           {verdicts: verdicts({count: 9}), now: NOW, bounds: {maxIdenticalVerdicts: 0}}]) {
+            const result = decideFutilityFreeze(bad);
+
+            expect(result.freeze, 'unsafe input must not freeze').toBe(false);
+            expect(result.status).toBe('unsafe-input');
+        }
+    });
+
+    test('partial bounds normalize onto the defaults rather than disabling the gate', () => {
+        const result = decideFutilityFreeze({verdicts: verdicts({count: 5}), bounds: {windowMs: 3_600_000}, now: NOW});
+
+        expect(result.freeze).toBe(true);
     });
 });
