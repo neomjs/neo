@@ -1636,20 +1636,35 @@ export class DeploymentStateBridgeService extends Base {
         const bounded = boundUtf8Head(response?.data?.logs, config.logMaxBytes),
               text    = bounded.text.trim();
 
+        // Nothing is cached until the window has CLOSED, and that gate is the whole correctness of the
+        // cache. `since`/`until` name a fixed range in the past, so once `now` is beyond its end the
+        // content of that range is final and re-reading buys nothing. INSIDE the window it is still
+        // filling: a sweep landing at t+5s sees whatever flushed by t+5s, and caching that freezes a
+        // partial answer for the life of the incarnation.
+        //
+        // It is not a contrived window — `startupLogWindowMs` is sized at 60s against model loading,
+        // the slowest startup on this plane and the one whose geometry is most wanted, so the service
+        // most worth reading is exactly the one whose first observation lands in the empty part of its
+        // own window. A few uncached reads during the seconds a container boots is the entire cost.
+        const windowClosed = this.now() > startedAtMs + windowMs;
+
         if (!text) {
             // Distinguished from a failed read: the window was asked for and came back empty, which on
             // a long-running container means rotation has carried the head away. Naming that is what
             // keeps a reader from concluding the service was silent at boot.
             //
-            // Cached on the SAME incarnation key as the success arm, because it is equally invariant:
-            // a window that has rotated away does not come back while the container keeps running, so
-            // re-reading it every sweep pays a Docker call per service to be told the same thing. This
-            // is the arm a long-lived healthy deployment sits in, which makes it the one worth caching.
-            const rotated = unavailable('window-empty-or-rotated');
+            // The reason carries an `or` and the two halves cache differently. **Rotated** is terminal.
+            // **Not yet written** is transient, and caching it loses the banner permanently — the exact
+            // unreadable-startup-facts failure this read exists to prevent, arriving through its own
+            // optimisation. `windowClosed` separates them: after the window ends, empty can only mean
+            // rotated.
+            const empty = unavailable('window-empty-or-rotated');
 
-            this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record: rotated});
+            if (windowClosed) {
+                this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record: empty})
+            }
 
-            return rotated
+            return empty
         }
 
         const record = {
@@ -1674,7 +1689,12 @@ export class DeploymentStateBridgeService extends Base {
             truncated        : bounded.truncated
         };
 
-        this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record});
+        // Same gate as the empty arm, for the same reason: a head read at t+5s holds only what
+        // flushed by t+5s. Caching that freezes a PARTIAL banner, losing precisely the resolved
+        // geometry line — an engine's KV-cache and compute-buffer sizes — that the head is read for.
+        if (windowClosed) {
+            this.startupLogHeadsByService.set(serviceKey, {startedAt: incarnationStartedAt, record})
+        }
 
         return record
     }
