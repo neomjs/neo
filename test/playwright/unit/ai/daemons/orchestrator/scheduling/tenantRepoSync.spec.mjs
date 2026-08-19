@@ -6,8 +6,11 @@ import {
     detectStarvedTenantSync,
     getDueTask,
     hasPendingEmbeddingRecoveryBypass,
+    isBackoffMarginCollapsed,
     isRepoDue,
-    isStarvedOrderInverted
+    isStarvedOrderInverted,
+    resolveMinimumBackoffCapMs,
+    resolveRepoBaseCadenceMs
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 
 test.describe('tenantRepoSync trigger (#11790)', () => {
@@ -480,5 +483,205 @@ test.describe('isStarvedOrderInverted (#16312)', () => {
         expect(isStarvedOrderInverted({backoffCapMs: 0,   starvedAfterMs: 1000})).toBe(false);
         expect(isStarvedOrderInverted({backoffCapMs: NaN, starvedAfterMs: 1000})).toBe(false);
         expect(isStarvedOrderInverted({backoffCapMs: 1000, starvedAfterMs: NaN})).toBe(false);
+    });
+});
+
+test.describe('isBackoffMarginCollapsed (#17386)', () => {
+    const HALF_HOUR = 30 * 60 * 1000,
+          TWO_HOURS = 2  * 60 * 60 * 1000;
+
+    test('NEGATIVE CONTROL: the shipped defaults leave a sound margin', () => {
+        // Without this arm a predicate hard-coded to `true` satisfies every other criterion here.
+        expect(isBackoffMarginCollapsed({backoffCapMs: TWO_HOURS, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+    });
+
+    test('a cap EQUAL to the jittered base cadence collapses the margin', () => {
+        // The observed deployment shape: NEO_..._BACKOFF_CAP_MS overridden to the same 30 minutes
+        // that intervals.tenantRepoSyncMs already defaults to. The cap then binds at streak 0.
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+    });
+
+    test('the JITTER TERM is what the bound turns on, and it is the reason "> base cadence" was wrong', () => {
+        // A cap 10% above the base cadence reads as compliant against the old prose and still binds at
+        // streak 0 for any repo whose deterministic jitter lands above 10%. This pair is the whole
+        // correction: same base, same ratio, one cap either side of `base + floor(base * ratio)`.
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR * 1.10, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR * 1.25, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+
+        // The exact boundary is sound, not collapsed: `isRepoDue` caps on strictly-greater, and the
+        // largest jitter any seed can draw is `floor(base * ratio)`.
+        const exactBound = HALF_HOUR + Math.floor(HALF_HOUR * 0.20);
+
+        expect(isBackoffMarginCollapsed({backoffCapMs: exactBound,     baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: exactBound - 1, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+    });
+
+    test('the bound agrees with isRepoDue for a real seed, rather than restating it', () => {
+        // Renamed after review: this arm said "at the worst-case seed" and drove a seed at 24.6% of the
+        // maximum jitter, well inside its own agreement region. The name claimed a case the driver never
+        // reached; the supremum arm below is the one that goes to the boundary.
+        //
+        // What this arm does test, and it is worth its place: the predicate decides the same thing the
+        // scheduler does for an ordinary configured repo. Drive the real computation at a collapsed
+        // config and at a sound one, and read `backoffCapped` at consecutiveFailures 0 — the state the
+        // guard claims to predict.
+        const repo  = {tenantId: 'acme', repoSlug: 'docs'},
+              state = {lastRunAttemptAt: 0, consecutiveFailures: 0};
+
+        const collapsed = isRepoDue({
+            repo, persistedRepoState: state, now: 1, globalCadenceMs: HALF_HOUR,
+            jitterRatio: 0.20, backoffCapMs: HALF_HOUR
+        });
+        const sound = isRepoDue({
+            repo, persistedRepoState: state, now: 1, globalCadenceMs: HALF_HOUR,
+            jitterRatio: 0.20, backoffCapMs: TWO_HOURS
+        });
+
+        // This repo's deterministic jitter must be non-zero, or the arm proves nothing about jitter.
+        expect(computeDeterministicJitter({...repo, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBeGreaterThan(0);
+
+        expect(collapsed.backoffCapped).toBe(true);                              // capped with ZERO failures
+        expect(collapsed.effectiveCadenceMs).toBe(HALF_HOUR);
+        expect(sound.backoffCapped).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+        expect(isBackoffMarginCollapsed({backoffCapMs: TWO_HOURS, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+    });
+
+    test('the bound is a SUPREMUM over seeds, so it over-warns by design — asserted at a real boundary', () => {
+        // The design invariant @neo-opus-grace measured in review, pinned so a later precision-minded
+        // reader cannot quietly "fix" it into a per-seed bound. The predicate asks *could any seed
+        // collapse*, not *does this roster collapse*, because a max-over-configured-repos bound would go
+        // silent when the offending repo is removed and loud again when a new one arrives — a verdict
+        // that tracks roster churn instead of configuration.
+        //
+        // Search the seed space for the highest jitter available rather than asserting a hard-coded
+        // fraction: the hash is stable but the arm should not encode one draw of it.
+        const slugs = ['docs', 'api', 'web', 'core', 'grid', 'infra', 'edge', 'data', 'ui', 'jobs'];
+
+        let worst = null;
+
+        for (const repoSlug of slugs) {
+            const jitterMs = computeDeterministicJitter({tenantId: 'acme', repoSlug, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20});
+
+            (worst === null || jitterMs > worst.jitterMs) && (worst = {repoSlug, jitterMs});
+        }
+
+        const supremum = Math.floor(HALF_HOUR * 0.20);
+
+        // Non-vacuity: a seed that drew the full supremum would make the two regions coincide and the
+        // arm would assert nothing about the gap it exists to describe.
+        expect(worst.jitterMs).toBeGreaterThan(0);
+        expect(worst.jitterMs).toBeLessThan(supremum);
+
+        const repo  = {tenantId: 'acme', repoSlug: worst.repoSlug},
+              state = {lastRunAttemptAt: 0, consecutiveFailures: 0},
+              atOwn = HALF_HOUR + worst.jitterMs;
+
+        // At this seed's OWN boundary the scheduler does not cap it — strictly-greater — while one ms
+        // below, it does. That is the agreement check actually taken to the edge.
+        expect(isRepoDue({repo, persistedRepoState: state, now: 1, globalCadenceMs: HALF_HOUR, jitterRatio: 0.20, backoffCapMs: atOwn}).backoffCapped).toBe(false);
+        expect(isRepoDue({repo, persistedRepoState: state, now: 1, globalCadenceMs: HALF_HOUR, jitterRatio: 0.20, backoffCapMs: atOwn - 1}).backoffCapped).toBe(true);
+
+        // And the predicate still reports collapsed across the whole band up to the supremum, because a
+        // different seed in that band WOULD cap. Over-warn on a non-throwing WARN, deliberately.
+        expect(isBackoffMarginCollapsed({backoffCapMs: atOwn,        baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+        expect(isBackoffMarginCollapsed({backoffCapMs: supremum + HALF_HOUR - 1, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+        expect(isBackoffMarginCollapsed({backoffCapMs: supremum + HALF_HOUR,     baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+    });
+
+    test('the remedy number is the predicate\'s own threshold, not a second computation of it', () => {
+        // RA-3's root cause: the WARN previously said "raise ABOVE base + floor(base * ratio)" while the
+        // predicate and the leaf docblock both said "at least". Two statements of one remedy, and the
+        // untested one was wrong. `resolveMinimumBackoffCapMs` exists so the message prints the value the
+        // predicate compares against — this arm is what makes them provably the same number.
+        const minimum = resolveMinimumBackoffCapMs({baseCadenceMs: HALF_HOUR, jitterRatio: 0.20});
+
+        expect(minimum).toBe(HALF_HOUR + Math.floor(HALF_HOUR * 0.20));
+
+        // Inclusive: a cap EQUAL to the minimum is sound, which is what "at least" means.
+        expect(isBackoffMarginCollapsed({backoffCapMs: minimum,     baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: minimum - 1, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(true);
+
+        // Jitter disabled collapses the minimum to the bare cadence, matching the sound-config arm.
+        expect(resolveMinimumBackoffCapMs({baseCadenceMs: HALF_HOUR, jitterRatio: 0})).toBe(HALF_HOUR);
+
+        // An unresolvable cadence has no minimum. `0` would read as "any cap will do".
+        expect(resolveMinimumBackoffCapMs({baseCadenceMs: NaN, jitterRatio: 0.20})).toBeNull();
+        expect(resolveMinimumBackoffCapMs({baseCadenceMs: 0,   jitterRatio: 0.20})).toBeNull();
+    });
+
+    test('resolveRepoBaseCadenceMs is the ONE site both the scheduler and the guard resolve the base from', () => {
+        // RA-4: the docblock claimed the check "cannot drift from the behaviour it describes" while the
+        // base-cadence fallback was restated at the call site. Now shared — and this arm is what makes
+        // the claim checkable rather than a promise.
+        expect(resolveRepoBaseCadenceMs({repo: {cadenceMs: 5000}, globalCadenceMs: HALF_HOUR})).toBe(5000);
+        expect(resolveRepoBaseCadenceMs({repo: {},                globalCadenceMs: HALF_HOUR})).toBe(HALF_HOUR);
+        expect(resolveRepoBaseCadenceMs({repo: {cadenceMs: 0},    globalCadenceMs: HALF_HOUR})).toBe(HALF_HOUR);
+        expect(resolveRepoBaseCadenceMs({repo: {cadenceMs: -1},   globalCadenceMs: HALF_HOUR})).toBe(HALF_HOUR);
+        expect(resolveRepoBaseCadenceMs({repo: {cadenceMs: NaN},  globalCadenceMs: HALF_HOUR})).toBe(HALF_HOUR);
+
+        // The property that matters: `isRepoDue` reaches the same base through the shared helper, so an
+        // override the guard sees is an override the scheduler honours.
+        const repo = {tenantId: 'acme', repoSlug: 'docs', cadenceMs: TWO_HOURS};
+
+        expect(isRepoDue({
+            repo, persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 0},
+            now: TWO_HOURS - 1, globalCadenceMs: HALF_HOUR, jitterRatio: 0
+        }).due).toBe(false);                                     // the override governs, not the 30min global
+        expect(resolveMinimumBackoffCapMs({baseCadenceMs: resolveRepoBaseCadenceMs({repo, globalCadenceMs: HALF_HOUR}), jitterRatio: 0})).toBe(TWO_HOURS);
+    });
+
+    test('a collapsed margin makes the doubling curve inert: streak 309 costs exactly what streak 0 costs', () => {
+        // The claim that motivated the ticket, asserted rather than argued. `backoffMultiplier` is
+        // published beside the cadence precisely so this arithmetic is falsifiable — the multiplier is
+        // astronomically large and the cadence does not move.
+        const repo = {tenantId: 'acme', repoSlug: 'docs'},
+              args = {repo, now: 1, globalCadenceMs: HALF_HOUR, jitterRatio: 0.20, backoffCapMs: HALF_HOUR};
+
+        const fresh    = isRepoDue({...args, persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 0}}),
+              hammered = isRepoDue({...args, persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 309}});
+
+        expect(hammered.effectiveCadenceMs).toBe(fresh.effectiveCadenceMs);
+        expect(hammered.backoffMultiplier).toBeGreaterThan(1e90);                // the display number
+        expect(hammered.effectiveCadenceMs).toBe(HALF_HOUR);                     // the actual delay
+    });
+
+    test('jitter disabled with a cap EQUAL to the base cadence is SOUND, and must not warn', () => {
+        // This arm replaced an acceptance criterion that required the opposite. With jitterRatio 0 the
+        // uncapped cadence at streak 0 is exactly the base, and `isRepoDue` caps on strictly-greater,
+        // so the cap first binds at streak 1 — which is what "binds only on failure streaks" means. A
+        // guard that fired here would warn about a correct configuration.
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR, baseCadenceMs: HALF_HOUR, jitterRatio: 0})).toBe(false);
+
+        const repo = {tenantId: 'acme', repoSlug: 'docs'},
+              args = {repo, now: 1, globalCadenceMs: HALF_HOUR, jitterRatio: 0, backoffCapMs: HALF_HOUR};
+
+        expect(isRepoDue({...args, persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 0}}).backoffCapped).toBe(false);
+        expect(isRepoDue({...args, persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 1}}).backoffCapped).toBe(true);
+    });
+
+    test('backoffCapMs 0 (the documented no-cap value) is never collapsed', () => {
+        // Mirrors isStarvedOrderInverted's treatment of starvedAfterMs 0: a guard that fires on the
+        // documented disable warns about a legal config and gets muted.
+        expect(isBackoffMarginCollapsed({backoffCapMs: 0, baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+    });
+
+    test('unresolvable values cannot be judged and are not collapsed', () => {
+        expect(isBackoffMarginCollapsed({backoffCapMs: NaN,       baseCadenceMs: HALF_HOUR, jitterRatio: 0.20})).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR, baseCadenceMs: NaN,       jitterRatio: 0.20})).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR, baseCadenceMs: 0,         jitterRatio: 0.20})).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR, baseCadenceMs: -1,        jitterRatio: 0.20})).toBe(false);
+
+        // A non-finite ratio degrades to no-jitter rather than poisoning the bound with NaN.
+        expect(isBackoffMarginCollapsed({backoffCapMs: HALF_HOUR + 1, baseCadenceMs: HALF_HOUR, jitterRatio: NaN})).toBe(false);
+    });
+
+    test('a per-repo cadenceMs override collapses the margin for that repo alone', () => {
+        // The reason the guard runs per repo rather than once on the global pair: an override LARGER
+        // than the global makes the same cap unsound for one repo while the rest stay sound, which a
+        // global-only check reports as clean.
+        expect(isBackoffMarginCollapsed({backoffCapMs: TWO_HOURS, baseCadenceMs: HALF_HOUR,     jitterRatio: 0.20})).toBe(false);
+        expect(isBackoffMarginCollapsed({backoffCapMs: TWO_HOURS, baseCadenceMs: TWO_HOURS,     jitterRatio: 0.20})).toBe(true);
+        expect(isBackoffMarginCollapsed({backoffCapMs: TWO_HOURS, baseCadenceMs: TWO_HOURS * 4, jitterRatio: 0.20})).toBe(true);
     });
 });
