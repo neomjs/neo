@@ -1,11 +1,15 @@
 import {test, expect} from '@playwright/test';
+import {execFileSync} from 'node:child_process';
 import {
     DEFAULT_BOUNDS,
     formatDensityWarning,
+    isConfession,
     isInScopePath,
     isProseLine,
     isTagLine,
     measureProseDensity,
+    measureRange,
+    pendingRanges,
     summarizeDensity
 } from '../../../../buildScripts/util/check-comment-density.mjs';
 
@@ -121,6 +125,118 @@ test.describe('check-comment-density — prose classification', () => {
         expect(result.added).toBe(1);
         expect(result.prose).toBe(1);
         expect(result.longestRun).toBe(1);
+    });
+});
+
+test.describe('check-comment-density — deferral detection', () => {
+    test('the founding specimen fires: a reasoned, unticketed deferral is still a deferral', () => {
+        // The census specimen. `deliberately` asserts intent without discharging the obligation, so it
+        // is not in DECIDED_MARKERS — exempting it would exempt the best-dressed confessions.
+        expect(isConfession('worthwhile and deliberately left alone')).toBe(true);
+        expect(isConfession('Pass generic env for now')).toBe(true);
+        expect(isConfession('Ideally we hydrate the source store here')).toBe(true);
+    });
+
+    test('a marker is its own admission — no stance word converts it into a decision', () => {
+        expect(isConfession('TODO: Implement geocoding')).toBe(true);
+        expect(isConfession('FIXME intentionally')).toBe(true);
+        expect(isConfession('HACK(perf): re-reads the tree')).toBe(true);
+    });
+
+    test('MARKER form only — the English word is prose about obligations, not an obligation', () => {
+        // Bare `todo` matched 90 repo lines, mostly prose; the marker form matched 14, all real.
+        expect(isConfession("an announcement becomes someone else's todo")).toBe(false);
+        expect(isConfession('TODO: cache all regex')).toBe(true);
+    });
+
+    test('REFUTED VOCABULARY: this repo\'s domain nouns are not deferrals', () => {
+        // These four carried 326 of 458 hits in a first draft and were measured out, not guessed out.
+        expect(isConfession('a CPU deployment burned ~2.3 cores at `0 updated, 30 deferred` per pass')).toBe(false);
+        expect(isConfession('Webhook delivery is recognized in config but not yet POSTed.')).toBe(false);
+        expect(isConfession('the follow-up wires mutating ops — the dispatch core fails CLOSED')).toBe(false);
+        expect(isConfession("Placeholder values ('unknown', 'n/a', 'tbd') THROW")).toBe(false);
+    });
+
+    test('REFUTED VOCABULARY: concession shapes scored 0 true across 13 candidate hits', () => {
+        // The operator's specimen ("duplicating code is bad, but…") is a real behaviour that this
+        // repo does not write in words a regex can separate from precise technical prose. Both
+        // candidate shapes were measured repo-wide: lexical `i know…` was 0 true / 8 false, and
+        // structural `<norm>…but` was 0 true / 5 false. Neither ships; these arms pin the negative
+        // so a future author re-adding one has to beat a recorded measurement, not an opinion.
+        expect(isConfession('answering "admissible" would certify precisely the case we know')).toBe(false);
+        expect(isConfession('scrolls we caused, because we know we caused them')).toBe(false);
+        expect(isConfession('declared `number`, which accepts values that are not wrong-ish but INVALID')).toBe(false);
+        expect(isConfession('rejects bad rows at the upsert boundary, but a replace-mode import truncates')).toBe(false);
+    });
+
+    test('a bound obligation is not a confession, and the marker is the reachable escape', () => {
+        expect(isConfession('left alone for now — ticket-ref-ok: covered by the parent sweep')).toBe(false);
+        expect(isConfession('skipped by design for now')).toBe(false);
+        // Unequal reach, deliberately: check-ticket-archaeology rejects a bare ref on a NEW comment
+        // line under ai/ src/ test/, so this arm is independently live only under buildScripts/.
+        expect(isConfession('revisit once #17400 lands')).toBe(false);
+    });
+
+    test('confessions ride along with the density measurement, carrying line numbers', () => {
+        const lines  = ['// for now, assume one tenant', 'const x = 1;', '// TODO: widen'],
+              result = measureProseDensity(lines, new Set([1, 2, 3]));
+
+        expect(result.confessions).toHaveLength(2);
+        expect(result.confessions.map(entry => entry.line)).toEqual([1, 3]);
+    });
+
+    test('a PRE-EXISTING confession is not this commit\'s — only added lines are reported', () => {
+        const result = measureProseDensity(['// TODO: old debt', '// for now, mine'], new Set([2]));
+
+        expect(result.confessions).toHaveLength(1);
+        expect(result.confessions[0].line).toBe(2);
+    });
+});
+
+test.describe('check-comment-density — pre-push consumer', () => {
+    const ZERO = '0'.repeat(40),
+          sha  = char => char.repeat(40);
+
+    test('the pushed range is remoteSha..localSha, the boundary git itself applies', () => {
+        expect(pendingRanges(`refs/heads/x ${sha('a')} refs/heads/x ${sha('b')}`)).toEqual([`${sha('b')}..${sha('a')}`]);
+    });
+
+    test('a NEW remote branch has no boundary sha, so the range falls back to the trunk', () => {
+        expect(pendingRanges(`refs/heads/x ${sha('a')} refs/heads/x ${ZERO}`)).toEqual([`origin/dev..${sha('a')}`]);
+    });
+
+    test('a branch DELETION pushes no commits and measures nothing', () => {
+        expect(pendingRanges(`refs/heads/x ${ZERO} refs/heads/x ${sha('b')}`)).toEqual([]);
+    });
+
+    test('empty stdin is a manual run — it measures the branch rather than no-opping', () => {
+        // A check that silently passes when it cannot see its input is not a check.
+        expect(pendingRanges('')).toEqual(['origin/dev..HEAD']);
+        expect(pendingRanges(undefined)).toEqual(['origin/dev..HEAD']);
+    });
+
+    test('every pushed ref is measured, not just the first', () => {
+        expect(pendingRanges(`refs/heads/a ${sha('1')} refs/heads/a ${sha('2')}\nrefs/heads/b ${sha('3')} refs/heads/b ${sha('4')}`)).toHaveLength(2);
+    });
+
+    test('measureRange reads REAL git history, so the consumer is proven end to end', () => {
+        const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf-8'}).trim(),
+              head    = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: gitRoot, encoding: 'utf-8'}).trim(),
+              files   = measureRange(`${head}~1..${head}`, gitRoot);
+
+        expect(Array.isArray(files)).toBe(true);
+        files.forEach(row => {
+            expect(row.added).toBeGreaterThan(0);
+            expect(isInScopePath(row.file)).toBe(true);
+            expect(row).toHaveProperty('longestRun');
+            expect(row).toHaveProperty('confessions');
+        });
+    });
+
+    test('an unresolvable range yields no files instead of throwing into the hook', () => {
+        const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf-8'}).trim();
+
+        expect(measureRange('definitely-not-a-ref..also-not-a-ref', gitRoot)).toEqual([]);
     });
 });
 

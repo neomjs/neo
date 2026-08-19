@@ -15,3 +15,10 @@ payload="$(cat)"
 printf '%s\n' "$payload" | node ./buildScripts/util/check-branch-discipline.mjs
 printf '%s\n' "$payload" | node ./ai/scripts/lint/check-commit-authorship.mjs
 printf '%s\n' "$payload" | node ./buildScripts/util/check-spec-retirement.mjs
+
+# Advisory, and `set -e` above makes that a property this line has to state rather than assume: a
+# crash in an advisory guard would otherwise block the push it was never meant to block. Reports the
+# two prose-density axes and any comment that defers work without binding it to a ticket. Advisory
+# because both signals are heuristics over prose — a blocking version would be worded around, and
+# the deferral escape hatch is a marker another guard owns.
+printf '%s\n' "$payload" | node ./buildScripts/util/check-comment-density.mjs --pre-push || true
