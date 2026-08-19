@@ -36,6 +36,7 @@ import AiConfig              from '../../config.mjs';
 import TenantRepoSyncService from '../../daemons/orchestrator/services/TenantRepoSyncService.mjs';
 import {
     resolveHeavyMaintenanceLeasePath,
+    shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {
@@ -152,14 +153,41 @@ function createInMemoryTaskStateService() {
  * @param {Function} options.writeLog
  * @returns {Object}
  */
-function buildRunTaskOptions({parsed, taskStateService, writeLog}) {
+function buildRunTaskOptions({parsed, taskStateService, writeLog, leaseShouldYield = null}) {
     return {
         reason       : 'manual',
         taskStateService,
         writeLog,
         onlyRepoSlugs: parsed.repoSlugs.length > 0 ? parsed.repoSlugs : undefined,
-        fullReplay   : parsed.fullReplay
+        fullReplay   : parsed.fullReplay,
+        leaseShouldYield
     }
+}
+
+/**
+ * @summary Builds the outer heavy-maintenance lease's fairness vote for the sweep beneath it.
+ *
+ * Mirrors the `kbSync` precedent deliberately, including the config branch that reads wrong at a
+ * glance: `maxActiveHoldMs` lives on `orchestrator.heavyMaintenance`, **not** on the sibling
+ * `orchestrator.heavyMaintenanceLease`, which carries only `staleAfterMs`. Reading the sibling yields
+ * `undefined`, and a falsy bound means the primitive never votes to yield — a silent no-op that looks
+ * exactly like a wired predicate at every call site. That is the failure this comment exists to stop.
+ *
+ * Returns `null` when there is no lease to measure, so a caller that was not admitted, or a test
+ * harness with no acquisition, degrades to the slice budget alone rather than to a predicate that
+ * always answers false.
+ *
+ * @param {Object|null} acquisition The descriptor `withHeavyMaintenanceLease` passes to its task.
+ * @returns {Function|null} `() => Boolean`, or `null` when no lease is held.
+ */
+function buildLeaseYieldPredicate(acquisition) {
+    if (!acquisition?.lease) {
+        return null
+    }
+
+    return () => shouldYieldHeavyMaintenanceLease(acquisition.lease, {
+        maxActiveHoldMs: AiConfig.orchestrator.heavyMaintenance.maxActiveHoldMs
+    })
 }
 
 /**
@@ -198,7 +226,21 @@ function runTenantRepoSyncWithGlobalLease({
             onlyRepoSlugs: parsed.repoSlugs.length > 0 ? parsed.repoSlugs : null,
             writeLog
         })
-        : () => runTaskImpl(buildRunTaskOptions({parsed, taskStateService, writeLog}));
+        // `acquisition` is what `withHeavyMaintenanceLease` hands its task, and taking it here is the
+        // whole fix: this lease is the one the starvation watchdog names as holder, and until now the
+        // sweep beneath it had no way to ask how long it had been held. A sweep across N repos honours
+        // every per-repo slice budget and still occupies the shared exclusive-heavy slot for roughly
+        // N × sliceBudgetMs — measured on a live plane as five waiters starved between 4 and 34 hours
+        // under this owner.
+        //
+        // Only the sweep gets the vote. The clear-backoff branch is a short manifest rewrite that must
+        // finish atomically; handing it a yield predicate would invite a half-applied clear.
+        : acquisition => runTaskImpl(buildRunTaskOptions({
+            parsed,
+            taskStateService,
+            writeLog,
+            leaseShouldYield: buildLeaseYieldPredicate(acquisition)
+        }));
 
     return withLease(
         invoke,
@@ -287,4 +329,4 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     })
 }
 
-export {buildRunTaskOptions, parseArgs, resolveExitCode, runTenantRepoSyncWithGlobalLease};
+export {buildLeaseYieldPredicate, buildRunTaskOptions, parseArgs, resolveExitCode, runTenantRepoSyncWithGlobalLease};

@@ -51,6 +51,7 @@ import {
     exitLifecycleGuard
 } from '../../../../../../../ai/daemons/shared/lifecycleGuard.mjs';
 import {
+    buildLeaseYieldPredicate,
     buildRunTaskOptions,
     parseArgs,
     resolveExitCode,
@@ -7488,13 +7489,39 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
                 writeLog
             });
 
+        // Kept as an exact-shape `toEqual` rather than relaxed to `toMatchObject`: this pin is what
+        // caught the new key, and a pin that tolerates additions stops being able to. `null` is the
+        // no-outer-lease default — a caller holding no lease must dispatch a sweep that behaves
+        // exactly as it did before the fairness vote existed.
         expect(options).toEqual({
-            reason       : 'manual',
+            reason          : 'manual',
             taskStateService,
             writeLog,
-            onlyRepoSlugs: ['org/a', 'org/b'],
-            fullReplay   : true
+            onlyRepoSlugs   : ['org/a', 'org/b'],
+            fullReplay      : true,
+            leaseShouldYield: null
         });
+    });
+
+    test('threads the outer lease fairness vote into the dispatched sweep, and it votes on the LEASE age', () => {
+        const dispatched = [];
+
+        // A lease acquired far enough in the past to be past any sane hold bound. The predicate must
+        // read THIS lease's age — not the sweep's, and not the slice budget's — so the fixture proves
+        // which clock the vote consults rather than only that a function arrived.
+        const acquisition = {lease: {owner: 'tenant-repo-sync', acquiredAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()}};
+
+        dispatched.push(buildLeaseYieldPredicate(acquisition));
+
+        const [vote] = dispatched;
+
+        expect(typeof vote, 'an acquisition with a lease yields a predicate').toBe('function');
+        expect(vote(), 'a six-hour hold is past the 30-minute default bound').toBe(true);
+
+        // The negative arm that makes the positive one mean something: no lease ⇒ no predicate, so the
+        // sweep degrades to the slice budget alone instead of to a vote that always answers false.
+        expect(buildLeaseYieldPredicate(null), 'no acquisition ⇒ no vote').toBeNull();
+        expect(buildLeaseYieldPredicate({}), 'an acquisition without a lease ⇒ no vote').toBeNull();
     });
 
     test('global held lease defers without dispatching tenant sync', async () => {
@@ -7548,15 +7575,21 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
                 });
 
                 expect(outcome.status).toBe('completed');
-                expect(outcome.result).toEqual({
-                    status,
-                    options: {
-                        reason       : 'manual',
-                        taskStateService,
-                        writeLog,
-                        onlyRepoSlugs: ['org/a', 'org/b'],
-                        fullReplay   : true
-                    }
+                expect(outcome.result.status).toBe(status);
+
+                // This path holds a REAL acquisition, so the fairness vote must arrive as a live
+                // function — asserted by kind, then excluded from the exact-shape comparison below.
+                // Comparing a closure by value would pin an identity nothing owns; dropping the key
+                // from the pin entirely would let the vote silently stop being threaded.
+                const {leaseShouldYield, ...pinned} = outcome.result.options;
+
+                expect(typeof leaseShouldYield, 'a sweep dispatched under the outer lease receives its fairness vote').toBe('function');
+                expect(pinned).toEqual({
+                    reason       : 'manual',
+                    taskStateService,
+                    writeLog,
+                    onlyRepoSlugs: ['org/a', 'org/b'],
+                    fullReplay   : true
                 });
                 expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
             });

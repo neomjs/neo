@@ -38,6 +38,7 @@ import {
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
     assertSliceBudgetMs,
+    composeYieldPredicates,
     createSliceBudgetPredicate,
     classifyEmbeddingRecoveryState,
     detectStarvedTenantSync,
@@ -1432,7 +1433,17 @@ class TenantRepoSyncService extends Base {
         embeddingRecoveryClock           = Date.now,
         embeddingRecoveryProbeTimeoutMs  = EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS,
         embeddingRecoveryFailureTtlMs    = EMBEDDING_RECOVERY_FAILURE_TTL_MS,
-        embeddingRecoveryFailureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS
+        embeddingRecoveryFailureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS,
+        // The OUTER heavy-maintenance lease's fairness vote, supplied by whoever holds that lease —
+        // this service cannot build it, because it does not own that acquisition. Callers that hold
+        // no outer lease pass nothing and keep today's slice-budget-only behaviour exactly.
+        //
+        // It has to arrive as a parameter rather than be derived here: the container path takes the
+        // shared lease OUTSIDE `runTask` (`ai/scripts/maintenance/syncTenantRepos.mjs`) while the
+        // service's own narrower lease is acquired INSIDE it, so the acquisition whose age the
+        // fairness bound measures is not in scope at this level. Deriving one here would measure the
+        // wrong lease and read as fair while the shared slot stayed occupied.
+        leaseShouldYield = null
     } = {}) {
         // One-time deployment sanity check on the two tuning leaves' RELATIONSHIP (never a
         // throw — a noisy alert beats a dead lane): an inverted floor makes ordinary capped
@@ -1591,7 +1602,8 @@ class TenantRepoSyncService extends Base {
                 embeddingRecoveryClock,
                 embeddingRecoveryProbeTimeoutMs,
                 embeddingRecoveryFailureTtlMs,
-                embeddingRecoveryFailureTtlMaxMs
+                embeddingRecoveryFailureTtlMaxMs,
+                leaseShouldYield
             });
             const status         = result.status;
             const lastCompletion = {
@@ -1665,7 +1677,12 @@ class TenantRepoSyncService extends Base {
         embeddingRecoveryClock           = Date.now,
         embeddingRecoveryProbeTimeoutMs  = EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS,
         embeddingRecoveryFailureTtlMs    = EMBEDDING_RECOVERY_FAILURE_TTL_MS,
-        embeddingRecoveryFailureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS
+        embeddingRecoveryFailureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS,
+        // Declared HERE and not only on `runTask`, because the per-repo ingest call that consumes it
+        // lives in this scope alongside `sliceBudgetMs`. Declaring it one frame up left it an
+        // out-of-scope reference inside the per-repo try, which the repo-level catch turned into an
+        // ordinary repo failure — a checkpoint that stayed `null` while the sweep reported no cause.
+        leaseShouldYield = null
     }) {
         if (fullReplay && (!Array.isArray(onlyRepoSlugs) || onlyRepoSlugs.length === 0)) {
             throw new TenantRepoSyncError(
@@ -2399,7 +2416,16 @@ class TenantRepoSyncService extends Base {
                             // built once and shared by the whole sweep; a budget shared that way
                             // would be spent by the first admitted repo and every later one born
                             // already expired — a fairness fix that starves the tail it serves.
-                            shouldYield: createSliceBudgetPredicate({startedMs, sliceBudgetMs})
+                            // Two bounds, OR-composed, because neither subsumes the other: the slice
+                            // budget bounds THIS repo's share of the sweep, while the outer lease vote
+                            // bounds the whole sweep's occupancy of the shared exclusive-heavy slot. A
+                            // sweep honouring every per-repo budget can still hold that slot for
+                            // roughly repoCount × sliceBudgetMs, which is how waiters starve for hours
+                            // under a holder that never breaks any budget it can see.
+                            shouldYield: composeYieldPredicates(
+                                createSliceBudgetPredicate({startedMs, sliceBudgetMs}),
+                                leaseShouldYield
+                            )
                         });
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:

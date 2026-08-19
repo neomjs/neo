@@ -113,6 +113,31 @@ export function createSliceBudgetPredicate({startedMs, sliceBudgetMs, now = Date
 }
 
 /**
+ * @summary Combines independent yield votes into one predicate: yield when ANY voter says yield.
+ *
+ * The two bounds a tenant sweep sits under answer different questions and neither subsumes the other.
+ * The slice budget above asks *"has this repo used its share of the sweep?"* — throughput fairness
+ * **between repos**. A heavy-maintenance lease bound asks *"has this holder occupied the exclusive
+ * slot past the fairness bound?"* — fairness **between tasks**. A sweep can honour every per-repo
+ * budget and still hold the shared slot for roughly `repoCount × sliceBudgetMs`, because the slice
+ * budget rotates *within* the sweep rather than ending it. That is why composition is OR and not a
+ * replacement: dropping either bound reintroduces the starvation the other cannot see.
+ *
+ * Non-function voters are ignored rather than rejected, so a caller that has no lease to consult —
+ * the in-process scheduler path, or any test harness — passes `null` and gets the slice budget alone.
+ * A predicate that throws is deliberately NOT caught here: a broken voter must fail loudly at its own
+ * call site rather than be silently read as "do not yield", which is the reading that starves waiters.
+ *
+ * @param {...(Function|null|undefined)} voters Yield predicates; non-functions are skipped.
+ * @returns {Function} `() => Boolean` — true as soon as one voter votes to yield.
+ */
+export function composeYieldPredicates(...voters) {
+    const active = voters.filter(voter => typeof voter === 'function');
+
+    return () => active.some(voter => voter() === true)
+}
+
+/**
  * Builds the trigger for the cloud-deployable tenant-repo-sync lane.
  * Mirror of `buildPrimaryRepoSyncTrigger` in `./primaryDevSync.mjs` — pure function;
  * no class, no Neo machinery, no side effects.
