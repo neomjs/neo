@@ -122,3 +122,94 @@ test.describe('VectorService — embedding guardrail fail-closed', () => {
         }
     });
 });
+
+/**
+ * The input-strategy coordinate of the poison generation, which is what decides whether a repair to
+ * the admission band releases the chunks that band fenced.
+ *
+ * `resolveEmbeddingPoisonGeneration` promises in its own docblock that "a provider, model,
+ * vector-schema, or input-strategy change invalidates prior poison evidence", and
+ * `createVectorGenerationIdentity` guarantees any coordinate change yields a new generation id. The
+ * coordinate carrying the input strategy was a static literal, so the promise held for three of four
+ * inputs and silently failed for the one that moves most often.
+ *
+ * Every test here holds provider, model, vectorDimension and the call ceiling IDENTICAL — they are
+ * untouched by the guardrail seam — because an unchanged tuple is the condition under test. A fixture
+ * that also moved one of the four would be released on `main` too and would prove nothing.
+ */
+test.describe('VectorService — poison generation tracks the admission band (#17345)', () => {
+    let KB_VectorService;
+
+    test.beforeAll(async () => {
+        KB_VectorService = (await import('../../../../../../ai/services/knowledge-base/VectorService.mjs')).default;
+    });
+
+    const withGuardrail = (guardrail, fn) => {
+        const original = KB_VectorService.resolveEmbeddingGuardrail;
+
+        try {
+            KB_VectorService.resolveEmbeddingGuardrail = () => ({
+                recognized: true, model: 'gemini-embedding-001', ...guardrail
+            });
+
+            return fn()
+        } finally {
+            KB_VectorService.resolveEmbeddingGuardrail = original
+        }
+    };
+
+    const generationFor = guardrail =>
+        withGuardrail(guardrail, () => KB_VectorService.resolveEmbeddingPoisonGeneration());
+
+    test('a band change moves the strategyVersion while the rest of the tuple stays identical', () => {
+        const wide   = generationFor({contextLimitTokens: 28_672, safeProcessingLimitTokens: 28_672}),
+              narrow = generationFor({contextLimitTokens: 16_384, safeProcessingLimitTokens: 28_672});
+
+        // The whole point: the four coordinates the old release condition named are UNCHANGED.
+        expect(narrow.provider).toBe(wide.provider);
+        expect(narrow.model).toBe(wide.model);
+        expect(narrow.vectorDimension).toBe(wide.vectorDimension);
+        expect(narrow.embedCallCeilingMs).toBe(wide.embedCallCeilingMs);
+
+        // And the generation still differs, which is what releases a fenced chunk.
+        expect(narrow.strategyVersion).not.toBe(wide.strategyVersion);
+
+        // Pinned literally, not just as "different": a version that changed for some other reason
+        // would satisfy an inequality while telling us nothing about the band.
+        expect(wide.strategyVersion).toBe('kb-embedding-input-v1:band-28672-est-21238');
+        expect(narrow.strategyVersion).toBe('kb-embedding-input-v1:band-16384-est-12136')
+    });
+
+    test('NEGATIVE CONTROL: an unchanged band leaves the generation byte-identical', () => {
+        // Without this, a derivation that returned something new on every call would pass the test
+        // above and invalidate all suppression evidence continuously — strictly worse than the frozen
+        // literal it replaces.
+        const first  = generationFor({contextLimitTokens: 16_384, safeProcessingLimitTokens: 28_672}),
+              second = generationFor({contextLimitTokens: 16_384, safeProcessingLimitTokens: 28_672});
+
+        expect(second).toEqual(first)
+    });
+
+    test('the coordinate follows the BAND, not the raw leaves — the smaller ceiling governs', () => {
+        // Two different configurations with the same effective admission band are the same input
+        // strategy, and must not churn the generation. This pins the derivation to
+        // `resolveEmbeddingAdmissionBand`'s min() semantics rather than to whichever leaf was edited.
+        const viaContext = generationFor({contextLimitTokens: 16_384, safeProcessingLimitTokens: 28_672}),
+              viaSafe    = generationFor({contextLimitTokens: 28_672, safeProcessingLimitTokens: 16_384});
+
+        expect(viaSafe.strategyVersion).toBe(viaContext.strategyVersion)
+    });
+
+    test('an unresolvable band is ONE stable coordinate, and repairing it is a real change', () => {
+        // A configuration with no usable ceiling cannot characterise its own input strategy. It gets a
+        // single marker rather than a fresh generation per call — and the transition OUT of that state
+        // is a repair that should invalidate evidence, which the inequality below asserts.
+        const brokenA = generationFor({contextLimitTokens: 0, safeProcessingLimitTokens: 28_672}),
+              brokenB = generationFor({contextLimitTokens: -1, safeProcessingLimitTokens: 28_672}),
+              fixed   = generationFor({contextLimitTokens: 16_384, safeProcessingLimitTokens: 28_672});
+
+        expect(brokenA.strategyVersion).toBe('kb-embedding-input-v1:band-unresolved');
+        expect(brokenB.strategyVersion).toBe(brokenA.strategyVersion);
+        expect(fixed.strategyVersion).not.toBe(brokenA.strategyVersion)
+    })
+});
