@@ -6756,6 +6756,98 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 TenantRepoSyncService.starvedOrderWarned = originalLatch
             }
         });
+
+        test('a collapsed backoff margin warns once per process, carrying each repo\'s OWN minimum (#17386)', async () => {
+            // The emission path, covered because it was disclosed as uncovered and two defects were
+            // then found living in it. Both are asserted here rather than described.
+            //
+            // Two repos: one on the global cadence, one with a `cadenceMs` override LARGER than the
+            // global — the exact scenario the check was moved to the sweep boundary to catch. The
+            // earlier message named only the global base, so an operator reading it for the override
+            // repo would compute a minimum four times too small, and the latch means they never see
+            // the line again in that process.
+            const
+                globalCadenceMs    = 30 * 60 * 1000,
+                overrideCadenceMs  = 2 * 60 * 60 * 1000,
+                minimumForGlobal   = globalCadenceMs   + Math.floor(globalCadenceMs   * 0.20),
+                minimumForOverride = overrideCadenceMs + Math.floor(overrideCadenceMs * 0.20),
+                logLines           = [],
+                options            = {
+                    reason           : 'periodic',
+                    taskStateService : createInMemoryTaskStateService(),
+                    writeLog         : (level, msg) => logLines.push({level, msg}),
+                    tenantReposConfig: {tenantRepos: [
+                        buildStarvedRepo(),
+                        {...buildStarvedRepo(), repoSlug: 'private/slow', cadenceMs: overrideCadenceMs}
+                    ]},
+                    gitMirror                    : makeFakeGitMirror(),
+                    knowledgeBaseIngestionService: makeFakeIngestionService(),
+                    revisionsFilePath            : revisionsFile,
+                    globalCadenceMs,
+                    jitterRatio                  : 0.20,
+                    backoffCapMs                 : globalCadenceMs,      // equal to the global base: collapsed for BOTH
+                    starvedAfterMs               : 6 * 60 * 60 * 1000,   // sound ordering, so the SIBLING warning stays quiet
+                    seedBootstrap                : false
+                },
+                originalLatch = TenantRepoSyncService.backoffMarginWarned;
+
+            try {
+                TenantRepoSyncService.backoffMarginWarned = false;
+
+                // Both repos seeded as recently-attempted and NOT due, so the sweep does no ingestion
+                // work and the only thing under test is the config warning — which is emitted before
+                // due-ness is even computed. Without this the repos bootstrap, attempt a real sync
+                // against fakes that do not know `private/slow`, and the sweep fails for a reason that
+                // has nothing to do with this arm.
+                await TenantRepoSyncService.writePersistedRevisions({
+                    filePath : revisionsFile,
+                    revisions: Object.fromEntries(['tenant-a/private/repo', 'tenant-a/private/slow'].map(label => [label, {
+                        lastIngestedRev                   : 'sha-seeded',
+                        lastRunAttemptAt                  : Date.now(),
+                        consecutiveFailures               : 0,
+                        ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    }]))
+                });
+
+                const first  = await TenantRepoSyncService.runTask(options),
+                      second = await TenantRepoSyncService.runTask(options);
+
+                // Keyed on text unique to THIS warning: the sibling's message also contains the
+                // substring `backoffCapMs`, so filtering on that would let it masquerade as this one.
+                const warnings = logLines.filter(l => l.level === 'WARN'
+                    && l.msg.includes('is below the minimum that binds only on failure streaks'));
+
+                // Never a throw — a noisy alert beats a dead lane, same contract as the sibling.
+                expect(first.status).not.toBe('failed');
+                expect(second.status).not.toBe('failed');
+
+                // Latched: two sweeps, exactly one line.
+                expect(warnings).toHaveLength(1);
+
+                const msg = warnings[0].msg;
+
+                // Each repo's own minimum, from its own base. Two groups, because the bases differ.
+                expect(msg).toContain(`needs >= ${minimumForGlobal} for base ${globalCadenceMs}`);
+                expect(msg).toContain(`needs >= ${minimumForOverride} for base ${overrideCadenceMs}`);
+                expect(msg).toContain('private/repo');
+                expect(msg).toContain('private/slow');
+                expect(msg).toContain('2/2 repo(s)');
+
+                // The remedy is inclusive and names the HIGHEST minimum, matching the leaf docblock's
+                // "must be at least". The negative arm is the one that pins the corrected wording:
+                // "above" was one unit stronger than the predicate and disagreed with the docblock.
+                expect(msg).toContain(`Raise backoffCapMs to at least ${minimumForOverride}`);
+                expect(msg).not.toContain('Raise backoffCapMs above');
+
+                // Control: the sibling ordering is SOUND in this config, so its warning must be absent
+                // rather than merely filtered out. Without this, a message that accidentally carried
+                // the sibling's text would still satisfy every assertion above.
+                expect(logLines.filter(l => l.msg.includes('starvedAfterMs'))).toHaveLength(0);
+            } finally {
+                TenantRepoSyncService.backoffMarginWarned = originalLatch
+            }
+        });
     });
 
     test('a deferred repo publishes how much work is outstanding, and a completed one publishes zero', async () => {

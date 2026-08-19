@@ -197,6 +197,28 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
 }
 
 /**
+ * @summary Resolves one repo's base cadence: its own override where usable, else the global.
+ *
+ * Extracted because two callers now decide it and both must decide it identically — {@link isRepoDue},
+ * which turns it into a due-time, and the sweep-boundary margin check, which turns it into the minimum
+ * legal `backoffCapMs`. A guard that resolved the base differently from the scheduler would warn about
+ * a configuration the scheduler is happy with, or stay silent on one it is not, and the only symptom
+ * would be a log line nobody could reconcile against behaviour.
+ *
+ * Two further copies of this fallback predate the extraction — `getAccessReadinessMaxAgeMs` here, and
+ * the bootstrap seed in `TenantRepoSyncService` — left alone deliberately rather than swept into an
+ * unrelated ticket.
+ *
+ * @param {Object} options
+ * @param {Object} options.repo Repo config; `cadenceMs` is an optional operator override.
+ * @param {Number} options.globalCadenceMs Fallback from `intervals.tenantRepoSyncMs`.
+ * @returns {Number}
+ */
+export function resolveRepoBaseCadenceMs({repo, globalCadenceMs}) {
+    return Number.isFinite(repo?.cadenceMs) && repo.cadenceMs > 0 ? repo.cadenceMs : globalCadenceMs
+}
+
+/**
  * @summary Returns whether durable recovery evidence grants one immediate sync attempt.
  *
  * This stays inside the existing per-repo due computation: the persisted scheduler remains the sole
@@ -283,7 +305,7 @@ export function classifyEmbeddingRecoveryState({persistedRepoState, probeSnapsho
  *     jitterMs: Number, backoffMultiplier: Number, backoffCapped: Boolean, lastRunAttemptAt: Number}}
  */
 export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitterRatio = 0, backoffCapMs = 0}) {
-    const baseCadenceMs       = Number.isFinite(repo?.cadenceMs) && repo.cadenceMs > 0 ? repo.cadenceMs : globalCadenceMs;
+    const baseCadenceMs       = resolveRepoBaseCadenceMs({repo, globalCadenceMs});
     const consecutiveFailures = persistedRepoState?.consecutiveFailures ?? 0;
     const lastRunAttemptAt    = persistedRepoState?.lastRunAttemptAt ?? 0;
     const jitterMs            = computeDeterministicJitter({
@@ -406,10 +428,22 @@ export function isStarvedOrderInverted({backoffCapMs, starvedAfterMs}) {
  * separate a *configured* cadence from a streak-driven one pinned at the cap; when every repo is
  * capped from zero it reads `true` unconditionally and separates nothing.
  *
- * The bound mirrors `isRepoDue`'s arithmetic rather than restating it, `Math.floor` included, so the
- * check cannot drift from the behaviour it describes. Two configurations are sound and must not be
- * reported: `backoffCapMs: 0` is the documented no-cap value, and with jitter disabled a cap equal to
- * the base cadence first binds at streak one, because the cap comparison is strictly-greater.
+ * **The bound is a SUPREMUM over every possible repo seed, deliberately, not the jitter of the repos
+ * actually configured.** `computeDeterministicJitter` is a hash of `tenantId + repoSlug`, so a real
+ * repo typically draws well under `maxJitterMs` — a measured fixture drew 24.6% of it — and there is
+ * therefore a band of caps where this reports collapsed while every configured repo happens to be
+ * fine. That over-warn is the safe direction on a non-throwing WARN, and the alternative is worse: a
+ * max-over-configured-repos bound would go quiet the moment the offending repo is removed and come
+ * back silently when a new one is added, which is a guard whose verdict depends on roster churn
+ * rather than on configuration. The signature takes no `tenantId`/`repoSlug` precisely so a per-seed
+ * variant is not expressible here without a caller deciding whose seed to privilege.
+ *
+ * The cap/jitter arithmetic mirrors `isRepoDue`'s rather than restating it, `Math.floor` included, and
+ * the base cadence comes from the shared {@link resolveRepoBaseCadenceMs} both callers use — so the
+ * only remaining freedom is the supremum-vs-per-seed choice above, which is stated rather than
+ * inherited. Two configurations are sound and must not be reported: `backoffCapMs: 0` is the
+ * documented no-cap value, and with jitter disabled a cap equal to the base cadence first binds at
+ * streak one, because the cap comparison is strictly-greater.
  *
  * Deliberately independent of `isRepoDue`, exactly as {@link isStarvedOrderInverted} is: the
  * relationship binds how the values are CONFIGURED, not how the computation uses them.
@@ -421,11 +455,34 @@ export function isStarvedOrderInverted({backoffCapMs, starvedAfterMs}) {
  * @returns {Boolean}
  */
 export function isBackoffMarginCollapsed({backoffCapMs, baseCadenceMs, jitterRatio = 0}) {
-    if (!Number.isFinite(backoffCapMs) || backoffCapMs <= 0)     return false;
-    if (!Number.isFinite(baseCadenceMs) || baseCadenceMs <= 0)   return false;
+    if (!Number.isFinite(backoffCapMs) || backoffCapMs <= 0) return false;
 
-    const ratio       = Number.isFinite(jitterRatio) && jitterRatio > 0 ? jitterRatio : 0,
-          maxJitterMs = Math.floor(baseCadenceMs * ratio);
+    const minimumCapMs = resolveMinimumBackoffCapMs({baseCadenceMs, jitterRatio});
 
-    return backoffCapMs < baseCadenceMs + maxJitterMs
+    return minimumCapMs !== null && backoffCapMs < minimumCapMs
+}
+
+/**
+ * @summary The smallest `backoffCapMs` that binds only on failure streaks, for one base cadence.
+ *
+ * The number an operator actually needs, and the reason it is exported rather than inlined into
+ * {@link isBackoffMarginCollapsed}: the guard's entire user-visible surface is a log line, so the
+ * message must be able to print the same value the predicate compares against. Computing it twice —
+ * once to decide, once to report — is how a remedy comes to disagree with the check that demanded it,
+ * and a stated remedy one unit stronger than the predicate is a real, if quiet, defect.
+ *
+ * `null` for an unresolvable base cadence: a cadence that cannot be read has no minimum, and `0`
+ * would read as "any cap will do".
+ *
+ * @param {Object} options
+ * @param {Number} options.baseCadenceMs Effective base cadence from {@link resolveRepoBaseCadenceMs}.
+ * @param {Number} [options.jitterRatio=0] From `tenantRepoSync.jitterRatio`.
+ * @returns {Number|null} Inclusive minimum in ms — a cap EQUAL to this is sound.
+ */
+export function resolveMinimumBackoffCapMs({baseCadenceMs, jitterRatio = 0}) {
+    if (!Number.isFinite(baseCadenceMs) || baseCadenceMs <= 0) return null;
+
+    const ratio = Number.isFinite(jitterRatio) && jitterRatio > 0 ? jitterRatio : 0;
+
+    return baseCadenceMs + Math.floor(baseCadenceMs * ratio)
 }

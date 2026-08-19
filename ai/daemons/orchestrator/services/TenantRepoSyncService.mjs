@@ -45,6 +45,8 @@ import {
     isBackoffMarginCollapsed,
     isRepoDue,
     isStarvedOrderInverted,
+    resolveMinimumBackoffCapMs,
+    resolveRepoBaseCadenceMs,
     resolveUnknownRepoSelectorFailure
 } from '../scheduling/tenantRepoSync.mjs';
 import {
@@ -866,6 +868,19 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
  */
 const IN_FLIGHT_SUFFIX = '.in-flight';
 
+/**
+ * How many repo identities the collapsed-backoff-margin WARN names per required-minimum group.
+ *
+ * The message is the guard's only user-visible surface and an operator edits config from it, so the
+ * identities have to be there — but a deployment with a hundred repos on one cadence would otherwise
+ * put a hundred labels in one line. Grouping by required minimum keeps the useful part bounded by the
+ * number of distinct cadences; this bounds the tail inside each group, and the elision is printed as
+ * `+N more` rather than dropped, because a truncated list that looks complete is worse than a long one.
+ *
+ * @member {Number} IDENTITIES_PER_WARN_GROUP=3
+ */
+const IDENTITIES_PER_WARN_GROUP = 3;
+
 class TenantRepoSyncService extends Base {
     /**
      * Latches the once-per-process inverted-leaf-order warning (runTask boundary): the
@@ -1684,15 +1699,48 @@ class TenantRepoSyncService extends Base {
         // Evaluated over ALL configured repos, not the selected subset: a scoped CLI run must not
         // hide a collapsed margin on a repo it happened to skip.
         if (!this.backoffMarginWarned) {
-            const collapsed = allRepos.filter(repo => isBackoffMarginCollapsed({
-                backoffCapMs,
-                baseCadenceMs: (Number.isFinite(repo.cadenceMs) && repo.cadenceMs > 0) ? repo.cadenceMs : globalCadenceMs,
-                jitterRatio
-            }));
+            const collapsed = allRepos
+                .map(repo => {
+                    const baseCadenceMs = resolveRepoBaseCadenceMs({repo, globalCadenceMs});
+
+                    return {
+                        label       : `${repo.tenantId}/${repo.repoSlug}`,
+                        baseCadenceMs,
+                        minimumCapMs: resolveMinimumBackoffCapMs({baseCadenceMs, jitterRatio}),
+                        collapsed   : isBackoffMarginCollapsed({backoffCapMs, baseCadenceMs, jitterRatio})
+                    }
+                })
+                .filter(entry => entry.collapsed);
 
             if (collapsed.length > 0) {
+                // Grouped by required minimum, and the minimum comes from the same helper the
+                // predicate compares against rather than being recomputed here. A per-repo
+                // `cadenceMs` override is the case this check moved to the sweep boundary to catch,
+                // so naming only the global base would hand exactly that operator the wrong number
+                // to work from — and the latch means they never see the message twice.
+                const groups = new Map();
+
+                for (const entry of collapsed) {
+                    const key = `${entry.minimumCapMs}/${entry.baseCadenceMs}`;
+
+                    groups.has(key) || groups.set(key, {...entry, labels: []});
+                    groups.get(key).labels.push(entry.label);
+                }
+
+                // Identities are capped per group and the elision is stated: a silent truncation
+                // reads as a complete list, and this list is what an operator edits config from.
+                const detail = [...groups.values()].map(group => {
+                    const shown      = group.labels.slice(0, IDENTITIES_PER_WARN_GROUP),
+                          elided     = group.labels.length - shown.length,
+                          identities = elided > 0 ? `${shown.join(', ')}, +${elided} more` : shown.join(', ');
+
+                    return `needs >= ${group.minimumCapMs} for base ${group.baseCadenceMs} (${identities})`;
+                }).join('; ');
+
+                const highestMinimum = Math.max(...collapsed.map(entry => entry.minimumCapMs));
+
                 this.backoffMarginWarned = true;
-                writeLog?.('WARN', `[TenantRepoSync] tenantRepoSync.backoffCapMs (${backoffCapMs}) does not clear the jittered base cadence for ${collapsed.length}/${allRepos.length} repo(s) [${collapsed.map(r => `${r.tenantId}/${r.repoSlug}`).join(', ')}]: the cap binds at consecutiveFailures=0, so failure backoff never becomes a delay and backoffCapped reads true for a healthy repo. Raise backoffCapMs above baseCadence + floor(baseCadence * jitterRatio) (global base ${globalCadenceMs}, jitterRatio ${jitterRatio}), or lower the cadence.`);
+                writeLog?.('WARN', `[TenantRepoSync] tenantRepoSync.backoffCapMs (${backoffCapMs}) is below the minimum that binds only on failure streaks, for ${collapsed.length}/${allRepos.length} repo(s): ${detail}. At this cap those repos are capped at consecutiveFailures=0, so failure backoff never becomes a delay and backoffCapped reads true for a healthy repo. Raise backoffCapMs to at least ${highestMinimum}, or lower those repos' cadenceMs. jitterRatio=${jitterRatio}.`);
             }
         }
 
