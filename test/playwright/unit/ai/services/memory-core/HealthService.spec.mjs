@@ -399,6 +399,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const memoryCollection  = makeCollection(() => memoryCount);
         const summaryCollection = makeCollection(() => summaryCount);
+        const temporalSummaryCollection = makeCollection(() => 0);
 
         originals = {
             chromaConnected          : ChromaManager.connected,
@@ -407,6 +408,13 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             invalidateCollectionCache: ChromaManager.invalidateCollectionCache,
             getMemoryCollection      : StorageRouter.getMemoryCollection,
             getSummaryCollection     : StorageRouter.getSummaryCollection,
+            // The third of three, and the one this harness was missing. `#checkDatabaseConnections`
+            // probes memory, summary AND temporal-summary; only the first two were isolated, so every
+            // test reaching it issued a REAL Chroma count for the third. Chroma is run-scoped in
+            // `playwright.config.unit.mjs` — one store for the whole run, shared across workers — so
+            // that count's latency tracked whatever the rest of the suite had written, and a retry got
+            // a fresh worker talking to the same slow collection.
+            getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection,
             getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus,
             loopbackConnectProbe     : HealthService.loopbackConnectProbe
         };
@@ -419,6 +427,10 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         };
 
         StorageRouter.getMemoryCollection = async () => memoryCollection;
+        // Stubbed so no test in this file measures a real, run-scoped collection against a
+        // per-test millisecond budget. Nothing here asserts on temporal-summary; it was reached
+        // only as collateral of probing all three.
+        StorageRouter.getTemporalSummaryCollection = async () => temporalSummaryCollection;
         StorageRouter.getSummaryCollection = async () => {
             summaryGetCalls++;
             return summaryGetCalls === summaryUnavailableOnCall ? null : summaryCollection
@@ -461,6 +473,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         ChromaManager.invalidateCollectionCache = originals.invalidateCollectionCache;
         StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
+        StorageRouter.getTemporalSummaryCollection = originals.getTemporalSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
         TextEmbeddingService.embedText            = originalEmbedText;
         HealthService.loopbackConnectProbe        = originals.loopbackConnectProbe;
@@ -1476,7 +1489,15 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             count : 0,
             error : 'memory collection count health probe timed out after 5ms'
         });
-        expect(result.details).toContain('Failed to access collections: memory collection count health probe timed out after 5ms');
+        // `details` is an ARRAY, so `toContain` is exact-element equality — not the substring check
+        // this line reads as. The probe is DESIGNED to report several collection failures in one
+        // joined string (`errors.join('; ')`), so exact equality asserts a shape the probe's own
+        // contract permits it to violate. Ordering only decided whether it got away with it.
+        expect(result.details).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('memory collection count health probe timed out after 5ms')
+            ])
+        );
     });
 });
 
