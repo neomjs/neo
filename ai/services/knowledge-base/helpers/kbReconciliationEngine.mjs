@@ -1,7 +1,7 @@
 /**
- * @summary Pure config-invalidation reconciliation engine for the Phase 4B KB reconciliation daemon (#11640).
+ * @summary Pure config-invalidation reconciliation engine for the Phase 4B KB reconciliation daemon.
  *
- * Phase 4B (#11640) substrate. The cloud KB reconciliation daemon (`KbReconciliationService`)
+ * The cloud KB reconciliation daemon (`KbReconciliationService`)
  * periodically diffs each tenant's persisted Chroma chunks against the tenant's *current*
  * `KnowledgeBaseTenantConfig` version and (opt-in) tombstones the chunks left stale by a
  * config change. This module is the **pure core** of that daemon — no I/O, no clock, no
@@ -9,7 +9,7 @@
  * trivially unit-testable in isolation.
  *
  * **The V1 reconciliation signal.** Every chunk is stamped at ingest with the active
- * `tenantConfigVersion` (#11637 / `VectorService.resolveTenantStamp`). When a tenant mutates
+ * `tenantConfigVersion` (`VectorService.resolveTenantStamp`). When a tenant mutates
  * its `KnowledgeBaseTenantConfig`, `getTenantConfig().version` increments — and every chunk
  * ingested under the prior config is now *config-stale*: it may carry paths or a parse
  * structure only the superseded config produced. A chunk whose `metadata.tenantConfigVersion`
@@ -22,7 +22,7 @@
  * each tenant's Chroma rows, calls this engine, emits Phase 4A telemetry, and (opt-in) issues
  * the `collection.delete`. This module only *classifies*.
  *
- * **The V1.x manifest signal.** #11711 adds a sibling claimed-state manifest per tenant:
+ * **The V1.x manifest signal.** A sibling claimed-state manifest per tenant,
  * `kb-manifest:<tenantId>`. It is deliberately separate from `KnowledgeBaseTenantConfig`
  * because that config node's `version` is the config-staleness signal above; routine push
  * manifests must not bump it. `diffTenantManifest()` classifies rows whose `metadata.sourcePath`
@@ -33,7 +33,7 @@
  * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs — `getTenantConfig`, the version source.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `tenantConfigVersion` stamp.
- * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the sibling pure-helper precedent (#11642).
+ * @see ai/services/knowledge-base/helpers/kbAlertRuleEngine.mjs — the sibling pure-helper precedent.
  */
 
 /**
@@ -76,7 +76,7 @@ export function resolveOrphanVersionGap(value) {
  * - `currentVersion <= 0` — the tenant resolves to the `kb-config.yaml` / default config
  *   tier (no graph node, version `0`). No chunk can be stale; the result is empty.
  * - A row whose `tenantConfigVersion` is missing / non-numeric — a chunk ingested before the
- *   #11637 stamp existed. It is **not** flagged: its config epoch is unknowable.
+ *   stamp existed. It is **not** flagged: its config epoch is unknowable.
  *
  * @param {Object} params
  * @param {Array<{id: String, metadata: Object}>} params.rows  Tenant Chroma rows (the
@@ -99,7 +99,7 @@ export function diffTenantChunks({rows, currentVersion, orphanVersionGap} = {}) 
     for (const row of rows) {
         const stampedVersion = row?.metadata?.tenantConfigVersion;
 
-        // Fail-safe: a missing / non-numeric stamp (pre-#11637 ingest) is unclassifiable — skip it.
+        // Fail-safe: a missing / non-numeric stamp is unclassifiable — skip it.
         if (typeof stampedVersion !== 'number' || !(stampedVersion < currentVersion)) {
             continue;
         }
@@ -122,7 +122,7 @@ export function diffTenantChunks({rows, currentVersion, orphanVersionGap} = {}) 
 }
 
 /**
- * @summary Classifies one tenant's Chroma rows into claimed-manifest orphans (#11711).
+ * @summary Classifies one tenant's Chroma rows into claimed-manifest orphans.
  *
  * Pure — no I/O, no clock. A row is a **manifest orphan** when all of the following are true:
  * the row has a `metadata.repoSlug`, the tenant has a persisted manifest for that repo, the
@@ -194,22 +194,138 @@ export function diffTenantManifest({rows, manifestsByRepo} = {}) {
 }
 
 /**
+ * @summary Classifies one tenant's Chroma rows into parser-identity orphans.
+ *
+ * Pure — no I/O, no clock, matching its two siblings. A row is a **parser-identity orphan** when its
+ * stamped `parserId` / `parserVersion` pair differs from the pair its repo currently declares. That
+ * pair is part of `hashInputs`, so advancing a parser version changes every chunk id: the new
+ * generation adds rows beside its predecessor rather than overwriting it, and the superseded rows
+ * persist until something reclaims them.
+ *
+ * Two tiers, neither of which deletes ahead of its replacement:
+ *
+ * 1. `unyielded` — the row's `sourcePath` is no longer among the paths the declared parser yields,
+ *    so no replacement is coming and the row is immediately actionable.
+ * 2. `superseded` — the path is still yielded, so the row becomes actionable only once a row
+ *    carrying the declared pair exists for that same path.
+ *
+ * A repo absent from `yieldedPathsByRepo` is *unknown*, never *empty*: it skips tier 1 entirely and
+ * every one of its rows falls to the replacement-gated tier, so a missing envelope cannot mark a
+ * whole repo actionable.
+ *
+ * Unlike its siblings, this function filters by `tenantId` itself — the rows it reads come from the
+ * metadata-scoped shared collection rather than from a caller-scoped fetch.
+ *
+ * @param {Object}   params
+ * @param {Object[]} params.rows                Chroma rows for the shared collection; each `{id, metadata}`.
+ * @param {String}   params.tenantId            Only rows whose `metadata.tenantId` matches are considered.
+ * @param {Object}   params.declaredByRepo      `{[repoSlug]: {parserId, parserVersion}}` — the currently declared pair per repo.
+ * @param {Object}  [params.yieldedPathsByRepo] `{[repoSlug]: string[]|Set}` — paths the declared parser yields. A repo absent here skips tier 1.
+ * @returns {{parserOrphans: Object[], parserOrphanCount: Number, actionableIds: String[], actionableCount: Number}}
+ */
+export function diffTenantParserIdentity({rows, tenantId, declaredByRepo, yieldedPathsByRepo} = {}) {
+    const parserOrphans = [],
+          actionableIds = [];
+
+    const empty = {parserOrphans, parserOrphanCount: 0, actionableIds, actionableCount: 0};
+
+    if (!Array.isArray(rows) || typeof tenantId !== 'string' || !tenantId || !declaredByRepo) {
+        return empty;
+    }
+
+    // Which paths already carry a row at the declared pair, read from the same snapshot the
+    // classification runs on so tier 2 cannot gate on a replacement this view cannot see.
+    const replacedPaths = new Set();
+
+    for (const row of rows) {
+        const meta = row?.metadata;
+
+        if (!meta || meta.tenantId !== tenantId) continue;
+
+        const declared = declaredByRepo[meta.repoSlug];
+
+        if (declared && meta.parserId === declared.parserId && meta.parserVersion === declared.parserVersion) {
+            typeof meta.sourcePath === 'string' && replacedPaths.add(`${meta.repoSlug}\u0000${meta.sourcePath}`);
+        }
+    }
+
+    for (const row of rows) {
+        const meta = row?.metadata;
+
+        if (!meta || meta.tenantId !== tenantId) continue;
+
+        const declared = declaredByRepo[meta.repoSlug];
+
+        // Never guess a generation: a repo with no declared pair is unresolvable, not stale.
+        if (!declared || typeof declared.parserId !== 'string' || typeof declared.parserVersion !== 'string') {
+            continue;
+        }
+
+        // Missing stamp is unclassifiable — the same fail-safe `kbGarbageCollectionEngine` applies.
+        if (typeof meta.parserId !== 'string' || typeof meta.parserVersion !== 'string' || typeof meta.sourcePath !== 'string') {
+            continue;
+        }
+
+        if (meta.parserId === declared.parserId && meta.parserVersion === declared.parserVersion) {
+            continue;
+        }
+
+        const yielded = yieldedPathsByRepo?.[meta.repoSlug],
+              hasSet  = yielded instanceof Set || Array.isArray(yielded);
+
+        let tier;
+
+        if (hasSet) {
+            const isYielded = yielded instanceof Set ? yielded.has(meta.sourcePath) : yielded.includes(meta.sourcePath);
+
+            tier = isYielded ? 'superseded' : 'unyielded';
+        } else {
+            // Unknown is not empty: with no envelope, only the replacement-gated tier can fire.
+            tier = 'superseded';
+        }
+
+        parserOrphans.push({
+            id           : row.id,
+            repoSlug     : meta.repoSlug,
+            sourcePath   : meta.sourcePath,
+            parserId     : meta.parserId,
+            parserVersion: meta.parserVersion,
+            tier
+        });
+
+        if (tier === 'unyielded' || replacedPaths.has(`${meta.repoSlug}\u0000${meta.sourcePath}`)) {
+            actionableIds.push(row.id);
+        }
+    }
+
+    return {
+        parserOrphans,
+        parserOrphanCount: parserOrphans.length,
+        actionableIds,
+        actionableCount  : actionableIds.length
+    };
+}
+
+/**
  * @summary Builds the Phase 4A telemetry `detail` payload for one tenant's reconciliation tick.
  *
  * Pure — kept here (not in the daemon) so the telemetry shape is unit-testable. The daemon
  * passes the returned object straight to `KBRecorderService.recordIngestionMetric`'s `detail`.
  *
  * @param {Object}  params
- * @param {{staleCount: Number, manifestOrphanCount: Number, actionableCount: Number, totalOrphanCount: Number}} params.diff  Combined reconciliation diff.
+ * @param {{staleCount: Number, manifestOrphanCount: Number, parserOrphanCount: Number, actionableCount: Number, totalOrphanCount: Number}} params.diff  Combined reconciliation diff.
  * @param {Number}  params.currentVersion   The tenant's current config version.
  * @param {Boolean} params.autoTombstone    Whether the daemon's auto-tombstone path is enabled.
  * @param {Number} [params.tombstonedCount=0] Chunks actually deleted this tick (`0` when auto-tombstone is off).
- * @returns {{staleCount: Number, manifestOrphanCount: Number, totalOrphanCount: Number, actionableCount: Number, tombstonedCount: Number, currentVersion: Number, autoTombstone: Boolean}}
+ * @returns {{staleCount: Number, manifestOrphanCount: Number, parserOrphanCount: Number, totalOrphanCount: Number, actionableCount: Number, tombstonedCount: Number, currentVersion: Number, autoTombstone: Boolean}}
  */
 export function formatReconciliationDetail({diff, currentVersion, autoTombstone, tombstonedCount = 0} = {}) {
+    // The three counts stay separate: folding them would leave a reader unable to tell whether a
+    // reclaim followed a config change, a path drop, or a parser bump.
     return {
         staleCount         : diff?.staleCount          ?? 0,
         manifestOrphanCount: diff?.manifestOrphanCount ?? 0,
+        parserOrphanCount  : diff?.parserOrphanCount   ?? 0,
         totalOrphanCount   : diff?.totalOrphanCount    ?? diff?.staleCount ?? 0,
         actionableCount    : diff?.actionableCount     ?? 0,
         tombstonedCount    : Number.isFinite(tombstonedCount) ? tombstonedCount : 0,
