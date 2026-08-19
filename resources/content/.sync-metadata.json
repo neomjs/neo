@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-08-18T19:25:18.325Z",
-  "releasesLastFetched": "2026-08-18T19:12:04.716Z",
+  "lastSync": "2026-08-19T04:59:22.943Z",
+  "releasesLastFetched": "2026-08-19T04:46:04.566Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -97819,10 +97819,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-11/issue-16338.md",
       "closedAt": null,
-      "updatedAt": "2026-08-14T17:18:27Z",
-      "contentHash": "dedc39a39b5e098c3bdf2418f0b037d3a6858b686eecbfe268df51da25b1e6b6",
+      "updatedAt": "2026-08-19T04:49:01Z",
+      "contentHash": "148701502076b000e091c53643104937abab05be4266e022eb3b5262be65c717",
       "milestone": null,
-      "commentsTotal": 1
+      "commentsTotal": 2
     },
     "16341": {
       "state": "CLOSED",
@@ -102944,6 +102944,24 @@
       "contentHash": "6a77f8a708f0448f9475cef3461353ead907ae7a4898290d56cdbe75614b22fd",
       "milestone": null,
       "commentsTotal": 0
+    },
+    "17369": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-17/issue-17369.md",
+      "closedAt": null,
+      "updatedAt": "2026-08-19T03:44:00Z",
+      "contentHash": "042510f8abb5e31fa589c1c049edde23aaca159dbaf26079e09e97ec46db7298",
+      "milestone": null,
+      "commentsTotal": 0
+    },
+    "17370": {
+      "state": "OPEN",
+      "path": "resources/content/issues/chunk-17/issue-17370.md",
+      "closedAt": null,
+      "updatedAt": "2026-08-19T04:48:40Z",
+      "contentHash": "5e6811af2d16c148d5b5404c93b1b812ad1e4a585eafee66271ffce39b322dde",
+      "milestone": null,
+      "commentsTotal": 0
     }
   },
   "releases": {
@@ -106945,8 +106963,8 @@
       "closedAt": null,
       "mergedAt": null,
       "milestone": null,
-      "updatedAt": "2026-08-18T17:20:04Z",
-      "contentHash": "1c334284767a97e47f53180707c57788d1bde0e926fb6da597e9b56e1d31b496"
+      "updatedAt": "2026-08-19T04:55:51Z",
+      "contentHash": "aa0a4608b5b260d3e24ce733151b32544e93fabbbbcf0fcd49635a5e32e920ef"
     },
     "17364": {
       "state": "MERGED",
@@ -106972,8 +106990,8 @@
       "closedAt": null,
       "mergedAt": null,
       "milestone": null,
-      "updatedAt": "2026-08-18T18:33:09Z",
-      "contentHash": "e61d1facaaf00b3d65057fc75788204dd6fcb0f78c6f8244f46dc80b92aefca6"
+      "updatedAt": "2026-08-19T04:57:15Z",
+      "contentHash": "7f7eceae067b69bf7e2c09d03228d9f424e779b76a2c25796cf21bf6be3f9d5b"
     }
   },
   "discussions": {
