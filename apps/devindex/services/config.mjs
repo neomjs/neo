@@ -171,7 +171,41 @@ const defaultConfig = {
          * State tracking for the Opt-In service (last processed timestamp).
          * @type {string}
          */
-        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/data/optin-sync.json')
+        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/data/optin-sync.json'),
+
+        /**
+         * Provenance for the last index this pipeline published: line count, content digest, and the
+         * served `ETag` observed at the time. Small, and deliberately tracked in git even though the
+         * index it describes is on its way out of git — it is the trusted anchor a fetched artifact
+         * is checked against, so it must live somewhere the artifact cannot influence.
+         * @type {string}
+         */
+        indexProvenance: path.resolve(projectRoot, 'apps/devindex/resources/data/index-provenance.json')
+    },
+
+    /**
+     * The published index, read rather than re-derived.
+     *
+     * The Data Factory used to obtain its previous state from whatever `actions/checkout` placed in
+     * the working tree, which is why it needed a clone of a multi-gigabyte repository to reach one
+     * file it only ever reads the tip of. The browser has always read this file over HTTPS from the
+     * deployed site; only the producer read it from git. This block moves the producer onto the
+     * consumer's path.
+     */
+    publishedIndex: {
+        /**
+         * Absolute URL of the deployed index. Declared once and read at the use site — the host is
+         * never reassembled from parts anywhere else.
+         * @type {string}
+         */
+        url: 'https://neomjs.com/node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl',
+
+        /**
+         * Request timeout in ms. Generous: the artifact is ~24 MB and a slow fetch that succeeds is
+         * worth more than a fast fall back to the checkout, which is the path this exists to retire.
+         * @type {number}
+         */
+        timeout: 120000
     }
 };
 
