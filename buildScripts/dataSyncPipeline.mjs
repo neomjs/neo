@@ -708,15 +708,6 @@ export async function runDataSyncPipeline({
         log(`[DataSync] attempt=${attempt}/${maxAttempts} base=${baseSha}`);
         const {deferredError = null} = await emit({attempt, baseSha, cwd, execute, log}) || {};
 
-        // TERMINAL, not merely quiet. Returning early from `emit` ended the emission loop and then
-        // fell straight through to the publish path below, which only stayed harmless because an
-        // empty emission produces no staged changes. That is a safety property borrowed from a
-        // coincidence: any future change making the publish path act on an unchanged tree would
-        // turn a configuration check into a publication. The check exits the pipeline here.
-        if (process.env.DATA_SYNC_PREFLIGHT_ONLY === 'true') {
-            return {attempts: attempt, baseSha, changed: false, preflightOnly: true, pushed: false}
-        }
-
         let currentSha = await fetchRemoteDev(execute, cwd);
 
         await logFreshness({
