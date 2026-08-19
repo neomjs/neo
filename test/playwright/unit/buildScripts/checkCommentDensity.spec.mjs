@@ -1,5 +1,8 @@
 import {test, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir}                                        from 'node:os';
+import path                                            from 'node:path';
 import {
     DEFAULT_BOUNDS,
     dropQuotedSpans,
@@ -318,31 +321,62 @@ test.describe('check-comment-density — pre-push consumer', () => {
         expect(pendingRanges(`refs/heads/a ${sha('1')} refs/heads/a ${sha('2')}\nrefs/heads/b ${sha('3')} refs/heads/b ${sha('4')}`)).toHaveLength(2);
     });
 
-    test('measureRange reads REAL git history, so the consumer is proven end to end', () => {
-        const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf-8'}).trim(),
-              head    = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: gitRoot, encoding: 'utf-8'}).trim(),
-              files   = measureRange(`${head}~1..${head}`, gitRoot);
+    /**
+     * @summary measureRange against a two-commit repo built here, so the subject always exists.
+     *
+     * This arm first read THIS repository's `HEAD~1..HEAD` and asserted `Array.isArray`. It was green
+     * in CI while measuring nothing: the checkout is depth 1, `HEAD~1` does not resolve, and
+     * measureRange returns `[]` on any git failure — so the shape assertion passed over a swallowed
+     * error. Tightening the assertion is what surfaced it, which is the argument for tightening.
+     *
+     * A disposable repo keeps the git plumbing real — diff parsing, `git show`, scope filtering, the
+     * added-lines set — while owing nothing to how the host was cloned.
+     */
+    test('measureRange reads REAL git history, on a repo it builds so the subject always exists', () => {
+        const root = mkdtempSync(path.join(tmpdir(), 'density-')),
+              git  = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf-8'}),
+              file = 'ai/services/probe.mjs';
 
-        // NOT just `Array.isArray`: measureRange returns [] on any git failure, so a shape-only
-        // assertion passes vacuously on a broken git path — the same vacuity as asserting a number the
-        // fixture supplied. Asserting a fixed non-zero count instead would break on any commit that
-        // touches no in-scope file, so the arm compares against an INDEPENDENT git read: whatever that
-        // says is in scope, measureRange must have measured.
-        // `--numstat` rather than `--name-only`, to match the tool's contract exactly: measureRange
-        // skips a file with no ADDED lines, which a pure rename is, and name-only would list it.
-        const expected = execFileSync('git', ['diff', '--numstat', '--diff-filter=ACMR', `${head}~1..${head}`], {cwd: gitRoot, encoding: 'utf-8'})
-            .split('\n')
-            .map(line => line.split('\t'))
-            .filter(([added, , file]) => Number(added) > 0 && file && isInScopePath(file))
-            .map(([, , file]) => file);
+        try {
+            git('init', '--quiet', '-b', 'main');
+            git('config', 'user.email', 'spec@example.com');
+            git('config', 'user.name', 'Spec');
+            mkdirSync(path.join(root, 'ai/services'), {recursive: true});
 
-        expect(files.map(row => row.file).sort()).toEqual(expected.sort());
-        files.forEach(row => {
-            expect(row.added).toBeGreaterThan(0);
-            expect(isInScopePath(row.file)).toBe(true);
-            expect(row).toHaveProperty('longestRun');
-            expect(row).toHaveProperty('confessions');
-        });
+            writeFileSync(path.join(root, file), 'const first = 1;\n');
+            git('add', '-A');
+            git('commit', '--quiet', '--no-gpg-sign', '-m', 'base');
+
+            // Second commit adds a 4-line block plus code, and one line out of scope that must NOT
+            // appear — the scope filter is part of what this proves.
+            writeFileSync(path.join(root, file), [
+                'const first = 1;',
+                '/**',
+                ' * @summary narrative one',
+                ' * narrative two',
+                ' */',
+                'const second = 2;',
+                '// for now, a deferral the consumer must report',
+                ''
+            ].join('\n'));
+            writeFileSync(path.join(root, 'notes.md'), 'out of scope\n');
+            git('add', '-A');
+            git('commit', '--quiet', '--no-gpg-sign', '-m', 'add a block');
+
+            const head  = git('rev-parse', 'HEAD').trim(),
+                  files = measureRange(`${head}~1..${head}`, root);
+
+            expect(files.map(row => row.file), 'notes.md is out of scope and must not be measured').toEqual([file]);
+
+            const [row] = files;
+
+            expect(row.added, 'six added lines: four block, one code, one comment').toBe(6);
+            expect(row.longestRun, 'the block including both delimiters').toBe(4);
+            expect(row.prose, 'two narrative lines; @summary is a tag and the delimiters are not prose').toBe(2);
+            expect(row.confessions.map(entry => entry.line)).toEqual([7]);
+        } finally {
+            rmSync(root, {recursive: true, force: true})
+        }
     });
 
     test('an unresolvable range yields no files instead of throwing into the hook', () => {
