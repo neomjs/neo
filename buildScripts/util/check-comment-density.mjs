@@ -38,11 +38,24 @@ const __dirname  = path.dirname(fileURLToPath(import.meta.url)),
 export const DEFAULT_SCAN_PATHS = ['ai/', 'src/', 'test/', 'buildScripts/'];
 
 /**
- * `maxProseRun` sits inside the measured p90–p99 band for this repo's files, so a warning means
- * "unusual" rather than "long". `maxProseShare` is the operator's ~30% observation.
+ * Both bars are the **p90 of the seats whose behaviour did not change**, which is the one reference a
+ * threshold can be anchored to without drifting along with what it measures. A trailing median follows
+ * the engine up; a pre-regression distribution does not move and is already in the repository.
+ *
+ * Measured per commit over `origin/dev`, commits with ≥ 20 added in-scope lines, two independent flat
+ * controls landing on the same numbers:
+ *
+ * | | p90 Opus 4.8 (n=552) | p90 Fable (n=162) | bar | fire rate now (n=92) | fire rate, controls |
+ * |---|---|---|---|---|---|
+ * | block run | 34 | 35 | **35** | 20.7% | 10.0% / 10.5% |
+ * | prose share | 31.9% | 28.5% | **30%** | 34.8% | 12.9% / 9.3% |
+ *
+ * A warning therefore means "top decile of the seats that were not part of the change". The share axis
+ * is the more gameable of the two, since its denominator is author-controlled, which is what the run
+ * axis covers.
  * @type {{maxProseShare: Number, maxProseRun: Number}}
  */
-export const DEFAULT_BOUNDS = Object.freeze({maxProseShare: 0.3, maxProseRun: 34});
+export const DEFAULT_BOUNDS = Object.freeze({maxProseShare: 0.3, maxProseRun: 35});
 
 /**
  * @summary Whether a comment's text is a type contract rather than prose.
@@ -106,13 +119,11 @@ export const DECIDED_MARKERS = /\b(intentionally|on purpose|by design)\b/i;
  * A bound obligation: an escape marker, or a ticket reference. Either means the debt has an owner
  * somewhere a reader can follow, so the comment is not the only record.
  *
- * The two arms have UNEQUAL reach, which the remedy text depends on. `check-ticket-archaeology`
- * scans `ai`, `src`, `test/playwright` — via lint-staged on staged paths and in CI against
- * `origin/dev` — and its first pattern is `#\d{4,}\b`, so a NEW comment line carrying a bare ticket
- * number there is rejected before it can reach this check. In those three roots the second arm is
- * therefore only ever satisfied on lines the escape marker already satisfies; it is independently
- * live only under `buildScripts/`, which archaeology does not scan. Suggesting a bare `#N` as the
- * remedy would hand an author a fix another guard blocks, so the warning names the marker instead.
+ * The two arms have UNEQUAL reach, which the remedy text depends on. `check-ticket-archaeology` scans
+ * `ai`, `src`, `test/playwright` and rejects a bare `#\d{4,}` on a new comment line there, so in those
+ * roots the second arm only ever fires on lines the escape marker already covers — it is independently
+ * live under `buildScripts/` alone. The warning therefore names the marker: suggesting a bare `#N`
+ * would hand an author a fix another guard blocks.
  * @type {RegExp}
  */
 export const BOUND_OBLIGATION = /ticket-ref-ok|#\d{4,}/;
@@ -120,15 +131,13 @@ export const BOUND_OBLIGATION = /ticket-ref-ok|#\d{4,}/;
 /**
  * @summary Drops quoted spans, so a marker being MENTIONED is not read as a marker being USED.
  *
- * Any file that documents deferral vocabulary — this one, its spec, a guide — quotes the markers as
- * examples, and quoting one is not owing work. Measured on this repo: the rule drops 3 of 49 hits and
- * all 3 are mentions, so it costs no recall.
+ * Any file documenting deferral vocabulary quotes the markers as examples, and quoting one is not
+ * owing work.
  *
- * An ODD quote count means a span crosses a line boundary, and the trailing-drop below covers the
- * common case where it OPENS on this line. It cannot cover every pairing: when the balanced pass
- * consumes the wrong two of three quotes, a mention can survive as a hit. Deciding that needs quote
- * state carried across lines, which `check-ticket-archaeology` deliberately does not carry either —
- * the ambiguity is in the input, so the honest boundary is stated rather than guessed at.
+ * NOT exhaustive, and callers depend on knowing that: an odd quote count means a span crosses a line
+ * boundary, and the trailing drop below covers only the case where it OPENS here. Three quotes on a
+ * line can pair wrongly and leave a mention exposed. Deciding that needs quote state carried across
+ * lines, which `check-ticket-archaeology` declines to carry too.
  * @param {String} comment Comment text for one line.
  * @returns {String}
  */
@@ -173,49 +182,81 @@ export function isConfession(rawComment) {
 }
 
 /**
- * @summary Measures prose share and the longest contiguous prose run over a file's ADDED lines.
+ * @summary Whether a line is part of a comment block at all — delimiters included.
+ *
+ * The run axis measures what a reader faces, and a reader faces the whole block. `extractComment`
+ * yields `*` for a `/**` opener and whitespace for a closer, so neither is detectable by text alone.
+ * @param {String} line Raw source line.
+ * @param {String} comment Its extracted comment text.
+ * @returns {Boolean}
+ */
+function isCommentLine(line, comment) {
+    return comment.trim().length > 0 || /^\s*(\/\*|\*\/|\*|\/\/)/.test(line)
+}
+
+/**
+ * @summary Measures prose share and the longest contiguous ADDED COMMENT run in a file.
  *
  * Every line is walked so block-comment state stays correct, but only lines in `addedLines` are
- * counted — a docblock that already existed is not this commit's prose. A run is broken by a
- * non-prose added line, by a tag line, and by any unchanged line, since prose split by untouched
- * code is not one block.
+ * counted — a docblock that already existed is not this commit's. A run is broken by an added line
+ * that is not a comment and by any unchanged line, since a block split by untouched code is not one
+ * block.
+ *
+ * The two axes measure DIFFERENT objects on purpose. `prose` excludes tag lines, because a typed
+ * signature is contract rather than narration. `longestRun` includes them, because a 45-line docblock
+ * is 45 lines to whoever opens the file whether or not `@param` sits in the middle.
  *
  * @param {String[]} lines The file's full content, split by line.
  * @param {Set<Number>} addedLines 1-based line numbers this commit adds.
- * @returns {{added: Number, prose: Number, longestRun: Number}}
+ * @returns {{added: Number, prose: Number, longestRun: Number, runs: Number[], confessions: Object[]}}
  */
 export function measureProseDensity(lines, addedLines) {
     const state = {inBlock: false};
 
-    const confessions = [];
+    const confessions = [],
+          runs        = [];
 
     let added = 0, prose = 0, run = 0, longestRun = 0;
+
+    const closeRun = () => {
+        if (run > 0) {
+            runs.push(run)
+        }
+
+        run = 0
+    };
 
     lines.forEach((line, index) => {
         const comment = extractComment(line, state),
               isAdded = addedLines.has(index + 1);
 
         if (!isAdded) {
-            run = 0;
+            closeRun();
             return
         }
 
         added++;
 
+        if (!isCommentLine(line, comment)) {
+            closeRun();
+            return
+        }
+
+        run++;
+        longestRun = Math.max(longestRun, run);
+
         if (isProseLine(comment)) {
             prose++;
-            run++;
-            longestRun = Math.max(longestRun, run);
 
             if (isConfession(comment)) {
                 confessions.push({line: index + 1, text: comment.trim().slice(0, 100)})
             }
-        } else {
-            run = 0
         }
     });
 
-    return {added, prose, longestRun, confessions}
+    closeRun();
+
+    return {added, prose, longestRun, runs, confessions}
 }
 
 /**
@@ -235,6 +276,11 @@ export function summarizeDensity(files = [], bounds = DEFAULT_BOUNDS) {
           worst                        = rows.reduce((best, row) => (row?.longestRun ?? 0) > (best?.longestRun ?? 0) ? row : best, null),
           share                        = added > 0 ? prose / added : 0,
           longestRun                   = worst?.longestRun ?? 0,
+          // Reported beside the longest run because a tail-only number misses that the FLOOR rose:
+          // across the model boundary the median block went 15 to 23 while the p90 went 34 to 42. A
+          // commit of twelve twenty-line blocks never trips the bar and is the thing being described.
+          allRuns                      = rows.flatMap(row => row?.runs ?? []).sort((a, b) => a - b),
+          medianRun                    = allRuns.length > 0 ? allRuns[Math.floor(allRuns.length / 2)] : 0,
           shareExceeded                = added > 0 && share > maxProseShare,
           runExceeded                  = longestRun > maxProseRun;
 
@@ -243,6 +289,8 @@ export function summarizeDensity(files = [], bounds = DEFAULT_BOUNDS) {
         prose,
         share,
         longestRun,
+        medianRun,
+        blocks   : allRuns.length,
         worstFile: runExceeded ? (worst?.file ?? null) : null,
         shareExceeded,
         runExceeded,
@@ -262,7 +310,8 @@ export function formatDensityWarning(summary, bounds = DEFAULT_BOUNDS) {
           lines                        = [
               `check-comment-density: ${summary.prose} of ${summary.added} added lines are prose ` +
               `(${Math.round(summary.share * 100)}%, bar ${Math.round(maxProseShare * 100)}%); ` +
-              `longest contiguous run ${summary.longestRun} (bar ${maxProseRun}).`
+              `longest contiguous run ${summary.longestRun} (bar ${maxProseRun}), ` +
+              `median of ${summary.blocks ?? 0} block(s) ${summary.medianRun ?? 0}.`
           ];
 
     if (summary.runExceeded && summary.worstFile) {

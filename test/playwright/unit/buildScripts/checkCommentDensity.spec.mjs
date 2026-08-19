@@ -17,9 +17,48 @@ import {
 /**
  * Two axes, warned on independently. The share axis has an author-controlled denominator — fixture
  * lines in the same commit dilute a long docblock below the bar — so the run axis exists to catch what
- * the share cannot see. Every commit named below was measured on this repo.
+ * the share cannot see.
  */
-test.describe('check-comment-density — share and run axes', () => {
+test.describe('check-comment-density — the axes measured on real commits', () => {
+    /**
+     * The red-proof runs the TOOL over named commits rather than asserting hand-written numbers.
+     *
+     * An earlier version of this file fed `longestRun: 36` in as a fixture, which passed while the
+     * tool computed 9 on the same commit — the bar logic was proven and the measurement was not. The
+     * defect that hid behind it: the run broke on tag lines, so a 45-line docblock scored 9 and the
+     * axis fired on 0 of 92 recent commits.
+     */
+    const commit = range => summarizeDensity(measureRange(range, execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf-8'}).trim()));
+
+    test('RED-PROOF, run axis: the tool warns where the share axis provably cannot', () => {
+        // a17ade4264 — the head the operator change-requested for a 45-line docblock.
+        const summary = commit('a17ade4264~1..a17ade4264');
+
+        expect(summary.longestRun, 'the docblock the operator flagged').toBe(45);
+        expect(summary.shareExceeded, '19% share is comfortably under the bar').toBe(false);
+        expect(summary.runExceeded).toBe(true);
+        expect(summary.warn).toBe(true);
+    });
+
+    test('SILENT ARM: a commit at the repo median warns on neither axis', () => {
+        const summary = commit('087114e8ab~1..087114e8ab');
+
+        expect(summary.longestRun).toBe(11);
+        expect(summary.shareExceeded).toBe(false);
+        expect(summary.runExceeded).toBe(false);
+        expect(summary.warn, 'without this, a guard that warns on everything passes the arm above').toBe(false);
+    });
+
+    test('the share axis catches what the run axis misses — the two are independent', () => {
+        // 027125dcf7, the change-request FIX: the run collapses 45 -> 5, and 27 of its 32 added lines
+        // are comment, so the share axis is what still has something to say.
+        const summary = commit('027125dcf7~1..027125dcf7');
+
+        expect(summary.longestRun).toBe(5);
+        expect(summary.runExceeded).toBe(false);
+        expect(summary.shareExceeded).toBe(true);
+    });
+
     const measured = {
         // 62% share, the worst share observed in the sampled window.
         highShare: {file: 'a.mjs', added: 343, prose: 214, longestRun: 20},
@@ -50,11 +89,13 @@ test.describe('check-comment-density — share and run axes', () => {
         expect(summary.warn).toBe(false);
     });
 
-    test('the run bar sits in the measured p90–p99 band, so a warning means unusual', () => {
-        // p90 32, p99 64 across ai/services/**. A bar below p90 warns on ordinary files; above p99
-        // warns on almost nothing.
-        expect(DEFAULT_BOUNDS.maxProseRun).toBeGreaterThanOrEqual(32);
-        expect(DEFAULT_BOUNDS.maxProseRun).toBeLessThan(64);
+    test('both bars are the p90 of the seats whose behaviour did NOT change', () => {
+        // Measured per commit on origin/dev, ≥ 20 added in-scope lines. Two independent flat controls
+        // land on the same numbers: block-run p90 34 (Opus 4.8, n=552) and 35 (Fable, n=162); share
+        // p90 31.9% and 28.5%. A trailing median would drift up with the behaviour it measures; a
+        // pre-regression distribution does not move. An earlier bar cited a whole-FILE distribution,
+        // which is a different substrate from the per-commit added lines the tool actually measures.
+        expect(DEFAULT_BOUNDS.maxProseRun).toBe(35);
         expect(DEFAULT_BOUNDS.maxProseShare).toBeCloseTo(0.3);
     });
 
@@ -92,8 +133,12 @@ test.describe('check-comment-density — prose classification', () => {
         expect(isTagLine(' * @returns {Boolean}')).toBe(true);
         expect(isTagLine(' * an explanation')).toBe(false);
 
-        // Tags break a run: a densely-typed signature must not read as one long block.
-        expect(added(['/**', ' * prose', ' * @param {String} x', ' * prose', ' */']).longestRun).toBe(1);
+        // A tag is excluded from PROSE but does not break the RUN: the two axes measure different
+        // objects, and a 45-line docblock is 45 lines to a reader whether or not `@param` sits in it.
+        const block = added(['/**', ' * prose', ' * @param {String} x', ' * prose', ' */']);
+
+        expect(block.longestRun, 'the whole block, delimiters included').toBe(5);
+        expect(block.prose, 'two prose lines; the tag and both delimiters are not prose').toBe(2);
         expect(isProseLine('*'), 'a `/**` opener extracts as `*` and is a delimiter, not prose').toBe(false);
         expect(isProseLine(' one'), 'a comment with a word is prose').toBe(true);
     });
@@ -103,10 +148,13 @@ test.describe('check-comment-density — prose classification', () => {
         expect(added(['const u = "https://example.com";']).prose).toBe(0);
     });
 
-    test('a block comment accumulates one run across its TEXT lines', () => {
-        // The `/*` and `*/` delimiter lines carry no text, so they are not prose. Measuring text rather
-        // than markers keeps a two-line docblock from scoring the same as a four-line one.
-        expect(added(['/*', ' * one', ' * two', ' * three', ' */', 'code();']).longestRun).toBe(3);
+    test('a block comment is ONE run across its full extent, and code ends it', () => {
+        // The delimiters carry no text, so they are not prose — but they are part of the block a
+        // reader faces, so the run counts them. `code();` is not a comment and closes the run.
+        const block = added(['/*', ' * one', ' * two', ' * three', ' */', 'code();']);
+
+        expect(block.longestRun).toBe(5);
+        expect(block.prose, 'three text lines; the two delimiters are not prose').toBe(3);
         expect(added([' * orphan prose outside a block']).prose, 'not a comment without an opener').toBe(0);
     });
 
@@ -276,12 +324,14 @@ test.describe('check-comment-density — scope and output', () => {
         expect(isInScopePath('buildScripts/util/x.mjs')).toBe(true);
     });
 
-    test('the warning prints both raw numbers, never only a verdict', () => {
-        const text = formatDensityWarning(summarizeDensity([{file: 'b.mjs', added: 316, prose: 69, longestRun: 36}]));
+    test('the warning prints every raw number, never only a verdict', () => {
+        const text = formatDensityWarning(summarizeDensity([{file: 'b.mjs', added: 316, prose: 69, longestRun: 36, runs: [8, 12, 36]}]));
 
         expect(text).toContain('69 of 316');
         expect(text).toContain('longest contiguous run 36');
-        expect(text).toContain('bar 34');
+        // The median sits beside the longest, because the floor rising is invisible to a tail number.
+        expect(text).toContain('median of 3 block(s) 12');
+        expect(text).toContain('bar 35');
         expect(text).toContain('b.mjs');
     });
 });
