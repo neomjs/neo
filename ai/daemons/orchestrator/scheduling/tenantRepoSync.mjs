@@ -31,7 +31,7 @@ import {
  * @param {String[]} [options.knownSlugs=[]] Configured `repoSlug` values.
  * @returns {Object|null} Failure details when any requested slug is unknown, else `null`.
  */
-export function resolveUnknownRepoSelectors({onlyRepoSlugs, knownSlugs = []}) {
+export function resolveUnknownRepoSelectorFailure({onlyRepoSlugs, knownSlugs = []}) {
     if (!(onlyRepoSlugs?.length > 0)) {
         return null
     }

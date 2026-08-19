@@ -47,7 +47,9 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  * @param {String} [pr.mergeStateStatus] GitHub mergeStateStatus (`CLEAN` | `UNSTABLE` | `DIRTY` | `BEHIND` | `BLOCKED` | ...); `undefined` (not fetched) fails closed.
  * @param {String[]} [pr.reviewRequests] Logins of still-requested reviewers (the explicit author/operator contract); `undefined` (not fetched) fails closed, `[]` asserts fetched-and-empty.
  * @param {String[]} [pr.disposedReviewers] Requested reviewers already disposed (formal review / visible step-out / unrequest).
- * @returns {{strictMergeReady: Boolean, blockers: String[]}}
+ * @param {String} [pr.approvedAtOid] Commit oid the approving review was submitted against. Optional: absent means the anchor is not reported, never that it is fresh.
+ * @param {String} [pr.headRefOid] Current head oid, paired with `approvedAtOid` to surface a stale approval anchor.
+ * @returns {{strictMergeReady: Boolean, blockers: String[], advisories: String[]}}
  */
 export function validateMergeReady(pr = {}) {
     const {
@@ -57,10 +59,13 @@ export function validateMergeReady(pr = {}) {
         checksGreen,
         mergeStateStatus,
         reviewRequests,
-        disposedReviewers = []
+        disposedReviewers = [],
+        approvedAtOid,
+        headRefOid
     } = pr;
 
-    const blockers = [];
+    const blockers   = [],
+          advisories = [];
 
     if (state === undefined) {
         blockers.push('state was not fetched — cannot certify the pull request is open; failing closed.');
@@ -76,6 +81,26 @@ export function validateMergeReady(pr = {}) {
 
     if (reviewDecision !== 'APPROVED') {
         blockers.push(`reviewDecision is '${reviewDecision ?? 'none'}', not APPROVED.`);
+    }
+
+    // The anchor, and it is deliberately an ADVISORY rather than a blocker.
+    //
+    // `reviewDecision: APPROVED` says a verdict exists; it never says which commit earned it. A
+    // rebase or a fixup moves the head and leaves the badge untouched, so the board reads APPROVED
+    // for a commit nobody has read — and the only surfaces that notice are a human remembering, or
+    // a peer checking by hand. This surfaces the pair so the reader can judge.
+    //
+    // NOT a blocker, because most stale anchors are content-free: a rebase over data-sync commits
+    // moves every sha and changes nothing anyone reviewed. Blocking those would red every rebased
+    // PR in the repo and train reviewers to ignore the signal, which costs more than the gap.
+    // Whether the delta MATTERS is a judgement over the diff, and this function holds no diff.
+    //
+    // Un-fetched is silence rather than a fail-closed block, which inverts this module's rule for
+    // every other field — deliberately. The other fields are part of the merge-ready PREDICATE, so
+    // an un-queried one cannot certify and must block. The anchor certifies nothing; it is a
+    // reporting channel, and a caller that never asks for it is not making a weaker claim.
+    if (approvedAtOid && headRefOid && approvedAtOid !== headRefOid) {
+        advisories.push(`approval anchor is stale: reviewDecision APPROVED was earned at '${approvedAtOid}', head is now '${headRefOid}'. The badge does not degrade when the head moves — confirm the delta is content-free for the reviewed paths (diff EVERYTHING and subtract pipeline-owned trees; an enumerated path list answers only "did anything change where I thought to look"), or re-request review.`);
     }
 
     // Fail CLOSED on un-fetched fields: a field that was never queried cannot certify readiness,
@@ -101,7 +126,7 @@ export function validateMergeReady(pr = {}) {
         }
     }
 
-    return {strictMergeReady: blockers.length === 0, blockers};
+    return {strictMergeReady: blockers.length === 0, blockers, advisories};
 }
 
 export default validateMergeReady;

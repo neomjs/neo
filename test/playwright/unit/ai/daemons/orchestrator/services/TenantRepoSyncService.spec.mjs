@@ -25,7 +25,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
-import {classifyEmbeddingRecoveryState, isRepoDue, resolveUnknownRepoSelectors}
+import {classifyEmbeddingRecoveryState, isRepoDue, resolveUnknownRepoSelectorFailure}
                             from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
     classifyTenantRepoCheckpoint,
@@ -333,7 +333,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
               ];
 
         for (const {label, slugs} of cases) {
-            const predicate = resolveUnknownRepoSelectors({onlyRepoSlugs: slugs, knownSlugs});
+            const predicate = resolveUnknownRepoSelectorFailure({onlyRepoSlugs: slugs, knownSlugs});
             const clear     = await TenantRepoSyncService.clearTenantRepoBackoff({
                 onlyRepoSlugs    : slugs,
                 revisionsFilePath: revisionsFile,
@@ -349,12 +349,25 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             }
         }
 
-        // and the predicate itself refuses on ANY unknown, which is the property the sweep lacked
-        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: ['acme/known', 'acme/typo'], knownSlugs}).unknownSlugs).toEqual(['acme/typo']);
-        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: ['acme/known'], knownSlugs})).toBeNull();
+        // ⚠️ DO NOT REMOVE THE NEXT TWO ASSERTIONS when trimming this test. They are the least
+        // obviously important lines here and the ones that make the rest sound. Everything above
+        // compares the two paths to EACH OTHER, and pure parity is satisfiable by two
+        // identically-wrong paths — if both drifted the same direction, `clear.details.unknownSlugs`
+        // would still equal `predicate.unknownSlugs` and this stays green. Anchoring the predicate to
+        // LITERALS is what pins the pair to the correct answer rather than merely to agreement.
+        // Parity + anchor is sound; parity alone is not.
+        //
+        // BOTH, because one alone is satisfiable by a broken predicate. The first pins that an
+        // any-unknown selector refuses AND names the right set; a predicate that refused EVERY
+        // selector would pass it. The second is what rules that out — an all-known selector must
+        // return null — so the pair fences over-refusal and under-refusal from opposite sides. The
+        // two `toBeNull()` calls below the next comment are a different property (an empty or absent
+        // selector selects everything) and are not part of this pair.
+        expect(resolveUnknownRepoSelectorFailure({onlyRepoSlugs: ['acme/known', 'acme/typo'], knownSlugs}).unknownSlugs).toEqual(['acme/typo']);
+        expect(resolveUnknownRepoSelectorFailure({onlyRepoSlugs: ['acme/known'], knownSlugs})).toBeNull();
         // an empty or absent selector selects everything and can never refuse
-        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: [], knownSlugs})).toBeNull();
-        expect(resolveUnknownRepoSelectors({onlyRepoSlugs: null, knownSlugs})).toBeNull()
+        expect(resolveUnknownRepoSelectorFailure({onlyRepoSlugs: [], knownSlugs})).toBeNull();
+        expect(resolveUnknownRepoSelectorFailure({onlyRepoSlugs: null, knownSlugs})).toBeNull()
     });
 
     test('clear-backoff refuses an unknown slug with the sweep\'s own error code, rather than clearing nothing quietly', () => {

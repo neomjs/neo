@@ -45,6 +45,17 @@ export const GET_CONVERSATION = `
  * payloads. `pageInfo` is part of the contract: either bounded connection truncating at 100 makes
  * the observation fail closed instead of silently treating the partial collection as complete.
  *
+ * `reviews` is fetched with `last` rather than `first`, and that is the whole point of the field:
+ * it feeds the approval ANCHOR — which commit earned `reviewDecision: APPROVED` — and only the most
+ * recent approval can answer that. Fetching the oldest 100 would truncate away exactly the reviews
+ * the question is about. `hasPreviousPage` is fetched to bound the connection and **deliberately
+ * neither gates nor surfaces**: an approval found inside the most-recent window IS the latest one
+ * however many older reviews exist, and an empty window already yields silence rather than a claim —
+ * so truncation cannot change any decision this query feeds. It is carried on the normalized
+ * snapshot so the bound is visible to a maintainer reading the shape, and for no other reason; do
+ * not add a consumer that treats it as evidence, and do not describe it as "reported" to a caller
+ * who has no way to see it.
+ *
  * Variables required:
  * - $owner: String! - Repository owner
  * - $repo: String! - Repository name
@@ -78,6 +89,18 @@ export const GET_MERGE_READINESS = `
                   login
                 }
               }
+            }
+          }
+        }
+        reviews(last: 100) {
+          pageInfo {
+            hasPreviousPage
+          }
+          nodes {
+            state
+            submittedAt
+            commit {
+              oid
             }
           }
         }

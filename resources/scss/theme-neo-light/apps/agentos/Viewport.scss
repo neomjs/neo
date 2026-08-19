@@ -42,6 +42,11 @@
     --fm-rail          : #e9edf3;
     --fm-line          : #d3dae4;
     --fm-line-soft     : #e4e9f0;
+    /* Elevation for FLOATING surfaces only (the switcher menu, the manage drawer) — the cockpit's
+       in-flow panels stay border-carried. Light-native rather than the dark value reused: on a
+       white panel the same alpha reads as dirt, so the shadow is shallower and softer while
+       carrying the identical "this floats above" message. */
+    --fm-shadow-overlay: 0 8px 24px rgba(15, 23, 35, .18);
     --fm-ink           : #1f2733;
     --fm-ink-dim       : #5a6b80;
     --fm-ink-faint     : #8494a7;
