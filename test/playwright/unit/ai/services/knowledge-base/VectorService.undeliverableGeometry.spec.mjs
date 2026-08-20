@@ -456,19 +456,125 @@ test.describe('VectorService.embed — DEATH-class graduation through the produc
         expect(after.deathStrikeProgress, 'a carried strike would still be listed here').toEqual([]);
     });
 
-    /*
-     * OUTSTANDING — the second control @neo-gpt asked for (a carried provider success breaking a
-     * chunk's death chain) is NOT here, and the omission is deliberate rather than forgotten.
+    /**
+     * @summary Drives the killer to a PENDING death, then through one carried-success arm.
      *
-     * The production code is fixed: both carry arms now delete the chunk's death entry alongside its
-     * strike and suspicion. What is missing is a production-path assertion, and four fixture shapes
-     * failed on the same wall: a PENDING death is only recorded on a sweep that ends on the provider
-     * error, and an erroring sweep returns no summary — so the state the control needs to observe has
-     * no observable. A discriminating pair (graduate-vs-not, keyed on whether a carry intervenes) was
-     * the closest attempt and did not land either.
+     * The shape is @neo-gpt's, and the piece I was missing is the remainder: a sweep that ends on the
+     * provider error returns no summary, so every earlier attempt had nothing to assert on. A yield
+     * `break`s gracefully and a failure-carry whose remainder then SUCCEEDS completes the sweep — both
+     * return the census, which is where `deathStrikeProgress` lives.
      *
-     * Rather than ship an arm that passes without exercising the reset, this is stated and returned to
-     * the reviewer, in the review response rather than here — a pull-request number in a durable
-     * comment is exactly what `check-ticket-archaeology` exists to keep out.
+     * @param {String} tenantId Own scope: the poison store is keyed by tenant, and sharing one made
+     *     arm order part of a contract nobody declared.
+     * @param {String} arm `'yield'` or `'failure-carry'`.
+     * @returns {Promise<Object>} The final sweep's summary.
      */
+    async function carryArm(tenantId, arm) {
+        const spy    = createSpyCollection(),
+              scoped = {tenantId, repoSlug: 'org/death-carry'},
+              SDKMem = await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs');
+
+        ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        let phase = 'refuse';
+
+        TextEmbeddingService.embedTexts = async texts => {
+            if (!texts.some(isKillerText)) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            // A REFUSED connection: the provider was already down, so this input is unproven and the
+            // death is recorded PENDING rather than as a strike.
+            if (phase === 'refuse') {
+                const error = new Error('connect ECONNREFUSED 127.0.0.1:11434');
+
+                error.code             = 'ECONNREFUSED';
+                error.failedTextOffset = 0;
+                error.failedTextCount  = texts.length;
+                throw error
+            }
+
+            const vectors = texts.map(() => new Array(384).fill(0));
+
+            if (phase === 'yield') {
+                // The lease-yield arm: a graceful stop carrying its completed prefix. The sweep breaks
+                // out and returns, which is what makes the census observable at all.
+                const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease');
+
+                error.code                = SDKMem.EMBEDDING_BATCH_YIELDED_CODE;
+                error.completedChunkCount = 1;
+                error.totalChunkCount     = 2;
+                error.completedTextCount  = texts.length;
+                error.embeddings          = vectors;
+                throw error
+            }
+
+            if (phase === 'failure-carry') {
+                // The failure-carry arm: the prefix embedded, then the request failed. The phase is
+                // deliberately NOT advanced — an earlier version flipped to a healthy provider here,
+                // and the killer's death was then cleared by the ORDINARY success path rather than by
+                // this arm's reset. Deleting the failure-arm reset left that fixture green, which is
+                // precisely the vacuity the reviewer's per-arm mutation requirement exists to catch.
+                // NOT a death code. `ECONNRESET` would take the accepted-then-died branch, earn an
+                // immediate strike, graduate, and delete the entry itself — so the carrier would be
+                // doing the cleanup and this arm would pass with its own reset removed. A transient
+                // write failure carries a prefix without saying anything about the provider's life.
+                const error = new Error('the carried prefix landed, the write did not');
+
+                error.code               = 'KB_VECTOR_WRITE_RETRY_EXHAUSTED';
+                error.completedTextCount = texts.length;
+                error.embeddings         = vectors;
+                error.failedTextOffset   = 0;
+                error.failedTextCount    = texts.length;
+                throw error
+            }
+
+            return vectors
+        };
+
+        const sweep = () => KB_VectorService.embed(corpusFile, {deleteStale: false, tenantContext: scoped})
+            .then(result => result, error => error);
+
+        // Multi-input failure, then isolation, then a single-input refusal: the pending death.
+        for (let i = 0; i < 4; i++) await sweep();
+
+        phase = arm;
+
+        let last = await sweep();
+
+        for (let i = 0; i < 3 && last instanceof Error; i++) last = await sweep();
+
+        return last
+    }
+
+    test('NEGATIVE CONTROL: a YIELD-carried provider success breaks that chunk\'s death chain', async () => {
+        shiftGeneration(720_000);
+
+        const summary = await carryArm('t-carry-yield', 'yield');
+
+        expect(summary, 'a yield is a graceful stop, so the sweep returns its census').not.toBeInstanceOf(Error);
+        expect(summary.deathStrikeProgress, 'the carried prefix disproved its own pending death').toEqual([]);
+    });
+
+    test('SMOKE ONLY — a failure-carried prefix completes the sweep with no death evidence left', async () => {
+        // ⚠️ NOT a negative control, and labelled so deliberately. The per-arm mutation check the
+        // reviewer requires does NOT isolate this arm: deleting the failure-carry `deaths.delete`
+        // leaves this green, so it does not prove that reset. Three carriers were ruled out —
+        // `ECONNRESET` (a death code, so graduation deletes the entry itself and the carrier does the
+        // cleanup), a phase-advanced healthy provider (the ORDINARY success path clears it), and a
+        // non-death transient write failure (still green). What remains unexplained is which path
+        // clears the entry in the third case, and until that is known this arm asserts an end state
+        // rather than a mechanism.
+        //
+        // The sibling YIELD arm above IS mutation-verified: removing its reset turns it, and only it,
+        // red. Kept as smoke coverage because a non-death carry completing the sweep is worth holding;
+        // renamed because calling it a control would be the exact overclaim that got a sibling PR
+        // dropped today.
+        shiftGeneration(840_000);
+
+        const summary = await carryArm('t-carry-failure', 'failure-carry');
+
+        expect(summary).not.toBeInstanceOf(Error);
+        expect(summary.deathStrikeProgress).toEqual([]);
+    });
 });
