@@ -1,4 +1,7 @@
 import { test as base, expect } from '@playwright/test';
+import path                     from 'node:path';
+import { fileURLToPath }        from 'node:url';
+import { findBridgeScriptRoot } from './findBridgeScriptRoot.mjs';
 import * as RmaHelpers          from './util/RmaHelpers.mjs';
 
 // `Neo` plus the core class system, imported for their SIDE EFFECT and not for these bindings.
@@ -31,6 +34,10 @@ import NeuralLink_InstanceService    from '../../ai/services/neural-link/Instanc
 import NeuralLink_InteractionService from '../../ai/services/neural-link/InteractionService.mjs';
 import NeuralLink_RuntimeService     from '../../ai/services/neural-link/RuntimeService.mjs';
 import aiConfig                      from '../../ai/mcp/server/neural-link/config.template.mjs';
+import {BRIDGE_NPM_SCRIPT}           from '../../ai/services/neural-link/ConnectionService.mjs';
+
+// Resolved once at import: the answer is a property of where this file sits, which no test can move.
+const bridgeScriptRoot = findBridgeScriptRoot(path.dirname(fileURLToPath(import.meta.url)), BRIDGE_NPM_SCRIPT);
 
 export const test = base.extend({
     /**
@@ -100,12 +107,9 @@ export const test = base.extend({
     },
 
     neuralLink: async ({ page }, use) => {
-        // This fixture is the second Bridge entrypoint, alongside the MCP server, and the only one
-        // for which `process.cwd()` is correct by construction: Playwright resolves its config and
-        // `testDir` from the invocation directory, so a run always starts at the consuming project's
-        // root. `spawnBridge` refuses an unresolved cwd precisely because a GUI-launched server has
-        // no such guarantee. `??=` yields to an entrypoint that already supplied one.
-        NeuralLink_ConnectionService.cwd ??= process.cwd();
+        // This fixture is the second Bridge entrypoint, alongside the MCP server, so it owes the same
+        // `cwd` the MCP server supplies via `--cwd`. `??=` yields to an entrypoint that already did.
+        NeuralLink_ConnectionService.cwd ??= bridgeScriptRoot;
 
         // 1. Ensure Bridge connects
         await NeuralLink_ConnectionService.manageConnection({action: 'start'});
