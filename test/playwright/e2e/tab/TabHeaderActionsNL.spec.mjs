@@ -187,6 +187,14 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
         const menuItem = page.locator('.neo-tab-overflow-menu:visible .neo-list-item').first();
 
         await expect(menuItem).toBeVisible({timeout: 10000});
+
+        const menuId         = await menuItem.evaluate(node => node.closest('.neo-tab-overflow-menu')?.id),
+              menuProperties = await app.getComponent(menuId, ['parentComponent', 'parentId']);
+
+        expect(menuProperties.parentId).toBe('document.body');
+        expect(menuProperties.parentComponent?.id,
+            'the generated menu retains the floating control as its logical owner').toBe(controlId);
+
         await menuItem.focus();
         expect(await page.evaluate(() => document.activeElement?.id),
             'focus moves off the control and into its generated popup').not.toBe(controlId);
