@@ -41,7 +41,9 @@ import {
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
     KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedFailureError,
-    classifyEmbedResidencyDisposition
+    classifyEmbedResidencyDisposition,
+    isAcceptedThenDiedError,
+    isProviderDeathError
 }                                                                     from './helpers/embedFailureClassification.mjs';
 
 /**
@@ -74,7 +76,27 @@ const undeliverableEvidence = {
     generationId: null,
     strikes     : new Map(),
     suspects    : new Set(),
-    seq         : 0
+    seq         : 0,
+    // Death-class evidence, kept in its own map rather than folded into `strikes` because the two
+    // automata differ in WHEN a strike is earned. A call-ceiling expiry is self-proving: the deadline
+    // fired, and repetition is the whole evidence. A death has to establish two things first — that the
+    // provider was alive, and that THIS input killed it — and where that proof comes from splits the
+    // automaton in two:
+    //
+    // - **Accepted-then-died** (`isAcceptedThenDiedError`: reset / EPIPE / socket-end). The failure code
+    //   is itself the liveness proof, since those require an established connection, so the pair is
+    //   complete at failure time: the strike is earned IMMEDIATELY and graduates in the same step. No
+    //   later success is waited for — once the suspect is the only chunk left, no later dispatch happens,
+    //   so a success-gated rule would be unreachable exactly when it is needed.
+    // - **Refused** (the provider was already down). That says nothing about this input, so it is
+    //   recorded PENDING and becomes a strike only once a later dispatch succeeds. One pending
+    //   observation at a time: a second refusal while the first is unconfirmed is the same unproven
+    //   fact, not a second strike.
+    //
+    // Sharing one map with `strikes` would have made the threshold read a mixture of proven and
+    // unproven observations. Entry shape: `{strikes, pendingSeq, tokenEstimate, recoveredTokenEstimate,
+    // failureCode}`, where a null `pendingSeq` means "nothing awaiting confirmation".
+    deaths      : new Map()
 };
 
 /**
@@ -87,6 +109,13 @@ function resolveUndeliverableEvidence(generationId) {
         undeliverableEvidence.generationId = generationId;
         undeliverableEvidence.strikes.clear();
         undeliverableEvidence.suspects.clear();
+        // Deaths reset with the rest. A pending death is evidence about ONE geometry — this input
+        // killed the provider at THIS context width and batch shape — so carrying it across a
+        // generation change would let a strike earned under repaired coordinates fence a chunk the
+        // repair may have made deliverable. Every other map here clears for that reason; omitting
+        // this one made the death automaton the single piece of state that outlived its own
+        // authority coordinate.
+        undeliverableEvidence.deaths.clear();
         undeliverableEvidence.seq = 0;
     }
 
@@ -901,8 +930,18 @@ class VectorService extends Base {
      * @summary Whether an embedding failure forbids poison isolation.
      *
      * These terminals say nothing about content. A timeout may leave provider work running, an
-     * abort/circuit refusal deliberately ended admission, and a cooperative yield transfers the
-     * lane. None may trigger exploratory provider calls.
+     * abort/circuit refusal deliberately ended admission, a cooperative yield transfers the lane,
+     * and a dead provider answered nothing at all. None may trigger exploratory provider calls.
+     *
+     * **Why provider death is here even though the isolation walk already pairs its evidence.**
+     * The fresh control at the decision boundary below proves the provider was alive
+     * *immediately before* the suspect was dispatched — which is exactly the trace a chunk that
+     * KILLS the provider leaves behind. So the strongest exculpatory check available convicts the
+     * one input it should exonerate, and the surrounding contract's abort-rather-than-quarantine
+     * promise covers the remainder while the trigger is quarantined anyway. Without this term a
+     * poison entry is written whose own `reasonCode` names a socket failure. Death is evidence
+     * about deliverability at the current geometry, which is `undeliverableEvidence`'s domain,
+     * never a content verdict.
      *
      * @param {*} error Provider failure.
      * @param {AbortSignal} [signal] Active run signal.
@@ -910,6 +949,12 @@ class VectorService extends Base {
      */
     isPoisonIsolationForbidden(error, signal) {
         if (signal?.aborted === true) return true;
+
+        // Outside the walk below, deliberately: `isProviderDeathError` runs its own bounded
+        // cause-chain classification, so calling it per depth would re-walk the same chain from
+        // every link. The terms inside the loop are surface reads of one error object and need
+        // the walk; this one owns it.
+        if (isProviderDeathError(error)) return true;
 
         const visited = new Set();
         let   current = error;
@@ -1173,7 +1218,11 @@ class VectorService extends Base {
      *     through so one sweep's strikes, suspicions, and durable dispositions share one generation;
      *     absent, it is resolved once at entry from the same leaves.
      * @param {Function} [options.now] Clock seam for bounded poison receipts.
-     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[], poisonedChunks: Object[]}>}
+     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[], poisonedChunks: Object[], deathGraduations: Object[], deathStrikeProgress: Object[]}>}
+     *     `poisonedChunks` reports what was already fenced when the sweep started; `deathGraduations`
+     *     reports what THIS sweep fenced on death-class evidence and why; `deathStrikeProgress` reports
+     *     unfinished death evidence, with `pending` separating a recorded-but-unproven observation from
+     *     a confirmed strike so the two are never summed.
      *     `failedBatches` carries `{batchIndex, chunkIds, reason}` for every batch that exhausted its retries
      *     while other batches were succeeding. Such a batch is skipped rather than aborting the sweep, because
      *     aborting strands every later batch permanently — see the rationale at the exhaustion branch. A sweep
@@ -1215,6 +1264,11 @@ class VectorService extends Base {
         const {backoffBaseMs, batchSize, batchDelay, maxRetries, undeliverableTimeoutStrikes} = aiConfig;
         const guardrail                                                                       = this.resolveEmbeddingGuardrail();
         const failedBatches                                                                   = [];
+        // Death-class graduation receipts for this sweep. Separate from
+        // `poisonedChunks`, which reports what was ALREADY fenced when the sweep started: this reports
+        // what this sweep fenced and on what evidence, so convergence is visible in the summary instead
+        // of only as a repo-level failure count climbing with no stated reason.
+        const deathGraduations = [];
         const poisonedChunks                                                                  = knownPoisonEntries.map(entry => ({...entry}));
         const poisonIds                                                                       = new Set(poisonedChunks.map(entry => entry.chunkId));
         const preEmbeddedIds                                                                  = new Set();
@@ -1235,6 +1289,48 @@ class VectorService extends Base {
         // chunk from the front of a stride, and the remainder must be re-offered THIS sweep instead
         // of silently skipping to the next stride boundary.
         let cursor = 0;
+
+        /**
+         * Mints one death-class geometry disposition, and it is a closure rather than inline code
+         * because it now fires from BOTH provider outcomes. The success path converts a pending
+         * observation once the provider answers again; the failure path graduates directly when the
+         * failure itself proved liveness (`isAcceptedThenDiedError`). Inlining it twice would let the
+         * two sites drift on the receipt shape, which is the artifact an operator reads.
+         *
+         * Fail-open on a persistence error, matching the timeout path: a disposition that cannot
+         * persist must never suppress provider work.
+         *
+         * @param {String} suspectId
+         * @param {Object} deathEntry
+         * @param {Number} recoveredTokenEstimate Tokens the provider demonstrably served — the
+         *     suspect's own size on the failure path, since accepting the request IS the evidence.
+         * @returns {Promise<Boolean>} Whether a disposition was minted.
+         */
+        const graduateDeathSuspect = async (suspectId, deathEntry, recoveredTokenEstimate) => {
+            if (deathEntry.strikes < undeliverableTimeoutStrikes || typeof onPoisonEntries !== 'function') {
+                return false
+            }
+
+            const deathReceipt = {
+                chunkId      : suspectId,
+                tokenEstimate: deathEntry.tokenEstimate,
+                attempts     : deathEntry.strikes,
+                recoveredTokenEstimate,
+                failureCode  : deathEntry.failureCode
+            };
+
+            try {
+                await onPoisonEntries([{chunkId: suspectId, reasonCode: KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY}]);
+                evidence.deaths.delete(suspectId);
+                evidence.suspects.delete(suspectId);
+                deathGraduations.push(deathReceipt);
+                logger.warn(`[VectorService] Chunk ${suspectId} graduated to undeliverable-at-geometry after ${deathReceipt.attempts} single-input dispatches that killed the provider (${deathReceipt.failureCode}, ~${deathReceipt.tokenEstimate} tokens); it stops being offered until the embedding generation changes. The provider accepted each request before dying, which is what attributes the death to this input rather than to an outage — it does not prove the lane can serve an input this size.`);
+                return true
+            } catch (persistError) {
+                logger.warn(`[VectorService] Could not persist the undeliverable disposition for chunk ${suspectId} (${persistError.message}); the chunk remains offered.`);
+                return false
+            }
+        };
 
         while (cursor < chunksToProcess.length) {
             // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
@@ -1395,7 +1491,45 @@ class VectorService extends Base {
                     batchToEmbed.forEach(chunk => {
                         evidence.strikes.delete(chunk.id);
                         evidence.suspects.delete(chunk.id);
+                        // A chunk that embeds is not a killer. Its own success clears death evidence
+                        // against it — pending or already proven — for the same reason a non-timeout
+                        // outcome clears its timeout strikes.
+                        evidence.deaths.delete(chunk.id);
                     });
+
+                    // The RECOVERY half of the death-class automaton, and the half that makes
+                    // the evidence attributable at all. This dispatch succeeded, so the provider is
+                    // answering again — which is what turns a pending death from "the provider was
+                    // down" into "that input took it down". A death whose provider never comes back
+                    // stays pending forever and never fences anything, which is today's behaviour.
+                    //
+                    // Only observations pending from BEFORE this dispatch convert: `pendingSeq <=
+                    // dispatchSeq` is the same overlap guard the timeout path uses, and it matters more
+                    // here, because a death recorded by a request that overlapped this success would be
+                    // "confirmed" by a success that was already in flight when the provider died.
+                    //
+                    // The recovering input's token estimate is recorded beside the suspect's rather
+                    // than asserted away: this success may be a much smaller chunk, so it proves the
+                    // provider is LIVE, not that it can serve an input the suspect's size. That is
+                    // sufficient for a disposition that says *geometry* — and only because the poison
+                    // generation derives from the resolved admission band, so repairing the geometry
+                    // moves the band, changes the generation, and re-offers everything fenced under the
+                    // old one. Without that reversibility this graduation would be a one-way door.
+                    const recoveredTokenEstimate = bytesToTokens(
+                        textsToEmbed.reduce((total, text) => total + Buffer.byteLength(text || '', 'utf8'), 0)
+                    );
+
+                    for (const [suspectId, deathEntry] of evidence.deaths) {
+                        if (deathEntry.pendingSeq === null || deathEntry.pendingSeq > dispatchSeq) {
+                            continue
+                        }
+
+                        deathEntry.strikes                 += 1;
+                        deathEntry.pendingSeq               = null;
+                        deathEntry.recoveredTokenEstimate   = recoveredTokenEstimate;
+
+                        await graduateDeathSuspect(suspectId, deathEntry, recoveredTokenEstimate);
+                    }
 
                     const metadatas = batchToEmbed.map(buildChunkMetadata);
 
@@ -1425,10 +1559,19 @@ class VectorService extends Base {
 
                         // The carried prefix is a dispatched provider SUCCESS for those inputs, so
                         // their automaton entries reset here on the same provider-outcome rule as the
-                        // ordinary success path.
+                        // ordinary success path — INCLUDING a pending death, which an input that just
+                        // embedded has disproven about itself.
+                        //
+                        // Deliberately narrower than the ordinary success path in one respect: that
+                        // path also GRADUATES every other pending death, because a success proves the
+                        // provider was alive. A carried prefix proves the same thing, but graduating
+                        // here would convert deaths to strikes on a path that is mid-abort, so this arm
+                        // only clears what it disproves and leaves graduation to the next ordinary
+                        // success. Evidence is deferred, never dropped.
                         batchToEmbed.slice(0, err.completedTextCount || 0).forEach(chunk => {
                             evidence.strikes.delete(chunk.id);
                             evidence.suspects.delete(chunk.id);
+                            evidence.deaths.delete(chunk.id);
                         });
 
                         await persistCarriedPrefix(carried, err.completedTextCount, 'Yielded');
@@ -1450,11 +1593,15 @@ class VectorService extends Base {
                     let carryShrunkCount = 0;
 
                     if (embeddings === null && Number.isInteger(err?.completedTextCount) && err.completedTextCount > 0) {
-                        // Same provider-outcome reset as the yield arm: the completed prefix is a
-                        // dispatched provider success for those inputs, whatever the write does next.
+                        // Same provider-outcome reset as the yield arm, deaths included: the completed
+                        // prefix is a dispatched provider success for those inputs, whatever the write
+                        // does next, and an input that embedded has disproven its own pending death.
+                        // Graduation of OTHER pending deaths is likewise left to the next ordinary
+                        // success, for the reason stated on the yield arm.
                         batchToEmbed.slice(0, err.completedTextCount).forEach(chunk => {
                             evidence.strikes.delete(chunk.id);
                             evidence.suspects.delete(chunk.id);
+                            evidence.deaths.delete(chunk.id);
                         });
 
                         const persistedCount = await persistCarriedPrefix(err.embeddings || [], err.completedTextCount, 'Failed');
@@ -1480,7 +1627,12 @@ class VectorService extends Base {
                     // never be misclassified as provider work that might still be running.
                     const
                         providerCircuitOpen = embeddings === null && err?.code === KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
-                        providerTimedOut    = embeddings === null && isProviderTimeoutCode(err?.code);
+                        providerTimedOut    = embeddings === null && isProviderTimeoutCode(err?.code),
+                        // Death is classified through the cause chain, not `err.code`, because a
+                        // transport death routinely arrives wrapped by a stage-naming error. The
+                        // `embeddings === null` guard carries the same phase meaning as its siblings:
+                        // a write error with a death-shaped code is storage work, not provider work.
+                        providerDied        = embeddings === null && isProviderDeathError(err);
 
                     if (providerCircuitOpen || providerTimedOut) {
                         // Deterministic-undeliverable classification, on EXACT attribution only. One
@@ -1585,10 +1737,100 @@ class VectorService extends Base {
                             persistedCount: carryShrunkCount
                         });
 
+                        // Death-class RECORDING, and this is the only path a death reaches: the
+                        // end-sweep branch above fires on circuit-open and timeout, so a death falls
+                        // through to here.
+                        //
+                        // The timeout path graduates on its own evidence, because a fired deadline
+                        // proves itself. A death splits in two, and the failure code is what tells
+                        // them apart. An ACCEPTED-then-died failure carries its own liveness proof and
+                        // graduates below. A REFUSED connection proves only that nothing was listening,
+                        // so it records a PENDING observation and fences nothing — the isolation
+                        // contract is explicit that a dead provider "proves nothing about content and
+                        // must never be bisected into a poison disposition", and a refusal cannot
+                        // distinguish a killer input from an unrelated outage.
+                        //
+                        // Single-input only, for the same reason the timeout path is: a death on a
+                        // multi-input request cannot name which member caused it.
+                        const deathSuspect = providerDied && failedRequestChunks.length === 1
+                            ? failedRequestChunks[0]
+                            : null;
+
+                        // Suspicion for the MULTI-input death, and without it the whole automaton is
+                        // unreachable — found by instrumenting a fixture rather than by reading the
+                        // code. A death only becomes attributable once the suspect is dispatched ALONE,
+                        // and the thing that isolates it is suspicion; the timeout path adds it in its
+                        // own `else` branch, but that branch lives inside the end-sweep block a death
+                        // never enters. Without this the sweep re-dispatched the same three-input batch
+                        // three times and aborted, so no single-input death could ever be recorded.
+                        //
+                        // Same semantics the timeout path documents: suspicion costs one isolation
+                        // offer and never a fence, so suspecting every member of an unattributable
+                        // death is the conservative move rather than a widening.
+                        const deathMembers = providerDied
+                            ? (failedRequestChunks.length > 0 ? failedRequestChunks : batchToEmbed)
+                            : [];
+                        const deathMemberIds = new Set(deathMembers.map(chunk => chunk.id));
+
+                        if (deathSuspect) {
+                            const entry = evidence.deaths.get(deathSuspect.id) ?? {
+                                strikes               : 0,
+                                pendingSeq            : null,
+                                tokenEstimate         : 0,
+                                recoveredTokenEstimate: null,
+                                failureCode           : null
+                            };
+
+                            const suspectTokens = bytesToTokens(
+                                Buffer.byteLength(textsToEmbed[batchToEmbed.indexOf(deathSuspect)] || '', 'utf8')
+                            );
+
+                            // The liveness half of attribution comes from the FAILURE CODE, not from a
+                            // recovery probe — see `isAcceptedThenDiedError`. A reset / EPIPE / socket-end
+                            // needs an established connection, so the provider was answering when this
+                            // input left and this input is the one that was in flight. That is the whole
+                            // "provider was alive AND this killed it" pair, at zero extra provider cost.
+                            //
+                            if (isAcceptedThenDiedError(err)) {
+                                entry.strikes                += 1;
+                                entry.pendingSeq              = null;
+                                entry.tokenEstimate           = suspectTokens;
+                                entry.recoveredTokenEstimate  = suspectTokens;
+                                entry.failureCode             = classifyEmbedFailureError(err);
+                                evidence.deaths.set(deathSuspect.id, entry);
+
+                                // Graduating here and not only on the success path: once the suspect is
+                                // the only chunk left, no later dispatch succeeds, so a success-gated
+                                // graduation is unreachable exactly when it is needed.
+                                await graduateDeathSuspect(deathSuspect.id, entry, suspectTokens);
+                            }
+                            // A REFUSED connection proves the provider was already dead, so it says nothing
+                            // about this input. It stays a pending observation exactly as before: one at a
+                            // time, because a second refusal while the first is unconfirmed is the same
+                            // unproven fact rather than a second strike.
+                            else if (entry.pendingSeq === null) {
+                                entry.pendingSeq    = ++evidence.seq;
+                                entry.tokenEstimate = suspectTokens;
+                                entry.failureCode   = classifyEmbedFailureError(err);
+                                evidence.deaths.set(deathSuspect.id, entry);
+                            }
+                        }
+
                         (failedRequestChunks.length > 0 ? failedRequestChunks : batchToEmbed).forEach(chunk => {
                             evidence.strikes.delete(chunk.id);
-                            evidence.suspects.delete(chunk.id);
+
+                            // Death members keep their suspicion, and that exemption is the point:
+                            // suspicion is what dispatches a candidate ALONE next time, which is the
+                            // only way its next death is attributable to it rather than to its
+                            // neighbours. Clearing it here — as the timeout automaton's reset does for
+                            // everyone else — would re-batch the suspect and make the observation
+                            // unconfirmable, which is precisely the state the fixture caught.
+                            if (!deathMemberIds.has(chunk.id)) {
+                                evidence.suspects.delete(chunk.id)
+                            }
                         });
+
+                        deathMembers.forEach(chunk => evidence.suspects.add(chunk.id));
                     }
 
                     lastError = err;
@@ -1717,7 +1959,17 @@ class VectorService extends Base {
             cursor += cursorAdvance;
         }
 
-        return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches, poisonedChunks};
+        // Death-class strike PROGRESS, not just its terminal receipts. The ticket's complaint was that
+        // an operator watched `consecutiveFailures` climb with no explanation; a chunk that has struck
+        // once and is waiting on a recovery to confirm a second is exactly the state that was invisible.
+        // `pending` distinguishes "recorded, unproven" from "proven" so the two are never summed.
+        const deathStrikeProgress = [...evidence.deaths].map(([chunkId, entry]) => ({
+            chunkId,
+            strikes: entry.strikes,
+            pending: entry.pendingSeq !== null
+        }));
+
+        return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches, poisonedChunks, deathGraduations, deathStrikeProgress};
     }
 
     /**
@@ -2356,7 +2608,20 @@ class VectorService extends Base {
             // shape as a complete run — the caller then persists a checkpoint over work that never
             // landed. Absent predicate ⇒ `embedChunks` never yields ⇒ `false`, so this is additive and
             // every existing caller keeps today's semantics.
-            yielded : embedResult.yielded === true
+            yielded : embedResult.yielded === true,
+            // Death-class evidence forwarded rather than assumed to travel. This census picks
+            // fields explicitly, so anything `embedChunks` returns and this does not name is silently
+            // dropped — which is exactly what happened on the first attempt: the fields existed on the
+            // inner return, arrived `undefined` at the caller, and the AC that asks for them in the
+            // ingestion summary read as satisfied from the producer's side alone.
+            //
+            // `deathGraduations` is what THIS sweep fenced and on what evidence; `deathStrikeProgress`
+            // is the unfinished half, with `pending` separating a recorded-but-unproven observation
+            // from a confirmed strike so a reader never sums the two. Defaulted to `[]` in the same
+            // shape as `failedBatches` and `poisonedChunks` above, so a caller cannot tell a sweep with
+            // no death evidence from an older producer that never reported any.
+            deathGraduations   : embedResult.deathGraduations    || [],
+            deathStrikeProgress: embedResult.deathStrikeProgress || []
         };
     }
 
