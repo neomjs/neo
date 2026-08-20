@@ -99,10 +99,14 @@ const DURABLE_FENCE_DISPOSITIONS = Object.freeze(new Set([
 ]));
 
 /**
- * @summary Tenant-aware chunk hash carried by every durable fence row.
+ * @summary Canonical serialized shape of a tenant-aware chunk id at fence writer/reader boundaries.
+ *
+ * `IngestionService.createChunkHash()` puts tenant awareness inside the hash inputs; the serialized
+ * id remains one bare SHA-256 hex. Keeping that rule beside the durable-fence contract gives its
+ * writers and readers one authority.
  * @type {RegExp}
  */
-const DURABLE_FENCE_CHUNK_ID_PATTERN = /^[a-f0-9]{64}$/u;
+export const TENANT_AWARE_CHUNK_ID_PATTERN = /^[a-f0-9]{64}$/u;
 
 /**
  * @summary Decides whether one ingestion error row is a validated durable fence rather than live work.
@@ -132,7 +136,7 @@ export function isDurableFenceRow(item) {
         && DURABLE_FENCE_DISPOSITIONS.has(details.disposition)
         && details.reasonCode === item.code
         && typeof details.chunkId === 'string'
-        && DURABLE_FENCE_CHUNK_ID_PATTERN.test(details.chunkId);
+        && TENANT_AWARE_CHUNK_ID_PATTERN.test(details.chunkId);
 }
 
 /**

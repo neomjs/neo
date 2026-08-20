@@ -22,6 +22,7 @@ import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     EMBED_DISPOSITION,
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    TENANT_AWARE_CHUNK_ID_PATTERN,
     classifyEmbedDisposition,
     isDurableFenceRow,
     isEmbedFailureCode
@@ -329,12 +330,6 @@ function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
 }
 
 /**
- * @summary Tenant-aware chunk hash, the shape a fence row's `chunkId` must carry.
- * @type {RegExp}
- */
-const CHUNK_ID_PATTERN = /^[a-f0-9]{64}$/u;
-
-/**
  * @summary Decides whether an ingestion run COMPLETED, DEFERRED, or FAILED.
  *
  * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft: failures are
@@ -567,7 +562,7 @@ function buildFenceCensus(summary, dispositionValue) {
 
     const ids = [...new Set(
         rows.map(item => item.details.chunkId)
-            .filter(id => typeof id === 'string' && CHUNK_ID_PATTERN.test(id))
+            .filter(id => typeof id === 'string' && TENANT_AWARE_CHUNK_ID_PATTERN.test(id))
     )].sort();
 
     return {

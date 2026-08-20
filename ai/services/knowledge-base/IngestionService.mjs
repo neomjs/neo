@@ -22,6 +22,7 @@ import {resolveEmbeddingAdmissionBand}
 import {
     KB_VECTOR_EMBED_UNCLASSIFIED,
     KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
+    TENANT_AWARE_CHUNK_ID_PATTERN,
     classifyEmbedFailureCode,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition,
@@ -81,7 +82,6 @@ export function resolveIdleProgressStatus(lastRunSummary) {
 
 const MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
 const MATERIALIZATION_DIGEST_PATTERN     = /^[a-f0-9]{64}$/u;
-const TENANT_AWARE_CHUNK_ID_PATTERN      = /^[a-f0-9]{64}$/u;
 
 /**
  * @summary Re-validates a graduation receipt carried on an embed failure into exactly four bounded fields.
