@@ -291,18 +291,11 @@ test.describe('#17398 — the outer lease fairness voter, per acquisition path',
         }
     });
 
-    test('CONSUMPTION IS ABSENT: the sweep consumes a Boolean, so no exit branch can read the cause', () => {
-        // The three lease-exit steps belong to a separate dependent change. This arm fixes the
-        // boundary between them: the projection the sweep passes downstream is a Boolean, so an
-        // implementation here CANNOT have started branching on the cause. The successor changes this
-        // arm deliberately, which is the point — the boundary moves on the record, not by drift.
-        const resolver = createYieldCauseResolver([
-                  {cause: YIELD_CAUSE_LEASE, vote: () => true},
-                  {cause: YIELD_CAUSE_SLICE, vote: () => false}
-              ]),
-              projection = () => resolver() !== null;
-
-        expect(resolver(), 'the cause is available…').toBe(YIELD_CAUSE_LEASE);
-        expect(typeof projection(), '…and the sweep still receives only a Boolean').toBe('boolean');
-    });
+    // The "consumption is absent" boundary used to live here as a fixture-local resolver plus a
+    // `typeof … === 'boolean'` assertion. It was synthetic: it never entered `TenantRepoSyncService`,
+    // so it stayed green whatever the sweep did — including if the sweep had begun stopping tail
+    // admission or releasing the outer lease, which is exactly the behaviour it claimed to pin.
+    // Moved to `services/TenantRepoSyncService.spec.mjs`, where the sweep harness lives, as a
+    // two-repo production-path arm. Recorded here so the next reader does not re-add the cheap
+    // version beside its siblings and believe the boundary is guarded twice.
 });

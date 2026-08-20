@@ -7229,6 +7229,83 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             'the arm above proves nothing about the lease voter'
         ).toBe(false);
     });
+
+    /*
+     * The production-path negative boundary, and it exists because its predecessor did not cross into
+     * production at all. That arm built a resolver and its boolean projection inside the fixture and
+     * asserted the projection was a Boolean — true of the fixture, and green no matter what the sweep
+     * did. A reviewer's falsifier found it: it could not fail if the sweep began stopping tail
+     * admission or releasing the outer lease early, which is precisely the behaviour it claimed to
+     * pin. Same wrong-subject class as an arm asserting a builder to prove something about a planner.
+     *
+     * So the subject is the SWEEP, over TWO due repos, with a lease cause firing from the first check.
+     * Today's contract is that a lease-caused yield bounds work WITHIN a repo and does not touch
+     * admission: repo two is still admitted and ingested. That is the observable the dependent exit
+     * contract will deliberately invert — when it lands, the tail stops after the active cohort and
+     * this arm goes red on purpose, which is the point of pinning it here rather than describing it.
+     */
+    test('#17398 a firing lease cause does NOT stop tail admission — the exit contract is not started here', async () => {
+        const repoSlugs    = ['org/lease-head', 'org/lease-tail'],
+              captureCalls = [],
+              // Fires on the very first consultation, so if any admission decision consulted the
+              // cause, it would have every opportunity to drop the tail.
+              alwaysYields = {cause: YIELD_CAUSE_LEASE, vote: () => true};
+
+        for (const repoSlug of repoSlugs) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : Date.now() - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]))
+        });
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls}),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60_000,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : alwaysYields
+        });
+
+        const ingested = captureCalls
+            .filter(call => call.op === 'ingestSourceFiles')
+            .map(call => call.payload.repoSlug);
+
+        // Asserted as the whole admitted SET rather than two `toContain`s, so the failure message
+        // distinguishes the two ways this can break: a dropped tail shows the head alone, while a
+        // sweep that admitted nothing shows an empty array. Two containment checks would have let the
+        // first mask the second, and the difference matters — one is the exit contract starting early,
+        // the other is a broken fixture.
+        expect(
+            [...ingested].sort(),
+            'a lease cause reached an ADMISSION decision — stopping the tail after the active cohort ' +
+            'is the dependent exit contract, and starting it here makes the two leaves impossible to ' +
+            'review independently. An EMPTY array instead means the fixture admitted nothing and the ' +
+            'arm never exercised admission at all'
+        ).toEqual([...repoSlugs].sort());
+
+        expect(
+            result.status,
+            'a lease-caused yield must not turn a healthy sweep into a failure or an early release; ' +
+            'the cause is readable and nothing acts on it yet'
+        ).toBe('completed');
+    });
 });
 
 test.describe('the persisted cause DISCRIMINATES, and still leaks nothing (#16056)', () => {
