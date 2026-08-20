@@ -1447,11 +1447,28 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         });
     });
 
-    test('OpenAI-compatible batches reserve one declared engine slot without mutating shared config (#17048)', async () => {
+    test('the declared parallelism is a CONCURRENCY, and request width does not derive from it (#17412)', async () => {
+        // Replaces an arm that asserted the opposite: `parallel - 1` as a request WIDTH, clamping a
+        // four-slot lane to three inputs per POST in order to "reserve" a slot. A client cannot
+        // reserve a provider slot — the server assigns them from its own queue — so the clamp only
+        // guaranteed one slot idled, and the lane dispatched one request at a time.
+        //
+        // Concurrency is observed by OVERLAP, never by call count: a sequential loop makes the same
+        // number of calls. The probe defers every response by a macrotask, so each request that has
+        // arrived is still open when the next arrives, and `maxConcurrent` records what the client
+        // actually had outstanding.
         const probe = async () => {
-            const http          = await import('node:http');
-            const requestInputs = [];
-            const server        = http.createServer((request, response) => {
+            const http                 = await import('node:http');
+            const requestInputs        = [];
+            const held                 = [];
+            const expectedRequestCount = 3;
+            // Read from the same env the service reads, so the probe cannot disagree with the subject.
+            const expectSequential = process.env.NEO_LOCAL_MODELS_EMBEDDING_PARALLEL === '1';
+
+            let open          = 0,
+                maxConcurrent = 0;
+
+            const server = http.createServer((request, response) => {
                 let body = '';
 
                 request.on('data', chunk => body += chunk);
@@ -1460,14 +1477,40 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
                           inputs  = Array.isArray(payload.input) ? payload.input : [payload.input];
 
                     requestInputs.push(inputs);
-                    response.writeHead(200, {'Content-Type': 'application/json'});
-                    response.end(JSON.stringify({
-                        data: inputs.map((input, index) => ({
-                            index,
-                            embedding: [requestInputs.length, index]
+                    open          += 1;
+                    maxConcurrent  = Math.max(maxConcurrent, open);
+
+                    const sequence = requestInputs.length;
+
+                    held.push(() => {
+                        open -= 1;
+                        response.writeHead(200, {'Content-Type': 'application/json'});
+                        response.end(JSON.stringify({
+                            data: inputs.map((input, index) => ({
+                                index,
+                                embedding: [sequence, index]
+                            }))
                         }))
-                    }));
-                });
+                    });
+
+                    // The two runs need DIFFERENT instruments, because only one of them can overlap.
+                    //
+                    // Concurrent run: hold until two are open. That is the only observation that
+                    // distinguishes real overlap from a sequential loop making the same number of
+                    // calls. Once satisfied, release everything — including the final unpartnered
+                    // span, which would otherwise wait for a partner that cannot arrive.
+                    //
+                    // Sequential run: resolve immediately. Holding would deadlock — the client does
+                    // not issue request N+1 until N answers — and `maxConcurrent` staying 1 is exactly
+                    // the property being asserted.
+                    //
+                    // Deferring by a macrotask was the first attempt for both, and it silently
+                    // collapsed the concurrent measurement: each response resolved before the next
+                    // request's `end` fired, so a genuinely concurrent client read as 1.
+                    if (expectSequential || open >= 2 || requestInputs.length === expectedRequestCount) {
+                        held.splice(0).forEach(release => release())
+                    }
+                })
             });
             await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 
@@ -1476,18 +1519,20 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
 
                 const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
                 const embeddings         = await Service.embedTexts(
-                    ['a', 'b', 'c', 'd', 'e'],
+                    ['a', 'b', 'c', 'd', 'e', 'f'],
                     'openAiCompatible'
                 );
 
-                console.log(JSON.stringify({requestInputs, embeddings}));
+                console.log(JSON.stringify({requestInputs, embeddings, maxConcurrent}));
             } finally {
                 server.closeAllConnections?.();
-                await new Promise(resolve => server.close(resolve));
+                await new Promise(resolve => server.close(resolve))
             }
         };
         const commonEnv = {
-            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '5',
+            // Width 2 over 6 inputs = three spans, so concurrency has something to fan out and the
+            // width assertion has a short-span-free shape to compare across both runs.
+            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '2',
             NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0'
         };
         const [multiSlot, singleSlot] = await Promise.all([
@@ -1501,15 +1546,24 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             })
         ]);
 
-        expect(multiSlot.requestInputs).toEqual([
-            ['a', 'b', 'c'],
-            ['d', 'e']
-        ]);
-        expect(singleSlot.requestInputs).toEqual([
-            ['a', 'b', 'c', 'd', 'e']
-        ]);
-        expect(multiSlot.embeddings).toHaveLength(5);
-        expect(singleSlot.embeddings).toHaveLength(5);
+        // WIDTH is the durability contract and comes from its own leaf: identical request contents at
+        // both parallelisms. Against the previous implementation the multi-slot run would have sent
+        // three-input requests here, so this is the arm that catches the clamp returning.
+        const expectedInputs = [['a', 'b'], ['c', 'd'], ['e', 'f']];
+
+        expect(multiSlot.requestInputs.slice().sort(), 'width must not vary with parallelism').toEqual(expectedInputs.slice().sort());
+        expect(singleSlot.requestInputs).toEqual(expectedInputs);
+
+        // CONCURRENCY is the throughput contract. RED against the previous implementation, which
+        // awaited every request and could never exceed one outstanding.
+        expect(multiSlot.maxConcurrent, 'a lane declaring four slots must dispatch more than one request at a time').toBeGreaterThan(1);
+        expect(singleSlot.maxConcurrent, 'parallel:1 must remain strictly sequential — the silent arm').toBe(1);
+
+        // Ordering is a contract, not an accident: outputs map to inputs by index whatever order the
+        // responses arrived in. Both runs embed the same six inputs.
+        expect(multiSlot.embeddings).toHaveLength(6);
+        expect(singleSlot.embeddings).toHaveLength(6);
+        expect(multiSlot.embeddings).toEqual(singleSlot.embeddings)
     });
 
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {
