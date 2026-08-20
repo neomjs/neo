@@ -5,9 +5,9 @@ import {
 import aiConfig       from '../../mcp/server/memory-core/config.mjs';
 import Base           from '../../../src/core/Base.mjs';
 import {
-    planEmbeddingSpans,
     resolveCompletedPrefix,
-    resolveEmbeddingConcurrency
+    resolveDispatchPlan,
+    resolveEmbeddingTaskBudget
 }                           from './helpers/embeddingDispatchPlan.mjs';
 import logger         from '../../mcp/server/memory-core/logger.mjs';
 import OllamaProvider from '../../provider/Ollama.mjs';
@@ -834,7 +834,11 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #drainOpenAiCompatiblePostQueue() {
-        const maxWorkers = resolveEmbeddingConcurrency(aiConfig.localModels.embedding.parallel);
+        // The TASK budget, used here only as a ceiling on concurrent workers. It can never be the
+        // binding constraint on batch work: the dispatch loop keeps its own offered tasks at or below
+        // `taskBudget - 1`, so a batch fan-out plus one interactive request still fits. Task
+        // accounting lives in `resolveDispatchPlan`, and this queue deliberately does not repeat it.
+        const maxWorkers = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel);
 
         while (this.#openAiCompatiblePostQueueWorkers < maxWorkers && this.#openAiCompatiblePostQueue.length > 0) {
             this.#openAiCompatiblePostQueueWorkers++;
@@ -1939,17 +1943,21 @@ class TextEmbeddingService extends Base {
             batchEmbeddingYieldMs   = 0
         } = aiConfig.openAiCompatible;
 
-        // Request WIDTH and request CONCURRENCY are separate contracts, and conflating them is the
-        // defect this replaces. Width is a durability decision: how many inputs a single failure or
-        // yield can cost. Concurrency is a throughput decision: how many of those may be outstanding.
-        // The predecessor spent the declared parallelism on width (`parallel - 1`) to reserve a
-        // provider slot, which a client cannot do — the server assigns slots from its own queue, so
-        // sending fewer inputs does not hold one open, it only guarantees one idles. The lane declared
-        // four slots and used one.
-        const chunkSize        = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
-              maxInFlight      = resolveEmbeddingConcurrency(aiConfig.localModels.embedding.parallel),
+        // The provider's capacity unit is a TASK, not a request: one multi-input POST expands to one
+        // task per input, so offered work is `concurrency × width`. Width and concurrency are still
+        // separate contracts — width bounds what one failure or yield costs, concurrency bounds
+        // throughput — but they are jointly constrained by the same budget, which is why one function
+        // resolves both. The predecessor computed a width alone and could not express the constraint;
+        // it also fell through unclamped at `parallel <= 1`, the shipped default, where a configured
+        // width of 5 offered five tasks against one declared slot.
+        const taskBudget = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel),
+              plan       = resolveDispatchPlan({
+                  textCount   : texts.length,
+                  requestWidth: batchEmbeddingChunkSize,
+                  taskBudget
+              }),
+              {spans, width: chunkSize, concurrency: maxInFlight} = plan,
               requestTimeoutMs = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
-              spans            = planEmbeddingSpans({textCount: texts.length, chunkSize}),
               totalChunkCount  = spans.length,
               // Parallel to `spans`. A COUNT of completions cannot locate them once they arrive out of
               // order, and locating them is the entire carry problem — see `resolveCompletedPrefix`.
@@ -2056,37 +2064,31 @@ class TextEmbeddingService extends Base {
 
         const carried = resolveCompletedPrefix({spans, completedFlags});
 
-        // Completed-but-unbindable work is REPORTED, never dropped in silence. The consumer binds
-        // carried vectors by position (`slice(0, completedTextCount)`) and `toOrderedEmbeddings` refuses
-        // a sparse carry, so a span that landed after a hole cannot be handed over — but a lane quietly
-        // re-purchasing it on every retry, with nothing in the logs, is the failure this whole leaf is
-        // about. A zero here is an assertion that nothing was lost.
-        if (carried.droppedChunkCount > 0) {
-            operation.droppedCompletedChunkCount = carried.droppedChunkCount
-        }
+        // Completed-but-unbindable work is REPORTED, never dropped in silence: the consumer binds by
+        // position and the ordering guard refuses a sparse carry, so a span landing after a hole cannot
+        // be handed over — and a lane quietly re-purchasing it on every retry is the failure this leaf
+        // is about. The count rides the thrown envelope AND the operation record, because an internal
+        // field no consumer reads is not a report.
+        //
+        // A zero is an assertion that nothing was lost, so it is set unconditionally rather than only
+        // when non-zero: an absent field cannot distinguish "no loss" from "never measured".
+        operation.droppedCompletedChunkCount = carried.droppedChunkCount;
 
-        if (yielded) {
-            operation.phase = 'lease-yield';
-
-            throw createEmbeddingBatchYieldError({
-                completedChunkCount: carried.chunkCount,
-                totalChunkCount,
-                chunkSize,
-                data               : data.filter(entry => entry.index < carried.textCount)
-            })
-        }
-
+        // PRECEDENCE: a provider failure or caller abort outranks a cooperative yield vote observed
+        // earlier in the same batch. The yield is a decision to stop politely; a failure is the reason
+        // the batch cannot continue at all, and reporting the polite version would hand the caller a
+        // resumable checkpoint for a lane that is actually broken. Evaluated after the drain, so a
+        // failure surfacing while in-flight requests settled still wins.
         if (firstError) {
             // Work conservation on the FAILURE path. The ORIGINAL error is decorated rather than
-            // replaced: its `code` is what the caller's timeout/circuit classification reads. If the
-            // accumulated data cannot satisfy the positional-binding guard the error travels
-            // undecorated — carrying nothing beats binding vectors to the wrong ids.
+            // replaced: its `code` is what the caller's timeout/circuit classification reads.
+            firstError.droppedCompletedChunkCount = carried.droppedChunkCount;
+
             if (carried.chunkCount > 0) {
                 try {
                     // Bind BEFORE assigning anything. The guard throws on an unprovable prefix, and a
                     // field-by-field decoration would already have written `completedTextCount` by then
                     // — handing the consumer a count with no vectors, which it slices onto ids anyway.
-                    // Carrying nothing beats carrying half, so the whole decoration is one step.
                     const embeddings = toOrderedEmbeddings(
                         data.filter(entry => entry.index < carried.textCount),
                         carried.textCount
@@ -2103,6 +2105,22 @@ class TextEmbeddingService extends Base {
 
             throw firstError
         }
+
+        if (yielded) {
+            operation.phase = 'lease-yield';
+
+            const yieldError = createEmbeddingBatchYieldError({
+                completedChunkCount: carried.chunkCount,
+                totalChunkCount,
+                chunkSize,
+                data               : data.filter(entry => entry.index < carried.textCount)
+            });
+
+            yieldError.droppedCompletedChunkCount = carried.droppedChunkCount;
+
+            throw yieldError
+        }
+
 
         return toOrderedEmbeddings(data, texts.length);
     }

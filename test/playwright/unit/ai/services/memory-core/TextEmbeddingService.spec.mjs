@@ -1447,68 +1447,62 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         });
     });
 
-    test('the declared parallelism is a CONCURRENCY, and request width does not derive from it (#17412)', async () => {
-        // Replaces an arm that asserted the opposite: `parallel - 1` as a request WIDTH, clamping a
-        // four-slot lane to three inputs per POST in order to "reserve" a slot. A client cannot
-        // reserve a provider slot — the server assigns them from its own queue — so the clamp only
-        // guaranteed one slot idled, and the lane dispatched one request at a time.
+    test('the declared parallelism is a TASK budget: exact peak fan-out, and width clamps to it (#17412)', async () => {
+        // Replaces an arm that asserted `parallel - 1` as a request WIDTH. The provider's capacity unit
+        // is a TASK — one multi-input POST expands to one task per input — so offered work is
+        // concurrency × width and the two are jointly constrained by one budget.
         //
-        // Concurrency is observed by OVERLAP, never by call count: a sequential loop makes the same
-        // number of calls. The probe defers every response by a macrotask, so each request that has
-        // arrived is still open when the next arrives, and `maxConcurrent` records what the client
-        // actually had outstanding.
+        // Concurrency is observed by OVERLAP and asserted as an EXACT peak, never by call count: a
+        // sequential loop makes the same number of calls, and a peak of "more than one" would pass on a
+        // lane that manages two when it declared room for four.
         const probe = async () => {
             const http                 = await import('node:http');
             const requestInputs        = [];
             const held                 = [];
-            const expectedRequestCount = 3;
-            // Read from the same env the service reads, so the probe cannot disagree with the subject.
-            const expectSequential = process.env.NEO_LOCAL_MODELS_EMBEDDING_PARALLEL === '1';
+            const targetPeak    = Number(process.env.PROBE_TARGET_PEAK);
+            const expectedSpans = Number(process.env.PROBE_EXPECTED_SPANS);
 
-            let open          = 0,
-                maxConcurrent = 0;
+            let open    = 0,
+                maxOpen = 0;
+
+            const releaseAll = () => held.splice(0).forEach(release => release());
 
             const server = http.createServer((request, response) => {
                 let body = '';
 
                 request.on('data', chunk => body += chunk);
                 request.on('end', () => {
-                    const payload = JSON.parse(body),
+                    const payload = body ? JSON.parse(body) : {input: []},
                           inputs  = Array.isArray(payload.input) ? payload.input : [payload.input];
 
                     requestInputs.push(inputs);
-                    open          += 1;
-                    maxConcurrent  = Math.max(maxConcurrent, open);
-
-                    const sequence = requestInputs.length;
+                    open    += 1;
+                    maxOpen  = Math.max(maxOpen, open);
 
                     held.push(() => {
                         open -= 1;
                         response.writeHead(200, {'Content-Type': 'application/json'});
+                        // Vectors encode the INPUT's identity, not arrival order, so a mis-binding is
+                        // visible in the assembled output rather than merely absent.
                         response.end(JSON.stringify({
-                            data: inputs.map((input, index) => ({
-                                index,
-                                embedding: [sequence, index]
-                            }))
+                            data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
                         }))
                     });
 
-                    // The two runs need DIFFERENT instruments, because only one of them can overlap.
+                    // Release on EITHER condition, both derived from values the probe already knows.
+                    // No timer, no macrotask chain, and no state where a request waits for something
+                    // that cannot arrive:
                     //
-                    // Concurrent run: hold until two are open. That is the only observation that
-                    // distinguishes real overlap from a sequential loop making the same number of
-                    // calls. Once satisfied, release everything — including the final unpartnered
-                    // span, which would otherwise wait for a partner that cannot arrive.
+                    //   open >= targetPeak       the overlap this run exists to measure has happened
+                    //   all spans have arrived   nothing further is coming, so holding is pointless
                     //
-                    // Sequential run: resolve immediately. Holding would deadlock — the client does
-                    // not issue request N+1 until N answers — and `maxConcurrent` staying 1 is exactly
-                    // the property being asserted.
-                    //
-                    // Deferring by a macrotask was the first attempt for both, and it silently
-                    // collapsed the concurrent measurement: each response resolved before the next
-                    // request's `end` fired, so a genuinely concurrent client read as 1.
-                    if (expectSequential || open >= 2 || requestInputs.length === expectedRequestCount) {
-                        held.splice(0).forEach(release => release())
+                    // The target is per-run because only one run can overlap: the fan-out run expects 4,
+                    // the width-clamped run expects 1 and therefore releases on first arrival. Three
+                    // earlier designs failed here and are recorded in the PR body — an unconditional
+                    // macrotask deferral collapsed the measurement to 1, and both a per-arrival and a
+                    // centralised no-growth hop chain starved the poll phase so I/O never progressed.
+                    if (open >= targetPeak || requestInputs.length === expectedSpans) {
+                        releaseAll()
                     }
                 })
             });
@@ -1523,47 +1517,53 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
                     'openAiCompatible'
                 );
 
-                console.log(JSON.stringify({requestInputs, embeddings, maxConcurrent}));
+                console.log(JSON.stringify({requestInputs, embeddings, maxOpen}));
             } finally {
                 server.closeAllConnections?.();
                 await new Promise(resolve => server.close(resolve))
             }
         };
         const commonEnv = {
-            // Width 2 over 6 inputs = three spans, so concurrency has something to fan out and the
-            // width assertion has a short-span-free shape to compare across both runs.
-            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '2',
-            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0'
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT: '0'
         };
-        const [multiSlot, singleSlot] = await Promise.all([
+        const [fanOut, clamped] = await Promise.all([
+            // budget 5, width 1 -> one task reserved, four available, six spans: peak exactly 4.
             runIsolatedEmbeddingProbe(probe, {
                 ...commonEnv,
-                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: '4'
+                NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '1',
+                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '5',
+                PROBE_TARGET_PEAK                               : '4',
+                PROBE_EXPECTED_SPANS                            : '6'
             }),
+            // budget 4, configured width 5 -> width CLAMPS to 3 and there is no room to fan out. This is
+            // the shipped plane's shape, and it reproduces the old clamp's output exactly.
             runIsolatedEmbeddingProbe(probe, {
                 ...commonEnv,
-                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: '1'
+                NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '5',
+                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4',
+                PROBE_TARGET_PEAK                               : '1',
+                PROBE_EXPECTED_SPANS                            : '2'
             })
         ]);
 
-        // WIDTH is the durability contract and comes from its own leaf: identical request contents at
-        // both parallelisms. Against the previous implementation the multi-slot run would have sent
-        // three-input requests here, so this is the arm that catches the clamp returning.
-        const expectedInputs = [['a', 'b'], ['c', 'd'], ['e', 'f']];
+        // EXACT peak. A lane declaring five tasks at width 1 must hold four requests open at once.
+        expect(fanOut.maxOpen, 'four available tasks at width 1 must yield exactly four in flight').toBe(4);
+        expect(fanOut.requestInputs).toHaveLength(6);
+        expect(fanOut.requestInputs.every(inputs => inputs.length === 1), 'width 1 means single-input requests').toBe(true);
 
-        expect(multiSlot.requestInputs.slice().sort(), 'width must not vary with parallelism').toEqual(expectedInputs.slice().sort());
-        expect(singleSlot.requestInputs).toEqual(expectedInputs);
+        // WIDTH clamps to the budget, and offered tasks stay under it.
+        expect(clamped.requestInputs, 'configured width 5 must clamp to 3 at a budget of 4').toEqual([
+            ['a', 'b', 'c'],
+            ['d', 'e', 'f']
+        ]);
+        expect(clamped.maxOpen, 'no room to fan out at four tasks with width 3').toBe(1);
 
-        // CONCURRENCY is the throughput contract. RED against the previous implementation, which
-        // awaited every request and could never exceed one outstanding.
-        expect(multiSlot.maxConcurrent, 'a lane declaring four slots must dispatch more than one request at a time').toBeGreaterThan(1);
-        expect(singleSlot.maxConcurrent, 'parallel:1 must remain strictly sequential — the silent arm').toBe(1);
+        // ORDERING is a contract, not an accident: vectors encode input identity, so both runs must
+        // assemble the same output in input order despite different completion orders.
+        const expected = ['a', 'b', 'c', 'd', 'e', 'f'].map(input => [input.charCodeAt(0), input.length]);
 
-        // Ordering is a contract, not an accident: outputs map to inputs by index whatever order the
-        // responses arrived in. Both runs embed the same six inputs.
-        expect(multiSlot.embeddings).toHaveLength(6);
-        expect(singleSlot.embeddings).toHaveLength(6);
-        expect(multiSlot.embeddings).toEqual(singleSlot.embeddings)
+        expect(fanOut.embeddings, 'fan-out must preserve input order').toEqual(expected);
+        expect(clamped.embeddings, 'the clamped run must agree with the fanned-out one').toEqual(expected);
     });
 
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {

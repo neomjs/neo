@@ -2,7 +2,8 @@ import {test, expect} from '@playwright/test';
 import {
     planEmbeddingSpans,
     resolveCompletedPrefix,
-    resolveEmbeddingConcurrency
+    resolveDispatchPlan,
+    resolveEmbeddingTaskBudget
 } from '../../../../../../ai/services/memory-core/helpers/embeddingDispatchPlan.mjs';
 
 /**
@@ -65,21 +66,108 @@ test.describe('embedding dispatch plan', () => {
         });
     });
 
-    test.describe('resolveEmbeddingConcurrency', () => {
-        test('the declared parallelism IS the concurrency', () => {
-            // Not `parallel - 1`. The predecessor spent this value on request width to reserve a slot,
-            // which a client cannot hold open — the server assigns slots from its own queue.
-            expect(resolveEmbeddingConcurrency(4)).toBe(4);
-            expect(resolveEmbeddingConcurrency(1)).toBe(1);
-            expect(resolveEmbeddingConcurrency(16)).toBe(16);
+    test.describe('resolveEmbeddingTaskBudget', () => {
+        test('the declared parallelism is a TASK budget, and a valid one passes through', () => {
+            // Tasks, not requests: one multi-input POST expands to one task per input, so the work a
+            // client offers is concurrency × width. Reading this as a request count multiplies offered
+            // work by the width without saying so.
+            expect(resolveEmbeddingTaskBudget(4)).toBe(4);
+            expect(resolveEmbeddingTaskBudget(1)).toBe(1);
+            expect(resolveEmbeddingTaskBudget(16)).toBe(16);
         });
 
-        test('an unreadable parallelism falls back to 1, never to unbounded', () => {
-            // Falling back to the input count would turn a config defect into unbounded fan-out at a
-            // provider whose real width is unknown — the opposite of a safe default.
+        test('an unresolvable budget THROWS rather than substituting 1', () => {
+            // The leaf's own default already covers an absent env var, so a value arriving here that is
+            // not a positive integer is a configuration defect. Falling back would let the lane report
+            // healthy while ignoring what the deployment declared — the failure mode this whole lane is
+            // about, one layer up.
             for (const value of [undefined, null, 0, -3, 2.5, NaN, 'four', {}]) {
-                expect(resolveEmbeddingConcurrency(value), `for ${JSON.stringify(value) ?? String(value)}`).toBe(1);
+                expect(
+                    () => resolveEmbeddingTaskBudget(value),
+                    `must throw for ${JSON.stringify(value) ?? String(value)}`
+                ).toThrow(/positive integer task budget/);
             }
+        });
+    });
+
+    test.describe('resolveDispatchPlan', () => {
+        test('offered tasks NEVER exceed the budget, and one task stays reserved', () => {
+            // The property that makes the plan correct rather than merely concurrent. Asserted across a
+            // grid rather than at one point, because the interesting failures are at the boundaries
+            // where width and budget interact.
+            for (const taskBudget of [1, 2, 3, 4, 8, 16]) {
+                for (const requestWidth of [1, 2, 5, 20]) {
+                    const plan = resolveDispatchPlan({textCount: 40, requestWidth, taskBudget});
+
+                    if (taskBudget > 1) {
+                        expect(
+                            plan.offeredTasks,
+                            `budget ${taskBudget} width ${requestWidth} offered ${plan.offeredTasks}`
+                        ).toBeLessThanOrEqual(taskBudget);
+
+                        expect(
+                            plan.offeredTasks,
+                            `budget ${taskBudget} must keep one task free for interactive work`
+                        ).toBeLessThanOrEqual(taskBudget - 1);
+                        expect(plan.reservedTasks).toBe(1);
+                    }
+                }
+            }
+        });
+
+        test('at a budget of ONE the configured width stands — nothing to reserve, nothing to protect', () => {
+            // Deliberate, and the safest property of this plan: the single-slot default is unchanged.
+            // Clamping there would protect no headroom (you cannot reserve a task from a budget of 1)
+            // while turning one request into one-per-input. The provider queues the extra tasks either
+            // way, so the clamp would buy round trips and nothing else.
+            //
+            // An earlier version of this plan clamped unconditionally and split a two-input batch into
+            // two single-input requests at the default — caught by a pre-existing lms-server fixture,
+            // not by reasoning.
+            const plan = resolveDispatchPlan({textCount: 40, requestWidth: 5, taskBudget: 1});
+
+            expect({width: plan.width, concurrency: plan.concurrency, reservedTasks: plan.reservedTasks})
+                .toEqual({width: 5, concurrency: 1, reservedTasks: 0});
+        });
+
+        test('at four declared tasks with width 5 it reproduces the old clamp exactly', () => {
+            // Not a coincidence and worth pinning: the old `parallel - 1` width was correct arithmetic
+            // in the task unit at this configuration. The model changed; this output did not.
+            const plan = resolveDispatchPlan({textCount: 40, requestWidth: 5, taskBudget: 4});
+
+            expect({width: plan.width, concurrency: plan.concurrency, offeredTasks: plan.offeredTasks})
+                .toEqual({width: 3, concurrency: 1, offeredTasks: 3});
+        });
+
+        test('concurrency appears only once the budget exceeds the width', () => {
+            // The honest statement of what this delivers: fan-out is a property of the deployment's
+            // leaves, not of the code. A lane at four tasks with width 5 gets none.
+            expect(resolveDispatchPlan({textCount: 40, requestWidth: 5, taskBudget: 8}).concurrency).toBe(1);
+            expect(resolveDispatchPlan({textCount: 40, requestWidth: 5, taskBudget: 16}).concurrency).toBe(3);
+            expect(resolveDispatchPlan({textCount: 40, requestWidth: 2, taskBudget: 16}).concurrency).toBe(7);
+            expect(resolveDispatchPlan({textCount: 40, requestWidth: 1, taskBudget: 4}).concurrency).toBe(3);
+        });
+
+        test('concurrency never exceeds the work that exists', () => {
+            // Reporting an offer the batch cannot make would overstate the plan. Three inputs at width
+            // 1 is three spans, so a budget of 16 still only fans out three ways.
+            const plan = resolveDispatchPlan({textCount: 3, requestWidth: 1, taskBudget: 16});
+
+            expect(plan.spans).toHaveLength(3);
+            expect(plan.concurrency).toBe(3);
+        });
+
+        test('the spans tile the inputs at the CLAMPED width, not the configured one', () => {
+            // The clamp is a real change to the durability contract, so the spans must reflect it
+            // rather than the configured value a reader might assume.
+            const plan = resolveDispatchPlan({textCount: 7, requestWidth: 5, taskBudget: 4});
+
+            expect(plan.width).toBe(3);
+            expect(plan.spans).toEqual([
+                {offset: 0, count: 3},
+                {offset: 3, count: 3},
+                {offset: 6, count: 1}
+            ]);
         });
     });
 
