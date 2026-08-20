@@ -29,6 +29,8 @@ import {
 }
                             from './helpers/embedFailureClassification.mjs';
 import VectorService   from './VectorService.mjs';
+import {buildEmbeddingInputText}
+                       from './helpers/embeddingInputFormat.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import crypto          from 'crypto';
 import fs              from 'fs-extra';
@@ -1469,26 +1471,20 @@ class IngestionService extends Base {
     }
 
     /**
-     * @summary Builds the provider input string using the same shape as `VectorService.embedChunks`.
+     * @summary Builds the provider input string this service's guardrail measures.
      *
-     * DELEGATES rather than restating that shape. The docblock has always claimed sameness while the
-     * body was a second copy, and the two drifted in the way copies do — the guardrail here measured
-     * one string while the provider received another.
-     *
-     * Bound to the imported class, NOT to the `vectorService` member, and the distinction is load-
-     * bearing rather than stylistic. That member is the injection seam for *downstream embedding and
-     * upsert I/O* — the thing a test replaces to observe a refusal without a provider. Routing a pure
-     * string builder through it makes every such stub answerable for helpers that have nothing to do
-     * with the seam's purpose: two independent stubs in this service's own spec broke on exactly that,
-     * one of which replaces the whole member to force a refusal. The provider input format is a single
-     * contract, not a per-deployment choice.
+     * Reads the shared `helpers/embeddingInputFormat` authority — the same definition the vector
+     * service and the byte-budget planner read — so the string measured here is by construction the
+     * string the provider receives. It is deliberately NOT taken from the `vectorService` member: that
+     * member is the configurable seam for downstream embedding and upsert I/O, and the provider input
+     * format is one contract rather than a per-deployment choice.
      *
      * @param {Object} chunk Normalized parsed chunk.
      * @returns {String}
      * @protected
      */
     buildEmbeddingInputText(chunk) {
-        return VectorService.buildEmbeddingInputText(chunk);
+        return buildEmbeddingInputText(chunk);
     }
 
     /**

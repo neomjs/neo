@@ -10,6 +10,8 @@ import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
                               from '../../embeddingProviders.mjs';
 import {resolveEmbeddingAdmissionBand}
                               from '../../embeddingSafeBand.mjs';
+import {buildEmbeddingInputHeader, buildEmbeddingInputText}
+                              from './helpers/embeddingInputFormat.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -585,31 +587,18 @@ class VectorService extends Base {
     }
 
     /**
-     * @summary Builds the leading identification line of the provider input string.
+     * @summary Service-facing view of the provider-input header contract.
      *
-     * Extracted so the byte-budget planner can MEASURE this string instead of restating its template.
-     * A second copy of the format is a second thing to keep in sync, and the one that drifted was the
-     * one nobody read: the planner's copy sized a prefix the provider never saw.
-     *
-     * `type || kind` — type FIRST, and the order is the whole decision rather than a preference.
-     * `parsed-chunk-v1.schema.json` requires `kind` and declares no `type`, so a chunk from any parser
-     * written against the published contract has no `type` and rendered the literal string `undefined`
-     * here. But the two fields are not synonyms where both exist: the in-repo parsers set `type` to the
-     * corpus bucket (`src` / `app` / `example`) and `kind` to the chunk shape (`method`,
-     * `class-config`). Reading `kind` first would therefore rewrite the header of every chunk that
-     * already works — and the rewrite would be invisible, because this text is DERIVED and is not a
-     * member of `hashInputs`: existing rows keep vectors built from the old string, new rows carry the
-     * new one, and no reconciliation signal separates them. Type-first fills the gap and touches
-     * nothing else.
-     *
-     * Whether this line should name the chunk shape rather than the corpus bucket is a real question
-     * and a corpus-invalidating one; it is not answered here.
+     * The format itself is owned by `helpers/embeddingInputFormat.mjs`, which is the single authority
+     * every consumer reads — this service, the ingestion guardrail, and the byte-budget planner below.
+     * The method is retained as a call site rather than a definition so callers and specs keep one
+     * entry point while the contract has one home.
      *
      * @param {Object} chunk Parsed knowledge chunk.
      * @returns {String} The header, including its trailing newline.
      */
     buildEmbeddingInputHeader(chunk) {
-        return `${chunk.type || chunk.kind}: ${chunk.name} in ${chunk.className || ''}\n`;
+        return buildEmbeddingInputHeader(chunk);
     }
 
     /**
@@ -619,7 +608,7 @@ class VectorService extends Base {
      * @returns {String} Provider input text.
      */
     buildEmbeddingInputText(chunk) {
-        return `${this.buildEmbeddingInputHeader(chunk)}${chunk.description || chunk.content || ''}`;
+        return buildEmbeddingInputText(chunk);
     }
 
     /**
@@ -720,11 +709,10 @@ class VectorService extends Base {
         }
 
         const maxInputBytes   = Math.max(1, estimateBandTokens * 3),
-              // MEASURED from the header the provider actually receives, not a second copy of its
-              // format. The copy this replaces sized a prefix reading `undefined: …` for every chunk
-              // from a schema-conforming parser, so the planner was budgeting against a string that
-              // never existed.
-              prefixBytes     = Buffer.byteLength(this.buildEmbeddingInputHeader(chunk), 'utf8'),
+              // MEASURED from the header the provider will receive, never a restatement of its format.
+              // A planner that carries its own copy budgets against a string that may not be the one
+              // sent, and the two cannot be kept in step by review.
+              prefixBytes     = Buffer.byteLength(buildEmbeddingInputHeader(chunk), 'utf8'),
               maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
               parts           = this.splitTextByByteBudget(content, maxContentBytes);
 
