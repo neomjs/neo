@@ -1,5 +1,5 @@
 import {test, expect}                             from '@playwright/test';
-import {assertSliceBudgetMs, createSliceBudgetPredicate} from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
+import {assertSliceBudgetMs, createSliceBudgetPredicate, createYieldCauseResolver, YIELD_CAUSES} from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET} from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs';
 
 /**
@@ -103,5 +103,71 @@ test.describe('TenantRepoSyncService — sliceBudgetMs value contract (#17132 AC
         try { assertSliceBudgetMs('300000') } catch (error) { thrown = error }
 
         expect(thrown, 'a numeric string must not pass as a validated budget').toBeTruthy();
+    });
+});
+
+test.describe('createYieldCauseResolver — the verdict reports WHICH bound fired', () => {
+    const voter = value => () => value;
+
+    test('RED-PROOF: a lease cause is distinguishable from a slice cause', () => {
+        // The predecessor returned `voters.some(v => v() === true)`. Both cases below answered `true`
+        // there, so a consumer could not choose between rotating and releasing — and every
+        // lease-exit step is conditional on exactly that choice.
+        const lease = createYieldCauseResolver([{cause: 'lease', vote: voter(true)},  {cause: 'slice', vote: voter(false)}]),
+              slice = createYieldCauseResolver([{cause: 'lease', vote: voter(false)}, {cause: 'slice', vote: voter(true)}]);
+
+        expect(lease()).toBe('lease');
+        expect(slice()).toBe('slice');
+        expect(lease()).not.toBe(slice());
+    });
+
+    test('the verdict is NOT a boolean, so a later refactor cannot re-flatten it', () => {
+        const resolver = createYieldCauseResolver([{cause: 'slice', vote: voter(true)}]);
+
+        expect(typeof resolver()).toBe('string');
+        expect(resolver()).not.toBe(true);
+    });
+
+    test('NEGATIVE CONTROL: no bound fired yields null, not a cause', () => {
+        const quiet = createYieldCauseResolver([{cause: 'lease', vote: voter(false)}, {cause: 'slice', vote: voter(false)}]);
+
+        expect(quiet()).toBeNull();
+        expect(createYieldCauseResolver([])(), 'no voters cannot invent a cause').toBeNull();
+    });
+
+    test('LEASE outranks SLICE when both fire — the outer bound owns the stricter exit', () => {
+        const both = createYieldCauseResolver([{cause: 'lease', vote: voter(true)}, {cause: 'slice', vote: voter(true)}]);
+
+        // Reporting the inner cause while the outer bound is exceeded is how a holder keeps rotating
+        // past its own deadline, which is the observed starvation.
+        expect(both()).toBe('lease');
+
+        // Precedence is the declared order, not the caller's argument order.
+        const reversed = createYieldCauseResolver([{cause: 'slice', vote: voter(true)}, {cause: 'lease', vote: voter(true)}]);
+
+        expect(reversed()).toBe('lease');
+    });
+
+    test('an unknown cause is REFUSED rather than ignored', () => {
+        // A silently-dropped voter is a bound that stops binding while every call site still reads
+        // as wired — the same class as the premise error that produced this ticket.
+        let thrown;
+
+        try { createYieldCauseResolver([{cause: 'budget', vote: voter(true)}]) } catch (error) { thrown = error }
+
+        expect(thrown, 'an unrecognised cause must not pass silently').toBeTruthy();
+        expect(String(thrown.message)).toContain('budget');
+    });
+
+    test('a throwing voter PROPAGATES — swallowing makes starvation look healthy', () => {
+        const resolver = createYieldCauseResolver([{cause: 'lease', vote: () => { throw new Error('bound unreadable') }}]);
+
+        expect(() => resolver()).toThrow(/bound unreadable/);
+    });
+
+    test('a non-function vote is dropped, and a resolver of only those reports no cause', () => {
+        expect(createYieldCauseResolver([{cause: 'lease', vote: null}])()).toBeNull();
+        expect(YIELD_CAUSES).toEqual(['lease', 'slice']);
+        expect(Object.isFrozen(YIELD_CAUSES)).toBe(true);
     });
 });

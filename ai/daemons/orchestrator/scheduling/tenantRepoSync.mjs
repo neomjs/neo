@@ -113,6 +113,53 @@ export function createSliceBudgetPredicate({startedMs, sliceBudgetMs, now = Date
 }
 
 /**
+ * The yield causes, in precedence order. A cause is a string rather than a boolean because the two
+ * exits differ: a slice yield rotates to the next repo and keeps the lease, while a lease yield must
+ * stop admitting the tail, commit the active cohort's resumable state, and RELEASE the outer lease.
+ *
+ * `LEASE` outranks `SLICE` when both fire, and the ordering is the decision rather than an accident:
+ * the lease is the outer bound, its exit is the stricter one, and reporting the inner cause while the
+ * outer bound has been exceeded is how a holder keeps rotating past its own deadline.
+ * @type {String[]}
+ */
+export const YIELD_CAUSES = Object.freeze(['lease', 'slice']);
+
+/**
+ * @summary Folds named yield voters into one resolver that reports WHICH bound fired.
+ *
+ * Replaces a boolean OR over the same voters, and the difference is not stylistic. A predecessor
+ * returned `voters.some(voter => voter() === true)`, which reads as the tidier option and is the
+ * defect: every lease-exit step a consumer must take is conditional on the cause, so a resolver
+ * answering only "something said stop" makes the exit contract unexpressible. A sweep that cannot
+ * tell a lease yield from a slice yield keeps rotating, which is a holder that never releases.
+ *
+ * Voters are `{cause, vote}` pairs. Unknown causes are rejected rather than ignored, because a
+ * silently-dropped voter is a bound that stops binding while every call site still looks wired.
+ * A throwing voter propagates: swallowing turns a broken bound into starvation that reads as healthy.
+ *
+ * @param {Array<{cause: String, vote: Function}>} voters Named voters; non-function votes are dropped.
+ * @returns {Function} `() => (String|null)` — the highest-precedence firing cause, or null.
+ */
+export function createYieldCauseResolver(voters = []) {
+    const named = (Array.isArray(voters) ? voters : []).filter(entry => entry && typeof entry.vote === 'function'),
+          bad   = named.find(entry => !YIELD_CAUSES.includes(entry.cause));
+
+    if (bad) {
+        throw new TypeError(`createYieldCauseResolver: unknown yield cause '${bad.cause}'`)
+    }
+
+    return () => {
+        for (const cause of YIELD_CAUSES) {
+            if (named.some(entry => entry.cause === cause && entry.vote() === true)) {
+                return cause
+            }
+        }
+
+        return null
+    }
+}
+
+/**
  * Builds the trigger for the cloud-deployable tenant-repo-sync lane.
  * Mirror of `buildPrimaryRepoSyncTrigger` in `./primaryDevSync.mjs` — pure function;
  * no class, no Neo machinery, no side effects.
