@@ -230,7 +230,8 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                 isStackHandleDrag: DockTabSortZone.prototype.isStackHandleDrag,
                 owner            : {
                     getDomRect: async () => ({x: 10, y: 20, width: 300, height: 32}),
-                    items     : [strategy, swarm]
+                    items     : [strategy, swarm],
+                    getTabButtons() { return this.items }
                 }
             };
             // Production DragDrop shape: the original nested mousedown survives as `target`,

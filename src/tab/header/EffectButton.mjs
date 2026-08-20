@@ -67,6 +67,29 @@ class EffectTabButton extends EffectButton {
     }
 
     /**
+     * Keeps the generated indicator child in sync when the toolbar changes this config at runtime.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseActiveTabIndicator(value, oldValue) {
+        this.updateUseActiveTabIndicator()
+    }
+
+    /**
+     * Updates the generated indicator child.
+     * @param {Boolean} [silent=false]
+     */
+    updateUseActiveTabIndicator(silent=false) {
+        let indicator = this.vdom?.cn?.find(item => item.cls?.includes('neo-tab-button-indicator'));
+
+        if (indicator) {
+            indicator.removeDom = !this.useActiveTabIndicator;
+            !silent && this.update()
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     showRipple(data) {

@@ -229,10 +229,10 @@ class LivePreview extends Container {
             delete me.collapseRect;
 
             Object.assign(vdom.style, {
-                height  : rect.height + 'px',
-                left    : rect.x      + 'px',
-                top     : rect.y      + 'px',
-                width   : rect.width  + 'px'
+                height: rect.height + 'px',
+                left  : rect.x      + 'px',
+                top   : rect.y      + 'px',
+                width : rect.width  + 'px'
             });
 
             me.update();
@@ -392,7 +392,9 @@ class LivePreview extends Container {
             me.getReference('preview').removeAll()
         }
 
-        me.getReference('popout-window-button').hidden = !isPreview
+        let popoutButton = me.tabContainer.getActionItem('popout');
+
+        popoutButton && (popoutButton.hidden = !isPreview);
         me.disableRunSource = false;
     }
 
@@ -410,20 +412,25 @@ class LivePreview extends Container {
 
         if (me.enableFullscreen) {
             items.push({
-                handler: me.collapseExpand.bind(me),
-                iconCls: 'fas fa-expand',
-                ui     : 'ghost'
+                action    : 'fullscreen',
+                contextual: false,
+                handler   : me.collapseExpand.bind(me),
+                iconCls   : 'fas fa-expand',
+                ui        : 'ghost',
+                vdom      : {'aria-label': 'Toggle fullscreen preview'}
             })
         }
 
         // Only add the popout window button in case we are using shared workers
         if (Neo.config.useSharedWorkers) {
             items.push({
-                handler  : me.popoutPreview.bind(me),
-                hidden   : tabContainer.activeIndex !== 1,
-                iconCls  : 'far fa-window-maximize',
-                reference: 'popout-window-button',
-                ui       : 'ghost'
+                action    : 'popout',
+                contextual: false,
+                handler   : me.popoutPreview.bind(me),
+                hidden    : tabContainer.activeIndex !== 1,
+                iconCls   : 'far fa-window-maximize',
+                ui        : 'ghost',
+                vdom      : {'aria-label': 'Open preview in a separate window'}
             });
 
             Neo.currentWorker.on({
@@ -433,12 +440,7 @@ class LivePreview extends Container {
             })
         }
 
-        items.unshift('->');
-
-        // we want to add a normal (non-header) button
-        tabContainer.getTabBar().add(items);
-
-        tabContainer.getTabBar().update();
+        tabContainer.headerActions = items;
 
         tabContainer.on('activeIndexChange', me.onActiveIndexChange, me);
 
@@ -468,10 +470,10 @@ class LivePreview extends Container {
      * @param {Number} data.windowId
      */
     async onWindowConnect({windowId}) {
-        let me           = this,
-            url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-            params       = new URL(url).searchParams,
-            id           = params.get('id');
+        let me     = this,
+            url    = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+            params = new URL(url).searchParams,
+            id     = params.get('id');
 
         if (id === me.id) {
             me.connectedWindowId = windowId;
@@ -518,7 +520,7 @@ class LivePreview extends Container {
             me.disableRunSource = true; // will get reset after the next activeIndex change (async)
             tabContainer.activeIndex = 1;        // switch to the source view
 
-            me.getReference('popout-window-button').disabled = false;
+            tabContainer.getActionItem('popout').disabled = false;
             tabContainer.getTabAtIndex(1).disabled = false;
 
             me.connectedWindowId = null

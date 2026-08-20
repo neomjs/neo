@@ -7,6 +7,13 @@ import BaseToolbar from '../../toolbar/Base.mjs';
 class Toolbar extends BaseToolbar {
     static config = {
         /**
+         * Tab-header actions are contextual by default. Persistent actions opt out explicitly.
+         * @member {Object} actionDefaults={contextual:true}
+         */
+        actionDefaults: {
+            contextual: true
+        },
+        /**
          * @member {String} className='Neo.tab.header.Toolbar'
          * @protected
          */
@@ -44,7 +51,7 @@ class Toolbar extends BaseToolbar {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.items.forEach(item => {
+            me.getTabButtons().forEach(item => {
                 // silent updates
                 item._useActiveTabIndicator = value;
                 item.updateUseActiveTabIndicator(true)
@@ -55,16 +62,58 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * @protected
+     * Resolves a semantic tab insertion index to the raw toolbar position immediately before the
+     * action group.
+     * @param {Number} index
+     * @returns {Number}
      */
-    createItems() {
-        let me       = this,
-            defaults = me.itemDefaults || {};
+    getTabInsertIndex(index) {
+        let me      = this,
+            buttons = me.getTabButtons(),
+            target  = buttons[index],
+            spacer;
 
-        defaults.useActiveTabIndicator = me.useActiveTabIndicator;
-        me.itemDefaults = defaults;
+        if (target) {
+            return me.items.indexOf(target)
+        }
 
-        super.createItems()
+        spacer = me.getActionSpacer();
+
+        return spacer ? me.items.indexOf(spacer) : me.items.length
+    }
+
+    /**
+     * Returns only semantic tab-header buttons, excluding the action group and spacer.
+     * @returns {Neo.tab.header.Button[]}
+     */
+    getTabButtons() {
+        return (this.items || []).filter(item => this.isTabButton(item))
+    }
+
+    /**
+     * The single semantic membership answer shared with the tab SortZone. A tab-styled action is
+     * still an action and must never become card chrome or a drag target.
+     * @param {*} item
+     * @returns {Boolean}
+     */
+    isTabButton(item) {
+        return item?.isToolbarAction !== true
+            && item?.isToolbarActionSpacer !== true
+            && item?.baseCls?.includes('neo-tab-header-button')
+    }
+
+    /**
+     * Inserts a tab button at a semantic tab index.
+     * @param {Number} index
+     * @param {Object|Neo.tab.header.Button} item
+     * @param {Boolean} [silent=false]
+     * @param {Boolean} [removeFromPreviousParent=true]
+     * @returns {Neo.tab.header.Button}
+     */
+    insertTab(index, item, silent=false, removeFromPreviousParent=true) {
+        let bounded = Math.max(0, Math.min(Number(index) || 0, this.getTabButtons().length));
+
+        return this.insert(this.getTabInsertIndex(bounded), item, silent, removeFromPreviousParent)
     }
 
     /**
@@ -110,15 +159,39 @@ class Toolbar extends BaseToolbar {
      * @returns {Neo.component.Base}
      */
     moveTo(fromIndex, toIndex) {
-        let returnValue = super.moveTo(fromIndex, toIndex);
+        let me         = this,
+            buttons    = me.getTabButtons(),
+            fromButton = buttons[fromIndex],
+            toButton   = buttons[toIndex],
+            returnValue;
+
+        if (!fromButton || !toButton) {
+            return null
+        }
+
+        returnValue = super.moveTo(me.items.indexOf(fromButton), me.items.indexOf(toButton));
 
         if (fromIndex !== toIndex) {
-            this.items.forEach((item, index) => {
+            me.getTabButtons().forEach((item, index) => {
                 item.index = index
             })
         }
 
         return returnValue
+    }
+
+    /**
+     * Removes a tab button at a semantic tab index.
+     * @param {Number} index
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     * @param {Boolean} [keepMounted=false]
+     * @returns {Neo.tab.header.Button|null}
+     */
+    removeTabAt(index, destroyItem=true, silent=false, keepMounted=false) {
+        let button = this.getTabButtons()[index];
+
+        return button ? this.remove(button, destroyItem, silent, keepMounted) : null
     }
 }
 

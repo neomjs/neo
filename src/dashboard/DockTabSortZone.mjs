@@ -164,10 +164,9 @@ class DockTabSortZone extends TabHeaderSortZone {
 
     /**
      * The source toolbar's PRISTINE viewport rect, measured once per gesture at
-     * {@link #onDragStart} — BEFORE the base runs and trims its in-memory `ownerRect` to the
-     * draggable button span. Dock toolbars disable the base's live owner-width write, but the
-     * trimmed rect is still a sort-local surface rather than the real toolbar boundary
-     * {@link #releaseVoidsReorder} decides against.
+     * {@link #onDragStart}. The base keeps its full `ownerRect` for outer drag/tear-out authority
+     * and snapshots the draggable tab span separately in `sortBoundaryRect`; this pristine copy
+     * remains the release boundary {@link #releaseVoidsReorder} decides against.
      * @member {Object|null} dockSourceToolbarRect=null
      * @protected
      */
@@ -950,8 +949,9 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         if (me.isStackHandleDrag?.(data)) {
             let pathIds     = new Set((data.path || []).map(node => node.id).filter(Boolean)),
-                draggedItem = me.owner.items.find(item => pathIds.has(item.id)),
-                index       = me.owner.items.indexOf(draggedItem);
+                tabButtons  = me.owner.getTabButtons(),
+                draggedItem = tabButtons.find(item => pathIds.has(item.id)),
+                index       = tabButtons.indexOf(draggedItem);
 
             if (!draggedItem || index < 0 || !me.dockWorkspaceId) {
                 return
@@ -975,8 +975,8 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         me.stackDragActive = false;
 
-        // The real toolbar boundary — measured BEFORE the base trims its sort-local ownerRect to
-        // the draggable button span. One pre-gesture measure, off the per-frame hot path.
+        // The real toolbar boundary, distinct from the base's tab-only sortBoundaryRect.
+        // One pre-gesture measure, off the per-frame hot path.
         me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null;
 
         await super.onDragStart(data);
