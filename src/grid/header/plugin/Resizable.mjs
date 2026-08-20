@@ -64,6 +64,16 @@ class Resizable extends BaseResizable {
 
                 owner.width = newWidth;
 
+                // `wrapperStyle` carries an inline width that outranks the vdom `width` key
+                // `afterSetWidth()` maintains, so setting the config alone leaves the rendered button
+                // at its pre-drag size: the header stays put for the whole gesture while
+                // `updateCellPositions()` below has already moved the body. `onDragEnd()` refreshes
+                // `wrapperStyle` from the proxy, which is why the header only snaps into place on drop.
+                let ownerStyle = owner.wrapperStyle;
+
+                ownerStyle.width   = `${newWidth}px`;
+                owner.wrapperStyle = ownerStyle;
+
                 if (body) {
                     body.updateCellPositions(owner.dataField, newWidth)
                 }
