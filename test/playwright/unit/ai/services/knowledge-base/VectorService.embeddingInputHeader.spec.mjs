@@ -129,15 +129,16 @@ test.describe('KB provider input — header names type first, kind as fallback',
         // chunk more room, so its first part is longer by exactly the difference. A planner carrying its
         // own copy of the format gives both the same budget and the difference collapses to zero.
         //
-        // The fixtures vary `type`, not `kind`, which keeps this arm's subject separate from the
-        // field-order arms above — this one is about where the number comes from, not which field names
-        // the chunk.
+        // The fixtures are `kind`-only and differ in kind LENGTH, which is the only shape that keeps
+        // this arm sensitive to its own target. A restated `chunk.type` template renders the
+        // constant-length `undefined` for both, so the difference collapses; give the fixtures a `type`
+        // and the restated template reproduces the real header exactly and the arm goes blind.
         const content    = 'a'.repeat(600),
               guardrail  = {contextLimitTokens: 200, safeProcessingLimitTokens: 200},
               createHash = () => 'fixed-hash',
 
-              shortKind = {...baseChunk, type: 'fn', kind: 'class', content},
-              longKind  = {...baseChunk, type: 'module-context', kind: 'class', content},
+              shortKind = {...baseChunk, kind: 'fn', content},
+              longKind  = {...baseChunk, kind: 'module-context', content},
 
               shortParts = KB_VectorService.splitOversizedEmbeddingChunk({chunk: shortKind, guardrail, createHash}),
               longParts  = KB_VectorService.splitOversizedEmbeddingChunk({chunk: longKind, guardrail, createHash});
