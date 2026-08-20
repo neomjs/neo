@@ -1,5 +1,5 @@
 import {test, expect}  from '@playwright/test';
-import {execFileSync}  from 'node:child_process';
+import {execFileSync, spawnSync} from 'node:child_process';
 import fs              from 'node:fs';
 import os              from 'node:os';
 import path            from 'node:path';
@@ -35,14 +35,18 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         return filePath;
     };
 
-    // execFileSync (not execSync): node is spawned directly with an argv array — no shell, so the
+    // spawnSync (not execSync): node is spawned directly with an argv array — no shell, so the
     // absolute scriptPath + file args can never be interpolated into a shell command (CodeQL-clean).
+    //
+    // BOTH streams, on BOTH paths. The failure path always merged them; the success path returned
+    // stdout alone, so anything a PASSING run wrote to stderr was invisible to every arm in this
+    // file. A checker that emits an advisory about a file it does not fail is exactly that shape,
+    // and an arm asserting such an advisory would have failed for a reason having nothing to do with
+    // the advisory. `output` now means what its name claims.
     const run = (...args) => {
-        try {
-            return {status: 0, output: execFileSync('node', [scriptPath, ...args], {encoding: 'utf8', stdio: 'pipe'})};
-        } catch (error) {
-            return {status: error.status, output: (error.stderr || '') + (error.stdout || '')};
-        }
+        const result = spawnSync('node', [scriptPath, ...args], {encoding: 'utf8'});
+
+        return {status: result.status, output: (result.stdout || '') + (result.stderr || '')}
     };
 
     const MISALIGNED = [
@@ -101,6 +105,77 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         expect(fixResult.output).toContain('Error processing');
 
         expect(run(missing).status).toBe(1); // check mode also fails
+    });
+
+    test.describe('the green line states the unit it judged', () => {
+        // This checker judges GROUPS. Both defects below are invisible to every other arm in this
+        // file, because both produce output the checker itself considers correct.
+
+        const SPLIT = [
+            'const x = {',
+            '    staleCount         : 0,',
+            '    manifestOrphanCount: 0,',
+            '    // prose about the next key',
+            '    parserOrphanCount: 0,',
+            '    totalOrphanCount : 0',
+            '};'
+        ].join('\n');
+
+        test('a comment splits one literal into two groups, and the file PASSES while the halves sit at different columns', () => {
+            const {status, output} = run(write('split.mjs', SPLIT));
+
+            // The defect, stated as the checker sees it: this is a pass. The two halves align to
+            // columns 23 and 21 and neither group is internally wrong, so there is nothing to report
+            // under the group rule — which is exactly why the notice has to exist.
+            expect(status).toBe(0);
+            expect(output).toContain('an alignment group starts here');
+            expect(output).toMatch(/split\.mjs:5/)
+        });
+
+        test('CONTROL: the same literal WITHOUT the comment is reported as misaligned', () => {
+            // Without this, "the checker notices the split" is equally consistent with a checker that
+            // cannot see the literal at all. The only difference between the two fixtures is the
+            // comment line.
+            const {status, output} = run(write('joined.mjs', SPLIT.split('\n').filter(line => !line.includes('prose about')).join('\n')));
+
+            expect(status).toBe(1);
+            expect(output).toContain('Misaligned object-literal colon')
+        });
+
+        test('CONTROL: a blank-line separation is deliberate and draws no notice', () => {
+            // A blank line is how an author separates groups on purpose. Reporting it would make the
+            // notice noise, and a notice that fires on intent gets tuned out before it ever fires on
+            // an accident.
+            const {status, output} = run(write('blank.mjs', SPLIT.replace('    // prose about the next key', '')));
+
+            expect(status).toBe(0);
+            expect(output).not.toContain('an alignment group starts here')
+        });
+
+        test('a violation names WHICH group of how many, because the column alone cannot say', () => {
+            const {status, output} = run(write('two.mjs', [
+                'const a = {',
+                '    one  : 1,',
+                '    two  : 2',
+                '};',
+                '',
+                'const b = {',
+                '    alpha        : 1,',
+                '    beta: 2',
+                '};'
+            ].join('\n')));
+
+            expect(status).toBe(1);
+            expect(output).toContain('(group 1 of 2)');
+            expect(output).toContain('(group 2 of 2)')
+        });
+
+        test('a single group is not labelled — "group 1 of 1" would be noise', () => {
+            const {output} = run(write('one.mjs', ['const a = {', '    one  : 1,', '    two: 2', '};'].join('\n')));
+
+            expect(output).toContain('Misaligned object-literal colon');
+            expect(output).not.toContain('group 1 of 1')
+        })
     });
 
     test.describe('v1b: object-colon + `=` alignment (#13563)', () => {
