@@ -9,10 +9,12 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import Component      from '../../../../src/component/Base.mjs';
-import FocusManager   from '../../../../src/manager/Focus.mjs';
+import Neo              from '../../../../src/Neo.mjs';
+import * as core        from '../../../../src/core/_export.mjs';
+import Component        from '../../../../src/component/Base.mjs';
+import ComponentManager from '../../../../src/manager/Component.mjs';
+import FocusManager     from '../../../../src/manager/Focus.mjs';
+import MenuList         from '../../../../src/menu/List.mjs';
 
 test.describe('Neo.manager.Focus', () => {
     let components;
@@ -80,6 +82,31 @@ test.describe('Neo.manager.Focus', () => {
         expect(parent.containsFocus).toBe(true);
         expect(root.containsFocus).toBe(true);
         expect(FocusManager.history[0].componentPath).toEqual(['focus-new-child', 'focus-parent', 'focus-root']);
+    });
+
+    test('walks a floating menu through its configured logical owner', () => {
+        const log = [];
+
+        components = [
+            createFocusComponent('focus-menu-root',  'document.body',   log),
+            createFocusComponent('focus-menu-owner', 'focus-menu-root', log)
+        ];
+
+        const menu = Neo.create(MenuList, {
+            appName,
+            id             : 'focus-floating-menu',
+            parentComponent: components[1],
+            parentId       : 'document.body'
+        });
+
+        components.push(menu);
+
+        expect(menu.parentComponent).toBe(components[1]);
+        expect(ComponentManager.getParentPath([menu.id])).toEqual([
+            'focus-floating-menu',
+            'focus-menu-owner',
+            'focus-menu-root'
+        ])
     });
 
     test('handles disjoint component paths without firing focusMove', () => {

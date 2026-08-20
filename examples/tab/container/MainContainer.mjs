@@ -4,6 +4,7 @@ import NumberField           from '../../../src/form/field/Number.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import TextField             from '../../../src/form/field/Text.mjs';
 import TabContainer          from '../../../src/tab/Container.mjs';
+import TabOverflow           from '../../../src/tab/plugin/Overflow.mjs';
 
 /**
  * @summary An interactive example demonstrating the Neo.tab.Container.
@@ -207,8 +208,19 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create(TabContainer, {
             dragResortable: true,
             height        : 300,
-            width         : 500,
-            style         : {margin: '20px'},
+            headerActions : [{
+                action    : 'next-tab',
+                contextual: false,
+                iconCls   : 'fas fa-arrow-right'
+            }, {
+                action : 'previous-tab',
+                iconCls: 'fas fa-arrow-left'
+            }],
+            headerToolbar: {
+                plugins: [{module: TabOverflow}]
+            },
+            width: 500,
+            style: {margin: '20px'},
 
             itemDefaults: {
                 ntype: 'component',
@@ -218,20 +230,36 @@ class MainContainer extends ConfigurationViewport {
 
             items: [{
                 header: {iconCls: 'fa fa-home', text: 'Tab 1', flag: 'tab1',},
-                vdom  : {html: 'Tab 1 Content'}
+                vdom  : {html: 'Tab 1 Content', tabIndex: 0}
             }, {
                 header: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
-                vdom  : {html: 'Tab 2 Content'}
+                vdom  : {html: 'Tab 2 Content', tabIndex: 0}
             }, {
                 header: {iconCls: 'fa fa-user', text: 'Tab 3', badgeText: 'hello'},
-                vdom  : {html: 'Tab 3 Content'}
+                vdom  : {html: 'Tab 3 Content', tabIndex: 0}
             }],
 
             listeners: {
                 activeIndexChange: this.onUserActiveIndexChange,
+                headerAction     : this.onHeaderAction,
                 scope            : this
             }
         })
+    }
+
+    /**
+     * Demonstrates application-owned effects for generic TabContainer header intent.
+     * @param {Object} data
+     * @param {String} data.action
+     * @param {Neo.tab.Container} data.tabContainer
+     */
+    onHeaderAction({action, tabContainer}) {
+        let delta = action === 'next-tab' ? 1 : action === 'previous-tab' ? -1 : 0,
+            count = tabContainer.getCount();
+
+        if (delta && count > 0) {
+            tabContainer.activeIndex = (tabContainer.activeIndex + delta + count) % count
+        }
     }
 
     /**
@@ -240,7 +268,7 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.tab.header.Button}
      */
     getBadgeTabHeader() {
-        let tabHeaders = this.exampleComponent.getTabBar().items,
+        let tabHeaders = this.exampleComponent.getTabButtons(),
             item;
 
         for (item of tabHeaders) {
@@ -256,7 +284,7 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.tab.header.Button}
      */
     getFirstTabHeader() {
-        let tabHeaders = this.exampleComponent.getTabBar().items,
+        let tabHeaders = this.exampleComponent.getTabButtons(),
             item;
 
         for (item of tabHeaders) {

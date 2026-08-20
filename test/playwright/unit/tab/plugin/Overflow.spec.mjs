@@ -105,14 +105,20 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
     /** A lean toolbar-owner stub: two header buttons, a controllable getDomRect. */
     const createPlugin = getDomRect => {
+        const items = [{id: 'b1'}, {id: 'b2'}];
+
         const plugin = Neo.create(Overflow, {
             owner: {
-                id             : 'tab-overflow-test-owner',
-                appName        : 'test-app',
-                mounted        : true,
-                theme          : 'neo-theme-neo-dark',
-                windowId       : 1,
-                items          : [{id: 'b1'}, {id: 'b2'}],
+                id            : 'tab-overflow-test-owner',
+                appName       : 'test-app',
+                dock          : 'top',
+                mounted       : true,
+                parent        : {activeIndex: 0, on() {}, un() {}},
+                theme         : 'neo-theme-neo-dark',
+                windowId      : 1,
+                items,
+                getActionItems: () => [],
+                getTabButtons() { return this.items },
                 getTheme       : function () { return this.theme },
                 getDomRect,
                 add            : () => ({}),
@@ -353,7 +359,282 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             .toEqual(['neo-tab-overflow-menu']);
         expect(createdConfig.menu.items, 'the menu config retains the exact hidden-tab projection')
             .toHaveLength(1);
+        expect(createdConfig.parentComponent, 'the floating control keeps logical toolbar ancestry')
+            .toBe(plugin.owner);
+        expect(createdConfig.vdom['aria-label']).toBe('More tabs');
         expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
+    });
+
+    test('main-axis geometry reserves actions and maps all four toolbar orientations', async () => {
+        const action = {hidden: false, id: 'action-1'};
+        const plugin = createPlugin(async ids => ids.map(id => id === 'tab-overflow-test-owner'
+            ? {height: 300, left: 0, top: 0, width: 240, x: 0, y: 0}
+            : id === action.id
+                ? {height: 20, left: 200, top: 240, width: 20, x: 200, y: 240}
+                : {height: 130, width: 110}));
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.getActionItems = () => [action];
+
+        const geometry = {
+            bottom: {actionAlign: 'r0-l0', dimension: 'width',  maxSize: 'maxWidth',  ownerAlign: 'r0-r0'},
+            left  : {actionAlign: 'b0-t0', dimension: 'height', maxSize: 'maxHeight', ownerAlign: 'b0-b0'},
+            right : {actionAlign: 'b0-t0', dimension: 'height', maxSize: 'maxHeight', ownerAlign: 'b0-b0'},
+            top   : {actionAlign: 'r0-l0', dimension: 'width',  maxSize: 'maxWidth',  ownerAlign: 'r0-r0'}
+        };
+
+        Object.entries(geometry).forEach(([dock, expected]) => {
+            plugin.owner.dock = dock;
+            expect(plugin.getMainAxisConfig()).toEqual(expected);
+            expect(plugin.getControlAlign()).toEqual({edgeAlign: expected.actionAlign, target: action.id})
+        });
+
+        let split;
+        plugin.applySplit = (hidden, buttons, tabContainer, activeCap) => {
+            split = {activeCap, hidden}
+        };
+
+        plugin.owner.dock = 'top';
+        plugin.naturalWidths = {b1: 110, b2: 110};
+        await plugin.project(false);
+
+        expect(split.hidden, 'the first action starts at x=200 despite its 20px width').toEqual(['b2']);
+        expect(split.activeCap).toMatchObject({maxSize: 'maxWidth', usable: 160});
+
+        const bothButtons = plugin.owner.items;
+        plugin.owner.items = [bothButtons[0]];
+        plugin.naturalWidths = {b1: 230};
+        await plugin.project(false);
+
+        expect(split.hidden, 'one over-wide active tab stays visible without creating a menu').toEqual([]);
+        expect(split.activeCap, 'the action boundary still caps that sole tab')
+            .toMatchObject({maxSize: 'maxWidth', usable: 200});
+
+        plugin.owner.items = bothButtons;
+
+        plugin.owner.dock = 'right';
+        plugin.naturalWidths = {b1: 130, b2: 130};
+        await plugin.project(false);
+
+        expect(split.hidden, 'the first action starts at y=240 despite its 20px height').toEqual(['b2']);
+        expect(split.activeCap).toMatchObject({maxSize: 'maxHeight', usable: 200});
+
+        action.hidden = true;
+        expect(plugin.getControlAlign(), 'consumer-hidden actions do not reserve or anchor the control')
+            .toEqual({edgeAlign: 'b0-b0', target: plugin.owner.id});
+
+        action.hideMode = 'visibility';
+        expect(plugin.getControlAlign(), 'visibility-hidden actions keep their reserved boundary')
+            .toEqual({edgeAlign: 'b0-t0', target: action.id})
+    });
+
+    test('a dock-axis change defers recapture to the post-render owner resize', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+            : [{height: 20, width: 20}, {height: 20, width: 20}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let recapture;
+        plugin.project = value => {recapture = value};
+        plugin.dockRecapturePending = true;
+
+        plugin.onResize();
+
+        expect(recapture, 'the rendered resize recaptures the new main-axis tab extents').toBe(true);
+        expect(plugin.dockRecapturePending).toBe(false);
+
+        plugin.onResize();
+        expect(recapture, 'later ordinary resizes return to extent-only projection').toBe(false);
+
+        plugin.destroy()
+    });
+
+    test('a projection requested during tab sorting queues until the stable snapshot is released', async () => {
+        let measureCalls = 0,
+            releaseDrag;
+
+        const plugin = createPlugin(async ids => {
+            measureCalls++;
+            return ids[0] === 'tab-overflow-test-owner'
+                ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+                : [{height: 20, width: 20}, {height: 20, width: 20}]
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const beforeDragMeasures = measureCalls;
+
+        plugin.owner.sortZone = {
+            dragEndActive: false,
+            startIndex   : 1,
+            on(eventName, fn, scope) {
+                eventName === 'dragEnd' && (releaseDrag = () => fn.call(scope))
+            },
+            un() {}
+        };
+
+        await plugin.project(false);
+
+        expect(measureCalls, 'held geometry performs no new DOM measurement').toBe(beforeDragMeasures);
+        expect(plugin.sortDragProjectionQueued).toBe(true);
+        expect(plugin.sortDragRecaptureQueued).toBe(false);
+
+        plugin.owner.sortZone.dragEndActive = true;
+        plugin.owner.sortZone.startIndex    = -1;
+        releaseDrag();
+
+        // A tab mutation arrives in the terminal gap. Its recapture intent must join the already
+        // scheduled drain rather than being stranded behind the consumed dragEnd event.
+        await plugin.project(true);
+        expect(plugin.sortDragRecaptureQueued, 'the terminal-gap recapture remains sticky').toBe(true);
+
+        // Dock post-cleanup can keep the latch beyond the first timer task.
+        setTimeout(() => {plugin.owner.sortZone.dragEndActive = false}, 25);
+        await new Promise(resolve => setTimeout(resolve, 60));
+
+        expect(measureCalls, 'one projection drains after the terminal').toBeGreaterThan(beforeDragMeasures);
+        expect(plugin.sortDragProjectionQueued).toBe(false);
+        expect(plugin.sortDragRecaptureQueued).toBe(false);
+
+        plugin.destroy()
+    });
+
+    test('an in-flight measurement hands off when a sort snapshot begins before applySplit', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+            : [{height: 20, width: 20}, {height: 20, width: 20}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let applyCalls = 0,
+            releaseDrag,
+            releaseMeasure,
+            signalMeasure;
+
+        const measureStarted = new Promise(resolve => {signalMeasure = resolve}),
+              measureGate    = new Promise(resolve => {releaseMeasure = resolve});
+
+        plugin.naturalWidths = {b1: 20, b2: 20};
+        plugin.applySplit = () => {applyCalls++};
+        plugin.owner.sortZone = {
+            dragEndActive: false,
+            startIndex   : -1,
+            on(eventName, fn, scope) {
+                eventName === 'dragEnd' && (releaseDrag = () => fn.call(scope))
+            },
+            un() {}
+        };
+        plugin.owner.getDomRect = async () => {
+            signalMeasure();
+            await measureGate;
+            return [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+        };
+
+        const projection = plugin.project(false);
+
+        await measureStarted;
+        plugin.owner.sortZone.startIndex = 1;
+        releaseMeasure();
+        await projection;
+
+        expect(applyCalls, 'a pre-drag measurement cannot mutate beneath the new snapshot').toBe(0);
+        expect(plugin.sortDragProjectionQueued).toBe(true);
+
+        plugin.owner.sortZone.dragEndActive = true;
+        plugin.owner.sortZone.startIndex    = -1;
+        releaseDrag();
+        setTimeout(() => {plugin.owner.sortZone.dragEndActive = false}, 15);
+        await new Promise(resolve => setTimeout(resolve, 40));
+
+        expect(applyCalls, 'the handed-off projection drains once after the terminal').toBe(1);
+
+        plugin.destroy()
+    });
+
+    test('snapshot preparation waits for an in-flight recapture to restore its final split', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 25, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+            : [{height: 20, width: 50}, {height: 20, width: 50}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let releaseUpdate,
+            signalUpdate;
+
+        const updateStarted = new Promise(resolve => {signalUpdate = resolve}),
+              updateGate    = new Promise(resolve => {releaseUpdate = resolve}),
+              makeButton    = (id, hidden=false) => ({
+                  cls     : [],
+                  hidden,
+                  id,
+                  maxWidth: null,
+                  vdom    : hidden ? {removeDom: true} : {},
+                  addCls(value) { !this.cls.includes(value) && this.cls.push(value) },
+                  removeCls(value) { this.cls = this.cls.filter(item => item !== value) },
+                  setSilent(values) { Object.assign(this, values) },
+                  show() {
+                      this.hidden = false;
+                      delete this.vdom.removeDom
+                  }
+              }),
+              buttons = [makeButton('b1'), makeButton('b2', true)];
+
+        plugin.owner.items = buttons;
+        plugin.owner.getDomRect = async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 25, left: 0, top: 0, width: 70, x: 0, y: 0}]
+            : [{height: 20, width: 50}, {height: 20, width: 50}];
+        plugin.owner.promiseUpdate = async () => {
+            signalUpdate();
+            await updateGate
+        };
+        plugin.owner.update = () => {};
+        plugin.naturalWidths = {b1: 50, b2: 50};
+        plugin.syncControl = () => {};
+
+        const recapture = plugin.project(true);
+
+        await updateStarted;
+        expect(buttons[1].hidden, 'recapture temporarily restores the hidden tab').toBe(false);
+
+        plugin.owner.sortZone = {
+            dragEndActive      : false,
+            sortSnapshotPending: true,
+            startIndex         : -1,
+            on() {},
+            un() {}
+        };
+
+        const idle = plugin.whenProjectionIdle();
+
+        releaseUpdate();
+        await recapture;
+        await idle;
+
+        expect(buttons[1].hidden,
+            'the restoring split commits before snapshot preparation is released').toBe(true);
+        expect(plugin.sortDragProjectionQueued).toBe(false);
+
+        plugin.owner.sortZone.sortSnapshotPending = false;
+        plugin.destroy()
+    });
+
+    test('destroy releases projection-idle waiters without a dead-owner snapshot callback', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+            : [{height: 20, width: 20}, {height: 20, width: 20}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.measuring = true;
+        const waiter = plugin.whenProjectionIdle();
+
+        plugin.destroy();
+        await waiter;
+
+        expect(plugin.isDestroyed).toBe(true);
+        expect(() => plugin.onSortSnapshotReady()).not.toThrow()
     });
 
     test('re-arm: a transiently unmounted control re-mounts on the next sync — once, latched, aligned after the mount lands (#16434)', async () => {
@@ -596,13 +877,16 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
         /** A toolbar-owner stub with the parent seam the active-button resolution needs. */
         createCapPlugin = ({buttons, getDomRect}) => Neo.create(Overflow, {
             owner: {
-                id      : 'cap-owner',
-                appName : 'test-app',
-                items   : buttons,
-                mounted : true,
-                parent  : {activeIndex: 0, on() {}},
-                theme   : 'neo-theme-neo-dark',
-                windowId: 1,
+                id            : 'cap-owner',
+                appName       : 'test-app',
+                items         : buttons,
+                mounted       : true,
+                parent        : {activeIndex: 0, on() {}, un() {}},
+                theme         : 'neo-theme-neo-dark',
+                windowId      : 1,
+                dock          : 'top',
+                getActionItems: () => [],
+                getTabButtons : () => buttons,
                 getDomRect,
                 getTheme() { return this.theme },
                 add            : () => ({}),
@@ -708,7 +992,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
             await settle();
 
             // Stage 1 — capped: provenance recorded with the caller's own ceiling.
-            expect(plugin.appliedCaps?.get('b1'), 'the caller value is recorded at cap time').toBe(300);
+            expect(plugin.appliedCaps?.get('b1'), 'the caller value is recorded at cap time')
+                .toEqual({maxSize: 'maxWidth', value: 300});
             expect(b1.maxWidth, 'the cap overrides through the same public channel').toBe(236 - 40);
             expect(b1.cls, 'the cap marker is present').toContain('neo-tab-overflow-capped');
 
@@ -716,7 +1001,8 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
             // split re-caps; the recorded provenance survives un-overwritten.
             await plugin.project(true);
 
-            expect(plugin.appliedCaps?.get('b1'), 'recapture must not re-record the plugin cap as prior').toBe(300);
+            expect(plugin.appliedCaps?.get('b1'), 'recapture must not re-record the plugin cap as prior')
+                .toEqual({maxSize: 'maxWidth', value: 300});
             expect(b1.maxWidth, 'the re-applied cap holds after recapture').toBe(236 - 40);
 
             // Stage 3 — the overflow retires: the exact caller value returns.
@@ -732,6 +1018,48 @@ test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)',
             Neo.create = origCreate;
             control.destroy()
         }
+    })
+
+    test('a dock-axis change retires the old cap before owning the new max-size channel', async () => {
+        const
+            b1     = makeCapButton('b1', {maxHeight: 250, maxWidth: 300}),
+            plugin = createCapPlugin({
+                buttons   : [b1],
+                getDomRect: async () => [{height: 1000, width: 1000}]
+            });
+
+        await settle();
+
+        plugin.naturalWidths = {b1: 500};
+        plugin.applySplit([], [b1], plugin.owner.parent, {
+            activeButton: b1,
+            maxSize     : 'maxWidth',
+            usable      : 196
+        });
+
+        expect(b1.maxWidth).toBe(196);
+        expect(plugin.appliedCaps.get('b1')).toEqual({maxSize: 'maxWidth', value: 300});
+
+        plugin.applySplit([], [b1], plugin.owner.parent, {
+            activeButton: b1,
+            maxSize     : 'maxHeight',
+            usable      : 180
+        });
+
+        expect(b1.maxWidth, 'the retired horizontal channel returns to the caller').toBe(300);
+        expect(b1.maxHeight).toBe(180);
+        expect(plugin.appliedCaps.get('b1')).toEqual({maxSize: 'maxHeight', value: 250});
+
+        plugin.applySplit([], [b1], plugin.owner.parent, {
+            activeButton: b1,
+            maxSize     : 'maxHeight',
+            usable      : null
+        });
+
+        expect(b1.maxHeight, 'clearing restores the new-axis caller value').toBe(250);
+        expect(plugin.appliedCaps.size).toBe(0);
+
+        plugin.destroy()
     })
 });
 

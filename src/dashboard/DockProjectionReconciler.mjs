@@ -1,6 +1,5 @@
 import Component from '../component/Base.mjs';
 import Base      from '../core/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
 
 const projectionNodeTypes = new Set(['edge-zone', 'split', 'tabs']);
 
@@ -595,7 +594,7 @@ class DockProjectionReconciler extends Base {
                     return {
                         bar   : tab.getTabBar(),
                         body,
-                        button: tab.getTabBar().items[index],
+                        button: tab.getTabButtons()[index],
                         index,
                         tab
                     }
@@ -628,7 +627,7 @@ class DockProjectionReconciler extends Base {
                         throw new Error(`Dock projection placed item "${itemId}" into the wrong tab body`)
                     }
 
-                    stagedButton = targetBar.items[placeholderIndex];
+                    stagedButton = targetBar.getTabButtons()[placeholderIndex];
 
                     if (!stagedButton) {
                         throw new Error(`Dock projection could not stage tab chrome for item "${itemId}"`)
@@ -649,15 +648,13 @@ class DockProjectionReconciler extends Base {
                     // its already-mounted button leaves that DOM lifecycle coupled to the destroyed
                     // placeholder pane. Materialize the live pair together, then commit its toolbar
                     // explicitly through the direct-owner transaction above. Silent insertion skips
-                    // SortZone#onItemInsert and the configured SortZone can still be awaiting its
-                    // construction microtask, so stamp the delegated drag marker into the button's
-                    // creation transaction instead of depending on a later timing-sensitive repair.
+                    // SortZone#onItemInsert, so the materializedBars commit below reapplies the same
+                    // semantic membership predicate used by every ordinary insert.
                     if (stagedButton) {
                         targetBar.remove(stagedButton, true, true)
                     }
 
-                    NeoArray.add(buttonConfig.wrapperCls ||= [], 'neo-draggable');
-                    targetBar.insert(targetIndex, buttonConfig, true);
+                    targetBar.insertTab(targetIndex, buttonConfig, true);
                     materializedBars.add(targetBar);
 
                     resolvedItems.set(itemId, inserted);
@@ -673,9 +670,9 @@ class DockProjectionReconciler extends Base {
                 if (state.tab === targetTab && state.index === targetIndex) return;
 
                 state.body.removeAt(state.index, false, true, true);
-                state.bar.removeAt(state.index, false, true, true);
+                state.bar.removeTabAt(state.index, false, true, true);
                 targetBody.insert(targetIndex, pane, true, false);
-                targetBar.insert(targetIndex, state.button, true, false)
+                targetBar.insertTab(targetIndex, state.button, true, false)
             })
         });
 
@@ -705,7 +702,7 @@ class DockProjectionReconciler extends Base {
                 }
 
                 state.body.removeAt(state.index, !preservedItems.has(itemId), true);
-                state.bar.removeAt(state.index, true, true)
+                state.bar.removeTabAt(state.index, true, true)
             })
         });
 
@@ -723,7 +720,7 @@ class DockProjectionReconciler extends Base {
                 };
 
             if (body.items.length !== plan.desiredItems.length
-                || bar.items.length !== plan.desiredItems.length) {
+                || bar.getTabButtons().length !== plan.desiredItems.length) {
                 throw new Error(`Dock projection tab chrome "${nodeId}" has an inexact item set`)
             }
 
@@ -740,7 +737,7 @@ class DockProjectionReconciler extends Base {
             plan.desiredItems.forEach((itemId, index) => {
                 const
                     pane   = resolve(itemId),
-                    button = bar.items[index],
+                    button = bar.getTabButtons()[index],
                     header = tab.getTabButtonConfig(pane?.header, index);
 
                 if (body.items[index] !== pane || !button) {

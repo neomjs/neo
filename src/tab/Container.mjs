@@ -1,9 +1,10 @@
-import BaseContainer from '../container/Base.mjs';
-import BodyContainer from './BodyContainer.mjs';
-import HeaderButton  from './header/Button.mjs';
-import HeaderToolbar from './header/Toolbar.mjs';
-import NeoArray      from '../util/Array.mjs';
-import Strip         from './Strip.mjs';
+import BaseContainer  from '../container/Base.mjs';
+import BodyContainer  from './BodyContainer.mjs';
+import HeaderButton   from './header/Button.mjs';
+import HeaderToolbar  from './header/Toolbar.mjs';
+import NeoArray       from '../util/Array.mjs';
+import Strip          from './Strip.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
  * @summary Manages a tabbed interface with a header toolbar and a content body.
@@ -79,6 +80,19 @@ class Container extends BaseContainer {
          */
         headerToolbar: null,
         /**
+         * Optional flat action configs for the tab header toolbar. Tab actions are contextual by
+         * default; an action can set contextual=false to stay persistent.
+         * @member {Object[]|String[]|null} headerActions=null
+         * @reactive
+         */
+        headerActions_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            isEqual       : () => false,
+            value         : null
+        },
+        /**
          * @member {Object|null} layout=null
          * @reactive
          */
@@ -133,7 +147,7 @@ class Container extends BaseContainer {
      * @returns {Neo.component.Base|Neo.component.Base[]} The newly created component(s).
      */
     add(item) {
-        return this.insert(this.getTabBar().items.length, item)
+        return this.insert(this.getCount(), item)
     }
 
     /**
@@ -194,6 +208,20 @@ class Container extends BaseContainer {
     afterSetDragResortable(value, oldValue) {
         if (oldValue !== undefined) {
             this.getTabBar().dragResortable = value
+        }
+    }
+
+    /**
+     * Replaces the live header action group after construction.
+     * @param {Object[]|String[]|null} value
+     * @param {Object[]|String[]|null} oldValue
+     * @protected
+     */
+    afterSetHeaderActions(value, oldValue) {
+        if (oldValue !== undefined) {
+            let tabBar = this.getTabBar();
+
+            tabBar && (tabBar.actions = value)
         }
     }
 
@@ -286,6 +314,7 @@ class Container extends BaseContainer {
 
         me.items = [{
             module        : HeaderToolbar,
+            actions       : me.headerActions,
             dock          : me.tabBarPosition,
             dragResortable: me.dragResortable,
             flex          : 'none',
@@ -346,7 +375,24 @@ class Container extends BaseContainer {
      * @returns {Number} The number of tabs.
      */
     getCount() {
-        return this.getTabBar().items.length
+        return this.getTabButtons().length
+    }
+
+    /**
+     * Returns the stable header action instances.
+     * @returns {Neo.component.Base[]}
+     */
+    getActionItems() {
+        return this.getTabBar()?.getActionItems() || []
+    }
+
+    /**
+     * Returns a stable header action instance by semantic action name.
+     * @param {String} action
+     * @returns {Neo.component.Base|null}
+     */
+    getActionItem(action) {
+        return this.getTabBar()?.getActionItem(action) || null
     }
 
     /**
@@ -389,7 +435,7 @@ class Container extends BaseContainer {
      * @returns {Neo.tab.header.Button|null} The tab button component or null if not found.
      */
     getTabAtIndex(index) {
-        return this.getTabBar().items[index] || null
+        return this.getTabButtons()[index] || null
     }
 
     /**
@@ -398,6 +444,14 @@ class Container extends BaseContainer {
      */
     getTabBar() {
         return Neo.getComponent(this.tabBarId)
+    }
+
+    /**
+     * Returns the semantic tab-header button collection.
+     * @returns {Neo.tab.header.Button[]}
+     */
+    getTabButtons() {
+        return this.getTabBar()?.getTabButtons() || []
     }
 
     /**
@@ -413,10 +467,11 @@ class Container extends BaseContainer {
         let me = this,
 
         defaultConfig = {
-            module : HeaderButton,
-            flex   : 'none',
+            module               : HeaderButton,
+            flex                 : 'none',
             index,
-            pressed: me.activeIndex === index,
+            pressed              : me.activeIndex === index,
+            useActiveTabIndicator: me.useActiveTabIndicator,
 
             domListeners: [{
                 click(data) {
@@ -481,14 +536,14 @@ class Container extends BaseContainer {
             }
 
             if (!hasItem) {
-                tab = tabBar.insert(index, me.getTabButtonConfig(item.header, index));
+                tab = tabBar.insertTab(index, me.getTabButtonConfig(item.header, index));
 
                 // todo: non index based matching of tab buttons and cards
                 i = 0;
-                len = tabBar.items.length;
+                len = me.getTabButtons().length;
 
                 for (; i < len; i++) {
-                    tabBar.items[i].index = i
+                    me.getTabButtons()[i].index = i
                 }
 
                 item.flex = 1;
@@ -520,7 +575,7 @@ class Container extends BaseContainer {
         let me            = this,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
-            activeTab     = tabBar.items[me.activeIndex],
+            activeTab     = me.getTabButtons()[me.activeIndex],
             index, returnValue;
 
         tabBar.moveTo(fromIndex, toIndex);
@@ -549,7 +604,50 @@ class Container extends BaseContainer {
      */
     onConstructed() {
         this.layout = {ntype: 'flexbox', ...this.getLayoutConfig()};
-        super.onConstructed()
+        super.onConstructed();
+
+        this.getTabBar().on('action', this.onHeaderAction, this)
+    }
+
+    /**
+     * Arms contextual actions only when focus enters the tab body. Header/action focus retains the
+     * current state through manager.Focus's closest-common-component path.
+     * @param {Object} data
+     */
+    onFocusEnter(data) {
+        super.onFocusEnter(data);
+
+        this.isBodyFocusPath(data.path) && (this.getTabBar().contextualActionsVisible = true)
+    }
+
+    /**
+     * Arms contextual actions when an internal focus move enters the body.
+     * @param {Object} data
+     */
+    onFocusMove(data) {
+        this.isBodyFocusPath(data.path) && (this.getTabBar().contextualActionsVisible = true)
+    }
+
+    /**
+     * Disarms contextual actions only after focus leaves the complete TabContainer realm.
+     * @param {Object} data
+     */
+    onFocusLeave(data) {
+        super.onFocusLeave(data);
+        this.getTabBar().contextualActionsVisible = false
+    }
+
+    /**
+     * Re-emits generic toolbar intent with TabContainer and active-card context.
+     * @param {Object} data
+     * @protected
+     */
+    onHeaderAction(data) {
+        this.fire('headerAction', {
+            activeCard  : this.getActiveCard(),
+            tabContainer: this,
+            ...data
+        })
     }
 
     /**
@@ -564,12 +662,13 @@ class Container extends BaseContainer {
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             i             = 0,
-            len           = tabBar.items.length,
+            tabButtons    = me.getTabButtons(),
+            len           = tabButtons.length,
             index         = -1,
             card;
 
         for (; i < len; i++) {
-            if (tabBar.items[i].id === buttonId) {
+            if (tabButtons[i].id === buttonId) {
                 index = i;
                 break
             }
@@ -622,7 +721,7 @@ class Container extends BaseContainer {
             card, i, len;
 
         card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
-        tabBar       .removeAt(index, true,        silent);
+        tabBar       .removeTabAt(index, true,     silent);
 
         if (index < activeIndex) {
             // silent updates
@@ -646,10 +745,10 @@ class Container extends BaseContainer {
 
         // todo: non index based matching of tab buttons and cards
         i   = 0;
-        len = tabBar.items.length;
+        len = me.getTabButtons().length;
 
         for (; i < len; i++) {
-            tabBar.items[i].index = i
+            me.getTabButtons()[i].index = i
         }
 
         return card
@@ -664,7 +763,7 @@ class Container extends BaseContainer {
     updateTabButtons(silent=false) {
         let me            = this,
             {activeIndex} = me,
-            tabButtons    = me.getTabBar()?.items || [];
+            tabButtons    = me.getTabButtons();
 
         tabButtons.forEach((item, index) => {
             if (silent) {
@@ -673,6 +772,28 @@ class Container extends BaseContainer {
                 item.pressed = index === activeIndex
             }
         })
+    }
+
+    /**
+     * True when a focused DOM path resolves through the tab body component.
+     * @param {Object[]} [path=[]]
+     * @returns {Boolean}
+     * @protected
+     */
+    isBodyFocusPath(path=[]) {
+        let component = path
+            .map(node => Neo.getComponent(node.id))
+            .find(Boolean);
+
+        while (component && component !== this) {
+            if (component.id === this.bodyContainerId) {
+                return true
+            }
+
+            component = component.parent
+        }
+
+        return false
     }
 }
 
