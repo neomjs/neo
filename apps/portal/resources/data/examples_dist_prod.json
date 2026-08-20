@@ -1,4 +1,20 @@
 [{
+    "hidden"       : true,
+    "id"           : 28,
+    "environments" : ["Desktop"],
+    "image"        : "devmode/dockDemo.png",
+    "name"         : "Dock Layouts",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/agentos/childapps/dockdemo",
+    "url"          : "dist/production/apps/agentos/childapps/dockdemo/index.html"
+}, {
+    "id"          : 25,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/DevIndex.png",
+    "name"        : "GitHub Meritocracy Index",
+    "sourceUrl"   : "https://github.com/neomjs/devindex",
+    "url"         : "dist/production/apps/devindex/index.html"
+}, {
     "id"          : 27,
     "environments": ["Desktop"],
     "image"       : "devmode/workstation.png",
