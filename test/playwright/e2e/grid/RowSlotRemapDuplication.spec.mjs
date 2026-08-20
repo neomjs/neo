@@ -119,5 +119,135 @@ test.describe('Grid row pooling across a slot remap', () => {
 
         expect(rowIdDupes, `no two visible rows claim the same row index (duplicated: ${rowIdDupes.join() || 'none'})`)
             .toEqual([])
+    });
+
+    /**
+     * The second remap driver, and the one closer to the original downstream report: the store's
+     * record set is REPLACED rather than filtered. `onAmountRowsChange` assigns `store.amountRows`,
+     * which regenerates the records — so every index is renumbered against a different population,
+     * and shrinking it also strands pool slots the clear path must empty.
+     *
+     * Filtering (above) narrows one population; replacement swaps it. They are different operations
+     * and only one of them was exercised before, so the passing filter case is not evidence for this.
+     */
+    test('a store replacement that renumbers and shrinks leaves no record painted twice', async ({page}) => {
+        await page.goto('/examples/grid/bigData/');
+        await page.waitForSelector('.neo-grid-body [role="row"]', {timeout: 60000});
+        await page.waitForTimeout(700);
+
+        const box = await page.locator('.neo-grid-view').boundingBox();
+
+        // Scroll deep enough that the visible range sits well past the incoming store's size, so the
+        // replacement must both renumber AND strand slots rather than merely re-filling them.
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.wheel(0, 4000);
+        await page.waitForTimeout(800);
+
+        const before      = visible(await readRows(page)),
+              beforeIds   = before.map(row => row.recordId),
+              beforeSlots = slotMap(before);
+
+        expect(before.length, 'rows are rendered before the replacement').toBeGreaterThan(3);
+        expect(new Set(beforeIds).size, 'before the replacement, every visible row shows a distinct record')
+            .toBe(beforeIds.length);
+
+        // 20,000 -> 1,000. The combobox is not editable, so the value is chosen from its list.
+        await page.locator('.controls-container-button').first().click();
+        await page.waitForTimeout(500);
+        await page.locator('#neo-combobox-1__input').click();
+        await page.waitForTimeout(400);
+        await page.getByRole('option', {name: '1000', exact: true}).click();
+        await page.waitForTimeout(1600);
+
+        const after      = visible(await readRows(page)),
+              afterIds   = after.map(row => row.recordId),
+              afterSlots = slotMap(after);
+
+        expect(after.length, 'rows are rendered after the replacement').toBeGreaterThan(0);
+
+        // NON-VACUITY: the population must actually have changed under the rows.
+        expect(afterIds.join(), 'the replacement actually changed the rendered rows').not.toBe(beforeIds.join());
+
+        const survivors = afterIds.filter(id => id in beforeSlots),
+              remapped  = survivors.filter(id => afterSlots[id] !== beforeSlots[id]);
+
+        // Survivors are not guaranteed here — a replacement may share no record with the old view —
+        // so the remap arm is asserted only when there is something to remap, and the population
+        // change above carries non-vacuity on its own.
+        survivors.length > 0 && expect(remapped.length,
+            `a surviving record moved pool element (survivors: ${survivors.length})`).toBeGreaterThan(0);
+
+        const duplicates = [...new Set(afterIds.filter((id, index) => afterIds.indexOf(id) !== index))];
+
+        expect(duplicates, `no record is painted by two visible rows at once (duplicated: ${duplicates.join() || 'none'})`)
+            .toEqual([]);
+
+        const rowIds     = after.map(row => row.rowId),
+              rowIdDupes = [...new Set(rowIds.filter((id, index) => rowIds.indexOf(id) !== index))];
+
+        expect(rowIdDupes, `no two visible rows claim the same row index (duplicated: ${rowIdDupes.join() || 'none'})`)
+            .toEqual([])
+    });
+
+    /**
+     * The regime the original downstream report was actually in, which neither case above reaches:
+     * a record set far SMALLER than the row pool. There the used-slot loop touches a handful of
+     * slots and the unused-slot clear owns all the rest — so the clear path, not the re-fill path,
+     * decides what the DOM shows. The report was two records against four live row elements.
+     *
+     * Both filters are applied so the surviving set is a few records out of the pool, and the
+     * precondition asserts we are genuinely in that regime (visible rows strictly fewer than pool
+     * elements) rather than merely filtering a large set to a slightly smaller one.
+     */
+    test('a record set far smaller than the pool leaves no stale row painted beside the survivors', async ({page}) => {
+        await page.goto('/examples/grid/bigData/');
+        await page.waitForSelector('.neo-grid-body [role="row"]', {timeout: 60000});
+        await page.waitForTimeout(700);
+
+        const box = await page.locator('.neo-grid-view').boundingBox();
+
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.wheel(0, 1500);
+        await page.waitForTimeout(700);
+
+        await page.locator('.controls-container-button').first().click();
+        await page.waitForTimeout(500);
+        await page.locator('#neo-textfield-1__input').fill('Tobias');
+        await page.waitForTimeout(900);
+        await page.locator('#neo-textfield-2__input').fill('Uhlig');
+        await page.waitForTimeout(1600);
+
+        const all     = await readRows(page),
+              shown   = visible(all),
+              shownId = shown.map(row => row.recordId);
+
+        // PRECONDITION — we are in the small-set regime. The pool must be larger than the surviving
+        // record set, which is what makes the unused-slot clear the deciding path. Without this the
+        // case degenerates into the filter test above and proves nothing new.
+        expect(all.length, 'the row pool is materialised').toBeGreaterThan(3);
+        expect(shown.length, 'the double filter left a non-empty set').toBeGreaterThan(0);
+        expect(shown.length,
+            `the surviving set is smaller than the pool (${shown.length} shown of ${all.length} pool elements)`)
+            .toBeLessThan(all.length);
+
+        // THE DEFECT, in the shape the downstream envelope reported it: more painted rows than
+        // records, with a record appearing twice.
+        const duplicates = [...new Set(shownId.filter((id, index) => shownId.indexOf(id) !== index))];
+
+        expect(duplicates,
+            `no record is painted twice while the pool is over-sized (shown: ${shownId.join() || 'none'})`)
+            .toEqual([]);
+
+        const rowIds     = shown.map(row => row.rowId),
+              rowIdDupes = [...new Set(rowIds.filter((id, index) => rowIds.indexOf(id) !== index))];
+
+        expect(rowIdDupes, `no two visible rows claim the same row index (duplicated: ${rowIdDupes.join() || 'none'})`)
+            .toEqual([]);
+
+        // Every stranded slot is genuinely hidden rather than left painting its previous record —
+        // the property the silent clear path is responsible for.
+        const strandedButVisible = all.filter(row => !row.hidden && row.recordId === null);
+
+        expect(strandedButVisible, 'a cleared pool element is not left visible without a record').toEqual([])
     })
 });
