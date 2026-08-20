@@ -1470,12 +1470,25 @@ class IngestionService extends Base {
 
     /**
      * @summary Builds the provider input string using the same shape as `VectorService.embedChunks`.
+     *
+     * DELEGATES rather than restating that shape. The docblock has always claimed sameness while the
+     * body was a second copy, and the two drifted in the way copies do — the guardrail here measured
+     * one string while the provider received another.
+     *
+     * Bound to the imported class, NOT to the `vectorService` member, and the distinction is load-
+     * bearing rather than stylistic. That member is the injection seam for *downstream embedding and
+     * upsert I/O* — the thing a test replaces to observe a refusal without a provider. Routing a pure
+     * string builder through it makes every such stub answerable for helpers that have nothing to do
+     * with the seam's purpose: two independent stubs in this service's own spec broke on exactly that,
+     * one of which replaces the whole member to force a refusal. The provider input format is a single
+     * contract, not a per-deployment choice.
+     *
      * @param {Object} chunk Normalized parsed chunk.
      * @returns {String}
      * @protected
      */
     buildEmbeddingInputText(chunk) {
-        return `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`;
+        return VectorService.buildEmbeddingInputText(chunk);
     }
 
     /**
