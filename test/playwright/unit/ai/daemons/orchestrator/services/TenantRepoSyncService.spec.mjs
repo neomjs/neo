@@ -683,6 +683,121 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(bothRowOut.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
     });
 
+    test('a fence-only REAL receipt writer proves completion through runTask (#17440)', async () => {
+        const
+            {default: IngestionService} = await import(
+                '../../../../../../../ai/services/knowledge-base/IngestionService.mjs'
+            ),
+            taskStateService = createInMemoryTaskStateService(),
+            manifests        = new Map(),
+            repoSlug         = 'org/real-fence-receipt',
+            poisonId         = '9'.repeat(64),
+            monsterId        = '8'.repeat(64),
+            poisonRow        = {
+                code   : 'KB_VECTOR_EMBED_TIMEOUT',
+                message: 'A proven embedding poison remains fenced.',
+                details: {
+                    chunkId    : poisonId,
+                    reasonCode : 'KB_VECTOR_EMBED_TIMEOUT',
+                    disposition: 'proven-content-poison'
+                }
+            },
+            geometryRow      = {
+                code   : 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY',
+                message: 'A chunk remains fenced at the current geometry.',
+                details: {
+                    chunkId    : monsterId,
+                    reasonCode : 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY',
+                    disposition: 'undeliverable-at-geometry'
+                }
+            },
+            receiptWriter = {
+                normalizeManifestSnapshot      : IngestionService.normalizeManifestSnapshot.bind(IngestionService),
+                normalizeMaterializationAttempt: IngestionService.normalizeMaterializationAttempt.bind(IngestionService),
+                async getTenantManifest({tenantId, repoSlug}) {
+                    return manifests.get(`${tenantId}/${repoSlug}`) || {
+                        tenantId, repoSlug, materializationReceipt: null
+                    }
+                },
+                async setTenantManifest({tenantId, repoSlug, pathsAfterPush, materializationReceipt}) {
+                    const value = {tenantId, repoSlug, pathsAfterPush, materializationReceipt};
+
+                    manifests.set(`${tenantId}/${repoSlug}`, value);
+                    return value
+                }
+            },
+            ingestionService = {
+                getTenantManifest: receiptWriter.getTenantManifest.bind(receiptWriter),
+                async ingestSourceFiles(payload) {
+                    const summary = {
+                        ingested           : 1,
+                        deleted            : 0,
+                        embeddingsGenerated: 1,
+                        errors             : [{...poisonRow}, {...geometryRow}],
+                        tenantId           : payload.tenantId,
+                        durationMs         : 1,
+                        yielded            : false
+                    };
+
+                    await IngestionService.persistManifestSnapshot.call(receiptWriter, {
+                        manifestSnapshot      : payload.manifestSnapshot,
+                        files                 : payload.files,
+                        headRevision          : payload.headRevision,
+                        materializationAttempt: payload.materializationAttempt,
+                        tenantContext         : {tenantId: payload.tenantId, repoSlug: payload.repoSlug},
+                        summary
+                    });
+
+                    return summary
+                }
+            };
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/real-fence-receipt.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({includeManifest: true}),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60_000,
+            jitterRatio                  : 0,
+            backoffCapMs                 : 60_000,
+            seedBootstrap                : false
+        });
+
+        const
+            persisted = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`],
+            manifest  = manifests.get(`t1/${repoSlug}`);
+
+        expect(result).toMatchObject({
+            status : 'completed',
+            details: {
+                completedCount: 1,
+                failedCount   : 0,
+                repos         : [{
+                    repoSlug,
+                    status             : 'active',
+                    contentPoisonChunks: {count: 1, ids: [poisonId]},
+                    undeliverableChunks: {count: 1, ids: [monsterId]}
+                }]
+            }
+        });
+        expect(persisted.lastIngestedRev).toBe(`sha-head-${repoSlug}`);
+        expect(persisted.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+        expect(persisted.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+        expect(manifest.materializationReceipt).toMatchObject({
+            ingestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            envelopeDigest       : expect.stringMatching(/^[a-f0-9]{64}$/u)
+        });
+        expect(persisted.lastCommittedMaterializationAttemptId)
+            .toBe(manifest.materializationReceipt.attemptId);
+    });
+
     test('a live row sharing a fence code still defers, and the retained cause is the LIVE one (#17139)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),

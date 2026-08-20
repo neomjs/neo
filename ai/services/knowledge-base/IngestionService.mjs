@@ -25,6 +25,7 @@ import {
     classifyEmbedFailureCode,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition,
+    isDurableFenceRow,
     isEmbedFailureCode
 }
                             from './helpers/embedFailureClassification.mjs';
@@ -320,10 +321,10 @@ class IngestionService extends Base {
                     // `embedChunks` on its `() => false` default, so a caller that supplies no
                     // budget behaves exactly as it does today.
                     shouldYield: controls.shouldYield,
-                    signal               : controls.signal,
+                    signal     : controls.signal,
                     tenantContext,
                     summary,
-                    viaMcp               : payload.viaMcp !== false
+                    viaMcp     : payload.viaMcp !== false
                 });
             }
 
@@ -751,9 +752,9 @@ class IngestionService extends Base {
             // not yield" from "this summary predates the field" — an absent boolean reads as false
             // and would let a stale producer look like a complete run.
             yielded   : false,
-            errors             : [],
-            tenantId           : aiConfig.defaultTenantId,
-            durationMs         : Date.now() - startedAt
+            errors    : [],
+            tenantId  : aiConfig.defaultTenantId,
+            durationMs: Date.now() - startedAt
         };
     }
 
@@ -1202,6 +1203,18 @@ class IngestionService extends Base {
         // whether a prior receipt existed to fall back on — the branch that distinguishes
         // "first materialization" from "retry whose prior proof did not match".
         let priorReceiptPresent = false;
+        // Method-scoped because the no-receipt diagnostic below must report the same decision that
+        // gated mint/reuse. Computing it once before the attempt block keeps every no-receipt path
+        // attributable before `setTenantManifest` clears stale proof.
+        const
+            durableFenceOnly      = summary.errors.length > 0
+                && summary.errors.every(isDurableFenceRow),
+            receiptErrorsComplete = summary.errors.length === 0 || durableFenceOnly,
+            // Preserve the pre-existing clean-summary retry behavior, including its yielded shape.
+            // The new fence-only extension is narrower: a yielded fence summary is still incomplete
+            // and must not borrow prior full-materialization proof.
+            receiptReuseCompatible = summary.errors.length === 0
+                || (durableFenceOnly && summary.yielded !== true);
 
         if (attempt) {
             const
@@ -1225,7 +1238,7 @@ class IngestionService extends Base {
                 //
                 // This does NOT weaken crash-after-complete recovery: a run that exhausted its
                 // corpus reports `yielded: false` and mints exactly as before.
-                hasEffect      = summary.errors.length === 0
+                hasEffect      = receiptErrorsComplete
                     && summary.yielded !== true
                     && [summary.ingested, summary.deleted]
                         .some(value => Number.isSafeInteger(value) && value > 0);
@@ -1240,7 +1253,7 @@ class IngestionService extends Base {
                     recordedAt           : Date.now()
                 };
             } else if (
-                summary.errors.length === 0
+                receiptReuseCompatible
                 && existing.materializationReceipt?.ingestContractVersion === attempt.ingestContractVersion
                 && existing.materializationReceipt.envelopeDigest === envelopeDigest
             ) {
@@ -1295,6 +1308,7 @@ class IngestionService extends Base {
                 ingested                     : summary.ingested,
                 deleted                      : summary.deleted,
                 errorCount                   : summary.errors.length,
+                durableFenceOnly,
                 priorReceiptPresent
             });
         }

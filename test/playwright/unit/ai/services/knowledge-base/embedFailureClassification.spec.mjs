@@ -12,10 +12,12 @@ import {
     EMBED_DISPOSITION,
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
     KB_VECTOR_EMBED_UNCLASSIFIED,
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedDisposition,
     classifyEmbedFailureCode,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition,
+    isDurableFenceRow,
     isEmbedFailureCode,
     KB_VECTOR_EMBED_TRANSPORT_CLOSED,
     isProviderDeathError
@@ -215,6 +217,40 @@ test.describe('embed failure classification (#16647)', () => {
 
         // Non-vacuity: if the list above were ever emptied, the loop would pass by iterating nothing.
         expect(providerCodes.length).toBeGreaterThan(0);
+    });
+});
+
+test.describe('isDurableFenceRow (#17139, #17440)', () => {
+    const chunkId = 'a'.repeat(64);
+
+    const fence = (disposition, code='KB_VECTOR_EMBED_TIMEOUT') => ({
+        code,
+        details: {chunkId, disposition, reasonCode: code}
+    });
+
+    test('accepts both writer-owned durable fence families', () => {
+        expect(isDurableFenceRow(fence('proven-content-poison'))).toBe(true);
+        expect(isDurableFenceRow(fence(
+            'undeliverable-at-geometry',
+            KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY
+        ))).toBe(true);
+    });
+
+    test('every malformed or incoherent clause fails toward live work', () => {
+        const valid = fence('proven-content-poison');
+
+        for (const candidate of [
+            null,
+            {},
+            {...valid, details: null},
+            {...valid, details: []},
+            {details: {chunkId, disposition: 'proven-content-poison'}},
+            {...valid, details: {...valid.details, disposition: 'foreign-fence'}},
+            {...valid, details: {...valid.details, reasonCode: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT'}},
+            {...valid, details: {...valid.details, chunkId: 'not-a-tenant-aware-hash'}}
+        ]) {
+            expect(isDurableFenceRow(candidate)).toBe(false);
+        }
     });
 });
 
