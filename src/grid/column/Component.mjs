@@ -1,5 +1,6 @@
 import {isDescriptor} from '../../core/ConfigSymbols.mjs';
 import Column         from './Base.mjs';
+import TreeBuilder    from '../../util/vdom/TreeBuilder.mjs';
 
 /**
  * @class Neo.grid.column.Component
@@ -12,6 +13,17 @@ class Component extends Column {
          * @protected
          */
         className: 'Neo.grid.column.Component',
+        /**
+         * The deepest chain of nested components any of this column's cells has reached, counting the
+         * cell itself as 1. Read by `grid.View#syncBodies` to size the scroll transaction so it expands
+         * the cells rather than stopping on them.
+         *
+         * Measured when a cell component is created rather than while scrolling: creation happens once
+         * per pool slot, a scroll happens every frame.
+         * @member {Number} cellDepth=1
+         * @protected
+         */
+        cellDepth: 1,
         /**
          * @member {Function|Object|null} component=null
          */
@@ -162,6 +174,11 @@ class Component extends Column {
             if (me.useBindings) {
                 gridContainer.body.getStateProvider()?.createBindings(component)
             }
+
+            // A cell may be a container whose children carry the record-derived content, and those
+            // children sit one component boundary further from grid.View than the cell does. Publish the
+            // reach here so the scroll transaction can be sized from what the cells actually are.
+            me.cellDepth = Math.max(me.cellDepth, TreeBuilder.getComponentDepth(component))
         }
 
         return component

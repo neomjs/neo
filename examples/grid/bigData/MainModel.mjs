@@ -32,6 +32,10 @@ class MainModel extends Model {
                 {name: 'counter',   type: 'Int'},
                 {name: 'firstname', type: 'String'},
                 {name: 'lastname',  type: 'String'},
+                // Carries no value of its own: the cell's content is produced by its component from
+                // `firstname`. It exists because a cell's DOM id is derived from its dataField, so a
+                // second column reusing `firstname` would collide with the plain one.
+                {name: 'nestedCell'},
                 {name: 'progress',  type: 'Int'}
             ];
 

@@ -3,6 +3,14 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 
 /**
+ * Component boundaries between grid.View and a cell component: View → Body → Row. `updateDepth` is
+ * 1-based, so this is the depth at which the cells themselves are still the pruned boundary — the reach
+ * INTO them is added on top, from what the columns report their cells to be.
+ * @type {Number}
+ */
+const ROW_DISTANCE = 3;
+
+/**
  * @class Neo.grid.View
  * @extends Neo.container.Base
  */
@@ -75,6 +83,27 @@ class View extends Base {
     get bodies() {
         let container = this.gridContainer;
         return container ? [container.bodyStart, container.body, container.bodyEnd].filter(Boolean) : []
+    }
+
+    /**
+     * How far a scroll update has to reach past a row to repaint the cell CONTENTS: the deepest chain of
+     * nested components any column's cells have reached, counting the cell itself as 1.
+     *
+     * Read from the columns rather than measured here, because `grid.column.Component` measures a cell
+     * once when it creates it, while this is read on every scroll frame. Defaults to 1, which is the
+     * flat cell every built-in module is today.
+     * @returns {Number}
+     */
+    get maxCellDepth() {
+        let max = 1;
+
+        for (const column of this.gridContainer?.columns?.items || []) {
+            if (column.cellDepth > max) {
+                max = column.cellDepth
+            }
+        }
+
+        return max
     }
 
     /**
@@ -190,11 +219,11 @@ class View extends Base {
      * @param {Number} scrollTop
      */
     syncBodies(scrollTop) {
-        let me        = this,
-            container = me.gridContainer,
+        let me                                        = this,
+            container                                 = me.gridContainer,
             {body, bodyEnd, bodyStart, scrollManager} = container,
-            {bufferRowRange, rowHeight} = body,
-            newStartIndex = Math.floor(scrollTop / rowHeight);
+            {bufferRowRange, rowHeight}               = body,
+            newStartIndex                             = Math.floor(scrollTop / rowHeight);
 
         let updateBody = _body => {
             let isCenter = _body === body;
@@ -220,8 +249,23 @@ class View extends Base {
         bodyStart && updateBody(bodyStart);
         bodyEnd   && updateBody(bodyEnd);
 
-        me.scrollTop   = scrollTop;
-        me.updateDepth = 3;
+        me.scrollTop = scrollTop;
+
+        // The scroll repaints a row's subtree as one silent transaction, so the depth has to reach the
+        // cell CONTENTS, not the cell. `updateDepth` is 1-based and `TreeBuilder` decrements it only when
+        // it crosses a component boundary, so View → Body → Row costs 3 and everything past the boundary
+        // is emitted as `{componentId, neoIgnore: true}` — a reference the worker leaves untouched.
+        //
+        // At 3 that boundary lands on the cell components themselves: rows repaint while every
+        // `grid.column.Component` cell keeps what it first rendered. The reach past it is not a constant,
+        // because a cell may be a container whose children hold the record-derived content — so the
+        // columns report what their cells actually are and the depth is derived from that. A literal
+        // would be a snapshot of today's cell modules, and would leave a nested cell stale.
+        //
+        // -1 is NOT the shortcut it appears to be: `hasUpdateCollision` treats it as colliding with every
+        // distance, which pulls unrelated pending child updates into the scroll cycle and destabilises
+        // the TreeGrid. The bound has to stay finite.
+        me.updateDepth = ROW_DISTANCE + me.maxCellDepth;
         me.update()
     }
 }
