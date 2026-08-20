@@ -144,16 +144,18 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
             await app.setProperties(tabId, horizontal ? {width: 250} : {height: 200});
             await expect(overflowControl).toHaveCount(1, {timeout: 10000});
 
-            const controlRect = await overflowControl.boundingBox(),
-                  actionRect  = await nextAction.boundingBox();
+            // The same floating control survives axis changes, so count=1 can already be true while
+            // the owner ResizeObserver is still projecting its new alignment. Poll the rendered
+            // boundary itself — the contract under test — rather than sampling that transition.
+            await expect.poll(async () => {
+                const controlRect = await overflowControl.boundingBox(),
+                      actionRect  = await nextAction.boundingBox();
 
-            if (horizontal) {
-                expect(Math.abs(controlRect.x + controlRect.width - actionRect.x),
-                    `${position}: Overflow aligns before the action rail`).toBeLessThanOrEqual(2)
-            } else {
-                expect(Math.abs(controlRect.y + controlRect.height - actionRect.y),
-                    `${position}: Overflow aligns before the action rail`).toBeLessThanOrEqual(2)
-            }
+                return horizontal
+                    ? Math.abs(controlRect.x + controlRect.width - actionRect.x)
+                    : Math.abs(controlRect.y + controlRect.height - actionRect.y)
+            }, {message: `${position}: Overflow aligns before the action rail`, timeout: 10000})
+                .toBeLessThanOrEqual(2);
 
             await app.setProperties(tabId, {height: 300, width: 500});
             await expect(overflowControl).toHaveCount(0, {timeout: 10000})
@@ -277,6 +279,42 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
 
         expect(mismatches, 'post-drag items, VDOM, and DOM remain exact').toEqual([]);
         expect(await app.callMethod(tabId, 'getCount')).toBe(3);
+
+        // Runtime host replacement enters Toolbar#syncActions rather than the construction path.
+        // Contextual defaults are applied after the structural insert there, so pin their physical
+        // DOM/a11y state rather than accepting the worker VDOM as proof that the insert flush carried it.
+        await outsideField.click();
+        await expect(previousAction).toHaveCSS('visibility', 'hidden');
+        await app.setProperties(tabId, {
+            headerActions: [{action: 'runtime-contextual', iconCls: 'fa fa-bolt'}]
+        });
+
+        const runtimeActionRecord = await app.callMethod(tabId, 'getActionItem', ['runtime-contextual']),
+              runtimeActionId     = runtimeActionRecord?.id,
+              runtimeAction       = page.locator(`#${runtimeActionId}`);
+
+        expect(runtimeActionId, 'runtime replacement materialises the new semantic action').toBeTruthy();
+        await expect(runtimeAction).toHaveCount(1);
+        await expect(runtimeAction,
+            'syncActions commits contextual inactivity to the rendered root').toHaveCSS('visibility', 'hidden');
+        await expect(page.getByRole('button', {name: 'runtime contextual', exact: true})).toHaveCount(0);
+        expect(await runtimeAction.evaluate(node => ({
+            ariaHidden: node.getAttribute('aria-hidden'),
+            inert     : node.inert,
+            tabIndex  : node.tabIndex
+        }))).toEqual({ariaHidden: 'true', inert: true, tabIndex: -1});
+
+        await card.click();
+        await expect(runtimeAction).toHaveCSS('visibility', 'visible');
+        await expect(page.getByRole('button', {name: 'runtime contextual', exact: true})).toHaveCount(1);
+        expect(await runtimeAction.evaluate(node => ({
+            ariaHidden: node.getAttribute('aria-hidden'),
+            inert     : node.inert,
+            tabIndex  : node.tabIndex
+        }))).toEqual({ariaHidden: null, inert: false, tabIndex: 0});
+
+        expect(await app.callMethod(tabId, 'getCount'),
+            'runtime action replacement never changes the semantic tab count').toBe(3);
         expect(pageErrors, 'the complete action/focus/overflow/drag journey emits no page errors').toEqual([])
     })
 });
