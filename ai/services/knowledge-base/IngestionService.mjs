@@ -29,6 +29,8 @@ import {
 }
                             from './helpers/embedFailureClassification.mjs';
 import VectorService   from './VectorService.mjs';
+import {buildEmbeddingInputText}
+                       from './helpers/embeddingInputFormat.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import crypto          from 'crypto';
 import fs              from 'fs-extra';
@@ -1469,13 +1471,20 @@ class IngestionService extends Base {
     }
 
     /**
-     * @summary Builds the provider input string using the same shape as `VectorService.embedChunks`.
+     * @summary Builds the provider input string this service's guardrail measures.
+     *
+     * Reads the shared `helpers/embeddingInputFormat` authority — the same definition the vector
+     * service and the byte-budget planner read — so the string measured here is by construction the
+     * string the provider receives. It is deliberately NOT taken from the `vectorService` member: that
+     * member is the configurable seam for downstream embedding and upsert I/O, and the provider input
+     * format is one contract rather than a per-deployment choice.
+     *
      * @param {Object} chunk Normalized parsed chunk.
      * @returns {String}
      * @protected
      */
     buildEmbeddingInputText(chunk) {
-        return `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`;
+        return buildEmbeddingInputText(chunk);
     }
 
     /**

@@ -10,6 +10,8 @@ import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
                               from '../../embeddingProviders.mjs';
 import {resolveEmbeddingAdmissionBand}
                               from '../../embeddingSafeBand.mjs';
+import {buildEmbeddingInputHeader, buildEmbeddingInputText}
+                              from './helpers/embeddingInputFormat.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -585,13 +587,28 @@ class VectorService extends Base {
     }
 
     /**
+     * @summary Service-facing view of the provider-input header contract.
+     *
+     * The format itself is owned by `helpers/embeddingInputFormat.mjs`, which is the single authority
+     * every consumer reads — this service, the ingestion guardrail, and the byte-budget planner below.
+     * The method is retained as a call site rather than a definition so callers and specs keep one
+     * entry point while the contract has one home.
+     *
+     * @param {Object} chunk Parsed knowledge chunk.
+     * @returns {String} The header, including its trailing newline.
+     */
+    buildEmbeddingInputHeader(chunk) {
+        return buildEmbeddingInputHeader(chunk);
+    }
+
+    /**
      * Builds the provider input string used by the embedding guardrail and provider call.
      *
      * @param {Object} chunk Parsed knowledge chunk.
      * @returns {String} Provider input text.
      */
     buildEmbeddingInputText(chunk) {
-        return `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`;
+        return buildEmbeddingInputText(chunk);
     }
 
     /**
@@ -692,7 +709,10 @@ class VectorService extends Base {
         }
 
         const maxInputBytes   = Math.max(1, estimateBandTokens * 3),
-              prefixBytes     = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
+              // MEASURED from the header the provider will receive, never a restatement of its format.
+              // A planner that carries its own copy budgets against a string that may not be the one
+              // sent, and the two cannot be kept in step by review.
+              prefixBytes     = Buffer.byteLength(buildEmbeddingInputHeader(chunk), 'utf8'),
               maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
               parts           = this.splitTextByByteBudget(content, maxContentBytes);
 
