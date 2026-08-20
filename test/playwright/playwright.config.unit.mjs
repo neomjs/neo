@@ -53,14 +53,13 @@ export const knowledgeBaseConfigTemplateTestMatch =
 export const memoryCoreConfigTemplateTestMatch =
     /[\\/]ai[\\/]mcp[\\/]server[\\/]memory-core[\\/]config\.template\.spec\.mjs$/;
 
-// Profiling specs assert wall-clock performance budgets, which only mean anything on an UNCONTENDED
-// CPU. Under multi-worker parallelism the shallow-clone filter has measured ~750ms against its 400ms
-// budget — inside the old deep-clone band — so a bulk-parallel run cannot host them. They run in
-// their own project instead (see `unit-profiling` below), so the bulk suites can go wide while these
-// stay quiet. Keep this list narrow: only genuine wall-clock-budget specs belong here — a spec whose
-// timing assertion is a ratio or a loose timeout does NOT (it survives contention and should
-// parallelize with the bulk).
-export const profilingTestMatch = /[\\/]devindex[\\/](StoreFilter|GridScroll)Profile\.spec\.mjs$/;
+// NOTE: this config carried a `unit-profiling` project for wall-clock-budget specs, isolated behind
+// a `dependencies` barrier plus `workers: 1` so each measured on an uncontended CPU. Its only two
+// members were the DevIndex profiling specs, and both — along with the isolation mechanism — moved
+// to `neomjs/devindex` with the app. A project whose `testMatch` selects nothing does not fail; it
+// reports zero tests and reads as passing, so the empty scaffold was removed rather than left as a
+// green that means nothing. Reintroduce it here the same way if neo ever grows its own wall-clock
+// budgets — a ratio or a loose timeout is NOT one, since those survive contention.
 
 // Brain-tier install gate (the two-path install tier: Body default, Brain opt-in).
 // A base `npm install` no longer installs the Brain set (`package.brain.json`: better-sqlite3,
@@ -126,31 +125,10 @@ export function assertBrainTierForEnvironment({brainPresent, isCI}) {
 export function buildProjects({brainPresent}) {
     const bodyBulk = {
         name      : 'unit',
-        testIgnore: [brainTestMatch, brainHookTestMatch, profilingTestMatch]
+        testIgnore: [brainTestMatch, brainHookTestMatch]
     };
 
-    const profiling = {
-        // Isolation is TWO mechanisms, because neither alone suffices:
-        //   1. `dependencies: ['unit']` is the BARRIER — this project does not START until the bulk
-        //      body suite finishes, so the multi-worker contention that busts the budgets is already
-        //      over. A project-level `workers` cap would NOT achieve this on its own: independent
-        //      projects interleave up to the global worker maximum.
-        //   2. `workers: 1` is the cross-file serializer — `fullyParallel: false` alone only
-        //      serializes WITHIN a file, so the two profiling specs (separate files) would still run
-        //      concurrent and contend with each other. `workers: 1` (a valid TestProject field in the
-        //      pinned Playwright) caps this project to one worker while the global stays wide for
-        //      the bulk-parallelism win. Each profiling spec then measures truly alone.
-        // Depends on `unit` only, not `unit-brain`: the profiling specs are pure body runs, and
-        // dragging the brain project (hence a Chroma boot) into a body-only invocation would break
-        // the config's pure-body-run boundary for a measurement that never touches the Brain.
-        name         : 'unit-profiling',
-        dependencies : ['unit'],
-        testMatch    : profilingTestMatch,
-        fullyParallel: false,
-        workers      : 1
-    };
-
-    if (!brainPresent) return [bodyBulk, profiling];
+    if (!brainPresent) return [bodyBulk];
 
     return [{
         name     : 'chroma-setup',
@@ -187,9 +165,7 @@ export function buildProjects({brainPresent}) {
         name        : 'unit-brain-memory-core-config',
         dependencies: ['chroma-setup'],
         testMatch   : memoryCoreConfigTemplateTestMatch
-    },
-        profiling
-    ];
+    }];
 }
 
 const brainPresent = hasBrainTier(repoRoot);

@@ -2,7 +2,7 @@
 
 > **"The fastest garbage collector is the one that never runs."**
 
-Neo.mjs provides high-performance support for hierarchical data through the `Neo.data.TreeStore` and `Neo.data.TreeModel` classes. This architecture was forged in the crucible of our DevIndex flagship app, explicitly designed to render massive TreeGrids (e.g., 50,000+ live-updating records) while maintaining absolute, unyielding O(1) rendering performance.
+Neo.mjs provides high-performance support for hierarchical data through the `Neo.data.TreeStore` and `Neo.data.TreeModel` classes. This architecture was forged against a flagship application, explicitly designed to render massive TreeGrids (e.g., 50,000+ live-updating records) while maintaining absolute, unyielding O(1) rendering performance.
 
 To understand why `TreeStore` is engineered this way, we must examine why traditional industry solutions fail at this scale.
 
@@ -18,13 +18,13 @@ Furthermore, if the grid allows dynamic updates (live data feeds), constantly re
 
 ## The Neo.mjs Solution: The "Hierarchical Rows" Pattern
 
-The `Neo.data.TreeStore` solves this by acting as a highly optimized architectural bridge. It absorbs the complexity of the hierarchy and exposes a simple, flat array of **only the currently visible nodes** to the grid. 
+The `Neo.data.TreeStore` solves this by acting as a highly optimized architectural bridge. It absorbs the complexity of the hierarchy and exposes a simple, flat array of **only the currently visible nodes** to the grid.
 
 The complexity is managed entirely by the data layer, allowing UI components like `Neo.grid.Container` to render TreeGrids without knowing they are rendering a tree.
 
 ### The RecordFactory: Bypassing the ORM Memory Trap
 
-Before discussing how the TreeStore manages state, we must address the fundamental problem of data instantiation at scale. 
+Before discussing how the TreeStore manages state, we must address the fundamental problem of data instantiation at scale.
 
 In traditional enterprise frameworks (like ExtJS or Bryntum), the default approach is a heavy Object-Relational Mapping (ORM) pattern. When you load 50,000 records into their Stores, the framework loops through the raw JSON and instantiates 50,000 heavy `Model` class instances. Furthermore, each field within that record might be its own custom instance. This "Heavy OOP" approach creates massive memory overhead, guarantees crippling Garbage Collection pauses, and makes 60fps scrolling impossible.
 
@@ -32,8 +32,8 @@ Neo.mjs shatters this paradigm via the `Neo.data.RecordFactory`:
 
 1.  **A Single Source of Truth:** A `Store` (including `TreeStore`) instantiates exactly **ONE** `Neo.data.Model` (e.g., `TreeModel`). This single instance acts as the configuration schema and rule-engine for the entire dataset.
 2.  **Zero-Overhead Prototypes:** The `RecordFactory` reads this single Model and dynamically generates a lightweight `Record` class on the fly. It attaches getter and setter functions directly to the prototype of this generated class.
-3.  **Raw Data Encapsulation:** When a record is instantiated, the raw JSON object is stored internally via a unique `Symbol` (`this[dataSymbol]`). 
-4.  **O(1) Property Access:** When you call `record.name`, the prototype getter simply retrieves `this[dataSymbol].name` directly from the raw JSON. 
+3.  **Raw Data Encapsulation:** When a record is instantiated, the raw JSON object is stored internally via a unique `Symbol` (`this[dataSymbol]`).
+4.  **O(1) Property Access:** When you call `record.name`, the prototype getter simply retrieves `this[dataSymbol].name` directly from the raw JSON.
 
 The result? Even if you fully instantiate 50,000 records, you are only storing 50,000 extremely lightweight shells around the original raw JSON. You are not duplicating 50,000 heavy Model instances. This translates to radically lower memory pressure and perfectly smooth 60fps rendering because the Garbage Collector never has to panic.
 
@@ -44,7 +44,7 @@ The result? Even if you fully instantiate 50,000 records, you are only storing 5
 Unlike a standard `Store` which manages a single flat array, `TreeStore` maintains two distinct states:
 
 #### 1. The Structural Layer
-The Structural Layer consists of deep, hierarchical native `Map` objects (`#childrenMap`, `#allRecordsMap`). These maps hold the complete tree structure and all data nodes (both visible and hidden) in O(1) accessible memory. 
+The Structural Layer consists of deep, hierarchical native `Map` objects (`#childrenMap`, `#allRecordsMap`). These maps hold the complete tree structure and all data nodes (both visible and hidden) in O(1) accessible memory.
 - **Zero Duplication:** It intentionally avoids using a secondary `Neo.collection.Base` for `#allRecordsMap` to prevent memory bloat and "flat array" impedance mismatches. It holds the raw records exactly once.
 
 #### 2. The Projection Layer
@@ -58,10 +58,10 @@ graph TD
     A --> A1(Node A.1)
     A --> A2(Node A.2)
     B --> B1(Node B.1)
-    
+
     classDef collapsed stroke-dasharray: 5 5;
     classDef expanded stroke-width:3px;
-    
+
     class A expanded;
     class B collapsed;
     end
@@ -71,17 +71,17 @@ graph TD
     F2[Index 1: Node A.1]
     F3[Index 2: Node A.2]
     F4[Index 3: Node B]
-    
+
     F1 -.-> F2
     F2 -.-> F3
     F3 -.-> F4
     end
-    
+
     A -.-> F1
     A1 -.-> F2
     A2 -.-> F3
     B -.-> F4
-    
+
     %% B1 is hidden because B is collapsed
 ```
 
@@ -105,9 +105,9 @@ The `TreeModel` also includes explicit fields for accessibility:
 
 **Why is this critical?** Screen readers rely on WAI-ARIA attributes (`aria-level`, `aria-posinset`, `aria-setsize`, `aria-expanded`) to navigate complex grids. The user needs to know "I am on child 2 of 5 at level 3".
 
-*Architectural Note:* In many frameworks, these positional values are calculated dynamically via getters or during the view's render loop. **This is a fatal flaw for performance at scale.** 
+*Architectural Note:* In many frameworks, these positional values are calculated dynamically via getters or during the view's render loop. **This is a fatal flaw for performance at scale.**
 
-In Neo.mjs, `siblingCount` and `siblingIndex` are maintained directly on the record. While this requires O(N) operations during data mutations (when adding or removing a node, we must iterate and update the stats of all its siblings in the Structural Layer), it guarantees **O(1) read performance in the `grid.Row` hot-path rendering loop.** 
+In Neo.mjs, `siblingCount` and `siblingIndex` are maintained directly on the record. While this requires O(N) operations during data mutations (when adding or removing a node, we must iterate and update the stats of all its siblings in the Structural Layer), it guarantees **O(1) read performance in the `grid.Row` hot-path rendering loop.**
 
 Since virtual scrolling occurs at 60-120fps and mutations are comparatively rare, this explicit architectural trade-off ensures the UI never stutters while calculating accessibility attributes. Every row in the Neo.mjs TreeGrid is fully accessible without sacrificing a single frame of performance.
 
@@ -148,7 +148,7 @@ sequenceDiagram
 
 #### Bulk Operations (`expandAll` / `collapseAll`)
 
-If you want to expand or collapse the entire 50,000-row tree at once, firing 50,000 individual `splice` and `mutate` events would instantly freeze the browser. 
+If you want to expand or collapse the entire 50,000-row tree at once, firing 50,000 individual `splice` and `mutate` events would instantly freeze the browser.
 
 To solve this, `TreeStore` provides highly optimized bulk methods:
 
@@ -161,7 +161,7 @@ treeStore.collapseAll();
 Instead of performing individual mutations, these methods:
 1. **Silently Iterate:** They iterate through the entire Structural Layer, silently setting `collapsed = false` (or `true`) on all non-leaf nodes without firing any change events.
 2. **Re-Project:** They completely wipe the flat `_items` array and perform a single, top-down recursive traversal to rebuild the entire Projection Layer in one pass.
-3. **Single Render:** They fire a single `load` event. The UI simply swaps out the old data array for the new one and performs a single DOM update for the currently visible viewport. 
+3. **Single Render:** They fire a single `load` event. The UI simply swaps out the old data array for the new one and performs a single DOM update for the currently visible viewport.
 
 This turns a potentially O(N^2) catastrophe of cascading splices into a clean, O(N) single-pass operation that executes in milliseconds.
 
@@ -177,11 +177,11 @@ sequenceDiagram
     loop O(N) over allRecordsMap
         Store->>Struct: set collapsed = false (no events)
     end
-    
+
     Note over Store, Proj: 2. Single re-projection
     Store->>Proj: Wipe _items array
     Store->>Proj: Rebuild via top-down traversal
-    
+
     Note over Store, UI: 3. Single UI update
     Store-->>UI: Fire 'load' event (items: [...])
     UI->>UI: Swap dataset & render visible viewport
@@ -190,7 +190,7 @@ sequenceDiagram
 ### Advanced Features & Extreme Performance
 
 #### "Turbo Mode" (Soft Hydration)
-To achieve extreme performance and minimal memory footprint, `TreeStore` fully supports "Turbo Mode" via the `autoInitRecords: false` config. 
+To achieve extreme performance and minimal memory footprint, `TreeStore` fully supports "Turbo Mode" via the `autoInitRecords: false` config.
 
 Instead of instantiating heavy `Record` class instances for every node (which could be tens of thousands and crush the V8 Garbage Collector), it uses raw JavaScript objects (POJOs). Lightweight Records are only created on-demand when accessed via `get()`. This provides massive memory savings.
 
@@ -209,7 +209,7 @@ Similarly, a standard flat sort would destroy parent-child relationships (e.g., 
 
 ## The Technical Reality: Why This Matters
 
-The `TreeStore` and its underlying `RecordFactory` are not just theoretical exercises; they are the foundation that makes the impossible possible in the browser. 
+The `TreeStore` and its underlying `RecordFactory` are not just theoretical exercises; they are the foundation that makes the impossible possible in the browser.
 
 By aggressively separating the data layer (the O(1) Structural maps) from the rendering layer (the flat Projection array), and by fundamentally bypassing the "Heavy OOP" trap with Zero-Overhead Prototypes, Neo.mjs allows you to hold 50,000 live, updating, hierarchical records in memory without crashing the V8 engine.
 

@@ -222,8 +222,8 @@
         background: var(--workstation-panel-2);
     }
 
-    // The Sparkline component's intrinsic canvas is 300x150. Workstation must load the
-    // same cell-fit contract proven by DevIndex instead of letting that size escape.
+    // The Sparkline component's intrinsic canvas is 300x150. Workstation must load an
+    // explicit cell-fit contract instead of letting that size escape.
     .neo-sparkline-wrapper {
         contain: strict;
         height : 100%;

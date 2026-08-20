@@ -150,17 +150,6 @@
             "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) \u2014 the spec `fleetWakeStreamConsumer.spec.mjs` drives a drop\u2192reconnect cycle on the injected floor and `stop()` ends the loop.",
             "note": "The App-Worker twin of the relay consumer's identical site (same fingerprint 5f68f770): the parity spec binds the parser, this entry binds the bound."
         },
-        "apps/devindex/services/GitHub.mjs##getRetryDelay:41482917": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(this.restRetryMaxDelayMs, ...)` applied twice (pre- and post-jitter)"
-        },
-        "apps/devindex/services/Spider.mjs#pickStrategy:af20cfdb": {
-            "kind": "not-a-retry",
-            "witness": "`Math.pow(Math.random(), 3)` is a cubic-bias power-law over [0,1) shaping a jitter offset; the exponent is the constant 3 and cannot grow.",
-            "note": "The nearest true-positive shape in the tree \u2014 a random offset in a crawler \u2014 and still not a retry series: nothing re-attempts on it."
-        },
         "apps/portal/canvas/HomeCanvas.mjs#drawNetwork:3d84b270": {
             "kind": "not-a-retry",
             "witness": "Euclidean distance from a wave origin \u2014 `(posX - wave.x)**2`; squares a coordinate delta with a literal exponent.",
@@ -261,7 +250,7 @@
             "lifetime": "process-local",
             "boundCarrier": "max-delay",
             "witness": "`Math.min(1000 * Math.pow(2, attempt - 1), 30000)` in the default backoffStrategy",
-            "note": "Body-side reconnect. One of three retry-growth sites outside ai/, alongside apps/devindex/services/GitHub.mjs and src/manager/DragCoordinator.mjs."
+            "note": "Body-side reconnect. One of two retry-growth sites outside ai/, alongside src/manager/DragCoordinator.mjs."
         },
         "src/form/field/FileUpload.mjs#formatSize:38dbd980": {
             "kind": "not-a-retry",

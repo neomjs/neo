@@ -27,7 +27,7 @@ Before reading any documentation, code, or memory, you **MUST** ensure your loca
 
 Parse `README.md` first. It is the current boot anchor for Neo's organism identity, maintainer model, Four Pillars, Agent OS trajectory, and MX loop. This is the fast framework-bias inoculation layer: Neo is not a conventional web framework, and the agent must not default to React/Angular mental models.
 
-Then parse `learn/guides/devindex/frontend/Architecture.md`. It provides the concise frontend architecture mechanics the old boot mandate relied on `CodebaseOverview.md` for: Off-Main-Thread execution, the Minimal Main Thread, the App Worker, VDOM deltas, and hierarchical MVC/MVVM state flow.
+Then parse `learn/guides/fundamentals/WorkerArchitecture.md`. It provides the concise frontend architecture mechanics the old boot mandate relied on `CodebaseOverview.md` for: Off-Main-Thread execution, the Minimal Main Thread, the App Worker, and VDOM deltas. For the hierarchical MVC/MVVM state flow, `learn/guides/datahandling/StateProviders.md` is the canonical read.
 
 `learn/guides/fundamentals/CodebaseOverview.md` remains the long-form reference for code-authoring and deep orientation contexts, but it is no longer the mandatory Step 1 boot read. Prefer querying the Knowledge Base or opening the long-form guide only when the task needs broader namespace inventory or historical scale context.
 

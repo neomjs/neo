@@ -70,13 +70,14 @@ test.describe('grid component columns — resize reaches cells on a buffered bod
             width    : 600,
             store,
             rowHeight: 40,
-            // devindex's buffering: both axes on, range 1.
+            // The buffering shape this regression came from: both axes on, range 1.
             body          : {bufferColumnRange: 1, bufferRowRange: 1},
             columnDefaults: {width: 150}
         });
 
-        // devindex builds its columns in `construct()`, AFTER `super.construct()`, by assigning
-        // `this.columns`. The column set therefore replaces one the toolbar has already seen.
+        // The app this regression came from built its columns in `construct()`, AFTER
+        // `super.construct()`, by assigning `this.columns`. The column set therefore replaces one
+        // the toolbar has already seen.
         grid.columns = [
             {dataField: 'login', text: 'User', width: 250, type: 'component', component: ({record}) => ({
                 module: Component,

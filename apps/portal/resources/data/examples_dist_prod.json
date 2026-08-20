@@ -6,13 +6,6 @@
     "sourceUrl"   : "apps/workstation",
     "url"         : "dist/production/apps/workstation/index.html"
 }, {
-    "id"          : 25,
-    "environments": ["Desktop", "Mobile"],
-    "image"       : "devmode/DevIndex.png",
-    "name"        : "GitHub Meritocracy Index",
-    "sourceUrl"   : "apps/devindex",
-    "url"         : "dist/production/apps/devindex/index.html"
-}, {
     "id"          : 24,
     "environments": ["Desktop", "Mobile"],
     "image"       : "devmode/treeGridBigData.png",

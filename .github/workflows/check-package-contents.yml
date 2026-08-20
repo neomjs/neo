@@ -41,7 +41,7 @@ jobs:
         run: npm ci
 
       # A CI checkout has no live `.neo-ai-data/logs`, `sqlite/` or `wake-daemon/`, so a green here
-      # proves the DevIndex and resources/content rules but CANNOT prove the Agent OS one — the
+      # proves the resources/content rule but CANNOT prove the Agent OS one — the
       # files it guards do not exist on this runner. That half is covered by the unit spec over the
       # rule logic, and by the pre-fix package listing this check was red-proofed against. Stated
       # rather than left implicit, because "CI is green" reading as "the plane data is excluded"
