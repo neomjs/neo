@@ -170,7 +170,38 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(output).toContain('(group 2 of 2)')
         });
 
-        test('a single group is not labelled — "group 1 of 1" would be noise', () => {
+        test('IMPORT groups name themselves too — the unit contract is not object-colon only', () => {
+        // The ticket says "each checker's failure output names the unit it judged". Implementing that
+        // for one of three evaluators would leave the generalized claim and the output disagreeing.
+        const {output} = run(write('imp.mjs', [
+            "import {a}        from './a.mjs';",
+            "import {bb, ccc} from './b.mjs';",
+            '',
+            'function f() {}',
+            '',
+            "import x   from './x.mjs';",
+            "import yy from './y.mjs';"
+        ].join('\n')));
+
+        expect(output).toContain('(group 1 of 2)');
+        expect(output).toContain('(group 2 of 2)')
+    });
+
+    test('ASSIGNMENT groups name themselves too', () => {
+        const {output} = run(write('asg.mjs', [
+            'const aa = 1;',
+            'const b  = 2;',
+            '',
+            'function f() {',
+            '    const ccccc = 3;',
+            '    const d = 4;',
+            '}'
+        ].join('\n')));
+
+        expect(output).toMatch(/Misaligned '='.*\(group \d of 2\)/)
+    });
+
+    test('a single group is not labelled — "group 1 of 1" would be noise', () => {
             const {output} = run(write('one.mjs', ['const a = {', '    one  : 1,', '    two: 2', '};'].join('\n')));
 
             expect(output).toContain('Misaligned object-literal colon');

@@ -161,18 +161,28 @@ export function inScope(file) {
  * distinguishable from one that read all of them. That distinction is the whole point: "mentions a
  * scope" is satisfiable by text, "0 of 7" is not.
  *
+ * **Three counts, not two, because selection and IO diverge.** `offered` is what the caller or the
+ * default scan put forward; `admitted` is what survived the scope filter; `read` is what was actually
+ * opened. A count that stops at `admitted` reports a file it never read: an unreadable path warns on
+ * one line and is then counted as scanned on the next, which is this function's own defect committed
+ * inside the fix for it. `read` is the only number entitled to the word.
+ *
  * Exported so the receipt is a contract with its own coverage rather than a string inside `main()`.
  *
  * @param {Object} counts
  * @param {Number} counts.supplied How many positional paths the caller passed (0 = default scan).
  * @param {Number} counts.offered  How many candidate paths were considered.
- * @param {Number} counts.scanned  How many survived the scope filter.
+ * @param {Number} counts.admitted How many survived the scope filter.
+ * @param {Number} counts.read     How many were opened without error.
  * @returns {{scope: String, scanned: String}}
  */
-export function describeScan({supplied, offered, scanned}) {
+export function describeScan({supplied, offered, admitted, read}) {
+    const unreadable = admitted - read,
+          base       = supplied > 0 ? `${read} of ${offered} supplied file(s) read` : `${read} file(s) read`;
+
     return {
         scope  : `docs-build parse scope: ${DEFAULT_DIRS.join(', ')}`,
-        scanned: supplied > 0 ? `${scanned} of ${offered} supplied file(s)` : `${scanned} file(s)`
+        scanned: unreadable > 0 ? `${base}, ${unreadable} unreadable` : base
     }
 }
 
@@ -200,14 +210,23 @@ function main() {
     const rawFiles = argvFiles.length > 0 ? argvFiles : collectDefaultFiles(gitRoot);
     const files    = rawFiles.map(f => toRepoRelative(f, gitRoot)).filter(inScope);
 
-    const {scope, scanned} = describeScan({supplied: argvFiles.length, offered: rawFiles.length, scanned: files.length});
+    const describe = read => describeScan({
+        supplied: argvFiles.length, offered: rawFiles.length, admitted: files.length, read
+    });
 
     if (files.length === 0) {
-        console.log(`check-jsdoc-types: ${scanned} in scope, nothing to check (${scope}).`);
+        const {scope, scanned} = describe(0);
+
+        console.log(`check-jsdoc-types: ${scanned}, nothing to check (${scope}).`);
         process.exit(0)
     }
 
+    // Counted, not assumed. `files.length` is what the scope ADMITTED; a file that fails to open is
+    // warned about and skipped, and reporting the admitted count as the scanned one turns that skip
+    // into a green claim about a file nobody read.
     const violations = [];
+    let   read       = 0;
+
     for (const file of files) {
         let content;
         try {
@@ -216,11 +235,14 @@ function main() {
             console.error(`check-jsdoc-types: could not read ${file}: ${e.message}`);
             continue
         }
+        read++;
         findUnparseableTypes(content).forEach(({line, tag, expr}) => violations.push(`${file}:${line}  @${tag} {${expr}}`))
     }
 
+    const {scope, scanned} = describe(read);
+
     if (violations.length > 0) {
-        console.error(`\x1b[31mcheck-jsdoc-types: ${violations.length} unparseable JSDoc type expression(s):\x1b[0m`);
+        console.error(`\x1b[31mcheck-jsdoc-types: ${violations.length} unparseable JSDoc type expression(s) in ${scanned} (${scope}):\x1b[0m`);
         if (!quiet) {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nThe docs build (`npm run generate-docs-json`, the last `build all` step) parses these with');
@@ -233,7 +255,7 @@ function main() {
         process.exit(1)
     }
 
-    console.log(`check-jsdoc-types: ${scanned} scanned, 0 unparseable type expressions (${scope}).`)
+    console.log(`check-jsdoc-types: ${scanned}, 0 unparseable type expressions (${scope}).`)
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === __filename;

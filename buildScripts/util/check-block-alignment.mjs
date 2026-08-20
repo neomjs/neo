@@ -93,20 +93,27 @@ function evaluateImportAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectImportRuns(lines, maskedLines)) {
-        if (run.length < 2) continue; // a lone import is not an alignment group
+    // Only runs that ARE groups are numbered, so "group 2 of 3" counts what a reader can see.
+    const groups = collectImportRuns(lines, maskedLines).filter(run => run.length >= 2);
 
+    groups.forEach((run, groupIndex) => {
         // The `from` column = widest `import <clause>` in the run + one space.
         const fromColumn = Math.max(...run.map(entry => IMPORT_PREFIX.length + entry.clause.length)) + 1;
 
         for (const entry of run) {
             const expected = alignedImportLine(entry, fromColumn);
             if (expected !== lines[entry.lineIndex]) {
-                violations.push({lineIndex: entry.lineIndex, expectedColumn: fromColumn, kind: 'import'});
+                violations.push({
+                    lineIndex     : entry.lineIndex,
+                    expectedColumn: fromColumn,
+                    kind          : 'import',
+                    group         : groupIndex + 1,
+                    groupCount    : groups.length
+                });
                 fixedLines[entry.lineIndex] = expected;
             }
         }
-    }
+    });
 
     return {violations, fixedLines};
 }
@@ -387,10 +394,14 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const {entries, mode} of collectAssignmentRuns(lines, maskedLines)) {
+    // Only runs that ARE groups are numbered, so "group 2 of 3" counts what a reader can see.
+    const groups = collectAssignmentRuns(lines, maskedLines).filter(({entries}) =>
+        entries.length > 0 &&
+        !(entries.length < 2 && lines[entries[0].lineIndex] === `${entries[0].left} = ${entries[0].value}`)
+    );
+
+    groups.forEach(({entries, mode}, groupIndex) => {
         const simpleParts = entries;
-        if (simpleParts.length === 0) continue;
-        if (simpleParts.length < 2 && lines[simpleParts[0].lineIndex] === `${simpleParts[0].left} = ${simpleParts[0].value}`) continue;
 
         const
             keywordWidth = mode === 'keyword' ? Math.max(...simpleParts.map(part => part.keyword.length)) : 0,
@@ -405,11 +416,17 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
                 : left;
             const expected = `${normalizedLeft.padEnd(leftWidth)} = ${value}`;
             if (expected !== lines[lineIndex]) {
-                violations.push({lineIndex, expectedColumn: leftWidth + 1, kind: 'assignment'});
+                violations.push({
+                    lineIndex,
+                    expectedColumn: leftWidth + 1,
+                    kind          : 'assignment',
+                    group         : groupIndex + 1,
+                    groupCount    : groups.length
+                });
                 fixedLines[lineIndex] = expected;
             }
         }
-    }
+    });
 
     return {violations, fixedLines};
 }
