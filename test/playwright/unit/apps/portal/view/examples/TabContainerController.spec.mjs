@@ -7,10 +7,18 @@ setup({
 });
 
 import {test, expect}         from '@playwright/test';
+import fs                     from 'node:fs';
+import path                   from 'node:path';
+import {fileURLToPath}        from 'node:url';
 import Neo                    from '../../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../../src/core/_export.mjs';
 import ExamplesTabContainer   from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
 import TabContainerController from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
+
+const
+    directory = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot  = path.resolve(directory, '../../../../../../../'),
+    dataRoot  = path.join(repoRoot, 'apps/portal/resources/data');
 
 /**
  * The examples tab routes resolve `activeIndex` through the controller's `tabItems` array.
@@ -20,7 +28,7 @@ import TabContainerController from '../../../../../../../apps/portal/view/exampl
 test.describe('Portal.view.examples.TabContainerController — route → activeIndex', () => {
     function createController() {
         const component = {
-            activeIndex   : null,
+            activeIndex  : null,
             isConstructed: true,
             on           : () => {}
         };
@@ -82,5 +90,48 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         expect(controller.component.activeIndex).toBe(3);
 
         controller.destroy()
+    });
+
+    test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {
+        const registries = [{
+            file       : 'examples_devmode.json',
+            devIndexUrl: 'apps/devindex/index.html',
+            dockDemoUrl: 'apps/agentos/childapps/dockdemo/index.html'
+        }, {
+            file       : 'examples_dist_dev.json',
+            devIndexUrl: 'dist/development/apps/devindex/index.html',
+            dockDemoUrl: 'dist/development/apps/agentos/childapps/dockdemo/index.html'
+        }, {
+            file       : 'examples_dist_esm.json',
+            devIndexUrl: 'dist/esm/apps/devindex/index.html',
+            dockDemoUrl: 'dist/esm/apps/agentos/childapps/dockdemo/index.html'
+        }, {
+            file       : 'examples_dist_prod.json',
+            devIndexUrl: 'dist/production/apps/devindex/index.html',
+            dockDemoUrl: 'dist/production/apps/agentos/childapps/dockdemo/index.html'
+        }];
+
+        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
+            const
+                records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
+                dockDemo  = records.find(record => record.name === 'Dock Layouts'),
+                devIndex  = records.find(record => record.name === 'GitHub Meritocracy Index'),
+                firstSeen = records.find(record => !record.hidden);
+
+            expect(records[0], `${file}: DockDemo stays top-ranked for the v13.2 reveal`).toBe(dockDemo);
+            expect(dockDemo).toMatchObject({
+                hidden       : true,
+                id           : 28,
+                sharedWorkers: true,
+                sourceUrl    : 'apps/agentos/childapps/dockdemo',
+                url          : dockDemoUrl
+            });
+            expect(firstSeen, `${file}: DevIndex remains the first live flagship`).toBe(devIndex);
+            expect(devIndex).toMatchObject({
+                sourceUrl: 'https://github.com/neomjs/devindex',
+                url      : devIndexUrl
+            });
+            expect(devIndex.hidden ?? false).toBe(false)
+        })
     })
 });
