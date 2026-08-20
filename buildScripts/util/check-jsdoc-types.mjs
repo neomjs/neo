@@ -146,6 +146,36 @@ export function inScope(file) {
     return DEFAULT_DIRS.some(dir => file === dir || file.startsWith(dir + '/'))
 }
 
+/**
+ * @summary Describes what a run actually read, phrased to survive being quoted somewhere else.
+ *
+ * The success line was a bare count, and a bare count is read as coverage of whatever the reader was
+ * doing — their diff, their directory, their repository. It is none of those: the scanned set is the
+ * docs-build parse scope, which for a consumer of this package is a different set of files entirely.
+ * This receipt has been pasted into pull-request bodies as evidence for changes it never opened, and
+ * the number was true every time.
+ *
+ * Caller-supplied paths report `N of M`, because {@link inScope} drops the rest SILENTLY — a hook
+ * handing over seven staged files and hearing about three is the same defect one layer down. When the
+ * two numbers differ the line says so, which is what makes a run that read NONE of the caller's files
+ * distinguishable from one that read all of them. That distinction is the whole point: "mentions a
+ * scope" is satisfiable by text, "0 of 7" is not.
+ *
+ * Exported so the receipt is a contract with its own coverage rather than a string inside `main()`.
+ *
+ * @param {Object} counts
+ * @param {Number} counts.supplied How many positional paths the caller passed (0 = default scan).
+ * @param {Number} counts.offered  How many candidate paths were considered.
+ * @param {Number} counts.scanned  How many survived the scope filter.
+ * @returns {{scope: String, scanned: String}}
+ */
+export function describeScan({supplied, offered, scanned}) {
+    return {
+        scope  : `docs-build parse scope: ${DEFAULT_DIRS.join(', ')}`,
+        scanned: supplied > 0 ? `${scanned} of ${offered} supplied file(s)` : `${scanned} file(s)`
+    }
+}
+
 function collectDefaultFiles(gitRoot) {
     const result = spawnSync('find', [...DEFAULT_DIRS, '-type', 'f', '-name', '*.mjs'], {cwd: gitRoot, encoding: 'utf-8'});
     // A missing optional dir makes `find` exit non-zero while still listing the others — tolerate stdout.
@@ -170,22 +200,7 @@ function main() {
     const rawFiles = argvFiles.length > 0 ? argvFiles : collectDefaultFiles(gitRoot);
     const files    = rawFiles.map(f => toRepoRelative(f, gitRoot)).filter(inScope);
 
-    // What this run actually read, phrased so the line survives being quoted somewhere else.
-    //
-    // The success line used to be a bare count, and a bare count is read as coverage of whatever the
-    // reader was doing — their diff, their directory, their repository. It is none of those: the
-    // scanned set is the docs-build parse scope, which for a consumer of this package is a different
-    // set of files entirely. That receipt has been pasted into pull-request bodies as evidence for
-    // changes it never opened, and the number was true every time.
-    //
-    // Caller-supplied paths get `N of M`, because `inScope` above drops the rest SILENTLY — a hook
-    // handing over seven staged files and hearing about three is the same defect one layer down.
-    // When the two numbers differ the line says so, which is what makes a run that read none of the
-    // caller's files distinguishable from one that read all of them.
-    const scope   = `docs-build parse scope: ${DEFAULT_DIRS.join(', ')}`,
-          scanned = argvFiles.length > 0 ?
-              `${files.length} of ${rawFiles.length} supplied file(s)` :
-              `${files.length} file(s)`;
+    const {scope, scanned} = describeScan({supplied: argvFiles.length, offered: rawFiles.length, scanned: files.length});
 
     if (files.length === 0) {
         console.log(`check-jsdoc-types: ${scanned} in scope, nothing to check (${scope}).`);
