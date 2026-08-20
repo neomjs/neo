@@ -170,8 +170,25 @@ function main() {
     const rawFiles = argvFiles.length > 0 ? argvFiles : collectDefaultFiles(gitRoot);
     const files    = rawFiles.map(f => toRepoRelative(f, gitRoot)).filter(inScope);
 
+    // What this run actually read, phrased so the line survives being quoted somewhere else.
+    //
+    // The success line used to be a bare count, and a bare count is read as coverage of whatever the
+    // reader was doing — their diff, their directory, their repository. It is none of those: the
+    // scanned set is the docs-build parse scope, which for a consumer of this package is a different
+    // set of files entirely. That receipt has been pasted into pull-request bodies as evidence for
+    // changes it never opened, and the number was true every time.
+    //
+    // Caller-supplied paths get `N of M`, because `inScope` above drops the rest SILENTLY — a hook
+    // handing over seven staged files and hearing about three is the same defect one layer down.
+    // When the two numbers differ the line says so, which is what makes a run that read none of the
+    // caller's files distinguishable from one that read all of them.
+    const scope   = `docs-build parse scope: ${DEFAULT_DIRS.join(', ')}`,
+          scanned = argvFiles.length > 0 ?
+              `${files.length} of ${rawFiles.length} supplied file(s)` :
+              `${files.length} file(s)`;
+
     if (files.length === 0) {
-        console.log('check-jsdoc-types: 0 in-scope .mjs files, nothing to check.');
+        console.log(`check-jsdoc-types: ${scanned} in scope, nothing to check (${scope}).`);
         process.exit(0)
     }
 
@@ -201,7 +218,7 @@ function main() {
         process.exit(1)
     }
 
-    console.log(`check-jsdoc-types: ${files.length} file(s) scanned, 0 unparseable type expressions.`)
+    console.log(`check-jsdoc-types: ${scanned} scanned, 0 unparseable type expressions (${scope}).`)
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === __filename;

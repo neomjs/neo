@@ -228,8 +228,19 @@ function main() {
             ? argvFiles.filter(f => f.endsWith('.mjs'))
             : collectDefaultFiles();
 
+    // Which of the three selections produced this file set, named in the receipt.
+    //
+    // The success line was a bare count, and the three modes select wildly different sets: a CI run
+    // reports the files a branch changed, a pre-commit run reports what was staged, a default run
+    // reports the whole audit scope. Quoted anywhere else all three read as "the repository is
+    // clean" — and the two narrow ones are the common cases. A count without its selection is a
+    // claim about whatever the reader had in mind.
+    const selection = options.base ? `changed vs ${options.base}`
+        : hasFileArgs             ? 'supplied paths'
+        : `full audit scope: ${scanPaths.join(', ')}`;
+
     if (files.length === 0) {
-        console.log('check-ticket-archaeology: 0 .mjs files in scope, nothing to check.');
+        console.log(`check-ticket-archaeology: 0 .mjs files in scope, nothing to check (${selection}).`);
         process.exit(0);
     }
 
@@ -262,7 +273,7 @@ function main() {
         process.exit(1);
     }
 
-    console.log(`check-ticket-archaeology: ${files.length} files scanned, 0 violations.`);
+    console.log(`check-ticket-archaeology: ${files.length} file(s) scanned, 0 violations (${selection}).`);
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === __filename;
