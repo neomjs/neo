@@ -77,13 +77,25 @@ const undeliverableEvidence = {
     strikes     : new Map(),
     suspects    : new Set(),
     seq         : 0,
-    // Death-class evidence, kept in its own map rather than folded into `strikes` because the
-    // two automata differ in WHEN a strike is earned. A call-ceiling expiry is self-proving: the
-    // deadline fired, and repetition is the whole evidence. A provider death proves nothing on its own
-    // — the provider might simply be down — so a death is recorded as PENDING and becomes a strike only
-    // once a later dispatch succeeds, which is what separates "this input kills it" from "it was
-    // down". Sharing one map would have made the threshold read a mixture of proven and unproven
-    // observations.
+    // Death-class evidence, kept in its own map rather than folded into `strikes` because the two
+    // automata differ in WHEN a strike is earned. A call-ceiling expiry is self-proving: the deadline
+    // fired, and repetition is the whole evidence. A death has to establish two things first — that the
+    // provider was alive, and that THIS input killed it — and where that proof comes from splits the
+    // automaton in two:
+    //
+    // - **Accepted-then-died** (`isAcceptedThenDiedError`: reset / EPIPE / socket-end). The failure code
+    //   is itself the liveness proof, since those require an established connection, so the pair is
+    //   complete at failure time: the strike is earned IMMEDIATELY and graduates in the same step. No
+    //   later success is waited for — once the suspect is the only chunk left, no later dispatch happens,
+    //   so a success-gated rule would be unreachable exactly when it is needed.
+    // - **Refused** (the provider was already down). That says nothing about this input, so it is
+    //   recorded PENDING and becomes a strike only once a later dispatch succeeds. One pending
+    //   observation at a time: a second refusal while the first is unconfirmed is the same unproven
+    //   fact, not a second strike.
+    //
+    // Sharing one map with `strikes` would have made the threshold read a mixture of proven and
+    // unproven observations. Entry shape: `{strikes, pendingSeq, tokenEstimate, recoveredTokenEstimate,
+    // failureCode}`, where a null `pendingSeq` means "nothing awaiting confirmation".
     deaths      : new Map()
 };
 
@@ -97,6 +109,13 @@ function resolveUndeliverableEvidence(generationId) {
         undeliverableEvidence.generationId = generationId;
         undeliverableEvidence.strikes.clear();
         undeliverableEvidence.suspects.clear();
+        // Deaths reset with the rest. A pending death is evidence about ONE geometry — this input
+        // killed the provider at THIS context width and batch shape — so carrying it across a
+        // generation change would let a strike earned under repaired coordinates fence a chunk the
+        // repair may have made deliverable. Every other map here clears for that reason; omitting
+        // this one made the death automaton the single piece of state that outlived its own
+        // authority coordinate.
+        undeliverableEvidence.deaths.clear();
         undeliverableEvidence.seq = 0;
     }
 
@@ -1540,10 +1559,19 @@ class VectorService extends Base {
 
                         // The carried prefix is a dispatched provider SUCCESS for those inputs, so
                         // their automaton entries reset here on the same provider-outcome rule as the
-                        // ordinary success path.
+                        // ordinary success path — INCLUDING a pending death, which an input that just
+                        // embedded has disproven about itself.
+                        //
+                        // Deliberately narrower than the ordinary success path in one respect: that
+                        // path also GRADUATES every other pending death, because a success proves the
+                        // provider was alive. A carried prefix proves the same thing, but graduating
+                        // here would convert deaths to strikes on a path that is mid-abort, so this arm
+                        // only clears what it disproves and leaves graduation to the next ordinary
+                        // success. Evidence is deferred, never dropped.
                         batchToEmbed.slice(0, err.completedTextCount || 0).forEach(chunk => {
                             evidence.strikes.delete(chunk.id);
                             evidence.suspects.delete(chunk.id);
+                            evidence.deaths.delete(chunk.id);
                         });
 
                         await persistCarriedPrefix(carried, err.completedTextCount, 'Yielded');
@@ -1565,11 +1593,15 @@ class VectorService extends Base {
                     let carryShrunkCount = 0;
 
                     if (embeddings === null && Number.isInteger(err?.completedTextCount) && err.completedTextCount > 0) {
-                        // Same provider-outcome reset as the yield arm: the completed prefix is a
-                        // dispatched provider success for those inputs, whatever the write does next.
+                        // Same provider-outcome reset as the yield arm, deaths included: the completed
+                        // prefix is a dispatched provider success for those inputs, whatever the write
+                        // does next, and an input that embedded has disproven its own pending death.
+                        // Graduation of OTHER pending deaths is likewise left to the next ordinary
+                        // success, for the reason stated on the yield arm.
                         batchToEmbed.slice(0, err.completedTextCount).forEach(chunk => {
                             evidence.strikes.delete(chunk.id);
                             evidence.suspects.delete(chunk.id);
+                            evidence.deaths.delete(chunk.id);
                         });
 
                         const persistedCount = await persistCarriedPrefix(err.embeddings || [], err.completedTextCount, 'Failed');

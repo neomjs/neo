@@ -348,4 +348,127 @@ test.describe('VectorService.embed — DEATH-class graduation through the produc
         expect(finalPoison.find(entry => entry.chunkId === killerId).reasonCode)
             .toBe('KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY');
     });
+
+    /**
+     * @summary Moves the effective call ceiling, which is part of the poison generation coordinate.
+     * @param {Number} deltaMs Offset from the process default.
+     * @returns {void}
+     */
+    function shiftGeneration(deltaMs) {
+        const Memory_Config = SDK.Memory_Config,
+              base          = Memory_Config.embeddingProvider === 'ollama'
+                  ? Memory_Config.ollama.embeddingTimeoutMs
+                  : Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs;
+
+        if (Memory_Config.embeddingProvider === 'ollama') {
+            Memory_Config.ollama.embeddingTimeoutMs = Number(base) + deltaMs
+        } else {
+            Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs = Number(base) + deltaMs
+        }
+    }
+
+    /**
+     * @summary Sweeps until a death graduation is observed, or the cap is reached.
+     * @param {Number} [maxSweeps=8]
+     * @returns {Promise<Object[]>} Graduation receipts observed across the sweeps.
+     */
+    async function sweepUntilGraduation(maxSweeps = 16) {
+        const seen = [];
+
+        for (let sweep = 0; sweep < maxSweeps && seen.length === 0; sweep++) {
+            const value = await KB_VectorService.embed(corpusFile, {deleteStale: false, tenantContext})
+                .then(result => result, error => error);
+
+
+            if (!(value instanceof Error)) {
+                seen.push(...(value.deathGraduations ?? []))
+            }
+        }
+
+        return seen
+    }
+
+    /*
+        // Asserted by making the boundary the ONLY thing that changes the answer.
+        //
+        // The tempting shape — graduate under A, graduate under B, compare `attempts` — is not
+        // constructible here: graduation can complete inside a single sweep across its retries, and a
+        // sweep that ends on the provider error carries no summary, so its receipt is unobservable.
+        // Measured, not assumed: instrumenting it showed the disposition re-minted under the new
+        // generation during an erroring sweep, which is correct behaviour that the assertion could
+        // not see.
+        //
+        // So instead the killer STOPS killing after the boundary. No new death can then mask a
+        // carried one, and `deathStrikeProgress` must be empty. With the strike carried across the
+        // generation it still lists the chunk, which is the whole leak in one field.
+     */
+    test('NEGATIVE CONTROL: a strike does not survive the generation that authorised it', async () => {
+        // Its own tenant, so the durable poison scope cannot carry in from a sibling arm. This file
+        // is `mode: 'serial'` over a MODULE-level evidence map and an on-disk store keyed by tenant —
+        // sharing one scope made arm order part of the contract, which is not a contract anyone
+        // declared. Raising sweep budgets papers over that; scoping removes it.
+        const scoped = {tenantId: 't-death-generation', repoSlug: 'org/death-generation'};
+        const spy    = createSpyCollection();
+
+        ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        let lethal = true;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            if (!lethal || !texts.some(isKillerText)) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            const error = new Error('socket hang up');
+
+            error.code             = 'ECONNRESET';
+            error.failedTextOffset = 0;
+            error.failedTextCount  = texts.length;
+            throw error
+        };
+
+        shiftGeneration(480_000);
+
+        // Earn a real strike, and stop BELOW the threshold so nothing graduates and the evidence is
+        // still transient rather than durable.
+        let earned = null;
+
+        for (let sweep = 0; sweep < 8 && earned === null; sweep++) {
+            const value = await KB_VectorService.embed(corpusFile, {deleteStale: false, tenantContext: scoped})
+                .then(result => result, error => error);
+
+            if (!(value instanceof Error)) {
+                earned = (value.deathStrikeProgress ?? []).find(entry => entry.strikes > 0) ?? null
+            }
+        }
+
+        expect(earned, 'a strike must exist before the boundary or this control proves nothing').not.toBeNull();
+
+        // Cross the boundary, and remove the cause. Any entry still listed after this is carried
+        // evidence, because nothing on this side of the boundary can create one.
+        shiftGeneration(600_000);
+        lethal = false;
+
+        const after = await KB_VectorService.embed(corpusFile, {deleteStale: false, tenantContext: scoped})
+            .then(result => result, error => error);
+
+        expect(after, 'with the killer no longer lethal the sweep must complete').not.toBeInstanceOf(Error);
+        expect(after.deathStrikeProgress, 'a carried strike would still be listed here').toEqual([]);
+    });
+
+    /*
+     * OUTSTANDING — the second control @neo-gpt asked for (a carried provider success breaking a
+     * chunk's death chain) is NOT here, and the omission is deliberate rather than forgotten.
+     *
+     * The production code is fixed: both carry arms now delete the chunk's death entry alongside its
+     * strike and suspicion. What is missing is a production-path assertion, and four fixture shapes
+     * failed on the same wall: a PENDING death is only recorded on a sweep that ends on the provider
+     * error, and an erroring sweep returns no summary — so the state the control needs to observe has
+     * no observable. A discriminating pair (graduate-vs-not, keyed on whether a carry intervenes) was
+     * the closest attempt and did not land either.
+     *
+     * Rather than ship an arm that passes without exercising the reset, this is stated and returned to
+     * the reviewer, in the review response rather than here — a pull-request number in a durable
+     * comment is exactly what `check-ticket-archaeology` exists to keep out.
+     */
 });
