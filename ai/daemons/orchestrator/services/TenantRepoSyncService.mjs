@@ -39,6 +39,7 @@ import {
 import {
     assertSliceBudgetMs,
     createSliceBudgetPredicate,
+    createYieldCauseResolver,
     classifyEmbeddingRecoveryState,
     detectStarvedTenantSync,
     hasPendingEmbeddingRecoveryBypass,
@@ -47,7 +48,8 @@ import {
     isStarvedOrderInverted,
     resolveMinimumBackoffCapMs,
     resolveRepoBaseCadenceMs,
-    resolveUnknownRepoSelectorFailure
+    resolveUnknownRepoSelectorFailure,
+    YIELD_CAUSE_SLICE
 } from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,
@@ -1420,6 +1422,11 @@ class TenantRepoSyncService extends Base {
         onlyRepoSlugs,
         fullReplay = false,
         revisionsFilePath,
+        // The OUTER lease's fairness vote, supplied by whichever acquisition dispatched this run —
+        // the scheduler's via `taskOptions`, the CLI's from its own `withLease` descriptor. Absent
+        // for every in-process caller that holds no outer lease, which is why the default is `null`
+        // rather than a predicate: see `createLeaseYieldVoter` for why those are not equivalent.
+        leaseYieldVoter   = null,
         envelopeBuilder   = buildIngestEnvelope,
         globalCadenceMs   = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio       = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
@@ -1584,6 +1591,7 @@ class TenantRepoSyncService extends Base {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
                 fullReplay, taskStateService, healthService, taskName, envelopeBuilder, leaseGuard,
+                leaseYieldVoter,
                 leasePath        : resolvedLeasePath,
                 revisionsFilePath: resolvedRevisionsPath,
                 globalCadenceMs, jitterRatio, backoffCapMs, starvedAfterMs, seedBootstrap,
@@ -1654,6 +1662,11 @@ class TenantRepoSyncService extends Base {
         fullReplay = false, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
         leaseGuard         = async () => {},
         leasePath          = null,
+        // Declared HERE, beside the budget it composes with, and not one frame higher on `runTask`:
+        // the per-repo vote is built inside this method's try, so a parameter declared only on the
+        // caller is an out-of-scope reference the repo-level catch converts into an ordinary repo
+        // failure — a sweep reporting no cause while the bound it was given is never consulted.
+        leaseYieldVoter    = null,
         globalCadenceMs    = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio        = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
@@ -2382,6 +2395,26 @@ class TenantRepoSyncService extends Base {
                         !== priorState?.lastCommittedMaterializationAttemptId
                         ? existingManifest.materializationReceipt
                         : null,
+                    // Two bounds, neither subsuming the other. The SLICE budget is per-repo, anchored
+                    // at THIS repo's admission: the envelope is built once and shared by the whole
+                    // sweep, so a budget shared that way would be spent by the first admitted repo and
+                    // every later one born already expired — a fairness fix that starves the tail it
+                    // serves. The LEASE bound is the outer one, measured from the acquisition that
+                    // dispatched the sweep, and it is fairness between TASKS rather than between repos:
+                    // honouring every per-repo budget still occupies the exclusive heavy slot for
+                    // roughly N × sliceBudgetMs, which is how waiters starve while every bound the
+                    // holder can see reads satisfied.
+                    //
+                    // Resolved to a CAUSE rather than a boolean because the two exits differ, and the
+                    // exits belong to a separate dependent change. Stopping tail admission, committing
+                    // the cohort and releasing the outer lease are deliberately absent here: this makes
+                    // the cause readable, and the sweep below still consumes only the boolean
+                    // projection. With a null voter that projection is the slice predicate's own
+                    // answer, byte for byte, which keeps every caller holding no outer lease unchanged.
+                    yieldCause = createYieldCauseResolver([
+                        leaseYieldVoter,
+                        {cause: YIELD_CAUSE_SLICE, vote: createSliceBudgetPredicate({startedMs, sliceBudgetMs})}
+                    ]),
                     rawSummary = retryReceipt
                         ? {
                             ingested              : 0,
@@ -2395,11 +2428,7 @@ class TenantRepoSyncService extends Base {
                             viaMcp: false // operator-bulk path
                         }, {
                             ...providerCircuitControls,
-                            // Per-repo, anchored at THIS repo's admission. The envelope above is
-                            // built once and shared by the whole sweep; a budget shared that way
-                            // would be spent by the first admitted repo and every later one born
-                            // already expired — a fairness fix that starves the tail it serves.
-                            shouldYield: createSliceBudgetPredicate({startedMs, sliceBudgetMs})
+                            shouldYield: () => yieldCause() !== null
                         });
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:

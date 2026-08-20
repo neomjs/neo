@@ -11,11 +11,46 @@ import {
     shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease
 } from './heavyMaintenanceLeasePrimitives.mjs';
+import {YIELD_CAUSE_LEASE} from '../scheduling/tenantRepoSync.mjs';
 
 // Re-export the pure lease primitives so every existing importer of this module keeps working unchanged.
 // The primitives live in a Neo/Base-free module so subprocess consumers (e.g. the kbSync VectorService)
 // can import the pure decider/lock functions without pulling in the orchestrator class stack.
 export * from './heavyMaintenanceLeasePrimitives.mjs';
+
+/**
+ * @summary Turns a lease acquisition into the named yield voter its task consults.
+ *
+ * The single config-aware home for the outer-lease fairness vote. Every heavy task that holds the
+ * deployment-wide lease and wants to stand down cooperatively builds its voter here, so the one
+ * trap this reading carries is spelled once: `maxActiveHoldMs` lives on
+ * `orchestrator.heavyMaintenance`, and the adjacent `orchestrator.heavyMaintenanceLease` holds only
+ * `staleAfterMs`. Reading the sibling yields `undefined`, a falsy bound never votes, and the result
+ * is a no-op that looks exactly like a wired predicate at every call site — indistinguishable from
+ * working until a deployment actually reaches the bound.
+ *
+ * Read at vote time rather than at build time: the leaf is reactive, and a bound captured when the
+ * task started would survive an operator changing it.
+ *
+ * **No acquisition ⇒ `null`, never a voter that always answers false.** The two are not equivalent
+ * to a caller: `null` composes away, while an always-false voter is a bound that reports "not yet"
+ * forever, which is the shape a reader cannot distinguish from a healthy one.
+ *
+ * @param {Object|null} acquisition The `withHeavyMaintenanceLease` / `acquireHeavyMaintenanceLease` descriptor (`{status, acquired, lease}`).
+ * @returns {{cause: String, vote: Function}|null} A `createYieldCauseResolver` voter, or `null` when this caller holds no lease.
+ */
+export function createLeaseYieldVoter(acquisition) {
+    if (!acquisition?.lease) {
+        return null
+    }
+
+    return {
+        cause: YIELD_CAUSE_LEASE,
+        vote : () => shouldYieldHeavyMaintenanceLease(acquisition.lease, {
+            maxActiveHoldMs: AiConfig.orchestrator.heavyMaintenance.maxActiveHoldMs
+        })
+    }
+}
 
 /**
  * @summary Shared lease service for Agent OS substrate-heavy maintenance work.

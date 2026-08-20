@@ -113,6 +113,22 @@ export function createSliceBudgetPredicate({startedMs, sliceBudgetMs, now = Date
 }
 
 /**
+ * The outer bound: the acquisition has outlived the deployment-wide hold fairness bound.
+ * Named rather than spelled at each site because the voter is built in a config-aware module
+ * (`HeavyMaintenanceLeaseService`) while the vocabulary is owned here — two spellings of one
+ * cause would be accepted by neither side and rejected by {@link createYieldCauseResolver}
+ * only once a real deployment reached the bound.
+ * @type {String}
+ */
+export const YIELD_CAUSE_LEASE = 'lease';
+
+/**
+ * The inner bound: this repo's slice has outlived `sliceBudgetMs`.
+ * @type {String}
+ */
+export const YIELD_CAUSE_SLICE = 'slice';
+
+/**
  * The yield causes, in precedence order. A cause is a string rather than a boolean because the two
  * exits differ: a slice yield rotates to the next repo and keeps the lease, while a lease yield must
  * stop admitting the tail, commit the active cohort's resumable state, and RELEASE the outer lease.
@@ -122,7 +138,7 @@ export function createSliceBudgetPredicate({startedMs, sliceBudgetMs, now = Date
  * outer bound has been exceeded is how a holder keeps rotating past its own deadline.
  * @type {String[]}
  */
-export const YIELD_CAUSES = Object.freeze(['lease', 'slice']);
+export const YIELD_CAUSES = Object.freeze([YIELD_CAUSE_LEASE, YIELD_CAUSE_SLICE]);
 
 /**
  * @summary Folds named yield voters into one resolver that reports WHICH bound fired.

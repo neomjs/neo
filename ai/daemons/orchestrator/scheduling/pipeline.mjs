@@ -449,14 +449,19 @@ function executeServiceRunnerCandidate({candidate, activeHeavyTask, services, ru
             writeLog          : runtime.writeLog,
             devSyncRootsConfig: runtime.primaryDevSyncRootsConfig
         }),
-        'tenant-repo-sync': (taskName, reason) => services.tenantRepoSyncService.runTask({
+        // `taskOptions` is the fourth argument `acquireLeaseAndExecute` passes, and until now this
+        // runner dropped it — which is why the scheduler's own acquisition could not be yielded
+        // against even though it is the same outer lease the CLI takes. The sweep is long enough to
+        // outlive the hold bound, so it is exactly the shape that needs to ask.
+        'tenant-repo-sync': (taskName, reason, onSuccess, taskOptions) => services.tenantRepoSyncService.runTask({
             taskName,
             reason,
             taskStateService: services.taskStateService,
             healthService   : services.healthService,
             writeLog        : runtime.writeLog,
             globalCadenceMs : runtime.tenantRepoSyncGlobalCadenceMs,
-            jitterRatio     : runtime.tenantRepoSyncJitterRatio
+            jitterRatio     : runtime.tenantRepoSyncJitterRatio,
+            leaseYieldVoter : taskOptions?.leaseYieldVoter ?? null
         })
     };
 

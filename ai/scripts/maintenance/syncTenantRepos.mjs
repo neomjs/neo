@@ -35,6 +35,7 @@ import {pathToFileURL} from 'url';
 import AiConfig              from '../../config.mjs';
 import TenantRepoSyncService from '../../daemons/orchestrator/services/TenantRepoSyncService.mjs';
 import {
+    createLeaseYieldVoter,
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
@@ -150,13 +151,15 @@ function createInMemoryTaskStateService() {
  * @param {{fullReplay: Boolean, repoSlugs: String[]}} options.parsed
  * @param {Object} options.taskStateService
  * @param {Function} options.writeLog
+ * @param {{cause: String, vote: Function}|null} [options.leaseYieldVoter] The outer acquisition's fairness vote; `null` when this run holds no outer lease.
  * @returns {Object}
  */
-function buildRunTaskOptions({parsed, taskStateService, writeLog}) {
+function buildRunTaskOptions({parsed, taskStateService, writeLog, leaseYieldVoter = null}) {
     return {
         reason       : 'manual',
         taskStateService,
         writeLog,
+        leaseYieldVoter,
         onlyRepoSlugs: parsed.repoSlugs.length > 0 ? parsed.repoSlugs : undefined,
         fullReplay   : parsed.fullReplay
     }
@@ -193,12 +196,22 @@ function runTenantRepoSyncWithGlobalLease({
     // end. Outside the lease this would race a sweep mid-flight and could drop a checkpoint the
     // sweep had just committed — losing ingestion progress to fix a backoff, which is a strictly
     // worse trade than the wait it removes.
+    // The sweep receives the acquisition's fairness vote; the clear-backoff branch receives none, and
+    // that asymmetry is the point. The clear is a short manifest rewrite that must finish atomically —
+    // a yield partway through leaves a half-applied clear, which is worse than holding the lease a few
+    // seconds past the bound. `withLease` hands the acquisition descriptor to its task, which is the
+    // only place this process can learn when its own hold began.
     const invoke = parsed.clearBackoff
         ? () => clearBackoffImpl({
             onlyRepoSlugs: parsed.repoSlugs.length > 0 ? parsed.repoSlugs : null,
             writeLog
         })
-        : () => runTaskImpl(buildRunTaskOptions({parsed, taskStateService, writeLog}));
+        : acquisition => runTaskImpl(buildRunTaskOptions({
+            parsed,
+            taskStateService,
+            writeLog,
+            leaseYieldVoter: createLeaseYieldVoter(acquisition)
+        }));
 
     return withLease(
         invoke,
