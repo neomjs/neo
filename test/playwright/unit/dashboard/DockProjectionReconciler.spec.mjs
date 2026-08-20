@@ -221,6 +221,66 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
         }
     })
 
+    test('retained tab reconciliation preserves a flat action rail outside semantic tab exactness', async () => {
+        const
+            model = createRootTabsModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                })]
+            }),
+            tab          = host.items[0],
+            bar          = tab.getTabBar(),
+            next         = structuredClone(model),
+            placeholders = new Map();
+
+        tab.headerActions = [{action: 'pin', contextual: false, iconCls: 'fa fa-thumbtack'}];
+
+        const action = tab.getActionItem('pin'),
+              spacer = bar.getActionSpacer();
+
+        next.items.beta = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
+        next.nodes['root-tabs'].items.push('beta');
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(next, {
+                resolveComponentRef(_componentRef, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => panes[itemId]
+            });
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            expect(host.items[0]).toBe(tab);
+            expect(tab.getTabButtons().map(button => button.text)).toEqual(['Alpha', 'Beta']);
+            expect(tab.getActionItem('pin'), 'the exact action instance survives projection').toBe(action);
+            expect(bar.getActionSpacer(), 'the exact spacer instance survives projection').toBe(spacer);
+            expect(bar.items.slice(-2)).toEqual([spacer, action]);
+            expect(action.wrapperCls).not.toContain('neo-draggable');
+            expect(spacer.wrapperCls).not.toContain('neo-draggable');
+            expect(bar.sortZone.getDraggableItems(bar.items)).toEqual(tab.getTabButtons())
+        } finally {
+            host.destroy()
+        }
+    })
+
     test('normalizes an absent-item config to the inserted live component exactly once', async () => {
         const
             model = createRootTabsModel(),

@@ -2,8 +2,8 @@ import Button from '../../button/Base.mjs';
 import Plugin from '../../plugin/Base.mjs';
 
 /**
- * @summary The tab-overflow affordance for a projected tab header toolbar: when the headers exceed the
- * available width, the overflowing tabs collapse behind a floating overflow control whose menu reaches them.
+ * @summary The tab-overflow affordance for a projected tab header toolbar: when headers exceed the
+ * available main-axis extent, overflowing tabs collapse behind a floating control whose menu reaches them.
  *
  * The pure decision is this plugin's own static {@link Neo.tab.plugin.Overflow.computeOverflow} — a
  * projection concern, nothing persists. This plugin is the RUNTIME complement: it measures the live header extents
@@ -15,13 +15,11 @@ import Plugin from '../../plugin/Base.mjs';
  * It attaches to the projected tab header toolbar (`Neo.tab.header.Toolbar`) — it is NOT a dock-specific
  * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The overflow control is an
  * OUT-OF-COLLECTION floating button rooted at `document.body`, deliberately NOT a member of `owner.items`:
- * the dock enables `dragResortable` (`DockLayoutAdapter`), so the header toolbar wires a SortZone that marks
- * every `owner.items` entry draggable and commits reorders via the `moveTo` the container fires on drop. A
- * trailing control inside `owner.items` would therefore be drag-reorderable and would corrupt the committed
- * dock tab order. Keeping the control floating (out of the collection) preserves the collection invariant —
- * `owner.items` stays exactly the real tabs, so the SortZone never sees it. The control also carries none of
- * a tab button's `activeIndex` click wiring (that lives in `getTabButtonConfig`, which the plugin bypasses),
- * so selecting it opens its menu rather than activating a phantom card.
+ * the control has independent mount/alignment/menu lifecycle and therefore remains outside `owner.items`.
+ * Ordinary flat toolbar actions can live in that collection because the tab toolbar and SortZone now expose
+ * one explicit tab-button subset; the overflow control is still intentionally not an action or tab. It carries
+ * none of a tab button's `activeIndex` click wiring (that lives in `getTabButtonConfig`, which the plugin
+ * bypasses), so selecting it opens its menu rather than activating a phantom card.
  *
  * Natural-width discipline: overflowing buttons are removed from the DOM (Neo's built-in `hidden` /
  * removeDom), so re-measuring them would collapse their width to 0 and corrupt the next split. The plugin
@@ -45,9 +43,9 @@ class Overflow extends Plugin {
          */
         ntype: 'plugin-tab-overflow',
         /**
-         * Width (px) the overflow control reserves from the header extent — handed to the pure core as
+         * Main-axis size (px) the overflow control reserves from the header extent — handed to the pure core as
          * `controlWidth`, which reserves it ONLY when something overflows (a control that exists only when
-         * needed must not consume width while everything fits).
+         * needed must not consume space while everything fits). The historic config name stays compatible.
          * @member {Number} controlWidth=40
          */
         controlWidth: 40
@@ -127,9 +125,8 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Plugin-owned active-button caps: button id → the caller's own `maxWidth` config value at
-     * cap time (`null` when the consumer had none). Property presence on the button is NOT
-     * provenance — a consumer may legitimately configure `maxWidth` — so this ledger is the one
+     * Plugin-owned active-button caps: button id → `{maxSize, value}` for the caller's own main-axis
+     * max-size config at cap time. Property presence on the button is NOT provenance, so this ledger is the one
      * source of truth for "the plugin installed this cap", and clearing always restores the exact
      * recorded caller value through the same public config channel.
      * @member {Map|null} appliedCaps=null
@@ -147,7 +144,7 @@ class Overflow extends Plugin {
      */
     measuring = false
     /**
-     * The control's RENDERED width, measured while it is mounted (same round-trip as the extent read).
+     * The control's rendered main-axis extent, measured while it is mounted.
      * The `controlWidth` config is only the pre-creation estimate — the first overflow decision runs
      * before any control exists to measure. Once render truth is available, the reservation uses
      * `max(config, measured)`, so a skin that renders the control wider than the estimate can never
@@ -156,7 +153,7 @@ class Overflow extends Plugin {
      */
     measuredControlWidth = null
     /**
-     * Natural (un-hidden) header widths keyed by tab-button id — see the class note on natural-width
+     * Natural (un-hidden) header main-axis extents keyed by tab-button id — see the class note on natural-width
      * discipline. `null` until the first capture.
      * @member {Object|null} naturalWidths=null
      */
@@ -189,6 +186,36 @@ class Overflow extends Plugin {
      * @member {Boolean} remountArming=false
      */
     remountArming = false
+    /**
+     * A projection requested while the tab SortZone owned a gesture.
+     * @member {Boolean} sortDragProjectionQueued=false
+     */
+    sortDragProjectionQueued = false
+    /**
+     * Sticky recapture intent for the post-drag projection.
+     * @member {Boolean} sortDragRecaptureQueued=false
+     */
+    sortDragRecaptureQueued = false
+    /**
+     * SortZone whose drag terminal releases queued projections.
+     * @member {Neo.draggable.container.SortZone|null} sortDragZone=null
+     */
+    sortDragZone = null
+    /**
+     * A post-terminal drain task is already scheduled.
+     * @member {Boolean} sortDragDrainScheduled=false
+     */
+    sortDragDrainScheduled = false
+    /**
+     * Drag-start callers waiting for the complete projection transaction to settle.
+     * @member {Function[]|null} projectionIdleWaiters=null
+     */
+    projectionIdleWaiters = null
+    /**
+     * A dock-axis change needs its next rendered owner resize to recapture tab main-axis extents.
+     * @member {Boolean} dockRecapturePending=false
+     */
+    dockRecapturePending = false
 
     /**
      * @param {Object} config
@@ -212,7 +239,12 @@ class Overflow extends Plugin {
                 me.observeConfig(component, 'theme', () => {
                     queueMicrotask(() => !me.isDestroyed && me.onOwnerThemeChange())
                 })
-            })
+            });
+            if (me.owner.getConfig?.('dock')) {
+                me.observeConfig(me.owner, 'dock', () => {
+                    me.dockRecapturePending = true
+                })
+            }
         }
     }
 
@@ -226,12 +258,48 @@ class Overflow extends Plugin {
     }
 
     /**
-     * The header buttons that participate in overflow: the toolbar's items (the control is never among
-     * them — see the class note).
+     * The semantic header buttons that participate in overflow. Actions, their spacer, and the floating
+     * control remain outside this view.
      * @returns {Neo.tab.header.Button[]}
      */
     getTabButtons() {
-        return (this.owner.items || []).filter(item => item !== this.control)
+        return this.owner.getTabButtons?.() || []
+    }
+
+    /**
+     * Visible or geometry-reserved actions which reduce the tab strip's main-axis extent.
+     * @returns {Neo.component.Base[]}
+     */
+    getActionItems() {
+        return (this.owner.getActionItems?.() || [])
+            .filter(item => !item.hidden || item.hideMode === 'visibility')
+    }
+
+    /**
+     * Returns the orientation-dependent geometry contract used by measurement, capping, and
+     * floating-control alignment.
+     * @returns {{actionAlign: String, dimension: String, maxSize: String, ownerAlign: String}}
+     */
+    getMainAxisConfig() {
+        return this.owner.dock === 'left' || this.owner.dock === 'right'
+            ? {actionAlign: 'b0-t0', dimension: 'height', maxSize: 'maxHeight', ownerAlign: 'b0-b0'}
+            : {actionAlign: 'r0-l0', dimension: 'width',  maxSize: 'maxWidth',  ownerAlign: 'r0-r0'}
+    }
+
+    /**
+     * Aligns the floating overflow control immediately before the action group, or to the owner's
+     * trailing edge when no action currently consumes space.
+     * @returns {Object}
+     */
+    getControlAlign() {
+        let me          = this,
+            firstAction = me.getActionItems()[0],
+            geometry    = me.getMainAxisConfig();
+
+        return {
+            edgeAlign: firstAction ? geometry.actionAlign : geometry.ownerAlign,
+            target   : firstAction?.id || me.owner.id
+        }
     }
 
     /**
@@ -262,8 +330,138 @@ class Overflow extends Plugin {
         // so recapture to keep the split live.
         owner.on('insert', me.onTabSetChange, me);
         owner.on('remove', me.onTabSetChange, me);
+        owner.on('actionsChange', me.onActionSetChange, me);
+        owner.on('actionGeometryChange', me.onActionSetChange, me);
+        owner.on('actionVisibilityChange', me.onActionSetChange, me);
         me.getTabContainer()?.on('moveTo', me.onTabSetChange, me);
         me.project(true)
+    }
+
+    /**
+     * Action membership/availability changes alter the tab-exclusive extent, not tab natural widths.
+     */
+    onActionSetChange() {
+        this.project(false)
+    }
+
+    /**
+     * Reprojects when the floating control's rendered main-axis size changes.
+     * @protected
+     */
+    onControlResize() {
+        this.project(false)
+    }
+
+    /**
+     * Drains one sticky projection after the SortZone has restored its snapshotted tab geometry.
+     * @protected
+     */
+    onSortDragEnd() {
+        this.scheduleSortDragProjection()
+    }
+
+    /**
+     * Releases work queued only by the snapshot-pending handshake when no drag started.
+     * @protected
+     */
+    onSortSnapshotReady() {
+        let sortZone = this.owner?.sortZone;
+
+        if (!(sortZone?.sortSnapshotPending || sortZone?.startIndex > -1 || sortZone?.dragEndActive)) {
+            this.scheduleSortDragProjection()
+        }
+    }
+
+    /**
+     * Defers a projection while the tab SortZone owns a stable gesture snapshot.
+     * @param {Boolean} recapture
+     * @param {Boolean} [includeSnapshotPending=true] New work waits behind snapshot preparation;
+     *        an already-running transaction may finish its restoring split before releasing that waiter.
+     * @returns {Boolean} True when the caller must stop its current projection.
+     * @protected
+     */
+    queueSortDragProjection(recapture, includeSnapshotPending=true) {
+        let me       = this,
+            sortZone = me.owner.sortZone;
+
+        if (!((includeSnapshotPending && sortZone?.sortSnapshotPending)
+            || sortZone?.startIndex > -1
+            || sortZone?.dragEndActive)) {
+            return false
+        }
+
+        if (me.sortDragZone !== sortZone) {
+            me.sortDragZone?.un('dragEnd', me.onSortDragEnd, me);
+            me.sortDragZone = sortZone;
+            me.sortDragZone.on('dragEnd', me.onSortDragEnd, me)
+        }
+
+        me.sortDragProjectionQueued = true;
+        me.sortDragRecaptureQueued  = me.sortDragRecaptureQueued || recapture;
+
+        return true
+    }
+
+    /**
+     * Schedules the latest sticky projection after every SortZone terminal latch has released.
+     * Dock terminals can outlive the first task, so retry at a bounded cadence while the exact latch
+     * remains owned. Destroy rejects registered timeouts; the catch keeps teardown silent.
+     * @protected
+     */
+    scheduleSortDragProjection() {
+        let me = this;
+
+        if (!me.sortDragProjectionQueued || me.sortDragDrainScheduled) {
+            return
+        }
+
+        me.sortDragDrainScheduled = true;
+
+        me.timeout(10)
+            .catch(() => null)
+            .then(() => {
+                me.sortDragDrainScheduled = false;
+
+                if (me.isDestroyed) {
+                    return
+                }
+
+                let sortZone = me.owner.sortZone;
+
+                if (sortZone?.sortSnapshotPending || sortZone?.startIndex > -1 || sortZone?.dragEndActive) {
+                    me.scheduleSortDragProjection();
+                    return
+                }
+
+                let recapture = me.sortDragRecaptureQueued;
+
+                me.sortDragProjectionQueued = false;
+                me.sortDragRecaptureQueued  = false;
+                me.project(recapture)
+            })
+    }
+
+    /**
+     * Resolves drag-start callers after the projection and any coalesced rerun are idle.
+     * @protected
+     */
+    resolveProjectionIdle() {
+        let waiters = this.projectionIdleWaiters || [];
+
+        this.projectionIdleWaiters = null;
+        waiters.forEach(resolve => resolve())
+    }
+
+    /**
+     * Waits until an in-flight projection and its coalesced rerun have both settled.
+     * @returns {Promise<void>}
+     */
+    whenProjectionIdle() {
+        if (!this.measuring && !this.projectQueued) {
+            return Promise.resolve()
+        }
+
+        return new Promise(resolve => (this.projectionIdleWaiters ??= []).push(resolve))
     }
 
     /**
@@ -271,7 +469,11 @@ class Overflow extends Plugin {
      * @param {Object} data
      */
     onResize(data) {
-        this.project(false)
+        let me        = this,
+            recapture = me.dockRecapturePending;
+
+        me.dockRecapturePending = false;
+        me.project(recapture)
     }
 
     /**
@@ -312,11 +514,21 @@ class Overflow extends Plugin {
      * @param {Boolean} recapture  Re-read natural widths (mount, or the tab set changed).
      */
     async project(recapture) {
-        let me      = this,
-            {owner} = me,
-            buttons = me.getTabButtons();
+        let me       = this,
+            {owner}  = me,
+            buttons  = me.getTabButtons(),
+            geometry = me.getMainAxisConfig();
+
+        // The tab SortZone deliberately freezes item rectangles for the gesture. A resize/action
+        // projection can otherwise hide or show members underneath that snapshot. Queue one sticky
+        // pass and drain only after dragEnd restores natural layout.
+        if (me.queueSortDragProjection(recapture)) {
+            !me.measuring && me.resolveProjectionIdle();
+            return
+        }
 
         if (!owner.mounted || buttons.length < 1) {
+            me.resolveProjectionIdle();
             return
         }
 
@@ -332,6 +544,16 @@ class Overflow extends Plugin {
         me.measuring = true;
 
         try {
+            let controlIconCls = geometry.dimension === 'height'
+                ? 'fa fa-ellipsis-vertical'
+                : 'fa fa-ellipsis';
+
+            if (me.control && me.control.iconCls !== controlIconCls) {
+                me.control.iconCls       = controlIconCls;
+                me.measuredControlWidth = null;
+                me.control.mounted && await me.control.promiseUpdate?.()
+            }
+
             // 1. Natural widths — measured once while every button is visible, then cached.
             if (recapture || !me.naturalWidths) {
                 const removedButtons = buttons.filter(button => button.hidden),
@@ -346,7 +568,9 @@ class Overflow extends Plugin {
                 // restore branch. Only ledger members are touched — a consumer-configured maxWidth is not
                 // plugin residue and measures as part of the button's real constraint set.
                 cappedButtons.forEach(button => {
-                    button.maxWidth = me.appliedCaps.get(button.id)
+                    let cap = me.appliedCaps.get(button.id);
+
+                    button[cap.maxSize] = cap.value
                 });
 
                 // A prior split removes overflowing buttons from DOM. Restore them under this method's
@@ -375,23 +599,34 @@ class Overflow extends Plugin {
                     // Keep the last positive measurement for those stable button identities; newly inserted
                     // buttons are visible on their first mutation pass and therefore still enter the cache.
                     me.naturalWidths[button.id] = Math.ceil(
-                        rects[index]?.width || previousWidths[button.id] || 0
+                        rects[index]?.[geometry.dimension] || previousWidths[button.id] || 0
                     )
                 })
             }
 
-            // 2. The strip extent — the toolbar itself never hides, so it is always measurable. When the
-            //    control is mounted, its rendered width rides the same round-trip: render truth for the
-            //    reservation costs no extra latency.
-            let controlId    = me.control?.mounted ? me.control.id : null,
-                rects        = await owner.getDomRect(controlId ? [owner.id, controlId] : [owner.id]),
-                extent       = Math.floor(rects[0]?.width || 0),
-                tabContainer = me.getTabContainer(),
-                activeButton = buttons[tabContainer?.activeIndex] || null,
-                items        = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]}));
+            // 2. The strip extent — actions consume the same main axis but stay outside tab packing.
+            // Contextually inactive actions remain rendered, so their extent stays reserved without
+            // a focus-time repartition.
+            let actionItems   = me.getActionItems(),
+                controlId     = me.control?.mounted ? me.control.id : null,
+                ids           = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],
+                rects         = await owner.getDomRect(ids),
+                ownerRect     = rects.shift(),
+                actionRects   = rects.splice(0, actionItems.length),
+                controlRect   = controlId ? rects.shift() : null,
+                startKey      = geometry.dimension === 'width' ? 'left' : 'top',
+                coordinateKey = geometry.dimension === 'width' ? 'x' : 'y',
+                ownerStart    = Number(ownerRect?.[startKey] ?? ownerRect?.[coordinateKey]),
+                actionStart   = Number(actionRects[0]?.[startKey] ?? actionRects[0]?.[coordinateKey]),
+                extent        = Number.isFinite(ownerStart) && Number.isFinite(actionStart)
+                    ? Math.max(0, Math.floor(actionStart - ownerStart))
+                    : Math.max(0, Math.floor(ownerRect?.[geometry.dimension] || 0)),
+                tabContainer  = me.getTabContainer(),
+                activeButton  = buttons[tabContainer?.activeIndex] || null,
+                items         = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]}));
 
-            if (controlId && rects[1]?.width > 0) {
-                me.measuredControlWidth = Math.ceil(rects[1].width)
+            if (controlRect?.[geometry.dimension] > 0) {
+                me.measuredControlWidth = Math.ceil(controlRect[geometry.dimension])
             }
 
             // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
@@ -404,13 +639,21 @@ class Overflow extends Plugin {
                     items
                 });
 
-            me.applySplit(hidden, buttons, tabContainer, {
-                activeButton,
-                // The degenerate branch keeps an over-wide active visible past `usable` — cap its box so
-                // every geometry derived from the button (the persistent per-button indicator, the strip's
-                // crossfade indicator, the label itself) ends where the control begins.
-                usable: hidden.length > 0 ? Math.max(0, extent - controlWidth) : null
-            })
+            // A drag can begin while either DOM round-trip above is in flight. Recheck at the
+            // mutation boundary so a pre-gesture measurement cannot hide/show members beneath the
+            // SortZone snapshot captured in the meantime.
+            if (!me.queueSortDragProjection(recapture, false)) {
+                me.applySplit(hidden, buttons, tabContainer, {
+                    activeButton,
+                    maxSize: geometry.maxSize,
+                    // The degenerate branch keeps an over-wide active visible past `usable` — cap its box so
+                    // every geometry derived from the button (the persistent per-button indicator, the strip's
+                    // crossfade indicator, the label itself) ends where the control begins.
+                    usable: hidden.length > 0
+                        ? Math.max(0, extent - controlWidth)
+                        : activeButton && me.naturalWidths[activeButton.id] > extent ? extent : null
+                })
+            }
         } catch (error) {
             // getDomRect losing a race with teardown (owner unmounting mid-measure) is the ONE expected
             // failure: it must neither reject a fire-and-forget handler nor skip the drain below, and the
@@ -434,6 +677,8 @@ class Overflow extends Plugin {
             me.projectQueued   = false;
             me.queuedRecapture = false;
             me.project(queuedRecapture)
+        } else {
+            me.resolveProjectionIdle()
         }
     }
 
@@ -442,17 +687,17 @@ class Overflow extends Plugin {
      * over-wide active button to the usable extent, and reflects the remainder through the overflow
      * control.
      *
-     * The cap is horizontal-only by design: this plugin packs widths against a horizontal strip extent
-     * (`tabBarPosition: 'top'` / `'bottom'` compositions); a vertical tab bar never mounts it, so the
-     * vertical indicator branch has no overflow control to collide with.
+     * Packing and active-button capping follow the toolbar's main axis: width for top/bottom and
+     * height for left/right.
      * @param {String[]} hidden  Overflowing button ids, in header order.
      * @param {Neo.tab.header.Button[]} buttons
      * @param {Neo.tab.Container} tabContainer
      * @param {Object}  activeCap
      * @param {Neo.tab.header.Button|null} activeCap.activeButton
+     * @param {String} [activeCap.maxSize='maxWidth'] Main-axis max-size config.
      * @param {Number|null} activeCap.usable  Cap for the active button while overflowing; `null` clears.
      */
-    applySplit(hidden, buttons, tabContainer, {activeButton, usable} = {}) {
+    applySplit(hidden, buttons, tabContainer, {activeButton, maxSize='maxWidth', usable} = {}) {
         let me         = this,
             hiddenSet  = new Set(hidden),
             hiddenMeta = [];
@@ -461,6 +706,17 @@ class Overflow extends Plugin {
             let isHidden = hiddenSet.has(button.id),
                 needsCap = button === activeButton && usable !== null && usable !== undefined
                     && me.naturalWidths?.[button.id] > usable;
+
+            // Dock orientation can change while an active tab is capped. Retire ownership on the
+            // old axis before deciding the new one, or a maxWidth ledger entry would authorize a
+            // maxHeight write that destroy/clear can never restore.
+            if (me.appliedCaps?.has(button.id) && me.appliedCaps.get(button.id).maxSize !== maxSize) {
+                let priorCap = me.appliedCaps.get(button.id);
+
+                button[priorCap.maxSize] = priorCap.value;
+                button.removeCls('neo-tab-overflow-capped');
+                me.appliedCaps.delete(button.id)
+            }
 
             // Neo's built-in `hidden` (removeDom) rather than a cls needing an external stylesheet rule —
             // the natural-width cache (captured while every button was visible) survives the DOM removal,
@@ -484,14 +740,19 @@ class Overflow extends Plugin {
             // clearing restores the exact caller value recorded at cap time.
             if (needsCap) {
                 if (!me.appliedCaps?.has(button.id)) {
-                    (me.appliedCaps ??= new Map()).set(button.id, button.maxWidth ?? null);
+                    (me.appliedCaps ??= new Map()).set(button.id, {
+                        maxSize,
+                        value: button[maxSize] ?? null
+                    });
                     button.addCls('neo-tab-overflow-capped')
                 }
 
-                button.maxWidth = usable
+                button[maxSize] = usable
             } else if (me.appliedCaps?.has(button.id)) {
+                let cap = me.appliedCaps.get(button.id);
+
                 button.removeCls('neo-tab-overflow-capped');
-                button.maxWidth = me.appliedCaps.get(button.id);
+                button[cap.maxSize] = cap.value;
                 me.appliedCaps.delete(button.id)
             }
 
@@ -583,35 +844,38 @@ class Overflow extends Plugin {
             }
         } else {
             // OUT-OF-COLLECTION mount: a floating button rooted directly at document.body, NOT a trailing
-            // toolbar item. The dock sets `dragResortable: true` (DockLayoutAdapter), so the header toolbar
-            // wires a SortZone that marks EVERY `owner.items` entry draggable — a trailing control there
-            // would be drag-reorderable and would corrupt the committed dock tab order via the `moveTo` the
-            // container fires on drop. Keeping the control OUT of `owner.items` preserves the collection
-            // invariant (`owner.items` === exactly the real tabs) so the SortZone never sees it.
+            // toolbar item. Ordinary toolbar actions are members of `owner.items` but excluded through the
+            // tab toolbar's semantic subset; the independently mounted overflow embodiment stays outside
+            // both collections.
             //
             // `Neo.create` with `floating:true` + `parentId:'document.body'` roots at document.body directly
             // (verified: `Container.createItem` is the only path that injects `parentId=owner.id`, and we
-            // bypass it). The parentless `initVnode(true)` autoMount reaches the DOM via the merged
+            // bypass it). `parentComponent` restores logical TabContainer focus ancestry while the physical
+            // root stays on document.body. The `initVnode(true)` autoMount reaches the DOM via the merged
             // hidden-document render-queue drain — before it, the insertNode reply parked behind a
             // suspended requestAnimationFrame in an offscreen / hidden document.
             me.control = Neo.create({
-                module       : Button,
-                // Align to the owner toolbar's right edge — the reserved overflow slot (the pure core keeps
-                // `controlWidth` free there when anything overflows). Without an `align.target` a floating
-                // component stays at its off-screen default (`left/top: -10000px`): it renders but is not
-                // visible/clickable. `r0-r0` puts the control's right edge at the toolbar's right edge.
-                align        : {edgeAlign: 'r0-r0', target: me.owner.id},
+                module         : Button,
+                // Align to the main-axis slot immediately before actions (or the owner edge without actions).
+                // Without an align target a floating component stays at its off-screen default.
+                align        : me.getControlAlign(),
                 appName      : me.owner.appName,
                 autoInitVnode: true,
                 autoMount    : true,
                 cls          : ['neo-tab-overflow-control'],
                 floating     : true,
-                iconCls      : 'fa fa-ellipsis',
-                menu         : menuConfig,
-                parentId     : 'document.body',
-                theme        : me.owner.getTheme(),
-                windowId     : me.owner.windowId
+                iconCls      : me.getMainAxisConfig().dimension === 'height'
+                    ? 'fa fa-ellipsis-vertical'
+                    : 'fa fa-ellipsis',
+                menu           : menuConfig,
+                parentComponent: me.owner,
+                parentId       : 'document.body',
+                role           : 'button',
+                theme          : me.owner.getTheme(),
+                vdom           : {'aria-label': 'More tabs'},
+                windowId       : me.owner.windowId
             });
+            me.control.addDomListeners?.({resize: me.onControlResize, scope: me});
 
             // The reservation's render-truth EDGE: the pass that creates the control computed its split
             // with the pre-creation estimate — the rendered width does not exist yet, and no external
@@ -628,11 +892,15 @@ class Overflow extends Plugin {
         me.hiddenSignature = signature;
 
         // RA-13: re-align against the CURRENT owner rect. A floating component aligns once at mount and does
-        // NOT re-align when its target moves — and a sync-driven projection change (tabs hidden/shown) moves
-        // the toolbar's right edge without resizing the toolbar element, so neither the initial align nor the
-        // offsetParent ResizeObserver re-fires. Re-aligning on each sync (control mounted) re-pins it to the
-        // current edge — cheap + idempotent. The e2e owner-exact geometry assertion falsifies its absence.
-        me.control?.mounted && me.control.alignTo()
+        // NOT re-align when its target moves. Re-aligning on each sync re-pins it to the current action or
+        // owner edge — cheap + idempotent. The e2e owner-exact geometry assertion falsifies its absence.
+        if (me.control?.mounted) {
+            me.control.align   = me.getControlAlign();
+            me.control.iconCls = me.getMainAxisConfig().dimension === 'height'
+                ? 'fa fa-ellipsis-vertical'
+                : 'fa fa-ellipsis';
+            me.control.alignTo()
+        }
     }
 
     /**
@@ -644,16 +912,19 @@ class Overflow extends Plugin {
 
         // A dying plugin must not strand its caps (a dock rebuild replaces the plugin, not the
         // buttons): restore each recorded caller value through the same channel the cap used.
-        me.appliedCaps?.forEach((priorMaxWidth, buttonId) => {
+        me.appliedCaps?.forEach((cap, buttonId) => {
             const button = me.getTabButtons().find(item => item.id === buttonId);
 
             if (button && !button.isDestroyed) {
                 button.removeCls?.('neo-tab-overflow-capped');
-                button.maxWidth = priorMaxWidth
+                button[cap.maxSize] = cap.value
             }
         });
 
         me.appliedCaps = null;
+        me.resolveProjectionIdle();
+        me.sortDragZone?.un('dragEnd', me.onSortDragEnd, me);
+        me.sortDragZone = null;
         me.control?.destroy(true);
         me.control = null;
         super.destroy(...args)

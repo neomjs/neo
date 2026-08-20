@@ -1,5 +1,4 @@
 import DragZone  from './DragZone.mjs';
-import NeoArray  from '../../util/Array.mjs';
 import Rectangle from '../../util/Rectangle.mjs';
 import VDomUtil  from '../../util/VDom.mjs';
 
@@ -115,6 +114,12 @@ class SortZone extends DragZone {
          */
         ownerRect: null,
         /**
+         * Optional local sorting boundary, distinct from the outer drag/tear-out boundary.
+         * @member {Neo.util.Rectangle|null} sortBoundaryRect=null
+         * @protected
+         */
+        sortBoundaryRect: null,
+        /**
          * @member {Object} ownerStyle=null
          * @protected
          */
@@ -167,7 +172,13 @@ class SortZone extends DragZone {
          * @member {Number} startIndex=-1
          * @protected
          */
-        startIndex: -1
+        startIndex: -1,
+        /**
+         * True keeps the owner's full box during a drag and derives local sorting bounds from the
+         * rendered sortable-item union.
+         * @member {Boolean} useItemSortBoundary=false
+         */
+        useItemSortBoundary: false
     }
 
     /**
@@ -265,26 +276,44 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Toggles the neo-draggable cls on items inside our owner.
-     * @param {Boolean} draggable
+     * Applies the optional handle-selector membership contract to every marking/insertion/snapshot
+     * path inherited from the container DragZone.
+     * @param {*} item
+     * @returns {Boolean}
      */
-    adjustItemCls(draggable) {
-        let me = this;
+    isDraggableItem(item) {
+        let admitted = super.isDraggableItem(item);
 
-        if (me.dragHandleSelector) {
-            const handleCls     = me.dragHandleSelector.startsWith('.') ? me.dragHandleSelector.substring(1) : me.dragHandleSelector;
-            const sortableItems = me.owner.items.filter(item =>
-                typeof item !== 'string' && VDomUtil.find(item.vdom, {cls: handleCls})
-            );
-
-            sortableItems.forEach(item => {
-                const wrapperCls = item.wrapperCls || [];
-                NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
-                item.wrapperCls = wrapperCls
-            });
-        } else {
-            super.adjustItemCls(draggable)
+        if (!admitted || !this.dragHandleSelector) {
+            return admitted
         }
+
+        let handleCls = this.dragHandleSelector.startsWith('.')
+            ? this.dragHandleSelector.substring(1)
+            : this.dragHandleSelector;
+
+        return Boolean(VDomUtil.find(item.vdom, {cls: handleCls}))
+    }
+
+    /**
+     * Returns the union of non-zero rendered sortable-item rectangles.
+     * @param {Neo.util.Rectangle[]} rects
+     * @returns {Neo.util.Rectangle|null}
+     * @protected
+     */
+    getSortBoundaryRect(rects) {
+        let rendered = rects.filter(rect => rect && rect.width > 0 && rect.height > 0);
+
+        if (rendered.length === 0) {
+            return null
+        }
+
+        let left   = Math.min(...rendered.map(rect => rect.left)),
+            top    = Math.min(...rendered.map(rect => rect.top)),
+            right  = Math.max(...rendered.map(rect => rect.right)),
+            bottom = Math.max(...rendered.map(rect => rect.bottom));
+
+        return new Rectangle(left, top, right - left, bottom - top)
     }
 
     /**
@@ -297,10 +326,10 @@ class SortZone extends DragZone {
 
         if (proxyRect && me.boundaryContainerRect) {
             const
-                boundaryRect      = me.boundaryContainerRect,
-                intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
-                proxyArea         = proxyRect.width * proxyRect.height,
-                intersectionArea  = intersection ? intersection.width * intersection.height : 0,
+                boundaryRect     = me.boundaryContainerRect,
+                intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
+                proxyArea        = proxyRect.width * proxyRect.height,
+                intersectionArea = intersection ? intersection.width * intersection.height : 0,
                 // During window-drag the move payload's proxy embodies the FUTURE VESSEL
                 // (popupWidth × popupHeight, src/main/addon/DragDrop.mjs), which can dwarf a
                 // strip-scale boundary; a proxy-area denominator then caps the ratio at
@@ -601,6 +630,7 @@ class SortZone extends DragZone {
                 lastInBoundY    : null,
                 ownerRect       : null,
                 scrollLeft      : 0,
+                sortBoundaryRect: null,
                 startIndex      : -1,
                 sortableItems   : null
             });
@@ -645,6 +675,7 @@ class SortZone extends DragZone {
         let {clientX, clientY} = data,
             index              = me.currentIndex,
             {itemRects}        = me,
+            localBoundary      = me.sortBoundaryRect || me.boundaryContainerRect,
             maxItems           = itemRects.length - 1,
             // itemRects leave viewport space through EITHER conversion mechanism: the
             // adjustItemRectsToParent flag (parent-managed) or a subclass-provided
@@ -661,13 +692,13 @@ class SortZone extends DragZone {
 
         if (me.sortDirection === 'horizontal') {
             delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
-            isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
-            isOverDraggingStart = clientX < me.boundaryContainerRect.left;
+            isOverDraggingEnd   = clientX > localBoundary.right;
+            isOverDraggingStart = clientX < localBoundary.left;
             itemHeightOrWidth   = 'width'
         } else {
             delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
-            isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
-            isOverDraggingStart = clientY < me.boundaryContainerRect.top;
+            isOverDraggingEnd   = clientY > localBoundary.bottom;
+            isOverDraggingStart = clientY < localBoundary.top;
             itemHeightOrWidth   = 'height'
         }
 
@@ -809,18 +840,16 @@ class SortZone extends DragZone {
                     return
                 }
 
-                sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
-                    cls: dragHandleSelector.startsWith('.') ? dragHandleSelector.substring(1) : dragHandleSelector
-                }));
+                sortableItems = me.getDraggableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem);
-
-                if (index < 0) {
-                    return
-                }
             } else {
                 draggedItem   = Neo.getComponent(data.path[0].id);
-                sortableItems = owner.items;
-                index         = owner.indexOf(draggedItem.id)
+                sortableItems = me.getDraggableItems(owner.items);
+                index         = sortableItems.indexOf(draggedItem)
+            }
+
+            if (index < 0) {
+                return
             }
 
             indexMap = {};
@@ -853,31 +882,21 @@ class SortZone extends DragZone {
             const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
             me.ownerRect = itemRects.shift();
+            me.sortBoundaryRect = me.useItemSortBoundary ? me.getSortBoundaryRect(itemRects) : null;
 
             // Calculate real owner dimensions based on first and last item rects (accounting for padding)
-            if (itemRects.length > 0) {
+            if (!me.useItemSortBoundary && itemRects.length > 0) {
                 const firstItemRect = itemRects[0];
                 const lastItemRect  = itemRects[itemRects.length - 1];
 
-                if (me.sortDirection === 'horizontal') {
-                    if (firstItemRect.x > me.ownerRect.x) {
-                        me.ownerRect.x = firstItemRect.x
-                    }
-                    if (firstItemRect.y > me.ownerRect.y) {
-                        me.ownerRect.y = firstItemRect.y
-                    }
-                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
-                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
-                } else {
-                    if (firstItemRect.x > me.ownerRect.x) {
-                        me.ownerRect.x = firstItemRect.x
-                    }
-                    if (firstItemRect.y > me.ownerRect.y) {
-                        me.ownerRect.y = firstItemRect.y
-                    }
-                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
-                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
+                if (firstItemRect.x > me.ownerRect.x) {
+                    me.ownerRect.x = firstItemRect.x
                 }
+                if (firstItemRect.y > me.ownerRect.y) {
+                    me.ownerRect.y = firstItemRect.y
+                }
+                me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
+                me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
             }
 
             owner.style = {

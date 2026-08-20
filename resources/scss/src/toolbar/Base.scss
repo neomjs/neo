@@ -11,6 +11,11 @@
         }
     }
 
+    .neo-toolbar-action-context-inactive {
+        pointer-events: none;
+        visibility    : hidden;
+    }
+
     &.neo-dock-left {
         .neo-button {
             padding: 12px 6px;

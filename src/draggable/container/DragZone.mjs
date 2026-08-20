@@ -55,16 +55,34 @@ class DragZone extends BaseDragZone {
             wrapperCls;
 
         owner.items.forEach(item => {
-            // spacers
-            if (typeof item === 'string') {
+            if (typeof item === 'string' || !item) {
                 return;
             }
 
             wrapperCls = item.wrapperCls || [];
 
-            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
+            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable && me.isDraggableItem(item));
             item.wrapperCls = wrapperCls;
         });
+    }
+
+    /**
+     * Returns the owner items admitted to this drag zone.
+     * @param {Object[]} [items=this.owner.items]
+     * @returns {Neo.component.Base[]}
+     */
+    getDraggableItems(items=this.owner.items) {
+        return (items || []).filter(item => this.isDraggableItem(item))
+    }
+
+    /**
+     * The generic container contract admits every component item. Specialised drag zones override
+     * this one predicate so initial marking and dynamic insertion cannot drift.
+     * @param {*} item
+     * @returns {Boolean}
+     */
+    isDraggableItem(item) {
+        return Boolean(item) && typeof item !== 'string'
     }
 
     /**
@@ -113,11 +131,18 @@ class DragZone extends BaseDragZone {
      * @param {Neo.component.Base} data.item
      */
     onItemInsert(data) {
-        let {item}     = data,
-            wrapperCls = item.wrapperCls || [];
+        let items = Array.isArray(data.item) ? data.item : [data.item];
 
-        NeoArray.add(wrapperCls, 'neo-draggable');
-        item.wrapperCls = wrapperCls;
+        items.forEach(item => {
+            if (!item || typeof item === 'string') {
+                return
+            }
+
+            let wrapperCls = item.wrapperCls || [];
+
+            NeoArray.toggle(wrapperCls, 'neo-draggable', this.isDraggableItem(item));
+            item.wrapperCls = wrapperCls
+        })
     }
 
     /**
