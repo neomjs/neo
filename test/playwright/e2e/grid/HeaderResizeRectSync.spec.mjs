@@ -171,25 +171,59 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
 
         assertAligned(await readPairs(page), 'baseline');
 
-        let heldWidth = 0;
+        const width = async () => (await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox()).width;
+
+        const before = await width();
+
+        let held = 0;
 
         await resizeColumn(page, 'Number 7', 160, async () => {
             // Non-vacuity: the hold assertion below is worthless unless the gesture has already
             // moved something at this point. A drag that never engaged leaves every rect at its
             // baseline, where alignment holds trivially.
-            heldWidth = (await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox()).width;
+            held = await width();
 
             assertAligned(await readPairs(page), 'DURING the widen drag, button still down')
         });
 
-        expect(heldWidth, 'the header had already widened at the hold point').toBeGreaterThan(120);
+        expect(held, `the header had already widened at the hold point (before=${before})`).toBeGreaterThan(before + 20);
 
-        assertAligned(await readPairs(page), 'after the widen drop');
+        assertAligned(await readPairs(page), 'after the widen drop')
+    });
 
-        // Narrowing takes the same path and is the direction the 9k-era defect lived in.
-        await resizeColumn(page, 'Number 7', -120, async () => {
+    /**
+     * Narrowing is a separate case on purpose. Sharing one test with the widen arm makes the widen
+     * failure abort the run before the narrow hold is ever reached, so a red proof could never
+     * certify the two directions independently — and narrowing is the direction the 9k-era defect
+     * lived in.
+     */
+    test('the header tracks a NARROWING drag, not only the drop', async ({page}) => {
+        await page.goto('/examples/grid/bigData/');
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+
+        await expect(page.locator('[role="grid"]').first()).toBeVisible({timeout: 30000});
+        await expect(page.locator('.neo-grid-body [role="row"]').first()).toBeVisible({timeout: 30000});
+        await page.waitForTimeout(600);
+
+        assertAligned(await readPairs(page), 'baseline');
+
+        const width = async () => (await page.locator('.neo-grid-header-button', {hasText: 'Firstname'}).first().boundingBox()).width;
+
+        // `Firstname` starts at 150, so it has room to shrink without hitting `minWidth: 100`.
+        const before = await width();
+
+        let held = 0;
+
+        await resizeColumn(page, 'Firstname', -40, async () => {
+            // The narrow arm carries its own non-vacuity proof rather than inheriting the widen
+            // arm's: if narrowing stops engaging, this callback would otherwise read an unchanged,
+            // trivially aligned header and pass.
+            held = await width();
+
             assertAligned(await readPairs(page), 'DURING the narrow drag, button still down')
         });
+
+        expect(held, `the header had already narrowed at the hold point (before=${before})`).toBeLessThan(before - 20);
 
         assertAligned(await readPairs(page), 'after the narrow drop')
     });
