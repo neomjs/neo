@@ -16,7 +16,6 @@ import {fileURLToPath}        from 'node:url';
  */
 
 export const GENERATED_DATA_PATHS = [
-    ':(glob)apps/devindex/resources/data/*.json*',
     'apps/portal/resources/data',
     'apps/portal/sitemap.xml',
     'apps/portal/llms.txt',
@@ -83,17 +82,20 @@ const
             publishGeneratedProgressOnFailure: true,
             tokenScope                       : 'reader'
         },
-        // The four DevIndex stages below ENRICH the DevIndex product; they do not produce the corpus
-        // this repository publishes. Without the deferral flag they were fatal to publication: a
-        // denial on the very first of them threw out of the loop, so the remaining stages — including
-        // `content indexes and SEO`, which is what makes the corpus consumable — never ran and the
-        // corpus generated above was discarded unpublished. A GitHub-side denial on the opt-in
-        // stargazer read froze `resources/content/**` on `dev` for nineteen hours that way, and every
-        // downstream consumer (portal data, KB ingestion) read the frozen corpus.
+        // `publishGeneratedProgressOnFailure` above OUTLIVED the stages that motivated it, and that
+        // is deliberate rather than leftover. Four DevIndex enrichment stages used to sit here; they
+        // enriched a separate product without producing the corpus this repository publishes, and
+        // without the deferral flag a denial on the first of them threw out of the loop, so
+        // `content indexes and SEO` — what makes the corpus consumable — never ran and the corpus
+        // generated above was discarded unpublished. One denied opt-in stargazer read froze
+        // `resources/content/**` on `dev` for nineteen hours that way, and every downstream consumer
+        // (portal data, KB ingestion) read the frozen corpus.
         //
-        // Deferring does NOT soften the failure: `deferredError` is rethrown after publish, so the
-        // run still exits non-zero and the standing alarm still fires. It only stops an optional
-        // enrichment read from deciding whether the corpus gets published.
+        // Those stages now live in `neomjs/devindex`, so that exact scenario cannot recur here. The
+        // flag stays because the property it protects is structural, not DevIndex-specific: any stage
+        // that fails after corpus generation must not be able to discard an already-generated corpus.
+        // Deferring does NOT soften the failure — `deferredError` is rethrown after publish, so the
+        // run still exits non-zero and the standing alarm still fires.
         {
             // `--include-labels` reaches `LabelService.listLabels`, which pages this repository's
             // labels over GraphQL. That is a credentialled read, so `none` was a mis-declaration —
@@ -263,8 +265,7 @@ export function executeCommand(command, args, {
  * @returns {Boolean}
  */
 export function isGeneratedDataPath(filePath) {
-    return /^apps\/devindex\/resources\/data\/[^/]+\.json.*$/u.test(filePath)
-        || filePath === 'apps/portal/sitemap.xml'
+    return filePath === 'apps/portal/sitemap.xml'
         || filePath === 'apps/portal/llms.txt'
         || filePath.startsWith('apps/portal/resources/data/')
         || filePath.startsWith('resources/content/')

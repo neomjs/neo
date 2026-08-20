@@ -190,7 +190,7 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture Column Overdrag Scroll
 });
 
 /**
- * Resolves the DevIndex grid-container instance id from the App Worker.
+ * Resolves the lockedColumns fixture's grid-container instance id from the App Worker.
  * @returns {Promise<String>}
  */
 async function resolveGridId(app) {

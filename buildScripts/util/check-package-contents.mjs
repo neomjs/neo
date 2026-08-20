@@ -62,26 +62,15 @@ export const FORBIDDEN_PREFIXES = [
         why   : 'Agent OS plane state — server logs, wake-daemon files, deployment snapshots, and the Memory Core SQLite graph (agent memories, session records, A2A edges). The tracked concept ontology is the sole intended export.'
     },
     {
-        // Anchored on `resources/` rather than `resources/data/`, and that is the whole point.
+        // Anchored on the tree, not on a path-plus-extension, and that is the whole point — it is
+        // the shape defect #1 in the module docblock arrived at. Pin a rule to `resources/content/
+        // *.md` and a corpus that grows a second extension or a nested directory walks straight out
+        // of the rule's reach while the rule still reads as if it covers it. A prefix has no such
+        // axis to slip on: a subtree that does not exist yet is excluded by default, and widening is
+        // a decision someone makes rather than one a rename makes for them.
         //
-        // Defect #1 this guard exists for was a rule pinned to `apps/devindex/resources/*.json`,
-        // which went vacuous when the corpus moved into `data/` and grew a `.jsonl`. A rule pinned
-        // to `resources/data/` reproduces that exactly: rename `data/` → `corpus/` and the
-        // `.npmignore` line and this gate go vacuous TOGETHER, so the guard prints OK over a 26.5 MiB
-        // leak. An observer that inherits the blind spot of the thing it observes is not an observer.
-        //
-        // Prefix-plus-allowlist survives the rename: a subtree that does not exist yet is excluded by
-        // default, and only `images/` is named. `resources/` holds exactly two children today —
-        // `images/` (one 4 KB SVG) and `data/` (26.5 MiB) — so if a legitimate non-corpus subdirectory
-        // is added later, the correct response is to add it here, which is a decision someone makes
-        // rather than one a rename makes for them.
-        //
-        // Raised by @neo-opus-grace on review of the PR that introduced this file.
-        prefix: 'apps/devindex/resources/',
-        allow : ['apps/devindex/resources/images/'],
-        why   : 'DevIndex crawler corpus — 26.5 MiB with no framework consumer; the browser store fetches it over HTTP from the deployed site, never from the package. The app\'s own images are the sole intended export.'
-    },
-    {
+        // The `allow: []` is therefore deliberate rather than unfilled. Nothing under this tree is
+        // intended for the package, so there is no carve-out to keep honest.
         prefix: 'resources/content/',
         allow : [],
         why   : 'The synced issue/PR/discussion corpus — agent substrate, not framework code.'

@@ -6,7 +6,7 @@ Advanced applications often need to reconfigure the Grid at runtime, such as swa
 
 ## The Challenge: Multi-Dimensional Data
 
-Imagine building a dashboard like **DevIndex** that tracks developer activity over 15 years. For each year, you have three metrics:
+Imagine building a dashboard that tracks developer activity over 15 years. For each year, you have three metrics:
 1.  **Total** Contributions
 2.  **Public** Contributions
 3.  **Private** Contributions
@@ -70,7 +70,7 @@ When you update `column.dataField = 'newField'`:
 // Controller logic
 onDataModeChange(mode) {
     const grid = this.getReference('my-grid');
-    
+
     grid.columns.items.forEach(column => {
         // Switch binding based on mode
         if (column.text === 'Revenue') {
@@ -101,7 +101,7 @@ classDiagram
         +Array private
     }
     Record ..> RawData : Reads from
-    
+
     note for Record "Virtual Getter: y2020\nReturns: RawData.years[10]"
     note for Record "Virtual Getter: c2020\nReturns: RawData.commits[10]"
 ```

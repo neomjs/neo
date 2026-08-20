@@ -218,7 +218,7 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
         expect(isRetryContext({file: 'src/form/field/FileUpload.mjs', line: 'bytes / (1000 ** i)', symbol: 'formatSize'})).toBe(false);
 
         expect(isRetryContext({file: 'src/data/connection/WebSocket.mjs', line: 'backoffStrategy: attempt => Math.min(1000 * Math.pow(2, attempt - 1), 30000),', symbol: '<module>'})).toBe(true);
-        expect(isRetryContext({file: 'apps/devindex/services/GitHub.mjs', line: 'this.restRetryBaseDelayMs * 2 ** (attempt - 1)', symbol: '#getRetryDelay'})).toBe(true);
+        expect(isRetryContext({file: 'src/manager/DragCoordinator.mjs', line: 'Math.min(5000, 100 * 2 ** Math.min(dispositionAttempts - 1, 4))', symbol: 'settleNativeWindowDisposition'})).toBe(true);
     });
 
     /**

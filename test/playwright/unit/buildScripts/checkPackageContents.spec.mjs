@@ -55,24 +55,17 @@ test.describe('check-package-contents — fires on private state, not on the tra
         expect(findForbiddenEntries(['.neo-ai-data/concepts-backup/nodes.jsonl'])).toHaveLength(1);
     });
 
-    test('FIRES: the DevIndex corpus regardless of extension', () => {
-        // The original rule was `apps/devindex/resources/*.json` and the largest file is `.jsonl`.
-        // Extension independence is the property that failed, so it is the property asserted.
+    test('FIRES: a forbidden tree regardless of extension', () => {
+        // Defect #1 was a rule pinned to a path AND an extension, which went vacuous when the corpus
+        // changed both. Extension independence is the property that failed, so it is the property
+        // asserted — a prefix rule must not care what the file is called.
         const findings = findForbiddenEntries([
-            'apps/devindex/resources/data/users.jsonl',
-            'apps/devindex/resources/data/tracker.json',
-            'apps/devindex/resources/data/nested/deeper/whatever.bin'
+            '.neo-ai-data/graph/memory.sqlite',
+            '.neo-ai-data/logs/server.json',
+            '.neo-ai-data/nested/deeper/whatever.bin'
         ]);
 
         expect(findings).toHaveLength(3);
-    });
-
-    test('PASSES: DevIndex app source and images, which are legitimately part of the package', () => {
-        expect(findForbiddenEntries([
-            'apps/devindex/view/Viewport.mjs',
-            'apps/devindex/resources/images/neo_logo_favicon.svg',
-            'apps/devindex/index.html'
-        ])).toEqual([]);
     });
 
     test('PASSES: an ordinary framework file', () => {
@@ -111,23 +104,29 @@ test.describe('check-package-contents — fires on private state, not on the tra
         expect(parsePackOutput('[\n  {"entryCount": 2, "files": []}\n]\n')[0].entryCount).toBe(2);
     });
 
-    test('the DevIndex rule survives the corpus being RENAMED — the defect it exists to end', () => {
+    test('a rule survives its tree being RENAMED — the defect this guard exists to end', () => {
         // The sharpest case in this file, because the guard nearly reproduced defect #1 itself.
         //
-        // The original `.npmignore` rule was pinned to `apps/devindex/resources/*.json` and went
-        // vacuous when the corpus moved into `data/` and became `.jsonl`. A gate pinned to
-        // `resources/data/` would go vacuous on the SAME move — rename `data/` → `corpus/` and both
-        // the ignore rule and its observer fall silent together, printing OK over a 26.5 MiB leak.
+        // The original `.npmignore` rule was pinned to a path AND an extension, and went vacuous when
+        // the tree it named moved and changed extension. A gate pinned one level too deep reproduces
+        // that exactly: rename the inner directory and both the ignore rule and its observer fall
+        // silent TOGETHER, printing OK over the leak. An observer that inherits the blind spot of the
+        // thing it observes is not an observer.
         //
-        // Anchoring on `resources/` with `images/` allowed means a subtree that does not exist yet is
-        // excluded by default, so only a deliberate allowlist edit can widen it.
-        expect(findForbiddenEntries(['apps/devindex/resources/data/users.jsonl'])).toHaveLength(1);
-        expect(findForbiddenEntries(['apps/devindex/resources/corpus/users.jsonl'])).toHaveLength(1);
-        expect(findForbiddenEntries(['apps/devindex/resources/some-future-dataset/x.json'])).toHaveLength(1);
+        // Anchoring on the top of the tree with an explicit carve-out means a subtree that does not
+        // exist yet is excluded by default, so only a deliberate allowlist edit can widen it — a
+        // decision someone makes, rather than one a rename makes for them.
+        //
+        // Asserted against `.neo-ai-data/`, which carries the same prefix-plus-carve-out shape. The
+        // case originally rode on the DevIndex corpus rule; that app left the repository, and the
+        // property is a property of the rule SHAPE rather than of any one tree.
+        expect(findForbiddenEntries(['.neo-ai-data/graph/memory.sqlite'])).toHaveLength(1);
+        expect(findForbiddenEntries(['.neo-ai-data/renamed-graph/memory.sqlite'])).toHaveLength(1);
+        expect(findForbiddenEntries(['.neo-ai-data/some-future-subtree/x.json'])).toHaveLength(1);
 
         // and the one carve-out still passes, at any depth
-        expect(findForbiddenEntries(['apps/devindex/resources/images/logo.svg'])).toEqual([]);
-        expect(findForbiddenEntries(['apps/devindex/resources/images/icons/nested.svg'])).toEqual([]);
+        expect(findForbiddenEntries(['.neo-ai-data/concepts/nodes.jsonl'])).toEqual([]);
+        expect(findForbiddenEntries(['.neo-ai-data/concepts/nested/deep.jsonl'])).toEqual([]);
     });
 
     test('the rule set names DIRECTORIES only — the two generated portal FILES are a boundary, not a gap', () => {

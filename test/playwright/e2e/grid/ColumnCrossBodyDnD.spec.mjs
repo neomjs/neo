@@ -25,7 +25,7 @@ import { test, expect } from '../../fixtures.mjs';
  *   - CROSS-REGION RE-HOME: dragging a centre column into locked-start re-homes it (engine moves it
  *     into lockedStartColumns AND the DOM applies the move).
  *
- * DevIndex multi-region header DOM: .neo-grid-header-toolbar[0]=locked-start, [1]=centre, [2]=locked-end;
+ * Multi-region header DOM: .neo-grid-header-toolbar[0]=locked-start, [1]=centre, [2]=locked-end;
  * column labels live in SPAN.neo-button-text; the draggable target is the header button (.neo-draggable).
  * Dispatch: page.mouse.down -> move(x, {steps}) -> up — the {steps} cadence arms Neo's Mouse drag sensor.
  *
@@ -104,7 +104,7 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture Locked-Column DnD (#12
 });
 
 /**
- * Resolves the DevIndex grid-container instance id from the App Worker.
+ * Resolves the lockedColumns fixture's grid-container instance id from the App Worker.
  * @returns {Promise<String>}
  */
 async function resolveGridId(app) {
@@ -133,9 +133,9 @@ async function regionColumns(app, gridId) {
 /**
  * Worker-truth precondition: the bound grid is in its pristine layout (Total unlocked at centre idx 0,
  * #/Rank/User locked to the start, Total NOT pre-homed to the end). Asserting this before the gesture
- * both pins a known starting state and fails loudly if the Neural Link bound to a different DevIndex
+ * both pins a known starting state and fails loudly if the Neural Link bound to a different app
  * instance than this test's page — the fixture currently resolves by app name, so a second connected
- * DevIndex (e.g. a developer's open tab) can otherwise be read silently instead of the test's page.
+ * instance (e.g. a developer's open tab) can otherwise be read silently instead of the test's page.
  */
 async function assertPristineGrid(app, gridId) {
     const region = await regionColumns(app, gridId);

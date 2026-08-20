@@ -67,7 +67,7 @@ test.describe('Grid BigData App (Neural Link)', () => {
         const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
 
         // Full Applications use their named string identifier:
-        // const nlApp = await neuralLink.connectToApp('DevIndex');
+        // const nlApp = await neuralLink.connectToApp('Workstation');
 
         // Tests go here...
     });

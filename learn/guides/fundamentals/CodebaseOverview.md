@@ -347,15 +347,10 @@ Each example is self-contained and demonstrates one concept clearly.
 - Component browser with live examples
 - Source code viewer with syntax highlighting
 
-**DevIndex** (`apps/devindex/`):
-- The **only** Neo.mjs application running `Neo.core.Base` as a **Node.js backend runtime** (no browser, no VDOM)
-- Proves the class system (configs, singletons, reactive hooks) works identically in both environments
-- Service-oriented architecture:
-  - `Spider.mjs`: Discovery engine using **weighted random walk** across 6 strategies (Network Walker, Core High Stars, Keyword, Temporal, Community, Stargazer) to avoid filter bubbles
-  - `Updater.mjs`: Enrichment pipeline with **meritocracy logic** — dynamic contribution thresholds and a "Safe Purge Protocol" handling API errors and GitHub user renames via Database IDs
-  - `Storage.mjs`: Flat-file persistence layer (`users.jsonl`, `tracker.json`, `visited.json`) with atomic writes and automatic pruning based on `maxUsers` caps
-- Accompanied by extensive learning materials (`learn/guides/devindex/` — 8 guides + FAQ)
-- Architecturally significant as the reference implementation for Neo-powered backend services
+**Workstation** (`apps/workstation/`):
+- Renderer-rich virtual grid over a 100,000-row store, with a sustained capped live feed
+- Exercises the framework-owned OffscreenCanvas path (`type:'sparkline'`) alongside component cells, animated values, progress and heatmap renderers
+- Multi-window docking: tear-out, cross-window drag, perspectives
 
 **SharedCovid** (`apps/sharedcovid/`):
 - Multi-window data visualization
@@ -381,7 +376,6 @@ Each example is self-contained and demonstrates one concept clearly.
 - **Getting Started**: First steps, tutorials, quick wins (9 topics)
 - **Agent OS & Conversational UIs**: AI infrastructure, MCP servers, tooling (13 topics)
 - **Guides**: Fundamentals, Core Engine, UI Building Blocks, Data Handling, Testing, Advanced Architecture (62 topics)
-- **DevIndex App**: Flagship application architecture, data factory, frontend (22 topics)
 - **Tutorials**: Hands-on walkthroughs (5 topics)
 - **Engine vs Frameworks**: Competitive comparisons with React, Angular, Vue, Solid, Next, Ext (7 topics)
 - **Blog**: Historical context, design decisions, evolution

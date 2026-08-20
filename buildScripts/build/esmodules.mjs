@@ -48,11 +48,6 @@ async function minifyDirectory(inputDir, outputDir) {
                 continue;
             }
 
-            // Exception for devindex app: Do not deploy the data folder.
-            if (normalizedInput.includes('/apps/devindex/resources/data/')) {
-                continue;
-            }
-
             const relativePath = path.relative(inputDir, inputPath);
             const outputPath   = path.join(outputDir, relativePath);
 
