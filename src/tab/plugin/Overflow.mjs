@@ -211,6 +211,11 @@ class Overflow extends Plugin {
      * @member {Function[]|null} projectionIdleWaiters=null
      */
     projectionIdleWaiters = null
+    /**
+     * A dock-axis change needs its next rendered owner resize to recapture tab main-axis extents.
+     * @member {Boolean} dockRecapturePending=false
+     */
+    dockRecapturePending = false
 
     /**
      * @param {Object} config
@@ -237,7 +242,7 @@ class Overflow extends Plugin {
             });
             if (me.owner.getConfig?.('dock')) {
                 me.observeConfig(me.owner, 'dock', () => {
-                    queueMicrotask(() => !me.isDestroyed && me.project(true))
+                    me.dockRecapturePending = true
                 })
             }
         }
@@ -464,7 +469,11 @@ class Overflow extends Plugin {
      * @param {Object} data
      */
     onResize(data) {
-        this.project(false)
+        let me        = this,
+            recapture = me.dockRecapturePending;
+
+        me.dockRecapturePending = false;
+        me.project(recapture)
     }
 
     /**

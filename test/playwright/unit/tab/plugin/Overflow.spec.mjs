@@ -429,6 +429,28 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             .toEqual({edgeAlign: 'b0-t0', target: action.id})
     });
 
+    test('a dock-axis change defers recapture to the post-render owner resize', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner'
+            ? [{height: 300, left: 0, top: 0, width: 1000, x: 0, y: 0}]
+            : [{height: 20, width: 20}, {height: 20, width: 20}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let recapture;
+        plugin.project = value => {recapture = value};
+        plugin.dockRecapturePending = true;
+
+        plugin.onResize();
+
+        expect(recapture, 'the rendered resize recaptures the new main-axis tab extents').toBe(true);
+        expect(plugin.dockRecapturePending).toBe(false);
+
+        plugin.onResize();
+        expect(recapture, 'later ordinary resizes return to extent-only projection').toBe(false);
+
+        plugin.destroy()
+    });
+
     test('a projection requested during tab sorting queues until the stable snapshot is released', async () => {
         let measureCalls = 0,
             releaseDrag;
