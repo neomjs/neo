@@ -17,11 +17,42 @@ no owning subsystem: `TextEmbeddingService` lives under `ai/services/memory-core
 `ai/configBase.mjs`, the slice and lease scheduling in `ai/daemons/orchestrator/`,
 the shape verification in `ai/providerLaneLiveShape.mjs`. Four owners, no owner.
 
-This guide is the map. It exists because establishing the behaviour below cost a
-full session of plane reads and produced nine wrong intermediate claims before
+This guide is the map. I wrote it after establishing the behaviour below cost me
+a full session of plane reads and nine wrong intermediate claims before
 converging — eight of which were answerable from content already in the
 repository, sitting in a 492-line prose document, a deployment Compose comment,
-an ADR, a ticket acceptance criterion, a parser docstring, and a merged PR.
+an ADR, a ticket acceptance criterion, a parser docstring, and a merged PR. The
+information existed. It was unreachable *as a whole*, which is a different
+problem from missing documentation and has a different fix.
+
+**If you are building an embedding lane somewhere else, four of those nine
+mistakes were not about Neo at all**, and they are the reason this document is
+worth reading outside this repository:
+
+1. **A declared parallelism is not a measured one.** Our config declared four
+   slots and the lane used one. Nothing lied — no layer claimed more than it
+   delivered — and the gap lived in the composition. If you declare concurrency
+   anywhere, the only honest confirmation is watching two requests overlap.
+2. **Know what unit your capacity number is in.** A local OpenAI-compatible
+   engine expands one multi-input request into one task *per input*, so the work
+   a client offers is `concurrency × width`, not `concurrency`. Binding one
+   number to request count, server tasks and batch width at once reproduces the
+   same declaration-versus-behaviour gap one layer down. I got this wrong first
+   and a reviewer caught it.
+3. **A guard that fails closed converts a wrong answer into a silent loss.**
+   Ours refused to bind vectors it could not prove were positionally correct —
+   which is right, and meant work already paid for was discarded with nothing in
+   the logs. Fail-closed guards need their losses *reported*, or the safety
+   turns into invisible waste.
+4. **Throughput can be a correctness property, not a performance one.** When a
+   corpus cannot finish inside one scheduling slice, the partial checkpoint state
+   becomes absorbing: the machinery reports healthy forever while the knowledge
+   base never receives its content. Any lane with a per-pass budget and a
+   completion-gated checkpoint can reach this, and it does not look like an
+   outage.
+
+The Neo-specific parts are the file names. The transferable part is that all four
+were invisible to code review and visible to one instrumented run.
 
 ## How to read this document
 
@@ -216,7 +247,6 @@ nothing, because its green is acted upon.
 flowchart TD
     subgraph mc["ai/services/memory-core/"]
         TES["TextEmbeddingService<br/>provider dispatch, request queue"]
-        Plan["helpers/embeddingDispatchPlan<br/>spans, concurrency, carryable prefix"]
     end
     subgraph kb["ai/services/knowledge-base/"]
         VS["VectorService<br/>batching, guardrail, poison isolation"]
@@ -231,7 +261,7 @@ flowchart TD
         Leaves["configBase.mjs — the leaves"]
         LiveShape["providerLaneLiveShape.mjs"]
     end
-    TRS --> VS --> TES --> Plan
+    TRS --> VS --> TES
     IS --> Fmt
     VS --> Fmt
     Lease --> TRS
