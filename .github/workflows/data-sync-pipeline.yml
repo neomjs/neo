@@ -145,7 +145,7 @@ jobs:
           # Project Neo-owned previews without mutating the legacy pages-side examples collection.
           # DockDemo is release-gated in the registry until v13.2, but its preview can land earlier.
           cp apps/portal/resources/images/examples/devmode/workstation.png temp_pages/resources_pub/website/examples/devmode/workstation.png
-          cp test/playwright/e2e/workstation/screenshots/dock-tab-proxy-16120-neo-dark.png temp_pages/resources_pub/website/examples/devmode/dockDemo.png
+          cp apps/portal/resources/images/examples/devmode/dockDemo.png temp_pages/resources_pub/website/examples/devmode/dockDemo.png
 
           cp -f apps/portal/sitemap.xml temp_pages/ 2>/dev/null || true
           cp -f apps/portal/llms.txt temp_pages/ 2>/dev/null || true
@@ -177,10 +177,8 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-            git add
             git add -A node_modules/neo.mjs/apps/portal/resources/data/
-            git add resources_pub/website/examples/devmode/workstation.png
-            git add resources_pub/website/examples/devmode/dockDemo.png
+            git add -A resources_pub/website/examples/devmode/
             git add sitemap.xml 2>/dev/null || true
             git add llms.txt 2>/dev/null || true
             git add -A node_modules/neo.mjs/resources/content/
