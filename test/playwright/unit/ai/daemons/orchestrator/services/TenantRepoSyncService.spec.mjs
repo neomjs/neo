@@ -7238,14 +7238,25 @@ test.describe('TenantRepoSyncService (#11790)', () => {
      * admission or releasing the outer lease early, which is precisely the behaviour it claimed to
      * pin. Same wrong-subject class as an arm asserting a builder to prove something about a planner.
      *
-     * So the subject is the SWEEP, over TWO due repos, with a lease cause firing from the first check.
-     * Today's contract is that a lease-caused yield bounds work WITHIN a repo and does not touch
-     * admission: repo two is still admitted and ingested. That is the observable the dependent exit
-     * contract will deliberately invert — when it lands, the tail stops after the active cohort and
-     * this arm goes red on purpose, which is the point of pinning it here rather than describing it.
+     * **Three repos against a limit of TWO, and the third is the entire point.** A two-repo fixture
+     * at the production default limit of 2 has no tail at all: both repos ARE the active cohort, so
+     * the dependent exit — which stops admission after that cohort — could land, admit both, and
+     * leave the arm green. A reviewer's second falsifier caught exactly that, and the mutant the arm
+     * had claimed as faithful (`remainingRepos.slice(0, 1)`) drops half of the active cohort rather
+     * than the tail, so it was never the contract under test either. With a third due repo there is
+     * a repo BEYOND the cohort, and it is the one the exit will drop.
+     *
+     * Today's contract is that a lease-caused yield bounds work WITHIN a repo and touches neither
+     * admission nor the outer lease. So the arm pins three separable observables — the admitted SET
+     * includes the tail, the cohort ORDER still puts the tail last, and the sweep still reports
+     * `completed` rather than an early release — because the exit contract could arrive correct on
+     * one and wrong on another, and a single conflated assertion could not tell which.
      */
     test('#17398 a firing lease cause does NOT stop tail admission — the exit contract is not started here', async () => {
-        const repoSlugs    = ['org/lease-head', 'org/lease-tail'],
+        // Two fill the active cohort at the default limit; the third is the tail the dependent exit
+        // will stop. Names carry that role so a failure message reads as a contract violation rather
+        // than as an opaque slug mismatch.
+        const repoSlugs    = ['org/lease-cohort-a', 'org/lease-cohort-b', 'org/lease-tail'],
               captureCalls = [],
               // Fires on the very first consultation, so if any admission decision consulted the
               // cause, it would have every opportunity to drop the tail.
@@ -7287,11 +7298,20 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             .filter(call => call.op === 'ingestSourceFiles')
             .map(call => call.payload.repoSlug);
 
-        // Asserted as the whole admitted SET rather than two `toContain`s, so the failure message
-        // distinguishes the two ways this can break: a dropped tail shows the head alone, while a
-        // sweep that admitted nothing shows an empty array. Two containment checks would have let the
-        // first mask the second, and the difference matters — one is the exit contract starting early,
-        // the other is a broken fixture.
+        // Non-vacuity FIRST, and it is what makes the tail claim mean anything: the limit must be
+        // strictly below the repo count, or there is no repo outside the active cohort and every
+        // assertion below is true of a fixture that cannot pose the question.
+        expect(
+            TenantRepoSyncService.concurrencyLimit,
+            'the fixture needs a repo BEYOND the active cohort — at the default limit of 2 a two-repo ' +
+            'sweep has no tail, so the dependent exit could admit the whole cohort and pass'
+        ).toBeLessThan(repoSlugs.length);
+
+        // ADMISSION — asserted as the whole set rather than as containments, so the failure message
+        // distinguishes the two ways this breaks: a dropped tail shows the cohort alone, a sweep that
+        // admitted nothing shows an empty array. Containment checks would let the first mask the
+        // second, and the difference matters — one is the exit contract starting early, the other is
+        // a broken fixture.
         expect(
             [...ingested].sort(),
             'a lease cause reached an ADMISSION decision — stopping the tail after the active cohort ' +
@@ -7300,11 +7320,29 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             'arm never exercised admission at all'
         ).toEqual([...repoSlugs].sort());
 
+        // ORDER — the tail must still be admitted LAST. A sweep that kept the tail but hoisted it
+        // into the first cohort would satisfy the set assertion while having changed the very
+        // boundary the dependent exit is defined against, so the set alone cannot carry this.
+        expect(
+            ingested.indexOf('org/lease-tail'),
+            'the tail must remain the tail: admitted, and admitted after the active cohort'
+        ).toBe(repoSlugs.length - 1);
+
+        // OUTER LEASE — a lease-caused yield is a bound on work inside a repo, not a signal to hand
+        // the lease back. A sweep that released early would report something other than a completed
+        // run, and the caller would drop a lease it still holds work for.
         expect(
             result.status,
             'a lease-caused yield must not turn a healthy sweep into a failure or an early release; ' +
             'the cause is readable and nothing acts on it yet'
         ).toBe('completed');
+
+        // And the whole cohort completed rather than deferring — the count is what a future exit
+        // would have to reduce, so pinning it names the number the dependent leaf must change.
+        expect(
+            result.details.completedCount,
+            'all three repos completed; the dependent exit will reduce this, and that red is intended'
+        ).toBe(repoSlugs.length);
     });
 });
 
