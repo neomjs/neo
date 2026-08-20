@@ -385,6 +385,32 @@ test.describe('foldFutilityFreezeState — freeze state, evidence and thaw condi
         expect(entry.thawEligible, 'the first-freeze window is no longer sufficient').toBe(false);
     });
 
+    test('RED-PROOF: a DUPLICATE freeze row is not a refreeze — the fold is idempotent over its ledger', () => {
+        // A ledger is exactly the input that repeats: a replayed transition, a re-emitted row, a
+        // double write. Advancing the tier on every freeze row doubled the quiet window off a
+        // duplicate with no intervening thaw, so the same target was punished for being observed
+        // twice. Escalation tracks CYCLES, never rows.
+        const {frozen, tiers} = foldFutilityFreezeState([freeze('a', 0), freeze('a', 1)], {now: 1 + BASE});
+        const [entry]         = frozen;
+
+        expect(entry.tier, 'a second row while already frozen is the same freeze').toBe(1);
+        expect(tiers.a).toBe(1);
+        expect(entry.requiredQuietMs, 'the window must not double off a duplicate').toBe(BASE);
+
+        // Evidence and time DO refresh — the target is observably still futile at the later row.
+        expect(entry.at).toBe(1);
+    });
+
+    test('and the true cycle still escalates, so the guard above is not a blanket suppression', () => {
+        // The discriminating pair for the arm above: identical row count, one real thaw between them.
+        const duplicated = foldFutilityFreezeState([freeze('a', 0), freeze('a', 1)], {now: 1 + BASE}).frozen[0],
+              cycled     = foldFutilityFreezeState([freeze('a', 0), thaw('a', 1), freeze('a', 2)], {now: 2 + BASE}).frozen[0];
+
+        expect(duplicated.tier).toBe(1);
+        expect(cycled.tier, 'cleared then frozen again IS an escalation').toBe(2);
+        expect(cycled.requiredQuietMs).toBeGreaterThan(duplicated.requiredQuietMs);
+    });
+
     test('an OPERATOR thaw does not raise the bar — a judgement is evidence, not another failure', () => {
         const [entry] = foldFutilityFreezeState([freeze('a', 0), thaw('a', 1, {operatorThaw: true}), freeze('a', 2)], {now: 2 + BASE}).frozen;
 

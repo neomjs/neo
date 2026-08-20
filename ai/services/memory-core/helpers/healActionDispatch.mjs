@@ -346,10 +346,18 @@ export function decideFutilityFreeze({verdicts = [], bounds = DEFAULT_FUTILITY_B
           latest   = rows[rows.length - 1],
           key      = identity(latest);
 
+    // Per-target by construction, not by caller discipline. The breaker's unit is ONE target, and
+    // `identity` includes the target — so walking a mixed ledger let any other target's verdict read
+    // as "the verdict changed" and reset this target's run. Two targets failing in alternation could
+    // then both stay at streak 1 forever while each was independently futile. Filtering here rather
+    // than documenting a prefilter requirement keeps the guarantee where the arithmetic is: a caller
+    // that forgets cannot silently disable the breaker.
+    const scoped = rows.filter(row => (row.target ?? null) === (latest.target ?? null));
+
     let streak = 0, broke = null;
 
-    for (let i = rows.length - 1; i >= 0; i--) {
-        const row = rows[i];
+    for (let i = scoped.length - 1; i >= 0; i--) {
+        const row = scoped[i];
 
         if (identity(row) !== key)                                        { broke = 'verdict-changed'; break }
         if (row.stateFingerprint !== latest.stateFingerprint)             { broke = 'state-changed';   break }

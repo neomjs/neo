@@ -324,9 +324,15 @@ export function queryHealLedger(events = [], {sinceMs, untilMs, types, collectio
 }
 
 /**
- * Escalating freeze tiers. A target thawed and refrozen must be harder to unfreeze than one frozen for
- * the first time, so each successive freeze multiplies the required quiet window.
- * @type {{baseThawQuietMs: Number, tierMultiplier: Number}}
+ * Escalating freeze tiers. A target thawed and REFROZEN must be harder to unfreeze than one frozen for
+ * the first time, so each successive refreeze multiplies the required quiet window. A duplicate freeze
+ * row on an already-frozen target refreshes its evidence and timestamp but does NOT advance the tier —
+ * escalation tracks cycles, not ledger rows.
+ *
+ * `maxThawQuietMs` caps the growth. Without it, enough flap cycles freeze a target permanently with no
+ * operator in the loop, which turns containment into abandonment; it is a bound on the product, so
+ * `maxThawQuietMs >= baseThawQuietMs` is required for the bounds to be usable at all.
+ * @type {{baseThawQuietMs: Number, tierMultiplier: Number, maxThawQuietMs: Number}}
  */
 export const DEFAULT_THAW_BOUNDS = Object.freeze({baseThawQuietMs: 1800000, tierMultiplier: 2, maxThawQuietMs: 86400000});
 
@@ -362,11 +368,23 @@ export function foldFutilityFreezeState(events = [], {now, bounds = DEFAULT_THAW
         if (!target) continue;
 
         if (event.type === HEAL_LEDGER_FROZEN_TRANSITIONS.FREEZE && Number.isFinite(event.at)) {
-            tiers[target] = (tiers[target] ?? 0) + 1;
+            // A tier escalates only on a REFREEZE — cleared, then frozen again. A second freeze row
+            // while the target is already frozen is the same freeze re-observed (a duplicate write, a
+            // replayed transition, a re-emitted row), and counting it advanced the tier without any
+            // intervening thaw. That doubled the quiet window off a duplicate, so the fold was not
+            // idempotent over its own ledger — and a ledger is exactly the input that can repeat.
+            const refreeze = !active.has(target);
+
+            if (refreeze) {
+                tiers[target] = (tiers[target] ?? 0) + 1
+            }
+
+            // Evidence and time still refresh: the target is observably still futile now. Only the
+            // TIER is withheld, because the tier is what raises the bar for the next cycle.
             active.set(target, {
                 target,
                 at        : event.at,
-                tier      : tiers[target],
+                tier      : tiers[target] ?? 1,
                 escalation: event.detail?.escalation ?? null,
                 evidence  : event.detail?.verdict ?? null
             })

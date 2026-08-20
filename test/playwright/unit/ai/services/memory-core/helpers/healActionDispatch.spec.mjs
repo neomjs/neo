@@ -456,6 +456,48 @@ test.describe('decideFutilityFreeze — futility breaker', () => {
         expect(result.status).toBe('verdict-changed');
     });
 
+    test('RED-PROOF: interleaved targets each reach the threshold independently', () => {
+        // The breaker's unit is ONE target. Because the verdict identity includes the target, an
+        // unfiltered backward walk read every other target's row as "the verdict changed" — so two
+        // targets failing in alternation both sat at streak 1 forever while each was independently
+        // futile. A ledger with more than one sick target is the normal case, not the exotic one.
+        const rowsFor = target => verdicts({count: 5}).map(row => ({...row, target})),
+              a       = rowsFor('embedding-model'),
+              b       = rowsFor('chroma');
+
+        // Alternate them, preserving each target's own chronology.
+        const interleaved = a.flatMap((row, index) => [row, b[index]]).sort((x, y) => x.at - y.at);
+
+        const latest = decideFutilityFreeze({verdicts: interleaved, now: NOW});
+
+        expect(latest.freeze, 'the newest target is futile on its own rows').toBe(true);
+        expect(latest.streak).toBe(5);
+
+        // And the other target reaches it too, from the same ledger — asserted by making it newest.
+        const flipped = decideFutilityFreeze({
+            verdicts: interleaved.map(row => row === interleaved.at(-1) ? {...row, at: row.at - 10_000} : row)
+                .sort((x, y) => x.at - y.at),
+            now: NOW
+        });
+
+        expect(flipped.freeze, 'both targets are independently futile in one ledger').toBe(true);
+        expect(flipped.verdict.target).not.toBe(latest.verdict.target);
+    });
+
+    test('NEGATIVE CONTROL: another target cannot rescue a futile one, and cannot fabricate a streak', () => {
+        // The mirror of the red-proof. Filtering per target must not become "ignore everything else":
+        // this target's OWN changed verdict still breaks its run, even when other targets are steady.
+        const mine  = verdicts({count: 5}),
+              other = verdicts({count: 5}).map(row => ({...row, target: 'chroma', at: row.at - 500}));
+
+        mine[3].reasonCode = 'diagnosis-record';
+
+        const result = decideFutilityFreeze({verdicts: [...other, ...mine].sort((x, y) => x.at - y.at), now: NOW});
+
+        expect(result.freeze).toBe(false);
+        expect(result.status).toBe('verdict-changed');
+    });
+
     test('verdicts older than the window do not count toward the streak', () => {
         const stale = verdicts({count: 9}).map(v => ({...v, at: NOW - DEFAULT_FUTILITY_BOUNDS.windowMs - 1}));
 
