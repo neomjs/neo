@@ -556,25 +556,84 @@ test.describe('VectorService.embed — DEATH-class graduation through the produc
         expect(summary.deathStrikeProgress, 'the carried prefix disproved its own pending death').toEqual([]);
     });
 
-    test('SMOKE ONLY — a failure-carried prefix completes the sweep with no death evidence left', async () => {
-        // ⚠️ NOT a negative control, and labelled so deliberately. The per-arm mutation check the
-        // reviewer requires does NOT isolate this arm: deleting the failure-carry `deaths.delete`
-        // leaves this green, so it does not prove that reset. Three carriers were ruled out —
-        // `ECONNRESET` (a death code, so graduation deletes the entry itself and the carrier does the
-        // cleanup), a phase-advanced healthy provider (the ORDINARY success path clears it), and a
-        // non-death transient write failure (still green). What remains unexplained is which path
-        // clears the entry in the third case, and until that is known this arm asserts an end state
-        // rather than a mechanism.
+    test('NEGATIVE CONTROL: a FAILURE-carried prefix breaks the death chain on its own reset', async () => {
+        // @neo-gpt's corrected shape, after his falsifier explained why three of my fixtures had a
+        // green deletion mutant: the carried prefix claimed the WHOLE request, which shrank the retry
+        // to an empty one, and that empty success walked the pending observation 0 -> 1 -> 2 until
+        // `graduateDeathSuspect` deleted it at threshold 2. Independent graduation was doing the
+        // cleanup every time, so removing this arm's reset changed nothing.
         //
-        // The sibling YIELD arm above IS mutation-verified: removing its reset turns it, and only it,
-        // red. Kept as smoke coverage because a non-death carry completing the sweep is worth holding;
-        // renamed because calling it a control would be the exact overclaim that got a sibling PR
-        // dropped today.
+        // The fix is a fresh pending-only state that cannot reach the threshold: an arm-private
+        // two-chunk corpus, one seeding sweep narrow enough that no healthy input runs, and a carry
+        // covering exactly ONE input so the remainder is real work rather than an empty request.
+        const armCorpus = path.join(tmpDir, 'carry-corpus.jsonl'),
+              armChunks = [
+                  {id: 'c-k', type: 'guide', name: 'killer',  hash: '1'.repeat(64), content: 'killer body'},
+                  {id: 'c-h', type: 'guide', name: 'healthy', hash: '2'.repeat(64), content: 'healthy body'}
+              ];
+
+        await fs.writeFile(armCorpus, armChunks.map(chunk => JSON.stringify(chunk)).join('\n') + '\n');
+
+        const spy    = createSpyCollection(),
+              scoped = {tenantId: 't-carry-failure', repoSlug: 'org/death-carry'};
+
+        ChromaManager.getKnowledgeBaseCollection = async () => spy;
         shiftGeneration(840_000);
 
-        const summary = await carryArm('t-carry-failure', 'failure-carry');
+        let phase = 'refuse';
 
-        expect(summary).not.toBeInstanceOf(Error);
-        expect(summary.deathStrikeProgress).toEqual([]);
+        TextEmbeddingService.embedTexts = async texts => {
+            if (!texts.some(isKillerText)) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            if (phase === 'refuse') {
+                // Provider already down: the death is recorded PENDING, strikes 0. Nothing is proven
+                // about this input yet, which is the state the reset has to be shown to clear.
+                const error = new Error('connect ECONNREFUSED 127.0.0.1:11434');
+
+                error.code             = 'ECONNREFUSED';
+                error.failedTextOffset = 0;
+                error.failedTextCount  = texts.length;
+                throw error
+            }
+
+            // NOT a death code — `ECONNRESET` would take the accepted-then-died branch and delete the
+            // entry via graduation. And exactly ONE completed input, so the remainder is the healthy
+            // chunk rather than an empty request whose success would graduate the pending observation.
+            const error = new Error('the carried prefix landed, the write did not');
+
+            error.code               = 'KB_VECTOR_WRITE_RETRY_EXHAUSTED';
+            error.completedTextCount = 1;
+            error.embeddings         = [new Array(384).fill(0)];
+            error.failedTextOffset   = 0;
+            error.failedTextCount    = texts.length;
+            throw error
+        };
+
+        const sweep = () => KB_VectorService.embed(armCorpus, {deleteStale: false, tenantContext: scoped})
+            .then(result => result, error => error);
+
+        try {
+            // Narrow enough that the killer is dispatched alone and no healthy input has run yet.
+            Object.assign(KB_Config.data, {batchSize: 1, maxRetries: 1});
+
+            const seeded = await sweep();
+
+            expect(seeded, 'the seeding sweep ends on the refusal').toBeInstanceOf(Error);
+
+            // Suspicion now isolates the killer, so the first dispatch is single-input.
+            Object.assign(KB_Config.data, {batchSize: 2, maxRetries: 2});
+            phase = 'failure-carry';
+
+            let summary = await sweep();
+
+            for (let i = 0; i < 3 && summary instanceof Error; i++) summary = await sweep();
+
+            expect(summary, 'the healthy stride completes the sweep and returns its census').not.toBeInstanceOf(Error);
+            expect(summary.deathStrikeProgress, 'the failure-carry reset cleared the pending death').toEqual([]);
+        } finally {
+            Object.assign(KB_Config.data, {batchSize: 50, maxRetries: 3});
+        }
     });
 });
