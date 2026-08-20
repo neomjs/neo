@@ -207,18 +207,33 @@ function toOrderedEmbeddings(data, expectedCount) {
  * provider work AND persist nothing, so an acquisition that repeatedly yields at the same chunk
  * would re-embed the same prefix forever — the caller needs the partial to make the checkpoint a
  * durable unit rather than merely a reached one.
+ * **Takes the measured prefix; does not re-derive it.** This previously computed
+ * `completedChunkCount * chunkSize`, justified by "a yield lands on a chunk boundary, so every
+ * completed chunk is full-width". That justification is false — the final span is short whenever the
+ * input count is not a multiple of the width — while the conclusion happened to hold for a different
+ * reason the comment never stated: the dispatch loop only consults the yield predicate while spans
+ * remain UNDISPATCHED, and dispatch is in span order, so a yielded prefix structurally excludes the
+ * final span. No reachable input reddened the product, and none can.
+ *
+ * It is passed in anyway, because a leaf whose correctness depends on a caller-side ordering invariant
+ * it cannot see is one refactor away from being wrong silently: reorder dispatch, or consult the
+ * predicate once more after the last admission, and this returns a count one width too large — at
+ * which point `toOrderedEmbeddings` throws from inside the yield constructor and the abandonment loses
+ * its `EMBEDDING_BATCH_YIELDED_CODE`, downgrading a resumable checkpoint to a hard failure. The
+ * failure path one branch up already passed the measured count, so the two also disagreed about the
+ * same prefix — the divergence the single-producer rule above exists to prevent.
+ *
  * @param {Object} options
  * @param {Number} options.completedChunkCount Provider chunks that completed before the yield.
  * @param {Number} options.totalChunkCount Provider chunks the batch would otherwise have issued.
+ * @param {Number} options.completedTextCount Inputs covered by that prefix, measured by the caller.
  * @param {Object[]} options.data Accumulated `{index, embedding}` entries for the completed chunks.
  * @returns {Error}
  */
-function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data}) {
-    // Derived from the chunks SENT, not from `data.length`. A yield only ever happens at a chunk boundary,
-    // so every completed chunk is full-width — which makes this an independent expectation the response
-    // must satisfy, rather than a restatement of whatever the provider chose to return.
-    const completedTextCount = completedChunkCount * chunkSize,
-          embeddings         = toOrderedEmbeddings(data, completedTextCount),
+function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, completedTextCount, data}) {
+    // Still an independent expectation rather than a restatement of what came back: the count is
+    // measured from the spans that were SENT and completed, never from `data.length`.
+    const embeddings = toOrderedEmbeddings(data, completedTextCount),
           error              = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s), ${completedTextCount} embedding(s) carried`);
 
     error.code                = EMBEDDING_BATCH_YIELDED_CODE;
@@ -730,9 +745,11 @@ class TextEmbeddingService extends Base {
     /**
      * @summary Queues OpenAI-compatible embedding posts behind an interactive-first scheduler.
      *
-     * Local OpenAI-compatible embedding servers frequently serialize model requests. This queue
-     * keeps TextEmbeddingService from creating competing local-provider concurrency while allowing
-     * latency-sensitive single embeddings to run before subsequent KB-sync batch chunks.
+     * A local OpenAI-compatible engine schedules TASKS: one multi-input embedding POST expands to one
+     * task per input. This queue's job is admission ORDER, not admission volume — it lets a
+     * latency-sensitive single embedding overtake queued KB-sync batch work. How much work may be
+     * outstanding is decided upstream by `resolveDispatchPlan`, which keeps a batch's offered tasks
+     * below the declared budget; this queue deliberately does not repeat that accounting.
      *
      * @param {String|String[]} inputData The text or array of texts to embed.
      * @param {Object} options The `#postOpenAiCompatible` retry/timeout options.
@@ -825,9 +842,14 @@ class TextEmbeddingService extends Base {
      * @summary Admits queue workers up to the declared parallelism, preferring interactive work.
      *
      * Every worker selects through {@link #getNextOpenAiCompatiblePostQueueIndex}, so the
-     * interactive-first fairness contract is unchanged — and an interactive item now waits for the
-     * first of N workers to free rather than for the only one, which is strictly better for the
-     * latency this queue exists to protect.
+     * interactive-first fairness contract is unchanged: an interactive item still overtakes queued
+     * batch work, and it now becomes runnable when any worker frees rather than only the single one.
+     *
+     * No latency claim is made here. Whether that reduces interactive wait in practice depends on the
+     * engine's own scheduling and has not been measured; what IS structural is the headroom, and it is
+     * enforced upstream — `resolveDispatchPlan` keeps a batch's offered tasks at or below
+     * `taskBudget - 1`, so a single-task interactive request fits inside the declared budget rather
+     * than competing for it.
      *
      * Not `await`ed: a caller enqueues and waits on its own task's promise, never on the drain.
      * @returns {void}
@@ -1912,11 +1934,15 @@ class TextEmbeddingService extends Base {
     /**
      * @summary Embeds a text array through OpenAI-compatible chunked batch requests.
      *
-     * Local OpenAI-compatible embedding servers often serialize model requests. Sending the whole
-     * KB-sync batch as one provider call can monopolize that server for minutes. Chunking keeps
-     * batch ingestion moving while yielding between chunks so interactive single embeddings can
-     * enter the provider queue before the next batch chunk. Multi-slot lanes additionally reserve
-     * one declared slot from each batch request so another provider request remains admissible.
+     * Sending a whole KB-sync batch as one provider call can monopolize the engine for minutes, so the
+     * batch is divided into spans and the lease bound is consulted between them — that is what lets an
+     * interactive single embedding enter the queue rather than waiting out the batch.
+     *
+     * Capacity is accounted in TASKS, not requests: one multi-input POST becomes one task per input, so
+     * a batch's offered work is `concurrency × width`. `resolveDispatchPlan` resolves both against the
+     * declared budget and holds one task back where the budget allows it, which is where the
+     * interactive-headroom guarantee lives. A budget of one reserves nothing — there is nothing to
+     * reserve from — and keeps its configured width unchanged.
      *
      * @param {String[]} texts The texts to embed.
      * @param {Object} options Abort and observability context.
@@ -2112,7 +2138,7 @@ class TextEmbeddingService extends Base {
             const yieldError = createEmbeddingBatchYieldError({
                 completedChunkCount: carried.chunkCount,
                 totalChunkCount,
-                chunkSize,
+                completedTextCount : carried.textCount,
                 data               : data.filter(entry => entry.index < carried.textCount)
             });
 

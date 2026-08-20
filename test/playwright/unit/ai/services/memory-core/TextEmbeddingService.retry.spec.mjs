@@ -92,6 +92,8 @@ function buildMinimalGguf({tokens, eosTokenId, eotTokenId, addEosToken = true}) 
 
 test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openAiCompatible retry, QoS, and lms server start support', () => {
     let TextEmbeddingService, server;
+    let spanPlan = {order: [], failLabels: [], holdLabel: null, holdMode: 'succeed', releaseHeld: null, releaseRequested: false};
+    let originalEmbeddingParallel;
     let requestCount   = 0;
     let serverBehavior = 'succeed';
     let lastRequest;
@@ -105,10 +107,14 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     let originalLmsPort;
     let originalLoadedModelsProbe;
 
-    let EMBEDDING_RESIDENCY_NEVER_RESIDENT;
+    let EMBEDDING_RESIDENCY_NEVER_RESIDENT, isEmbeddingBatchYieldError;
 
     test.beforeAll(async () => {
-        ({default: TextEmbeddingService, EMBEDDING_RESIDENCY_NEVER_RESIDENT} = await import(
+        ({
+            default: TextEmbeddingService,
+            EMBEDDING_RESIDENCY_NEVER_RESIDENT,
+            isEmbeddingBatchYieldError
+        } = await import(
             '../../../../../../ai/services/memory-core/TextEmbeddingService.mjs'
         ));
 
@@ -237,6 +243,73 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                     // Right count, wrong density: indices 0 and 2 for two inputs.
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({data: [{index: 0, embedding: [10]}, {index: 2, embedding: [22]}]}));
+                } else if (serverBehavior === 'span-controlled') {
+                    // One behaviour covering every concurrency scenario, keyed on the FIRST input of the
+                    // request. Width is 1 in these arms, so `input[0]` identifies the span exactly and no
+                    // request-ordering assumption is needed — which matters, because request arrival
+                    // order is the thing under test.
+                    const inputs = lastRequest.body.input,
+                          label  = Array.isArray(inputs) ? inputs[0] : inputs;
+
+                    // Overlap is the property these arms turn on, so it is COUNTED here rather than
+                    // inferred from arrival order. Without this the head-of-line arm would read the
+                    // qos-only counter, see 0, and pass or fail for reasons unrelated to its subject.
+                    inFlightRequests++;
+                    maxInFlightRequests = Math.max(maxInFlightRequests, inFlightRequests);
+
+                    // A held span is released once every span in the plan has ARRIVED, which is the
+                    // event that proves the overlap the arms assert. Both settlement paths run it: a
+                    // refusal is just as much an arrival, and a fail-only arm that skipped it would
+                    // deadlock on its own held neighbour.
+                    const releaseIfAllArrived = () => {
+                        if (spanPlan.releaseHeld && allRequests.length >= spanPlan.order.length) {
+                            const release = spanPlan.releaseHeld;
+                            spanPlan.releaseHeld = null;
+                            release()
+                        }
+                    };
+
+                    if (spanPlan.failLabels.includes(label)) {
+                        inFlightRequests--;
+                        res.writeHead(400, {'Content-Type': 'application/json'});
+                        res.end(JSON.stringify({error: `span ${label} refused`}));
+                        releaseIfAllArrived();
+                        return
+                    }
+
+                    const respond = () => {
+                        inFlightRequests--;
+                        res.writeHead(200, {'Content-Type': 'application/json'});
+                        // Vectors encode INPUT identity, so a mis-binding shows up as a wrong value
+                        // rather than merely a wrong length.
+                        res.end(JSON.stringify({
+                            data: inputs.map((input, offset) => ({index: offset, embedding: [input.charCodeAt(0)]}))
+                        }))
+                    };
+
+                    const refuse = () => {
+                        inFlightRequests--;
+                        res.writeHead(400, {'Content-Type': 'application/json'});
+                        res.end(JSON.stringify({error: `span ${label} refused`}))
+                    };
+
+                    // Head-of-line: hold this span and expose its settler. Two arms drive it from
+                    // different events, and NEITHER uses a timer — the release is always caused by an
+                    // observable step of the run, so the interleaving under test is the one asserted.
+                    if (spanPlan.holdLabel === label) {
+                        const settle = spanPlan.holdMode === 'fail' ? refuse : respond;
+
+                        // Order-independent by construction. A release can be requested BEFORE this
+                        // request's body has finished arriving — the yield predicate fires off span 0's
+                        // completion, which races span 1's POST — and a settler stored after that
+                        // request would never be called, turning the arm into a provider timeout that
+                        // happens to be red for the wrong reason.
+                        spanPlan.releaseRequested ? settle() : (spanPlan.releaseHeld = settle);
+                        return
+                    }
+
+                    respond();
+                    releaseIfAllArrived()
                 } else if (serverBehavior === 'chunked-batch-succeed') {
                     const inputs = lastRequest.body.input;
 
@@ -320,6 +393,8 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         originalBatchEmbeddingChunkSize = aiConfig.openAiCompatible.batchEmbeddingChunkSize;
         originalBatchEmbeddingTimeoutMs = aiConfig.openAiCompatible.batchEmbeddingTimeoutMs;
         originalBatchEmbeddingYieldMs = aiConfig.openAiCompatible.batchEmbeddingYieldMs;
+        originalEmbeddingParallel = aiConfig.localModels.embedding.parallel;
+        spanPlan = {order: [], failLabels: [], holdLabel: null, holdMode: 'succeed', releaseHeld: null, releaseRequested: false};
         originalLmsPort = aiConfig.orchestrator.lms.port;
         originalLoadedModelsProbe = TextEmbeddingService.openAiCompatibleLoadedModelsProbe;
 
@@ -339,6 +414,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     });
 
     test.afterEach(() => {
+        aiConfig.localModels.embedding.parallel = originalEmbeddingParallel;
         aiConfig.openAiCompatible.host = originalHost;
         aiConfig.openAiCompatible.embeddingModel = originalEmbeddingModel;
         aiConfig.openAiCompatible.unloadRetryCount = originalRetryCount;
@@ -501,6 +577,140 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                 input: 'hello'
             }
         });
+    });
+
+    /*
+     * The four concurrency scenarios a happy-path fan-out arm cannot reach: a slow span that must not
+     * hold the others, an early hole that makes later completions unbindable, a failure surfacing while
+     * a yield vote is already standing, and attribution when several spans are outstanding at once.
+     *
+     * Pure prefix arithmetic covers none of these — it can prove what the plan computes but not that the
+     * service wires it. Each arm therefore drives the real dispatch loop against a stub keyed on the
+     * request's first input, and asserts request ARRIVAL order nowhere: arrival order is the thing under
+     * test, so an arm that assumed it would be measuring its own fixture.
+     */
+    test('#17412 head-of-line: a slow first span does not delay the others, and order still holds', async () => {
+        serverBehavior = 'span-controlled';
+        spanPlan       = {order: ['a', 'b', 'c', 'd'], failLabels: [], holdLabel: 'a', holdMode: 'succeed', releaseHeld: null, releaseRequested: false};
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
+        aiConfig.localModels.embedding.parallel           = 5;
+
+        const result = await TextEmbeddingService.embedTexts(['a', 'b', 'c', 'd'], 'openAiCompatible');
+
+        // Non-vacuity: without real overlap the held span would have blocked the others and this arm
+        // would be measuring a sequential loop.
+        expect(maxInFlightRequests, 'the later spans must be in flight while the first is held').toBeGreaterThan(1);
+
+        // Completion order was deliberately inverted — 'a' answered last — and the assembled output is
+        // still in INPUT order with each vector carrying its own input's identity.
+        expect(result).toEqual([[97], [98], [99], [100]])
+    });
+
+    test('#17412 an EARLY failure with later successes carries nothing, and reports the drop', async () => {
+        serverBehavior = 'span-controlled';
+        spanPlan       = {order: ['a', 'b', 'c', 'd'], failLabels: ['a'], holdLabel: null, holdMode: 'succeed', releaseHeld: null, releaseRequested: false};
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
+        aiConfig.openAiCompatible.unloadRetryCount        = 0;
+        aiConfig.localModels.embedding.parallel           = 5;
+
+        const error = await TextEmbeddingService.embedTexts(['a', 'b', 'c', 'd'], 'openAiCompatible')
+            .then(() => null, err => err);
+
+        expect(error).toBeInstanceOf(Error);
+
+        // The hole is at span 0, so the carryable PREFIX is empty even though later spans completed.
+        // A count-times-width product would instead have claimed a range starting at input 0.
+        expect(error.completedTextCount, 'a hole at the front means nothing is bindable').toBeUndefined();
+        expect(error.embeddings).toBeUndefined();
+
+        // And the completed-but-unbindable work is REPORTED rather than dropped in silence — this is the
+        // whole point of the receipt, and it is what makes the loss measurable instead of inferred.
+        expect(error.droppedCompletedChunkCount, 'later spans completed and could not be bound').toBeGreaterThan(0)
+    });
+
+    test('#17412 a failure observed during drain OUTRANKS a cooperative yield', async () => {
+        // Both states must genuinely coexist, and getting there is the hard part: the yield predicate is
+        // only consulted while spans remain UNDISPATCHED, so a fan-out wide enough to issue everything
+        // in one pass never votes at all. Two spans of concurrency against six spans of work leaves the
+        // consultation reachable.
+        serverBehavior = 'span-controlled';
+        spanPlan       = {
+            order      : ['a', 'b', 'c', 'd', 'e', 'f'],
+            failLabels : [],
+            holdLabel  : 'b',
+            holdMode   : 'fail',
+            releaseHeld: null,
+
+            releaseRequested: false
+        };
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
+        aiConfig.openAiCompatible.unloadRetryCount        = 0;
+        aiConfig.localModels.embedding.parallel           = 3;
+
+        let yieldConsultations = 0;
+
+        const error = await TextEmbeddingService
+            .embedTexts(['a', 'b', 'c', 'd', 'e', 'f'], 'openAiCompatible', {
+                shouldYield: () => {
+                    yieldConsultations++;
+
+                    // Released BY the consultation, so the failure is guaranteed to surface after the
+                    // yield was voted and while the loop is draining — no timer, and no dependence on
+                    // which promise the event loop happens to settle first. The flag covers the case
+                    // where this fires before the held request has even reached the handler.
+                    spanPlan.releaseRequested = true;
+                    spanPlan.releaseHeld?.();
+                    spanPlan.releaseHeld      = null;
+
+                    return true
+                }
+            })
+            .then(() => null, err => err);
+
+        // Non-vacuity, and the reason M4 (`if (firstError && !yielded)`) survived the first version of
+        // this arm: without a consultation there is no yield to outrank, and the assertions below pass
+        // for a scenario that never posed the question.
+        expect(yieldConsultations, 'the yield predicate must actually have been consulted').toBeGreaterThan(0);
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message, 'the provider failure must be the reported cause, not the yield').toContain('span b refused');
+
+        // The production classifier, not a local re-derivation of it: this is the exact predicate the
+        // consumer branches on to decide "resumable checkpoint" vs "broken lane". Handing back a
+        // checkpoint for a lane that is actually failing is the misreport this guards.
+        expect(isEmbeddingBatchYieldError(error), 'must not be classified as a cooperative yield').toBe(false)
+    });
+
+    test('#17412 failure attribution names the FAILING span, not the first one in flight', async () => {
+        // Width TWO, deliberately. At width 1 every span holds one input, so `span.count` and the
+        // constant 1 are indistinguishable and a hardcoded count survives as an equivalent mutant —
+        // the arm would pin the offset and leave the count unpinned while looking complete.
+        serverBehavior = 'span-controlled';
+        spanPlan       = {
+            order      : ['a', 'c'],
+            failLabels : ['c'],
+            holdLabel  : 'a',
+            holdMode   : 'succeed',
+            releaseHeld: null,
+
+            releaseRequested: false
+        };
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
+        aiConfig.openAiCompatible.unloadRetryCount        = 0;
+        aiConfig.localModels.embedding.parallel           = 5;
+
+        const error = await TextEmbeddingService.embedTexts(['a', 'b', 'c', 'd'], 'openAiCompatible')
+            .then(() => null, err => err);
+
+        // Non-vacuity: both spans must have been outstanding together, or "not the first one in
+        // flight" is a distinction the run never offered.
+        expect(maxInFlightRequests, 'both spans in flight at once').toBeGreaterThan(1);
+
+        // With several spans outstanding, a timeout names the whole POST — so the consumer's
+        // undeliverable classification needs the span that was actually in flight. Attributing it to
+        // the first batch member is how an innocent neighbour inherits a monster's strikes.
+        expect(error.failedTextOffset, 'the failing span starts at input offset 2').toBe(2);
+        expect(error.failedTextCount, 'and it held TWO inputs, not a hardcoded one').toBe(2)
     });
 
     test('lms server start-compatible batch embeddings preserve TextEmbeddingService ordering', async () => {
