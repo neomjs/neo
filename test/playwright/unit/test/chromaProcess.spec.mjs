@@ -40,8 +40,8 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         // The guarded contract is BODY PURITY — the bulk `unit` project must never admit a Brain
         // spec, because that would need a Chroma boot inside a pure-Node run. Assert that
         // behaviour, not the container's shape: `testIgnore` legitimately holds more than one
-        // matcher (the `unit-profiling` split added the wall-clock specs), and an identity check
-        // against a single regex would fail every future exclusion while proving nothing extra.
+        // matcher, and an identity check against a single regex would fail every future exclusion
+        // while proving nothing extra.
         const unitIgnore = [projects.unit.testIgnore].flat();
 
         expect(unitIgnore).toContain(brainTestMatch);
@@ -74,13 +74,12 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         const gated = buildProjects({brainPresent: false}),
               armed = buildProjects({brainPresent: true});
 
-        expect(gated.map(project => project.name)).toEqual(['unit', 'unit-profiling']);
-        // The gated pair carries the SAME definitions the armed list carries — the gate removes
+        expect(gated.map(project => project.name)).toEqual(['unit']);
+        // The gated list carries the SAME definition the armed list carries — the gate removes
         // projects, it never rewrites the survivors.
         const armedByName = Object.fromEntries(armed.map(project => [project.name, project]));
 
         expect(gated[0]).toEqual(armedByName.unit);
-        expect(gated[1]).toEqual(armedByName['unit-profiling']);
         expect(armed.map(project => project.name)).toEqual([
             'chroma-setup',
             'chroma-teardown',
@@ -89,8 +88,7 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
             'unit-brain-orchestrator-daemon',
             'unit-brain-tier1-config',
             'unit-brain-knowledge-base-config',
-            'unit-brain-memory-core-config',
-            'unit-profiling'
+            'unit-brain-memory-core-config'
         ]);
     });
 

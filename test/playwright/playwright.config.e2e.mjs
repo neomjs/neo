@@ -45,7 +45,7 @@ export default defineConfig({
     outputDir    : ARTIFACT_ROOT,
     fullyParallel: false, // Maintain serial execution for benchmarks
     workers      : 1,     // Maintain serial execution for benchmarks
-    timeout      : 90000, // E2E tests (like DevIndex) are heavy rendering apps
+    timeout      : 90000, // E2E tests (like Workstation) are heavy rendering apps
     globalSetup  : './e2e/globalSetup.mjs',
 
     reporter: [

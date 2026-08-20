@@ -22,7 +22,12 @@ import {
     STAGE_FAILURE_CLASS
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
 
-const generatedFile = 'apps/devindex/resources/data/users.jsonl';
+// The moving generated file — seeded, rewritten on every emission attempt, and rewritten again by
+// `advanceRemote` to simulate a concurrent `dev` advance. It must therefore be an allowlisted path
+// that NO other assertion in this file owns: the emission below writes six further paths and checks
+// each one individually, so reusing any of them makes the seed and the emission fight over the same
+// bytes and the failure reads as a publication bug rather than a fixture collision.
+const generatedFile = 'resources/content/issues/chunk-1/issue-9486.md';
 
 function runGit(cwd, args) {
     return execFileSync('git', args, {
@@ -93,14 +98,11 @@ function remoteSubjects({origin, root}) {
 test.describe('Data Sync pipeline publisher (#15746)', () => {
     test('defines the explicit generated-data allowlist', () => {
         expect(GENERATED_DATA_PATHS).toEqual([
-            ':(glob)apps/devindex/resources/data/*.json*',
             'apps/portal/resources/data',
             'apps/portal/sitemap.xml',
             'apps/portal/llms.txt',
             'resources/content'
         ]);
-        expect(isGeneratedDataPath('apps/devindex/resources/data/users.jsonl')).toBe(true);
-        expect(isGeneratedDataPath('apps/devindex/resources/data/nested/users.jsonl')).toBe(false);
         expect(isGeneratedDataPath('apps/portal/resources/data/tickets/index.json')).toBe(true);
         expect(isGeneratedDataPath('apps/portal/sitemap.xml')).toBe(true);
         expect(isGeneratedDataPath('apps/portal/llms.txt')).toBe(true);

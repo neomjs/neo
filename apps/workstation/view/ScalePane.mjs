@@ -4,7 +4,7 @@ import GridContainer from '../../../src/grid/Container.mjs';
 /**
  * @summary Renderer-rich virtual grid for Workstation's exact 100,000-row scale store.
  *
- * The pane composes the generic column families proven by BigData and DevIndex: viewport-
+ * The pane composes the generic column families proven by BigData: viewport-
  * bounded row/column pools, ordinary renderers, component cells, animated values, progress,
  * heatmap classes, and `type:'sparkline'` (the framework-owned OffscreenCanvas path).
  *

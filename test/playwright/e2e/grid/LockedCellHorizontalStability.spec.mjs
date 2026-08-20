@@ -5,9 +5,10 @@ import { test, expect } from '../../fixtures.mjs';
  * cells (start AND end) stay visually stationary — and they stay frozen through a large scroll that
  * recycles the centre's mounted-column window (virtualization), not just a small optical nudge.
  *
- * This restores REAL locked-cell coverage. The original probe lived in GridThumbDragDevIndex against
- * the devindex app, whose locked columns were since removed — there `.neo-locked-start` /
- * `.neo-locked-end` cells no longer exist, so the stability assertions passed vacuously (null === null).
+ * This restores REAL locked-cell coverage. The original probe ran against an app whose locked columns
+ * had since been removed — there `.neo-locked-start` / `.neo-locked-end` cells no longer existed, so
+ * the stability assertions passed vacuously (null === null). That app and its specs have since left
+ * this repository entirely, which is why the probe is not linked here.
  * On the lockedColumns fixture the locked regions are real, and the single-column locked-end region
  * renders its cells (the engine fix for the zero-row locked-end body), so both stability checks assert
  * against actual rendered cells. The test fails loudly if either locked region is absent — no vacuous pass.

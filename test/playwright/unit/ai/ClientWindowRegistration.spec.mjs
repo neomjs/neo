@@ -19,7 +19,7 @@ import Neo            from '../../../../src/Neo.mjs';
  * registered from the windowId-keyed `Neo.apps` registry for non-shared apps, and the
  * SharedWorker path is left untouched.
  *
- * The live end-to-end ACs (a real devindex window appearing in `get_window_topology` and a
+ * The live end-to-end ACs (a real non-shared app window appearing in `get_window_topology` and a
  * `simulate_event` click routing to it) are L3 runtime evidence verified post-merge — they
  * need a running bridge + non-shared app the unit sandbox cannot host.
  */
@@ -66,14 +66,14 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
     };
 
     test('onSocketOpen registers the implicit window for a non-SharedWorker app', () => {
-        const notifications = runOnSocketOpen(false, {'win-nonshared-1': {name: 'DevIndexApp'}});
+        const notifications = runOnSocketOpen(false, {'win-nonshared-1': {name: 'NonSharedApp'}});
 
         const implicit = notifications.find(
             n => n.method === 'window_connected' && n.params.windowId === 'win-nonshared-1'
         );
 
         expect(implicit, 'the non-shared implicit window must be registered with the bridge').toBeTruthy();
-        expect(implicit.params.appName).toBe('DevIndexApp')
+        expect(implicit.params.appName).toBe('NonSharedApp')
     });
 
     test('a SharedWorker app does NOT get the implicit-app-registry fallback', () => {

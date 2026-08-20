@@ -10,7 +10,7 @@ import {isEngineProfile, isFilmTake}                 from '../utils/gpuIntent.mj
  * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one Provider,
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
- * Canvas-worker value change (plus pixel change under the presenting profile), DevIndex-sized chart
+ * Canvas-worker value change (plus pixel change under the presenting profile), exact 160x50 chart
  * geometry, honest progress paints, both themes, host-relative edge bands, visible real splitters,
  * user-driven semantic resize, pane-owned chrome, replacement-chrome motion containment,
  * sequential clip-safe fixed staging, and identity preservation.
@@ -165,10 +165,10 @@ const readSparklineGeometry = (page, paneSelector) => page.evaluate(selector => 
 /**
  * @param {Object} geometry
  */
-const expectDevIndexSparklineFit = geometry => {
+const expectSparklineCellFit = geometry => {
     expect(geometry).toBeTruthy();
-    expect(Math.abs(geometry.cell.width - 160), 'Sparkline keeps the DevIndex-sized column').toBeLessThanOrEqual(1);
-    expect(Math.abs(geometry.row.height - 50), 'Sparkline keeps the DevIndex row height').toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.cell.width - 160), 'Sparkline keeps the 160px column width').toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.row.height - 50), 'Sparkline keeps the 50px row height').toBeLessThanOrEqual(1);
     expect(
         Math.abs(geometry.wrapper.width - geometry.content.width),
         `Sparkline wrapper fills the cell content box: ${JSON.stringify(geometry)}`
@@ -963,8 +963,8 @@ test.describe('Workstation — dense living-data composition', () => {
         await expect(root).toHaveClass(/neo-theme-neo-dark/);
         await expect(themeToggle).toHaveText('Light mode');
 
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
+        expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-scale-pane'));
+        expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-feed-pane'));
 
         const gridLayout = await page.evaluate(() => {
             const
@@ -1141,8 +1141,8 @@ test.describe('Workstation — dense living-data composition', () => {
             .toEqual(beforeChrome);
         expect(scalePanePreserved, 'the exact scale pane DOM node survives splitter re-projection').toBe(true);
         expect(await page.locator('.neo-dashboard-dock-splitter').count()).toBe(boundaryCount);
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
+        expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-scale-pane'));
+        expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-feed-pane'));
 
         // Two source-owned rails are visible and legible at workstation geometry.
         const railTabs = page.locator('.neo-dashboard-dock-rail-tab');
@@ -1954,8 +1954,8 @@ test.describe('Workstation — dense living-data composition', () => {
             .toEqual({count: capturedChromeDomNodes, mismatches: []});
         expect(scaleSparklinesAfter.every(entry => entry.properties?.offscreenRegistered),
             'the preserved scale Canvas pool is registered after the final projection').toBe(true);
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
+        expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-scale-pane'));
+        expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-feed-pane'));
         expect(runtimeErrors, 'no global error or unhandled rejection across the journey').toEqual([]);
         expect(pageErrors, 'no Playwright pageerror across the journey').toEqual([])
     });

@@ -1,25 +1,6 @@
 # Additional rules, which are solely npm related, to not bloat the package size.
 /package.brain.json
 /package-lock.brain.json
-# DevIndex crawler data — the whole directory, deliberately not a path+extension pair.
-#
-# The previous rule was `apps/devindex/resources/*.json`, which stopped matching on both axes at
-# once when the corpus moved into `data/` and grew a `.jsonl`: wrong directory (no `data/` segment,
-# and `*` does not recurse) and wrong extension (the 23 MiB file is `.jsonl`). It had silently
-# become vacuous, and nothing observes an ignore rule that has stopped matching.
-#
-# The `/**` is required here, not stylistic. The trailing-slash directory form
-# (`apps/devindex/resources/data/`) excludes correctly in an isolated fixture and does NOT exclude
-# in this repo — measured both ways with `npm pack --dry-run`. The surrounding `/apps/**` rules and
-# their ~60 negations change how the walk resolves a directory-form pattern here, so a fixture that
-# omits them gives a false green. Verify any change to this line against a real pack, never against
-# a minimal reproduction.
-#
-# The small hand-maintained policy files here (allowlist/blocklist/optin/optout) go with it: their
-# only consumer is the in-repo crawler service, which resolves them from `projectRoot` and cannot
-# run from an installed package. The browser store fetches `users.jsonl` over HTTP from the deployed
-# site (`Neo.config.basePath`), never from the package, so nothing runtime-facing changes.
-apps/devindex/resources/data/**
 resources/content/
 
 # Original content of the .gitignore file
@@ -52,9 +33,6 @@ resources/content/
 !/apps/email/index.html
 !/apps/email/**/*.mjs
 !/apps/email/neo-config.json
-!/apps/devindex/index.html
-!/apps/devindex/**/*.mjs
-!/apps/devindex/neo-config.json
 !/apps/finance/index.html
 !/apps/finance/**/*.mjs
 !/apps/finance/neo-config.json
