@@ -8,6 +8,14 @@ import Base      from '../../../src/core/Base.mjs';
 import logger    from '../../mcp/server/neural-link/logger.mjs';
 
 /**
+ * The npm script `spawnBridge` runs. Exported so an entrypoint deriving its own `cwd` can validate
+ * that candidate against the script that will actually be run there, rather than against a copy of
+ * this name that is free to drift from it.
+ * @type {String}
+ */
+export const BRIDGE_NPM_SCRIPT = 'ai:server-neural-link';
+
+/**
  * @summary Decides what `initAsync()` may do about the Bridge at construction time.
  *
  * Exported as a plain function so specs drive the production decision rather than a mirror of it:
@@ -818,7 +826,7 @@ class ConnectionService extends Base {
         // nothing and produced an ENOENT three layers away. A hidden default that substitutes a
         // wrong value is worse than no default: it converts a missing input into a distant symptom.
         return new Promise((resolve, reject) => {
-            const args    = ['run', 'ai:server-neural-link'];
+            const args    = ['run', BRIDGE_NPM_SCRIPT];
             const file    = getBridgeStdioLogPath({logPath});
             const logFile = this.openBridgeLogFile(file);
             const port    = aiConfig.port;

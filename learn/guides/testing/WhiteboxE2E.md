@@ -36,6 +36,10 @@ npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/pla
 
 Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.
 
+The fixture connects to a Bridge already listening on `aiConfig.port`, and spawns one when none is. You never need a Bridge running first — the fixture supplies the working directory a spawn requires, by walking up from its own location to the package that declares the Bridge npm script.
+
+It deliberately does not use `process.cwd()`. Playwright resolves `testDir` from the config file and never changes directory, so `npx playwright test -c /abs/path/config.mjs` invoked from anywhere is a valid run whose worker cwd is that anywhere. Where no ancestor declares the script, the fixture leaves the working directory unset and the spawn refuses by name, rather than starting `npm` somewhere it cannot resolve.
+
 ### Core Connection Boilerplate
 When tests launch, you can use the `neuralLink` parameter injected by Playwright. This abstracts away the internal component architecture and exposes a simple SDK.
 
