@@ -98,6 +98,44 @@ class TreeBuilder extends Base {
 
 
     /**
+     * The length of the longest chain of nested components rooted at the given component, counting the
+     * component itself as 1. A component with no child components is 1; one whose vdom references a
+     * child which itself references another is 3.
+     *
+     * This is the inverse of the pruning `#buildTree` performs, and lives beside it so the two read the
+     * same structure: a caller that needs a tree fully expanded down to `component` can pass
+     * `distanceToComponent + getComponentDepth(component)` as its depth instead of a literal, which
+     * would silently become a snapshot of whatever nesting happened to ship.
+     *
+     * @param {Neo.component.Base} component
+     * @returns {Number}
+     */
+    getComponentDepth(component) {
+        let depth = 1;
+
+        const scan = node => {
+            if (typeof node !== 'object' || node === null) {
+                return
+            }
+
+            if (node.componentId) {
+                const child = ComponentManager.get(node.componentId);
+
+                if (child) {
+                    depth = Math.max(depth, 1 + this.getComponentDepth(child));
+                    return
+                }
+            }
+
+            node.cn?.forEach(scan)
+        };
+
+        component?.vdom && scan(component.vdom);
+
+        return depth
+    }
+
+    /**
      * Copies a given vdom tree and replaces child component references with their vdom.
      * @param {Object} vdom
      * @param {Number} [depth=-1]
