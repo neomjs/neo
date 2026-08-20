@@ -2,7 +2,7 @@ import {test, expect} from '../../fixtures.mjs';
 
 /**
  * @summary Whitebox-e2e: header↔cell rect synchronization across a real column RESIZE, asserted
- * where it actually breaks — AFTER the drop.
+ * both WHILE the drag is held open and after the drop.
  *
  * ## Why a second spec, next to a net that already asserts this exact property
  *
@@ -31,6 +31,18 @@ import {test, expect} from '../../fixtures.mjs';
  * re-opens that blind spot), on the fixed-px surface. The dynamic-width surface takes a
  * structurally different branch in `passSizeToBody` (it awaits a DOM measurement) and needs its
  * own case.
+ *
+ * ## The quadrant this file used to leave open
+ *
+ * Its first version asserted only after the drop, and said so — while the sibling net asserts at
+ * mid-drag hold points but can only drive a REORDER. That left exactly one quadrant uncovered:
+ * resize × mid-drag. The defect lived there. `onDragMove` moved the body immediately via
+ * `updateCellPositions()` while the header kept its pre-drag geometry for the whole gesture, so the
+ * two disagreed by the drag delta on every column after the resized one, then snapped back on
+ * mouseup — invisible to any assertion taken after the drop.
+ *
+ * So the hold point below is the point of this file, not an extra: a resize spec that only measures
+ * the end state cannot see a defect that ends when the gesture does.
  *
  * Run: npm run test-e2e -- test/playwright/e2e/grid/HeaderResizeRectSync.spec.mjs --workers=1
  */
@@ -98,8 +110,12 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
      * One real resize: hover the button to materialize the handle, grab it, drag `delta` px with a
      * stepped move, drop. Returns the button's pre-drag box so the caller can assert the intent
      * actually landed rather than trusting that the gesture engaged at all.
+     *
+     * `onHold` runs with the mouse button still DOWN, after the move has settled. A header that
+     * only corrects itself on drop is aligned by the time the gesture ends, so that is the sole
+     * moment the mismatch is observable — see the quadrant note in the file header.
      */
-    const resizeColumn = async (page, headerText, delta) => {
+    const resizeColumn = async (page, headerText, delta, onHold) => {
         const header = page.locator('.neo-grid-header-button', {hasText: headerText}).first();
 
         await expect(header).toBeVisible({timeout: 15000});
@@ -115,6 +131,9 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
         await page.mouse.down();
         await page.mouse.move(x + delta, y, {steps: 40});
         await page.waitForTimeout(400);
+
+        await onHold?.();
+
         await page.mouse.up();
         await page.waitForTimeout(900);
 
@@ -140,6 +159,73 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
             .toBeGreaterThan(before.width + 20);
 
         assertAligned(await readPairs(page), 'after widening "Number 7"')
+    });
+
+    test('the header tracks the drag, not only the drop', async ({page}) => {
+        await page.goto('/examples/grid/bigData/');
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+
+        await expect(page.locator('[role="grid"]').first()).toBeVisible({timeout: 30000});
+        await expect(page.locator('.neo-grid-body [role="row"]').first()).toBeVisible({timeout: 30000});
+        await page.waitForTimeout(600);
+
+        assertAligned(await readPairs(page), 'baseline');
+
+        const width = async () => (await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox()).width;
+
+        const before = await width();
+
+        let held = 0;
+
+        await resizeColumn(page, 'Number 7', 160, async () => {
+            // Non-vacuity: the hold assertion below is worthless unless the gesture has already
+            // moved something at this point. A drag that never engaged leaves every rect at its
+            // baseline, where alignment holds trivially.
+            held = await width();
+
+            assertAligned(await readPairs(page), 'DURING the widen drag, button still down')
+        });
+
+        expect(held, `the header had already widened at the hold point (before=${before})`).toBeGreaterThan(before + 20);
+
+        assertAligned(await readPairs(page), 'after the widen drop')
+    });
+
+    /**
+     * Narrowing is a separate case on purpose. Sharing one test with the widen arm makes the widen
+     * failure abort the run before the narrow hold is ever reached, so a red proof could never
+     * certify the two directions independently — and narrowing is the direction the 9k-era defect
+     * lived in.
+     */
+    test('the header tracks a NARROWING drag, not only the drop', async ({page}) => {
+        await page.goto('/examples/grid/bigData/');
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+
+        await expect(page.locator('[role="grid"]').first()).toBeVisible({timeout: 30000});
+        await expect(page.locator('.neo-grid-body [role="row"]').first()).toBeVisible({timeout: 30000});
+        await page.waitForTimeout(600);
+
+        assertAligned(await readPairs(page), 'baseline');
+
+        const width = async () => (await page.locator('.neo-grid-header-button', {hasText: 'Firstname'}).first().boundingBox()).width;
+
+        // `Firstname` starts at 150, so it has room to shrink without hitting `minWidth: 100`.
+        const before = await width();
+
+        let held = 0;
+
+        await resizeColumn(page, 'Firstname', -40, async () => {
+            // The narrow arm carries its own non-vacuity proof rather than inheriting the widen
+            // arm's: if narrowing stops engaging, this callback would otherwise read an unchanged,
+            // trivially aligned header and pass.
+            held = await width();
+
+            assertAligned(await readPairs(page), 'DURING the narrow drag, button still down')
+        });
+
+        expect(held, `the header had already narrowed at the hold point (before=${before})`).toBeLessThan(before - 20);
+
+        assertAligned(await readPairs(page), 'after the narrow drop')
     });
 
     test('narrowing a column moves its cells with it', async ({page}) => {
