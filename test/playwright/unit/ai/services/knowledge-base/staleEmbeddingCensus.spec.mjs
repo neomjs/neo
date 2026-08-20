@@ -9,6 +9,8 @@ import {
     buildEmbeddingInputHeader,
     buildEmbeddingInputText
 }                              from '../../../../../../ai/services/knowledge-base/helpers/embeddingInputFormat.mjs';
+import {censusCollection, parseArgs}
+                               from '../../../../../../ai/scripts/diagnostics/staleEmbeddingCensus.mjs';
 import {
     classifyRowFormat,
     emptyStaleEmbeddingCensus,
@@ -209,5 +211,91 @@ test.describe('mergeStaleEmbeddingCensus — pagination cannot lose a row (#1742
         expect(merged.staleIds).toHaveLength(3);
         expect(merged.staleCount, 'the count still totals both pages').toBe(4);
         expect(merged.idsTruncated).toBe(true);
+    });
+});
+
+test.describe('the census walk — pagination and scope at the script boundary (#17428)', () => {
+    /**
+     * A collection stub that pages a fixed row set and records every request it received.
+     * @param {Array<{id: String, metadata: Object}>} rows Rows to serve.
+     * @returns {Object} Stub with a `calls` log.
+     */
+    function stubCollection(rows) {
+        const calls = [];
+
+        return {
+            calls,
+            async get(request) {
+                calls.push(request);
+
+                const page = rows.slice(request.offset, request.offset + request.limit);
+
+                return {ids: page.map(r => r.id), metadatas: page.map(r => r.metadata)}
+            }
+        };
+    }
+
+    test('a corpus larger than one page is fully counted, and the walk terminates', async () => {
+        // 4501 rows against a 2000-row page is three pages plus a short one. A walk that mishandled
+        // the offset would either loop forever or stop early, and both look like a smaller corpus.
+        const rows = Array.from({length: 4501}, (_, i) => row(`r${i}`, i % 2 === 0 ? {} :
+                  {[EMBEDDING_INPUT_FORMAT_METADATA_KEY]: EMBEDDING_INPUT_FORMAT_ID})),
+              stub   = stubCollection(rows),
+              census = await censusCollection(stub, null, 10);
+
+        expect(census.scannedCount, 'every row must be reached exactly once').toBe(4501);
+        expect(census.staleCount).toBe(2251);
+        expect(census.currentCount).toBe(2250);
+        expect(census.staleIds).toHaveLength(10);
+        expect(census.idsTruncated).toBe(true);
+
+        // Offsets advance by what was RETURNED, and the walk asks once more after the last full page
+        // rather than inferring the end from a full page — the inference that stops a census early.
+        expect(stub.calls.map(c => c.offset)).toEqual([0, 2000, 4000, 4501]);
+    });
+
+    test('an empty collection yields a measurement of zero, in ONE request', async () => {
+        const stub   = stubCollection([]),
+              census = await censusCollection(stub, null, 10);
+
+        expect(census.scannedCount).toBe(0);
+        expect(census.staleCount).toBe(0);
+        expect(stub.calls).toHaveLength(1);
+    });
+
+    test('the walk reads METADATA ONLY, and passes a tenant scope through untouched', async () => {
+        // Pulling vectors would make the diagnostic cost what the work it measures costs; and a scope
+        // silently dropped would report a whole-corpus number under a tenant label.
+        const stub = stubCollection([row('a', {})]);
+
+        await censusCollection(stub, {tenantId: 't7'}, 5);
+
+        expect(stub.calls[0].include).toEqual(['metadatas']);
+        expect(stub.calls[0].where).toEqual({tenantId: 't7'});
+    });
+
+    test('no scope means no `where` key at all, rather than an empty filter', async () => {
+        // An empty object is a filter, and a filter is not the same request as no filter.
+        const stub = stubCollection([row('a', {})]);
+
+        await censusCollection(stub, null, 5);
+
+        expect('where' in stub.calls[0]).toBe(false);
+    });
+});
+
+test.describe('the census flags refuse what they do not understand (#17428)', () => {
+    test('a mistyped flag fails loud instead of censusing something else', () => {
+        // Silently ignoring `--tenat` would report every tenant under a run the operator believed was
+        // scoped, and nothing in the output would say so.
+        expect(() => parseArgs(['--tenat', 't1'])).toThrow(/unknown argument/);
+        expect(() => parseArgs(['--ids', 'lots'])).toThrow(/non-negative integer/);
+        expect(() => parseArgs(['--ids', '-3'])).toThrow(/non-negative integer/);
+    });
+
+    test('the accepted flags parse, and the id cap has a default', () => {
+        expect(parseArgs([])).toEqual({tenant: null, idLimit: 20, json: null, help: false});
+        expect(parseArgs(['--tenant', 't1', '--ids', '0'])).toMatchObject({tenant: 't1', idLimit: 0});
+        expect(parseArgs(['--help'])).toMatchObject({help: true});
     });
 });
