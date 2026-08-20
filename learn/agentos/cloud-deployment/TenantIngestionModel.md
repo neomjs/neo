@@ -489,6 +489,7 @@ The day-0 tutorial should reuse this model rather than redefine it.
 
 ## Related
 
+- [The Embedding Lane](../EmbeddingLane.md) — what happens between "a chunk exists" and "a vector is stored": the geometry authorities, the slice and lease bounds, and which axes are verified. This document owns ingestion configuration, triggers and telemetry; that one owns the lane's composition.
 - [Hook Wiring](./HookWiring.md) — the `ingest_source_files`, `ai:kb-push-client`, and `ai:ingest-tenant` surfaces.
 - [Custom Parsers](./CustomParsers.md) — `parsed-chunk-v1` and parser execution boundaries.
 - [Custom Sources](./CustomSources.md) — full-corpus Source path, mostly not the push-based tenant default.
