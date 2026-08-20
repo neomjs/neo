@@ -6,6 +6,8 @@ import fs             from 'fs/promises';
 import os             from 'os';
 import path           from 'path';
 import {
+    DEFAULT_THAW_BOUNDS,
+    foldFutilityFreezeState,
     getHealLedgerFilePath,
     appendHealEvent,
     readHealLedger,
@@ -346,5 +348,118 @@ test.describe('validateHealLedgerRetention — fail-visible boundary guard (#141
         for (const bad of [-1, NaN, Infinity]) {
             expect(() => validateHealLedgerRetention(5000, bad)).toThrow(/pruneTriggerBytes must be a finite, non-negative number/);
         }
+    });
+});
+
+/**
+ * The snapshot-visible freeze surface: which targets are frozen, on what evidence, and what thaws them.
+ * A refrozen target must be harder to thaw than one frozen for the first time.
+ */
+test.describe('foldFutilityFreezeState — freeze state, evidence and thaw condition', () => {
+    const BASE   = DEFAULT_THAW_BOUNDS.baseThawQuietMs,
+          freeze = (target, at, detail) => ({type: 'freeze',   collection: target, at, detail}),
+          thaw   = (target, at, detail) => ({type: 'unfreeze', collection: target, at, detail});
+
+    test('a freeze is visible with its escalation and verdict evidence', () => {
+        const {frozen} = foldFutilityFreezeState([
+            freeze('embedding-model', 0, {escalation: 'no-admitted-remedy', verdict: {rung: 'rung-2', reasonCode: 'throttle-shed-has-no-admitted-action'}})
+        ], {now: BASE});
+
+        expect(frozen).toHaveLength(1);
+        expect(frozen[0].target).toBe('embedding-model');
+        expect(frozen[0].escalation).toBe('no-admitted-remedy');
+        expect(frozen[0].evidence.reasonCode).toBe('throttle-shed-has-no-admitted-action');
+        expect(frozen[0].requiredQuietMs).toBe(BASE);
+        expect(frozen[0].thawEligible).toBe(true);
+    });
+
+    test('an unfreeze clears it', () => {
+        expect(foldFutilityFreezeState([freeze('a', 0), thaw('a', 1)], {now: BASE}).frozen).toHaveLength(0);
+    });
+
+    test('a refrozen target requires a STRICTER quiet window than the first freeze', () => {
+        const [entry] = foldFutilityFreezeState([freeze('a', 0), thaw('a', 1), freeze('a', 2)], {now: 2 + BASE}).frozen;
+
+        expect(entry.tier).toBe(2);
+        expect(entry.requiredQuietMs).toBe(BASE * DEFAULT_THAW_BOUNDS.tierMultiplier);
+        expect(entry.thawEligible, 'the first-freeze window is no longer sufficient').toBe(false);
+    });
+
+    test('RED-PROOF: a DUPLICATE freeze row is not a refreeze — the fold is idempotent over its ledger', () => {
+        // A ledger is exactly the input that repeats: a replayed transition, a re-emitted row, a
+        // double write. Advancing the tier on every freeze row doubled the quiet window off a
+        // duplicate with no intervening thaw, so the same target was punished for being observed
+        // twice. Escalation tracks CYCLES, never rows.
+        const {frozen, tiers} = foldFutilityFreezeState([freeze('a', 0), freeze('a', 1)], {now: 1 + BASE});
+        const [entry]         = frozen;
+
+        expect(entry.tier, 'a second row while already frozen is the same freeze').toBe(1);
+        expect(tiers.a).toBe(1);
+        expect(entry.requiredQuietMs, 'the window must not double off a duplicate').toBe(BASE);
+
+        // Evidence and time DO refresh — the target is observably still futile at the later row.
+        expect(entry.at).toBe(1);
+    });
+
+    test('and the true cycle still escalates, so the guard above is not a blanket suppression', () => {
+        // The discriminating pair for the arm above: identical row count, one real thaw between them.
+        const duplicated = foldFutilityFreezeState([freeze('a', 0), freeze('a', 1)], {now: 1 + BASE}).frozen[0],
+              cycled     = foldFutilityFreezeState([freeze('a', 0), thaw('a', 1), freeze('a', 2)], {now: 2 + BASE}).frozen[0];
+
+        expect(duplicated.tier).toBe(1);
+        expect(cycled.tier, 'cleared then frozen again IS an escalation').toBe(2);
+        expect(cycled.requiredQuietMs).toBeGreaterThan(duplicated.requiredQuietMs);
+    });
+
+    test('an OPERATOR thaw does not raise the bar — a judgement is evidence, not another failure', () => {
+        const [entry] = foldFutilityFreezeState([freeze('a', 0), thaw('a', 1, {operatorThaw: true}), freeze('a', 2)], {now: 2 + BASE}).frozen;
+
+        expect(entry.tier).toBe(1);
+        expect(entry.thawEligible).toBe(true);
+    });
+
+    test('the escalating window is CAPPED — containment must not become abandonment', () => {
+        // Without a ceiling, enough flap cycles make a target permanently frozen with no operator in
+        // the loop.
+        const flapped = [];
+
+        for (let i = 0; i < 12; i++) {
+            flapped.push(freeze('a', i * 2), thaw('a', i * 2 + 1))
+        }
+        flapped.push(freeze('a', 100));
+
+        const [entry] = foldFutilityFreezeState(flapped, {now: 100}).frozen;
+
+        expect(entry.tier).toBeGreaterThan(10);
+        expect(entry.requiredQuietMs, 'saturates at the ceiling').toBe(DEFAULT_THAW_BOUNDS.maxThawQuietMs);
+    });
+
+    test('an unusable ceiling below the base window is refused rather than applied', () => {
+        const [entry] = foldFutilityFreezeState([freeze('a', 0)], {now: BASE, bounds: {maxThawQuietMs: 1}}).frozen;
+
+        expect(entry.requiredQuietMs).toBeNull();
+        expect(entry.thawEligible).toBe(false);
+    });
+
+    test('never eligible without a clock or with unusable bounds', () => {
+        expect(foldFutilityFreezeState([freeze('a', 0)], {}).frozen[0].thawEligible).toBe(false);
+        expect(foldFutilityFreezeState([freeze('a', 0)], {now: BASE, bounds: {baseThawQuietMs: 0}}).frozen[0].thawEligible).toBe(false);
+    });
+
+    test('multiple targets fold independently, sorted for a stable snapshot', () => {
+        const {frozen} = foldFutilityFreezeState([freeze('zeta', 0), freeze('alpha', 1), freeze('mid', 2), thaw('mid', 3)], {now: BASE});
+
+        expect(frozen.map(f => f.target)).toEqual(['alpha', 'zeta']);
+    });
+
+    test('a non-freeze row and a target-less row are ignored', () => {
+        const {frozen} = foldFutilityFreezeState([
+            {type: 'attempt', collection: 'a', at: 0},
+            {type: 'freeze', at: 1},
+            freeze('a', 2)
+        ], {now: BASE});
+
+        expect(frozen.map(f => f.target)).toEqual(['a']);
+        expect(frozen[0].tier).toBe(1);
     });
 });
