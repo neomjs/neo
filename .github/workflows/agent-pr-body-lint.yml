@@ -44,13 +44,25 @@ jobs:
       - name: Validate PR body with the owning implementation
         if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
         env:
-          # Passed through the environment, never interpolated into the shell: a PR body is
-          # attacker-controlled text and `${{ }}` inside `run:` would splice it into the script.
-          PR_BODY : ${{ github.event.pull_request.body }}
-          PR_DRAFT: ${{ github.event.pull_request.draft }}
-          BASE_REF: ${{ github.base_ref }}
+          # The body is fetched LIVE rather than taken from `github.event.pull_request.body`.
+          #
+          # That field is a SNAPSHOT of the body when the event fired, which makes the gate wrong
+          # in both directions. A corrected body can never go green — `gh run rerun` replays the
+          # original payload, so it re-lints the old text and reproduces the same failure forever,
+          # and the only refresh is a push, which is the wrong instrument for a rule about prose.
+          # And a body edited AFTER a green run keeps that green, so a PR can merge showing a
+          # passing body gate over a body that no longer satisfies it.
+          #
+          # Still handed to the validator through a FILE and never interpolated into the shell: a
+          # PR body is attacker-controlled text, and `${{ }}` inside `run:` would splice it into
+          # the script. `gh` writes it straight to disk, so it is never a shell token.
+          GH_TOKEN : ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF : ${{ github.base_ref }}
         run: |
-          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json body,isDraft > "$RUNNER_TEMP/pr.json"
+          jq -r '.body // ""' "$RUNNER_TEMP/pr.json" > "$RUNNER_TEMP/pr-body.md"
+          PR_DRAFT="$(jq -r '.isDraft' "$RUNNER_TEMP/pr.json")"
           if [ "$PR_DRAFT" = "true" ]; then
             node ai/scripts/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF" --pr-draft
           else
@@ -61,9 +73,19 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const pr     = context.payload.pull_request;
-            const author = pr.user.login;
-            const body   = pr.body || "";
+            // Read the pull request LIVE rather than from `context.payload.pull_request`, which
+            // holds the body as it was when the event fired. A payload-sourced body cannot be
+            // corrected into a green verdict (a re-run replays the stale text) and cannot lose a
+            // green one it no longer deserves (an edit after a pass is never re-judged). The
+            // owning-implementation step above fetches for the same reason.
+            const {data: pr} = await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const author  = pr.user.login;
+            const body    = pr.body || "";
             const isDraft = Boolean(pr.draft);
 
             // Only enforce for known AI agent accounts or PRs labeled with 'ai'
