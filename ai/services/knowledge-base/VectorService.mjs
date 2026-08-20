@@ -10,8 +10,12 @@ import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
                               from '../../embeddingProviders.mjs';
 import {resolveEmbeddingAdmissionBand}
                               from '../../embeddingSafeBand.mjs';
-import {buildEmbeddingInputHeader, buildEmbeddingInputText}
-                              from './helpers/embeddingInputFormat.mjs';
+import {
+    EMBEDDING_INPUT_FORMAT_ID,
+    EMBEDDING_INPUT_FORMAT_METADATA_KEY,
+    buildEmbeddingInputHeader,
+    buildEmbeddingInputText
+}                             from './helpers/embeddingInputFormat.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -178,6 +182,15 @@ function buildChunkMetadata(chunk) {
     for (const [key, value] of Object.entries(chunk)) {
         metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
     }
+
+    // Stamped here rather than onto the chunk, because three upsert sites call this function and a
+    // chunk-side stamp is three places to forget. This is already the single authority for row
+    // metadata — the same reason its own summary gives for existing.
+    //
+    // AFTER the copy loop, and that order is load-bearing: a chunk carrying a field of this name
+    // must not be able to declare which format its vector was built from. The row's claim comes from
+    // the module that owns the format, never from parsed content.
+    metadata[EMBEDDING_INPUT_FORMAT_METADATA_KEY] = EMBEDDING_INPUT_FORMAT_ID;
 
     return metadata
 }
