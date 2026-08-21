@@ -1,5 +1,15 @@
 import {test, expect} from '../../fixtures.mjs';
 
+const boundProfile = {
+    profileId        : 'fleet-profile:v1:http://127.0.0.1:8083/fleet',
+    canonicalEndpoint: 'http://127.0.0.1:8083/fleet',
+    custodian        : 'session-only',
+    label            : 'bound fixture',
+    contractVersion  : 1,
+    generation       : 1,
+    bearerEnvVar     : ''
+};
+
 const remoteProfile = {
     profileId        : 'fleet-profile:v1:https://switcher-test.example/fleet',
     canonicalEndpoint: 'https://switcher-test.example/fleet',
@@ -25,21 +35,45 @@ test.describe('AgentOS instance switcher — framework menu behavior', () => {
         await page.goto('/apps/agentos/index.html');
 
         const
-            trigger    = page.locator('.fm-instance-switcher.fm-instance-trigger'),
-            menu       = page.locator('.fm-instance-menu'),
+            trigger = page.locator('.fm-instance-switcher.fm-instance-trigger'),
+            menu    = page.locator('.fm-instance-menu');
+
+        // Let this page finish its App Worker registration before asking the shared Neural Link
+        // bridge for a session. An app-name fallback can otherwise select an older AgentOS tab.
+        await expect(trigger).toBeVisible({timeout: 60000});
+
+        const
             app        = await neuralLink.connectToApp('AgentOS'),
             stores     = await app.findInstances({className: 'AgentOS.store.FleetInstances'}, ['id']),
             storeId    = (Array.isArray(stores) ? stores[0] : stores)?.id,
+            switchers  = await app.findInstances({className: 'AgentOS.view.fleet.InstanceSwitcher'}, ['id', 'boundProfileId']),
+            switcher   = (Array.isArray(switchers) ? switchers[0] : switchers),
+            switcherId = switcher?.id,
             viewports  = await app.findInstances({className: 'AgentOS.view.Viewport'}, ['id']),
             viewportId = (Array.isArray(viewports) ? viewports[0] : viewports)?.id;
 
-        await expect(trigger).toBeVisible({timeout: 60000});
+        const
+            pageWorkerReply = await page.evaluate(() => window.Neo.worker.App.getWorkerId()),
+            pageWorkerId    = typeof pageWorkerReply === 'string' ? pageWorkerReply : pageWorkerReply?.data;
+
+        expect(app.sessionId, 'the Neural Link session must belong to this test page').toBe(pageWorkerId);
         expect(storeId, 'the provider-owned FleetInstances Store must exist').toBeTruthy();
+        expect(switcherId, 'the InstanceSwitcher must exist').toBeTruthy();
         expect(viewportId, 'the Agent OS Viewport must exist').toBeTruthy();
 
-        await app.callMethod(storeId, 'add', [[remoteProfile]]);
+        const
+            originalStore          = await app.inspectStore(storeId, 50, 0),
+            originalBoundProfileId = switcher.properties?.boundProfileId ?? switcher.boundProfileId ?? null;
 
         try {
+            // The journey owns its complete two-record baseline. A clean AgentOS origin may
+            // legitimately start with zero configured profiles, so inheriting one makes row-count
+            // assertions seat-dependent.
+            await app.callMethod(storeId, 'clear');
+            await app.callMethod(storeId, 'add', [[boundProfile, remoteProfile]]);
+            await app.setProperties(switcherId, {boundProfileId: boundProfile.profileId});
+
+            await expect.poll(async () => (await app.inspectStore(storeId, 10, 0)).count).toBe(2);
             await expect(trigger).toHaveAttribute('aria-label', /^Instance: .+ — (connected|not connected|degraded|switching)$/);
 
             await trigger.click();
@@ -73,7 +107,10 @@ test.describe('AgentOS instance switcher — framework menu behavior', () => {
 
             // A real outside control moves focus out of the floating menu, which is the menu.List
             // dismissal contract (an inert decorative node cannot produce a focus-leave event).
-            await page.locator('.neo-tab-header-button').first().click();
+            const outsideTab = page.getByRole('tab', {name: 'Chat', exact: true});
+
+            await outsideTab.click();
+            await expect(outsideTab).toBeFocused();
             await expect(menu).toBeHidden();
             await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
@@ -89,7 +126,13 @@ test.describe('AgentOS instance switcher — framework menu behavior', () => {
                 await expect(menu).toBeHidden()
             }
         } finally {
-            await app.callMethod(storeId, 'remove', [remoteProfile.profileId]);
+            await app.callMethod(storeId, 'clear');
+
+            if (originalStore.items.length) {
+                await app.callMethod(storeId, 'add', [originalStore.items])
+            }
+
+            await app.setProperties(switcherId, {boundProfileId: originalBoundProfileId});
             await app.setProperties(viewportId, {theme: 'neo-theme-neo-dark'})
         }
     })

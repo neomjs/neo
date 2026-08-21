@@ -106,6 +106,38 @@ test.describe('InstanceSwitcher — framework button + Store-backed menu (#17367
         store.destroy()
     });
 
+    test('Store add while the menu is hidden rebuilds the Store-backed profile rows', async () => {
+        const
+            localProfile = {...createFleetProfile({
+                custodian: 'session-only',
+                endpoint : 'http://127.0.0.1:8083/fleet',
+                label    : 'local'
+            })},
+            cloudProfile = {...createFleetProfile({
+                custodian: 'session-only',
+                endpoint : 'https://fleet.example.io/fleet',
+                label    : 'cloud-eu'
+            })},
+            store        = Neo.create(FleetInstances, {data: [localProfile]}),
+            switcher     = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store}),
+            menu         = await waitForMenu(switcher),
+            profileRows  = () => menu.vdom.cn.filter(item => item.cls?.includes('fm-instance-row'));
+
+        menu.createItems(true);
+
+        expect(menu.hidden).toBe(true);
+        expect(profileRows()).toHaveLength(1);
+
+        store.add(cloudProfile);
+
+        expect(menu.hidden).toBe(true);
+        expect(profileRows()).toHaveLength(2);
+        expect(profileRows().map(item => item['data-profile-id'])).toEqual([cloudId, localId]);
+
+        switcher.destroy();
+        store.destroy()
+    });
+
     test('profile and manage choices preserve the controller-facing intent contracts', async () => {
         const store    = makeStore();
         const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
