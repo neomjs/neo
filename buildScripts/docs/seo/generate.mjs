@@ -68,6 +68,10 @@ const PRIORITIES = new Map([
     ['agentos/tooling/CommunitySourceRunbook'       , 0.7],
     ['agentos/KnowledgeBase'                        , 1.0],
     ['agentos/MemoryCore'                           , 1.0],
+    // Ranked below both subsystem apexes it spans, deliberately: this is a maintainer-facing
+    // internals guide for one cross-subsystem lane, so it sits with GitHubWorkflow/CodeExecution
+    // rather than with the entry points a reader arrives on.
+    ['agentos/EmbeddingLane'                        , 0.8],
     ['agentos/SelfHealing'                          , 1.0],
     ['agentos/GitHubWorkflow'                       , 0.8],
     ['agentos/CodeExecution'                        , 0.8],

@@ -53,6 +53,7 @@
         {"name": "Neural Link: Live Application Mutability",           "parentId": "AgentOS",                                             "id": "agentos/NeuralLink"},
         {"name": "The Knowledge Base Server",                          "parentId": "AgentOS",                                             "id": "agentos/KnowledgeBase"},
         {"name": "Knowledge Base Enhancement (Anchor & Echo)",         "parentId": "AgentOS",                                             "id": "agentos/KnowledgeBaseEnhancement"},
+        {"name": "The Embedding Lane",                                 "parentId": "AgentOS",                                             "id": "agentos/EmbeddingLane"},
         {"name": "The Memory Core Server",                             "parentId": "AgentOS",                                             "id": "agentos/MemoryCore"},
         {"name": "The Seat Memory Layer",                              "parentId": "AgentOS",                                             "id": "agentos/SeatMemoryLayer"},
         {"name": "Self-Healing Immune System",                         "parentId": "AgentOS",                                             "id": "agentos/SelfHealing"},
