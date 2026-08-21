@@ -1,6 +1,9 @@
-/* Session-state dot — geometry + the reduced-motion-gated pulse, scoped under the component root.
-   COLOR binds via the fm-state-* class → --fm-dot mapping below (the component swaps a class, never
-   writes a style); the pulse is decoration, the color carries the signal. */
+/* class: always-rendered — the chip family's MARK-ONLY member (see Chips.scss for the family
+   contract): geometry + the reduced-motion-gated pulse, scoped under the component root. COLOR
+   binds via the fm-state-* class → --fm-dot mapping below (the component swaps a class, never
+   writes a style); the dot alone NEVER carries state — it holds hue, the adjacent state WORD is
+   the WCAG 1.4.1 channel (the two-channel rule). The pulse is decoration on the family's motion
+   token; its absence under reduced motion loses zero signal. */
 .fm-state-dot {
     width        : 8px;
     height       : 8px;
@@ -21,7 +24,7 @@
 
     @media (prefers-reduced-motion: no-preference) {
         &.fm-live {
-            animation: fm-state-pulse 2.4s ease-in-out infinite;
+            animation: fm-state-pulse var(--fm-motion-pulse, 2400ms) ease-in-out infinite;
         }
     }
 }

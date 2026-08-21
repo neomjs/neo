@@ -186,16 +186,23 @@
     }
 
     /* the S2 telltale chip — hidden while nominal; any pixels mean a deviation on ≥1 axis */
+    /* class: exception-only — chip-family member (see Chips.scss): the per-agent telltale renders
+       only on an enumerated deviation (telltale.mjs owns the semantics), so it must read as ONE
+       object, not loose text. Geometry consumes the family tokens; color binds through one local
+       indirection on the EventChip plate pattern — a future severity class rebinds the one
+       property, an unmatched class renders quiet. */
     .fm-card-telltale {
+        --fm-telltale-mark: var(--fm-state-limited);
+
         flex         : none;
         font-family  : var(--fm-font-mono);
         font-size    : 10px;
         line-height  : 1;
-        color        : var(--fm-state-limited);
-        background    : color-mix(in srgb, var(--fm-state-limited) 12%, transparent);
-        border       : 1px solid color-mix(in srgb, var(--fm-state-limited) 30%, transparent);
-        border-radius: 999px;
-        padding      : 2px 7px;
+        color        : var(--fm-telltale-mark);
+        background   : color-mix(in srgb, var(--fm-telltale-mark) 12%, transparent);
+        border       : 1px solid color-mix(in srgb, var(--fm-telltale-mark) 30%, transparent);
+        border-radius: var(--fm-chip-radius);
+        padding      : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
         white-space  : nowrap;
     }
 

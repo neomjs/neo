@@ -1,15 +1,15 @@
-/* The spine's honesty line: names WHY the surface is showing sample or last-known data. Exception-only
-   chrome — a live spine sets `hidden`, and the default `hideMode: 'removeDom'` takes the element out of
-   the DOM entirely, so nominal state costs zero pixels without this file guarding against it. That
-   inverts the usual styling brief: this element is only ever on screen when something is wrong, so it
-   has to read as an exception rather than as toolbar furniture, which is exactly what unstyled inline
-   text reads as.
+/* class: exception-only — the chip family's EXCEPTION-CLASS reference member (see Chips.scss for
+   the family contract). The spine's honesty line: names WHY the surface is showing sample or
+   last-known data. A live spine sets `hidden`, and the default `hideMode: 'removeDom'` takes the
+   element out of the DOM entirely, so nominal state costs zero pixels without this file guarding
+   against it. That inverts the usual styling brief: this element is only ever on screen when
+   something is wrong, so it has to read as an exception rather than as toolbar furniture.
 
-   Color is supplemental and token-only, per the SourceHealthMarker discipline: the text already carries
-   the whole message (cause AND remedy for cold), and the accent bar carries severity in geometry — so
-   neither channel is load-bearing alone, and the line survives a viewer who cannot separate the two
-   state hues. Both-theme adaptation is automatic: every value resolves through --fm-* tokens, which
-   theme-neo-{light,dark}/apps/agentos/Viewport.scss defines per theme. */
+   Color is supplemental and token-only, per the SourceHealthMarker discipline: the text already
+   carries the whole message (cause AND remedy for cold), and the accent bar carries severity in
+   geometry — so neither channel is load-bearing alone, and the line survives a viewer who cannot
+   separate the two state hues. Geometry consumes the family tokens; both-theme adaptation is
+   automatic through the --fm-* token layer. */
 .fm-spine-banner {
     /* Local indirection so the state classes rebind ONE token instead of restating the ruleset —
        the StateDot / SourceHealthMarker pattern. The default is the neutral ink: if a future `kind`
@@ -25,9 +25,9 @@
     flex         : 0 1 auto;
     min-width    : 0;
     max-width    : 100%;
-    padding      : 2px 8px;
-    border-left  : 3px solid var(--fm-spine-mark);
-    border-radius: 2px;
+    padding      : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
+    border-left  : var(--fm-chip-mark-w) solid var(--fm-spine-mark);
+    border-radius: var(--fm-chip-radius);
     background: color-mix(in srgb, var(--fm-spine-mark) 10%, transparent);
     color     : var(--fm-ink);
     font-family  : var(--fm-font-mono);

@@ -1,7 +1,22 @@
-/* The selector-chip primitive: registry-derived pick-one rows (harness types on the config card +
-   the add-agent form). Selection state is structural (border + weight + a signal wash) — never
-   hue-alone (WCAG 1.4.1); every color reads from the token layer. Distinct from EventChip (kind-
-   colored stream facts): a selector chip is an affordance, an event chip is an observation. */
+/* THE CHIP FAMILY — one designed anatomy (mark + text + optional detail affordance) for every
+   status/kind surface, on one class axis with three members:
+     exception-only   — nominal earns zero pixels (spine banner = reference; per-agent telltale)
+     always-rendered  — furniture that must be findable before it matters (viewer-wake = reference;
+                        event chips = the kind-axis reference; state dot = the mark-only member)
+     affordance       — an action, never an observation (THIS file's selector chip = reference)
+   The shared parts are the geometry tokens (--fm-chip-mark-w/pad-y/pad-x/radius/gap, declared at
+   the shell root); each idiom binds COLOR through one local indirection (--fm-spine-mark /
+   --fm-viewer-wake-mark / --fm-chip / --fm-telltale-mark / --fm-dot) — a state/kind class rebinds
+   that one property, an unmatched class renders quiet, never a borrowed severity.
+   Family laws: never hue-alone (WCAG 1.4.1 — every chip carries text or geometry beside color);
+   motion is decoration, never information (reduced-motion loses zero signal). */
+
+/* class: affordance — the selector-chip primitive: registry-derived pick-one rows (harness types
+   on the config card + the add-agent form). Selection state is structural (border + weight + a
+   signal wash) — never hue-alone; every color reads from the token layer. Distinct from EventChip
+   (kind-colored stream facts): a selector chip is an affordance, an event chip is an observation.
+   Recorded affordance-class distinctions (deliberate, not drift): 6px radius and its own 3px/9px
+   padding — a pressable control earns a visibly different plate from an observation chip. */
 /* the doubled selector out-cascades the stock .neo-button skin, which loads after this file on
    button-composed chips (same-specificity order would let the slab win — the .neo-button.fm-*
    discipline every fleet surface uses) */

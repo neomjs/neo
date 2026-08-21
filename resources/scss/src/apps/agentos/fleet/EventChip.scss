@@ -1,11 +1,13 @@
-/* Event-kind chip — a tinted-outline plate colored entirely by the kind token (--fm-chip): text,
-   border, and faint fill are all color-mixed from that one custom property, so a growing kind set never
-   adds a hand-rolled color and an unknown kind reads as neutral. The token binds from the chip's
-   fm-kind-* class (kindRegistry's kindClass resolver — the chip swaps a class, never writes a style). */
+/* class: always-rendered — the chip family's KIND-AXIS reference member (see Chips.scss for the
+   family contract). A tinted-outline plate colored entirely by the kind token (--fm-chip): text,
+   border, and faint fill are all color-mixed from that one custom property, so a growing kind set
+   never adds a hand-rolled color and an unknown kind reads as neutral. The token binds from the
+   chip's fm-kind-* class (kindRegistry's kindClass resolver — the chip swaps a class, never writes
+   a style). Geometry consumes the family tokens; the uppercase kind word is the non-hue channel. */
 .fm-event-chip {
     display       : inline-block;
-    padding       : 1px 6px;
-    border-radius : 4px;
+    padding       : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
+    border-radius : var(--fm-chip-radius);
     font-family   : var(--fm-font-mono);
     font-size     : 10px;
     font-weight   : 600;
