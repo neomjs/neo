@@ -1,14 +1,14 @@
-# ADR 0029: Harness Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag
+# ADR 0029: Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag
 
 > Architectural Decision Record for the design tier **above** the landed `dockZone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (carried by the `dockLayout.v2` envelope per the §2.2 amendment), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, the auto-hide UI contract, and — per the §2.8 amendment (2026-07-16) — the multi-window choreography contracts: the gesture claim protocol, the gesture outcome machine, and vessel lifecycle/admission. It settles the questions the remaining docking capability leaves share and cannot answer coherently one leaf at a time. Everything is **additive on the landed `dockZone.v1` model — not a redesign**: where this record names a new schema or operation, it extends the existing family; it never alters a landed shape.
 
 | Attribute | Value |
 |---|---|
-| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. |
+| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. **Renamed** 2026-08-21 from `0029-harness-docking-design.md` (#17503; §2.9): the subsystem is a generic Body capability — the harness misnomer is retired, persisted schema strings stay frozen. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5, Claude Code). The cross-window seam contract descends from Discussion #13370's graduated Option-4 convergence (cross-family); the §7 auto-hide contract was written implementation-sufficient for its claimed leaf owner (@neo-opus-grace, #13280). |
 | **Resolves** | #14423 — the #13158 design-gate sub: settle the seven shared design questions (layout model, perspectives, cross-window drag, grouped drag/overflow, core-lift disposition, container contract, auto-hide UI) before further implementation lands on the current base (operator direction, 2026-07-02). |
 | **Parent epic** | #13158 (*QT-parity docking polish*) under #13012 (Agent Harness). Operator re-ranked 2026-07-02 as an agent-harness cornerstone: the docking shell is the substrate the #13015 FM-UX and #13444 HOME surfaces stand on. |
-| **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded); the landed **`dockZone.v1` model contract** ([`learn/agentos/HarnessDockZoneModel.md`](../HarnessDockZoneModel.md)) — that document remains the contract of record for landed substrate (`src/dashboard/DockZoneModel.mjs`, `src/dashboard/DockLayoutAdapter.mjs`, `src/dashboard/DockSplitter.mjs`, `src/dashboard/DockPreview.mjs` — lifted from `apps/agentos/view/` per #15207's shared-owner re-scope); this ADR is the prescriptive design tier above it. |
+| **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded); the landed **`dockZone.v1` model contract** ([`learn/agentos/DockZoneModel.md`](../DockZoneModel.md)) — that document remains the contract of record for landed substrate (`src/dashboard/DockZoneModel.mjs`, `src/dashboard/DockLayoutAdapter.mjs`, `src/dashboard/DockSplitter.mjs`, `src/dashboard/DockPreview.mjs` — lifted from `apps/agentos/view/` per #15207's shared-owner re-scope); this ADR is the prescriptive design tier above it. |
 | **Connects to** | #13280 (§7's implementation leaf, Grace) · #13444 Institution-Cockpit panes + #13015 FM-UX cards (the §6 container-contract consumers) · #13025 / #13028 (landed window-manager leaves consumed as boundaries by §3 — formalized, not reopened) · Discussion #13370 (graduated 2026-06-15: the seam contract, placement-hint layer, contract-over-lift constraint absorbed here) · `examples/dashboard/dock/` (verification surface, #13247). |
 | **Implemented by** | the §5 Decomposition leaves — one Contract-Ledgered leaf per capability, each citing its section here as its upstream contract. |
 | **Anti-anchor for** | a **parallel drag system** (every interaction rides the existing preview → operation path); a **dock-aware `DragCoordinator`** (the coordinator arbitrates targets and MUST stay dock-blind); **serialize-and-recreate popout state** (the component exists once in the SharedWorker heap; windows are render targets); **geometry-persisting placement hints** (`windowId`s, rects, monitor coordinates never serialize); a **third collection shape** beside `dockLayoutCollection.v1`; a **core lift before the §2.5 trigger fires**. |
@@ -17,7 +17,7 @@
 
 ## 1. Context
 
-`learn/agentos/HarnessDockZoneModel.md` (`dockZone.v1`) is the model contract of record: the serializable dock-zone tree, its semantic operations, the preview payload, and the persistence wrappers. That contract is landed and shipped. What remained, measured against a mature QT/WPF-class docking system, were the polish/parity capabilities the foundation deliberately deferred — and they share design questions no single leaf owns:
+`learn/agentos/DockZoneModel.md` (`dockZone.v1`) is the model contract of record: the serializable dock-zone tree, its semantic operations, the preview payload, and the persistence wrappers. That contract is landed and shipped. What remained, measured against a mature QT/WPF-class docking system, were the polish/parity capabilities the foundation deliberately deferred — and they share design questions no single leaf owns:
 
 1. the full multi-window layout model — which docking state is worker-owned shared truth and which is per-window render projection (§2.1);
 2. named perspectives across a multi-window topology (§2.2);
@@ -31,7 +31,7 @@
 
 **Design provenance:** Discussion #13370 (graduated 2026-06-15) resolved the cross-window seam contract, the placement-hint layer, and the contract-over-lift constraint absorbed here; issue #14423 carries the criteria mapping. The window-manager leaves #13025 (popup terminal drop) and #13028 (OS-window drag reintegration) are landed and consumed as boundaries — their arbitration substrate is formalized, not reopened, by §2.3.
 
-**Why this is an ADR and not a contract doc (the re-home).** This record settles seven design questions shared by multiple future leaves, defines new persisted shapes (the perspective fields on the `dockLayout` envelope — see the §2.2 amendment — and the durable placement-hint layer) and new semantic operations (`transferItem`, `moveNode`, `transferNode`), dispositions the core-lift clause, and binds implementation leaves to amend-this-first semantics. That crosses ADR 0005's `ADR_REQUIRED` threshold on three prongs: it changes durable persisted shapes, it decomposes into multiple future tickets needing one canonical authority, and without a decision record future V-B-A would require archaeology across leaf PRs. The content initially shipped as a public learning-tree contract page citing Discussion #13370's "Decision Record: OPTIONAL" disposition — but that disposition covered only the narrow landed-seam formalization (the §2.3 duck-type table), not the seven-section settled authority this document became. Review cycle 3 on PR #14425 (operator-flagged) corrected the placement: the authority now lives here in `learn/agentos/decisions/`, and the guide-tree page is removed in the same change. `HarnessDockZoneModel.md` keeps its own tier — descriptive contract of record for landed substrate; this ADR is prescriptive authority for the leaves above it.
+**Why this is an ADR and not a contract doc (the re-home).** This record settles seven design questions shared by multiple future leaves, defines new persisted shapes (the perspective fields on the `dockLayout` envelope — see the §2.2 amendment — and the durable placement-hint layer) and new semantic operations (`transferItem`, `moveNode`, `transferNode`), dispositions the core-lift clause, and binds implementation leaves to amend-this-first semantics. That crosses ADR 0005's `ADR_REQUIRED` threshold on three prongs: it changes durable persisted shapes, it decomposes into multiple future tickets needing one canonical authority, and without a decision record future V-B-A would require archaeology across leaf PRs. The content initially shipped as a public learning-tree contract page citing Discussion #13370's "Decision Record: OPTIONAL" disposition — but that disposition covered only the narrow landed-seam formalization (the §2.3 duck-type table), not the seven-section settled authority this document became. Review cycle 3 on PR #14425 (operator-flagged) corrected the placement: the authority now lives here in `learn/agentos/decisions/`, and the guide-tree page is removed in the same change. `DockZoneModel.md` keeps its own tier — descriptive contract of record for landed substrate; this ADR is prescriptive authority for the leaves above it.
 
 **Escalation boundary, explicitly named:** if a future leaf needs to *change* `DragCoordinator`'s arbitration semantics — its target-resolution order, its registry shape, or its dock-blindness (§2.3 invariant) — that change **amends this ADR before implementation** (ADR-0005 lifecycle), never lands as a leaf-local decision.
 
@@ -453,6 +453,17 @@ replay, stale completion, terminal-during-transition, duplicate terminal, and ex
 behavior. #16117 adds the ordinary actual-pointer popup-over-popup witness and the non-coverable target-cover matrix;
 Windows/Linux headed cells remain honestly owned by #15243.
 
+### §2.9 Amendment — Identity and Schema-Prefix Disposition (2026-08-21, #17503)
+
+The subsystem this record governs is a generic Body capability (`src/dashboard/`), consumed beyond the harness (workstation, `examples/dashboard/*`, portal-candidate consumers); the Agent Harness cockpit is one consumer among several. The record and the model contract doc therefore drop the `Harness` prefix (`0029-docking-design.md`, `DockZoneModel.md`); older prose and external links referring to "harness docking" read as historical.
+
+**Schema strings are wire format and do NOT follow the rename.** The shipped `neo.harness.*` vocabulary, derived from exact source at this amendment (35 occurrences, 8 unique identifiers), splits into two compatibility classes — both keep their names:
+
+- **Persisted envelopes/models** — `dockZone.v1` · `dockLayout.v1` · `dockLayout.v2` · `dockLayoutCollection.v1`: bound by fail-closed restore compatibility. A bare string rename would reject every previously persisted layout and perspective, including deployed consumers'. Renaming happens ONLY inside a shape-changing envelope revision (`dockLayout.v3`+, or a successor family) that introduces `neo.dock.*` in that same change, WITH the documented migration the shipped `v1 → v2` precedent (`migrateSavedLayout`) sets. A find-replace of persisted schema strings outside such a revision is forbidden.
+- **Runtime-only contracts** — `dockPreview.v1` · `dockCandidates.v1` · `dockShape.v1` · `dockTopologyShape.v1`: never persisted (the JSON-First Guardrail forbids it), but pinned by cross-window participation, Neural Link, and test consumers. Their rename obligation is consumer-coordinated versioning in one change — lighter than a stored-data migration, still never a silent find-replace.
+
+The §2.1 heading's `neo.harness.windowPlacementHints.v1` is a PROPOSED name only: it has zero runtime occurrences, and the §2.2 amendment supersedes it — the durable hint layer lands as additive fields on the existing envelope, never as a new schema name. Nothing is frozen there, because nothing shipped.
+
 ## 3. Rejected Options
 
 - **Qt-ADS wholesale import** — Qt-ADS is the capability bar, not the design: its single-process, single-window-tree assumptions (native floating windows, one owning widget tree) do not survive the worker-owned/multi-window reality. Rejected in favor of extending `dockZone.v1` semantics.
@@ -470,7 +481,7 @@ Sweep of the web docking field against the Qt-ADS bar and the multi-window requi
 |---|---|---|---|---|---|---|---|
 | Dock/split/tab + drag preview | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | model + mechanics landed (dockZone.v1); **interaction grain: §4.1** |
 | Auto-hide sidebars | ✓ (click/hover reveal, drag to borders) | — | — | — | — | — | landed (§2.7 full arc: rails + click reveal + hover opt-in + pin, e2e-proven; #14654/#14660) |
-| Named perspectives | ✓ (save/restore by name) | layout serialize | layout serialize | layout serialize | `saveLayout`/`loadLayout` | — | §2.2 (single-workspace landed; topology-scope reconciler in review, #14668) |
+| Named perspectives | ✓ (save/restore by name) | layout serialize | layout serialize | layout serialize | `saveLayout`/`loadLayout` | — | §2.2 (single-workspace landed; topology-scope reconciler landed, #14668) |
 | Grouped drag | ✓ (title bar moves tab group) | — | — | — | — | — | §2.4 (`moveNode`/`transferNode`) |
 | Tab overflow | ✓ (dropdown) | — | — | ✓ | — | — | §2.4 (projection affordance) |
 | OS-window popout | native floating windows | ✓ popout groups (same-origin `popout.html`) | ✓ popout windows | ✓ popout tabs (`popout.html`) | ✓ popup panel | — | landed (detach/reintegrate, #13025/#13028) |
@@ -493,8 +504,8 @@ Two friction classes recur across the surveyed field and are dispositioned by th
 | Drop-indicator overlays | **parallel-visible** 5-position cross + container-edge indicators | single-affordance edge-band idiom (producer resolves ONE placement per hover frame, `dockPreview.v1`); compass-guide vs edge-band is an explicit design disposition owned by #14930 — the bar is a floor, not a blueprint |
 | Per-option target-area preview | translucent area preview per indicator | landed single-option at functional grade (accept translucent fill/border, reject red-dashed — `DockPreview`); flagship treatment + the parallel-option question follow the #14930 disposition |
 | Tab insertion cues | insertion marker in the target tab bar | landed functional grade (tab before/after markers, `DockPreview`); flagship polish = #14930 |
-| Escape-cancel mid-drag | ✓ cancels the gesture | **gap — no owning leaf** (surfaced by this amendment: no Escape path in the draggable layer, `DragCoordinator`, or the main-thread drag addon as of this date) |
-| Commit animation (drop lands smoothly) | not established by this sweep (the fetched Qt-ADS README documents the drag-preview/indicator tier, not committed-re-layout animation) | Neo house/experience target — above the bar, owned by #14779 (motion contract) / #14929 (FLIP layer, in flight) |
+| Escape-cancel mid-drag | ✓ cancels the gesture | landed — gesture-time Escape capture at the gesture owner shipped via #14980 (`src/main/addon/DragDrop.mjs`); dock-tier routing in `DockKeyboardCommands` + `DockRevealOverlay` (status refreshed 2026-08-21, #17503) |
+| Commit animation (drop lands smoothly) | not established by this sweep (the fetched Qt-ADS README documents the drag-preview/indicator tier, not committed-re-layout animation) | Neo house/experience target — above the bar, owned by #14779 (motion contract) + #14929 (FLIP layer), both landed |
 
 **Closure-gate binding.** Epic #13158 MUST NOT resolve without an item-by-item experience-parity matrix against THIS sub-row inventory (plus the surviving capability rows above), each row evidenced by a recorded interaction, an e2e spec, or a live demo beat — evidence links, not assertions. The epic body carries the matching requirement (#14934).
 
@@ -506,18 +517,18 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 
 | Leaf | Contract section | Status |
 |---|---|---|
-| Auto-hide UI: reveal overlay + pin control + rail drag source | §2.7 | **#13280 (in flight, Grace)** — held design-first by owner decision; this record is its contract |
+| Auto-hide UI: reveal overlay + pin control + rail drag source | §2.7 | landed — #13280 closed; the §4 auto-hide capability row carries the e2e evidence |
 | `CrossWindowDragTarget` formalization + dock workspace target + `transferItem` | §2.3 | document-pair participation landed in #14769 / PR #15017; placement-hint integration remains part of §2.2's future workspace-set transaction |
-| Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools are in review (#15019); the placement-hint layer + atomic multi-window restore remain |
-| Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | unfiled |
+| Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools merged (#15019); the placement-hint layer + atomic multi-window restore remain |
+| Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | landed — #14770 (`moveNode`/`transferNode`) + #14850 (tab drag) + #15098 (`Neo.tab.plugin.Overflow`) |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
-| The three-OS portability spike (matrix contract) | §2.8.1 (row-6 identity binding) + §2.8.3 (admission receipts) | #15243 (epic #15239; Emmy's contracted lane) |
-| Dock tear-out + acquisition contract | §2.8.2/§2.8.3 + the §2.3 participation contract | #15244 / #15245 (epic #15239) |
-| Workspace-set composition + claim arbitration + remote preview | §2.8.1 + §2.1 workspace-set | #15246 (epic #15239) |
-| Whole-stack reintegration + vessel close policy | §2.8.2/§2.8.3 + §2.4 `transferNode` | #15247 (epic #15239) |
-| Coordinator teardown hygiene (exact-once terminals) | §2.8.2 invariant 4 | #15248 (epic #15239) |
-| Neural Link generic window identity + physical focus/position/close | §2.8.5 | #15514 |
-| Dual-window conversion + in-gesture park/re-show | §2.3 transition-policy hook + §2.8.6 | #15395 / #15396 (epic #15239) |
+| The three-OS portability spike (matrix contract) | §2.8.1 (row-6 identity binding) + §2.8.3 (admission receipts) | #15243 open (epic #15239; Clio's lane per live assignee) |
+| Dock tear-out + acquisition contract | §2.8.2/§2.8.3 + the §2.3 participation contract | #15244 landed; #15245 open (epic #15239) |
+| Workspace-set composition + claim arbitration + remote preview | §2.8.1 + §2.1 workspace-set | #15246 landed (epic #15239) |
+| Whole-stack reintegration + vessel close policy | §2.8.2/§2.8.3 + §2.4 `transferNode` | #15247 landed (epic #15239) |
+| Coordinator teardown hygiene (exact-once terminals) | §2.8.2 invariant 4 | #15248 landed (epic #15239) |
+| Neural Link generic window identity + physical focus/position/close | §2.8.5 | #15514 landed |
+| Dual-window conversion + in-gesture park/re-show | §2.3 transition-policy hook + §2.8.6 | #15395 / #15396 landed (epic #15239) |
 
 ### JSON-First Guardrail (restated, applied)
 

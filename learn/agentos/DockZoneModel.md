@@ -1,10 +1,10 @@
-# Agent Harness Dock-Zone Model Contract
+# Dock-Zone Model Contract
 
-`@summary` Minimal model contract for Agent Harness docking: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
+`@summary` Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
 
 ## Scope
 
-This contract is the first concrete slice of the QT-grade docking line under the Agent Harness. It defines the data model that future rendering, preview, and persistence slices consume.
+This contract is the first concrete slice of the QT-grade docking line; the Agent Harness cockpit is one consumer among several (workstation, `examples/dashboard/*`). It defines the data model that rendering, preview, and persistence slices consume.
 
 This document does not implement drag previews, split/tab rendering, layout persistence, or cross-window choreography. Those are follow-up leaves. This slice exists so those leaves do not invent incompatible object models.
 
@@ -26,7 +26,7 @@ No dedicated dock manager exists today. ADR 0020 names QT-grade docking as a gap
 
 ## Ownership Boundary
 
-The model is a harness product contract that lives in the dashboard layer (`src/dashboard/`), not a new core layout primitive yet.
+The model is a generic dashboard-layer contract (`src/dashboard/`), not a new core layout primitive yet.
 
 Initial durable surface: this document.
 
@@ -383,13 +383,15 @@ Schema-name row (the canonical vocabulary both tiers share — the design record
 | `neo.harness.dockLayout.v2` | THE saved-layout AND perspective wrapper | adds `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
 | `neo.harness.dockLayoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
 
+The `neo.harness.` string prefix in these identifiers is a **frozen legacy wire format** (ADR 0029 §2.9): the runtime keeps emitting and accepting it unchanged, and renaming it is a schema migration, never a text edit.
+
 Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 
 Restore must validate the wrapper schema, the inner dock-zone schema, and the normalized model invariants before replacing an active layout. Unsupported wrapper versions, unsupported dock-zone versions, invalid references, or invalid split/tab invariants fail closed: keep the last-good active layout and surface validation or recovery state to the caller.
 
 Component recovery remains the adapter's responsibility. A restored item with an unresolved `componentRef` follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
 
-First implementation ownership may be harness-local when the storage backend, pane registry, or preference wiring is specific to the Agent Harness. Reusable import/export, validation, or storage projection logic should follow the dock-zone relocation path into `src/` only after the source-placement decision has landed and a second in-repo consumer proves the logic is not harness-specific.
+Persistence ownership follows the landed placement: reusable import/export, validation, and storage projection logic lives in the dashboard layer (`src/dashboard/`, e.g. `DockPerspectiveStore`), per the 2026-06-13 operator resolution recorded in §Ownership Boundary. Only app-specific storage backends, pane registries, or preference wiring stay app-local — for any consumer, the harness cockpit included.
 
 ## Split/Tab Adapter Boundary
 
@@ -472,7 +474,7 @@ The Portal learning workspace is the next in-repo validation candidate before li
 This contract satisfies the model-contract leaf when:
 
 - the tree covers edge zones, nested splits, tabbed slots, stable item identity, and serializable ordering
-- ownership is documented as harness-contract-first, dashboard-adapter-second, core-layout-last
+- ownership is documented as a generic dashboard-layer contract (2026-06-13 operator resolution), core-layout-last behind the design record's §2.5 trigger
 - serializable fields are separated from drag/preview/window runtime state
 - a second independent use shape is named
 - the split/tab adapter boundary is documented as model-in / existing-Neo-primitive-out

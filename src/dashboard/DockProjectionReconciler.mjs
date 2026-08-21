@@ -19,7 +19,7 @@ const projectionNodeTypes = new Set(['edge-zone', 'split', 'tabs']);
  * @class Neo.dashboard.DockProjectionReconciler
  * @extends Neo.core.Base
  * @see Neo.dashboard.DockLayoutAdapter
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockProjectionReconciler extends Base {
     static config = {

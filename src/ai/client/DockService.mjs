@@ -7,7 +7,7 @@ import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
 /**
  * Handles dock-layout Neural Link requests: topology readout, semantic operation execution and
  * the perspective tool trio (capture / list / restore) against a live dockZone.v1 document
- * holder (contract of record: learn/agentos/HarnessDockZoneModel.md and the harness docking
+ * holder (contract of record: learn/agentos/DockZoneModel.md and the docking
  * design tier built on it).
  *
  * The service never mutates layout state outside the landed commit path: operations dispatch

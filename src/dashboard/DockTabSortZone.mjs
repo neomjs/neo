@@ -28,7 +28,7 @@ import TabHeaderSortZone              from '../draggable/tab/header/toolbar/Sort
  * host owns vessel acquisition + the model commit, and the commit happens at the terminal, never at
  * the boundary — a gesture that re-enters or cancels leaves the committed document untouched.
  *
- * **Cross-WINDOW participation (the harness docking design record, §2.3 source side).** The base tab-header
+ * **Cross-WINDOW participation (the docking design record, §2.3 source side).** The base tab-header
  * chain carries NO `Neo.manager.DragCoordinator` delegation (that lives only in the dashboard sort
  * zone, which dock surfaces must not inherit per the §2.3 OQ2 constraint: implement the CONTRACT,
  * not the class) — so THIS class feeds the coordinator explicitly from its own lifecycle:

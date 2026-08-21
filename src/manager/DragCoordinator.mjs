@@ -82,7 +82,7 @@ class DragCoordinator extends Manager {
 
     /**
      * Per-moving-popup claim arbiters for native-titlebar gestures (windowId → arbiter). One
-     * native drag IS one gesture, so each moving popup owns exactly one token (harness docking
+     * native drag IS one gesture, so each moving popup owns exactly one token (docking
      * design record §2.8.1).
      * @member {Map<String,Object>} nativeClaimArbiters=new Map()
      * @protected
@@ -597,7 +597,7 @@ class DragCoordinator extends Manager {
     /**
      * @summary Resolves the gesture's single claimed target among stable-identity zones.
      *
-     * The claim pass of the §2.8.1 protocol (harness docking design record): every registered
+     * The claim pass of the §2.8.1 protocol (docking design record): every registered
      * zone in the gesture's `sortGroup` that declares a `stableTargetId`, renders in a window
      * other than the source's, geometrically contains the point (window `innerRect`) AND accepts
      * the window-local hit-test acquires-or-refreshes a claim; zones that stop matching release

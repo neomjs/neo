@@ -12,7 +12,7 @@ import {test, expect}           from '@playwright/test';
 import {createDockWorkspaceSet} from '../../../../src/dashboard/DockWorkspaceSet.mjs';
 
 /**
- * @summary The worker-owned `{workspaceId → document}` registry contract (harness docking design
+ * @summary The worker-owned `{workspaceId → document}` registry contract (docking design
  * record §2.1 / §2.8.3): stable semantic identity in, document truth out, fail-closed everywhere
  * a resolution cannot be proven, and both-or-neither adoption for an atomic transfer's committed
  * pair. Retirement never happens implicitly — the registry outlives any render target.

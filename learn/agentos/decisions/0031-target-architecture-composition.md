@@ -63,7 +63,7 @@ decision owns; *Parent* = the composition record that already aggregates it, whe
 | 0026 | Deployment | Immune system, act half: lifecycle recovery actuator (privilege tiers) | pairs 0025 |
 | 0027 | Deployment | Immune system, data half: Memory-Core data-recovery actuator | pairs 0025/0026 |
 | 0028 | Brain / graph | Temporal-pyramid summarization substrate (history navigation) | 0024 |
-| 0029 | Body ↔ Brain seam | Harness docking design (multi-window layout, perspectives, cross-window drag) | extends 0020 |
+| 0029 | Body ↔ Brain seam | Docking design (multi-window layout, perspectives, cross-window drag) — Body-owned subsystem; the seam is its Brain-surface consumption (§2.6 container contract, §2.8.5 NL possession) | extends 0020 |
 | 0030 | Brain / orchestration | Work-graph stall inference (`STALL_*` findings) | — |
 | 0031 | Organism | **This record**: composition seams + trajectory invariants + the staleness guard | — |
 | 0032 | Body ↔ Brain seam | Institution-Cockpit render-model (object-permanent selves + COP; identity anti-lock-in contract) | extends 0020 |

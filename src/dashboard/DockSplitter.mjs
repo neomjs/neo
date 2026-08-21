@@ -14,7 +14,7 @@ import NeoArray      from '../util/Array.mjs';
  * @extends Neo.component.Base
  * @see Neo.dashboard.DockLayoutAdapter
  * @see Neo.dashboard.DockZoneModel
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockSplitter extends Component {
     static config = {
@@ -33,7 +33,7 @@ class DockSplitter extends Component {
          */
         baseCls: ['neo-dashboard-dock-splitter', 'neo-draggable'],
         /**
-         * Callback for an owning Harness/dashboard reducer. Receives `(descriptor, splitter)`.
+         * Callback for an owning dashboard reducer. Receives `(descriptor, splitter)`.
          * @member {Function|null} applyDockZoneOperation=null
          */
         applyDockZoneOperation: null,

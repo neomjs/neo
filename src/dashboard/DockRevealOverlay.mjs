@@ -36,7 +36,7 @@ import NeoArray         from '../util/Array.mjs';
  * @extends Neo.container.Base
  * @see Neo.dashboard.DockRail
  * @see Neo.dashboard.DockRevealStateMachine
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockRevealOverlay extends Container {
     /**

@@ -44,7 +44,7 @@ import NeoArray               from '../util/Array.mjs';
  * @see Neo.dashboard.DockRevealOverlay
  * @see Neo.dashboard.DockSplitter
  * @see Neo.dashboard.DockZoneModel
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockRail extends Container {
     static config = {
@@ -63,7 +63,7 @@ class DockRail extends Container {
          */
         baseCls: ['neo-dashboard-dock-edge-rail'],
         /**
-         * Callback for an owning Harness/dashboard reducer. Receives `(descriptor, rail)`.
+         * Callback for an owning dashboard reducer. Receives `(descriptor, rail)`.
          * When absent, the component falls back to committing against its own `dockZoneDocument`.
          * @member {Function|null} applyDockZoneOperation=null
          */

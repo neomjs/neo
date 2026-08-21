@@ -36,7 +36,7 @@ import {isValidCandidateSet} from './dockPreviewContract.mjs';
  * @extends Neo.container.Base
  * @see Neo.dashboard.DockPreviewProducer
  * @see Neo.dashboard.DockTabSortZone
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockDropIndicators extends Container {
     static config = {

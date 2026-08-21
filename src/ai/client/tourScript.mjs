@@ -39,7 +39,7 @@
  * Expectation predicates are JSON data as well: `{path, equals}` pairs, where `path` is a
  * dot-path into the dockZone.v1 document (numeric segments index arrays) and `equals` is
  * compared structurally. This deliberately stays below a full query language — the dockZone
- * documents are plain JSON by contract (`learn/agentos/HarnessDockZoneModel.md`), so
+ * documents are plain JSON by contract (`learn/agentos/DockZoneModel.md`), so
  * path-equality covers node existence, split sizes, tab membership and auto-hide flags
  * without inventing an assertion DSL.
  *

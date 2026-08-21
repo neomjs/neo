@@ -102,7 +102,7 @@ function validateCrossWindowResult(result) {
  * As with every object event, `Neo.core.Observable` adds the runner id as `source`.
  *
  * Script schema + fail-closed validator: `tourScript.mjs` (same directory) · dock documents:
- * `learn/agentos/HarnessDockZoneModel.md` (the JSON-first workspace contract).
+ * `learn/agentos/DockZoneModel.md` (the JSON-first workspace contract).
  * @class Neo.ai.client.TourRunner
  * @extends Neo.core.Base
  */

@@ -10,7 +10,7 @@
  * contract had to move down here. Rendering + geometry stay in the view; only the pure half lives
  * here (no Neo class, no DOM, no persisted-model write).
  *
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 
 /**
