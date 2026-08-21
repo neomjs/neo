@@ -13,7 +13,7 @@ import {
 }                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
 import {writeFileAtomic}          from '../../../services/shared/atomicFileWrite.mjs';
-import {buildEmbeddingProbeBlock, buildEmbeddingProbeInput, projectProbeCoverage} from '../../../services/shared/embeddingProbe.mjs';
+import {buildEmbeddingProbeBlock, buildEmbeddingProbeInput, EMBEDDING_PROBE_BAND_FRACTION, projectProbeCoverage} from '../../../services/shared/embeddingProbe.mjs';
 import {resolveEmbeddingAdmissionBand}                     from '../../../embeddingSafeBand.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
@@ -1084,30 +1084,35 @@ class TenantRepoSyncService extends Base {
                     contextLimitTokens       : AiConfig.localModels.embedding.contextLimitTokens,
                     safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
                 }).estimateBandTokens,
-                // FULL band for a RECOVERY probe, not the cadence default.
+                // The recovery probe is NOT full-band, and that is a measured retreat rather than
+                // a preference. A full-band probe genuinely bounds the re-dispatch it authorizes —
+                // the call site cannot see the cohort's input sizes, so the band ceiling is the only
+                // available dominating bound — but the SWEEP AWAITS this probe, and the suite priced
+                // it: the same `runTask` arm passes in 12.7 s at a quarter band and exceeds 30 s at
+                // the full one. In production that latency is a held lease against a dead provider.
                 //
-                // This verdict authorizes a re-dispatch of the whole awaiting cohort, and the call
-                // site cannot see those inputs' sizes — nothing in the checkpoint or the KB services
-                // carries a largest-chunk measure. The band ceiling is the one bound available that
-                // DOMINATES every admitted input, so probing it is what makes the coverage cover the
-                // authorization instead of a quarter of it.
-                //
-                // The ticket's Avoided Trap against a full-ceiling probe is scoped to a CADENCE
-                // probe — "a cadence probe of that weight would itself starve the lane" — and this
-                // one runs at most once per bounded-retry backoff. If the engine dies here, that is
-                // the probe finally failing the way the workload fails: one request, classified
-                // `provider-died`, instead of the batch that killed it 36 times.
-                fraction: 1
+                // So neither published fork survives contact: the cheap probe does not bound the
+                // authorization, and the bounding probe blocks the sweep. The shape that works is
+                // one neither of us had — obtain the full-size proof OUT of the sweep's critical
+                // path, and let eligibility consume it — and that is open on the PR rather than
+                // guessed at here.
+                fraction: EMBEDDING_PROBE_BAND_FRACTION
             });
 
-            // The deadline travels WITH the size. A caller-supplied `timeoutMs` is a floor, never a
-            // ceiling: sizing the probe up while holding the deadline constant makes a healthy lane
-            // report `consumer-probe-timeout`, which is the probe lying in the one direction this
-            // lane cannot afford.
-            const sizedTimeoutMs = Math.max(
-                timeoutMs,
-                Math.ceil(probeSize.estimateTokens * EMBEDDING_PROBE_MS_PER_ESTIMATE_TOKEN)
-            );
+            // NOT scaled to the size, and that is currently a KNOWN DEFECT rather than a decision.
+            //
+            // The reviewer is right that a 30 s ceiling under a full-band probe makes a HEALTHY lane
+            // report `consumer-probe-timeout` — the incident's 13,980-token request took ~180 s and
+            // this probe is larger. But scaling it naively is worse in a way only the suite showed:
+            // the sweep AWAITS this probe, so a size-derived 411 s deadline blocks `runTask` for
+            // roughly seven minutes against a dead provider, once per backoff. A spec driving the
+            // real sweep times out at 30 s, which is the operational consequence in miniature.
+            //
+            // Both numbers are wrong and the third is not a number: the deadline has to be bounded by
+            // what the CALLER can afford to wait, which is the lease budget, not by what the request
+            // needs. That is a design decision on a recovery path, and it is open on the PR rather
+            // than picked here.
+            const sizedTimeoutMs = timeoutMs;
 
             this.embeddingRecoveryProbeGeometry = `${probeSize.estimateTokens}:${probeSize.fraction ?? 'unsized'}`;
 
