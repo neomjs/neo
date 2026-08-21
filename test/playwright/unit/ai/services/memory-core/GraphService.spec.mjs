@@ -1256,7 +1256,28 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(ready).toBe(true);
     });
 
-    test('should auto-provision all identity roots at boot via initAsync', async () => {
+    test('initAsync does NOT mount the graph — importing the barrel must not open SQLite', async () => {
+        GraphService._initPromise = null;
+        GraphService.db          = null;
+
+        await GraphService.initAsync();
+
+        // The whole point: construction completes with no database. core.Base schedules initAsync
+        // from every constructor and this class is a singleton, so anything mounted here is mounted
+        // by a bare `import`.
+        expect(GraphService.db).toBeNull();
+    });
+
+    test('CONTROL: mountGraph DOES mount — without this the arm above passes on a broken mount', async () => {
+        GraphService._initPromise = null;
+        GraphService.db          = null;
+
+        await GraphService.mountGraph();
+
+        expect(GraphService.db).toBeTruthy();
+    });
+
+    test('should auto-provision all identity roots on first readiness await', async () => {
         // Guarantee pristine isolated boundary baseline natively
         if (GraphService.db) {
             GraphService.db.nodes.clear();
@@ -1274,8 +1295,10 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         GraphService._initPromise = null;
         GraphService.db = null;
 
-        // Run the boot sequence
-        await GraphService.initAsync();
+        // Run the boot sequence. The mount moved out of initAsync so that importing the Brain
+        // barrel no longer opens SQLite; provisioning still runs before any consumer can read,
+        // because every consumer reaches the graph through a readiness await.
+        await GraphService.mountGraph();
 
         // Assert the system sender plus core identities are present with correct types
         const system = await GraphService.getNode({id: '@system'});
