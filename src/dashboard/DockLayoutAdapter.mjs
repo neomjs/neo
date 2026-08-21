@@ -11,7 +11,7 @@ import TabOverflowPlugin  from '../tab/plugin/Overflow.mjs';
 const stackHeaderSource = Symbol('dockStackHeaderSource');
 
 /**
- * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
+ * @summary Projects dock-zone model nodes into existing Neo layout and tab configs.
  *
  * The adapter consumes committed dock-zone state only. Transient drag preview fields such as `dockPreview`,
  * pointer coordinates, window geometry, or DOM rectangles belong to the drag/drop pipeline and are rejected here.

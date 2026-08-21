@@ -4,7 +4,7 @@ import Base from '../core/Base.mjs';
  * @class Neo.dashboard.DockZoneModel
  * @extends Neo.core.Base
  *
- * @summary Executor for the harness dock-zone semantic operations (`neo.harness.dockZone.v1`).
+ * @summary Executor for the dock-zone semantic operations (`neo.harness.dockZone.v1`).
  *
  * The "missing middle" of the docking line: `Neo.dashboard.DockPreview.previewToOperation()`
  * produces an operation descriptor on drop, this executor applies it to mutate the persisted

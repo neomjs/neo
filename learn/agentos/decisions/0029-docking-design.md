@@ -457,7 +457,12 @@ Windows/Linux headed cells remain honestly owned by #15243.
 
 The subsystem this record governs is a generic Body capability (`src/dashboard/`), consumed beyond the harness (workstation, `examples/dashboard/*`, portal-candidate consumers); the Agent Harness cockpit is one consumer among several. The record and the model contract doc therefore drop the `Harness` prefix (`0029-docking-design.md`, `DockZoneModel.md`); older prose and external links referring to "harness docking" read as historical.
 
-**Schema strings are wire format and do NOT follow the rename.** Every persisted identifier under `neo.harness.*` (`dockZone.v1`, `dockLayout.v1`/`v2`, `dockLayoutCollection.v1`, `dockPreview.v1`, and the pending `windowPlacementHints.v1`) is frozen as landed: the runtime keeps emitting and accepting these strings unchanged. Restore validation is fail-closed by design, so a bare string rename would reject every previously persisted layout and perspective, including deployed consumers'. A future envelope revision that changes shape anyway (`dockLayout.v3`+, or a new schema family) introduces `neo.dock.*` in that same change, WITH the documented migration the shipped `v1 → v2` precedent (`migrateSavedLayout`) sets. A find-replace of persisted schema strings outside such a revision is forbidden.
+**Schema strings are wire format and do NOT follow the rename.** The shipped `neo.harness.*` vocabulary, derived from exact source at this amendment (35 occurrences, 8 unique identifiers), splits into two compatibility classes — both keep their names:
+
+- **Persisted envelopes/models** — `dockZone.v1` · `dockLayout.v1` · `dockLayout.v2` · `dockLayoutCollection.v1`: bound by fail-closed restore compatibility. A bare string rename would reject every previously persisted layout and perspective, including deployed consumers'. Renaming happens ONLY inside a shape-changing envelope revision (`dockLayout.v3`+, or a successor family) that introduces `neo.dock.*` in that same change, WITH the documented migration the shipped `v1 → v2` precedent (`migrateSavedLayout`) sets. A find-replace of persisted schema strings outside such a revision is forbidden.
+- **Runtime-only contracts** — `dockPreview.v1` · `dockCandidates.v1` · `dockShape.v1` · `dockTopologyShape.v1`: never persisted (the JSON-First Guardrail forbids it), but pinned by cross-window participation, Neural Link, and test consumers. Their rename obligation is consumer-coordinated versioning in one change — lighter than a stored-data migration, still never a silent find-replace.
+
+The §2.1 heading's `neo.harness.windowPlacementHints.v1` is a PROPOSED name only: it has zero runtime occurrences, and the §2.2 amendment supersedes it — the durable hint layer lands as additive fields on the existing envelope, never as a new schema name. Nothing is frozen there, because nothing shipped.
 
 ## 3. Rejected Options
 
@@ -476,7 +481,7 @@ Sweep of the web docking field against the Qt-ADS bar and the multi-window requi
 |---|---|---|---|---|---|---|---|
 | Dock/split/tab + drag preview | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | model + mechanics landed (dockZone.v1); **interaction grain: §4.1** |
 | Auto-hide sidebars | ✓ (click/hover reveal, drag to borders) | — | — | — | — | — | landed (§2.7 full arc: rails + click reveal + hover opt-in + pin, e2e-proven; #14654/#14660) |
-| Named perspectives | ✓ (save/restore by name) | layout serialize | layout serialize | layout serialize | `saveLayout`/`loadLayout` | — | §2.2 (single-workspace landed; topology-scope reconciler in review, #14668) |
+| Named perspectives | ✓ (save/restore by name) | layout serialize | layout serialize | layout serialize | `saveLayout`/`loadLayout` | — | §2.2 (single-workspace landed; topology-scope reconciler landed, #14668) |
 | Grouped drag | ✓ (title bar moves tab group) | — | — | — | — | — | §2.4 (`moveNode`/`transferNode`) |
 | Tab overflow | ✓ (dropdown) | — | — | ✓ | — | — | §2.4 (projection affordance) |
 | OS-window popout | native floating windows | ✓ popout groups (same-origin `popout.html`) | ✓ popout windows | ✓ popout tabs (`popout.html`) | ✓ popup panel | — | landed (detach/reintegrate, #13025/#13028) |
@@ -500,7 +505,7 @@ Two friction classes recur across the surveyed field and are dispositioned by th
 | Per-option target-area preview | translucent area preview per indicator | landed single-option at functional grade (accept translucent fill/border, reject red-dashed — `DockPreview`); flagship treatment + the parallel-option question follow the #14930 disposition |
 | Tab insertion cues | insertion marker in the target tab bar | landed functional grade (tab before/after markers, `DockPreview`); flagship polish = #14930 |
 | Escape-cancel mid-drag | ✓ cancels the gesture | landed — gesture-time Escape capture at the gesture owner shipped via #14980 (`src/main/addon/DragDrop.mjs`); dock-tier routing in `DockKeyboardCommands` + `DockRevealOverlay` (status refreshed 2026-08-21, #17503) |
-| Commit animation (drop lands smoothly) | not established by this sweep (the fetched Qt-ADS README documents the drag-preview/indicator tier, not committed-re-layout animation) | Neo house/experience target — above the bar, owned by #14779 (motion contract) / #14929 (FLIP layer, in flight) |
+| Commit animation (drop lands smoothly) | not established by this sweep (the fetched Qt-ADS README documents the drag-preview/indicator tier, not committed-re-layout animation) | Neo house/experience target — above the bar, owned by #14779 (motion contract) + #14929 (FLIP layer), both landed |
 
 **Closure-gate binding.** Epic #13158 MUST NOT resolve without an item-by-item experience-parity matrix against THIS sub-row inventory (plus the surviving capability rows above), each row evidenced by a recorded interaction, an e2e spec, or a live demo beat — evidence links, not assertions. The epic body carries the matching requirement (#14934).
 
@@ -517,7 +522,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools merged (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | landed — #14770 (`moveNode`/`transferNode`) + #14850 (tab drag) + #15098 (`Neo.tab.plugin.Overflow`) |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
-| The three-OS portability spike (matrix contract) | §2.8.1 (row-6 identity binding) + §2.8.3 (admission receipts) | #15243 (epic #15239; Emmy's contracted lane) |
+| The three-OS portability spike (matrix contract) | §2.8.1 (row-6 identity binding) + §2.8.3 (admission receipts) | #15243 open (epic #15239; Clio's lane per live assignee) |
 | Dock tear-out + acquisition contract | §2.8.2/§2.8.3 + the §2.3 participation contract | #15244 landed; #15245 open (epic #15239) |
 | Workspace-set composition + claim arbitration + remote preview | §2.8.1 + §2.1 workspace-set | #15246 landed (epic #15239) |
 | Whole-stack reintegration + vessel close policy | §2.8.2/§2.8.3 + §2.4 `transferNode` | #15247 landed (epic #15239) |

@@ -10,7 +10,7 @@ import * as dockPreviewContract from './dockPreviewContract.mjs';
  * Consumes the runtime-only `dockPreview` contract object
  * (schema `neo.harness.dockPreview.v1`, specified in `learn/agentos/DockZoneModel.md`)
  * and projects its candidate `placement` into a single transient visual affordance — an edge
- * band, a split guide, or a tab indicator — over the harness workspace while a pane is dragged.
+ * band, a split guide, or a tab indicator — over the dock workspace while a pane is dragged.
  *
  * Boundaries (binding, per the dock-zone model contract):
  *

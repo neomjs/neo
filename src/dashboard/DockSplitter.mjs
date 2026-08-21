@@ -33,7 +33,7 @@ class DockSplitter extends Component {
          */
         baseCls: ['neo-dashboard-dock-splitter', 'neo-draggable'],
         /**
-         * Callback for an owning Harness/dashboard reducer. Receives `(descriptor, splitter)`.
+         * Callback for an owning dashboard reducer. Receives `(descriptor, splitter)`.
          * @member {Function|null} applyDockZoneOperation=null
          */
         applyDockZoneOperation: null,
