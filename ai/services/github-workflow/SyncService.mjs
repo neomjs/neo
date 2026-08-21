@@ -7,6 +7,7 @@ import MetadataManager         from './sync/MetadataManager.mjs';
 import ReleaseNotesSyncer      from './sync/ReleaseNotesSyncer.mjs';
 import DiscussionSyncer        from './sync/DiscussionSyncer.mjs';
 import PullRequestSyncer       from './sync/PullRequestSyncer.mjs';
+import reconcileActiveChunks   from './shared/reconcileActiveChunks.mjs';
 import RepositoryService       from './RepositoryService.mjs';
 import {formatIntegrityReport} from './shared/contentInventory.mjs';
 import {exec}                  from 'child_process';
@@ -328,6 +329,17 @@ class SyncService extends Base {
 
             return stats
         });
+
+        // 7.5 Ordinal-100 enforcement: re-rank the full active corpus so the projection below reads
+        //     exact-100 folders. Position-dependent chunking drifts whenever the delta sync re-places
+        //     only the items it touched; this idempotent pass belongs HERE, with the corpus writer —
+        //     the emitter leaves the corpus canonical, so no reader (the portal index rebuild, release
+        //     prepare, the data-sync pipeline's CLI stage) has to reach across the engine↔Brain
+        //     boundary to repair layout it never wrote. The `issueSync` block is read at the use site;
+        //     only its `contentRoot` leaf is consumed.
+        await reconcileActiveChunks(aiConfig.issueSync, {type: 'pulls',       filePrefix: 'pr-'});
+        await reconcileActiveChunks(aiConfig.issueSync, {type: 'issues',      filePrefix: 'issue-'});
+        await reconcileActiveChunks(aiConfig.issueSync, {type: 'discussions', filePrefix: 'discussion-'});
 
         // 8. Derive the portal projection from whatever DID advance. The indexes are a projection of the
         //    corpus on disk, so a partially-advanced corpus derives a correspondingly partial projection
