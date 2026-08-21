@@ -1842,6 +1842,27 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             );
 
             expect(restoredOpacity, 'the staged clear must leave no residue on the host').toBe('1');
+
+            // The untargeted-surface discipline: the restore is proven by the SAME instrument that
+            // proved the clear, never by reading back the one property the fixture itself wrote. A
+            // plausible-but-wrong restore — a pane re-rendered broken, content lost, while the
+            // host's own opacity reads '1' — must red HERE. The cross-capture guard is load-bearing:
+            // the second capture's OWN baseline must measure baseline-class against the first, or a
+            // degraded-but-stable restore would normalise itself away inside its own capture.
+            const restored = await captureWorkspaceContinuity(page, () => page.waitForTimeout(600));
+
+            expect(restored.baselineEntropy,
+                'the post-restore workspace measures baseline-class against the pre-clear room')
+                .toBeGreaterThanOrEqual(continuity.baselineEntropy * 0.65);
+
+            await assertWorkspaceContinuity({
+                continuity     : restored,
+                expectedCleared: false,
+                label          : 'red-control-post-restore-continuity',
+                receipt        : {postRestore: 'second capture over a 600ms settle window after the staged clear restored'},
+                testInfo
+            });
+
             expect(pageErrors).toEqual([])
         }
     );
