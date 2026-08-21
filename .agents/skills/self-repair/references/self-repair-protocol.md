@@ -2,6 +2,26 @@
 
 When tasked with executing a system healthcheck, diagnosing a corrupted state, or restoring infrastructure communication (e.g., failed handoffs), you MUST execute this chronological protocol.
 
+## Phase 0: Classify the failure — attachment, service, or authority
+
+**A health probe cannot see an attachment failure, because the probe is green during one.** The
+2026-08-20 incident ran ~12 hours with a repo-local client reporting 13 KB + 42 MC tools while the
+seat's own callable registry had **none** — 159 tools against 214 after repair. Classify before
+treating; Phase 1's surface table assumes the seat is attached at all.
+
+| native tools | repo-local client | runtime authority | lane |
+|---|---|---|---|
+| **absent** | green | any | **attachment/config** — the servers are fine, the seat is not attached to them. Restarting containers repairs nothing and severs other seats. |
+| any | **red** | local Docker | **service** — Phase 1 below |
+| any | **red** | none (cloud) | inspect what is reachable, then **escalate** — you cannot restart what you cannot reach |
+
+**Absence of a tool is never absence of data.** A missing `list_messages` is not an empty inbox; a
+missing `ask_knowledge_base` is not an absent answer. Reading either as a *result* is how a seat runs
+for hours on a channel nobody is reading — the failure this phase exists to stop.
+
+**Escalation must not assume the broken channel.** When Memory Core is the degraded surface, A2A is
+down with it: record the planned action and the unavailable channel on the governing ticket instead.
+
 ## Phase 1: Infrastructure Verification & Playwright Testing
 
 0. **Identify the surface FIRST** — one symptom, two remedies; the wrong restart wastes the outage. Authority: the service list in `ai/deploy/docker-compose.yml`.
