@@ -40,20 +40,33 @@ export function serializeInstanceRoster(records = []) {
  * with its reason. Fail-open to EMPTY on a malformed envelope (a broken storage value must not
  * brick the switcher), fail-loud per ROW on contract refusals.
  * @param {String|null} json The raw storage value, or `null`/`undefined` when the key is absent.
- * @returns {{records: Object[], dropped: Object[]}} `records` = validated current-contract rows;
- *     `dropped` = `{record, reason}` per refused row — the caller's honest-absence surface.
+ * @returns {{records: Object[], dropped: Object[], envelope: String}} `records` = validated
+ *     current-contract rows; `dropped` = `{record, reason}` per refused row; `envelope` = one of
+ *     `absent` | `ok` | `unparseable` | `not-an-array`. Fail-open and fail-SILENT are different
+ *     things, and only the first was ever chosen: an envelope failure yields an empty `dropped`, so
+ *     a caller warning per dropped row has nothing to warn about while the operator's whole roster
+ *     silently disappears behind a UI that looks like a fresh install.
  */
 export function reviveInstanceRoster(json) {
     let parsed;
 
+    // An unset key is not damage, and it is the most common state. It must be classified BEFORE the
+    // parse, because both of its shapes would otherwise be reported as corruption: `JSON.parse(null)`
+    // yields `null` and lands in `not-an-array`, while `JSON.parse(undefined)` throws and lands in
+    // `unparseable`. A warning that fires on every fresh install is one operators learn to ignore,
+    // which would cost the real signal this envelope field exists to carry.
+    if (json === null || json === undefined || json === '') {
+        return {records: [], dropped: [], envelope: 'absent'}
+    }
+
     try {
         parsed = JSON.parse(json)
     } catch {
-        return {records: [], dropped: []}
+        return {records: [], dropped: [], envelope: 'unparseable'}
     }
 
     if (!Array.isArray(parsed)) {
-        return {records: [], dropped: []}
+        return {records: [], dropped: [], envelope: 'not-an-array'}
     }
 
     const
@@ -68,5 +81,5 @@ export function reviveInstanceRoster(json) {
         }
     });
 
-    return {records, dropped}
+    return {records, dropped, envelope: 'ok'}
 }

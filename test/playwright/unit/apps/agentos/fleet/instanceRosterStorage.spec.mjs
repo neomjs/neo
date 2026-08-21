@@ -50,11 +50,34 @@ test.describe('instanceRosterStorage — persistence over the C1 guard (#17328)'
         expect(dropped[0].reason).toMatch(/re-derive/)
     });
 
-    test('malformed envelopes fail OPEN to empty: garbage, non-array, and absent values all yield the empty roster', () => {
-        expect(reviveInstanceRoster('{not json')).toEqual({records: [], dropped: []});
-        expect(reviveInstanceRoster('{"a": 1}')).toEqual({records: [], dropped: []});
-        expect(reviveInstanceRoster(null)).toEqual({records: [], dropped: []});
-        expect(reviveInstanceRoster(undefined)).toEqual({records: [], dropped: []})
+    test('malformed envelopes still fail OPEN to empty — the switcher must never brick', () => {
+        // Unchanged contract: every envelope failure yields an empty roster and no throw. What
+        // changed is only whether the caller can TELL them apart, never whether they fail open.
+        for (const value of ['{not json', '{"a": 1}', null, undefined, '']) {
+            const result = reviveInstanceRoster(value);
+
+            expect(result.records).toEqual([]);
+            expect(result.dropped).toEqual([])
+        }
+    });
+
+    test('#17368: the envelope names its own outcome — fail-open and fail-SILENT are different things', () => {
+        // The defect: an envelope failure yields an EMPTY `dropped`, so the caller's per-row warning
+        // has nothing to warn about. The operator sees one seeded instance and a UI indistinguishable
+        // from a fresh install, while every roster row they configured is gone from view.
+        expect(reviveInstanceRoster('{not json').envelope).toBe('unparseable');
+        expect(reviveInstanceRoster('{"a": 1}').envelope).toBe('not-an-array');
+        expect(reviveInstanceRoster('[]').envelope).toBe('ok')
+    });
+
+    test('#17368 CONTROL: an UNSET key reports `absent`, not damage — a warning on every fresh install is one nobody reads', () => {
+        // The trap in the obvious three-state shape. `JSON.parse(null)` yields `null` and would land
+        // in `not-an-array`; `JSON.parse(undefined)` throws and would land in `unparseable`. Both are
+        // the ordinary first-boot state, so classifying absence BEFORE the parse is what keeps the
+        // signal worth reading. Without this arm the arm above passes on a build that cries wolf.
+        expect(reviveInstanceRoster(null).envelope).toBe('absent');
+        expect(reviveInstanceRoster(undefined).envelope).toBe('absent');
+        expect(reviveInstanceRoster('').envelope).toBe('absent')
     });
 
     test('the storage key is versioned and owned here', () => {

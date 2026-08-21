@@ -118,6 +118,74 @@ test.describe('AgentOS.view.Viewport — accepted-definition composition boundar
         expect(calls).toEqual(['loadRoster'])
     });
 
+    test('#17368: an UNREADABLE store warns instead of looking like a fresh install', async () => {
+        // The worse half of the defect. The caller collapsed a storage-read failure into `value = null`,
+        // which is also what an unset key looks like — so the roster is intact on disk, maximally
+        // recoverable, and the operator is told nothing while the UI seeds one instance and appears
+        // completely normal.
+        const warnings     = [],
+              originalLS   = Neo.main?.addon?.LocalStorage,
+              originalWarn = console.warn;
+
+        // `resolveFleetUrl()` reads `Neo.config.url.search` when it seeds the boot profile, which the
+        // unit harness does not set. Harness scaffolding, downstream of the warning under test.
+        Neo.config.url       = Neo.config.url || {search: ''};
+        Neo.main             = Neo.main       || {};
+        Neo.main.addon       = Neo.main.addon || {};
+        Neo.main.addon.LocalStorage = {readLocalStorageItem: async () => {throw new Error('storage denied')}};
+        console.warn         = (...args) => warnings.push(args.join(' '));
+
+        const stub = {
+            windowId : 1,
+            component: {stateProvider: {getStore: () => ({add() {}, get: () => null})}},
+            persistInstanceRoster() {},
+            syncBoundInstance() {}
+        };
+
+        try {
+            await ViewportController.prototype.initInstanceRoster.call(stub);
+        } finally {
+            console.warn                = originalWarn;
+            Neo.main.addon.LocalStorage = originalLS
+        }
+
+        expect(warnings.some(line => /storage unreadable/.test(line))).toBe(true);
+        // The message must tell the operator their instances are missing, not merely that a read
+        // failed — the actionable fact is what they are no longer seeing.
+        expect(warnings.some(line => /configured instances/.test(line))).toBe(true)
+    });
+
+    test('#17368 CONTROL: a readable, absent key warns NOTHING — first boot must stay quiet', async () => {
+        // Without this pair the arm above is satisfied by a build that warns on every startup.
+        const warnings     = [],
+              originalLS   = Neo.main?.addon?.LocalStorage,
+              originalWarn = console.warn;
+
+        // `resolveFleetUrl()` reads `Neo.config.url.search` when it seeds the boot profile, which the
+        // unit harness does not set. Harness scaffolding, downstream of the warning under test.
+        Neo.config.url       = Neo.config.url || {search: ''};
+        Neo.main             = Neo.main       || {};
+        Neo.main.addon       = Neo.main.addon || {};
+        Neo.main.addon.LocalStorage = {readLocalStorageItem: async () => ({value: null})};
+        console.warn         = (...args) => warnings.push(args.join(' '));
+
+        const stub = {
+            windowId : 1,
+            component: {stateProvider: {getStore: () => ({add() {}, get: () => null})}},
+            persistInstanceRoster() {},
+            syncBoundInstance() {}
+        };
+
+        try {
+            await ViewportController.prototype.initInstanceRoster.call(stub);
+        } finally {
+            console.warn                = originalWarn;
+            Neo.main.addon.LocalStorage = originalLS
+        }
+
+        expect(warnings.filter(line => /instance roster/.test(line))).toEqual([])
+    });
+
     test('fails closed when the Fleet cockpit is absent', async () => {
         const stub = {getReference: () => null};
 
