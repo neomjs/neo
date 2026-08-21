@@ -556,6 +556,33 @@ test.describe('validatePrBody — Residual-Owner STATE gate (#17314)', () => {
         expect(onCloseTarget).toEqual([]);
     });
 
+    test('RA-1 carried: a LATER section parking work on the close target still gets the better message', () => {
+        // Emmy's carried falsifier. The close-target rule ran on the single selected owner, and the
+        // state loop then filtered the close target out as "not to be read" — so a second section
+        // parking work on the PR's own close target was judged by neither. Two single-representative
+        // defects covering for each other: fixing only the state loop left the hole open.
+        const inspected = [],
+              body      = [
+                  base, '',
+                  '## Post-Merge Validation', '- [ ] first piece', 'Residual-Owner: #201', '',
+                  '## Post-Merge Validation', '- [ ] second piece', 'Residual-Owner: #100'
+              ].join('\n'),
+              result    = validatePrBody(body, {
+                  resolveOwnerState: number => { inspected.push(number); return ticket('open') }
+              });
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible.some(entry => /#100` is this PR's own close target/.test(entry))).toBe(true);
+
+        // The close target is judged WITHOUT a read: it is a pure comparison between two values the
+        // body already carries, and it must hold with no network at all.
+        expect(inspected).toEqual(['201']);
+
+        // CONTROL: the same rule with no resolver at all — the close-target failure must still fire,
+        // otherwise the pure half silently became network-dependent.
+        expect(validatePrBody(body).missingVisible.some(entry => /own close target/.test(entry))).toBe(true);
+    });
+
     test('RA-3: an OPEN pull request is refused — it dies by design, on merge', () => {
         // A PR IS an issue to the REST API and reports `state: open` exactly like a ticket; only the
         // `pull_request` key separates them. It is a WORSE owner than a closed ticket, because it

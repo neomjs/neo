@@ -563,26 +563,30 @@ export function validatePrBody(body, {draft = false, resolveOwnerState = null} =
             closeTarget   = resolvesMatch ? resolvesMatch[0].match(/\d+/)[0] : null,
             owner         = ownerMatch ? ownerMatch[1] : null;
 
+        // EVERY declared owner is judged, not the one section selected above for SHAPE reporting.
+        // That selection is deliberately biased toward the first UNOWNED section so its message names
+        // genuinely orphaned work — which means a body whose first owing section is correctly owned
+        // and whose second names a closed ticket, or its own close target, would never have been
+        // judged at all. The surrounding code already learned this once for the missing-owner case;
+        // both the close-target rule and the state check had reintroduced the single-representative
+        // shape one dimension along. Deduplicated, so a repeated owner costs one message and one read.
+        const declaredOwners = [...new Set(collectDeclaredResidualOwners({fenceless, owingSections}))];
+
         if (!owner) {
             missingVisible.push(`This PR still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
-        } else if (owner === closeTarget) {
-            missingVisible.push(`\`Residual-Owner: #${owner}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
         }
 
-        // EVERY declared owner is state-checked, not the one section selected above for SHAPE
-        // reporting. That selection is deliberately biased toward the first UNOWNED section so the
-        // message names genuinely orphaned work — which means a body whose first owing section is
-        // correctly owned and whose second names a closed ticket would never have reached the read.
-        // The surrounding code already learned this once for the missing-owner case; the state check
-        // reintroduced the single-representative shape one dimension along.
-        if (resolveOwnerState) {
-            const
-                declared = collectDeclaredResidualOwners({fenceless, owingSections}),
-                // Deduplicated so one repeated owner costs one network read, and sorted so the
-                // failure order is the body's order rather than a Set's insertion accident.
-                unique   = [...new Set(declared)].filter(number => number !== closeTarget);
+        // Close-target FIRST, and outside the resolver gate: it is a pure comparison between two
+        // values the body already carries, it must hold with no network at all, and its message says
+        // something no state read can — that the owner dies BECAUSE of this merge. A later section
+        // parking work on the close target is the case that slipped: the single-owner check could not
+        // see it, and the state loop below then filtered it out as "not to be read".
+        declaredOwners.filter(number => number === closeTarget).forEach(number => {
+            missingVisible.push(`\`Residual-Owner: #${number}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
+        });
 
-            unique.forEach(number => {
+        if (resolveOwnerState) {
+            declaredOwners.filter(number => number !== closeTarget).forEach(number => {
                 // The close-target rule above is already a SURVIVABILITY rule — a home that will not
                 // outlive the merge is refused. A ticket that closed BEFORE the citation fails that
                 // requirement more completely: the close target at least survives until merge. The
