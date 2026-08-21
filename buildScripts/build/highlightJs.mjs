@@ -1,4 +1,4 @@
-import {execSync}      from 'child_process';
+import {execFileSync, execSync} from 'child_process';
 import {fileURLToPath} from 'url';
 import fs              from 'fs/promises';
 import os              from 'os';
@@ -20,6 +20,26 @@ const nodeCmd = os.platform().startsWith('win') ? 'node.exe' : 'node';
 const npmCmd  = os.platform().startsWith('win') ? 'npm.cmd'  : 'npm';
 
 const program = new Command();
+
+/** The upstream repository this bundle is built from. */
+export const HIGHLIGHT_JS_REPOSITORY = 'https://github.com/highlightjs/highlight.js.git';
+
+/**
+ * @summary Builds the git-clone argument vector, so the target path is one argument by construction.
+ *
+ * Exported for coverage: the property that matters is that `targetDir` arrives as a SINGLE argv
+ * entry, and that is only assertable on the vector. Asserting a quoted command string instead would
+ * pass for any consistent-but-wrong quoting, which is why the remedy here is argv, not escaping.
+ *
+ * The previous form interpolated `targetDir` into a shell string. A checkout path containing a space
+ * — an ordinary macOS directory name — was split by the shell into three arguments, so this is a
+ * build-breaking defect before it is a security one.
+ * @param {String} targetDir Absolute clone destination.
+ * @returns {String[]} Arguments for `git`, excluding the executable itself.
+ */
+export function buildCloneArgs(targetDir) {
+    return ['clone', '--depth', '1', HIGHLIGHT_JS_REPOSITORY, targetDir]
+}
 
 async function main() {
     program
@@ -49,8 +69,9 @@ async function main() {
 
         // 2. Clone the highlight.js repository
         console.log(`Cloning highlight.js into ${tempDir}`);
-        const cloneCommand = `${gitCmd} clone --depth 1 https://github.com/highlightjs/highlight.js.git ${tempDir}`;
-        execSync(cloneCommand, { stdio: 'inherit' });
+        // argv, not a shell string: no quoting question, no metacharacter question. The command needs
+        // no shell feature — no pipe, redirection or glob — so reaching for one only added a parser.
+        execFileSync(gitCmd, buildCloneArgs(tempDir), { stdio: 'inherit' });
 
         // 3. Install dependencies
         console.log(`Installing dependencies in ${tempDir}`);
@@ -96,4 +117,9 @@ async function main() {
     }
 }
 
-main();
+// Run only when executed directly, matching the guard `check-derived-domain.mjs` and
+// `check-fixed-sleeps.mjs` already use. Without it, importing this module to test the argv builder
+// would clone a repository and run a build as a side effect of the import.
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+    main()
+}
