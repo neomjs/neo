@@ -2395,17 +2395,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             {callTool}  = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
             [directed]  = await seedFor(['the persist fails the first time']),
             storage     = GraphService.db.storage,
-            originalAdd = storage.addNodes.bind(storage);
+            originalSet = storage.setRecordPropertyIfAbsent.bind(storage);
 
         let failNext = true;
 
-        storage.addNodes = async nodes => {
+        // The seam is the NARROW writer, not `addNodes` — the seen path no longer replaces the record.
+        storage.setRecordPropertyIfAbsent = (...args) => {
             if (failNext) {
                 failNext = false;
                 throw new Error('simulated storage failure');
             }
 
-            return originalAdd(nodes)
+            return originalSet(...args)
         };
 
         try {
@@ -2423,7 +2424,98 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(seenAtOf(directed), 'the next listing retries the write').toBeTruthy();
             expect(storedSeenAtOf(directed), 'and this time it is durable').toBeTruthy()
         } finally {
-            storage.addNodes = originalAdd
+            storage.setRecordPropertyIfAbsent = originalSet
+        }
+    });
+
+    test('#17321 an interposed storage field SURVIVES the seen write — node carrier', async () => {
+        // The whole-record hazard. The interposition MUST happen inside the write seam, not before
+        // the listing: an earlier version of this arm interposed up front and passed even against a
+        // document-replacing write, because the listing refreshes cache from storage and the field
+        // was simply back in the record before the write ran. Vacuous, and it looked correct.
+        //
+        // Interposing at the seam pins the one ordering that matters — committed AFTER this process
+        // last read the row, BEFORE it writes — which is exactly the cross-process race.
+        const
+            {callTool}  = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+            [directed]  = await seedFor(['an interposed field must survive']),
+            storage     = GraphService.db.storage,
+            sqlite      = storage.db,
+            originalSet = storage.setRecordPropertyIfAbsent.bind(storage);
+
+        let interposed = false;
+
+        storage.setRecordPropertyIfAbsent = (...args) => {
+            if (!interposed) {
+                interposed = true;
+                sqlite.prepare(
+                    `UPDATE Nodes SET data = json_set(data, '$.properties.concurrentProbe', 'interposed') WHERE id = ?`
+                ).run(directed)
+            }
+
+            return originalSet(...args)
+        };
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                callTool('list_messages', {box: 'inbox', status: 'unread'}));
+        } finally {
+            storage.setRecordPropertyIfAbsent = originalSet
+        }
+
+        const stored = JSON.parse(
+            sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(directed).data
+        ).properties;
+
+        expect(interposed, 'precondition: the seam must actually have been reached').toBe(true);
+        expect(stored.seenAt, 'the seen write landed').toBeTruthy();
+        expect(stored.concurrentProbe, 'and it did not erase the interposed field').toBe('interposed')
+    });
+
+    test('#17321 the DELIVERED_TO carrier has the same failure/retry diagonal as the node', async () => {
+        // Broadcasts carry seen state on the per-recipient edge, so the edge needs its own proof —
+        // a node-only arm would leave the broadcast path free to regress independently.
+        const
+            {callTool}  = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+            storage     = GraphService.db.storage,
+            originalSet = storage.setRecordPropertyIfAbsent.bind(storage);
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'broadcast seen state', body: 'edge carrier'
+            }));
+
+        const edgeSeenAt = () => {
+            const row = storage.db.prepare(
+                `SELECT data FROM Edges WHERE type = 'DELIVERED_TO' AND target = ? LIMIT 1`
+            ).get('@bob');
+
+            return row ? (JSON.parse(row.data).properties?.seenAt ?? null) : null
+        };
+
+        let failNext = true;
+
+        storage.setRecordPropertyIfAbsent = (...args) => {
+            if (failNext) {
+                failNext = false;
+                throw new Error('simulated edge storage failure');
+            }
+
+            return originalSet(...args)
+        };
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+            expect(edgeSeenAt(), 'the failed edge write left storage clean').toBeNull();
+
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+            expect(edgeSeenAt(), 'and the next listing retries it on the edge too').toBeTruthy()
+        } finally {
+            storage.setRecordPropertyIfAbsent = originalSet
         }
     });
 

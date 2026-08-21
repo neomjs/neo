@@ -417,6 +417,46 @@ class SQLite extends Base {
     }
 
     /**
+     * @summary Sets ONE property under `$.properties`, in SQL, only when it is currently absent.
+     *
+     * `json_set` rewrites a single path instead of replacing the document, so a field another process
+     * committed between our read and our write survives. The `IS NULL` predicate makes write-once an
+     * atomic property of the statement rather than a caller-side read-then-check, which would race the
+     * very window it is meant to close.
+     *
+     * `table` and `property` are interpolated (neither a table name nor a JSON path can be a bound
+     * parameter), so both are validated against strict shapes first. `value` is bound.
+     *
+     * @param {String} table `'Nodes'` or `'Edges'`.
+     * @param {String} id Record id.
+     * @param {String} property Property name under `$.properties`; identifier characters only.
+     * @param {*} value Value to set.
+     * @returns {Boolean} `true` only when this statement wrote.
+     */
+    setRecordPropertyIfAbsent(table, id, property, value) {
+        if (!this.db) return false;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        this.assertTestWriteIsolated();
+
+        if (table !== 'Nodes' && table !== 'Edges') {
+            throw new Error(`setRecordPropertyIfAbsent supports 'Nodes' and 'Edges'. Received: ${String(table)}`);
+        }
+
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(property)) {
+            throw new Error(`setRecordPropertyIfAbsent property must be a plain identifier. Received: ${String(property)}`);
+        }
+
+        const path = `$.properties.${property}`;
+
+        return this.db.prepare(`
+            UPDATE ${table}
+            SET   data = json_set(data, '${path}', ?)
+            WHERE id = ?
+              AND json_extract(data, '${path}') IS NULL
+        `).run(value, id).changes > 0;
+    }
+
+    /**
      * Injects complex Edge topologies capturing mapping source/target configurations mapped across WAL schema blocks rigidly.
      * @param {Object[]} edges
      */

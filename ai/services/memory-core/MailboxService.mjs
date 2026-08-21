@@ -2175,18 +2175,54 @@ async function setMessageNodeReadAt(node, readAt) {
  * @returns {Promise<Boolean>}
  */
 async function setMessageNodeSeenAt(node, seenAt) {
-    const
-        properties = getRecordProperties(node),
-        previous   = properties.seenAt ?? null;
+    return setReceiptSeenAt(node, 'Nodes', seenAt)
+}
 
-    properties.seenAt = seenAt;
+/**
+ * @summary Writes `seenAt` through the storage-owned narrow path, then reflects cache only on success.
+ *
+ * Shared by both carriers so node and `DELIVERED_TO` receipts cannot drift apart. Three properties,
+ * and each one exists because the obvious implementation loses it:
+ *
+ * 1. **Narrow.** `setRecordPropertyIfAbsent` rewrites one JSON path instead of replacing the record,
+ *    so a field another process committed between our read and our write survives. The whole-record
+ *    path is still correct for `readAt`/`archivedAt` today; they are expected to migrate onto this
+ *    same primitive, which is what ends the asymmetry rather than entrenching it.
+ * 2. **Write-once in SQL.** The `IS NULL` predicate is part of the statement, so two concurrent
+ *    listings cannot both win. A caller-side read-then-check races the window it is closing.
+ * 3. **Cache last.** The caller's fast-path guard reads the cached value, so reflecting a write that
+ *    did not land would mark the row seen for the life of the process and no later listing would
+ *    retry. Only a confirmed write updates cache.
+ *
+ * When the narrow write reports `false` the row already carries a `seenAt` we did not author, and
+ * cache is deliberately left alone: the next listing re-attempts one cheap idempotent `UPDATE` that
+ * matches nothing. Cheaper than reading the row back, and it cannot invent a timestamp.
+ *
+ * @param {Object} record `MESSAGE` node or `DELIVERED_TO` edge.
+ * @param {String} table `'Nodes'` or `'Edges'`.
+ * @param {String} seenAt ISO timestamp.
+ * @returns {Promise<Boolean>} Whether THIS call performed the durable write.
+ * @private
+ */
+async function setReceiptSeenAt(record, table, seenAt) {
+    const db = GraphService.db;
 
-    try {
-        return await persistReceiptNode(node)
-    } catch (error) {
-        properties.seenAt = previous;
-        throw error
+    if (!db?.storage) {
+        // No durable surface to protect; cache-only mode keeps the in-memory contract intact.
+        getRecordProperties(record).seenAt = seenAt;
+        return false
     }
+
+    const wrote = db.storage.setRecordPropertyIfAbsent(
+        table, getRecordField(record, 'id'), 'seenAt', seenAt
+    );
+
+    if (wrote) {
+        getRecordProperties(record).seenAt = seenAt;
+        db.acknowledgeLocalMutations?.()
+    }
+
+    return wrote
 }
 
 /**
@@ -2204,22 +2240,7 @@ async function setMessageNodeSeenAt(node, seenAt) {
  * @returns {Promise<Boolean>}
  */
 async function setDeliveryEdgeSeenAt(edge, seenAt) {
-    const previous = getRecordProperties(edge).seenAt ?? null;
-
-    setRecordProperties(edge, {
-        ...getRecordProperties(edge),
-        seenAt
-    });
-
-    try {
-        return await persistReceiptEdge(edge)
-    } catch (error) {
-        setRecordProperties(edge, {
-            ...getRecordProperties(edge),
-            seenAt: previous
-        });
-        throw error
-    }
+    return setReceiptSeenAt(edge, 'Edges', seenAt)
 }
 
 /**
