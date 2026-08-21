@@ -361,6 +361,51 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         }
     });
 
+    test('#17342: a failed presence terminal carries a sanitized reason, not a bare constant', async () => {
+        const originalPresence = TurnPresenceService.recordTurnPresence;
+
+        // A realistic shape for this defect class: the throw carries a credential-looking token and
+        // ragged whitespace, so the arm exercises the reduction rather than a tidy string.
+        TurnPresenceService.recordTurnPresence = () => Promise.reject(
+            new Error('presence write rejected\n\n  token=ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIII   mid-work')
+        );
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt  : 'failed presence prompt',
+                thought : 'failed presence thought',
+                response: 'failed presence result'
+            }));
+
+            expect(result.stageTimings.presenceTerminal).toBe('failed');
+
+            const reason = result.stageTimings.presenceReason;
+
+            expect(reason).toBeTruthy();
+            expect(reason).toContain('presence write rejected');
+            // collapsed, bounded, and the credential family masked — the whole point is that this
+            // field can be read by an operator without becoming a leak.
+            expect(reason).not.toMatch(/\s{2,}/);
+            expect(reason.length).toBeLessThanOrEqual(240);
+            expect(reason).not.toContain('ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIII');
+        } finally {
+            TurnPresenceService.recordTurnPresence = originalPresence;
+        }
+    });
+
+    test('#17342 CONTROL: a completed presence terminal carries NO reason', async () => {
+        // Without this pair the arm above is satisfied by a build that attaches a reason to every
+        // save, which would make the field useless as a signal.
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt  : 'completed presence prompt',
+            thought : 'completed presence thought',
+            response: 'completed presence result'
+        }));
+
+        expect(result.stageTimings.presenceTerminal).toBe('completed');
+        expect(result.stageTimings.presenceReason ?? null).toBeNull();
+    });
+
     test('AC4: a presence rejection after the local deadline is handled exactly once', async () => {
         const originalPresence = TurnPresenceService.recordTurnPresence;
         const originalWarn     = logger.warn;
