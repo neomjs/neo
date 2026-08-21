@@ -983,6 +983,62 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(mixed.contentPoisonChunks).toBeNull();
     });
 
+    test('a provider DEATH is not retried against the same proof identity', async () => {
+        // A full-band recovery probe against a lane that OOMs IS the killing request, and the
+        // bounded gate's default budget is `Infinity` — so without a bound the repair reproduces the
+        // loop it exists to stop, at 30 s → 10 min backoff, forever. The sizing docblock claimed
+        // "one request"; the mechanism said otherwise until this landed.
+        let calls = 0;
+
+        const runProbe = async () => {
+            calls++;
+
+            return {
+                status             : 'failed',
+                errorClassification: 'provider-died',
+                errorCode          : 'ECONNRESET'
+            }
+        };
+        const episodeKeys = ['d'.repeat(32)];
+
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000});
+        // PAST the failure-backoff window — which is the only clock position where this arm
+        // discriminates. Inside the window the gate's ordinary TTL already suppresses the second
+        // call, so an arm that re-asks immediately proves the gate and says nothing about the death
+        // bound. Same advance as the ambient control below, so the two differ ONLY in
+        // classification, which is the whole claim.
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000 + 15 * 60 * 1000});
+
+        expect(calls, 'the engine is spent once to learn this, not once per backoff').toBe(1);
+    });
+
+    test('CONTROL: an ambient failure IS retried — only death is terminal', async () => {
+        // The half that keeps the bound honest. `provider-unreachable` means the connection never
+        // came up: ambient, cheap to re-ask, and the lane may be fine once it does. Recording every
+        // failure would turn one transport blip into a permanent refusal, which strands recovery —
+        // a worse outcome than the loop, and one that would look like discipline.
+        let calls = 0;
+
+        const runProbe = async () => {
+            calls++;
+
+            return {
+                status             : 'failed',
+                errorClassification: 'provider-unreachable',
+                errorCode          : 'ECONNREFUSED'
+            }
+        };
+        const episodeKeys = ['e'.repeat(32)];
+
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000});
+        // Past the failure-backoff window, which is where the ordinary retry lives. The gate is
+        // created once and keeps the TTL it was built with, so the clock has to move rather than the
+        // argument — a per-call `failureTtlMs` on a second call reaches a gate that already exists.
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000 + 15 * 60 * 1000});
+
+        expect(calls, 'an unreachable provider is worth asking again').toBeGreaterThan(1);
+    });
+
     test('the probe size reaches the process-owned snapshot, not just the probe result', async () => {
         // The gap a reviewer found: `buildEmbeddingProbeBlock` produced the coverage fields and the
         // bridge summarizer declared them, and THIS projection — an explicit allowlist — dropped them

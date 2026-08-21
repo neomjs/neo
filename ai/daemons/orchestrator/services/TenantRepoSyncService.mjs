@@ -98,6 +98,15 @@ const
     EMBEDDING_RECOVERY_FAILURE_TTL_MS     = 30 * 1000,
     EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS = 10 * 60 * 1000,
     EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS   = 30 * 1000,
+    // Milliseconds of provider budget per estimate-token, measured from the incident this lane
+    // exists for: a 13,980-token request took ~180 s on the offending image, i.e. ~12.9 ms/token.
+    //
+    // A constant deadline and a size-derived probe cannot both be right. Sizing the recovery probe
+    // to the full admitted band while leaving a 30 s ceiling means a HEALTHY lane false-times-out
+    // before it can answer — the probe would report `consumer-probe-timeout` on exactly the
+    // recovery it exists to detect, and the bigger the probe got the more certainly it would lie.
+    // The floor keeps small probes on the existing 30 s and 1.5× carries measurement drift.
+    EMBEDDING_PROBE_MS_PER_ESTIMATE_TOKEN = 12.9 * 1.5,
     PERSISTED_REVISIONS_FILE_NAME         = 'tenant-repo-sync-revisions.json',
     TENANT_REPO_SYNC_LEASE_FILE_NAME      = 'tenant-repo-sync-lease.json';
 
@@ -1091,6 +1100,17 @@ class TenantRepoSyncService extends Base {
                 fraction: 1
             });
 
+            // The deadline travels WITH the size. A caller-supplied `timeoutMs` is a floor, never a
+            // ceiling: sizing the probe up while holding the deadline constant makes a healthy lane
+            // report `consumer-probe-timeout`, which is the probe lying in the one direction this
+            // lane cannot afford.
+            const sizedTimeoutMs = Math.max(
+                timeoutMs,
+                Math.ceil(probeSize.estimateTokens * EMBEDDING_PROBE_MS_PER_ESTIMATE_TOKEN)
+            );
+
+            this.embeddingRecoveryProbeGeometry = `${probeSize.estimateTokens}:${probeSize.fraction ?? 'unsized'}`;
+
             return buildEmbeddingProbeBlock({
                 cfg      : AiConfig,
                 embedText: (text, explicitProvider, options) =>
@@ -1099,15 +1119,41 @@ class TenantRepoSyncService extends Base {
                 operationLabel: 'Tenant repo sync embedding recovery probe',
                 now           : this.embeddingRecoveryClock,
                 probeSize,
-                timeoutMs
+                timeoutMs     : sizedTimeoutMs
             })
         });
 
         if (!this.embeddingRecoveryGate) {
             this.embeddingRecoveryGate = createBoundedRetryGate({
                 run: async context => {
+                    // ONE destructive attempt per proof identity. A full-band probe against a lane
+                    // that OOMs is itself the killing request, and the gate's default budget is
+                    // `Infinity` — so without this the repair reproduces the loop it exists to stop,
+                    // at 30 s → 10 min backoff, forever. The docblock beside the sizing claimed "one
+                    // request"; the mechanism said otherwise, which is the defect this whole ticket
+                    // is about, written into its own fix.
+                    //
+                    // Recorded against the KEY, so the refusal lasts exactly as long as the question
+                    // does: rotate the episode, the generation or the geometry and the identity
+                    // changes, which is the only honest reason to spend another engine.
+                    const died = this.embeddingRecoveryDeaths?.get(context?.key);
+
+                    if (died) {
+                        return {...died, cached: true}
+                    }
+
                     try {
-                        return await this.embeddingRecoveryProbeFn(context);
+                        const outcome = await this.embeddingRecoveryProbeFn(context);
+
+                        // Only DEATH is recorded. `provider-unreachable` is ambient and deserves the
+                        // ordinary bounded retry; a process that accepted the request and went away
+                        // has answered the question this probe asks, and asking again costs another
+                        // engine to learn the same thing.
+                        if (outcome?.errorClassification === 'provider-died') {
+                            (this.embeddingRecoveryDeaths ??= new Map()).set(context?.key, outcome)
+                        }
+
+                        return outcome;
                     } catch {
                         return {
                             status             : 'failed',
@@ -1123,7 +1169,10 @@ class TenantRepoSyncService extends Base {
             });
         }
 
-        const key = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${[...episodeKeys].sort().join(',')}`;
+        // Geometry is part of the proof's IDENTITY, not metadata about it. A cached quarter-band
+        // `healthy` cannot answer a full-band question, and a key that omits the bound lets it —
+        // the proof would satisfy a question it never bounded, which is RA-1 one layer along.
+        const key = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${this.embeddingRecoveryProbeGeometry ?? 'pending'}:${[...episodeKeys].sort().join(',')}`;
 
         this.embeddingRecoveryLastResult = await this.embeddingRecoveryGate.tick({key});
         return this.embeddingRecoveryLastResult;
