@@ -2638,6 +2638,73 @@ function getReviewBudgetAuditSnapshot(body) {
 }
 
 /**
+ * @summary Renders the audit-immutability refusal from the condition that actually fired.
+ *
+ * The guard is load-bearing and stays: editing a submitted review is a second way to raise a packet,
+ * and until it ran here the create-side guards could be walked around entirely. What was wrong was
+ * the message. It named three abstract categories and never the concrete cause, and the cost was
+ * measured — a reviewer hitting it concluded the capability did not exist, told the PR author and the
+ * operator that a submitted body is immutable to this tool, and fell back to a comment. Two greps on
+ * the error string disprove that.
+ *
+ * The dominant cause deserves its own branch because it is the one nobody can deduce: `create`
+ * appends a tail the caller never wrote, so a caller resubmitting their OWN edited body is refused
+ * for omitting bytes they have never seen. Naming it is safe — the remedy is mechanical, and a
+ * mechanical remedy cannot be gamed the way an anchor name can.
+ *
+ * @param {Object} options
+ * @param {Object} options.currentAudit    Snapshot of the submitted body.
+ * @param {Object} options.incomingAudit   Snapshot of the candidate body.
+ * @param {String[]} options.markerChanges Marker-level differences.
+ * @param {String[]} options.auditFieldChanges Field-level differences.
+ * @param {Boolean} options.terminalChanged Whether ordinary/Drop+Supersede classification moved.
+ * @returns {String}
+ */
+function buildReviewBudgetAuditRefusal({currentAudit, incomingAudit, markerChanges, auditFieldChanges, terminalChanged}) {
+    const headline = 'A submitted review update cannot change review-budget provenance, audit fields, or ordinary-versus-Drop+Supersede classification.';
+
+    // The unguessable case, and by far the most common: the tail is simply absent from the update.
+    if (currentAudit.tail && !incomingAudit.tail) {
+        return [
+            headline,
+            '',
+            'Body edits ARE supported. What happened: `create` appended a machine-owned tail your body',
+            'never contained, and this update omits it — so the round-trip check reads the omission as',
+            'an audit-field change.',
+            '',
+            'Re-fetch the current review body, edit only the content ABOVE the `---` marker, and resubmit',
+            'with this tail unchanged:',
+            '',
+            ...currentAudit.tail.split('\n').map(line => `    ${line}`)
+        ].join('\n')
+    }
+
+    const causes = [];
+
+    if (terminalChanged) {
+        causes.push('- The ordinary/Drop+Supersede classification differs between the submitted review and this update. A terminal verdict is a different packet, not an edit of an ordinary one — post it as its own review.')
+    }
+
+    if (!currentAudit.structureValid || !incomingAudit.structureValid) {
+        causes.push('- The machine-owned tail is malformed. It must appear once, immediately after a `---` line, with any override marker before the managed marker.')
+    }
+
+    markerChanges.filter(marker => marker !== 'machine-owned-tail-structure').forEach(marker => {
+        causes.push(`- \`${marker}\` appears a different number of times than in the submitted review. It must round-trip exactly once.`)
+    });
+
+    if (currentAudit.auditFieldsOutsideTail.length > 0 || incomingAudit.auditFieldsOutsideTail.length > 0) {
+        causes.push('- Audit fields appear OUTSIDE the machine-owned tail. They belong only inside it, below the `---` marker.')
+    }
+
+    if (auditFieldChanges.includes('machine-owned-tail') && causes.length === 0) {
+        causes.push('- The machine-owned tail differs from the submitted review\'s. Resubmit it byte-identical; edit only the content above the `---` marker.')
+    }
+
+    return [headline, '', ...causes].join('\n')
+}
+
+/**
  * @summary Rejects caller-authored review-budget provenance before a review CREATE reaches GitHub.
  * @param {String} body Candidate review body.
  * @returns {Object|null} Structured validation failure or `null` when no reserved provenance exists.
@@ -3872,6 +3939,13 @@ class PullRequestService extends Base {
                     };
                 }
 
+                // The submitted body is not the body the caller handed us: a machine-owned tail was
+                // appended. `update` requires that tail back byte-identical, so a caller who later
+                // edits their own copy — which never contained it — is refused as if they had changed
+                // an audit field. Surfacing it here is what stops that loop before it starts; a
+                // reviewer who hit the refusal without this concluded the capability did not exist.
+                const machineOwnedTail = getReviewBudgetAuditSnapshot(submissionBody).tail;
+
                 return {
                     message    : `Successfully created ${review.state} review on PR #${pr_number}`,
                     reviewId   : review.id,
@@ -3879,7 +3953,11 @@ class PullRequestService extends Base {
                     url        : review.url,
                     submittedAt: review.submittedAt,
                     databaseId : review.databaseId,
-                    ...(reviewBudgetAudit ? {reviewBudget: reviewBudgetAudit} : {})
+                    ...(reviewBudgetAudit ? {reviewBudget: reviewBudgetAudit} : {}),
+                    ...(machineOwnedTail ? {
+                        machineOwnedTail,
+                        machineOwnedTailNote: 'Appended by this tool. An `update` must resubmit it unchanged: re-fetch the review body and edit only the content above the `---` marker.'
+                    } : {})
                 };
             } catch (error) {
                 logger.error(`Error creating PR review on PR #${pr_number}:`, error);
@@ -3942,8 +4020,16 @@ class PullRequestService extends Base {
             if (markerChanges.length > 0 || currentTerminal !== incomingTerminal || auditFieldChanges.length > 0) {
                 return {
                     error                        : 'PR Review Budget Audit Validation Failed',
-                    message                      : 'A submitted review update cannot change review-budget provenance, audit fields, or ordinary-versus-Drop+Supersede classification.',
+                    message: buildReviewBudgetAuditRefusal({
+                        currentAudit,
+                        incomingAudit,
+                        markerChanges,
+                        auditFieldChanges,
+                        terminalChanged: currentTerminal !== incomingTerminal
+                    }),
                     code                         : 'PR_REVIEW_BUDGET_AUDIT_IMMUTABLE',
+                    // The exact bytes to restore, so the remedy does not require reconstructing them.
+                    ...(currentAudit.tail ? {requiredTail: currentAudit.tail} : {}),
                     markerChanges,
                     auditFieldChanges,
                     terminalClassificationChanged: currentTerminal !== incomingTerminal

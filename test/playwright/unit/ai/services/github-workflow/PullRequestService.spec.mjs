@@ -3401,6 +3401,75 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         }
     });
 
+    /**
+     * The refusal's measured cost: a reviewer who hit it concluded the capability did not exist,
+     * told the PR author and the operator that a submitted review body is immutable to this tool,
+     * and fell back to a comment. Body edits ARE supported. What happened is that `create` appends
+     * a machine-owned tail the caller never wrote, and `update` requires it back byte-identical —
+     * so resubmitting your own edited body trips the comparison and is refused as an "audit-field
+     * change". The refusal held every fact needed to print the remedy and printed a category.
+     */
+    test('#17354: the update refusal names the tail round-trip as its remedy', async () => {
+        const current     = managedReviewBody(VALID_ORDINARY_REQUEST_CHANGES_BODY, 'within-budget');
+        let   updateCalls = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestReview')) {
+                return {node: {id: REVIEW_NODE.id, body: current, state: 'CHANGES_REQUESTED'}}
+            }
+
+            updateCalls++;
+            return null
+        };
+
+        // Exactly what an author who edited their own copy sends: the prose, without a tail they
+        // never wrote and cannot know about.
+        const result = await PullRequestService.managePrReview({
+            action   : 'update',
+            review_id: REVIEW_NODE.id,
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
+        });
+
+        expect(result.code, 'the guard still refuses — it is load-bearing').toBe('PR_REVIEW_BUDGET_AUDIT_IMMUTABLE');
+        expect(updateCalls, 'and never reaches the mutation').toBe(0);
+
+        // The remedy is mechanical and therefore not stuffable: re-fetch, edit above the marker,
+        // resubmit the tail unchanged.
+        expect(result.message, 'names the machine-owned tail').toContain('[review-budget-managed]');
+        expect(result.message, 'names the round-trip as the fix').toMatch(/unchanged|re-?fetch|resubmit/i);
+
+        // And hands back the exact bytes to restore, so the caller does not have to reconstruct them.
+        expect(result.requiredTail, 'the tail to resubmit is returned verbatim').toContain('[review-budget-managed]')
+    });
+
+    test('#17354: create surfaces the machine-owned tail it appended', async () => {
+        // A caller planning an update learns the tail exists from the create response, rather than
+        // from a refusal after the fact. This is the half that stops the loop from starting.
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {nodes: [], pageInfo: {hasPreviousPage: false}}
+                })
+            }
+
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        RepositoryService.viewerLogin = 'neo-opus-grace';
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17354,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
+        });
+
+        expect(result.reviewBudget, 'the create response reports the budget').toBeTruthy();
+        expect(result.machineOwnedTail, 'and names the tail it appended')
+            .toContain('[review-budget-managed]')
+    });
+
     test('#15257: review updates cannot add/remove provenance or rewrite managed audit fields', async () => {
         const currentBody = managedReviewBody(
             VALID_ORDINARY_REQUEST_CHANGES_BODY
