@@ -1,5 +1,5 @@
-import {expect, test}   from '@playwright/test';
-import {validatePrBody} from '../../../../../ai/scripts/agent-preflight.mjs';
+import {expect, test}                      from '@playwright/test';
+import {resolveIssueState, validatePrBody} from '../../../../../ai/scripts/agent-preflight.mjs';
 
 /**
  * Deferred work must name a home that SURVIVES the merge.
@@ -395,5 +395,322 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
         ].join('\n');
 
         expect(residualFindings(ownerInWrongSection)).toHaveLength(1);
+    });
+});
+
+/**
+ * The gate was careful in every dimension except EXISTENCE.
+ *
+ * `#(\d+)` validates that a reference is well-FORMED and treats well-formed as ALIVE. The
+ * close-target rule beside it is already a survivability rule — a home that will not outlive the
+ * merge is refused — and a ticket that closed BEFORE the citation fails that requirement more
+ * completely, since a close target at least survives until merge.
+ *
+ * Every arm injects its resolver. A spec that reached live GitHub would be measuring the network.
+ */
+test.describe('validatePrBody — Residual-Owner STATE gate (#17314)', () => {
+    const owed  = section => withPmv(section),
+          owned = number => owed(`- [ ] run the container exit check\nResidual-Owner: #${number}`),
+          // The resolver's contract is an OBJECT, not a string: a pull request reports `state: open`
+          // exactly like a ticket, and collapsing the two here would hand the gate a reading it
+          // cannot un-collapse. `ticket` and `pr` are the two shapes an `open` answer can have.
+          ticket = state => ({isPullRequest: false, state}),
+          pr     = state => ({isPullRequest: true,  state}),
+          check  = (body, state) => validatePrBody(body, {
+              resolveOwnerState: typeof state === 'string' ? () => ticket(state) : () => state
+          });
+
+    test('a CLOSED owner fails, and the message names the state it found', () => {
+        const result = check(owned(17271), 'closed');
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible.some(entry => /`Residual-Owner: #17271` is CLOSED/.test(entry))).toBe(true);
+        // The existing messages prescribe a remedy rather than only reporting, and this one must not
+        // create pressure to mint an owner — the whole point is that the work already has a home.
+        expect(result.missingVisible.some(entry => /Do not open a ticket to satisfy this/.test(entry))).toBe(true);
+        expect(result.warnings).toEqual([]);
+    });
+
+    test('a NONEXISTENT owner fails', () => {
+        const result = check(owned(99999999), 'missing');
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible.some(entry => /`Residual-Owner: #99999999` does not exist/.test(entry))).toBe(true);
+    });
+
+    test('CONTROL: an OPEN owner passes, so the check cannot pass by refusing everything', () => {
+        const result = check(owned(200), 'open');
+
+        expect(result.valid).toBe(true);
+        expect(result.missingVisible).toEqual([]);
+        expect(result.warnings).toEqual([]);
+    });
+
+    test('an UNRESOLVABLE read neither fails the gate nor silently passes the owner', () => {
+        // Could-not-verify is not did-not-happen. An offline author, an expired token, a rate limit
+        // and an outage are facts about the transport; a gate that turns one into a verdict
+        // manufactures the diagnosis. Both halves are asserted, because either alone is a defect:
+        // failing would make an outage look like a bad body, and passing in silence would make
+        // "not checked" indistinguishable from "checked and fine".
+        const result = check(owned(200), 'unknown');
+
+        expect(result.valid).toBe(true);
+        expect(result.missingVisible).toEqual([]);
+        expect(result.warnings.some(entry => /#200` was NOT state-checked/.test(entry))).toBe(true);
+    });
+
+    test('the Evidence-ladder INLINE form gets the same treatment as the line form', () => {
+        // `evidence-ladder.md` prescribes a 1-line declaration whose owner is mid-line. It shares the
+        // blind spot, so it has to share the fix — otherwise the shape with the documented template
+        // behind it is the one that stays unchecked.
+        const inline = [
+            'Resolves #100', '',
+            'Evidence: L2 (unit) → L4 required (AC5 live plane). Residual: AC5 live-plane observation, Residual-Owner: #17271.', '',
+            '## Deltas', 'one file', '',
+            '## Test Evidence', 'green', '',
+            '## Post-Merge Validation', 'None deferred.', '',
+            'Authored by @neo-opus-ada'
+        ].join('\n');
+
+        expect(check(inline, 'closed').valid).toBe(false);
+        expect(check(inline, 'closed').missingVisible.some(entry => /#17271` is CLOSED/.test(entry))).toBe(true);
+        expect(check(inline, 'open').valid).toBe(true);
+    });
+
+    test('RED-PROOF: the PR #17308 incident fails now and passed silently before', () => {
+        // The specimen, and the number IS the fixture: an owner set at 18:04 on 2026-08-17 against a
+        // ticket that had closed at 17:55:42Z, eight minutes earlier, which `lint-pr-body` passed.
+        // ticket-ref-ok: the arm reproduces one dated incident; an anonymised number would make it a
+        // generic closed-owner case and lose the only evidence that this gate ever let one through.
+        const body = owned(17271);
+
+        // Pre-fix behaviour is still reachable, and is exactly what shipped: no resolver, shape only.
+        expect(validatePrBody(body).valid).toBe(true);
+        expect(validatePrBody(body).missingVisible).toEqual([]);
+
+        // With the state read, the same body is refused.
+        expect(check(body, 'closed').valid).toBe(false);
+    });
+
+    test('a closed owner that is ALSO the close target still reports the close-target rule', () => {
+        // Ordering, not redundancy: the close-target message tells the author something the state
+        // message does not — that the owner dies BECAUSE of this merge. Reporting "it is closed"
+        // there would send them to look at a ticket that is still open until they merge.
+        const body   = [base, '', '## Post-Merge Validation', '- [ ] work', 'Residual-Owner: #100'].join('\n'),
+              result = check(body, 'open');
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible.some(entry => /is this PR's own close target/.test(entry))).toBe(true);
+        expect(result.missingVisible.some(entry => /is CLOSED/.test(entry))).toBe(false);
+    });
+
+    test('RA-1: EVERY declared owner is state-checked, not the first section selected for shape', () => {
+        // The shape check is biased toward the first UNOWNED section so its message names genuinely
+        // orphaned work. Inheriting that selection meant a body whose first owing section is
+        // correctly owned and whose second names a closed ticket never had the second owner read —
+        // the single-representative defect the surrounding code already fixed once, one dimension
+        // along.
+        const inspected = [],
+              body      = [
+                  base, '',
+                  '## Post-Merge Validation', '- [ ] first piece', 'Residual-Owner: #201', '',
+                  '## Notes', 'unrelated', '',
+                  '## Post-Merge Validation', '- [ ] second piece', 'Residual-Owner: #202'
+              ].join('\n'),
+              result    = validatePrBody(body, {
+                  resolveOwnerState: number => {
+                      inspected.push(number);
+
+                      return number === '202' ? ticket('closed') : ticket('open')
+                  }
+              });
+
+        // The ledger proves BOTH were inspected — without it the arm passes on a gate that happened
+        // to select the closed one.
+        expect(inspected.sort()).toEqual(['201', '202']);
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible.some(entry => /#202` is CLOSED/.test(entry))).toBe(true);
+        expect(result.missingVisible.some(entry => /#201/.test(entry))).toBe(false);
+    });
+
+    test('RA-1 CONTROL: a repeated owner costs ONE read, and the close target is never re-read', () => {
+        const inspected = [],
+              body      = [
+                  base, '',
+                  '## Post-Merge Validation', '- [ ] a', 'Residual-Owner: #201', '',
+                  '## Post-Merge Validation', '- [ ] b', 'Residual-Owner: #201'
+              ].join('\n');
+
+        validatePrBody(body, {resolveOwnerState: number => { inspected.push(number); return ticket('open') }});
+
+        expect(inspected).toEqual(['201']);
+
+        // The close target already has its own, better message — reading it again would replace
+        // "the owner dies BECAUSE of this merge" with "it is open", which is true and useless.
+        const onCloseTarget = [];
+
+        validatePrBody([base, '', '## Post-Merge Validation', '- [ ] a', 'Residual-Owner: #100'].join('\n'), {
+            resolveOwnerState: number => { onCloseTarget.push(number); return ticket('open') }
+        });
+
+        expect(onCloseTarget).toEqual([]);
+    });
+
+    test('RA-1 carried: a LATER section parking work on the close target still gets the better message', () => {
+        // Emmy's carried falsifier. The close-target rule ran on the single selected owner, and the
+        // state loop then filtered the close target out as "not to be read" — so a second section
+        // parking work on the PR's own close target was judged by neither. Two single-representative
+        // defects covering for each other: fixing only the state loop left the hole open.
+        const inspected = [],
+              body      = [
+                  base, '',
+                  '## Post-Merge Validation', '- [ ] first piece', 'Residual-Owner: #201', '',
+                  '## Post-Merge Validation', '- [ ] second piece', 'Residual-Owner: #100'
+              ].join('\n'),
+              result    = validatePrBody(body, {
+                  resolveOwnerState: number => { inspected.push(number); return ticket('open') }
+              });
+
+        expect(result.valid).toBe(false);
+        expect(result.missingVisible.some(entry => /#100` is this PR's own close target/.test(entry))).toBe(true);
+
+        // The close target is judged WITHOUT a read: it is a pure comparison between two values the
+        // body already carries, and it must hold with no network at all.
+        expect(inspected).toEqual(['201']);
+
+        // CONTROL: the same rule with no resolver at all — the close-target failure must still fire,
+        // otherwise the pure half silently became network-dependent.
+        expect(validatePrBody(body).missingVisible.some(entry => /own close target/.test(entry))).toBe(true);
+    });
+
+    test('RA-3: an OPEN pull request is refused — it dies by design, on merge', () => {
+        // A PR IS an issue to the REST API and reports `state: open` exactly like a ticket; only the
+        // `pull_request` key separates them. It is a WORSE owner than a closed ticket, because it
+        // takes the deferral with it when it merges.
+        const asPr = check(owned(17488), pr('open'));
+
+        expect(asPr.valid).toBe(false);
+        expect(asPr.missingVisible.some(entry => /is a PULL REQUEST, not a ticket/.test(entry))).toBe(true);
+
+        // CONTROL: the same number, same `open`, as an ISSUE — passes. Without this the arm above is
+        // satisfied by a gate that refuses every open owner.
+        expect(check(owned(17488), ticket('open')).valid).toBe(true);
+
+        // A CLOSED pull request keeps the closed message: the earlier failure is the more actionable
+        // one, and re-labelling it would send the author looking for a different problem.
+        expect(check(owned(17488), pr('closed')).missingVisible.some(entry => /is CLOSED/.test(entry))).toBe(true);
+    });
+
+    test('a body owing NOTHING never reaches the resolver', () => {
+        // The read is not free and must not fire on the overwhelming majority of PRs, which carry no
+        // residual at all. A spy proves it rather than a comment claiming it.
+        let calls = 0;
+
+        const result = validatePrBody(withPmv('- [x] already done'), {resolveOwnerState: () => { calls++; return ticket('closed') }});
+
+        expect(result.valid).toBe(true);
+        expect(calls).toBe(0);
+    });
+});
+
+/**
+ * `gh` exits 1 for a 404 AND for every transport failure, so the exit code decides nothing. Only the
+ * 404 is an answer about the ticket; everything else is an answer about the network.
+ */
+test.describe('resolveIssueState — a reading, or the honest absence of one (#17314)', () => {
+    const withExec = impl => resolveIssueState(200, {cwd: '/repo', execFileSyncImpl: impl}),
+          json     = value => () => `${JSON.stringify(value)}\n`,
+          throwing = stderr => () => { const error = new Error('gh failed'); error.stderr = stderr; throw error };
+
+    test('reads open and closed, and carries the entity kind', () => {
+        expect(withExec(json({state: 'open',   isPullRequest: false}))).toEqual({isPullRequest: false, state: 'open'});
+        expect(withExec(json({state: 'closed', isPullRequest: false}))).toEqual({isPullRequest: false, state: 'closed'});
+
+        // The fact a `--jq .state` projection destroyed. An open PR and an open ticket are the same
+        // string and different answers.
+        expect(withExec(json({state: 'open', isPullRequest: true}))).toEqual({isPullRequest: true, state: 'open'});
+    });
+
+    test('a 404 is a reading — the ticket is missing', () => {
+        expect(withExec(throwing('gh: Not Found (HTTP 404)\n'))).toEqual({isPullRequest: false, state: 'missing'});
+    });
+
+    test('every other failure is NOT a reading', () => {
+        // CONTROL against the exit-code trap: these all exit 1 exactly like the 404 above, and a
+        // check keying on the exit code would call every one of them "missing" and fail the gate on
+        // an outage. `401` and `403` are the ones an author hits; `503` is the one CI hits.
+        for (const stderr of [
+            'gh: Bad credentials (HTTP 401)\n',
+            'gh: Forbidden (HTTP 403)\n',
+            'gh: Service Unavailable (HTTP 503)\n',
+            'dial tcp: lookup api.github.com: no such host\n',
+            undefined
+        ]) {
+            expect(withExec(throwing(stderr)).state).toBe('unknown');
+        }
+
+        expect(withExec(() => { throw new Error('spawn gh ENOENT') }).state).toBe('unknown');
+    });
+
+    test('RA-2: the read is DEADLINE-BOUNDED, and a timeout is not a reading', () => {
+        // Correct classification after an unbounded call is not offline safety: an author with a
+        // hanging resolver blocks before the graceful-degradation branch is ever reached. The bound
+        // is what makes `unknown` reachable in the case that needs it most.
+        let seen = null;
+
+        resolveIssueState(4242, {cwd: '/repo', execFileSyncImpl: (command, args, options) => {
+            seen = options;
+            return '{"state":"open","isPullRequest":false}'
+        }});
+
+        expect(Number.isFinite(seen.timeout)).toBe(true);
+        expect(seen.timeout).toBeGreaterThan(0);
+
+        // The kill signal `execFileSync` raises on timeout carries no `(HTTP 404)`, so it lands in
+        // `unknown` — asserted rather than assumed, because that is the branch an offline author hits.
+        const killed = () => {
+            const error = new Error('spawnSync gh ETIMEDOUT');
+            error.errno  = 'ETIMEDOUT';
+            error.signal = 'SIGTERM';
+            throw error
+        };
+
+        expect(withExec(killed)).toEqual({isPullRequest: false, state: 'unknown'});
+
+        // An explicit override is honoured, so a caller can tighten it.
+        let overridden = null;
+
+        resolveIssueState(1, {cwd: '/repo', timeoutMs: 250, execFileSyncImpl: (command, args, options) => {
+            overridden = options.timeout;
+            return '{"state":"open","isPullRequest":false}'
+        }});
+
+        expect(overridden).toBe(250);
+    });
+
+    test('an unrecognised payload is not a reading either', () => {
+        // A changed API shape must not decide a gate. Anything that is not exactly the two known
+        // states is an absence of information, not a third state.
+        expect(withExec(json({state: 'OPEN', isPullRequest: false})).state).toBe('unknown');
+        expect(withExec(() => '').state).toBe('unknown');
+        expect(withExec(() => 'null\n').state).toBe('unknown');
+        expect(withExec(() => 'not json at all').state).toBe('unknown');
+    });
+
+    test('the issue number reaches gh, and the query preserves the entity kind', () => {
+        let seen = null;
+
+        resolveIssueState(4242, {cwd: '/repo', execFileSyncImpl: (command, args, options) => {
+            seen = {args, command, cwd: options.cwd};
+            return '{"state":"open","isPullRequest":false}'
+        }});
+
+        expect(seen.command).toBe('gh');
+        expect(seen.args[0]).toBe('api');
+        expect(seen.args[1]).toBe('repos/{owner}/{repo}/issues/4242');
+        // The jq projection must keep `pull_request` reachable. `.state` alone is what collapsed the
+        // two entity kinds, so the projection itself is the contract worth pinning.
+        expect(seen.args[3]).toContain('has("pull_request")');
+        expect(seen.cwd).toBe('/repo');
     });
 });
