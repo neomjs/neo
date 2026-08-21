@@ -1,6 +1,8 @@
 /* The S5 add-agent surface — panel geometry + the honest-lifecycle status line. Colors
    token-only; every flow state pairs its hue with a non-color carrier (text IS the reason line,
    weight/style mark emphasis) so no state reads by color alone. */
+/* §04 rhythm record (#17265): off-rhythm survivors — harness-row gap 6, actions margin-top 2,
+   status pad-top 6 — recorded, deferred to #17268. */
 .fm-add-agent-form {
     background     : var(--fm-panel);
     border         : 1px solid var(--fm-line);
@@ -8,12 +10,12 @@
     color          : var(--fm-ink);
     display        : flex;
     flex-direction : column;
-    gap            : 8px;
-    padding        : 12px;
+    gap            : var(--fm-space-2);
+    padding        : var(--fm-space-3);
 
     .fm-add-heading {
-        color     : var(--fm-ink);
-        font-size : 13px;
+        color: var(--fm-ink);
+        font : var(--fm-text-body);   /* 13 → body: the ruled tie-to-smaller migration */
 
         strong {
             font-weight : 600;
@@ -31,7 +33,7 @@
     }
 
     .fm-add-actions {
-        gap        : 8px;
+        gap        : var(--fm-space-2);
         margin-top : 2px;
     }
 
@@ -63,7 +65,7 @@
     .fm-add-status {
         border-top  : 1px solid var(--fm-line-soft);
         color       : var(--fm-ink-dim);
-        font-size   : 11px;
+        font        : var(--fm-text-detail);
         min-height  : 15px;
         padding-top : 6px;
 

@@ -85,7 +85,16 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       // a deletion of a contracted-but-unconsumed member would false-green every other check.
       STRUCTURAL_FM_TOKENS = new Set([
           '--fm-chip-mark-w', '--fm-chip-pad-y', '--fm-chip-pad-x', '--fm-chip-radius', '--fm-chip-gap',
-          '--fm-motion-pulse'
+          '--fm-motion-pulse',
+          // §04 type ladder (#17265): five roles as font shorthands + the chrome role's non-font
+          // (tracking) half — a surface picks a role, never a pixel.
+          '--fm-text-display', '--fm-text-body', '--fm-text-detail', '--fm-text-micro', '--fm-text-chrome',
+          '--fm-text-chrome-tracking',
+          // §04 spacing rhythm (#17265): 4/8/12/16 — off-rhythm literals are per-file recorded exceptions.
+          '--fm-space-1', '--fm-space-2', '--fm-space-3', '--fm-space-4',
+          // §04 FM motion aliases (#17265): the FM re-timing knob over the product vocabulary;
+          // the vocabulary-layer reduced-motion collapse flows through by construction.
+          '--fm-motion-panel', '--fm-motion-fast'
       ]),
       // Real-tree paths; the exported collector takes overrides so the guard is testable in isolation.
       DEFAULT_PATHS = {

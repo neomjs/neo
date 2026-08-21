@@ -8,10 +8,9 @@
     display       : inline-block;
     padding       : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
     border-radius : var(--fm-chip-radius);
-    font-family   : var(--fm-font-mono);
-    font-size     : 10px;
+    font          : var(--fm-text-micro);
     font-weight   : 600;
-    letter-spacing: .08em;
+    letter-spacing: var(--fm-text-chrome-tracking);   /* the one uppercase-tracking constant — the kind word shares the chrome tier's voice */
     text-transform: uppercase;
     color         : var(--fm-chip, var(--fm-state-off));
     background    : color-mix(in srgb, var(--fm-chip, var(--fm-state-off)) 14%, transparent);

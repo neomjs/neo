@@ -2,11 +2,10 @@
    Chip class: AFFORDANCE (§06 T2 third class — an action, never an observation; 6px radius is the
    recorded affordance-class distinction). Colors read the --fm-* token layer only; the dot binds
    --fm-dot through the state class exactly like StateDot (one token indirection, unmatched class
-   renders quiet). Font sizes are literals AT the §06 role values (chrome 11/1 · body 12/1.45 ·
-   detail 11/1.4 · micro 10/1.3) pending the T1 tokenization pass — each is annotated with its
-   role so the migration is mechanical. Menu motion: reveal/dismiss class on the standards
-   vocabulary (--motion-panel), with the reduced-motion collapse in-file (the StateDot
-   inclusion-gate precedent — outside the dock's token-layer scope). */
+   renders quiet). Type resolves through the §04 role tokens (#17265 — the pre-annotated literals
+   became real consumers). Menu motion: reveal/dismiss class on the FM alias over the standards
+   vocabulary, with the reduced-motion collapse in-file (the StateDot inclusion-gate precedent —
+   outside the dock's token-layer scope). */
 .fm-instance-switcher {
     position: relative;
 
@@ -16,14 +15,12 @@
         border       : 1px solid var(--fm-line);
         border-radius: 6px;            /* affordance-class distinction, recorded in §06 T2 */
         color        : var(--fm-ink-dim);
-        cursor       : pointer;
-        display      : inline-flex;
-        font-family  : var(--fm-font-mono);
-        font-size    : 11px;           /* role: --fm-text-chrome */
-        gap          : 8px;
-        letter-spacing: .08em;
-        line-height  : 1;
-        padding      : 4px 8px;
+        cursor        : pointer;
+        display       : inline-flex;
+        font          : var(--fm-text-chrome);
+        gap           : var(--fm-space-2);
+        letter-spacing: var(--fm-text-chrome-tracking);
+        padding       : var(--fm-space-1) var(--fm-space-2);
         text-transform: uppercase;
 
         &:hover {
@@ -54,15 +51,15 @@
         display      : flex;
         flex-direction: column;
         min-width    : 320px;
-        padding      : 4px;
+        padding      : var(--fm-space-1);
         position     : absolute;
         right        : 0;
-        top          : calc(100% + 4px);
+        top          : calc(100% + var(--fm-space-1));
         z-index      : 50;
 
         /* reveal class (§06 T4): chrome enters from its edge; dismissal removes the node, so only
            the reveal needs a rule — and reduced-motion collapses it below */
-        animation: fm-instance-menu-reveal var(--motion-panel, 280ms) cubic-bezier(0.22, 1, 0.36, 1);
+        animation: fm-instance-menu-reveal var(--fm-motion-panel) var(--ease-out-soft);
     }
 
     .fm-instance-row,
@@ -74,8 +71,8 @@
         color        : var(--fm-ink-dim);
         cursor       : pointer;
         display      : flex;
-        gap          : 8px;
-        padding      : 8px;
+        gap          : var(--fm-space-2);
+        padding      : var(--fm-space-2);
         text-align   : left;
 
         &:hover {
@@ -95,17 +92,13 @@
     }
 
     .fm-instance-row-name {
-        font-family: var(--fm-font-sans);
-        font-size  : 12px;             /* role: --fm-text-body */
-        line-height: 1.45;
+        font: var(--fm-text-body);
     }
 
     .fm-instance-row-endpoint {
         color        : var(--fm-ink-dim);
         flex         : 1;
-        font-family  : var(--fm-font-mono);
-        font-size    : 11px;           /* role: --fm-text-detail */
-        line-height  : 1.4;
+        font         : var(--fm-text-detail);
         overflow     : hidden;
         text-overflow: ellipsis;
         white-space  : nowrap;
@@ -113,23 +106,20 @@
 
     .fm-instance-row-custodian {
         border       : 1px solid var(--fm-line-soft);
-        border-radius: 4px;
+        border-radius: var(--fm-chip-radius);
         color        : var(--fm-ink-dim);
         flex         : none;
-        font-family  : var(--fm-font-mono);
-        font-size    : 10px;           /* role: --fm-text-micro */
-        line-height  : 1.3;
-        padding      : 2px 8px;
+        font         : var(--fm-text-micro);
+        padding      : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
     }
 
     .fm-instance-menu-sep {
         border-top: 1px solid var(--fm-line-soft);
-        margin    : 4px 0;
+        margin    : var(--fm-space-1) 0;
     }
 
     .fm-instance-manage {
-        font-family: var(--fm-font-sans);
-        font-size  : 12px;             /* role: --fm-text-body */
+        font: var(--fm-text-body);
     }
 }
 

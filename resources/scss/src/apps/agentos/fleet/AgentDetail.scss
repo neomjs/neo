@@ -1,11 +1,18 @@
 /* Agent detail — the drill-in inspector: identity header (family rail · avatar · name/engine/id ·
    availability) over the freshness-labeled panes (thought-stream · lane · repo · PRs), scoped under
-   the component root. Geometry + the avatar frame only; every color reads from the token layer. */
+   the component root. Geometry + the avatar frame only; every color reads from the token layer.
+   §04 rhythm record (#17265): off-rhythm survivors — root gap 10 + padding 10/12, empty-state pad
+   24/8, header gap 10 + pad-bottom 10, identity gap 2, name-row gap 7, pane pad 8/10, freshness
+   pill pad 2/7, mailbox frame-tune 8/2/2, telltale/sources gaps 6×10 — recorded here, deferred to
+   the #17268 pane-composition pass rather than silently snapped. The inner detail-tab strip
+   (.neo-tab-button 11px + pad) stays literal by design: the tab ANATOMY decision belongs to
+   #17269 cut 2, and pre-empting its role choice here would decide navigation design in a
+   migration pass. Pill registers keep their site-visible `line-height: 1`. */
 .fm-agent-detail {
     container-type: inline-size;
     gap           : 10px;
     overflow      : hidden;
-    padding       : 10px 12px;
+    padding       : 10px var(--fm-space-3);
 
     /* one continuous surface with the panel below — layout containers inside the detail
        otherwise inherit Neo's stock dark container background, reading as mismatched boxes */
@@ -15,9 +22,9 @@
 
     /* honest empty state — muted, centered; never reads as a loaded-but-blank inspector */
     .fm-detail-empty {
-        padding   : 24px 8px;
+        padding   : 24px var(--fm-space-2);
         text-align: center;
-        font-size : 12px;
+        font      : var(--fm-text-body);
         color     : var(--fm-ink-dim);
     }
 
@@ -61,8 +68,7 @@
     /* the social name — the primary, largest identity surface (display state over the durable id) */
     .fm-detail-name {
         flex         : 1;
-        font-weight  : 600;
-        font-size    : 15px;
+        font         : var(--fm-text-display);   /* 15 → display: the ruled 1px migration */
         color        : var(--fm-ink);
         overflow     : hidden;
         white-space  : nowrap;
@@ -71,54 +77,52 @@
 
     /* engine is session-metadata, not identity — subordinate mono tag beside the name */
     .fm-detail-engine {
-        flex       : none;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
-        color      : var(--fm-ink-dim);
+        flex : none;
+        font : var(--fm-text-micro);
+        color: var(--fm-ink-dim);
     }
 
     /* the durable anchor — always shown, smallest + faintest: the name is display state OVER it */
     .fm-detail-id {
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
-        color      : var(--fm-ink-dim);
+        font : var(--fm-text-micro);
+        color: var(--fm-ink-dim);
     }
 
     /* availability (participationStatus), not a role */
     .fm-detail-participation {
-        font-size     : 11px;
+        font          : var(--fm-text-detail);   /* 11px meta → detail: availability is session-metadata, the mono meta voice */
         color         : var(--fm-ink-dim);
         text-transform: capitalize;
     }
 
     .fm-detail-panes {
-        gap     : 8px;
+        gap     : var(--fm-space-2);
         overflow: auto;
     }
 
     .fm-detail-pane {
-        gap          : 4px;
-        padding      : 8px 10px;
+        gap          : var(--fm-space-1);
+        padding      : var(--fm-space-2) 10px;
         background   : var(--fm-panel);
         border       : 1px solid var(--fm-line-soft);
         border-radius: 6px;
     }
 
     .fm-detail-pane-head {
-        gap        : 8px;
+        gap        : var(--fm-space-2);
         align-items: center;
     }
 
     .fm-detail-pane-title {
         flex       : 1;
+        font       : var(--fm-text-body);
         font-weight: 500;
-        font-size  : 12px;
         color      : var(--fm-ink);
     }
 
     .fm-detail-pane-body {
-        font-size: 11px;
-        color    : var(--fm-ink-dim);
+        font : var(--fm-text-detail);   /* 11px readouts → detail: the inspector's mono meta voice */
+        color: var(--fm-ink-dim);
     }
 
     /* the freshness ledger chip: a mono pill whose tone states the observation
@@ -127,8 +131,7 @@
        muted "we don't know" (never alarming — absence is not an error). */
     .fm-freshness {
         flex         : none;
-        font-family  : var(--fm-font-mono);
-        font-size    : 9px;
+        font         : var(--fm-text-micro);   /* 9px → micro: the ruled deliberate growth (nothing below 10px ships) */
         line-height  : 1;
         white-space  : nowrap;
         padding      : 2px 7px;
@@ -163,7 +166,7 @@
         .fm-detail-pane-head {
             align-items   : flex-start;
             flex-direction: column;
-            gap           : 4px;
+            gap           : var(--fm-space-1);
         }
 
         .fm-detail-pane-title {
@@ -216,8 +219,8 @@
         }
 
         .neo-tab-button {
-            font-size: 11px;
-            padding  : 0 8px;
+            font-size: 11px;   /* §04 recorded deferral (#17265): tab ANATOMY belongs to #17269 cut 2 — a migration pass must not decide the nav design */
+            padding  : 0 var(--fm-space-2);
         }
     }
 
@@ -226,7 +229,7 @@
        frame tune lives here. The chip vocabulary stays ONE: MailboxPane.scss carries .fm-freshness
        verbatim from the block above. */
     .fm-mailbox-pane {
-        padding: 8px 2px 2px;
+        padding: var(--fm-space-2) 2px 2px;
     }
 }
 
@@ -236,9 +239,7 @@
         display  : flex;
         flex-wrap: wrap;
         gap      : 6px 10px;
-        font-family: var(--fm-font-mono);
-        font-size  : 11px;
-        line-height: 1.4;
+        font     : var(--fm-text-detail);
     }
 
     .fm-detail-telltale-axis {
@@ -274,12 +275,10 @@
 
     // The three-source provenance readout — the drill-in counterpart to the card's one word-line.
     .fm-detail-sources {
-        display    : flex;
-        flex-wrap  : wrap;
-        gap        : 6px 10px;
-        font-family: var(--fm-font-mono);
-        font-size  : 11px;
-        line-height: 1.4;
+        display  : flex;
+        flex-wrap: wrap;
+        gap      : 6px 10px;
+        font     : var(--fm-text-detail);
     }
 
     .fm-detail-sources-axis {

@@ -9,8 +9,7 @@
     flex       : none;
     min-width  : 0;
     color      : var(--fm-ink-dim);
-    font-family: var(--fm-font-mono);
-    font-size  : 9px;
+    font       : var(--fm-text-micro);   /* 9px → micro: the ruled deliberate growth (nothing below 10px ships) */
     line-height: 1;
     white-space: nowrap;
 

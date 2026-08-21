@@ -1,5 +1,10 @@
 /* Fleet cockpit — the Fleet keeper-view: the design SSOT §01 two-zone split (fleet zone beside the
-   activity stream). A soft divider separates the zones; the surface is the ground tone. */
+   activity stream). A soft divider separates the zones; the surface is the ground tone.
+   §04 rhythm record (#17265): off-rhythm survivors — bar pad 6/10, pane-slot child gap 10,
+   placeholder pad 24/14 — recorded here, deferred to the #17268/#17211 composition passes.
+   FM-scoped micro-feedback motion reads the FM alias (--fm-motion-fast); the dock's own
+   choreography keeps its dock-contract tokens untouched. The dock-rail tab TYPE stays with the
+   framework default here by design: the rail tab anatomy is #17269 cut 2's decision. */
 .fm-fleet-cockpit {
     background: var(--fm-ground);
 
@@ -29,7 +34,7 @@
         box-shadow: none;
         color     : var(--fm-ink-dim);
         min-width : 0;
-        transition: background var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+        transition: background var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
 
         /* the quiet rail keeps its navigation read — a hover affordance in the same idiom as the
            bar buttons (panel lift + ink), never the primary blue slab */
@@ -47,7 +52,7 @@
     .fm-cockpit-bar {
         flex   : none;
         padding: 6px 10px;
-        gap    : 8px;
+        gap    : var(--fm-space-2);
 
         /* Button hierarchy (ledger D1): the SSOT's quiet, panel-toned base — the default theme's
            same-weight blue slab never reaches the bar. Mirrors the chrome's agent-button pair
@@ -65,7 +70,7 @@
             color     : var(--fm-ink-dim);
             box-shadow   : none;
             font-weight  : 500;
-            transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+            transition   : background var(--fm-motion-fast) var(--ease-out-soft), border-color var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--fm-ink-dim);
@@ -92,7 +97,7 @@
             color     : var(--fm-signal);
             box-shadow   : none;
             font-weight  : 600;
-            transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+            transition   : background var(--fm-motion-fast) var(--ease-out-soft), border-color var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--fm-signal);
@@ -124,13 +129,13 @@
     .neo-dashboard-dock-reveal-header {
         background   : var(--fm-panel);
         border-bottom: 1px solid var(--fm-line-soft);
-        padding      : 8px 12px;
-        gap          : 8px;
+        padding      : var(--fm-space-2) var(--fm-space-3);
+        gap          : var(--fm-space-2);
 
         .neo-dashboard-dock-reveal-title {
             flex       : 1;
             color      : var(--fm-ink);
-            font-size  : 12.5px;
+            font       : var(--fm-text-body);   /* 12.5 → body: the ruled invisible 0.5px migration */
             font-weight: 600;
         }
 
@@ -144,7 +149,7 @@
             color        : var(--fm-ink-dim);
             font-weight  : 500;
             min-width    : 0;
-            transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+            transition   : background var(--fm-motion-fast) var(--ease-out-soft), border-color var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
 
             &:hover,
             &.pressed {
@@ -169,7 +174,7 @@
         min-height: 0;
         overflow  : hidden;
         background: var(--fm-rail);
-        padding   : 12px;
+        padding   : var(--fm-space-3);
 
         /* every hosted pane root: the inherited vertical rhythm + the flex-child bound */
         > * {
@@ -200,7 +205,7 @@
     .fm-pane-placeholder {
         padding   : 24px 14px;
         color     : var(--fm-ink-dim);
-        font-size : 12px;
+        font      : var(--fm-text-body);
         text-align: center;
     }
 
@@ -208,7 +213,7 @@
        a soft nut at rest, the signal under the pointer — the drag hit-zone keeps its full width */
     .neo-dashboard-dock-splitter {
         background: color-mix(in srgb, var(--fm-line-soft) 55%, transparent);
-        transition: background var(--motion-fast) var(--ease-out-soft);
+        transition: background var(--fm-motion-fast) var(--ease-out-soft);
 
         &:hover,
         &:active {

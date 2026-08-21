@@ -2,7 +2,10 @@
    The pane renders in TWO hosts: the AgentDetail Mailbox tab and the operator drawer (composed by
    OperatorMailbox), so its rules live here unscoped — moved from AgentDetail.scss, which keeps only
    its tab-context padding tune. Per the drawer-shell contract (#17209): no outer padding, no
-   surface — the host owns the frame; every color reads from the --fm-* token layer. */
+   surface — the host owns the frame; every color reads from the --fm-* token layer.
+   §04 rhythm record (#17265): off-rhythm survivors — root gap 6, state pad 12/10, row pad 6/8 +
+   row gaps 6/4, thread indent 14, meta top 3, pill pads 2/7 — recorded here, deferred to the
+   #17268 pane-composition pass. Pill registers keep their site-visible `line-height: 1`. */
 .fm-mailbox-pane {
     gap       : 6px;
     min-height: 0;
@@ -14,14 +17,14 @@
     min-width : 0;
 
     .fm-mailbox-head {
-        gap        : 8px;
+        gap        : var(--fm-space-2);
         align-items: center;
     }
 
     .fm-mailbox-title {
         flex       : 1;
+        font       : var(--fm-text-body);
         font-weight: 500;
-        font-size  : 12px;
         color      : var(--fm-ink);
     }
 
@@ -30,8 +33,7 @@
         flex       : none;
         gap        : 2px;
         align-items: center;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
+        font       : var(--fm-text-micro);
         color      : var(--fm-ink-dim);
     }
 
@@ -62,8 +64,7 @@
        AgentDetail.scss for the tone rationale incl. the .is-lost AA treatment) */
     .fm-freshness {
         flex         : none;
-        font-family  : var(--fm-font-mono);
-        font-size    : 9px;
+        font         : var(--fm-text-micro);   /* 9px → micro: the ruled deliberate growth (nothing below 10px ships) */
         line-height  : 1;
         white-space  : nowrap;
         padding      : 2px 7px;
@@ -93,8 +94,8 @@
        a denial is a NAMED access fact — readable ink on an alert-tinted panel, mirroring
        the freshness .is-lost AA treatment; a degrade uses the wedged tone */
     .fm-mailbox-state {
-        padding      : 12px 10px;
-        font-size    : 11px;
+        padding      : var(--fm-space-3) 10px;
+        font         : var(--fm-text-detail);
         color        : var(--fm-ink-dim);
         border       : 1px solid var(--fm-line-soft);
         border-radius: 6px;
@@ -117,7 +118,7 @@
     /* one message row — an immutable timestamped fact: subject line over a mono meta line.
        NO hover affordance beyond the thread head (the only interactive surface). */
     .fm-mail-row {
-        padding      : 6px 8px;
+        padding      : 6px var(--fm-space-2);
         border       : 1px solid var(--fm-line-soft);
         border-radius: 6px;
         background   : var(--fm-panel);
@@ -140,13 +141,13 @@
 
     .fm-mail-row-main {
         display    : flex;
-        gap        : 8px;
+        gap        : var(--fm-space-2);
         align-items: baseline;
     }
 
     .fm-mail-subject {
         flex         : 1;
-        font-size    : 12px;
+        font         : var(--fm-text-body);
         color        : var(--fm-ink);
         overflow     : hidden;
         white-space  : nowrap;
@@ -159,8 +160,8 @@
         flex         : none;
         border       : 0;
         cursor       : pointer;
-        font-family  : var(--fm-font-mono);
-        font-size    : 9px;
+        font         : var(--fm-text-micro);   /* 9px → micro: the ruled deliberate growth */
+        line-height  : 1;
         padding      : 2px 7px;
         border-radius: 999px;
         color        : var(--fm-ink-dim);
@@ -187,14 +188,13 @@
         }
 
         > .fm-mail-row + .fm-mail-row {
-            margin-top: 4px;
+            margin-top: var(--fm-space-1);
         }
     }
 
     .fm-mail-row-meta {
-        margin-top : 3px;
-        font-family: var(--fm-font-mono);
-        font-size  : 9px;
-        color      : var(--fm-ink-dim);
+        margin-top: 3px;
+        font      : var(--fm-text-micro);   /* 9px → micro: the ruled deliberate growth */
+        color     : var(--fm-ink-dim);
     }
 }

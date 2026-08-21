@@ -4,17 +4,19 @@
    AgentDetail.scss (the read-half mailbox pane); same token vocabulary so the cockpit speaks one
    language across read and write. */
 /* the parent pane's root frame lives in OperatorMailbox.scss (#17209) — this file owns the form only */
+/* §04 rhythm record (#17265): off-rhythm survivors — root gap 10, list-item pad 6/10, outcome
+   gap 2 + row pad 3/8, actions margin-top 4 + pad-top 10 — recorded, deferred to #17268. */
 .fm-operator-compose-form {
     gap    : 10px;
-    padding: 12px;
+    padding: var(--fm-space-3);
 
     /* stacked field labels (labelPosition: top) get an even rhythm and a quiet label */
     .neo-form-field {
-        gap: 4px;
+        gap: var(--fm-space-1);
 
         .neo-form-field-label {
             color      : var(--fm-ink-dim);
-            font-size  : 12px;
+            font       : var(--fm-text-body);
             font-weight: 600;
         }
     }
@@ -23,11 +25,11 @@
        label and a bordered, scrollable well; a selected row takes the signal accent to read as chosen —
        every color a --fm-* token, so both skins hold by construction */
     .fm-operator-compose-recipients {
-        gap: 4px;
+        gap: var(--fm-space-1);
 
         .fm-operator-compose-recipients-label {
             color      : var(--fm-ink-dim);
-            font-size  : 12px;
+            font       : var(--fm-text-body);
             font-weight: 600;
         }
 
@@ -58,8 +60,8 @@
 
     /* the send rail sits under a soft divider, its control pushed to the trailing edge by the spacer */
     .fm-operator-compose-actions {
-        gap          : 8px;
-        margin-top   : 4px;
+        gap          : var(--fm-space-2);
+        margin-top   : var(--fm-space-1);
         padding-top  : 10px;
         border-top   : 1px solid var(--fm-line-soft);
 
@@ -80,13 +82,13 @@
         gap           : 2px;
 
         &:not(:empty) {
-            margin-top: 8px;
+            margin-top: var(--fm-space-2);
         }
 
         .fm-compose-outcome-row {
             border-radius: 4px;
-            font-size    : 12px;
-            padding      : 3px 8px;
+            font         : var(--fm-text-body);
+            padding      : 3px var(--fm-space-2);
 
             &.is-sent    { color: var(--fm-state-ok); }
             &.is-refused { color: var(--fm-ink-dim); }

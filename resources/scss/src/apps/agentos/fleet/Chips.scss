@@ -15,8 +15,9 @@
    on the config card + the add-agent form). Selection state is structural (border + weight + a
    signal wash) — never hue-alone; every color reads from the token layer. Distinct from EventChip
    (kind-colored stream facts): a selector chip is an affordance, an event chip is an observation.
-   Recorded affordance-class distinctions (deliberate, not drift): 6px radius and its own 3px/9px
-   padding — a pressable control earns a visibly different plate from an observation chip. */
+   Recorded affordance-class distinctions (deliberate, not drift): 6px radius, its own 3px/9px
+   padding, and — §04 (#17265) — detail-role METRICS with the family kept `inherit`: a pressable
+   control speaks the surrounding surface's voice, not the observation tier's mono. */
 /* the doubled selector out-cascades the stock .neo-button skin, which loads after this file on
    button-composed chips (same-specificity order would let the slab win — the .neo-button.fm-*
    discipline every fleet surface uses) */
@@ -28,8 +29,8 @@
     box-shadow    : none;
     color         : var(--fm-ink-dim);
     cursor        : pointer;
-    font          : inherit;
-    font-size     : 11px;
+    font          : var(--fm-text-detail);
+    font-family   : inherit;   /* affordance-class distinction: detail metrics, surrounding voice */
     height        : auto;
     margin        : 0;
     min-height    : 0;

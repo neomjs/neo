@@ -2,7 +2,11 @@
    the legacy Accounts-embedded skin, every color a token read. Ink tiers per TOKENS.md roles:
    values/names on --fm-ink, labels/meta on --fm-ink-dim (NEVER --fm-ink-faint — its contrast
    failure is on record); outcome states borrow the kind/state vocabulary, each paired with a
-   non-color carrier (weight / style / text), never hue alone. */
+   non-color carrier (weight / style / text), never hue alone.
+   §04 rhythm record (#17265): off-rhythm survivors — root gap 6, identity gap 2, section
+   margin-top 6, chips gap 6 — recorded here, deferred to the #17268 pane-composition pass.
+   The local .fm-chip block sheds its drifted geometry/type duplicates (12px, pad 2/8) so the
+   Chips.scss affordance family owns them — this card keeps only its transition + state classes. */
 .fm-agent-config-card {
     background: var(--fm-panel);
     border    : 1px solid var(--fm-line);
@@ -11,11 +15,11 @@
     display: flex;
     flex-direction : column;
     gap    : 6px;
-    padding: 10px 12px;
+    padding: var(--fm-space-3);   /* the spec-named card-padding snap (10 → 12) */
 
     .fm-config-empty {
-        color     : var(--fm-ink-dim);
-        font-size : 12px;
+        color: var(--fm-ink-dim);
+        font : var(--fm-text-body);
     }
 
     .fm-config-identity {
@@ -24,35 +28,34 @@
         gap            : 2px;
 
         .fm-config-name {
-            color     : var(--fm-ink);
-            font-size : 14px;
+            color: var(--fm-ink);
+            font : var(--fm-text-display);   /* the identity name joins the display tier (weight 600 rides the role) */
         }
 
         .fm-config-status {
-            color     : var(--fm-ink-dim);
-            font-size : 11px;
+            color: var(--fm-ink-dim);
+            font : var(--fm-text-detail);
         }
     }
 
     .fm-config-section {
         display        : flex;
         flex-direction : column;
-        gap            : 4px;
+        gap            : var(--fm-space-1);
         margin-top     : 6px;
 
         .fm-config-heading {
             color          : var(--fm-ink-dim);
-            font-family    : var(--fm-font-mono);
-            font-size      : 11px;
-            letter-spacing : .04em;
+            font           : var(--fm-text-chrome);
+            letter-spacing : var(--fm-text-chrome-tracking);   /* .04em → the chrome role's .08em: the eyebrow joins the tier */
             text-transform : uppercase;
         }
     }
 
     .fm-config-row {
         display         : flex;
-        font-size       : 12px;
-        gap             : 12px;
+        font            : var(--fm-text-body);
+        gap             : var(--fm-space-3);
         justify-content : space-between;
 
         .fm-config-label {
@@ -101,13 +104,12 @@
     }
 
     /* Harness chips: selectable pills on the quiet base, the selected one reaches for the
-       signal pair (the chrome's submit-button treatment) — never plain inline text. */
+       signal pair (the chrome's submit-button treatment) — never plain inline text.
+       Geometry + type come from the Chips.scss affordance family; this block owns only the
+       state classes and the state-transition motion (vocabulary read — --motion-base has no
+       FM alias by contract). */
     .fm-chip {
-        border       : 1px solid var(--fm-line);
-        border-radius: 6px;
-        cursor       : pointer;
-        font-size    : 12px;
-        padding   : 2px 8px;
+        cursor    : pointer;
         transition: background var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft), color var(--motion-base) var(--ease-out-soft);
 
         &.is-selectable {
@@ -139,7 +141,7 @@
     }
 
     .fm-config-save-status {
-        font-size  : 11px;
+        font       : var(--fm-text-detail);
         min-height : 14px;
 
         &.is-idle {

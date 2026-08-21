@@ -64,4 +64,65 @@ test.describe('AgentOS FM motion vocabulary — reduced-motion collapse witness 
         expect(preferenceTokens.fast, '--motion-fast is non-zero under no-preference').not.toBe('0ms');
         expect(preferenceTokens.base, '--motion-base is non-zero under no-preference').not.toBe('0ms')
     });
+
+    /**
+     * The panel-tier rendered witness: the FM panel alias (`--fm-motion-panel`) drives REAL reveal
+     * motion on the two production reveal surfaces that consume it — the instance-switcher menu
+     * (`fm-instance-menu-reveal`) and the manage-instances drawer (`fm-im-reveal`) — and collapses
+     * under `prefers-reduced-motion`: the alias inherits the vocabulary-layer 0ms AND each surface's
+     * in-file inclusion gate removes the reveal animation outright (instant, never absent). Computed
+     * values on mounted elements, per the ratified motion audit — source inheritance is not motion
+     * evidence.
+     */
+    test('the panel reveal alias renders 280ms on the switcher menu + manager drawer and collapses under reduced motion', async ({page}) => {
+        await page.goto('/apps/agentos/index.html');
+        await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
+
+        const trigger = page.locator('.fm-instance-trigger');
+
+        await expect(trigger).toBeVisible({timeout: 30000});
+
+        const readMotion = locator => locator.evaluate(el => {
+            const s = getComputedStyle(el);
+            return {
+                duration: s.animationDuration,
+                name    : s.animationName,
+                panel   : s.getPropertyValue('--fm-motion-panel').trim()
+            }
+        });
+
+        // ── no preference: the reveal is real motion, timed by the alias ─────────────────────────
+        await page.emulateMedia({reducedMotion: 'no-preference'});
+        await trigger.click();
+
+        const menu = page.locator('.fm-instance-menu');
+
+        await expect(menu).toBeVisible();
+
+        const menuAnimated = await readMotion(menu);
+
+        expect(menuAnimated.name,     'the switcher menu runs its reveal animation').toBe('fm-instance-menu-reveal');
+        expect(menuAnimated.duration, 'the menu reveal is timed by the panel alias (280ms)').toBe('0.28s');
+        expect(menuAnimated.panel,    '--fm-motion-panel resolves 280ms under no-preference').toBe('280ms');
+
+        // the manage-instances drawer rides the same alias through its own reveal
+        await page.locator('.fm-instance-manage').click();
+
+        const manager = page.locator('.fm-instance-manager');
+
+        await expect(manager).toBeVisible();
+
+        const managerAnimated = await readMotion(manager);
+
+        expect(managerAnimated.name,     'the manager drawer runs its reveal animation').toBe('fm-im-reveal');
+        expect(managerAnimated.duration, 'the drawer reveal is timed by the panel alias (280ms)').toBe('0.28s');
+
+        // ── reduced motion: the alias collapses via the vocabulary, the in-file gate removes the reveal ─
+        await page.emulateMedia({reducedMotion: 'reduce'});
+
+        const managerReduced = await readMotion(manager);
+
+        expect(managerReduced.panel, '--fm-motion-panel collapses to 0ms under reduced motion (vocabulary-layer inheritance)').toBe('0ms');
+        expect(managerReduced.name,  'the drawer reveal is gated off under reduced motion — the state change lands instantly').toBe('none')
+    });
 });
