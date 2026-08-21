@@ -26,8 +26,16 @@ class Agent extends Base {
          */
         loop: null,
         /**
-         * The AI Provider class or string alias ('gemini', 'ollama').
-         * @member {Neo.ai.provider.Base|String} modelProvider=GeminiProvider
+         * @summary The AI provider: a `Neo.ai.provider.Base` subclass, or one of the canonical aliases
+         * `'gemini'` / `'openAiCompatible'` / `'ollama'`.
+         *
+         * The alias list is not restated here by choice — {@link module:ai/provider/providerAliases}
+         * owns it and {@link resolveProviderClass} enforces it, so this docblock cannot drift out of
+         * step with the set the way the previous one had: it advertised two aliases while the
+         * deployment's own configured default is the third.
+         *
+         * Aliases are matched **exactly**; a mis-cased value is refused rather than coerced.
+         * @member {Function|String} modelProvider=GeminiProvider
          */
         modelProvider: GeminiProvider,
         /**

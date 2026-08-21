@@ -3,6 +3,9 @@ import {
     createProviderActivityLifecycle,
     observeUnqueuedProviderActivity
 }                            from '../services/shared/providerActivityLedger.mjs';
+// Vocabulary only — this module lazy-imports its provider classes so selecting Gemini never loads
+// Ollama, and `providerAliases` is import-free precisely so sharing the alias set cannot undo that.
+import {assertProviderAlias} from './providerAliases.mjs';
 
 let GoogleGenerativeAIClass,
     OllamaProviderClass,
@@ -119,6 +122,12 @@ export function buildChatModel({
     providerActivityRecorder,
     providerActivityService = 'unknown'
 } = {}) {
+    // Validate against the SHARED set before dispatching, so this surface and `resolveProviderClass`
+    // cannot drift on which aliases exist or on what an unsupported one is told. The branches below
+    // still dispatch per provider — representation-specific dispatch is fine; two private copies of
+    // the accepted set were not.
+    assertProviderAlias(modelProvider, 'buildChatModel');
+
     if (modelProvider === 'openAiCompatible') {
         const cfg = openAiCompatibleConfig || {};
         let providerPromise;
@@ -296,5 +305,11 @@ export function buildChatModel({
         };
     }
 
-    throw new Error(`buildChatModel: unsupported modelProvider '${modelProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
+    // Unreachable via the entry assertion above, which rejects every non-canonical alias before any
+    // branch runs. Retained as a structural backstop: if a canonical alias is ever added to
+    // `providerAliases` without a branch here, this fires by name instead of returning undefined.
+    throw new Error(
+        `buildChatModel: alias '${modelProvider}' is canonical but has no dispatch branch. ` +
+        'Adding it to providerAliases requires a branch here.'
+    );
 }

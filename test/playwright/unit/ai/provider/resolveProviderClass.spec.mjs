@@ -19,29 +19,27 @@ import * as core                from '../../../../../src/core/_export.mjs';
 import GeminiProvider           from '../../../../../ai/provider/Gemini.mjs';
 import OllamaProvider           from '../../../../../ai/provider/Ollama.mjs';
 import OpenAiCompatibleProvider from '../../../../../ai/provider/OpenAiCompatible.mjs';
-import {resolveProviderClass, supportedProviderAliases}
-    from '../../../../../ai/provider/resolveProviderClass.mjs';
+import {buildChatModel}         from '../../../../../ai/provider/buildChatModel.mjs';
+import {resolveProviderClass}   from '../../../../../ai/provider/resolveProviderClass.mjs';
+import {assertProviderAlias, formatSupportedAliases, isProviderAlias, PROVIDER_ALIASES}
+    from '../../../../../ai/provider/providerAliases.mjs';
 
 /**
- * @summary One alias vocabulary for callers that need a provider CLASS rather than a built chat model.
+ * @summary One alias vocabulary, consumed by both production surfaces.
  *
  * `Neo.ai.Agent` resolved aliases inline with `alias.toLowerCase() === 'ollama' ? OllamaProvider :
- * GeminiProvider` — a two-way test over a three-value set. The arm named RED CONTROL below is the one that
- * matters: it reproduces that expression and shows it routes `openAiCompatible` to Gemini, so this spec
- * demonstrates a behaviour change rather than restating the new code.
+ * GeminiProvider` — a two-way test over a three-value set. The RED CONTROL reproduces that expression
+ * so this file demonstrates a behaviour change rather than restating the new code, and the parity
+ * block asserts the two surfaces share one accepted set instead of two copies that happen to agree.
  */
-test.describe('resolveProviderClass', () => {
+test.describe('provider alias vocabulary', () => {
     test('RED CONTROL: the replaced inline resolution routed openAiCompatible to Gemini', () => {
-        // Verbatim shape of the expression this module replaces.
         const previous = alias => alias.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
 
         expect(previous('ollama')).toBe(OllamaProvider);
         expect(previous('gemini')).toBe(GeminiProvider);
+        expect(previous('openAiCompatible')).toBe(GeminiProvider);   // the defect
 
-        // The defect: a supported alias silently selecting the wrong provider.
-        expect(previous('openAiCompatible')).toBe(GeminiProvider);
-
-        // And the fix changes exactly that case.
         expect(resolveProviderClass('openAiCompatible')).toBe(OpenAiCompatibleProvider);
     });
 
@@ -51,64 +49,116 @@ test.describe('resolveProviderClass', () => {
         expect(resolveProviderClass('openAiCompatible')).toBe(OpenAiCompatibleProvider);
     });
 
-    test('every advertised alias resolves, so the set cannot advertise what it cannot serve', () => {
-        const aliases = supportedProviderAliases();
+    test('every advertised alias maps to a distinct class, so the set cannot advertise what it cannot serve', () => {
+        const classes = PROVIDER_ALIASES.map(alias => resolveProviderClass(alias));
 
-        expect(aliases.length).toBeGreaterThan(0);
+        expect(PROVIDER_ALIASES.length).toBeGreaterThan(0);
+        classes.forEach(cls => expect(typeof cls).toBe('function'));
 
-        // Asserted as a set rather than one by one: a new alias added to the map without a class would
-        // pass the three arms above and fail here.
-        for (const alias of aliases) {
-            expect(typeof resolveProviderClass(alias)).toBe('function');
+        // Distinctness matters: the original defect was two aliases resolving to ONE class.
+        expect(new Set(classes).size).toBe(PROVIDER_ALIASES.length);
+    });
+
+    /* ------------------------------------------------------------------ *
+     * RA-1 — cross-surface parity. Mutating EITHER consumer's accepted set
+     * must redden here, which is what makes the vocabulary shared rather
+     * than merely matching.
+     * ------------------------------------------------------------------ */
+
+    test('PARITY: both production surfaces accept exactly the canonical set', () => {
+        for (const alias of PROVIDER_ALIASES) {
+            expect(isProviderAlias(alias), `${alias} is canonical`).toBe(true);
+
+            // `resolveProviderClass` accepts it...
+            expect(() => resolveProviderClass(alias)).not.toThrow();
+
+            // ...and `buildChatModel` gets past its alias gate for the same value. It is allowed to
+            // fail LATER for provider-specific reasons (gemini without a key returns null); what must
+            // not happen is a refusal naming an unsupported alias.
+            let message = '';
+            try {
+                buildChatModel({modelProvider: alias})
+            } catch (error) {
+                message = error.message
+            }
+            expect(message, `${alias} must not be refused as unsupported`).not.toMatch(/unsupported modelProvider/);
         }
     });
 
-    test('matching stays case-insensitive, because the replaced expression lower-cased', () => {
-        expect(resolveProviderClass('Ollama')).toBe(OllamaProvider);
-        expect(resolveProviderClass('OPENAICOMPATIBLE')).toBe(OpenAiCompatibleProvider);
-    });
+    test('PARITY: both surfaces refuse the same unknown alias with the same set', () => {
+        const bogus = 'anthropic';
 
-    test('an unknown alias throws and NAMES the supported set', () => {
-        expect(() => resolveProviderClass('anthropic')).toThrow(/unsupported modelProvider 'anthropic'/);
-        expect(() => resolveProviderClass('anthropic')).toThrow(/'gemini'/);
-        expect(() => resolveProviderClass('anthropic')).toThrow(/'openAiCompatible'/);
-        expect(() => resolveProviderClass('anthropic')).toThrow(/'ollama'/);
-    });
+        expect(() => resolveProviderClass(bogus)).toThrow(/unsupported modelProvider/);
+        expect(() => buildChatModel({modelProvider: bogus})).toThrow(/unsupported modelProvider/);
 
-    test('an unknown alias does NOT fall back to a provider', () => {
-        // The whole point: the previous expression answered every unknown alias with Gemini, and a keyless
-        // Gemini returns null from its chat path rather than throwing — so the wrong choice was unobservable.
-        let resolved = 'threw';
+        // Derived from one ordered set, so the two diagnostics quote the same list in the same order.
+        const supported = formatSupportedAliases();
 
-        try {
-            resolved = resolveProviderClass('anthropic')
-        } catch {
-            // expected
+        for (const surface of [() => resolveProviderClass(bogus), () => buildChatModel({modelProvider: bogus})]) {
+            let message = '';
+            try { surface() } catch (error) { message = error.message }
+            expect(message).toContain(supported);
         }
-
-        expect(resolved).toBe('threw');
     });
+
+    test('PARITY: the case boundary is the same on both surfaces', () => {
+        // Canonical-only. `buildChatModel` always compared exactly; the Agent expression lower-cased.
+        // One contract had to win and the wider consumer's did.
+        expect(() => resolveProviderClass('Ollama')).toThrow(/unsupported modelProvider/);
+        expect(() => buildChatModel({modelProvider: 'Ollama'})).toThrow(/unsupported modelProvider/);
+        expect(isProviderAlias('Ollama')).toBe(false);
+    });
+
+    /* ------------------------------------------------------------------ *
+     * RA-2 — the direct-class path is validated, not trusted.
+     * ------------------------------------------------------------------ */
 
     test('a provider CLASS passes through, since Agent declares one as its default', () => {
         expect(resolveProviderClass(GeminiProvider)).toBe(GeminiProvider);
         expect(resolveProviderClass(OllamaProvider)).toBe(OllamaProvider);
+        expect(resolveProviderClass(OpenAiCompatibleProvider)).toBe(OpenAiCompatibleProvider);
+    });
+
+    test('NEGATIVE CONTROLS: non-class values are refused here, not deferred into Neo.create', () => {
+        // Each of these was previously returned unchanged, so the failure surfaced as a confusing
+        // class-construction error instead of naming the argument the caller got wrong.
+        for (const value of [42, true, {}, [], (x) => x, Symbol('nope')]) {
+            expect(() => resolveProviderClass(value), String(typeof value))
+                .toThrow(/expected a canonical alias|received/);
+        }
     });
 
     test('a missing provider throws rather than passing undefined to Neo.create', () => {
-        expect(() => resolveProviderClass(undefined)).toThrow(/no provider given/);
-        expect(() => resolveProviderClass(null)).toThrow(/no provider given/);
+        expect(() => resolveProviderClass(undefined)).toThrow(/expected a canonical alias/);
+        expect(() => resolveProviderClass(null)).toThrow(/expected a canonical alias/);
     });
 
-    test('CONTROL: the alias map is frozen, so a caller cannot reintroduce the drift', () => {
-        const before = resolveProviderClass('gemini');
+    test('a plain Neo-free subclass is refused, so isClass alone is not the test', () => {
+        class NotAProvider {}
 
-        // A mutation attempt must not change what a later caller resolves.
-        try {
-            resolveProviderClass('gemini').mutated = true
-        } catch {
-            // irrelevant — the assertion below is about the mapping, not the class object
-        }
+        expect(() => resolveProviderClass(NotAProvider)).toThrow(/received/);
+    });
 
-        expect(resolveProviderClass('gemini')).toBe(before);
+    /* ------------------------------------------------------------------ *
+     * RA-3 — an OBSERVABLE freeze control. The previous arm mutated
+     * `GeminiProvider` rather than the map, leaked that property into the
+     * shared unit worker, and stayed green with the freeze removed.
+     * ------------------------------------------------------------------ */
+
+    test('CONTROL: the shared alias set is frozen, observably and without teardown', () => {
+        expect(Object.isFrozen(PROVIDER_ALIASES)).toBe(true);
+
+        // Strict-mode ESM: mutating a frozen array THROWS. Removing `Object.freeze` makes these
+        // silently succeed, which is what reddens the arm — nothing is mutated either way, so this
+        // leaves no state behind for the next spec in the worker.
+        expect(() => PROVIDER_ALIASES.push('bogus')).toThrow(TypeError);
+        expect(() => { PROVIDER_ALIASES[0] = 'bogus' }).toThrow(TypeError);
+
+        expect(PROVIDER_ALIASES).toEqual(['gemini', 'openAiCompatible', 'ollama']);
+    });
+
+    test('assertProviderAlias names the refusing surface, so a shared message stays attributable', () => {
+        expect(() => assertProviderAlias('nope', 'buildChatModel')).toThrow(/^buildChatModel:/);
+        expect(() => assertProviderAlias('nope', 'resolveProviderClass')).toThrow(/^resolveProviderClass:/);
     });
 });
