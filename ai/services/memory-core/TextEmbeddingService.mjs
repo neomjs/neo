@@ -716,6 +716,9 @@ class TextEmbeddingService extends Base {
     // they queued behind one drain. Bounded by the declared parallelism, so the provider's own stated
     // width is the only authority.
     #openAiCompatiblePostQueueWorkers = 0;
+    // Provider TASKS in flight, not posts. One multi-input POST is one task per input, and the budget
+    // is written in tasks, so admission has to count the same unit.
+    #openAiCompatibleInFlightTasks    = 0;
 
     // Native Ollama admission control. The openAiCompatible path has been serialized since
     // `#openAiCompatiblePostQueue` existed; this path reached the provider through
@@ -856,18 +859,36 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #drainOpenAiCompatiblePostQueue() {
-        // The TASK budget bounds concurrent WORKERS here — and a worker is one POST, not one task.
-        // A post carrying N inputs is N provider tasks, so this ceiling does not bind the unit the
-        // budget is written in. Known open; the admission fix belongs beside this line.
+        // Admission lives HERE, and the placement is the fix rather than a detail.
         // `resolveDispatchPlan` reserves headroom per `embedTexts` call, which is sound for one caller
         // and silently false for two: each satisfies its own reservation and they jointly overshoot the
         // budget the reservation exists to protect. An earlier revision of this comment asserted the
         // opposite — "it can never be the binding constraint … the dispatch loop keeps ITS OWN offered
         // tasks" — and "its own" was the defect. Measured: two callers at width 3 offered six tasks
         // against a budget of four.
-        const maxWorkers = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel);
+        //
+        // A worker cannot enforce it by declining after being spawned. An async function that returns
+        // before its first `await` runs synchronously to its `finally`, so the worker count is already
+        // back down when control reaches this loop — which respawns it, and the pair spins without
+        // bound. That shape reads from outside as a hang; it is measured here as the reason admission
+        // must decide BEFORE a worker exists.
+        const maxTasks = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel);
 
-        while (this.#openAiCompatiblePostQueueWorkers < maxWorkers && this.#openAiCompatiblePostQueue.length > 0) {
+        while (this.#openAiCompatiblePostQueueWorkers < maxTasks && this.#openAiCompatiblePostQueue.length > 0) {
+            const {index} = this.#peekNextOpenAiCompatiblePostQueueIndex();
+
+            if (index === -1) break;
+
+            const weight = this.#openAiCompatibleTaskWeight(this.#openAiCompatiblePostQueue[index]);
+
+            // `inFlightTasks === 0` always admits, so a post wider than the whole budget still makes
+            // forward progress instead of livelocking. A slot withheld here returns the moment a
+            // settling worker re-drains.
+            if (this.#openAiCompatibleInFlightTasks > 0 &&
+                this.#openAiCompatibleInFlightTasks + weight > maxTasks) {
+                break
+            }
+
             this.#openAiCompatiblePostQueueWorkers++;
             this.#runOpenAiCompatiblePostQueueWorker()
         }
@@ -878,6 +899,16 @@ class TextEmbeddingService extends Base {
      * @returns {Promise<void>}
      * @private
      */
+    /**
+     * @summary The number of provider tasks one queued post represents.
+     * @param {Object} task Queued post.
+     * @returns {Number} One per input, minimum one.
+     * @private
+     */
+    #openAiCompatibleTaskWeight(task) {
+        return Array.isArray(task?.inputData) ? Math.max(task.inputData.length, 1) : 1
+    }
+
     async #runOpenAiCompatiblePostQueueWorker() {
         try {
             while (this.#openAiCompatiblePostQueue.length > 0) {
@@ -885,11 +916,23 @@ class TextEmbeddingService extends Base {
 
                 if (taskIndex === -1) break;
 
+                const weight = this.#openAiCompatibleTaskWeight(this.#openAiCompatiblePostQueue[taskIndex]);
+
+                // The drain admitted this worker once. A worker looping to a SECOND task re-checks,
+                // because capacity may have been taken since. Exiting is safe and cannot spin: this
+                // worker has already awaited, so its count is live when the drain next runs.
+                if (this.#openAiCompatibleInFlightTasks > 0 &&
+                    this.#openAiCompatibleInFlightTasks + weight >
+                        resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel)) {
+                    break
+                }
+
                 this.#commitOpenAiCompatibleSelection(bypassedBatchIndex);
 
                 const task = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
 
                 task.markDispatched();
+                this.#openAiCompatibleInFlightTasks += weight;
 
                 const startedAt = Date.now();
 
@@ -898,9 +941,13 @@ class TextEmbeddingService extends Base {
                 try {
                     const result = await this.#postOpenAiCompatible(task.inputData, task.options);
 
+                    this.#openAiCompatibleInFlightTasks -= weight;
+                    this.#drainOpenAiCompatiblePostQueue();
                     task.lifecycle.onSettled({completedAt: Date.now(), success: true});
                     task.resolve(result);
                 } catch (err) {
+                    this.#openAiCompatibleInFlightTasks -= weight;
+                    this.#drainOpenAiCompatiblePostQueue();
                     task.lifecycle.onSettled({completedAt: Date.now(), success: false});
 
                     // The queue task — not each transport attempt — owns final failure, so by the

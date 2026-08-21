@@ -1612,6 +1612,96 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         expect(clamped.embeddings, 'the clamped run must agree with the fanned-out one').toEqual(expected);
     });
 
+
+    test('the TASK budget binds ACROSS concurrent callers, not per call (#17412)', async () => {
+        // `resolveDispatchPlan` reserves headroom per `embedTexts` call. The queue then admitted by
+        // POST while the budget is denominated in TASKS, so two callers each satisfied their own
+        // reservation and jointly offered six tasks against a budget of four.
+        const probe = async () => {
+            const http   = await import('node:http');
+            const budget = Number(process.env.PROBE_TASK_BUDGET);
+            const held   = [];
+
+            let inFlightTasks = 0,
+                maxTasks      = 0,
+                stallGuard    = null;
+
+            // Once the budget IS honoured the callers serialize, so an arm that waited for both to
+            // overlap would hang exactly where the fix makes it correct. Releasing on arrival-quiet
+            // keeps the arm decidable in both worlds.
+            // fixed-sleep-justification: arrival debounce that keeps the arm decidable, not a wait.
+            const armStallGuard = () => {
+                clearTimeout(stallGuard);
+                stallGuard = setTimeout(() => held.splice(0).forEach(release => release()), 250)
+            };
+
+            const server = http.createServer((request, response) => {
+                let body = '';
+
+                request.on('data', chunk => body += chunk);
+                request.on('end', () => {
+                    const payload = body ? JSON.parse(body) : {input: []},
+                          inputs  = Array.isArray(payload.input) ? payload.input : [payload.input];
+
+                    // TASKS, not requests: one multi-input POST is one provider task per input.
+                    inFlightTasks += inputs.length;
+                    maxTasks       = Math.max(maxTasks, inFlightTasks);
+                    armStallGuard();
+
+                    held.push(() => {
+                        inFlightTasks -= inputs.length;
+                        response.writeHead(200, {'Content-Type': 'application/json'});
+                        response.end(JSON.stringify({
+                            data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
+                        }))
+                    });
+
+                    if (inFlightTasks >= budget) {
+                        clearTimeout(stallGuard);
+                        stallGuard = null;
+                        held.splice(0).forEach(release => release())
+                    }
+                })
+            });
+
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                process.env.NEO_OPENAI_COMPATIBLE_HOST = `http://127.0.0.1:${server.address().port}`;
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                const [first, second]    = await Promise.all([
+                    Service.embedTexts(['a', 'b', 'c'], 'openAiCompatible'),
+                    Service.embedTexts(['d', 'e', 'f'], 'openAiCompatible')
+                ]);
+
+                console.log(JSON.stringify({maxTasks, first, second}));
+            } finally {
+                clearTimeout(stallGuard);
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve))
+            }
+        };
+
+        const result = await runIsolatedEmbeddingProbe(probe, {
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0',
+            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '3',
+            NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4',
+            PROBE_TASK_BUDGET                               : '4'
+        });
+
+        // Admission paces; it must not reorder or drop. Without these, a change that merged or lost a
+        // caller would satisfy the budget assertion below.
+        expect(result.first,  'caller one must receive its own vectors, in its own order').toEqual(
+            ['a', 'b', 'c'].map(input => [input.charCodeAt(0), input.length]));
+        expect(result.second, 'caller two must receive its own vectors, in its own order').toEqual(
+            ['d', 'e', 'f'].map(input => [input.charCodeAt(0), input.length]));
+
+        expect(result.maxTasks,
+            'the declared task budget must bind across concurrent callers, not per call'
+        ).toBeLessThanOrEqual(4);
+    });
+
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {
         const evidence = await runIsolatedEmbeddingProbe(async () => {
             const http                = await import('node:http');
