@@ -78,24 +78,22 @@ chunks were still resident.
 
 ```mermaid
 flowchart TD
-    subgraph declared["Declared leaves — ai/configBase.mjs"]
-        Parallel["localModels.embedding.parallel<br/>NEO_LOCAL_MODELS_EMBEDDING_PARALLEL<br/>default 1"]
-        Ctx["localModels.embedding.contextLimitTokens<br/>default 32768"]
-        Safe["localModels.embedding.safeProcessingLimitTokens<br/>default 28672"]
-        Width["openAiCompatible.batchEmbeddingChunkSize<br/>default 5"]
-        Slice["orchestrator.tenantRepoSync.sliceBudgetMs<br/>default 300000"]
-        Hold["orchestrator.heavyMaintenance.maxActiveHoldMs<br/>default 1800000"]
-    end
-
-    Parallel --> Concurrency["request CONCURRENCY<br/>how many POSTs outstanding"]
+    Parallel["leaf: localModels.embedding.parallel<br/>NEO_LOCAL_MODELS_EMBEDDING_PARALLEL · default 1"]
+        --> Concurrency["request CONCURRENCY<br/>how many POSTs outstanding"]
+    Concurrency ~~~ Width["leaf: openAiCompatible.batchEmbeddingChunkSize<br/>default 5"]
     Width --> Requests["request WIDTH<br/>inputs per POST"]
+    Requests ~~~ Ctx["leaf: localModels.embedding.contextLimitTokens<br/>default 32768"]
     Ctx --> Band["admission band<br/>min of the two ceilings"]
-    Safe --> Band
+    Safe["leaf: localModels.embedding.safeProcessingLimitTokens<br/>default 28672"] --> Band
     Band --> Estimate["estimateBandTokens<br/>floor(ceiling / 1.35)"]
     Estimate --> Guard["guardrail: split or refuse<br/>before the provider is called"]
+    Guard ~~~ Slice["leaf: orchestrator.tenantRepoSync.sliceBudgetMs<br/>default 300000"]
     Slice --> RepoBound["per-repo slot bound<br/>rotate, keep the lease"]
+    RepoBound ~~~ Hold["leaf: orchestrator.heavyMaintenance.maxActiveHoldMs<br/>default 1800000"]
     Hold --> LeaseBound["outer lease bound<br/>stand down, release"]
 ```
+
+*All six leaves are declared in `ai/configBase.mjs`.*
 
 **Contract.** `EMBEDDING_TOKEN_ESTIMATE_DRIFT_FACTOR = 1.35`
 (`ai/embeddingSafeBand.mjs:42`) and `BYTES_PER_TOKEN_HEURISTIC = 3`
@@ -199,17 +197,23 @@ throughput is a correctness concern here and not only a performance one.
 ```mermaid
 flowchart TD
     subgraph pair1["slice budget × checkpoint"]
+        direction LR
         A1["budget expires"] --> A2["deferred, not failed"] --> A3["checkpoint frozen"]
     end
     subgraph pair2["admission band × provider tokenizer"]
+        direction LR
         B1["ceil(bytes / 3) estimate"] --> B2["provider's real tokenizer differs"] --> B3["admitted input the provider refuses,<br/>or refused input it would have taken"]
     end
     subgraph pair3["starvation watchdog × lease holder"]
+        direction LR
         C1["waiter starves"] --> C2["watchdog names the holder"] --> C3["holder consults no bound<br/>so naming changes nothing"]
     end
     subgraph pair4["carry arithmetic × an unstated invariant"]
+        direction LR
         D1["formula: count × width"] --> D2["stated reason FALSE<br/>(final span is short)"] --> D3["conclusion held anyway,<br/>via dispatch order nobody wrote down"]
     end
+
+    pair1 ~~~ pair2 ~~~ pair3 ~~~ pair4
 ```
 
 **The fourth pair is the one worth internalising, and it is not a failure — it is
