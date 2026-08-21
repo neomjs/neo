@@ -27,9 +27,7 @@
     border-left  : var(--fm-chip-mark-w) solid var(--fm-viewer-wake-mark);
     border-radius: var(--fm-chip-radius);
     color        : var(--fm-ink-dim);
-    font-family  : var(--fm-font-mono);
-    font-size    : 11px;
-    line-height  : 1.4;
+    font         : var(--fm-text-detail);
     white-space  : nowrap;
     overflow     : hidden;
     text-overflow: ellipsis;

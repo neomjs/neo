@@ -17,15 +17,16 @@
     /* the seat-conflation truth marker — sits directly above the compose surface so the fact is
        read before the writing starts. Alert-kind wash: this is a verified identity fact with
        consequences, not decoration; it must not be mistakable for the quiet meta family. */
+    /* §04 rhythm record (#17265): warning pad 7/10 + compose divider pad-top 10 stay off-rhythm,
+       deferred to #17268 */
     > .fm-operator-identity-warning {
-        margin       : 8px 0 0;
+        margin       : var(--fm-space-2) 0 0;
         padding      : 7px 10px;
         border       : 1px solid var(--fm-kind-alert);
         border-radius: 6px;
         background   : color-mix(in srgb, var(--fm-kind-alert) 12%, transparent);
         color        : var(--fm-ink);
-        font-size    : 11.5px;
-        line-height  : 1.4;
+        font         : var(--fm-text-detail);   /* 11.5 → detail (tie to smaller) */
     }
 
     /* the compose form sits under a soft divider — the read half above, the write half below;

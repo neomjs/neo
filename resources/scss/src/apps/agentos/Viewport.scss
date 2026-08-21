@@ -17,6 +17,35 @@
     --fm-chip-radius: 4px;
     --fm-chip-gap   : 8px;
 
+    /* The §04 type ladder (TOKENS.md): five roles as font shorthands — a surface picks a ROLE,
+       never a pixel (#17265). Weight rides the shorthand only where the role states it (display
+       600); a site needing a different weight re-declares font-weight AFTER consuming the role,
+       so every deviation is visible at the site. The chrome role's non-font half (tracking) has
+       its own bindable slot because the shorthand cannot carry it; uppercase stays a declaration
+       at the site (binary, self-documenting). Mode-invariant by construction — the stacks
+       resolve from the skin twins at use time, in both viewports this sheet reaches. */
+    --fm-text-display: 600 14px/1.3 var(--fm-font-sans);
+    --fm-text-body   : 12px/1.45 var(--fm-font-sans);
+    --fm-text-detail : 11px/1.4 var(--fm-font-mono);
+    --fm-text-micro  : 10px/1.3 var(--fm-font-mono);
+    --fm-text-chrome : 11px/1 var(--fm-font-mono);
+
+    --fm-text-chrome-tracking: .08em;
+
+    /* The §04 spacing rhythm: 4/8/12/16 (#17265). On-ladder literals bind these; a padding/gap
+       value outside the rhythm is a recorded exception in its file's SCSS header — never silent. */
+    --fm-space-1: 4px;
+    --fm-space-2: 8px;
+    --fm-space-3: 12px;
+    --fm-space-4: 16px;
+
+    /* FM motion aliases (§04 T4): the FM-scoped re-timing knob over the product motion
+       vocabulary — pointing at the standards tiers, never at dock-scoped aliases. The
+       vocabulary-layer reduced-motion collapse (_motion.scss) flows through the alias by
+       construction, so the accessibility contract is inherited, not re-implemented. */
+    --fm-motion-panel: var(--motion-panel, 280ms);
+    --fm-motion-fast : var(--motion-fast, 120ms);
+
     /* The liveness pulse period (motion ladder): decoration only — the hue + word carry the
        fact, and the animation exists only under no-preference (the StateDot inclusion-gate). */
     --fm-motion-pulse: 2400ms;
@@ -35,7 +64,7 @@
         color        : var(--fm-ink-dim);
         box-shadow   : none;
         font-weight  : 500;
-        transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+        transition   : background var(--fm-motion-fast) var(--ease-out-soft), border-color var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
 
         &:hover {
             border-color: var(--fm-ink-dim);
@@ -122,7 +151,7 @@
         box-shadow   : none;
         font-family  : var(--fm-font-sans);
         font-weight  : 500;
-        transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+        transition   : background var(--fm-motion-fast) var(--ease-out-soft), border-color var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
 
         &:hover {
             border-color: var(--fm-ink-dim);

@@ -1,16 +1,18 @@
 /* Activity stream — a liveness header over bounded event rows (time · kind chip · text; a coalesced
    same-actor run reads slightly stronger) plus the "N earlier events" fold, all scoped under the
-   component root. Rail-toned; every color from the token layer. */
+   component root. Rail-toned; every color from the token layer.
+   §04 rhythm record (#17265): off-rhythm survivors — root pad 12/14, row gap 10, the 1px optical
+   baseline nudges on time/recipient — recorded here, deferred to the #17268 pane-composition
+   pass. The stream head joins the chrome tier (tracking .06 → the role's .08). */
 .fm-activity-stream {
     padding   : 12px 14px;
     background: var(--fm-rail);
     overflow  : hidden;
 
     .fm-stream-head {
-        margin-bottom : 8px;
-        font-family   : var(--fm-font-mono);
-        font-size     : 11px;
-        letter-spacing: .06em;
+        margin-bottom : var(--fm-space-2);
+        font          : var(--fm-text-chrome);
+        letter-spacing: var(--fm-text-chrome-tracking);
 
         &.is-live .fm-stream-state {
             color: var(--fm-signal);
@@ -32,20 +34,19 @@
 
     .fm-ev-row {
         gap          : 10px;
-        padding      : 8px 0;
+        padding      : var(--fm-space-2) 0;
         border-bottom: 1px solid var(--fm-line-soft);
     }
 
     .fm-ev-time {
         padding-top: 1px;
-        font-family: var(--fm-font-mono);
-        font-size  : 10.5px;
+        font       : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
         color      : var(--fm-ink-dim);
         white-space: nowrap;
     }
 
     .fm-ev-text {
-        font-size    : 12.5px;
+        font         : var(--fm-text-body);   /* 12.5 → body: the ruled invisible 0.5px migration */
         color        : var(--fm-ink);
         overflow     : hidden;
         white-space  : nowrap;
@@ -57,8 +58,7 @@
        directed one without relying on the signal wash. */
     .fm-ev-recipient {
         padding-top: 1px;
-        font-family: var(--fm-font-mono);
-        font-size  : 10.5px;
+        font       : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
         color      : var(--fm-ink-dim);
         white-space: nowrap;
 
@@ -75,10 +75,9 @@
     }
 
     .fm-stream-fold {
-        padding    : 8px 0 0;
-        font-family: var(--fm-font-mono);
-        font-size  : 10.5px;
-        color      : var(--fm-ink-dim);
-        text-align : center;
+        padding   : var(--fm-space-2) 0 0;
+        font      : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
+        color     : var(--fm-ink-dim);
+        text-align: center;
     }
 }

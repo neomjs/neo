@@ -2,12 +2,18 @@
    (absolute left edge) · head (avatar spanning identity[name-line · state-line] · actions) ·
    work-row (tail-aware lane) · source strip · control-status. Width modes are CARD-OWNED via
    `@container` (ADR 0029: the card responds to its OWN width, never the viewport). Geometry + the
-   token layer only; every colour reads from `--fm-*`. */
+   token layer only; every colour reads from `--fm-*`.
+   §04 rhythm record (#17265): card padding rides the spec's named 12px snap; the 16px left pad
+   stays as the named rail-clearance exception (on-ladder as space-4 by value). Off-rhythm
+   survivors — head gap 10px, control-verb gap 6px, provenance/lane-count pill pads 2/6 + 2/7
+   (the pill register, distinct from the chip family) — recorded here and deferred to the
+   #17268/#17211 composition passes. Compact `line-height: 1` overrides on pill/meta registers
+   are site-visible role deviations, deliberate. */
 .fm-agent-card {
     container-type: inline-size;   /* the card is its own width-query context (card-owned responsiveness) */
     position      : relative;
-    gap           : 8px;
-    padding       : 10px 12px 10px 16px;   /* left pad clears the 4px rail + a gutter */
+    gap           : var(--fm-space-2);
+    padding       : var(--fm-space-3) var(--fm-space-3) var(--fm-space-3) var(--fm-space-4);   /* left pad clears the 4px rail + a gutter */
     /* NO `overflow: hidden` on the card: as a grid item it would gain automatic-min-size 0 and let a
        height-constrained card wall shrink it below its own anatomy, clipping the source strip /
        control-status below the boundary. The card must always contain its full rows; the rail keeps
@@ -50,11 +56,11 @@
     .fm-card-identity {
         flex     : 1;
         min-width: 0;   /* lets the name ellipsize instead of overflowing the card */
-        gap      : 4px;
+        gap      : var(--fm-space-1);
     }
 
     .fm-card-name-line {
-        gap      : 8px;
+        gap      : var(--fm-space-2);
         min-width: 0;
     }
 
@@ -69,9 +75,7 @@
         border      : none;
         background  : none;
         box-shadow  : none;
-        font        : inherit;
-        font-size   : 14px;
-        font-weight : 600;
+        font        : var(--fm-text-display);
         color       : var(--fm-ink);
         text-align  : start;
         cursor      : pointer;
@@ -90,6 +94,12 @@
                overrides the Button-root `color`, so the name renders near-black on the dark panel
                without this (the effective-selector contrast fix, not just root color) */
             color        : var(--fm-ink);
+            /* §04 measured record (#17265): the ROOT consumes the display role (14/1.3·600, FM
+               sans), but the framework button theme re-sizes THIS child span (16px, theme face) —
+               so the visible name renders the framework's values, before and after the token
+               pass alike. The 16px-at-AgentCard oversize is the ergonomics slice's deliberate
+               move slot per the spec disposition (#17211) — resolving the child override belongs
+               there, never to a migration pass. */
         }
 
         &:hover .neo-button-text {
@@ -105,17 +115,16 @@
 
     /* the durable-id fallback register: the id renders as the drill target in mono */
     .fm-card-name-id .neo-button-text {
-        font-family: var(--fm-font-mono);
+        font       : var(--fm-text-body);
+        font-family: var(--fm-font-mono);   /* the durable-id register: body metrics, mono voice */
         font-weight: 500;
-        font-size  : 12px;
         color      : var(--fm-ink-dim);
     }
 
     /* the name-provenance chip — the freshness-pill register */
     .fm-name-provenance {
         flex         : none;
-        font-family  : var(--fm-font-mono);
-        font-size    : 9px;
+        font         : var(--fm-text-micro);   /* 9px → micro: the ruled deliberate growth (nothing below 10px ships) */
         line-height  : 1;
         white-space  : nowrap;
         padding      : 2px 6px;
@@ -129,15 +138,14 @@
     }
 
     .fm-card-engine {
-        flex       : none;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
-        color      : color-mix(in srgb, var(--fm-ink-dim) 75%, transparent);
+        flex: none;
+        font: var(--fm-text-micro);
+        color: color-mix(in srgb, var(--fm-ink-dim) 75%, transparent);
     }
 
     /* ── the state line: dot · state-word · lane-count badge (right-pinned) · telltale ── */
     .fm-card-state-line {
-        gap      : 8px;
+        gap      : var(--fm-space-2);
         min-width: 0;
     }
 
@@ -146,8 +154,7 @@
        word (the 1.4.1→1.4.3 trap avoided by construction). Literal lowercase from stateLabel(). */
     .fm-card-state {
         flex       : none;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
+        font       : var(--fm-text-micro);
         line-height: 1;
         white-space: nowrap;
         color      : var(--fm-ink-dim);
@@ -163,8 +170,7 @@
        of signal, never a verdict. */
     .fm-card-presence {
         flex       : none;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
+        font       : var(--fm-text-micro);
         line-height: 1;
         white-space: nowrap;
         color      : var(--fm-ink-dim);
@@ -174,8 +180,7 @@
     .fm-card-lane-count {
         flex         : none;
         margin-left  : auto;
-        font-family  : var(--fm-font-mono);
-        font-size    : 10px;
+        font         : var(--fm-text-micro);
         line-height  : 1;
         color        : var(--fm-ink-dim);
         background   : color-mix(in srgb, var(--fm-ink-dim) 12%, transparent);
@@ -195,8 +200,7 @@
         --fm-telltale-mark: var(--fm-state-limited);
 
         flex         : none;
-        font-family  : var(--fm-font-mono);
-        font-size    : 10px;
+        font         : var(--fm-text-micro);
         line-height  : 1;
         color        : var(--fm-telltale-mark);
         background   : color-mix(in srgb, var(--fm-telltale-mark) 12%, transparent);
@@ -235,7 +239,7 @@
            reduced-motion guard hands those users the instant state, losing nothing informational —
            the wash is affordance feedback, not signal (operator UX direction 2026-07-19) */
         @media (prefers-reduced-motion: no-preference) {
-            transition: background var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+            transition: background var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
         }
 
         .neo-button-text {
@@ -274,8 +278,7 @@
     .fm-card-lane {
         flex                     : 1;
         min-width                : 0;
-        font-size                : 12.5px;
-        line-height              : 1.35;
+        font                     : var(--fm-text-body);   /* 12.5 → body: the ruled invisible 0.5px migration */
         color                    : var(--fm-ink);
         overflow                 : hidden;
         display                  : -webkit-box;
@@ -297,9 +300,8 @@
     .fm-card-strip {
         display    : flex;
         align-items: center;
-        gap        : 8px;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
+        gap        : var(--fm-space-2);
+        font       : var(--fm-text-micro);
         color      : var(--fm-ink-dim);
 
         &::before {
@@ -322,10 +324,8 @@
 
     /* the honest control round-trip surface — hidden until a pending intent / terminal reason */
     .fm-card-control-status {
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
-        line-height: 1.3;
-        color      : var(--fm-ink-dim);
+        font : var(--fm-text-micro);
+        color: var(--fm-ink-dim);
     }
 
     /* ══ card-owned width modes (ADR 0029): the card responds to ITS OWN width, not the viewport ══ */
@@ -353,7 +353,7 @@
         .fm-card-action {
             width    : 44px;
             height   : 44px;
-            font-size: 16px;
+            font-size: 16px;   /* §04 recorded exception (#17265): glyph scale for the 44px narrow touch target — #17211's deliberate move, never a role migration */
         }
     }
 }

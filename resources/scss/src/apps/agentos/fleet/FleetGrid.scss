@@ -1,14 +1,20 @@
-/* Fleet grid — a health-summary header over a density-ranked card grid (3-col desktop, collapsing
-   responsively), all scoped under the component root. Every color from the token layer. */
+/* Fleet grid — a health-summary header over a density-ranked card grid, all scoped under the
+   component root. Every color from the token layer.
+   §04 density ladder (#17265): the roster tier is 2-up to the 20-card fleet, 3-up only past
+   1280px of grid measure — queried against the grid's OWN measure (the card's own-width
+   discipline, ADR 0029), because a vessel window makes the viewport a lie.
+   §04 rhythm record (#17265): off-rhythm survivors — head gap 10, cards gutter 9, presence-cap
+   pill pad 1/8, empty-CTA margin 24 + pad 10/18 — recorded here, deferred to #17268/#17211. */
 .fm-fleet-grid {
-    padding: 16px;
-    gap    : 12px;
+    container-name: fm-fleet-grid;
+    container-type: inline-size;
+    padding       : var(--fm-space-4);   /* the spec-named panel padding */
+    gap           : var(--fm-space-3);
 
     .fm-fleet-head {
-        flex       : none; /* pinned: the summary must never scroll away with the roster */
-        gap        : 10px;
-        font-family: var(--fm-font-mono);
-        font-size  : 11px;
+        flex: none; /* pinned: the summary must never scroll away with the roster */
+        gap : 10px;
+        font: var(--fm-text-chrome);
 
         &.is-stale .fm-fleet-stale {
             color: var(--fm-state-wedged);
@@ -16,7 +22,7 @@
     }
 
     .fm-fleet-title {
-        letter-spacing: .14em;
+        letter-spacing: .14em;   /* §04 recorded exception (#17265): the fleet eyebrow keeps its wide emphasis tracking over the chrome role's .08em */
         text-transform: uppercase;
         color         : var(--fm-ink-dim);
     }
@@ -39,29 +45,36 @@
     .fm-fleet-cards {
         /* the scroll-OWNING region: the derived roster (10+ residents) overflows the zone height
            at cockpit splits; only the cards scroll, the summary header stays pinned above
-           (min-height lets the flex chain engage the overflow) */
+           (min-height lets the flex chain engage the overflow).
+           Density ladder (§04 T1): 2-up is the roster's stated step — scan density for the
+           20-card fleet — and 3-up is earned only past 1280px of grid measure. Queried against
+           the grid's own container, never the viewport: a 700px pane in a wide viewport renders
+           the 2-up (or 1-up) it can honestly afford. */
         display              : grid;
         flex                 : 1;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap                  : 9px;
         align-content        : start;
         min-height           : 0;
         overflow-y           : auto;
+    }
 
-        @media (max-width: 1024px) {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+    @container fm-fleet-grid (min-width: 1280px) {
+        .fm-fleet-cards {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
+    }
 
-        @media (max-width: 640px) {
+    @container fm-fleet-grid (max-width: 640px) {
+        .fm-fleet-cards {
             grid-template-columns: 1fr;
         }
     }
 
     .fm-fleet-fold {
         grid-column  : 1 / -1;
-        padding      : 8px 0;
-        font-family  : var(--fm-font-mono);
-        font-size    : 10.5px;
+        padding      : var(--fm-space-2) 0;
+        font         : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
         color        : var(--fm-ink-dim);
         text-align   : center;
         border       : 1px dashed var(--fm-line-soft);

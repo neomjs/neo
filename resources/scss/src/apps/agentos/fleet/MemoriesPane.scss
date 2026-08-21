@@ -1,11 +1,15 @@
 /* AgentOS.view.fleet.MemoriesPane — invoked per-agent session-summary recall in the pinned drawer.
    Head (title · authority) over the meta line, the agent chip row, the session cards, and the
    actions rail. Mount-agnostic by the drawer-shell contract: the HOST owns surface, padding, and
-   rhythm — this root declares no frame; every color reads from the --fm-* token layer. */
+   rhythm — this root declares no frame; every color reads from the --fm-* token layer.
+   §04 rhythm record (#17265): off-rhythm survivors — agent-chip gap 6, rows gap 10, card gap 7 +
+   pad 10, empty pad 14/4, provenance pill pad 1/6, turn gap 6 + pad 9/10 — recorded here,
+   deferred to the #17268 pane-composition pass. Affordance buttons ride the chip family's
+   recorded voice rule (detail metrics, inherited family — Chips.scss). */
 .fm-memories-pane {
 
     .fm-memories-head {
-        gap        : 8px;
+        gap        : var(--fm-space-2);
         align-items: baseline;
         flex-wrap  : wrap;
     }
@@ -19,9 +23,8 @@
     .fm-memories-meta,
     .fm-memories-card-meta,
     .fm-memories-card-attribution {
-        color      : var(--fm-ink-dim);
-        font-family: var(--fm-font-mono);
-        font-size  : 10.5px;
+        color: var(--fm-ink-dim);
+        font : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
     }
 
     /* the agent picker — a WRAPPING chip row, never a squeezed line; selection is structural
@@ -37,7 +40,8 @@
         border-radius: 6px;
         box-shadow   : none;
         color        : var(--fm-ink-dim);
-        font-size    : 11px;
+        font         : var(--fm-text-detail);
+        font-family  : inherit;   /* affordance-class voice rule (Chips.scss) */
         font-weight  : 500;
         min-width    : 0;
 
@@ -74,19 +78,18 @@
 
     .fm-memories-card-title {
         color      : var(--fm-ink);
+        font       : var(--fm-text-body);   /* 12.5 → body: the ruled invisible 0.5px migration */
         font-weight: 650;
-        font-size  : 12.5px;
     }
 
     .fm-memories-card-body {
         color      : var(--fm-ink);
-        font-size  : 12.5px;
-        line-height: 1.45;
+        font       : var(--fm-text-body);
         white-space: pre-wrap;
     }
 
     .fm-memories-actions {
-        gap: 8px;
+        gap: var(--fm-space-2);
     }
 
     /* honest quiet state — absence is not an error (drawer-shell contract item 5) */
@@ -102,8 +105,7 @@
         border       : 1px solid var(--fm-line);
         border-radius: 4px;
         color        : var(--fm-ink-dim);
-        font-family  : var(--fm-font-mono);
-        font-size    : 9.5px;
+        font         : var(--fm-text-micro);   /* 9.5 → micro: nearest role, nothing below 10px ships */
         padding      : 1px 6px;
         white-space  : nowrap;
 
@@ -115,7 +117,7 @@
     }
 
     .fm-memories-card-head {
-        gap: 8px;
+        gap: var(--fm-space-2);
     }
 
     .neo-button.fm-memories-card-open,
@@ -124,7 +126,8 @@
         background : none;
         box-shadow : none;
         color      : var(--fm-ink-dim);
-        font-size  : 11px;
+        font       : var(--fm-text-detail);
+        font-family: inherit;   /* affordance-class voice rule (Chips.scss) */
         font-weight: 500;
         min-width  : 0;
 
@@ -139,17 +142,17 @@
 
     /* the drill-in view: head (back · session title · provenance) over the turn rows */
     .fm-memories-drill-head {
-        gap          : 8px;
-        padding      : 0 0 8px;
+        gap          : var(--fm-space-2);
+        padding      : 0 0 var(--fm-space-2);
         border-bottom: 1px solid var(--fm-line-soft);
     }
 
     .fm-memories-drill-title {
-        color      : var(--fm-ink);
-        font-weight: 650;
-        font-size  : 12.5px;
-        overflow   : hidden;
-        white-space: nowrap;
+        color        : var(--fm-ink);
+        font         : var(--fm-text-body);   /* 12.5 → body: the ruled invisible 0.5px migration */
+        font-weight  : 650;
+        overflow     : hidden;
+        white-space  : nowrap;
         text-overflow: ellipsis;
     }
 
@@ -163,21 +166,18 @@
     }
 
     .fm-memories-turn-meta {
-        color      : var(--fm-ink-dim);
-        font-family: var(--fm-font-mono);
-        font-size  : 10.5px;
+        color: var(--fm-ink-dim);
+        font : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
     }
 
     .fm-memories-turn-response {
         color      : var(--fm-ink);
-        font-size  : 12.5px;
-        line-height: 1.45;
+        font       : var(--fm-text-body);
         white-space: pre-wrap;
     }
 
     .fm-memories-turn-prompt {
-        color      : var(--fm-ink-dim);
-        font-size  : 11.5px;
-        line-height: 1.4;
+        color: var(--fm-ink-dim);
+        font : var(--fm-text-detail);   /* 11.5 → detail (tie to smaller): the prompt quote reads in the transcript register */
     }
 }

@@ -32,9 +32,7 @@
     border-radius: var(--fm-chip-radius);
     background: color-mix(in srgb, var(--fm-spine-mark) 10%, transparent);
     color     : var(--fm-ink);
-    font-family  : var(--fm-font-mono);
-    font-size    : 11px;
-    line-height  : 1.4;
+    font         : var(--fm-text-detail);
     white-space  : nowrap;
     overflow     : hidden;
     text-overflow: ellipsis;
