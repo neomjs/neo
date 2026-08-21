@@ -209,10 +209,13 @@ test.describe('AgentOS OperatorComposeForm — operator write surface (#15377, D
     test('onSendClick sets the pending outcome before firing — the honest in-flight state the owner overwrites', async () => {
         const form = createForm();
 
-        await composeWith(form, {recipients: ['@neo-opus-ada', 'AGENT:*']});
+        // AGENT:* is exclusive by contract: batching it with a named pick settles to the broadcast
+        // alone (the newly-picked side wins, the other yields), so the pending batch size is 1 and
+        // the fired `to` carries exactly the survivor — the selection model is the one truth.
+        const captured = await composeWith(form, {recipients: ['@neo-opus-ada', 'AGENT:*']});
 
-        // pending reflects the batch size; nothing overwrites it here (no owner wired in this unit)
-        expect(form.composeOutcome).toEqual({status: 'pending', count: 2});
+        expect(captured.message.to).toEqual(['AGENT:*']);
+        expect(form.composeOutcome).toEqual({status: 'pending', count: 1});
 
         form.destroy()
     })
