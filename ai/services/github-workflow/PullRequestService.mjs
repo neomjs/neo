@@ -1202,9 +1202,27 @@ function getRound2DispositionRelationFailure({body, reviews, state}) {
             // what appears to be a verbatim copy. The rule is right and stays — byte-verbatim is what
             // stops a Round 2 quietly softening the demand it claims to discharge — but the rule was
             // unstated and its violation unnamed, which is the whole defect.
+            // A mismatch the PARSE caused is not a mismatch the author can fix by carrying the text
+            // more carefully — they already did. Naming the mechanism is the difference between an
+            // instruction they can follow and one they cannot: both known parse causes collapse a
+            // pipe into whitespace, so when the two strings agree once pipes and spaces are
+            // normalised away, the row is telling us about our own reconstruction.
+            //
+            // The pipe in the EXPECTED text is the cause witness, and it is required rather than
+            // implied. `collapsePipesAndSpace` also removes spaces, so "observed partial" and
+            // "observedpartial" compare equal with no pipe anywhere in either — and the branch below
+            // would then instruct an author to escape a pipe their text does not contain. That is
+            // the unfollowable-instruction class this gate exists to remove, reintroduced by the
+            // diagnosis instead of by the rule. Similarity cannot prove which byte the parser lost;
+            // only the presence of that byte can.
+            const pipeShaped = action.includes('|')
+                && collapsePipesAndSpace(row.action) === collapsePipesAndSpace(action);
+
             defects.push(normalizeQuoteForComparison(row.action) === normalizeQuoteForComparison(action)
                 ? `row ${index + 1} differs from the prior round ONLY in formatting. The quote must be byte-verbatim INCLUDING its markdown, so restore the emphasis exactly as written: "${action}"`
-                : `row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
+                : pipeShaped
+                    ? `row ${index + 1} differs from the prior round ONLY where a pipe sits. A literal \`|\` inside a table cell must be escaped as \`\\|\` — unescaped, it ends the cell, so the byte is lost before this comparison sees it. Escape every pipe in: "${action}"`
+                    : `row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
         }
     });
 
@@ -1379,14 +1397,24 @@ function extractRequiredActions(body) {
 }
 
 /**
- * @summary Extracts a Round-2 body's disposition table as `{action, disposition}` rows, in order.
+ * @summary Collapses pipes and surrounding whitespace, so a parse-caused mismatch is recognisable.
  *
- * Reads the SECOND-to-last cell as the verb and everything before it as the carried action, so a
- * table with or without a trailing Evidence column parses the same way. Separator rows (`|---|`) and
- * the header are dropped by requiring a known verb.
- * @param {String} body
- * @returns {Array<{action: String, disposition: String}>}
+ * Both known cell-parse defects end the same way: a literal `|` inside a cell is treated as a
+ * delimiter, the byte disappears, and the halves rejoin across a space. Normalising pipes AND
+ * whitespace to nothing therefore makes the author's text and our reconstruction of it compare
+ * equal exactly when the difference is ours — which is the only signal that separates "you reworded
+ * it" from "we lost a byte reading it".
+ *
+ * Deliberately NOT used for the verbatim rule itself. Byte-verbatim is what stops a Round 2 quietly
+ * softening the demand it discharges; this is a diagnosis of the failure, never a relaxation of it.
+ * @param {String} text
+ * @returns {String}
+ * @private
  */
+function collapsePipesAndSpace(text) {
+    return String(text || '').replace(/[|\s]+/g, '')
+}
+
 /**
  * @summary Strips markdown emphasis and collapses whitespace, for DIAGNOSIS only.
  *
@@ -1452,21 +1480,61 @@ function round2CellParseFailure(cells) {
     }
 }
 
+/**
+ * @summary Splits one Markdown table row into cells, honouring escaped pipes.
+ *
+ * `split('|')` splits on EVERY pipe, so a pipe inside a cell's content becomes a cell boundary: the
+ * byte is deleted, its halves rejoin with a space, and every later column shifts left. A reviewer
+ * carrying a Required Action containing `observed|partial` then had it compared as
+ * `observed partial` and was told to carry it verbatim — which it already was.
+ *
+ * **Escaping was worse than not escaping.** `\|` is the Markdown way to put a pipe in a cell, and
+ * the old split cut it too, leaving the backslash in the compared text. So the author who did the
+ * correct thing got a stranger mismatch than the one who did not, and no wording got them out.
+ * @param {String} line
+ * @returns {String[]} Cell contents, outer delimiters dropped, `\|` restored to `|`.
+ * @private
+ */
+function splitTableRow(line) {
+    return line.split(/(?<!\\)\|/).slice(1, -1).map(cell => cell.trim().replace(/\\\|/g, '|'))
+}
+
+// The template's first column is `#`, carrying the row's LABEL. It is the row's number, not part of
+// the carried action, and folding it in made every row compare as reworded against a prior round
+// that never contained it — the verbatim check failing on the one thing legitimately not verbatim.
+//
+// Widened from digits-only after `RA-1a` and `§0` were folded in. Deliberately still a SHAPE and not
+// "whatever sits in column one": a label is a bare ordinal token, so anything carrying whitespace or
+// prose stays part of the action. That boundary is what stops the repair from becoming a rule that
+// silently drops a genuine first cell.
+const ROUND_2_ROW_LABEL_PATTERN = /^(?:§|#)?[ \t]*(?:RA[ _-]?)?\d+[a-z]?\.?$/i;
+
+/**
+ * @summary Extracts a Round-2 body's disposition table as `{action, disposition}` rows, in order.
+ *
+ * Reads the SECOND-to-last cell as the verb and everything before it as the carried action, so a
+ * table with or without a trailing Evidence column parses the same way. Separator rows (`|---|`) and
+ * the header are dropped by requiring a known verb.
+ *
+ * Selection is deliberately loose and extraction strict: a candidate line is any table row carrying
+ * one of the verbs, because a body that got the table's SHAPE wrong still has to reach the validator
+ * and be told so. Filtering on a well-formed table here would turn a reportable template error into
+ * silence, and the round would pass by producing no rows to check.
+ * @param {String} body Review body markdown.
+ * @returns {Array<{action: String, disposition: String}>} One entry per row, in document order.
+ * @private
+ */
 function extractDispositionRows(body) {
     return String(body || '').split('\n')
         .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))
         .map(line => {
-            const cells = line.split('|').slice(1, -1).map(cell => cell.trim()),
+            const cells = splitTableRow(line),
                   index = cells.findIndex(cell => ROUND_2_DISPOSITIONS.includes(cell));
 
             if (index === -1) return null;
 
-            // The template's first column is `#`, carrying a label like `RA-1`. It is the row's
-            // NUMBER, not part of the carried action, and folding it into the text made every row
-            // compare as reworded against a prior round that never contained it — the verbatim check
-            // failing on the one thing that is legitimately not verbatim.
             const carried  = cells.slice(0, index).filter(Boolean),
-                  labelled = /^(?:RA[ _-]?)?#?\d+\.?$/i.test(carried[0] || '');
+                  labelled = ROUND_2_ROW_LABEL_PATTERN.test(carried[0] || '');
 
             return {
                 action     : carried.slice(labelled ? 1 : 0).join(' ').trim(),
@@ -1803,12 +1871,6 @@ function getMicroDeltaPrReviewTemplateMisses(body) {
 }
 
 /**
- * @summary Returns a structured validation failure for malformed Micro-Delta review bodies.
- *
- * @param {String} body The candidate Micro-Delta PR review body.
- * @returns {Object|null} Validation failure payload or `null` when valid.
- */
-/**
  * @summary Validates an ordinary Round-2 disposition review against its own minimal floor.
  *
  * Round 2 gets its OWN tier rather than routing through the canonical path, for the same reason
@@ -1892,6 +1954,12 @@ function getRound2PrReviewTemplateValidationFailure(body) {
     }
 }
 
+/**
+ * @summary Returns a structured validation failure for malformed Micro-Delta review bodies.
+ *
+ * @param {String} body The candidate Micro-Delta PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
 function getMicroDeltaPrReviewTemplateValidationFailure(body) {
     const missingMicroDelta = getMicroDeltaPrReviewTemplateMisses(body);
 

@@ -2234,6 +2234,115 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '| RA-1 | prior template miss | STILL_OPEN | the original review stays authoritative |'
     );
 
+    /**
+     * A mismatch the PARSE caused is not one the author can fix by carrying the text more carefully.
+     *
+     * A Required Action carrying a literal `|` — an enum like `observed|partial` is the ordinary
+     * case — was cut at that byte, its halves rejoined across a space, and the row rejected as
+     * non-verbatim. Escaping was worse: `\|` was cut too, so the backslash survived into the
+     * compared text and the author doing the correct Markdown thing got a stranger mismatch. There
+     * was no wording that got them out; the only escape was rewording the Round-1 action to contain
+     * no pipe, which makes Round-1 text a function of the Round-2 parser.
+     */
+    // TWO pipes, not one. CodeQL flagged the single-pipe fixture's `replace('|', …)` as incomplete
+    // sanitization, and it was right about more than the idiom: with one pipe, a non-global escape
+    // and a global one are indistinguishable, so the arm could not tell whether every pipe survives
+    // or only the first. The second pipe is what makes the assertion mean what it says.
+    const PIPED_PRIOR_ACTION = 'Record the observed|partial contract, not the stale|fresh one',
+          // Only `GetPullRequestId` is overridden; the mutation branches stay on the suite default,
+          // so a body that passes validation actually submits rather than dying in the mock.
+          withPriorAction    = action => {
+              const base = GraphqlService.query;
+
+              GraphqlService.query = async queryString => queryString.includes('GetPullRequestId')
+                  ? pullRequestLookup({
+                      reviewDecision: 'CHANGES_REQUESTED',
+                      reviews       : {
+                          nodes: [priorRequestChanges({
+                              body: ['# PR Review Summary', '', '### 📋 Required Actions', '', `- [ ] ${action}`].join('\n')
+                          })],
+                          pageInfo: {hasPreviousPage: false}
+                      }
+                  })
+                  : base(queryString)
+          },
+          pipedRoundTwo      = cell => VALID_ROUND_2_REVIEW_BODY.replace(
+              '| RA-1 | prior template miss | ADDRESSED | current body keeps canonical headings |',
+              `| RA-1 | ${cell} | ADDRESSED | escaped per markdown |`
+          ),
+          submitRoundTwo     = body => PullRequestService.managePrReview({
+              action: 'create', pr_number: 11273, state: 'APPROVED', body
+          });
+
+    test('#17284: an ESCAPED pipe survives the cell parse as a literal pipe', async () => {
+        withPriorAction(PIPED_PRIOR_ACTION);
+
+        const result = await submitRoundTwo(pipedRoundTwo(PIPED_PRIOR_ACTION.replaceAll('|', '\\|')));
+
+        expect(result.code, 'the escaped row carries the action verbatim').not.toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+    });
+
+    test('#17284: an UNESCAPED pipe is refused by naming the escape, not by repeating "verbatim"', async () => {
+        withPriorAction(PIPED_PRIOR_ACTION);
+
+        const result = await submitRoundTwo(pipedRoundTwo(PIPED_PRIOR_ACTION));
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        // The old message told the author to carry verbatim text they had already carried verbatim.
+        // Naming the mechanism is the difference between an instruction they can follow and one they
+        // cannot — the refusal is correct either way, and only one of them is actionable.
+        expect(result.message, 'the refusal names the pipe').toMatch(/must be escaped as/);
+        expect(result.message).toContain('ends the cell');
+    });
+
+    test('#17284: a no-pipe difference is NOT diagnosed as a pipe — the byte is the witness', async () => {
+        // Emmy's falsifier, RA-1 on the round-2 review. `collapsePipesAndSpace` removes spaces as
+        // well as pipes, so "observed partial" and "observedpartial" compare equal with no pipe
+        // anywhere in either string. Similarity alone was enough to reach the pipe branch, which then
+        // told an author to escape a pipe their text does not contain -- the exact unfollowable
+        // instruction this gate exists to remove, reintroduced by the diagnosis rather than the rule.
+        //
+        // The discriminating half is the SECOND assertion. Refusing is right either way; refusing
+        // with the wrong mechanism is the defect, so an arm that only checked for rejection would
+        // have passed against the broken code.
+        const spacedPrior = 'Record the observed partial contract';
+
+        withPriorAction(spacedPrior);
+
+        const result = await submitRoundTwo(pipedRoundTwo('Record the observedpartial contract'));
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.message, 'no pipe in the expected text means no pipe diagnosis').not.toMatch(/must be escaped as/);
+        expect(result.message, 'it falls through to the ordinary verbatim demand').toContain('carry it verbatim')
+    });
+
+    test('#17284: sub-lettered and section labels are stripped, and a real first cell is NOT', async () => {
+        // The original defect. `RA-1a` / `§0` were folded into the carried action, so the row compared
+        // as reworded against a prior round that never contained the label.
+        const withLabel = label => VALID_ROUND_2_REVIEW_BODY.replace(
+            '| RA-1 | prior template miss |', `| ${label} | prior template miss |`
+        );
+
+        for (const label of ['§0', 'RA-1a', 'RA-1b', 'RA-1B', '1', '#3', 'RA-2.', 'RA-10']) {
+            withPriorAction('prior template miss');
+
+            const result = await submitRoundTwo(withLabel(label));
+
+            expect(result.code, `${label} is a label, not part of the action`).not.toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        }
+
+        // CONTROL, and it is the half that keeps the widening honest: a first cell that is genuinely
+        // part of an action must still be compared. Without it, "recognise more labels" degrades into
+        // "strip whatever sits in column one", which discharges every row by construction.
+        withPriorAction('prior template miss');
+
+        const genuine = await submitRoundTwo(VALID_ROUND_2_REVIEW_BODY.replace(
+            '| RA-1 | prior template miss |', '| something the prior round never said | prior template miss |'
+        ));
+
+        expect(genuine.code, 'a prose first cell is still compared').toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+    });
+
     test('#17354: a STILL_OPEN row under a non-COMMENT Status is refused by the dry-run', () => {
         // Status says Approved, the row says STILL_OPEN. A STILL_OPEN round keeps the original review
         // authoritative and must be COMMENT, so these two cannot both be true.
