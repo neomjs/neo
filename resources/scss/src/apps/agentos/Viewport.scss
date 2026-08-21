@@ -185,8 +185,64 @@
         background: transparent;
     }
 
-    /* The left-rail keeper-view nav shell. */
-    .agent-shell .neo-tab-header-toolbar {
+    /* ONE tab family for every tier (#17269 cut 2): keeper rail, south content tabs, and the
+       detail's inner strip all speak the §04 chrome role — declared at the shell root so the
+       family travels to the widget viewport with the rest of this sheet (the #17457 lesson:
+       a skin that does not travel with the pane is a mount bug waiting). The active place is
+       structural — signal indicator + full ink + weight — never hue-alone. Type/state land as
+       DIRECT declarations (they out-cascade the stock skin); --tab-button-* rebinds live on
+       the TOOLBAR blocks below, because the theme defines those tokens on the same element
+       this root selector targets — an equal-specificity load-order tie the toolbar level wins
+       by nearest-ancestor instead. Uppercase is declared here, self-owned: the chrome role's
+       case must not depend on a theme token reaching this scope. */
+    .neo-tab-header-button.neo-button {
+        .neo-button-text {
+            font          : var(--fm-text-chrome);
+            letter-spacing: var(--fm-text-chrome-tracking);
+            text-transform: uppercase;
+        }
+
+        /* the glyph decorates, never carries (§04 T3): one step below the label */
+        .neo-button-glyph {
+            font-size: 12px;
+        }
+
+        &:hover {
+            .neo-button-text,
+            .neo-button-glyph {
+                color: var(--fm-ink);
+            }
+        }
+
+        &.pressed .neo-button-text {
+            color      : var(--fm-ink);
+            font-weight: 600;
+        }
+    }
+
+    /* Horizontal strips (south content tabs, the detail's inner strip — .neo-dock-top): the
+       chrome tier's designed density, down from the stock xlarge. The vertical keeper bar
+       deliberately keeps its intrinsic sizing — a rotated label owns its main axis. */
+    .neo-tab-header-toolbar.neo-dock-top {
+        --tab-button-height                : 30px;
+        --tab-button-height-pressed        : 30px;
+        --tab-button-padding               : 0 var(--fm-space-3);
+        --tab-button-gap                   : var(--fm-space-2);
+        --tab-button-text-color            : var(--fm-ink-dim);
+        --tab-button-glyph-color           : var(--fm-ink-dim);
+        --tab-button-glyph-color-pressed   : var(--fm-ink);
+        --tab-button-background-color      : transparent;
+        --tab-button-background-color-hover: var(--fm-panel);
+    }
+
+    /* The keeper-view nav shell — the PRIMARY tier: same family voice, quiet rail surface. */
+    .agent-shell > .neo-tab-header-toolbar {
+        --tab-button-text-color            : var(--fm-ink-dim);
+        --tab-button-glyph-color           : var(--fm-ink-dim);
+        --tab-button-glyph-color-pressed   : var(--fm-ink);
+        --tab-button-background-color      : transparent;
+        --tab-button-background-color-hover: var(--fm-panel);
+
         background  : var(--fm-rail);
         border-right: 1px solid var(--fm-line);
     }

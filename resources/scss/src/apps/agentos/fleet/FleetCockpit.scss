@@ -27,7 +27,10 @@
 
     /* the right-edge dock rail's tabs are NAVIGATION, not actions — the framework's primary
        blue slab never reaches the rail (mirrors the workstation layer's treatment), and the
-       framework button min-width must not push the tab 34px past the viewport edge */
+       framework button min-width must not push the tab 34px past the viewport edge.
+       §04 chrome tier (#17269 cut 2, AC-3): the rotated tabs speak the same chrome voice as the
+       keeper rail — the engine owns the 11px/1 metric floor (src/dashboard), the app speaks the
+       role on top: mono, tracking, case. One navigation family across both edges. */
     .neo-dashboard-dock-rail-tab.neo-button {
         background: transparent;
         border    : 0;
@@ -35,6 +38,16 @@
         color     : var(--fm-ink-dim);
         min-width : 0;
         transition: background var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
+
+        /* voice only — the engine floor (src/dashboard, equal specificity) already owns the
+           11px/1 metrics AT the chrome role's values; re-declaring size here would be a
+           load-order tie, and "equal-specificity load-order ties are not a contract". The
+           full role consumption moves engine-side with #17241's rail-anatomy lift. */
+        .neo-button-text {
+            font-family   : var(--fm-font-mono);
+            letter-spacing: var(--fm-text-chrome-tracking);
+            text-transform: uppercase;
+        }
 
         /* the quiet rail keeps its navigation read — a hover affordance in the same idiom as the
            bar buttons (panel lift + ink), never the primary blue slab */

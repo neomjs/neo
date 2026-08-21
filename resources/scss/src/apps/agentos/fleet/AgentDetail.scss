@@ -5,9 +5,8 @@
    24/8, header gap 10 + pad-bottom 10, identity gap 2, name-row gap 7, pane pad 8/10, freshness
    pill pad 2/7, mailbox frame-tune 8/2/2, telltale/sources gaps 6×10 — recorded here, deferred to
    the #17268 pane-composition pass rather than silently snapped. The inner detail-tab strip
-   (.neo-tab-button 11px + pad) stays literal by design: the tab ANATOMY decision belongs to
-   #17269 cut 2, and pre-empting its role choice here would decide navigation design in a
-   migration pass. Pill registers keep their site-visible `line-height: 1`. */
+   rides the shell-root tab family (#17269 cut 2 — Viewport.scss; the #17265 deferral, resolved).
+   Pill registers keep their site-visible `line-height: 1`. */
 .fm-agent-detail {
     container-type: inline-size;
     gap           : 10px;
@@ -218,9 +217,13 @@
             }
         }
 
-        .neo-tab-button {
-            font-size: 11px;   /* §04 recorded deferral (#17265): tab ANATOMY belongs to #17269 cut 2 — a migration pass must not decide the nav design */
-            padding  : 0 var(--fm-space-2);
+        /* #17269 cut 2 resolved the #17265 deferral: the shell-root tab family (Viewport.scss)
+           owns this strip's anatomy — chrome role, structural active state, both mounts (it
+           travels to the widget viewport with that sheet). Only the width-pressure padding
+           tune stays local. The former `.neo-tab-button` rule here matched nothing — the live
+           classes are `neo-tab-header-button neo-button` (src/tab/header/Button.mjs baseCls). */
+        .neo-tab-header-button.neo-button {
+            --tab-button-padding: 0 var(--fm-space-2);
         }
     }
 

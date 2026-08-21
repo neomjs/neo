@@ -215,6 +215,13 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
                     expect(geometry.chipText, `[${tag}] ${geometry.titleText}: provenance remains verbatim`).toBe(provenance)
                 });
 
+                // deterministic pin gate: the identity header (name + avatar) and the inner tab
+                // strip must be RENDERED before the pixel receipt — a transient capture without
+                // them could otherwise become the baseline unnoticed
+                await expect(narrowDetail.locator('.fm-detail-name'), `[${tag}] narrow receipt carries the identity name`).toBeVisible();
+                await expect(narrowDetail.locator('.fm-detail-avatar'), `[${tag}] narrow receipt carries the avatar`).toBeVisible();
+                await expect(narrowDetail.locator('.fm-detail-tabs .neo-tab-header-button').first(), `[${tag}] narrow receipt carries the tab strip`).toBeVisible();
+
                 await expect(narrowDetail).toHaveScreenshot(`agent-detail-${tag}-narrow-271.png`)
             }
         } finally {
