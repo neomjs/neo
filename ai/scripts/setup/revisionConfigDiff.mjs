@@ -940,12 +940,14 @@ export function parseRevisionConfigDiffArgs(argv = []) {
  * @param {String[]} [options.argv=process.argv.slice(2)]
  * @param {String} [options.repoRoot=process.cwd()]
  * @param {NodeJS.WritableStream} [options.stdout=process.stdout]
+ * @param {String} [options.supportedFromRevision=REVISION_CONFIG_DIFF_SUPPORTED_FROM_REVISION]
  * @returns {Object|null}
  */
 export function main({
     argv = process.argv.slice(2),
     repoRoot = process.cwd(),
-    stdout = process.stdout
+    stdout = process.stdout,
+    supportedFromRevision = REVISION_CONFIG_DIFF_SUPPORTED_FROM_REVISION
 } = {}) {
     const options = parseRevisionConfigDiffArgs(argv);
 
@@ -961,6 +963,7 @@ export function main({
         fromRevision: options.fromRevision,
         toRevision  : options.toRevision,
         repoRoot,
+        supportedFromRevision,
         target      : {
             entrypoint    : options.entrypoint,
             mode          : options.mode,

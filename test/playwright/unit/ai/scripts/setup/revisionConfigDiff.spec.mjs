@@ -10,10 +10,10 @@ import {
     rmSync,
     writeFileSync
 } from 'node:fs';
-import os              from 'node:os';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {test, expect}  from '@playwright/test';
+import os                             from 'node:os';
+import path                           from 'node:path';
+import {fileURLToPath, pathToFileURL} from 'node:url';
+import {test, expect}                 from '@playwright/test';
 import {
     REVISION_CONFIG_DIFF_SCHEMA_VERSION,
     REVISION_CONFIG_DIFF_SUPPORTED_FROM_REVISION,
@@ -30,10 +30,6 @@ import {diffCohortLeafSets} from '../../../../../../ai/scripts/setup/cohortAdmis
 const MODULE_PATH = path.resolve(
     fileURLToPath(new URL('../../../../../../ai/scripts/setup/revisionConfigDiff.mjs', import.meta.url))
 );
-const REAL_REPO_ROOT       = path.resolve(path.dirname(MODULE_PATH), '../../..');
-const REAL_ADDED_FROM      = '54d6e7e2f1d7eaa87eb0c82cfaae70ac0004f657';
-const REAL_ADDED_TO        = '3abfaeabfd099fbe94594c72e763fb576122dee4';
-const PRE_HORIZON_REVISION = 'f25f50983e44f5cdf4c116c940b1537bc27d191c';
 
 /**
  * @summary Minimal source shape accepted by the static config parser.
@@ -46,7 +42,7 @@ function configSource(dataSource, imports = '') {
 }
 
 test.describe.serial('revisionConfigDiff — declared inputs across immutable revisions (#16765)', () => {
-    let repoRoot, revisionA, revisionB, revisionBroken;
+    let repoRoot, revisionPreHorizon, revisionA, revisionB, revisionBroken;
 
     const diff = options => diffRevisionConfig({
         ...options,
@@ -63,6 +59,17 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
         encoding: 'utf8',
         stdio   : ['ignore', 'pipe', 'pipe']
     }).trim();
+
+    const runFixtureCli = argv => {
+        const options = {argv, repoRoot, supportedFromRevision: revisionA};
+        const source  = `import {main} from ${JSON.stringify(pathToFileURL(MODULE_PATH).href)};\n` +
+            `main(${JSON.stringify(options)});\n`;
+
+        return spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
+            cwd     : repoRoot,
+            encoding: 'utf8'
+        })
+    };
 
     const write = (filePath, content) => {
         const absolute = path.join(repoRoot, filePath);
@@ -82,6 +89,9 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
         git(['init']);
         git(['config', 'user.name', 'Revision Config Test']);
         git(['config', 'user.email', 'revision-config@example.invalid']);
+
+        write('README.md', 'fixture history before the configBase contract\n');
+        revisionPreHorizon = commit('fixture pre-horizon');
 
         write('ai/env.mjs', `export const BOUND_ENV = 'NEO_BOUND_A';\n`);
         write('ai/configBase.mjs', configSource(`{
@@ -333,9 +343,10 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
 
         try {
             diffRevisionConfig({
-                fromRevision: PRE_HORIZON_REVISION,
-                toRevision  : REAL_ADDED_TO,
-                repoRoot    : REAL_REPO_ROOT
+                fromRevision         : revisionPreHorizon,
+                toRevision           : revisionB,
+                repoRoot,
+                supportedFromRevision: revisionA
             })
         } catch (error) {
             preHorizonError = error
@@ -349,8 +360,11 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
 
         expect(preHorizonError).toBeInstanceOf(RevisionConfigDiffError);
         expect(preHorizonError.message).toContain('pre-horizon');
-        expect(preHorizonError.message).toContain(REVISION_CONFIG_DIFF_SUPPORTED_FROM_REVISION);
+        expect(preHorizonError.message).toContain(revisionA);
         expect(preHorizonError.message).not.toContain('sibling');
+
+        expect(REVISION_CONFIG_DIFF_SUPPORTED_FROM_REVISION)
+            .toBe('4749eef99e044afecae21c68be4ee8cf2f2f64d2');
 
         expect(missingBaseError).toBeInstanceOf(RevisionConfigDiffError);
         expect(missingBaseError.message).toContain('sibling');
@@ -382,18 +396,17 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
     });
 
     test('the direct CLI emits the closed JSON receipt and uses exit 1 only for execution errors', () => {
-        const success = spawnSync(process.execPath, [
-            MODULE_PATH,
-            '--from', REAL_ADDED_FROM,
-            '--to', REAL_ADDED_TO,
+        const successfulCli = runFixtureCli([
+            '--from', revisionA,
+            '--to', revisionB,
             '--mode', 'prod',
             '--consumer-claim', 'readiness'
-        ], {cwd: REAL_REPO_ROOT, encoding: 'utf8'});
+        ]);
 
-        expect(success.status).toBe(0);
-        expect(success.stderr).toBe('');
+        expect(successfulCli.status).toBe(0);
+        expect(successfulCli.stderr).toBe('');
 
-        const receipt = JSON.parse(success.stdout);
+        const receipt = JSON.parse(successfulCli.stdout);
 
         expect(receipt.schemaVersion).toBe(REVISION_CONFIG_DIFF_SCHEMA_VERSION);
         expect(receipt.target).toEqual({
@@ -403,29 +416,25 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
         });
         expect(receipt.added.length).toBeGreaterThan(0); // Non-empty is still a successful diff.
 
-        const omittedClaims = spawnSync(process.execPath, [
-            MODULE_PATH,
-            '--from', REAL_ADDED_FROM,
-            '--to', REAL_ADDED_TO,
+        const omittedClaims = runFixtureCli([
+            '--from', revisionA,
+            '--to', revisionB,
             '--mode', 'prod'
-        ], {cwd: REAL_REPO_ROOT, encoding: 'utf8'});
+        ]);
 
         expect(omittedClaims.status).toBe(0);
         expect(JSON.parse(omittedClaims.stdout).target.consumerClaims,
             'CLI omission stays unknown rather than becoming an explicit empty claim set').toBeNull();
 
-        const help = spawnSync(process.execPath, [MODULE_PATH, '--help'], {
-            cwd: REAL_REPO_ROOT, encoding: 'utf8'
-        });
+        const help = runFixtureCli(['--help']);
 
         expect(help.status).toBe(0);
         expect(help.stdout).toContain('Usage: node ai/scripts/setup/revisionConfigDiff.mjs');
 
-        const failure = spawnSync(process.execPath, [
-            MODULE_PATH,
+        const failure = runFixtureCli([
             '--from', 'bad-ref',
-            '--to', REAL_ADDED_TO
-        ], {cwd: REAL_REPO_ROOT, encoding: 'utf8'});
+            '--to', revisionB
+        ]);
 
         expect(failure.status).toBe(1);
         expect(failure.stdout).toBe('');
