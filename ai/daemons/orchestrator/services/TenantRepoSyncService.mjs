@@ -22,7 +22,9 @@ import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     EMBED_DISPOSITION,
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    TENANT_AWARE_CHUNK_ID_PATTERN,
     classifyEmbedDisposition,
+    isDurableFenceRow,
     isEmbedFailureCode
 }                                from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {
@@ -328,60 +330,6 @@ function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
 }
 
 /**
- * @summary Tenant-aware chunk hash, the shape a fence row's `chunkId` must carry.
- * @type {RegExp}
- */
-const CHUNK_ID_PATTERN = /^[a-f0-9]{64}$/u;
-
-/**
- * @summary The closed vocabulary of durable fence dispositions the ingestion writer emits.
- *
- * Two families share the poison store and assert DIFFERENT things — `proven-content-poison` is bad
- * content to fix, `undeliverable-at-geometry` is healthy content the current geometry cannot deliver.
- * Both are durable: no amount of coming back changes either at the current generation. They stay
- * separately named here for the same reason `IngestionService` writes them separately — telling an
- * operator to fix a file whose only fault is the plane's ceiling is the confusion worth preventing.
- * @type {Set<String>}
- */
-const FENCE_DISPOSITIONS = Object.freeze(new Set(['proven-content-poison', 'undeliverable-at-geometry']));
-
-/**
- * @summary Decides whether one error row is a DURABLE FENCE rather than live work.
- *
- * **The code alone cannot answer this, which is why the row's details are read at all.** An
- * undeliverable fence could be recognised by its code because that code is minted only at
- * graduation; a content poison carries the ORIGINAL embed-domain code it failed with, so
- * `KB_VECTOR_EMBED_TIMEOUT` is a fence row on one sweep and a live failure on the next. The
- * disposition is the writer's own assertion about which, and it is the only thing that knows.
- *
- * **`classifyIngestionOutcome` reads codes only, deliberately — `details` is unvalidated free
- * shape.** So this read takes the same gate a code gets, and all three clauses are load-bearing:
- * a closed vocabulary (not merely "a string is present"), coherence between `details.reasonCode`
- * and the top-level `code` (the writer assigns both from one local, so disagreement means the row
- * did not come from this contract), and the same bounded id gate the census applies.
- *
- * Every clause fails toward LIVE. A missing, malformed, unknown, or incoherent row keeps its run
- * deferring exactly as today — the direction where a wrong answer costs a wasted sweep rather than
- * a checkpoint advanced over work that never landed.
- *
- * @param {Object} item One `summary.errors` row.
- * @returns {Boolean}
- * @private
- */
-function isDurableFenceRow(item) {
-    const details = item?.details;
-
-    if (!details || typeof details !== 'object' || Array.isArray(details)) {
-        return false;
-    }
-
-    return FENCE_DISPOSITIONS.has(details.disposition)
-        && details.reasonCode === item.code
-        && typeof details.chunkId === 'string'
-        && CHUNK_ID_PATTERN.test(details.chunkId);
-}
-
-/**
  * @summary Decides whether an ingestion run COMPLETED, DEFERRED, or FAILED.
  *
  * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft: failures are
@@ -601,7 +549,7 @@ export const UNDELIVERABLE_CENSUS_MAX_IDS = 32;
  * no signal at all. `null` means "no census observed" (no rows of this family), never "zero measured".
  *
  * @param {Object}   summary   Ingestion summary returned by the run.
- * @param {String}   dispositionValue The {@link FENCE_DISPOSITIONS} member selecting one family.
+ * @param {String}   dispositionValue One closed durable-fence disposition selecting a family.
  * @returns {{count: Number, ids: String[]}|null}
  */
 function buildFenceCensus(summary, dispositionValue) {
@@ -614,7 +562,7 @@ function buildFenceCensus(summary, dispositionValue) {
 
     const ids = [...new Set(
         rows.map(item => item.details.chunkId)
-            .filter(id => typeof id === 'string' && CHUNK_ID_PATTERN.test(id))
+            .filter(id => typeof id === 'string' && TENANT_AWARE_CHUNK_ID_PATTERN.test(id))
     )].sort();
 
     return {
@@ -673,7 +621,8 @@ function isMatchingMaterializationReceipt(receipt, expectedDigest) {
  * Incremental envelopes have no manifest and may remain healthy zero-delta checkpoints.
  *
  * @param {Object} envelope Tenant-repo ingestion envelope.
- * @param {Object} summary Validated error-free ingestion summary.
+ * @param {Object} summary Validated completion-compatible ingestion summary. May carry coherent
+ *     durable-fence rows; those remain operator evidence while no longer representing live work.
  * @param {Object|null} priorState Previous durable checkpoint.
  * @param {Object|null} materializationAttempt Current opaque full-attempt identity.
  * @returns {Object|null} Receipt to acknowledge in the final checkpoint.
@@ -2047,7 +1996,7 @@ class TenantRepoSyncService extends Base {
         // healthy and making progress, while a sweep where every repo deferred is a lane in trouble.
         // Folding them would make the two indistinguishable in the one number an operator reads.
         let partialProgressCount = 0;
-        let   abortedCount   = 0;
+        let abortedCount         = 0;
 
         // Per-runTask concurrency gate caps simultaneous git/ingest work.
         // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`

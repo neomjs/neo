@@ -20,6 +20,10 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
+import {
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
+    classifyEmbedFailureCode
+} from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {createTenantRepoMaterializationDigest}
     from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 
@@ -1252,6 +1256,13 @@ test.describe('IngestionService.ingestSourceFiles', () => {
 test.describe('IngestionService.persistManifestSnapshot receipt-absence diagnostic', () => {
     let Service, logger, originalWarn, warnings;
 
+    const chunkId = 'a'.repeat(64);
+
+    const durableFence = (disposition, code=classifyEmbedFailureCode('EMBEDDING_PROBE_TIMEOUT')) => ({
+        code,
+        details: {chunkId, disposition, reasonCode: code}
+    });
+
     test.beforeAll(async () => {
         Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
         logger  = (await import('../../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
@@ -1362,6 +1373,148 @@ test.describe('IngestionService.persistManifestSnapshot receipt-absence diagnost
             afterComplete?.materializationReceipt ?? null,
             'a run that exhausted its corpus must still mint — the veto is scoped to yielded runs'
         ).toBeTruthy();
+    });
+
+    test('validated fence-only summaries mint positive-effect proof for both fence families (#17440)', async () => {
+        const cases = [
+            ['content-poison', durableFence('proven-content-poison')],
+            ['undeliverable', durableFence(
+                'undeliverable-at-geometry',
+                KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY
+            )]
+        ];
+
+        for (const [repoSlug, error] of cases) {
+            const attempt = {
+                attemptId            : (repoSlug === 'content-poison' ? 'd' : 'e').repeat(32),
+                ingestContractVersion: 2
+            };
+
+            await Service.persistManifestSnapshot({
+                manifestSnapshot      : {repoSlug, pathsAfterPush: ['fenced.txt']},
+                files                 : [{sourcePath: 'fenced.txt', repoSlug, content: 'fenced'}],
+                headRevision          : `sha-${repoSlug}`,
+                materializationAttempt: attempt,
+                tenantContext         : {tenantId: 'fence-tenant', repoSlug},
+                summary               : {ingested: 1, deleted: 0, errors: [error], yielded: false}
+            });
+
+            const stored = await Service.getTenantManifest({tenantId: 'fence-tenant', repoSlug});
+
+            expect(stored.materializationReceipt).toMatchObject(attempt);
+            expect(stored.materializationReceipt.envelopeDigest).toMatch(/^[a-f0-9]{64}$/u);
+        }
+    });
+
+    test('a live or malformed row beside durable fences vetoes proof (#17440)', async () => {
+        const cases = [
+            ['mixed-live', [
+                durableFence('proven-content-poison'),
+                {code: classifyEmbedFailureCode('EMBEDDING_PROBE_TIMEOUT')}
+            ]],
+            ['malformed-fence', [{
+                ...durableFence('proven-content-poison'),
+                details: {
+                    ...durableFence('proven-content-poison').details,
+                    reasonCode: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT'
+                }
+            }]],
+            ['unknown-disposition', [{
+                ...durableFence('proven-content-poison'),
+                details: {...durableFence('proven-content-poison').details, disposition: 'foreign-fence'}
+            }]],
+            ['invalid-chunk-id', [{
+                ...durableFence('proven-content-poison'),
+                details: {...durableFence('proven-content-poison').details, chunkId: 'not-a-hash'}
+            }]],
+            ['missing-details', [{code: classifyEmbedFailureCode('EMBEDDING_PROBE_TIMEOUT')}]]
+        ];
+
+        for (const [repoSlug, errors] of cases) {
+            await Service.persistManifestSnapshot({
+                manifestSnapshot      : {repoSlug, pathsAfterPush: ['blocked.txt']},
+                files                 : [{sourcePath: 'blocked.txt', repoSlug, content: 'blocked'}],
+                headRevision          : `sha-${repoSlug}`,
+                materializationAttempt: {attemptId: 'f'.repeat(32), ingestContractVersion: 2},
+                tenantContext         : {tenantId: 'fence-tenant', repoSlug},
+                summary               : {ingested: 1, deleted: 0, errors, yielded: false}
+            });
+
+            const stored = await Service.getTenantManifest({tenantId: 'fence-tenant', repoSlug});
+
+            expect(stored.materializationReceipt ?? null).toBeNull();
+        }
+    });
+
+    test('yield remains a hard receipt veto for a validated fence-only summary (#17440)', async () => {
+        const
+            repoSlug = 'yielded-fence',
+            envelope = {
+                manifestSnapshot: {repoSlug, pathsAfterPush: ['pending.txt']},
+                files           : [{sourcePath: 'pending.txt', repoSlug, content: 'pending'}],
+                headRevision    : 'sha-yielded-fence',
+                tenantContext   : {tenantId: 'fence-tenant', repoSlug}
+            };
+
+        // Seed matching complete proof. Without this setup, the second call can only test fresh
+        // mint; deleting the fence-only REUSE veto would stay green.
+        await Service.persistManifestSnapshot({
+            ...envelope,
+            materializationAttempt: {attemptId: '0'.repeat(32), ingestContractVersion: 2},
+            summary               : {ingested: 1, deleted: 0, errors: [], yielded: false}
+        });
+
+        expect((await Service.getTenantManifest({
+            tenantId: 'fence-tenant', repoSlug
+        })).materializationReceipt).toBeTruthy();
+
+        await Service.persistManifestSnapshot({
+            ...envelope,
+            materializationAttempt: {attemptId: '1'.repeat(32), ingestContractVersion: 2},
+            summary               : {
+                ingested: 1,
+                deleted : 0,
+                errors  : [durableFence('proven-content-poison')],
+                yielded : true
+            }
+        });
+
+        const stored = await Service.getTenantManifest({tenantId: 'fence-tenant', repoSlug});
+
+        expect(stored.materializationReceipt ?? null).toBeNull();
+    });
+
+    test('a fence-only retry reuses matching completed proof (#17440)', async () => {
+        const
+            repoSlug = 'fence-retry',
+            envelope = {
+                manifestSnapshot: {repoSlug, pathsAfterPush: ['settled.txt']},
+                files           : [{sourcePath: 'settled.txt', repoSlug, content: 'settled'}],
+                headRevision    : 'sha-fence-retry',
+                tenantContext   : {tenantId: 'fence-tenant', repoSlug}
+            },
+            firstAttempt = {attemptId: '2'.repeat(32), ingestContractVersion: 2};
+
+        await Service.persistManifestSnapshot({
+            ...envelope,
+            materializationAttempt: firstAttempt,
+            summary               : {ingested: 1, deleted: 0, errors: [], yielded: false}
+        });
+
+        await Service.persistManifestSnapshot({
+            ...envelope,
+            materializationAttempt: {attemptId: '3'.repeat(32), ingestContractVersion: 2},
+            summary               : {
+                ingested: 0,
+                deleted : 0,
+                errors  : [durableFence('proven-content-poison')],
+                yielded : false
+            }
+        });
+
+        const stored = await Service.getTenantManifest({tenantId: 'fence-tenant', repoSlug});
+
+        expect(stored.materializationReceipt).toMatchObject(firstAttempt);
     });
 });
 

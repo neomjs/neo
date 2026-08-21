@@ -86,6 +86,60 @@ export const KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN = 'KB_VECTOR_EMBED_PROVIDER_C
 export const KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY = 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY';
 
 /**
+ * @summary The writer-owned durable-fence vocabulary carried by ingestion error rows.
+ *
+ * These values are dispositions, not causes: a content poison and a geometry fence retain their
+ * original bounded failure code so diagnostics still explain WHY the chunk was fenced. The
+ * disposition is what says the row is no longer live work at the current generation.
+ * @type {Set<String>}
+ */
+const DURABLE_FENCE_DISPOSITIONS = Object.freeze(new Set([
+    'proven-content-poison',
+    'undeliverable-at-geometry'
+]));
+
+/**
+ * @summary Canonical serialized shape of a tenant-aware chunk id at fence writer/reader boundaries.
+ *
+ * `IngestionService.createChunkHash()` puts tenant awareness inside the hash inputs; the serialized
+ * id remains one bare SHA-256 hex. Keeping that rule beside the durable-fence contract gives its
+ * writers and readers one authority.
+ * @type {RegExp}
+ */
+export const TENANT_AWARE_CHUNK_ID_PATTERN = /^[a-f0-9]{64}$/u;
+
+/**
+ * @summary Decides whether one ingestion error row is a validated durable fence rather than live work.
+ *
+ * The code alone cannot answer this: content-poison rows retain an ordinary embed-domain cause that
+ * can also describe a live failure. Reading the writer-owned disposition is safe only with all four
+ * gates applied together: embed-domain membership, closed disposition vocabulary, reason-code
+ * coherence, and the tenant-aware chunk-id shape. Every malformed or foreign row fails toward LIVE
+ * work, so neither outcome classification nor materialization proof can silently complete an
+ * ambiguous corpus.
+ *
+ * This predicate is shared by the tenant outcome classifier and the materialization-receipt writer.
+ * Two spellings could otherwise classify one summary complete while withholding the proof that
+ * completion requires.
+ *
+ * @param {*} item Candidate `summary.errors` row.
+ * @returns {Boolean} True only for a coherent writer-owned durable fence row.
+ */
+export function isDurableFenceRow(item) {
+    const details = item?.details;
+
+    if (!details || typeof details !== 'object' || Array.isArray(details)) {
+        return false;
+    }
+
+    return isEmbedFailureCode(item?.code)
+        && DURABLE_FENCE_DISPOSITIONS.has(details.disposition)
+        && details.reasonCode === item.code
+        && typeof details.chunkId === 'string'
+        && TENANT_AWARE_CHUNK_ID_PATTERN.test(details.chunkId);
+}
+
+/**
  * @summary Bounded cause for a transport that closed mid-request — the provider stopped answering
  * rather than answering slowly.
  *
@@ -134,8 +188,8 @@ const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
  * @type {Object}
  */
 const PROVIDER_ERROR_CODE_MAP = Object.freeze({
-    ABORT_ERR                        : 'KB_VECTOR_EMBED_ABORTED',
-    ECONNREFUSED                     : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+    ABORT_ERR   : 'KB_VECTOR_EMBED_ABORTED',
+    ECONNREFUSED: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
     // Three vocabularies for one event: the peer reset the connection (`ECONNRESET`), we wrote to a
     // socket the peer had already closed (`EPIPE`), or undici observed the socket end mid-request
     // (`UND_ERR_SOCKET`). All three mean a live process took the request and stopped existing, which
