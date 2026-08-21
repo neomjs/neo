@@ -13,7 +13,8 @@ import {
 }                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
 import {writeFileAtomic}          from '../../../services/shared/atomicFileWrite.mjs';
-import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.mjs';
+import {buildEmbeddingProbeBlock, buildEmbeddingProbeInput, EMBEDDING_PROBE_BAND_FRACTION, projectProbeCoverage} from '../../../services/shared/embeddingProbe.mjs';
+import {resolveEmbeddingAdmissionBand}                     from '../../../embeddingSafeBand.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
 // look right — the producer widening a code the filter still rejects is exactly this ticket's defect.
@@ -97,6 +98,15 @@ const
     EMBEDDING_RECOVERY_FAILURE_TTL_MS     = 30 * 1000,
     EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS = 10 * 60 * 1000,
     EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS   = 30 * 1000,
+    // Milliseconds of provider budget per estimate-token, measured from the incident this lane
+    // exists for: a 13,980-token request took ~180 s on the offending image, i.e. ~12.9 ms/token.
+    //
+    // A constant deadline and a size-derived probe cannot both be right. Sizing the recovery probe
+    // to the full admitted band while leaving a 30 s ceiling means a HEALTHY lane false-times-out
+    // before it can answer — the probe would report `consumer-probe-timeout` on exactly the
+    // recovery it exists to detect, and the bigger the probe got the more certainly it would lie.
+    // The floor keeps small probes on the existing 30 s and 1.5× carries measurement drift.
+    EMBEDDING_PROBE_MS_PER_ESTIMATE_TOKEN = 12.9 * 1.5,
     PERSISTED_REVISIONS_FILE_NAME         = 'tenant-repo-sync-revisions.json',
     TENANT_REPO_SYNC_LEASE_FILE_NAME      = 'tenant-repo-sync-lease.json';
 
@@ -1019,7 +1029,17 @@ class TenantRepoSyncService extends Base {
             terminal           : snapshot.terminal,
             stopReason         : snapshot.stopReason,
             errorClassification: failure?.errorClassification || null,
-            errorCode          : failure?.errorCode || null
+            errorCode          : failure?.errorCode || null,
+            // The size the verdict was reached AT, carried from whichever result this snapshot is
+            // reporting — the freshly delivered probe, or the cached one it is reusing.
+            //
+            // This projection is an explicit ALLOWLIST, which is why declaring the fields at both
+            // ends was not enough. `buildEmbeddingProbeBlock` produced them and the bridge
+            // summarizer declared them; between the two they were dropped HERE, and reached the
+            // public surface as three permanently-empty fields. **A verdict that reports its
+            // coverage as absent, always, is worse than one that does not report it at all** —
+            // it looks answered.
+            ...projectProbeCoverage(delivered ?? snapshot.cached?.result ?? null)
         };
     }
 
@@ -1050,21 +1070,98 @@ class TenantRepoSyncService extends Base {
         if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) return null;
 
         this.embeddingRecoveryClock = clock;
-        this.embeddingRecoveryProbeFn = runProbe || (() => buildEmbeddingProbeBlock({
-            cfg      : AiConfig,
-            embedText: (text, explicitProvider, options) =>
-                TextEmbeddingService.embedText(text, explicitProvider, options),
-            input         : 'neo-tenant-repo-sync-embedding-recovery-canary',
-            operationLabel: 'Tenant repo sync embedding recovery probe',
-            now           : this.embeddingRecoveryClock,
-            timeoutMs
-        }));
+
+        // The band is read HERE, at the use site that owns the decision, and injected into the pure
+        // builder — the sanctioned shape for an `ai/` consumer, and the reason `embeddingProbe.mjs`
+        // stays Neo-free. Resolved per call, so a deployment that narrows its slot mid-run is probed
+        // against the ceiling it actually has.
+        //
+        // Resolved BEFORE the gate key, not inside the probe: the key NAMES this geometry, so a
+        // value produced by the run the key admits can only describe the PREVIOUS run's bound.
+        //
+        // A 44-byte canary certified a property nobody needed. Peak memory for one non-causal
+        // embedding request scales with the SQUARE of its token count, so a probe three orders
+        // of magnitude under the workload cannot fail the way the lane fails — and its `healthy`
+        // was the green light that re-dispatched the batch that killed the engine, 36 times.
+        const probeSize = buildEmbeddingProbeInput({
+            estimateBandTokens: resolveEmbeddingAdmissionBand({
+                contextLimitTokens       : AiConfig.localModels.embedding.contextLimitTokens,
+                safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
+            }).estimateBandTokens,
+            // The recovery probe is NOT full-band, and that is a measured retreat rather than
+            // a preference. A full-band probe genuinely bounds the re-dispatch it authorizes —
+            // the call site cannot see the cohort's input sizes, so the band ceiling is the only
+            // available dominating bound — but the SWEEP AWAITS this probe, and the suite priced
+            // it: the same `runTask` arm passes in 12.7 s at a quarter band and exceeds 30 s at
+            // the full one. In production that latency is a held lease against a dead provider.
+            //
+            // So neither published fork survives contact: the cheap probe does not bound the
+            // authorization, and the bounding probe blocks the sweep. The shape that works is
+            // one neither of us had — obtain the full-size proof OUT of the sweep's critical
+            // path, and let eligibility consume it — and that is open on the PR rather than
+            // guessed at here.
+            fraction: EMBEDDING_PROBE_BAND_FRACTION
+        });
+
+        this.embeddingRecoveryProbeFn = runProbe || (() => {
+            // NOT scaled to the size, and that is currently a KNOWN DEFECT rather than a decision.
+            //
+            // The reviewer is right that a 30 s ceiling under a full-band probe makes a HEALTHY lane
+            // report `consumer-probe-timeout` — the incident's 13,980-token request took ~180 s and
+            // this probe is larger. But scaling it naively is worse in a way only the suite showed:
+            // the sweep AWAITS this probe, so a size-derived 411 s deadline blocks `runTask` for
+            // roughly seven minutes against a dead provider, once per backoff. A spec driving the
+            // real sweep times out at 30 s, which is the operational consequence in miniature.
+            //
+            // Both numbers are wrong and the third is not a number: the deadline has to be bounded by
+            // what the CALLER can afford to wait, which is the lease budget, not by what the request
+            // needs. That is a design decision on a recovery path, and it is open on the PR rather
+            // than picked here.
+            const sizedTimeoutMs = timeoutMs;
+
+            return buildEmbeddingProbeBlock({
+                cfg      : AiConfig,
+                embedText: (text, explicitProvider, options) =>
+                    TextEmbeddingService.embedText(text, explicitProvider, options),
+                input         : probeSize.input,
+                operationLabel: 'Tenant repo sync embedding recovery probe',
+                now           : this.embeddingRecoveryClock,
+                probeSize,
+                timeoutMs     : sizedTimeoutMs
+            })
+        });
 
         if (!this.embeddingRecoveryGate) {
             this.embeddingRecoveryGate = createBoundedRetryGate({
                 run: async context => {
+                    // ONE destructive attempt per proof identity. A full-band probe against a lane
+                    // that OOMs is itself the killing request, and the gate's default budget is
+                    // `Infinity` — so without this the repair reproduces the loop it exists to stop,
+                    // at 30 s → 10 min backoff, forever. The docblock beside the sizing claimed "one
+                    // request"; the mechanism said otherwise, which is the defect this whole ticket
+                    // is about, written into its own fix.
+                    //
+                    // Recorded against the KEY, so the refusal lasts exactly as long as the question
+                    // does: rotate the episode, the generation or the geometry and the identity
+                    // changes, which is the only honest reason to spend another engine.
+                    const died = this.embeddingRecoveryDeaths?.get(context?.key);
+
+                    if (died) {
+                        return {...died, cached: true}
+                    }
+
                     try {
-                        return await this.embeddingRecoveryProbeFn(context);
+                        const outcome = await this.embeddingRecoveryProbeFn(context);
+
+                        // Only DEATH is recorded. `provider-unreachable` is ambient and deserves the
+                        // ordinary bounded retry; a process that accepted the request and went away
+                        // has answered the question this probe asks, and asking again costs another
+                        // engine to learn the same thing.
+                        if (outcome?.errorClassification === 'provider-died') {
+                            (this.embeddingRecoveryDeaths ??= new Map()).set(context?.key, outcome)
+                        }
+
+                        return outcome;
                     } catch {
                         return {
                             status             : 'failed',
@@ -1080,7 +1177,14 @@ class TenantRepoSyncService extends Base {
             });
         }
 
-        const key = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${[...episodeKeys].sort().join(',')}`;
+        // Geometry is part of the proof's IDENTITY, not metadata about it. A cached quarter-band
+        // `healthy` cannot answer a full-band question, and a key that omits the bound lets it —
+        // the proof would satisfy a question it never bounded, which is RA-1 one layer along.
+        //
+        // `sized` is the builder's own word for a band it could not resolve. Read that, rather than
+        // inferring absence from a null fraction: the two are the same today only by coincidence.
+        const geometry = probeSize.sized ? `${probeSize.estimateTokens}:${probeSize.fraction}` : 'unsized',
+              key      = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${geometry}:${[...episodeKeys].sort().join(',')}`;
 
         this.embeddingRecoveryLastResult = await this.embeddingRecoveryGate.tick({key});
         return this.embeddingRecoveryLastResult;
@@ -1890,7 +1994,20 @@ class TenantRepoSyncService extends Base {
                 failureTtlMaxMs: embeddingRecoveryFailureTtlMaxMs
             });
 
-            if (observation?.status === 'healthy') {
+            // `healthy` is not sufficient — `healthy AT THE SIZE THIS AUTHORIZES` is. The verdict
+            // below mints a bypass generation that re-dispatches the whole awaiting cohort, and a
+            // probe that exercised a quarter of the admitted band never bounded that work. Reading
+            // `status` alone is how a 44-byte canary greenlit the batch that killed the engine.
+            //
+            // Asserted HERE as well as sized at the probe call site, deliberately: the call site can
+            // be changed by anyone tuning cadence cost, and this is the decision that spends the
+            // compute. If a future fraction drops below the band, recovery refuses rather than
+            // silently over-authorizing again — the failure mode returns as a stall, which is
+            // visible, instead of as a loop, which is what it was.
+            const coverageBoundsAuthorization = observation?.probeSized === true
+                && observation?.probeBandFraction >= 1;
+
+            if (observation?.status === 'healthy' && coverageBoundsAuthorization) {
                 const
                     generationId = randomBytes(16).toString('hex'),
                     observedAt   = observation.gate?.checkedAt ?? embeddingRecoveryClock(),

@@ -22,8 +22,95 @@ const EMBEDDING_PROBE_FAILURE_CLASSIFICATIONS = Object.freeze({
     EMBEDDING_MODEL_NOT_RESIDENT     : 'model-not-resident',
     EMBEDDING_PROBE_TIMEOUT          : 'consumer-probe-timeout',
     OPENAI_COMPATIBLE_REQUEST_TIMEOUT: 'provider-timeout',
-    PROVIDER_TIMEOUT                 : 'provider-timeout'
+    PROVIDER_TIMEOUT                 : 'provider-timeout',
+    // Provider DEATH, not provider failure, and the difference decides what a consumer may conclude.
+    // `provider-unreachable` above means the connection never came up — ambient, and the lane may be
+    // fine once it does. These four mean the connection came up, the request was accepted, and the
+    // process went away mid-answer: an OOM kill leaves exactly this trace. That is direct evidence
+    // the lane cannot serve THIS input, which is the one conclusion a recovery probe exists to draw.
+    ECONNRESET                       : 'provider-died',
+    EPIPE                            : 'provider-died',
+    ERR_STREAM_PREMATURE_CLOSE       : 'provider-died',
+    UND_ERR_SOCKET                   : 'provider-died'
 });
+
+/**
+ * @summary Bytes per token for the estimate-space heuristic every admission site already uses.
+ * @type {Number}
+ */
+const BYTES_PER_TOKEN_HEURISTIC = 3;
+
+/**
+ * @summary Default share of the admitted band a cadence probe exercises.
+ *
+ * Not a preference — a cost/discrimination trade priced from the incident that produced this
+ * helper. Peak memory for one non-causal embedding request scales with the SQUARE of its token
+ * count: measured on the offending image, idle 7.69 GiB and a single 13,980-token embed peaking at
+ * 24.14 GiB, so ~16.45 GiB marginal at that size. At fraction `f` of a 28,672-token band the
+ * marginal cost is `16.45 × (28672f / 13980)²` GiB — roughly 4.3 GiB at 0.25, and 17.3 GiB at 0.50,
+ * which is the size that was doing the killing.
+ *
+ * 0.25 buys ~354× the discrimination of the constant it replaces (5,309 estimate-tokens against a
+ * 44-byte canary) at roughly a quarter of the killing request's marginal footprint.
+ *
+ * It is a DEFAULT this module owns and every caller may override, not a config leaf: the arithmetic
+ * above is deployment-specific, but no deployment has asked to tune it yet, and a leaf nobody sets
+ * is a knob to maintain rather than a value to read. What makes that safe is the reporting — the
+ * probe carries whichever fraction it used onto its verdict, so `healthy` is never readable as
+ * healthy-at-full-size regardless of who chose the number.
+ * @type {Number}
+ */
+export const EMBEDDING_PROBE_BAND_FRACTION = 0.25;
+
+/**
+ * @summary Builds a probe input sized from the lane's admitted band, and describes what it built.
+ *
+ * Pure. The band arrives resolved from the caller's entrypoint — this helper never reads config.
+ *
+ * A fixed short string is the one input guaranteed not to discriminate: the failure mode is
+ * size-dependent, so a probe three orders of magnitude below the workload certifies a property
+ * nobody asked about. The generated text is deliberately varied rather than one character repeated,
+ * because a run-length-trivial input is exactly what a tokenizer collapses.
+ *
+ * **`sized: false` is a reading, not a fallback.** When the band cannot be resolved the probe still
+ * runs — refusing to probe would remove a signal — but it says it ran unsized, so a consumer can
+ * see that `healthy` means "the plane answered" rather than "the lane can serve admitted work".
+ * @param {Object} [options]
+ * @param {Number|null} [options.estimateBandTokens=null] Estimate-space band from
+ *     `resolveEmbeddingAdmissionBand`, or `null` when the deployment declares no resolvable ceiling.
+ * @param {Number} [options.fraction=EMBEDDING_PROBE_BAND_FRACTION] Share of the band to exercise.
+ * @param {String} [options.marker='neo-embedding-probe'] Leading identifier, so the input is
+ *     recognisable in a provider log.
+ * @returns {{estimateTokens: Number, fraction: Number|null, input: String, sized: Boolean}}
+ */
+export function buildEmbeddingProbeInput({
+    estimateBandTokens = null,
+    fraction           = EMBEDDING_PROBE_BAND_FRACTION,
+    marker             = 'neo-embedding-probe'
+} = {}) {
+    const
+        bandResolved     = Number.isFinite(estimateBandTokens) && estimateBandTokens > 0,
+        fractionResolved = Number.isFinite(fraction) && fraction > 0 && fraction <= 1;
+
+    if (!bandResolved || !fractionResolved) {
+        return {estimateTokens: Math.ceil(marker.length / BYTES_PER_TOKEN_HEURISTIC), fraction: null, input: marker, sized: false}
+    }
+
+    const
+        estimateTokens = Math.max(1, Math.floor(estimateBandTokens * fraction)),
+        targetBytes    = estimateTokens * BYTES_PER_TOKEN_HEURISTIC,
+        // Varied by construction: a repeated character compresses in the tokenizer, which would put
+        // the real token count far below the estimate the caller thinks it asked for.
+        filler         = ' lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor';
+
+    let input = marker;
+
+    while (input.length < targetBytes) {
+        input += `${filler} ${input.length}`
+    }
+
+    return {estimateTokens, fraction, input: input.slice(0, targetBytes), sized: true}
+}
 
 /**
  * @summary Creates the structural caller-owned deadline error shared by embedding-probe consumers.
@@ -64,6 +151,23 @@ export function describeEmbeddingProbeFailure(error) {
 }
 
 /**
+ * @summary Projects a probe result's coverage fields, or their honest absence.
+ *
+ * Exported so the producer, the process-owned snapshot and the bridge all read the SAME three keys
+ * from one place. They were previously written twice and dropped in between, which is how the public
+ * surface ended up declaring coverage it never carried.
+ * @param {Object|null} result A `buildEmbeddingProbeBlock` result, or null when none is being reported.
+ * @returns {{probeBandFraction: Number|null, probeEstimateTokens: Number|null, probeSized: Boolean}}
+ */
+export function projectProbeCoverage(result) {
+    return {
+        probeBandFraction  : Number.isFinite(result?.probeBandFraction) ? result.probeBandFraction : null,
+        probeEstimateTokens: Number.isSafeInteger(result?.probeEstimateTokens) ? result.probeEstimateTokens : null,
+        probeSized         : result?.probeSized === true
+    }
+}
+
+/**
  * @summary Probes one explicitly supplied embedding path and returns a health-safe result block.
  *
  * This module owns only the attempt boundary: deadline, abort propagation, dimension validation,
@@ -89,6 +193,7 @@ export async function buildEmbeddingProbeBlock({
     input,
     operationLabel,
     now = Date.now,
+    probeSize = null,
     timeoutMs
 } = {}) {
     if (!cfg || typeof cfg !== 'object') {
@@ -107,7 +212,21 @@ export async function buildEmbeddingProbeBlock({
     const readNow            = typeof now === 'function' ? now : () => (typeof now === 'number' ? now : now.getTime()),
           startedAt          = readNow(),
           provider           = cfg.embeddingProvider || 'openAiCompatible',
-          expectedDimensions = cfg.vectorDimension ?? null;
+          expectedDimensions = cfg.vectorDimension ?? null,
+          // Echoed on EVERY return path, success included. A verdict that does not carry the size it
+          // exercised is the defect this parameter exists to close: `healthy` then reads as an
+          // unqualified pass over whatever the caller happened to send.
+          //
+          // Absent when the caller supplies no `probeSize`, rather than emitted as nulls. The other
+          // consumers of this helper are healthcheck WRITE CANARIES — deliberately liveness-only,
+          // deliberately tiny, and not consumed as readiness for real work. Widening their public
+          // payload would be a change to two other services' health contracts to describe a size
+          // they never claimed to exercise. The surface that IS read as readiness — the tenant
+          // recovery probe's bridge projection — declares the fields explicitly instead, so absence
+          // is a reading exactly where a reading is owed.
+          sizeBlock          = probeSize
+              ? {probeEstimateTokens: probeSize.estimateTokens ?? null, probeBandFraction: probeSize.fraction ?? null, probeSized: probeSize.sized === true}
+              : {};
 
     let timeoutId;
 
@@ -138,6 +257,7 @@ export async function buildEmbeddingProbeBlock({
                 dimensions,
                 expectedDimensions,
                 durationMs,
+                ...sizeBlock,
                 error : `${operationLabel} returned no vector.`
             };
         }
@@ -149,6 +269,7 @@ export async function buildEmbeddingProbeBlock({
                 dimensions,
                 expectedDimensions,
                 durationMs,
+                ...sizeBlock,
                 error : `${operationLabel} returned ${dimensions} dimensions; expected ${expectedDimensions}.`
             };
         }
@@ -158,7 +279,8 @@ export async function buildEmbeddingProbeBlock({
             provider,
             dimensions,
             expectedDimensions,
-            durationMs
+            durationMs,
+            ...sizeBlock
         };
     } catch (error) {
         const failure = describeEmbeddingProbeFailure(error);
@@ -169,6 +291,7 @@ export async function buildEmbeddingProbeBlock({
             dimensions: null,
             expectedDimensions,
             durationMs: Math.max(0, readNow() - startedAt),
+            ...sizeBlock,
             ...failure
         };
     } finally {

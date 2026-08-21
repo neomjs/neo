@@ -15,6 +15,7 @@ setup({
     }
 });
 
+import {buildEmbeddingProbeInput} from '../../../../../../../ai/services/shared/embeddingProbe.mjs';
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
@@ -982,6 +983,138 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(mixed.contentPoisonChunks).toBeNull();
     });
 
+    test('a provider DEATH is not retried against the same proof identity', async () => {
+        // A full-band recovery probe against a lane that OOMs IS the killing request, and the
+        // bounded gate's default budget is `Infinity` — so without a bound the repair reproduces the
+        // loop it exists to stop, at 30 s → 10 min backoff, forever. The sizing docblock claimed
+        // "one request"; the mechanism said otherwise until this landed.
+        let calls = 0;
+
+        const runProbe = async () => {
+            calls++;
+
+            return {
+                status             : 'failed',
+                errorClassification: 'provider-died',
+                errorCode          : 'ECONNRESET'
+            }
+        };
+        const episodeKeys = ['d'.repeat(32)];
+
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000});
+        // PAST the failure-backoff window — which is the only clock position where this arm
+        // discriminates. Inside the window the gate's ordinary TTL already suppresses the second
+        // call, so an arm that re-asks immediately proves the gate and says nothing about the death
+        // bound. Same advance as the ambient control below, so the two differ ONLY in
+        // classification, which is the whole claim.
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000 + 15 * 60 * 1000});
+
+        expect(calls, 'the engine is spent once to learn this, not once per backoff').toBe(1);
+    });
+
+    test('CONTROL: an ambient failure IS retried — only death is terminal', async () => {
+        // The half that keeps the bound honest. `provider-unreachable` means the connection never
+        // came up: ambient, cheap to re-ask, and the lane may be fine once it does. Recording every
+        // failure would turn one transport blip into a permanent refusal, which strands recovery —
+        // a worse outcome than the loop, and one that would look like discipline.
+        let calls = 0;
+
+        const runProbe = async () => {
+            calls++;
+
+            return {
+                status             : 'failed',
+                errorClassification: 'provider-unreachable',
+                errorCode          : 'ECONNREFUSED'
+            }
+        };
+        const episodeKeys = ['e'.repeat(32)];
+
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000});
+        // Past the failure-backoff window, which is where the ordinary retry lives. The gate is
+        // created once and keeps the TTL it was built with, so the clock has to move rather than the
+        // argument — a per-call `failureTtlMs` on a second call reaches a gate that already exists.
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000 + 15 * 60 * 1000});
+
+        expect(calls, 'an unreachable provider is worth asking again').toBeGreaterThan(1);
+    });
+
+    test('the gate key names a band the service resolved, not one the previous probe left behind', async () => {
+        // The key IS the proof's identity, and the gate rotates a fresh generation on any key change
+        // — clean streak, empty cache, no backoff. So a key component produced by the run that key
+        // admits can only describe the PREVIOUS run's bound, and every first failure is discarded:
+        // the death record written under call 1's key is unreachable to call 2, and the killing
+        // request fires a second time against the lane it just killed.
+        //
+        // The two arms above pass either way, which is the part worth keeping. They inject `runProbe`,
+        // and the geometry used to be assigned inside the branch that injection replaces — so the
+        // spec held one key while production moved it. Identity has to be a function of config and
+        // episodes alone; who runs the probe is not part of the question being asked.
+        const
+            keys     = [],
+            runProbe = async context => {
+                keys.push(context.key);
+
+                return {
+                    status             : 'failed',
+                    errorClassification: 'provider-unreachable',
+                    errorCode          : 'ECONNREFUSED'
+                }
+            },
+            episodeKeys = ['f'.repeat(32)];
+
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000});
+        // Past the failure-backoff window, so the second attempt actually happens and there are two
+        // identities to compare.
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000 + 15 * 60 * 1000});
+
+        expect(keys.length, 'the comparison needs two attempts').toBe(2);
+        expect(keys[0], 'identity is a function of config and episodes, never of call order').toBe(keys[1]);
+        expect(keys[0], 'a resolved band reading, not a placeholder for a probe that has not run')
+            .not.toContain(':pending:');
+    });
+
+    test('the probe size reaches the process-owned snapshot, not just the probe result', async () => {
+        // The gap a reviewer found: `buildEmbeddingProbeBlock` produced the coverage fields and the
+        // bridge summarizer declared them, and THIS projection — an explicit allowlist — dropped them
+        // in between. Both ends were right and the public surface carried three permanently-empty
+        // fields, which is worse than not reporting coverage at all because it looks answered.
+        //
+        // Testing each end proved nothing about the hop. This arm drives the real snapshot getter,
+        // which is the only place the drop was visible.
+        await TenantRepoSyncService.probeEmbeddingRecovery({
+            episodeKeys: ['e'.repeat(32)],
+            clock      : () => 1_000,
+            runProbe   : async () => ({
+                status             : 'healthy',
+                provider           : 'openAiCompatible',
+                dimensions         : 4096,
+                expectedDimensions : 4096,
+                durationMs         : 12,
+                probeEstimateTokens: 5309,
+                probeBandFraction  : 0.25,
+                probeSized         : true
+            })
+        });
+
+        const snapshot = TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot();
+
+        expect(snapshot.probeEstimateTokens).toBe(5309);
+        expect(snapshot.probeBandFraction).toBe(0.25);
+        expect(snapshot.probeSized).toBe(true);
+    });
+
+    test('CONTROL: a snapshot with no probe result reports absent coverage, not a stale one', async () => {
+        // Without this pair, the arm above passes on a projection that hardcodes the numbers. It also
+        // pins the honest-absence half: a snapshot reporting nothing must say so rather than carry the
+        // previous run's size forward, which would be a coverage claim about a probe that never ran.
+        const snapshot = TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot();
+
+        expect(snapshot.probeSized).toBe(false);
+        expect(snapshot.probeEstimateTokens).toBeNull();
+        expect(snapshot.probeBandFraction).toBeNull();
+    });
+
     test('embedding recovery releases only the affected repo once, then rearms after a failed retry (#16692)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),
@@ -1052,7 +1185,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                         errorClassification: 'connection-refused',
                         errorCode          : 'EMBEDDING_CONNECTION_REFUSED'
                     }
-                    : {status: 'healthy'}
+                    // FULL coverage, because the shipped recovery probe now exercises the whole
+                    // admitted band. `{status: 'healthy'}` alone is what eligibility used to accept,
+                    // and this arm is now the POSITIVE control for the coverage guard: a verdict
+                    // that bounds the re-dispatch still authorizes it, end to end through runTask.
+                    : {status: 'healthy', probeBandFraction: 1, probeEstimateTokens: 21238, probeSized: true}
             },
             embeddingRecoveryClock          : () => probeNow,
             embeddingRecoveryFailureTtlMs   : 60_000,

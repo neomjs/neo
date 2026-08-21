@@ -1536,7 +1536,13 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             terminal           : false,
             stopReason         : null,
             errorClassification: 'connection-refused',
-            errorCode          : 'ECONNREFUSED'
+            errorCode          : 'ECONNREFUSED',
+            // A probe snapshot naming no size projects its coverage fields as ABSENT rather than
+            // omitting them: a consumer must be able to read "this verdict does not say what size it
+            // was reached at" from the payload, never from the payload's silence.
+            probeEstimateTokens: null,
+            probeBandFraction  : null,
+            probeSized         : false
         });
         expect(snapshot.repos[0]).toMatchObject({
             status             : 'not-due',
