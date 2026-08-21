@@ -23,6 +23,7 @@ test.describe('FleetCockpit — catch-up owner routing', () => {
                   catchUpReadGeneration: 0,
                   catchUpSnapshot      : null,
                   isDestroyed          : false,
+                  getCatchUpPane       : () => pane,
                   getReference         : ref => ref === 'catch-up' ? pane : null
               };
 
@@ -41,6 +42,7 @@ test.describe('FleetCockpit — catch-up owner routing', () => {
                   catchUpSnapshot      : null,
                   catchUpMarkOutcome   : null,
                   isDestroyed          : false,
+                  getCatchUpPane       : () => pane,
                   getReference         : ref => ref === 'catch-up' ? pane : null
               });
 
@@ -67,6 +69,7 @@ test.describe('FleetCockpit — catch-up owner routing', () => {
                   catchUpReadGeneration: 0,
                   catchUpSnapshot      : null,
                   isDestroyed          : false,
+                  getCatchUpPane       : () => pane,
                   getReference         : ref => ref === 'catch-up' ? pane : null
               },
               old = new Promise(resolve => { resolveOld = resolve });

@@ -1464,7 +1464,11 @@ class FleetCockpit extends Container {
                     snapshot        : me.operatorSnapshot,
                     recipientOptions: me.buildOperatorRecipientOptions(),
                     identityPosture : me.operatorIdentityPosture,
-                    listeners       : {compose: 'onOperatorCompose', inboxPageRequest: 'onOperatorInboxPageRequest'},
+                    listeners       : {
+                        compose         : 'onOperatorCompose',
+                        inboxPageRequest: 'onOperatorInboxPageRequest',
+                        scope           : me.getController()
+                    },
                     reference       : 'operator-mailbox'
                 };
             case 'catch-up':
@@ -1480,7 +1484,8 @@ class FleetCockpit extends Container {
                     listeners       : {
                         historyRequest     : 'onCatchUpHistoryRequest',
                         markCaughtUpRequest: 'onCatchUpMarkRequest',
-                        liveSurfaceRequest : 'onCatchUpLiveSurfaceRequest'
+                        liveSurfaceRequest : 'onCatchUpLiveSurfaceRequest',
+                        scope              : me.getController()
                     },
                     reference: 'catch-up'
                 };
@@ -1493,7 +1498,8 @@ class FleetCockpit extends Container {
                 // The listener scope is bound EXPLICITLY to the owning controller: string handlers
                 // resolve through the component's controller chain at fire time, and a vesseled
                 // pane (click pop-out / gesture tear-out) has no controller above it — an
-                // unscoped string would resolve dead in the vessel and cache that miss.
+                // unscoped string resolves dead in the vessel (a TypeError per fire; the miss is
+                // NOT cached: getController's fast path is truthy-only, so it re-walks once docked).
                 return {
                     module       : MemoriesPane,
                     cls          : [marker],
@@ -1518,7 +1524,10 @@ class FleetCockpit extends Container {
                     module   : WakeRoutePane,
                     cls      : [marker],
                     snapshot : me.wakeRoutesSnapshot,
-                    listeners: {wakeRoutesRequest: 'onWakeRoutesRequest'},
+                    listeners: {
+                        wakeRoutesRequest: 'onWakeRoutesRequest',
+                        scope            : me.getController()
+                    },
                     reference: 'wakeRoutes'
                 };
             default:
@@ -1616,24 +1625,25 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Resolve the live {@link AgentOS.view.fleet.OperatorMailbox} instance whether it is
-     * docked or gesture-torn into a vessel. A torn pane lives outside this cockpit's projected tree,
-     * so owner-side identity and inbox refreshes must use the captured handle instead of stopping at
-     * `getReference()`.
+     * docked, gesture-torn into a vessel, or parked in the vessel-death returning window. A torn
+     * pane lives outside this cockpit's projected tree, so owner-side identity and inbox refreshes
+     * must use the captured handle instead of stopping at `getReference()` — and a push landing in
+     * the returning window must still reach the LIVE instance ({@link #getMemoriesPane} contract).
      * @returns {Neo.container.Base|null} The operator mailbox, or `null` before materialization.
      */
     getOperatorMailboxPane() {
-        return this.tearOutPaneHandles?.operator || this.getReference('operator-mailbox')
+        return this.tearOutPaneHandles?.operator || this.returningTearOutPanes?.operator || this.getReference('operator-mailbox')
     }
 
     /**
      * @summary Resolve the live {@link AgentOS.view.fleet.CatchUpPane} instance whether it is
-     * docked or gesture-torn into a vessel — the {@link #getOperatorMailboxPane} contract for the
-     * catch-up reading surface, so roster-driven option refreshes and the bridge-arrival history
-     * re-drive reach a torn pane too.
+     * docked, gesture-torn into a vessel, or parked in the vessel-death returning window — the
+     * {@link #getOperatorMailboxPane} contract for the catch-up reading surface, so roster-driven
+     * option refreshes and the bridge-arrival history re-drive reach a torn or returning pane too.
      * @returns {Neo.container.Base|null} The catch-up pane, or `null` before materialization.
      */
     getCatchUpPane() {
-        return this.tearOutPaneHandles?.catchUp || this.getReference('catch-up')
+        return this.tearOutPaneHandles?.catchUp || this.returningTearOutPanes?.catchUp || this.getReference('catch-up')
     }
 
     /**
@@ -1650,6 +1660,17 @@ class FleetCockpit extends Container {
         // not adopt the returning pane for a while, and an owner push landing in that window must
         // still reach the LIVE instance — otherwise the eventual adoption renders a stale snapshot.
         return this.tearOutPaneHandles?.memories || this.returningTearOutPanes?.memories || this.getReference('memories')
+    }
+
+    /**
+     * @summary Resolve the live {@link AgentOS.view.fleet.WakeRoutePane} instance whether it is
+     * docked, gesture-torn into a vessel, or parked in the vessel-death returning window — the
+     * {@link #getMemoriesPane} contract for the wake-routes surface, so snapshot writes and the
+     * reconnect re-drive reach the pane in every phase.
+     * @returns {Neo.container.Base|null} The wake-routes pane, or `null` before materialization.
+     */
+    getWakeRoutesPane() {
+        return this.tearOutPaneHandles?.wakeRoutes || this.returningTearOutPanes?.wakeRoutes || this.getReference('wakeRoutes')
     }
 
     /**
@@ -2859,7 +2880,6 @@ class FleetCockpit extends Container {
      */
     async loadCatchUp(params = {}) {
         const me         = this,
-              pane       = me.getReference('catch-up'),
               bridge     = globalThis.AgentOS?.fleet?.registryBridge,
               generation = ++me.catchUpReadGeneration;
 
@@ -2891,6 +2911,11 @@ class FleetCockpit extends Container {
 
         if (generation === me.catchUpReadGeneration && !me.isDestroyed) {
             me.catchUpSnapshot = snapshot;
+
+            // resolve at WRITE time (phase-blind): a pane torn out or rebuilt during the await
+            // still receives the truth — the memories owner-seam contract
+            const pane = me.getCatchUpPane();
+
             pane && (pane.snapshot = snapshot)
         }
 
@@ -2905,7 +2930,6 @@ class FleetCockpit extends Container {
      */
     async markCatchUp(params) {
         const me     = this,
-              pane   = me.getReference('catch-up'),
               bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
         let outcome;
@@ -2920,6 +2944,9 @@ class FleetCockpit extends Container {
 
         if (!me.isDestroyed) {
             me.catchUpMarkOutcome = outcome;
+
+            const pane = me.getCatchUpPane();
+
             pane && (pane.markOutcome = outcome)
         }
 
@@ -3093,7 +3120,7 @@ class FleetCockpit extends Container {
         if (generation === me.wakeRoutesReadGeneration && !me.isDestroyed) {
             me.wakeRoutesSnapshot = snapshot;
 
-            const livePane = me.getReference('wakeRoutes');
+            const livePane = me.getWakeRoutesPane();
 
             livePane && (livePane.snapshot = snapshot)
         }
@@ -3294,7 +3321,12 @@ class FleetCockpit extends Container {
             // loser must not write staler news over newer, and a read outliving its owner has no pane to speak for
             if (generation === me.operatorInboxReadGeneration && !me.isDestroyed) {
                 me.operatorSnapshot = snapshot;
-                pane.snapshot       = snapshot
+
+                // resolve at WRITE time (phase-blind): the admission read above still gates the
+                // request, but a pane torn out or returning during the await gets the fresh truth
+                const livePane = me.getOperatorMailboxPane();
+
+                livePane && (livePane.snapshot = snapshot)
             }
         } catch (error) {
             // fail-closed: the last-known snapshot stays; the pane never renders "no mail" for a read that did not happen
@@ -3556,7 +3588,7 @@ class FleetCockpit extends Container {
         // guards (active agent / partition), so re-driving through it is exactly the button's path.
         me.getMemoriesPane()?.onRefreshClick();
         me.getCatchUpPane()?.onRefreshClick();
-        me.getReference('wakeRoutes')?.onRefreshClick()
+        me.getWakeRoutesPane()?.onRefreshClick()
     }
 
     /**
