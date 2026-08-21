@@ -3,9 +3,11 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
+    CHROMA_CLI_ENTRYPOINT,
     cleanupChromaArtifacts,
     isDetachedProcessAlive,
     ownsChromaDataDir,
+    resolvePackageDir,
     startChromaProcess,
     stopDetachedProcess
 } from '../../chromaProcess.mjs';
@@ -119,7 +121,109 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
             mk('@chroma-core/default-embed', 'dist/default-embed.mjs');
             expect(hasBrainTier(root)).toBe(false);
             mk('better-sqlite3', 'build/Release/better_sqlite3.node');
+            // Still false: `chromadb` is admitted on the LIBRARY entrypoint above, and the
+            // `chroma-setup` project this gate admits spawns the CLI one. Proving a different
+            // artifact from the one the dependent runs is not an admission gate — a partial install
+            // in exactly this shape passed and then died at the heartbeat.
+            expect(hasBrainTier(root)).toBe(false);
+            mk('chromadb', CHROMA_CLI_ENTRYPOINT);
             expect(hasBrainTier(root)).toBe(true);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('a regular file named like a package does not satisfy the resolver', () => {
+        // `existsSync` answers "is there an entry at this path", which a FILE satisfies. Callers then
+        // join entrypoints beneath it and get a confusing miss instead of "not installed here", and
+        // the walk stops at a candidate that can never hold anything.
+        // A name no real install can carry, so the upward walk past the rejected candidate cannot
+        // reach a host package and decide this result — the fixture owns the whole answer.
+        const pkg  = '@neo-fixture-17477/not-a-real-package',
+              root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-file-')),
+              full = path.join(root, 'node_modules', pkg);
+
+        try {
+            fs.mkdirSync(path.dirname(full), {recursive: true});
+            fs.writeFileSync(full, 'not a package');
+
+            expect(fs.existsSync(full)).toBe(true);
+            expect(resolvePackageDir(root, pkg)).toBeNull()
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('the tier resolves from a directory holding no node_modules of its own', () => {
+        // The linked-worktree shape: `npm install` ran one level up, so imports from here resolve
+        // against the parent while a joined `here/node_modules/...` does not exist at all.
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-parent-')),
+              nested = path.join(parent, 'worktree'),
+              mk     = (root, pkg, ...files) => files.forEach(file => {
+                  const full = path.join(root, 'node_modules', pkg, file);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, '{}')
+              });
+
+        try {
+            fs.mkdirSync(nested);
+            mk(parent, 'better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node');
+            mk(parent, 'chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT);
+            mk(parent, '@chroma-core/default-embed', 'dist/default-embed.mjs');
+
+            expect(fs.existsSync(path.join(nested, 'node_modules'))).toBe(false);
+            expect(hasBrainTier(nested)).toBe(true);
+            expect(resolvePackageDir(nested, 'chromadb')).toBe(path.join(parent, 'node_modules', 'chromadb'));
+            // Scoped names are a separate path-join shape and worth pinning once.
+            expect(resolvePackageDir(nested, '@chroma-core/default-embed'))
+                .toBe(path.join(parent, 'node_modules', '@chroma-core/default-embed'));
+        } finally {
+            fs.rmSync(parent, {force: true, recursive: true})
+        }
+    });
+
+    test('CONTROL: the nearest node_modules wins, so a husk is never papered over from above', () => {
+        // The half that keeps the husk probe meaningful. Resolving upward must not become
+        // "search until something works" — a pruned install beside you is still a pruned install,
+        // and falling through to an intact copy in an ancestor would report the tier armed on the
+        // exact broken state the entrypoint checks exist to catch.
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-shadow-')),
+              nested = path.join(parent, 'worktree'),
+              mk     = (root, pkg, ...files) => files.forEach(file => {
+                  const full = path.join(root, 'node_modules', pkg, file);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, '{}')
+              });
+
+        try {
+            fs.mkdirSync(nested);
+            // Intact one level up …
+            mk(parent, 'better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node');
+            mk(parent, 'chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT);
+            mk(parent, '@chroma-core/default-embed', 'dist/default-embed.mjs');
+            // … husked right here. The nearer one is what Node would load, so it is what decides.
+            mk(nested, 'better-sqlite3', 'lib/index.js');
+            mk(nested, 'chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT);
+            mk(nested, '@chroma-core/default-embed', 'dist/default-embed.mjs');
+
+            expect(hasBrainTier(nested)).toBe(false);
+            expect(resolvePackageDir(nested, 'chromadb')).toBe(path.join(nested, 'node_modules', 'chromadb'));
+            // The ancestor is genuinely armed — so this arm fails if the walk ever falls through.
+            expect(hasBrainTier(parent)).toBe(true);
+        } finally {
+            fs.rmSync(parent, {force: true, recursive: true})
+        }
+    });
+
+    test('resolvePackageDir gives up at the filesystem root rather than looping', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-absent-'));
+
+        try {
+            // The name is unique on purpose: the walk genuinely runs to the filesystem root, and no
+            // real `node_modules` anywhere above can carry it, so termination is what is proven and
+            // not the host's contents. An assertion against `path.parse(root).root` would let a
+            // machine that happens to have `/node_modules` decide a unit result.
+            expect(resolvePackageDir(root, '@neo-fixture-17477/absent-everywhere')).toBeNull()
         } finally {
             fs.rmSync(root, {force: true, recursive: true})
         }
@@ -150,6 +254,121 @@ test.describe('test/playwright/chromaProcess — run-scoped Chroma lifecycle', (
         })).rejects.toThrow(/Refusing to reuse a Chroma server already listening/);
 
         expect(spawnCalled).toBe(false);
+    });
+
+    test('the CLI path is RESOLVED from repoRoot, so a worktree spawns the real binary', async () => {
+        // The second half of the same defect. Fixing only the tier probe arms the projects and then
+        // fails at `chroma-setup` with "Chroma exited before its heartbeat became ready" — a
+        // symptom two layers away from `node …/never-existed/dist/cli.mjs`.
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'chroma-cli-resolve-')),
+              nested = path.join(parent, 'worktree'),
+              cliDir = path.join(parent, 'node_modules', 'chromadb', 'dist');
+
+        let spawnedArgs = null;
+
+        try {
+            fs.mkdirSync(nested);
+            fs.mkdirSync(cliDir, {recursive: true});
+            fs.writeFileSync(path.join(cliDir, 'cli.mjs'), '');
+
+            await expect(startChromaProcess({
+                dataDir : path.join(parent, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(parent, 'chroma.log'),
+                port    : 18191,
+                probeFn : async () => false,
+                repoRoot: nested,
+                spawnFn : (_command, args) => {
+                    spawnedArgs = args;
+                    throw new Error('stop here — the spawn argument is the whole assertion')
+                }
+            })).rejects.toThrow(/stop here/);
+
+            // Asserted BEFORE the comparisons below, because `not.toBe(...)` against an unset
+            // capture passes vacuously — a control that cannot fail proves nothing.
+            expect(spawnedArgs).not.toBeNull();
+            expect(spawnedArgs[0]).toBe(path.join(cliDir, 'cli.mjs'));
+            // CONTROL: a joined path would have produced this instead, and it does not exist.
+            expect(spawnedArgs[0]).not.toBe(path.join(nested, 'node_modules', 'chromadb', 'dist', 'cli.mjs'));
+        } finally {
+            fs.rmSync(parent, {force: true, recursive: true})
+        }
+    });
+
+    test('an unlocatable chromadb names itself rather than dying at the heartbeat', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chroma-cli-absent-'));
+
+        try {
+            await expect(startChromaProcess({
+                dataDir : path.join(root, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(root, 'chroma.log'),
+                port    : 18192,
+                probeFn : async () => false,
+                repoRoot: root,
+                // Injected rather than walked. A real walk from a temp dir reads whatever the host
+                // has above it, so the assertion would be about this machine — the same class of
+                // uncontrolled read as the `path.parse(root).root` fixtures this replaces.
+                resolveFn: () => null,
+                spawnFn  : () => { throw new Error('must not reach spawn') }
+            })).rejects.toThrow(/Cannot locate the chromadb package/);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('a located-but-partial chromadb names the missing CLI, and never reaches spawn', async () => {
+        // The admission gate and the process it enables checked DIFFERENT artifacts: `hasBrainTier`
+        // proved `dist/chromadb.mjs`, `chroma-setup` spawns the CLI. An install carrying the first
+        // without the second passed the gate and then failed as "Chroma exited before its heartbeat
+        // became ready" — the same indirection the resolution fix removed, one artifact over.
+        const root       = fs.mkdtempSync(path.join(os.tmpdir(), 'chroma-cli-partial-')),
+              packageDir = path.join(root, 'node_modules', 'chromadb');
+
+        let spawnCalled = false;
+
+        try {
+            fs.mkdirSync(path.join(packageDir, 'dist'), {recursive: true});
+            fs.writeFileSync(path.join(packageDir, 'dist', 'chromadb.mjs'), '');
+
+            // Admission refuses it, so the projects are never armed …
+            expect(hasBrainTier(root)).toBe(false);
+
+            // … and the spawn refuses it too, by name. Both halves, because either one alone leaves
+            // the other free to disagree again.
+            await expect(startChromaProcess({
+                dataDir : path.join(root, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(root, 'chroma.log'),
+                port    : 18193,
+                probeFn : async () => false,
+                repoRoot: root,
+                spawnFn : () => { spawnCalled = true }
+            })).rejects.toThrow(new RegExp(`${CHROMA_CLI_ENTRYPOINT.replace('.', '\\.')} is missing`));
+
+            expect(spawnCalled).toBe(false);
+
+            // CONTROL: same fixture, one file added, and the spawn is now reached. Without this the
+            // arm above is satisfied by a build that refuses every install it is handed.
+            fs.writeFileSync(path.join(packageDir, CHROMA_CLI_ENTRYPOINT), '');
+
+            await expect(startChromaProcess({
+                dataDir : path.join(root, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(root, 'chroma.log'),
+                port    : 18193,
+                probeFn : async () => false,
+                repoRoot: root,
+                spawnFn : () => {
+                    spawnCalled = true;
+                    throw new Error('reached spawn')
+                }
+            })).rejects.toThrow(/reached spawn/);
+
+            expect(spawnCalled).toBe(true)
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
     });
 
     test('SIGINT settles a detached POSIX process group without escalation', async () => {

@@ -1,9 +1,10 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig}  from '@playwright/test';
-import {existsSync}    from 'node:fs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {defineConfig}      from '@playwright/test';
+import {existsSync}        from 'node:fs';
+import path                from 'path';
+import {fileURLToPath}     from 'url';
+import {CHROMA_CLI_ENTRYPOINT, resolvePackageDir} from './chromaProcess.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -76,24 +77,37 @@ export const memoryCoreConfigTemplateTestMatch =
 export const brainHookTestMatch = /[\\/]hooks[\\/](codexContextHook|kimiTurnPresenceHook)\.spec\.mjs$/;
 
 /**
- * @summary Probes whether the Brain-tier set is installed AND consumable under `rootDir/node_modules`.
+ * @summary Probes whether the Brain-tier set is installed AND consumable, as resolved from `rootDir`.
  * Directory names alone lie: a pruned or corrupt install can leave three empty husks that
  * false-green CI. The probe therefore checks each root's consumable entrypoint — for
  * `better-sqlite3` including the compiled native artifact (the thing a broken build actually
  * loses). It deliberately stops at artifact presence rather than `require()`: loading the
  * default embedder pulls `@huggingface/transformers` (seconds at every config load), while the
  * only artifact that realistically breaks without leaving a file-level trace is the native one.
- * @param {String} rootDir Repository root containing `node_modules`.
+ *
+ * The husk check is why this cannot simply become `require.resolve`: resolution answers "is there an
+ * entrypoint", never "did the native build produce its artifact", so it would report armed for
+ * exactly the broken install this probe exists to catch. Resolution is used to find the package
+ * DIRECTORY ({@link resolvePackageDir}); the file checks inside it are unchanged.
+ *
+ * **The entrypoint list is what each project ACTUALLY executes, not what the package advertises.**
+ * `chromadb` carries two: Brain specs import `dist/chromadb.mjs`, and the `chroma-setup` dependency
+ * this gate admits spawns {@link CHROMA_CLI_ENTRYPOINT}. Admitting on the first alone let a partial
+ * install pass the gate and die at the heartbeat — an admission gate that proves a different
+ * artifact from the one its dependent runs is not an admission gate.
+ * @param {String} rootDir Directory to resolve `node_modules` from — a repo root or a worktree.
  * @returns {Boolean}
  */
 export function hasBrainTier(rootDir) {
     return [
         ['better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node'],
-        ['chromadb', 'dist/chromadb.mjs'],
+        ['chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT],
         ['@chroma-core/default-embed', 'dist/default-embed.mjs']
-    ].every(([pkg, ...entrypoints]) =>
-        entrypoints.every(entry => existsSync(path.join(rootDir, 'node_modules', pkg, entry)))
-    )
+    ].every(([pkg, ...entrypoints]) => {
+        const packageDir = resolvePackageDir(rootDir, pkg);
+
+        return packageDir !== null && entrypoints.every(entry => existsSync(path.join(packageDir, entry)))
+    })
 }
 
 /**
