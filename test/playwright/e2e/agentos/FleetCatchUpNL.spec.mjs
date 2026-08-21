@@ -120,18 +120,19 @@ async function startCatchUpFleet() {
 }
 
 /**
- * @summary Native Fleet catch-up journey: the real auto-hide rail invokes the pane; the App Worker
- * crosses the authenticated allowlisted bridge; a first-use choice yields two source-owned
- * `notAuthority` envelopes; per-agent partitioning changes the Memory read intent; the exact rendered
- * end advances the runtime-only anchor; and Live Activity focuses the existing bounded adjacency.
+ * @summary Native Fleet catch-up journey: activating the resident south-strip tab shows the pane;
+ * the App Worker crosses the authenticated allowlisted bridge; a first-use choice yields two
+ * source-owned `notAuthority` envelopes; per-agent partitioning changes the Memory read intent;
+ * the exact rendered end advances the runtime-only anchor; and Live Activity re-activates the
+ * stream tab and focuses the existing bounded adjacency.
  *
  * Run: NEO_E2E_PORT=49221 NEO_TEST_SKIP_CI=true npx playwright test agentos/FleetCatchUpNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-test.describe('AgentOS Fleet catch-up — authenticated rail journey (#14620)', () => {
+test.describe('AgentOS Fleet catch-up — authenticated resident-tab journey (#14620)', () => {
     test.setTimeout(120000);
     test.use({viewport: {width: 1600, height: 1000}});
 
-    test('rail → explicit window → independent envelopes → partition → mark → live adjacency', async ({page, neuralLink}) => {
+    test('tab → explicit window → independent envelopes → partition → mark → live adjacency', async ({page, neuralLink}) => {
         const fleet = await startCatchUpFleet();
 
         try {

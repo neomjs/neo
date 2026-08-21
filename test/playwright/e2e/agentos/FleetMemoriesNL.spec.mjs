@@ -125,19 +125,21 @@ async function startMemoriesFleet() {
 }
 
 /**
- * @summary Native Fleet memories journey over session summaries: the real auto-hide rail invokes
- * the pane; choosing an agent is the explicit first act; the App Worker crosses the authenticated
- * allowlisted bridge; summary cards render with honest multi-agent attribution; the offset pages
- * older sessions as an append against the corpus total; guarded non-string titles/summaries are
- * named; and the wire carries only the explicit target — never a viewer claim, never a projection.
+ * @summary Native Fleet memories journey over session summaries: activating the resident
+ * south-strip tab shows the pane; choosing an agent is the explicit first act; the App Worker
+ * crosses the authenticated allowlisted bridge; summary cards render with honest multi-agent
+ * attribution; the offset pages older sessions as an append against the corpus total; guarded
+ * non-string titles/summaries are named; and the wire carries only the explicit target — never a
+ * viewer claim, never a projection. The rematerialization variants create TRUE document absence
+ * (committed clones) — a resident tab switch only hides the inactive card.
  *
  * Run: NEO_E2E_PORT=49223 NEO_TEST_SKIP_CI=true npx playwright test agentos/FleetMemoriesNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', () => {
+test.describe('AgentOS Fleet memories — authenticated resident-tab journey (#16398)', () => {
     test.setTimeout(120000);
     test.use({viewport: {width: 1600, height: 1000}});
 
-    test('rail → explicit agent choice → summary cards → offset append → guarded non-string card', async ({page, neuralLink}) => {
+    test('tab → explicit agent choice → summary cards → offset append → guarded non-string card', async ({page, neuralLink}) => {
         const fleet = await startMemoriesFleet();
 
         try {

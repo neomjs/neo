@@ -152,21 +152,25 @@ test.describe('AgentOS OperatorMailbox — the operator mailbox surface (#15377)
         box.destroy()
     });
 
-    test('reveal-after-boot: state injected as CONSTRUCTION configs reaches the children (real component, review RA-1)', () => {
-        // the normal reveal path: the projection materializes the pane with the operator identity, its
-        // snapshot, and recipient options ALREADY resolved owner-side, supplied as construction configs.
-        // Before the onConstructed flush, afterSet* skipped these (isConstructed false) and the children
-        // materialized EMPTY — the pane could not pass possession. This is the real composed component,
-        // not a spy or a post-construction assignment.
+    test('identity-before-pane: CONSTRUCTION configs reach the children AND land exactly ONE boot read', () => {
+        // the identity-before-pane ordering: the resident pane projects while the cockpit already
+        // holds the resolved operator identity, so record/snapshot/options arrive as construction
+        // configs. Before the onConstructed flush, afterSet* skipped these (isConstructed false)
+        // and the children materialized EMPTY — the pane could not pass possession. This is the
+        // real composed component; the counter pins the exactly-once boot read for THIS ordering
+        // (the pane-before-identity twin is counted cockpit-side in fleetCockpitResidentBoot).
         const record   = {agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'},
               snapshot = {capability: {state: 'wired'}, admission: {state: 'granted', subjectAgentId: '@neo-opus-grace'}, rows: [], page: {limit: 10, offset: 0, count: 0}},
               options  = [{id: '@neo-opus-ada', name: 'Ada'}, {id: 'AGENT:*', name: 'All agents'}];
 
-        const box = createBox({record, snapshot, recipientOptions: options});
+        let reads = 0;
+
+        const box = createBox({record, snapshot, recipientOptions: options, listeners: {inboxPageRequest: () => {reads++}}});
 
         expect(box.getReference('operator-inbox-pane').record).toEqual(record);
         expect(box.getReference('operator-inbox-pane').snapshot).toStrictEqual(snapshot);
         expect(box.getReference('operator-compose-form').recipientOptions).toEqual(options);
+        expect(reads, 'one construction-flush read, never zero, never a double').toBe(1);
 
         box.destroy()
     })
