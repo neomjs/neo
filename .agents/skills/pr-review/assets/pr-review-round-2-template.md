@@ -2,7 +2,7 @@
 
 **Status:** [Approved / Approve+Follow-Up / Comment / Request Changes]
 
-*Pick the one the Verdict rule below forces: any `STILL_OPEN` row makes this **Comment**, and a round that dispositions everything is never Request Changes. The submit gate enforces both, so a Status that disagrees with your own table is refused.*
+*The Verdict rule forces this: any `STILL_OPEN` row ⇒ Comment; a fully dispositioned round is never Request Changes. The gate refuses a Status disagreeing with your table.*
 
 **Opening:** [One sentence: which prior actions this dispositions, at which head.]
 
