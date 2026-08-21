@@ -45,7 +45,7 @@ Every PR review MUST score the work across the following categories on a scale o
 **Verdict weights:** 30% premise / right thing; 30% architecture / placement; 30% diff correctness; 10% AC/evidence/close-target/CI/contract sanity. Weights are importance-to-verdict, not effort budget; a tidy checklist over the wrong premise or folder still fails.
 
 *   **`[ARCH_ALIGNMENT]`** (0-100): Neo paradigms plus "does this belong here?" placement, cohesion, single responsibility, folder fit, and boundaries. Logic in definitions/config, provider specifics outside providers, or subsystem leakage into root surfaces caps the score; the #14298 placement miss would be ~45, not 94.
-*   **`[CONTENT_COMPLETENESS]`** (0-100): Are all new or modified methods documented with 'Anchor & Echo' JSDoc? Is the PR description a comprehensive "Fat Ticket"?
+*   **`[CONTENT_COMPLETENESS]`** (0-100): Are all new or modified methods documented with 'Anchor & Echo' JSDoc? Is the body complete in anchors and economical in prose — each fact once, linked narratives not restated (#16528)? Duplication caps the score like absence.
 *   **`[EXECUTION_QUALITY]`** (0-100): Code flow, absence of bugs, race condition safety, VDOM syncing correctness, and testing coverage.
 *   **`[PRODUCTIVITY]`** (0-100): Were the primary goals of the linked ticket achieved?
 *   **`[IMPACT]`** (0-100): What is the significance of the change? (100 = critical core architecture, 10 = trivial typo fix).

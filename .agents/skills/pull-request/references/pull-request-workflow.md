@@ -128,12 +128,12 @@ If the PR changes `ai/mcp/server/<name>/config.template.mjs`, read `.agents/skil
 
 **Mandatory `--base dev`:** always pass it explicitly. The `gh` default can target `main` (local caching, CLI behavior), producing a thousands-of-commits diff.
 
-**No `--fill`:** forbidden — it bypasses the comprehensive PR body.
+**No `--fill`:** forbidden — it bypasses the structured PR body.
 
 ```bash
-gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehensive markdown body explaining architectural impact, edge cases, and explicitly stating Resolves #TICKET_ID" --base dev
+gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "All §9 anchors, economical prose (§pr_diff_equals_pr_body: each fact ONCE, summarize + link), standalone Resolves #TICKET_ID" --base dev
 ```
-*(Passing the body directly ensures the PR contains the required context and aligns with the "Fat Ticket" protocol.)*
+*(Write the body LAST; per paragraph ask: does this already exist one link away?)*
 
 ## 5. Self-Identification (Mandatory Authorship)
 

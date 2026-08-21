@@ -132,7 +132,7 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 
 ## 5. Fat Ticket Body Structure
 
-Skeleton tickets are forbidden. Every ticket body MUST contain:
+Skeleton tickets are forbidden — so are world atlases: sections complete, each fact once, derivations linked (#16528). Every ticket body MUST contain:
 
 - **Context** — why this exists and its evidence. Incident tickets name the observed operation when known, mark unknowns, and separate observation from inference; quotations are leads, not causes. *(Retire with §8 once lint enforces this without syntax proxies.)*
 - **The Problem** — deep background, insights from recent Memory Core explorations, reproducer if applicable. Historical "why" for the agent picking up the ticket later.
