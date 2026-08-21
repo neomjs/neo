@@ -537,6 +537,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             'mailboxReason',
             'presenceMs',
             'presenceTerminal',
+            'presenceReason',
             'visibilityMs',
             'postWalMs',
             'postWalBudgetMs'
@@ -545,6 +546,11 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(stageTimings.properties.mailboxTerminal.enum).toEqual(['omitted']);
         expect(stageTimings.properties.mailboxReason.enum).toEqual(['synchronous-query-outside-accepted-write-contract']);
         expect(stageTimings.properties.presenceTerminal.enum).toEqual(['completed', 'deferred', 'failed']);
+        // The disposition alone is not diagnosable — a constant `failed` beside a server-only log is
+        // what cost several seats days of blind sampling. The reason is nullable because `completed`
+        // carries none, and bounded because it is a redacted diagnostic, not a payload.
+        expect(stageTimings.properties.presenceReason.nullable).toBe(true);
+        expect(stageTimings.properties.presenceReason.maxLength).toBe(240);
         expect(stageTimings.properties.postWalBudgetMs.example).toBe(1_000);
     });
 

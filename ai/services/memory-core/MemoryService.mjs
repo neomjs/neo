@@ -429,7 +429,8 @@ class MemoryService extends Base {
      * @returns {Promise<{id: String, sessionId: String, timestamp: String, message: String,
      *     visibility: Object, mailbox: null, stageTimings: {walMs: Number, mailboxMs: null,
      *     mailboxTerminal: 'omitted', mailboxReason: 'synchronous-query-outside-accepted-write-contract',
-     *     presenceMs: Number, presenceTerminal: 'completed'|'deferred'|'failed', visibilityMs: Number,
+     *     presenceMs: Number, presenceTerminal: 'completed'|'deferred'|'failed',
+     *     presenceReason: String|undefined, visibilityMs: Number,
      *     postWalMs: Number, postWalBudgetMs: Number}}>} Memory-write confirmation. `mailbox` is
      *     deliberately `null`: its synchronous SQLite enrichment is outside the accepted-write
      *     latency contract, and callers use `list_messages` for the authoritative mailbox read.
