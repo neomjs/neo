@@ -70,12 +70,14 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
             await app.callMethod(cockpit.properties.id, 'loadRoster');
             await app.callMethod(cockpit.properties.id, 'loadOperatorIdentity');
 
-            const operatorRail = page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Operator'});
-            await expect(operatorRail).toHaveCount(1);
-            await operatorRail.click();
-            const overlay = page.locator('.neo-dashboard-dock-reveal-overlay');
-            await expect(overlay).toBeVisible({timeout: 10000});
-            await expect(overlay).toContainText('No active messages for @e2e-operator');
+            // resident south tab titled "Mailbox" (the navigation model): activate the tab and the
+            // pane renders in the strip's body — no rail reveal, no overlay
+            const mailboxTab = page.getByRole('tab', {name: 'Mailbox', exact: true});
+            await expect(mailboxTab).toHaveCount(1);
+            await mailboxTab.click();
+            const mailboxPane = page.locator('.fm-operator-mailbox');
+            await expect(mailboxPane).toBeVisible({timeout: 10000});
+            await expect(mailboxPane).toContainText('No active messages for @e2e-operator');
 
             const [mailbox] = await app.queryComponent({className: 'AgentOS.view.fleet.OperatorMailbox'}, ['id', 'record', 'snapshot']),
                   [form]    = await app.queryComponent({className: 'AgentOS.view.fleet.OperatorComposeForm'}, ['id', 'recipientOptions', 'composeOutcome']),
@@ -91,7 +93,7 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
                   message          = page.getByRole('textbox', {name: 'Message'}),
                   send             = page.getByRole('button', {name: 'Send'}),
                   choose           = async name => {
-                      const row = overlay
+                      const row = mailboxPane
                           .locator('.fm-operator-compose-recipients-list')
                           .getByRole('listitem')
                           .filter({hasText: name});
@@ -119,8 +121,8 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
                     {to: '@review-peer-a', outcome: expect.objectContaining({messageId: expect.any(String)})},
                     {to: '@review-peer-b', outcome: {status: 'rejected', reason: 'fixture rejection'}}
                 ]});
-            await expect(overlay).toContainText('@review-peer-a — sent');
-            await expect(overlay).toContainText('@review-peer-b — fixture rejection');
+            await expect(mailboxPane).toContainText('@review-peer-a — sent');
+            await expect(mailboxPane).toContainText('@review-peer-b — fixture rejection');
 
             await clearRecipients();
             await choose('All agents (broadcast)');
@@ -148,8 +150,12 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
                 }
             });
             expect(fit.overflowY).toBe('auto');
-            expect(fit.scrollHeight).toBeGreaterThan(fit.clientHeight);
-            const finalOutcome = overlay.getByText('AGENT:* — sent', {exact: true});
+            // The reachability contract: the scroll MECHANIC is armed (overflowY above) and the
+            // final outcome is reachable below. The old rail overlay was short enough that this
+            // fixture always overflowed; the resident south-tab body is taller, so content may
+            // legitimately FIT — never assert overflow itself, only that nothing is clipped away.
+            expect(fit.scrollHeight).toBeGreaterThanOrEqual(fit.clientHeight);
+            const finalOutcome = mailboxPane.getByText('AGENT:* — sent', {exact: true});
             await finalOutcome.scrollIntoViewIfNeeded();
             await expect(finalOutcome).toBeVisible();
 

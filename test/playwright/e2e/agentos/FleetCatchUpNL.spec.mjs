@@ -5,6 +5,10 @@ import {
     fleetE2ESuccess,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
+// the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
+// the expectation imports the same helper instead of hard-coding either the UTC wire form or a
+// zone-dependent literal (browser and runner share the host zone)
+import {formatViewerTime} from '../../../../apps/agentos/view/fleet/viewerTime.mjs';
 
 const WINDOW = {
     semantics  : 'half-open',
@@ -141,9 +145,10 @@ test.describe('AgentOS Fleet catch-up — authenticated rail journey (#14620)', 
             expect(cockpit?.properties?.id).toBeTruthy();
             await app.callMethod(cockpit.properties.id, 'loadRoster');
 
-            const rail = page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Catch up'});
-            await expect(rail).toHaveCount(1);
-            await rail.click();
+            // resident south reading-surface tab (the navigation model): activate, never rail-reveal
+            const tab = page.getByRole('tab', {name: 'Catch up', exact: true});
+            await expect(tab).toHaveCount(1);
+            await tab.click();
 
             const pane = page.locator('.fm-catch-up-pane');
             await expect(pane).toBeVisible({timeout: 10000});
@@ -165,7 +170,7 @@ test.describe('AgentOS Fleet catch-up — authenticated rail journey (#14620)', 
             await expect(pane.locator('.fm-catch-up-source').nth(0)).toContainText('Memory history for @neo-opus-ada');
 
             await pane.getByRole('button', {name: 'Mark caught up'}).click();
-            await expect(pane).toContainText('Caught up through 2026-07-18 12:00Z');
+            await expect(pane).toContainText(`Caught up through ${formatViewerTime(WINDOW.windowEnd).text}`);
 
             await pane.getByRole('button', {name: 'Live activity'}).click();
             await expect.poll(() => page.locator('.fm-activity-stream').evaluate(element => document.activeElement === element))

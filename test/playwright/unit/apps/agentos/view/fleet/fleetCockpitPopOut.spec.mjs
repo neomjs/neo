@@ -617,7 +617,9 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         await cockpit.refreshPromise;
         expect(cockpit.getReference('memories')).toBeTruthy();
 
-        const doc = cockpit.getDockZoneDocument();
+        // absence through a committed CLONE — never a mutation of the live document reference
+        // (the commit loop's purity contract): clone, drop the item, commit the new document.
+        const doc = structuredClone(cockpit.getDockZoneDocument());
 
         doc.nodes['stream-tabs'].items = doc.nodes['stream-tabs'].items.filter(id => id !== 'memories');
         cockpit.onDockZoneDocumentChange(doc);

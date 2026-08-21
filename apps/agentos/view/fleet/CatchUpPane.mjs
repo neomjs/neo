@@ -196,8 +196,11 @@ class CatchUpPane extends Container {
     partitionStore = null
 
     /**
-     * @summary Create the two pane-local Stores, render held owner state, then request history. An
-     * auto-hidden pane is constructed only when revealed, so this is invoked-not-ambient by layout.
+     * @summary Create the two pane-local Stores, render held owner state, then request history. A
+     * resident south-tab pane constructs at projection time, so this first request can fire BEFORE
+     * the fleet bridge wires; the owning cockpit re-drives history at bridge arrival (and via the
+     * Reconnect affordance), so the cold-before-bridge ordering recovers instead of pinning the
+     * unavailable envelope.
      * @param {...*} args
      */
     onConstructed(...args) {

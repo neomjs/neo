@@ -1,4 +1,7 @@
 import {expect, test}                                            from '../../fixtures.mjs';
+// the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
+// the expectation imports it instead of hard-coding the UTC wire form or a zone-dependent literal
+import {formatViewerTime} from '../../../../apps/agentos/view/fleet/viewerTime.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -148,9 +151,28 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             expect(cockpit?.properties?.id).toBeTruthy();
             await app.callMethod(cockpit.properties.id, 'loadRoster');
 
-            const rail = page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Memories'});
-            await expect(rail).toHaveCount(1);
-            await rail.click();
+            // resident south reading-surface tab (the navigation model): activate, never rail-reveal
+            const tab = page.getByRole('tab', {name: 'Memories', exact: true});
+            await expect(tab).toHaveCount(1);
+            await tab.click();
+
+            // True-absence removal for the rematerialization variants: a resident tab SWITCH only
+            // hides the inactive card (the instance survives), so the old rail-switch removal no
+            // longer destroys the pane. Drop the item through a committed document (the wire hands
+            // back a clone; committing it is the production reducer path), then re-add + activate.
+            const cockpitId      = cockpit.properties.id,
+                  removeMemories = async () => {
+                      const doc = await app.callMethod(cockpitId, 'getDockZoneDocument');
+                      doc.nodes['stream-tabs'].items = doc.nodes['stream-tabs'].items.filter(id => id !== 'memories');
+                      await app.callMethod(cockpitId, 'onDockZoneDocumentChange', [doc]);
+                      await expect(page.locator('.fm-memories-pane')).toHaveCount(0)
+                  },
+                  restoreMemories = async () => {
+                      const readd = await app.callMethod(cockpitId, 'applyDockZoneOperation', [{operation: 'addTab', itemId: 'memories', tabsNodeId: 'stream-tabs'}]);
+                      expect(readd.errors).toEqual([]);
+                      await app.callMethod(cockpitId, 'onDockZoneDocumentChange', [readd.document]);
+                      await page.getByRole('tab', {name: 'Memories', exact: true}).click()
+                  };
 
             const pane = page.locator('.fm-memories-pane');
             await expect(pane).toBeVisible({timeout: 10000});
@@ -161,16 +183,16 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             await expect(pane.locator('.fm-memories-card')).toHaveCount(0);
 
             // ── rematerialization VARIANT B: pending first-ever read, NO prior snapshot ──
-            // Gate Ada's page zero, select her, remove the pane mid-flight (rail switch), return.
+            // Gate Ada's page zero, select her, remove the pane mid-flight (true document
+            // absence), return.
             let releaseAda;
             fleet.gates['@neo-opus-ada'] = new Promise(resolve => { releaseAda = resolve });
 
             await pane.getByRole('button', {name: 'Ada'}).click();
             await expect(pane).toContainText('Reading @neo-opus-ada…');
 
-            await page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Catch up'}).click();
-            await expect(page.locator('.fm-memories-pane')).toHaveCount(0);
-            await rail.click();
+            await removeMemories();
+            await restoreMemories();
 
             const paneB = page.locator('.fm-memories-pane');
             await expect(paneB).toBeVisible({timeout: 10000});
@@ -186,7 +208,7 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             // the in-flight response lands in the REBUILT pane (write-time pane resolve), with
             // the selection attached — variant B's "renders with activeAgent: null" is dead
             await expect(paneB.locator('.fm-memories-card')).toHaveCount(2, {timeout: 10000});
-            await expect(pane).toContainText('@neo-opus-ada · 2 of 3 sessions · captured 2026-08-03 08:00Z');
+            await expect(pane).toContainText(`@neo-opus-ada · 2 of 3 sessions · captured ${formatViewerTime(CAPTURED_AT).text}`);
             await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('Wake transport and integrity contracts');
             await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('feature · 61 memories · quality 95');
             // multi-agent session: attribution beyond the selected target renders explicitly
@@ -221,11 +243,10 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             await expect(pane).toContainText('Waiting for this agent’s first page.');
 
             // ── rematerialization VARIANT A: pending switch WITH a prior (Ada) snapshot held ──
-            // Remove + rebuild the pane mid-flight: it must reopen on the PENDING selection,
-            // never on the stale accepted snapshot's target, cards, or continuation.
-            await page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Catch up'}).click();
-            await expect(page.locator('.fm-memories-pane')).toHaveCount(0);
-            await rail.click();
+            // Remove + rebuild the pane mid-flight (true document absence): it must reopen on the
+            // PENDING selection, never on the stale accepted snapshot's target, cards, or continuation.
+            await removeMemories();
+            await restoreMemories();
             await expect(pane).toBeVisible({timeout: 10000});
             await expect(pane).toContainText('Reading @neo-gpt-bob…');
             await expect(pane).not.toContainText('@neo-opus-ada · 3 of 3');

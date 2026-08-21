@@ -429,6 +429,70 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
         host.perspectiveStore.destroy()
     });
 
+    test('#17451: a Review switch on a cold seat defaults the selection from the PROVIDER roster before the commit, and lands it on the live pane', async () => {
+        const record = {agentId: 'vega', githubUsername: 'neo-opus-vega'},
+              sets   = [],
+              host   = await makePresetHost({
+                  detailRecord      : null,
+                  getAgentDetailPane: () => ({set: values => sets.push(values)}),
+                  getStateProvider  : () => ({getStore: name => name === 'fleetRoster' ? {first: () => record} : null}),
+                  refreshDockWorkspace() {}
+              });
+
+        const verdict = FleetCockpit.prototype.activatePerspective.call(host, 'Review');
+
+        expect(verdict).toEqual({errors: [], switched: true});
+        // held owner-side BEFORE the deferred re-projection — the materializing resolver reads it
+        expect(host.detailRecord).toBe(record);
+        // and the live docked/popped pane updates through the select seam's owner accessor
+        expect(sets).toEqual([{record}]);
+
+        host.perspectiveStore.destroy()
+    });
+
+    test('#17451: a prior selection survives a Review switch untouched — the cold default never overwrites', async () => {
+        const prior = {agentId: 'ada', githubUsername: 'neo-opus-ada'},
+              sets  = [],
+              host  = await makePresetHost({
+                  detailRecord      : prior,
+                  getAgentDetailPane: () => ({set: values => sets.push(values)}),
+                  getStateProvider  : () => ({getStore: () => ({first() { throw new Error('the default path must not consult the roster while a selection exists') }})}),
+                  refreshDockWorkspace() {}
+              });
+
+        FleetCockpit.prototype.activatePerspective.call(host, 'Review');
+
+        expect(host.detailRecord).toBe(prior);
+        expect(sets).toEqual([{record: prior}]);
+
+        host.perspectiveStore.destroy()
+    });
+
+    test('#17451: non-revealing and detail-ABSENT documents never mutate the selection', async () => {
+        const host = await makePresetHost({
+            detailRecord      : null,
+            getAgentDetailPane() { throw new Error('a non-revealing switch must not touch the pane') },
+            getStateProvider  : () => ({getStore: () => ({first: () => ({agentId: 'vega'})})}),
+            refreshDockWorkspace() {}
+        });
+
+        // Focus keeps the inspector rail-hidden — a valid, non-revealing switch stays selection-silent
+        FleetCockpit.prototype.activatePerspective.call(host, 'Focus');
+        expect(host.detailRecord).toBe(null);
+
+        // the round-1 falsifier, pinned at the predicate: a VALIDATOR-CLEAN document with the
+        // detail item absent must not read as revealed — `!items.detail?.autoHidden` alone did
+        const doc = host.perspectiveStore.loadPerspective('Overview').document;
+
+        doc.nodes['secondary-rail'].items = doc.nodes['secondary-rail'].items.filter(id => id !== 'detail');
+        doc.nodes['secondary-rail'].activeItemId = doc.nodes['secondary-rail'].items[0];
+        delete doc.items.detail;
+        expect(DockZoneModel.validate(doc)).toEqual([]);
+        expect(FleetCockpit.prototype.isInspectorRevealed.call(host, doc)).toBe(false);
+
+        host.perspectiveStore.destroy()
+    });
+
     test('the persistent control bar keeps identities while preset and refusal state change', async () => {
         const
             buttons = ['overview', 'focus', 'review'].map(layoutId => ({

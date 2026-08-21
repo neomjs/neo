@@ -1,4 +1,9 @@
 import {expect, test}                   from '@playwright/test';
+// Neo + core MUST load before any Neo-class import (unit-test rule 1): FleetCockpit's transitive
+// graph reaches gatekept core modules, and without this pair the file only booted when ANOTHER
+// spec in the same worker had initialized the namespace first — worker-scheduling luck, not order.
+import Neo                              from '../../../../../../../src/Neo.mjs';
+import * as core                        from '../../../../../../../src/core/_export.mjs';
 import {describeOperatorSeatConflation} from '../../../../../../../ai/services/fleet/operatorSeatConflation.mjs';
 import FleetCockpit                     from '../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs';
 
@@ -38,9 +43,7 @@ test.describe('operatorSeatConflation — cross-boundary parity pin (leaf ↔ co
     const
         leafDecision    = viewer => describeOperatorSeatConflation({viewerIdentity: viewer, registeredIds: REGISTERED}),
         cockpitDecision = viewer => FleetCockpit.prototype.deriveOperatorIdentityPosture.call(
-            {getReference: reference => reference === 'fleet-grid'
-                ? {store: {items: REGISTERED.map(id => ({agentId: String(id).replace(/^@/, '')}))}}
-                : null},
+            {resolveFleetRosterStore: () => ({items: REGISTERED.map(id => ({agentId: String(id).replace(/^@/, '')}))})},
             viewer
         );
 
@@ -54,7 +57,7 @@ test.describe('operatorSeatConflation — cross-boundary parity pin (leaf ↔ co
     test('the empty-list null contract holds on both sides — absence of truth is not a clean bill', () => {
         expect(describeOperatorSeatConflation({viewerIdentity: '@tobiu', registeredIds: []})).toBeNull();
         expect(FleetCockpit.prototype.deriveOperatorIdentityPosture.call(
-            {getReference: reference => reference === 'fleet-grid' ? {store: {items: []}} : null},
+            {resolveFleetRosterStore: () => ({items: []})},
             '@tobiu'
         )).toBeNull()
     })

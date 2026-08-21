@@ -85,20 +85,30 @@ test.describe('FleetCockpit — catch-up owner routing', () => {
         expect(pane.snapshot).toEqual({id: 'new'})
     });
 
-    test('partition choices come from roster mailbox identities; live adjacency focuses the real stream', () => {
+    test('partition choices come from roster mailbox identities; live adjacency activates the stream TAB, then focuses', async () => {
         const focused = [],
               rows    = [
                   {agentId: 'ada', githubUsername: 'neo-opus-ada', displayName: 'Ada'},
                   {agentId: 'guest', githubUsername: null, displayName: 'Guest'}
               ],
               stream = {id: 'stream-1', focus: (...args) => focused.push(args)},
-              cockpit = {getReference: ref => ref === 'fleet-grid' ? {store: {items: rows}} : ref === 'activity-stream' ? stream : null};
+              // the resident south strip: catch-up is the active tab when the jump fires, so the
+              // adjacency must re-activate the stream's tab before focus can reach mounted DOM
+              strip   = {activeIndex: 3},
+              cockpit = {
+                  dockModel              : {nodes: {'stream-tabs': {items: ['stream', 'memories', 'operator', 'catchUp']}}},
+                  down                   : config => config.dockNodeId === 'stream-tabs' ? strip : null,
+                  getReference           : ref => ref === 'activity-stream' ? stream : null,
+                  resolveFleetRosterStore: () => ({items: rows}),
+                  timeout                : () => Promise.resolve()
+              };
 
         expect(FleetCockpit.prototype.buildCatchUpPartitionOptions.call(cockpit)).toEqual([
             {id: 'catch-up-ada', label: 'Ada', partition: '@neo-opus-ada'}
         ]);
-        expect(FleetCockpit.prototype.openCatchUpLiveSurface.call(cockpit, {target: 'activity-stream'}))
-            .toEqual({opened: true, target: 'activity-stream'});
+        await expect(FleetCockpit.prototype.openCatchUpLiveSurface.call(cockpit, {target: 'activity-stream'}))
+            .resolves.toEqual({opened: true, target: 'activity-stream'});
+        expect(strip.activeIndex, 'the stream tab is active again').toBe(0);
         expect(focused).toEqual([['stream-1', false, true]])
     })
 });
