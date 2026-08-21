@@ -54,7 +54,17 @@ test.describe('postReleasePreflight (#17239)', () => {
 
         test('a clean tree passes', () => {
             expect(() => assertAdmissibleStartingState({getPorcelainStatus: () => '', version})).not.toThrow();
-            expect(() => assertAdmissibleStartingState({getPorcelainStatus: () => null, version})).not.toThrow();
+        });
+
+        test('a FAILED status probe is refused — unobservable is not clean', () => {
+            // The status runner returns null on failure. The first version of this gate normalized
+            // that to '' and its spec blessed the fail-open; round 2 caught it. Unobservable tree
+            // state must refuse the broad stage, not admit it.
+            for (const probe of [null, undefined]) {
+                expect(() => assertAdmissibleStartingState({getPorcelainStatus: () => probe, version}),
+                    `probe ${String(probe)} must be refused`)
+                    .toThrow(/could not establish working-tree truth/);
+            }
         });
 
         test('the staging note deletion passes in both porcelain forms (unstaged and staged)', () => {

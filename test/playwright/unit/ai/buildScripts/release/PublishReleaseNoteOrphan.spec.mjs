@@ -78,6 +78,36 @@ test.describe('Release-note orphan prevention', () => {
     });
 
     /**
+     * The two-command release protocol's ordered-handoff witness. The engine half (`publish.mjs`)
+     * must end by naming the Brain half's package script, AFTER the GitHub release and the staging
+     * note's removal — and that script must actually resolve to the lifecycle entrypoint on disk.
+     * Without this arm, a refactor could silently drop the print or rename the script, leaving the
+     * content half as terminal-only advice that no durable surface reaches.
+     */
+    test('the engine half hands off to a reachable package script, ordered after release and note removal', () => {
+        const
+            src        = fs.readFileSync(path.join(root, 'buildScripts/release/publish.mjs'), 'utf8'),
+            pkg        = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')),
+            handoffIdx = src.indexOf('npm run ai:post-release-sync'),
+            releaseIdx = src.indexOf('gh release create'),
+            cleanupIdx = src.indexOf('fs.removeSync(releaseNotePath)'),
+            script     = pkg.scripts['ai:post-release-sync'];
+
+        // The handoff is printed, and it is the LAST beat: after the release, after the cleanup.
+        expect(handoffIdx, 'publish.mjs must print the post-release handoff').toBeGreaterThan(-1);
+        expect(handoffIdx).toBeGreaterThan(releaseIdx);
+        expect(handoffIdx).toBeGreaterThan(cleanupIdx);
+
+        // The named script exists and resolves to a real lifecycle entrypoint.
+        expect(script, 'package.json must carry ai:post-release-sync').toBeTruthy();
+
+        const target = script.replace(/^node\s+/, '').replace(/^\.\//, '');
+
+        expect(target).toBe('ai/scripts/lifecycle/postReleaseSync.mjs');
+        expect(fs.existsSync(path.join(root, target)), `${target} must exist`).toBe(true);
+    });
+
+    /**
      * Every commit on the release path uses `--no-verify` by design, so no git hook can see it and
      * the `lint-staged` logical-identity guard is structurally blind to it. Two release-path commits
      * stage broadly with `git add .`, which means either can carry an archived-artifact collision onto

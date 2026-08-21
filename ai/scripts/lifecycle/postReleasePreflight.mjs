@@ -77,12 +77,23 @@ export function assertOnDevBranch({getCurrentBranch}) {
  */
 export function assertAdmissibleStartingState({getPorcelainStatus, version}) {
     const
-        notePath     = `resources/content/release-notes/v${version}.md`,
+        notePath   = `resources/content/release-notes/v${version}.md`,
         // Porcelain XY codes for the note's deletion: unstaged (` D`) as `publish.mjs` leaves it,
         // or staged (`D `) when an operator staged it manually. Nothing else is admissible.
-        admissible   = new Set([` D ${notePath}`, `D  ${notePath}`]),
-        status       = getPorcelainStatus() || '',
-        inadmissible = status.split('\n').filter(line => line.trim() && !admissible.has(line));
+        admissible = new Set([` D ${notePath}`, `D  ${notePath}`]),
+        status     = getPorcelainStatus();
+
+    // A failed probe is NOT a clean tree. The status runner returns null on failure; normalizing
+    // that to '' would pass a gate whose one job is establishing working-tree truth — the exact
+    // fail-open this preflight exists to prevent, one layer up.
+    if (typeof status !== 'string') {
+        throw new Error(
+            'Post-release sync refused: could not establish working-tree truth (`git status --porcelain` failed). ' +
+            'A gate that cannot observe the tree must not admit the broad archive stage.'
+        );
+    }
+
+    const inadmissible = status.split('\n').filter(line => line.trim() && !admissible.has(line));
 
     if (inadmissible.length > 0) {
         throw new Error(
