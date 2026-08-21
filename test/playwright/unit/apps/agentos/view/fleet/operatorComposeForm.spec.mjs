@@ -206,6 +206,74 @@ test.describe('AgentOS OperatorComposeForm — operator write surface (#15377, D
         form.destroy()
     });
 
+    test('a roster replacement AFTER selection converges chips, picker selection, and the sent to-array', async () => {
+        const form  = createForm(),
+              list  = form.getReference('compose-recipients'),
+              chips = form.getReference('compose-recipient-chips');
+
+        form.recipientOptions = [
+            {id: '@neo-opus-ada',  name: 'Ada'},
+            {id: '@neo-opus-vega', name: 'Vega'},
+            {id: 'AGENT:*',        name: 'All agents (broadcast)'}
+        ];
+
+        list.selectionModel.select([list.store.get('@neo-opus-ada'), list.store.get('@neo-opus-vega')]);
+
+        // the chip row is a Store-backed projection: filtered record count, record-driven text,
+        // and the action-specific accessible remove name all come from the one record set
+        expect(chips.items.length).toBe(2);
+        expect(chips.items.map(chip => chip.text)).toEqual(['Ada', 'Vega']);
+        expect(chips.items[0].removeLabel).toBe('Remove Ada');
+
+        // the live-roster transition: Vega leaves the roster, Ada is renamed — AFTER selection
+        form.recipientOptions = [
+            {id: '@neo-opus-ada', name: 'Ada Prime'},
+            {id: 'AGENT:*',       name: 'All agents (broadcast)'}
+        ];
+
+        // selection pruned to survivors, chips converged (renamed label, removed recipient gone)
+        expect(list.selectionModel.items).toHaveLength(1);
+        expect(chips.items.length).toBe(1);
+        expect(chips.items[0].text).toBe('Ada Prime');
+        expect(chips.items[0].removeLabel).toBe('Remove Ada Prime');
+
+        // and the fired intent carries exactly the surviving selection
+        form.isValid = async () => true;
+        form.getReference('compose-subject').value = 'S';
+        form.getReference('compose-body').value    = 'B';
+
+        let captured = null;
+        form.on('compose', data => {captured = data});
+        await form.onSendClick();
+
+        expect(captured.message.to).toEqual(['@neo-opus-ada']);
+
+        form.destroy()
+    });
+
+    test('the chip remove event routes through the selection model — picker rows and chips converge', () => {
+        const form  = createForm(),
+              list  = form.getReference('compose-recipients'),
+              chips = form.getReference('compose-recipient-chips');
+
+        form.recipientOptions = [
+            {id: '@neo-opus-ada',  name: 'Ada'},
+            {id: '@neo-opus-vega', name: 'Vega'}
+        ];
+
+        list.selectionModel.select([list.store.get('@neo-opus-ada'), list.store.get('@neo-opus-vega')]);
+        expect(chips.items.length).toBe(2);
+
+        // the delegated close-click reports a recipient id; the form deselects through the ONE truth
+        form.onRecipientChipRemove({recipientId: '@neo-opus-ada'});
+
+        expect(list.selectionModel.items).toHaveLength(1);
+        expect(chips.items.length).toBe(1);
+        expect(chips.items[0].text).toBe('Vega');
+
+        form.destroy()
+    });
+
     test('onSendClick sets the pending outcome before firing — the honest in-flight state the owner overwrites', async () => {
         const form = createForm();
 

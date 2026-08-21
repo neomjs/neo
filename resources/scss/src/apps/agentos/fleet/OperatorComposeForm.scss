@@ -21,18 +21,47 @@
         }
     }
 
-    /* the removable recipient chips (#17311): anatomy comes from the Chips.scss affordance family —
-       this row owns only wrap + rhythm, and costs zero pixels while nothing is selected */
+    /* the removable recipient chips (#17311): a Store-backed chip list — anatomy and typography
+       come from the Chips.scss affordance family (zero bespoke type values); this row owns only
+       wrap + rhythm, and costs zero pixels while nothing is selected. The close affordance is a
+       native <button>, so its UA chrome is reset here and its focus ring follows the family's. */
     .fm-compose-recipient-chips {
-        flex-wrap: wrap;
-        gap      : var(--fm-space-1);
+        /* the chip row is a list.Base root, but reads as bare chips — the stock list chrome
+           (border, background, focus frame) would render it as a second input well */
+        background: none;
+        border    : 0;
+        display   : flex;
+        flex-flow : row wrap;
+        gap       : var(--fm-space-1);
+        outline   : none;
+        padding   : 0;
 
         &:empty {
             display: none;
         }
 
-        .neo-button.fm-compose-recipient-chip .neo-button-glyph {
-            font-size: 10px;   /* the × stays one step below the label — decoration-scale, §04 T3 */
+        .neo-chip.fm-compose-recipient-chip {
+            align-items: center;
+            gap        : var(--fm-space-1);
+
+            .neo-chip-text {
+                color: inherit;
+            }
+
+            .neo-chip-close-button {
+                background: none;
+                border    : 0;
+                color     : inherit;
+                cursor    : pointer;
+                font-size : inherit;
+                line-height: 1;
+                padding   : 0;
+
+                &:focus-visible {
+                    outline       : 2px solid var(--fm-signal);
+                    outline-offset: 1px;
+                }
+            }
         }
     }
 

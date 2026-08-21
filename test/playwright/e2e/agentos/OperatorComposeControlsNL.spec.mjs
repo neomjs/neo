@@ -6,8 +6,10 @@ import {test, expect} from '../../fixtures.mjs';
  * Covers the three control contracts on the operator compose surface:
  * - toggle-deselect: clicking a selected recipient row unselects it (the `toggleOnClick`
  *   selection-model affordance — a multi-select whose selections are irrevocable is half a control);
- * - the chip row: the CURRENT selection renders as removable chips (real buttons on the affordance
- *   family), × removes exactly its recipient through the selection model — one truth, two renders;
+ * - the chip row: the CURRENT selection renders as chips projected over the picker's own Store —
+ *   each chip's native close button (action-named, keyboard-activatable) removes exactly its
+ *   recipient through the selection model, and a LIVE roster replacement (rename/removal after
+ *   selection) converges into the standing chips — one truth, two renders;
  * - broadcast exclusivity: `AGENT:*` and named recipients never co-exist — whichever side is newly
  *   picked wins and the other yields;
  * - priority: a three-option radio group, `high` preset, picking another moves the check.
@@ -68,17 +70,29 @@ test.describe('AgentOS operator compose — removable recipients + priority radi
         await expect(selected, 'clicking a selected row unselects it (toggleOnClick)').toHaveCount(0);
         await expect(chips,    'the chip row follows the emptied selection').toHaveCount(0);
 
-        // ── chip × removes exactly its recipient ─────────────────────────────────────────────────
+        // ── chip close removes exactly its recipient — mouse AND keyboard, action-named ─────────
         await row('Peer A').click();
         await row('Peer B').click();
         await expect(chips).toHaveCount(2);
 
-        await chips.filter({hasText: 'Peer A'}).click();
-        await expect(chips, 'the × removed exactly one recipient').toHaveCount(1);
+        const removeOf = name => chips.filter({hasText: name}).locator('.neo-chip-close-button');
+
+        // the remove affordance announces its ACTION, not just the recipient
+        await expect(removeOf('Peer A')).toHaveAttribute('aria-label', 'Remove Peer A');
+
+        await removeOf('Peer A').click();
+        await expect(chips, 'the close button removed exactly one recipient').toHaveCount(1);
         await expect(chips.first()).toContainText('Peer B');
         await expect(selected).toHaveCount(1);
 
+        // keyboard path: the close affordance is a native button — focus + Enter activates
+        await removeOf('Peer B').focus();
+        await page.keyboard.press('Enter');
+        await expect(chips, 'keyboard activation removes the focused chip').toHaveCount(0);
+        await expect(selected).toHaveCount(0);
+
         // ── broadcast exclusivity: AGENT:* wins over standing named picks… ───────────────────────
+        await row('Peer B').click();
         await row('broadcast').click();
         await expect(chips, 'AGENT:* newly picked — named picks yield').toHaveCount(1);
         await expect(chips.first()).toContainText('broadcast');
@@ -87,6 +101,25 @@ test.describe('AgentOS operator compose — removable recipients + priority radi
         await row('Peer A').click();
         await expect(chips, 'a named pick newly made — AGENT:* yields').toHaveCount(1);
         await expect(chips.first()).toContainText('Peer A');
+
+        // ── live roster replacement AFTER selection: rename + removal converge ──────────────────
+        await app.setProperties(formId, {
+            recipientOptions: [
+                {id: 'AGENT:*', name: 'All agents (broadcast)'},
+                {id: '@peer-a', name: 'Peer A Prime'}
+            ]
+        });
+
+        await expect(chips.first(), 'a roster rename reaches the standing chip').toContainText('Peer A Prime');
+        await expect(removeOf('Peer A Prime'), 'the remove name follows the rename').toHaveAttribute('aria-label', 'Remove Peer A Prime');
+        await expect(selected, 'the picker selection survives, re-keyed onto the new record').toHaveCount(1);
+
+        await app.setProperties(formId, {
+            recipientOptions: [{id: 'AGENT:*', name: 'All agents (broadcast)'}]
+        });
+
+        await expect(chips,    'a recipient removed from the roster prunes its chip').toHaveCount(0);
+        await expect(selected, 'and its picker selection').toHaveCount(0);
 
         // ── priority: three radios, high preset, picking another moves the check ─────────────────
         const radios = form.locator('.fm-compose-priority .neo-radiofield');

@@ -1,12 +1,13 @@
-import FormContainer from '../../../../src/form/Container.mjs';
-import Button        from '../../../../src/button/Base.mjs';
-import Label         from '../../../../src/component/Label.mjs';
-import List          from '../../../../src/list/Base.mjs';
-import Radio         from '../../../../src/form/field/Radio.mjs';
-import Store         from '../../../../src/data/Store.mjs';
-import SwitchField   from '../../../../src/form/field/Switch.mjs';
-import TextField     from '../../../../src/form/field/Text.mjs';
-import TextAreaField from '../../../../src/form/field/TextArea.mjs';
+import FormContainer     from '../../../../src/form/Container.mjs';
+import Button            from '../../../../src/button/Base.mjs';
+import Label             from '../../../../src/component/Label.mjs';
+import List              from '../../../../src/list/Base.mjs';
+import Radio             from '../../../../src/form/field/Radio.mjs';
+import RecipientChipList from './RecipientChipList.mjs';
+import Store             from '../../../../src/data/Store.mjs';
+import SwitchField       from '../../../../src/form/field/Switch.mjs';
+import TextField         from '../../../../src/form/field/Text.mjs';
+import TextAreaField     from '../../../../src/form/field/TextArea.mjs';
 
 const BROADCAST_ID = 'AGENT:*';
 
@@ -36,9 +37,11 @@ const BROADCAST_ID = 'AGENT:*';
  * selected ids, and the owning cockpit fans out per recipient (the compose verb is one-target).
  *
  * **Removable selection.** The list opts into `toggleOnClick` (click a selected row to
- * unselect), and the CURRENT selection renders as a chip row of real Buttons on the `.fm-chip`
- * affordance family — × removes exactly that recipient, routed through the selection model so the
- * chips stay presentation over the one selection truth. The `AGENT:*` sentinel is exclusive: it and
+ * unselect), and the CURRENT selection renders through {@link AgentOS.view.fleet.RecipientChipList}
+ * — a projection over the picker's own Store instance (shared, never owned) rendering the
+ * selected subset of the SAME records, so a roster rename or removal converges into the chips
+ * instead of freezing in a snapshot. Each chip's native close button removes exactly that
+ * recipient, routed through the selection model. The `AGENT:*` sentinel is exclusive: it and
  * named picks never co-exist — whichever side was newly picked wins, the other yields. Priority is
  * a three-option radio group (the whole decision space visible), `high` remaining the shipped
  * default per the AC-7 steering rationale.
@@ -102,15 +105,13 @@ class OperatorComposeForm extends FormContainer {
                 cls   : ['fm-operator-compose-recipients-label'],
                 text  : 'To'
             }, {
-                // the CURRENT selection as removable chips: real Buttons on the .fm-chip
-                // affordance family — one per selected recipient, × removes it. Presentation over
-                // the working multi-select below; rebuilt from selectionChange, never a second truth.
-                ntype    : 'container',
+                // the CURRENT selection as removable chips — a projection over the picker's OWN
+                // Store instance (handed over in onConstructed, shared never owned): the chips
+                // render the selected subset of the SAME records, so a roster rename or removal
+                // after selection converges instead of freezing in a snapshot
+                module   : RecipientChipList,
                 reference: 'compose-recipient-chips',
-                cls      : ['fm-compose-recipient-chips'],
-                flex     : 'none',
-                layout   : {ntype: 'hbox'},
-                items    : []
+                flex     : 'none'
             }, {
                 module      : List,
                 reference   : 'compose-recipients',
@@ -227,23 +228,31 @@ class OperatorComposeForm extends FormContainer {
     #syncingSelection = false
 
     /**
-     * @summary Bind the recipient chips + broadcast rule to the list's selection lifecycle. The
-     * selectionModel fires `selectionChange` for select AND deselect (the toggle path included),
-     * so one subscription owns the whole presentation sync.
+     * @summary Bind the recipient chips + broadcast rule to the list's selection lifecycle, and
+     * complete the projection wiring: the chip row receives the picker's Store INSTANCE (shared,
+     * never owned) once both exist. The selectionModel fires `selectionChange` for select AND
+     * deselect (the toggle path included), so one subscription owns the whole presentation sync.
      */
     onConstructed() {
         super.onConstructed();
 
-        this.getReference('compose-recipients')?.selectionModel?.on(
-            'selectionChange', this.onRecipientSelectionChange, this
-        )
+        let me    = this,
+            chips = me.getReference('compose-recipient-chips'),
+            list  = me.getReference('compose-recipients');
+
+        if (chips && list?.store) {
+            chips.store = list.store;
+            chips.on('removerecipient', me.onRecipientChipRemove, me)
+        }
+
+        list?.selectionModel?.on('selectionChange', me.onRecipientSelectionChange, me)
     }
 
     /**
      * @summary The one selection-truth sync: applies the broadcast exclusivity rule —
      * `AGENT:*` and named recipients never co-exist; whichever side was newly picked wins and the
-     * other yields — then rebuilds the removable chip row from the settled selection. The chips
-     * are presentation over the selection model, never a second truth.
+     * other yields — then writes the settled selection into the chip projection's id-filter. The
+     * chips stay a filtered view over the picker's records, never a second truth.
      * @protected
      */
     onRecipientSelectionChange() {
@@ -285,33 +294,23 @@ class OperatorComposeForm extends FormContainer {
 
         me.#lastRecipientIds = ids;
 
+        // ONE id-list write projects the settled selection into the chip row — the records
+        // themselves stay the picker Store's, rendered in place
         const chips = me.getReference('compose-recipient-chips');
 
-        if (chips) {
-            chips.removeAll();
-
-            records.length > 0 && chips.add(records.map(record => ({
-                module      : Button,
-                cls         : ['fm-chip', 'fm-compose-recipient-chip'],
-                text        : record.name,
-                iconCls     : 'fa fa-xmark',
-                iconPosition: 'right',
-                recipientId : record.id,
-                handler     : 'up.onRecipientChipRemove'
-            })))
-        }
+        chips && (chips.selectedIds = [...ids])
     }
 
     /**
-     * @summary A chip's × removes exactly its recipient — routed through the selection model, so
-     * the list row unhighlights and the chip row rebuilds from the one truth.
+     * @summary A chip's close button removes exactly its recipient — routed through the selection
+     * model, so the picker row unhighlights and the chip projection follows via its filter.
      * @param {Object} data
-     * @param {Neo.button.Base} data.component
+     * @param {String} data.recipientId
      * @protected
      */
-    onRecipientChipRemove({component}) {
+    onRecipientChipRemove({recipientId}) {
         let list   = this.getReference('compose-recipients'),
-            record = list?.store.get(component.recipientId);
+            record = list?.store.get(recipientId);
 
         record && list.selectionModel.deselect(record)
     }
@@ -365,7 +364,10 @@ class OperatorComposeForm extends FormContainer {
     }
 
     /**
-     * Triggered after the recipient options changed — feed them to the picker's own option store.
+     * Triggered after the recipient options changed — feed them to the picker's own option store,
+     * then converge the selection state onto the new roster: a selected recipient the roster no
+     * longer carries is pruned from the selection model, and the chip projection re-syncs, so the
+     * picker rows, the chips, and the eventual `to` array agree after every roster replacement.
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @protected
@@ -373,11 +375,34 @@ class OperatorComposeForm extends FormContainer {
     afterSetRecipientOptions(value, oldValue) {
         if (!this.isConstructed) return;
 
-        const list = this.getReference('compose-recipients');
+        let me    = this,
+            list  = me.getReference('compose-recipients'),
+            model = list?.selectionModel;
+
+        if (!list?.store) return;
+
+        // the selection holds RENDERED item ids, which rotate with a data replacement — so the
+        // canonical recipient ids are read out BEFORE the swap; they are the durable identity
+        const selectedRecipientIds = model?.getSelection()
+            .map(itemId => list.store.get(list.getItemRecordId(itemId))?.id)
+            .filter(Boolean) || [];
 
         // feed the live roster into the multi-select list's own store, so an already-materialized picker
         // stays current across roster load / reconciliation (never snapshotted once at creation)
-        list?.store && (list.store.data = value)
+        list.store.data = value;
+
+        // re-key the selection onto the new records: survivors re-select by canonical id, a
+        // recipient the roster no longer carries is pruned by construction — then one settled
+        // re-sync converges the exclusivity memory and the chip projection in every case
+        // (including zero survivors and rename-only)
+        if (model) {
+            const survivors = selectedRecipientIds.map(id => list.store.get(id)).filter(Boolean);
+
+            model.deselectAll(true);
+            survivors.length && model.select(survivors)
+        }
+
+        me.onRecipientSelectionChange()
     }
 
     /**
