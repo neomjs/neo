@@ -156,16 +156,21 @@ test.describe('buildEmbeddingProbeBlock — no verdict is unqualified about its 
         expect(short.status).toBe('failed');
     });
 
-    test('a probe with no size block reports absent coverage rather than omitting it', async () => {
+    test('a caller supplying no size leaves the payload untouched', async () => {
+        // The other consumers of this helper are healthcheck WRITE CANARIES — deliberately
+        // liveness-only, deliberately tiny, not read as readiness for real work. Emitting the
+        // coverage fields as nulls there would change two other services' public health contracts to
+        // describe a size they never claimed to exercise. The surface that IS read as readiness
+        // declares them explicitly at its own projection instead.
         const result = await buildEmbeddingProbeBlock({
             cfg, embedText: async () => new Array(cfg.vectorDimension).fill(0.1),
             input: 'x', operationLabel: 'probe', timeoutMs: 5_000
         });
 
         expect(result.status).toBe('healthy');
-        expect(result.probeSized).toBe(false);
-        expect(result.probeEstimateTokens).toBeNull();
-        expect(result.probeBandFraction).toBeNull();
+        expect(Object.hasOwn(result, 'probeSized')).toBe(false);
+        expect(Object.hasOwn(result, 'probeEstimateTokens')).toBe(false);
+        expect(Object.hasOwn(result, 'probeBandFraction')).toBe(false);
     });
 });
 

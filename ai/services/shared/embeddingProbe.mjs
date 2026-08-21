@@ -199,9 +199,17 @@ export async function buildEmbeddingProbeBlock({
           // Echoed on EVERY return path, success included. A verdict that does not carry the size it
           // exercised is the defect this parameter exists to close: `healthy` then reads as an
           // unqualified pass over whatever the caller happened to send.
+          //
+          // Absent when the caller supplies no `probeSize`, rather than emitted as nulls. The other
+          // consumers of this helper are healthcheck WRITE CANARIES — deliberately liveness-only,
+          // deliberately tiny, and not consumed as readiness for real work. Widening their public
+          // payload would be a change to two other services' health contracts to describe a size
+          // they never claimed to exercise. The surface that IS read as readiness — the tenant
+          // recovery probe's bridge projection — declares the fields explicitly instead, so absence
+          // is a reading exactly where a reading is owed.
           sizeBlock          = probeSize
               ? {probeEstimateTokens: probeSize.estimateTokens ?? null, probeBandFraction: probeSize.fraction ?? null, probeSized: probeSize.sized === true}
-              : {probeEstimateTokens: null, probeBandFraction: null, probeSized: false};
+              : {};
 
     let timeoutId;
 
