@@ -2237,13 +2237,18 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     /**
      * A mismatch the PARSE caused is not one the author can fix by carrying the text more carefully.
      *
-     * `@neo-gpt` was BLOCKED posting a Round-2 disposition on PR #17475: the prior Required Action
-     * contained the literal token `observed|partial`, `split('|')` cut the cell there, the byte was
-     * replaced by a space, and the gate rejected the row as non-verbatim. Escaping was worse — the
-     * backslash survived into the compared text and the pipe still split — so the author doing the
-     * correct Markdown thing got a stranger mismatch, with no wording that got them out.
+     * A Required Action carrying a literal `|` — an enum like `observed|partial` is the ordinary
+     * case — was cut at that byte, its halves rejoined across a space, and the row rejected as
+     * non-verbatim. Escaping was worse: `\|` was cut too, so the backslash survived into the
+     * compared text and the author doing the correct Markdown thing got a stranger mismatch. There
+     * was no wording that got them out; the only escape was rewording the Round-1 action to contain
+     * no pipe, which makes Round-1 text a function of the Round-2 parser.
      */
-    const PIPED_PRIOR_ACTION = 'Record the observed|partial contract distinct from bridge readability',
+    // TWO pipes, not one. CodeQL flagged the single-pipe fixture's `replace('|', …)` as incomplete
+    // sanitization, and it was right about more than the idiom: with one pipe, a non-global escape
+    // and a global one are indistinguishable, so the arm could not tell whether every pipe survives
+    // or only the first. The second pipe is what makes the assertion mean what it says.
+    const PIPED_PRIOR_ACTION = 'Record the observed|partial contract, not the stale|fresh one',
           // Only `GetPullRequestId` is overridden; the mutation branches stay on the suite default,
           // so a body that passes validation actually submits rather than dying in the mock.
           withPriorAction    = action => {
@@ -2272,7 +2277,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     test('#17284: an ESCAPED pipe survives the cell parse as a literal pipe', async () => {
         withPriorAction(PIPED_PRIOR_ACTION);
 
-        const result = await submitRoundTwo(pipedRoundTwo(PIPED_PRIOR_ACTION.replace('|', '\\|')));
+        const result = await submitRoundTwo(pipedRoundTwo(PIPED_PRIOR_ACTION.replaceAll('|', '\\|')));
 
         expect(result.code, 'the escaped row carries the action verbatim').not.toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
     });
