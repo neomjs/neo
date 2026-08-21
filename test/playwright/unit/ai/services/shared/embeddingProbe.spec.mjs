@@ -3,7 +3,8 @@ import {
     buildEmbeddingProbeBlock,
     buildEmbeddingProbeInput,
     describeEmbeddingProbeFailure,
-    EMBEDDING_PROBE_BAND_FRACTION
+    EMBEDDING_PROBE_BAND_FRACTION,
+    projectProbeCoverage
 }                                       from '../../../../../../ai/services/shared/embeddingProbe.mjs';
 import {resolveEmbeddingAdmissionBand}  from '../../../../../../ai/embeddingSafeBand.mjs';
 
@@ -196,5 +197,37 @@ test.describe('describeEmbeddingProbeFailure — death is not the same fact as f
         expect(classify('PROVIDER_TIMEOUT')).toBe('provider-timeout');
         expect(classify('EMBEDDING_MODEL_NOT_RESIDENT')).toBe('model-not-resident');
         expect(classify('SOMETHING_UNMAPPED')).toBe('provider-failure');
+    });
+});
+
+test.describe('projectProbeCoverage — one reader, so the wire cannot be declared and dropped (#17337)', () => {
+    test('a sized result reaches the projection intact', async () => {
+        // The gap `@neo-gpt` found: the producer emitted these three fields and the bridge summarizer
+        // declared them, and the process-owned snapshot in between projected an explicit ALLOWLIST
+        // that did not include them. Both ends were right and the public surface carried three
+        // permanently-empty fields — which is worse than not reporting coverage at all, because it
+        // looks answered. One exported reader now serves every hop.
+        const sized  = buildEmbeddingProbeInput({estimateBandTokens: SHIPPED_BAND.estimateBandTokens}),
+              result = await buildEmbeddingProbeBlock({
+                  cfg, embedText: async () => new Array(cfg.vectorDimension).fill(0.1),
+                  input: sized.input, operationLabel: 'probe', probeSize: sized, timeoutMs: 5_000
+              });
+
+        expect(projectProbeCoverage(result)).toEqual({
+            probeBandFraction  : EMBEDDING_PROBE_BAND_FRACTION,
+            probeEstimateTokens: 5309,
+            probeSized         : true
+        });
+    });
+
+    test('absence projects as absence, and a malformed value is not a reading', () => {
+        // CONTROL: without this, "the fields arrive" passes on a projection that echoes whatever it
+        // is handed — including a string, a NaN, or a truthy non-boolean, each of which would reach
+        // the public schema as a coverage claim nobody measured.
+        expect(projectProbeCoverage(null)).toEqual({probeBandFraction: null, probeEstimateTokens: null, probeSized: false});
+        expect(projectProbeCoverage({})).toEqual({probeBandFraction: null, probeEstimateTokens: null, probeSized: false});
+        expect(projectProbeCoverage({
+            probeBandFraction: '0.25', probeEstimateTokens: 5309.5, probeSized: 'yes'
+        })).toEqual({probeBandFraction: null, probeEstimateTokens: null, probeSized: false});
     });
 });

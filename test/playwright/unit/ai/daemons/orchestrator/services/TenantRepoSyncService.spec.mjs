@@ -982,6 +982,47 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(mixed.contentPoisonChunks).toBeNull();
     });
 
+    test('the probe size reaches the process-owned snapshot, not just the probe result', async () => {
+        // The gap a reviewer found: `buildEmbeddingProbeBlock` produced the coverage fields and the
+        // bridge summarizer declared them, and THIS projection — an explicit allowlist — dropped them
+        // in between. Both ends were right and the public surface carried three permanently-empty
+        // fields, which is worse than not reporting coverage at all because it looks answered.
+        //
+        // Testing each end proved nothing about the hop. This arm drives the real snapshot getter,
+        // which is the only place the drop was visible.
+        await TenantRepoSyncService.probeEmbeddingRecovery({
+            episodeKeys: ['e'.repeat(32)],
+            clock      : () => 1_000,
+            runProbe   : async () => ({
+                status             : 'healthy',
+                provider           : 'openAiCompatible',
+                dimensions         : 4096,
+                expectedDimensions : 4096,
+                durationMs         : 12,
+                probeEstimateTokens: 5309,
+                probeBandFraction  : 0.25,
+                probeSized         : true
+            })
+        });
+
+        const snapshot = TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot();
+
+        expect(snapshot.probeEstimateTokens).toBe(5309);
+        expect(snapshot.probeBandFraction).toBe(0.25);
+        expect(snapshot.probeSized).toBe(true);
+    });
+
+    test('CONTROL: a snapshot with no probe result reports absent coverage, not a stale one', async () => {
+        // Without this pair, the arm above passes on a projection that hardcodes the numbers. It also
+        // pins the honest-absence half: a snapshot reporting nothing must say so rather than carry the
+        // previous run's size forward, which would be a coverage claim about a probe that never ran.
+        const snapshot = TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot();
+
+        expect(snapshot.probeSized).toBe(false);
+        expect(snapshot.probeEstimateTokens).toBeNull();
+        expect(snapshot.probeBandFraction).toBeNull();
+    });
+
     test('embedding recovery releases only the affected repo once, then rearms after a failed retry (#16692)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),

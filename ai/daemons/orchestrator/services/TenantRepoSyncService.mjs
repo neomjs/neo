@@ -13,7 +13,7 @@ import {
 }                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
 import {writeFileAtomic}          from '../../../services/shared/atomicFileWrite.mjs';
-import {buildEmbeddingProbeBlock, buildEmbeddingProbeInput} from '../../../services/shared/embeddingProbe.mjs';
+import {buildEmbeddingProbeBlock, buildEmbeddingProbeInput, projectProbeCoverage} from '../../../services/shared/embeddingProbe.mjs';
 import {resolveEmbeddingAdmissionBand}                     from '../../../embeddingSafeBand.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
@@ -1020,7 +1020,17 @@ class TenantRepoSyncService extends Base {
             terminal           : snapshot.terminal,
             stopReason         : snapshot.stopReason,
             errorClassification: failure?.errorClassification || null,
-            errorCode          : failure?.errorCode || null
+            errorCode          : failure?.errorCode || null,
+            // The size the verdict was reached AT, carried from whichever result this snapshot is
+            // reporting — the freshly delivered probe, or the cached one it is reusing.
+            //
+            // This projection is an explicit ALLOWLIST, which is why declaring the fields at both
+            // ends was not enough. `buildEmbeddingProbeBlock` produced them and the bridge
+            // summarizer declared them; between the two they were dropped HERE, and reached the
+            // public surface as three permanently-empty fields. **A verdict that reports its
+            // coverage as absent, always, is worse than one that does not report it at all** —
+            // it looks answered.
+            ...projectProbeCoverage(delivered ?? snapshot.cached?.result ?? null)
         };
     }
 

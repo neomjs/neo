@@ -151,6 +151,23 @@ export function describeEmbeddingProbeFailure(error) {
 }
 
 /**
+ * @summary Projects a probe result's coverage fields, or their honest absence.
+ *
+ * Exported so the producer, the process-owned snapshot and the bridge all read the SAME three keys
+ * from one place. They were previously written twice and dropped in between, which is how the public
+ * surface ended up declaring coverage it never carried.
+ * @param {Object|null} result A `buildEmbeddingProbeBlock` result, or null when none is being reported.
+ * @returns {{probeBandFraction: Number|null, probeEstimateTokens: Number|null, probeSized: Boolean}}
+ */
+export function projectProbeCoverage(result) {
+    return {
+        probeBandFraction  : Number.isFinite(result?.probeBandFraction) ? result.probeBandFraction : null,
+        probeEstimateTokens: Number.isSafeInteger(result?.probeEstimateTokens) ? result.probeEstimateTokens : null,
+        probeSized         : result?.probeSized === true
+    }
+}
+
+/**
  * @summary Probes one explicitly supplied embedding path and returns a health-safe result block.
  *
  * This module owns only the attempt boundary: deadline, abort propagation, dimension validation,
