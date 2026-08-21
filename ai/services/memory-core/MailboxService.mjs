@@ -2045,6 +2045,47 @@ async function setMessageNodeReadAt(node, readAt) {
 }
 
 /**
+ * Stamps the SEEN timestamp on a direct-DM `MESSAGE` node.
+ *
+ * `seenAt` is the state between *arrived* and *explicitly marked read*, and it is what lets a bulk
+ * drain be discriminating: without it, `all: true` can only mean "every unread message that
+ * exists", when the safe meaning is "every unread message I have actually been shown".
+ *
+ * Write-once by design. A later listing of the same message must not move the stamp — the value
+ * records first surfacing, and re-stamping would make it a last-listed timestamp instead, which
+ * answers a question nothing asks.
+ *
+ * @param {Object} node Direct-DM `MESSAGE` node.
+ * @param {String} seenAt ISO timestamp.
+ * @returns {Promise<Boolean>} `true` when the mutation reached durable storage.
+ */
+async function setMessageNodeSeenAt(node, seenAt) {
+    getRecordProperties(node).seenAt = seenAt;
+
+    return persistReceiptNode(node);
+}
+
+/**
+ * Stamps the SEEN timestamp on a per-recipient `DELIVERED_TO` edge.
+ *
+ * Broadcasts carry per-recipient read state on the edge rather than the node, so `seenAt` follows
+ * `readAt` to exactly the same place. Putting it on the node instead would make one recipient's
+ * listing mark the broadcast seen for the entire audience.
+ *
+ * @param {Object} edge Per-recipient `DELIVERED_TO` edge.
+ * @param {String} seenAt ISO timestamp.
+ * @returns {Promise<Boolean>} `true` when the mutation reached durable storage.
+ */
+async function setDeliveryEdgeSeenAt(edge, seenAt) {
+    setRecordProperties(edge, {
+        ...getRecordProperties(edge),
+        seenAt
+    });
+
+    return persistReceiptEdge(edge);
+}
+
+/**
  * Sets the archive timestamp on a per-recipient DELIVERED_TO edge for broadcast
  * messages. Mirrors `setDeliveryEdgeReadAt` exactly — both delegate to
  * `persistReceiptEdge`, so broadcast archive state participates in the same durability
@@ -3209,6 +3250,11 @@ class MailboxService extends Base {
         messages = messages.slice(appliedOffset, appliedOffset + appliedLimit);
         await this.attachRelatedPullRequestStates(messages);
 
+        // Stamped AFTER the slice, because only these rows were actually surfaced. Stamping the
+        // pre-slice set would mark a caller as having seen pages it never received — the same
+        // over-reach, one layer up, that this whole change exists to remove.
+        await this._stampSeenForOwner({messages, box, target, me});
+
         // `truncated` states whether rows remain BEYOND this page, which is deliberately not the
         // `messages.length === limit` heuristic it replaces: a full page that exactly exhausts the
         // filter has nothing after it. Reporting `true` there would be a false positive AND would
@@ -3227,6 +3273,73 @@ class MailboxService extends Base {
             limit             : appliedLimit,
             offset            : appliedOffset
         };
+    }
+
+    /**
+     * @summary Stamps `seenAt` on inbox rows this call surfaced to their OWN recipient.
+     *
+     * A write on a read path, declared here because that is unusual enough to be worth stating: the
+     * act of showing a message to its recipient is the event `seenAt` records, so the read IS the
+     * write.
+     *
+     * **The guard is mailbox OWNERSHIP, not the presence of a bound identity**, and that distinction
+     * is the whole safety argument. `listMessages` is caller-identity-scoped, but non-agent surfaces
+     * legitimately read OTHER agents' inboxes through it under a permission grant —
+     * `SwarmHeartbeatService` sweeps every identity's mailbox on each pass, and the diagnostics
+     * script reads `{to: 'AGENT:*'}`. Keying on "an identity is bound" would let a daemon mark the
+     * entire swarm's mail as seen, which is strictly worse than the defect being repaired.
+     *
+     * Outbox rows never stamp: a message you sent was never surfaced TO you.
+     *
+     * Failure is silent and safe in the correct direction. An unstamped message stays unseen, and an
+     * unseen message is never bulk-swept — so a persistence failure here costs a redundant listing,
+     * never a lost directed message.
+     *
+     * @param {Object} options
+     * @param {Object[]} options.messages The page actually returned to the caller.
+     * @param {String} options.box `inbox` | `outbox` | `all`.
+     * @param {String} options.target Normalized mailbox being read.
+     * @param {String} options.me Normalized bound caller identity.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async _stampSeenForOwner({messages, box, target, me}) {
+        if (box === 'outbox' || !sameMailboxIdentity(target, me) || messages.length === 0) {
+            return
+        }
+
+        const
+            db     = GraphService.db,
+            seenAt = new Date().toISOString();
+
+        for (const message of messages) {
+            const {messageId} = message;
+
+            if (!messageId) continue;
+
+            try {
+                const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+
+                // Broadcast: per-recipient edge, mirroring where `readAt` already lives.
+                if (deliveryEdge) {
+                    if (!getRecordProperties(deliveryEdge).seenAt) {
+                        await setDeliveryEdgeSeenAt(deliveryEdge, seenAt)
+                    }
+                    continue
+                }
+
+                // Directed: node-side, again mirroring `readAt`.
+                const node = db?.nodes?.get(messageId);
+
+                if (node && !getRecordProperties(node).seenAt) {
+                    await setMessageNodeSeenAt(node, seenAt)
+                }
+            } catch (error) {
+                // Never let a seen-stamp failure break a listing. The read is the caller's actual
+                // request; the stamp is bookkeeping, and its failure mode is already the safe one.
+                logger.warn(`[MailboxService] Could not stamp seenAt on ${messageId}: ${error.message}`)
+            }
+        }
     }
 
     /**
@@ -3494,13 +3607,19 @@ class MailboxService extends Base {
      *   `{durable: false, warning}` when storage is absent); array form: `{results: [...]}`;
      *   all form: compact aggregate counts plus exceptional rows.
      */
-    async markRead({messageId, all = false} = {}) {
+    async markRead({messageId, all = false, includeUnseen = false} = {}) {
+        // Validated with the same boolean strictness `all` already uses, and BEFORE the `all` branch,
+        // so a caller who fat-fingers the widening flag is told rather than silently given the narrow
+        // drain they were trying to opt out of.
+        if (includeUnseen !== true && includeUnseen !== false) {
+            throw new TypeError('mark_read includeUnseen must be a boolean.');
+        }
         if (all === true) {
             if (messageId !== undefined) {
                 throw new TypeError('mark_read accepts either messageId or all: true, not both.');
             }
 
-            return this._markUnreadSnapshotRead();
+            return this._markUnreadSnapshotRead({includeUnseen});
         }
         if (all !== false) {
             throw new TypeError('mark_read all must be a boolean.');
@@ -3643,7 +3762,7 @@ class MailboxService extends Base {
      * @returns {Promise<Object>} Aggregate snapshot receipt with matched/read/durable/failure counts.
      * @private
      */
-    async _markUnreadSnapshotRead() {
+    async _markUnreadSnapshotRead({includeUnseen = false} = {}) {
         const boundIdentity = RequestContextService.getAgentIdentityNodeId();
         if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('mark all messages read');
@@ -3670,6 +3789,15 @@ class MailboxService extends Base {
         const
             placeholders = targetStorageVariants.map(() => '?').join(', '),
             snapshotAt   = new Date().toISOString(),
+            // The predicate that makes a bulk drain discriminating. Each arm tests `seenAt` in the
+            // SAME place its own `readAt` lives — node-side for directed mail, edge-side for
+            // per-recipient broadcast delivery — so the two states can never disagree about which
+            // recipient they describe.
+            //
+            // `includeUnseen` widens both arms back to today's exact set for the genuine
+            // been-away-a-week case. Interpolated rather than bound because it selects a clause, not
+            // a value, and both branches are literals in this file.
+            seenClause   = includeUnseen ? '' : "AND json_extract(%SOURCE%.data, '$.properties.seenAt') IS NOT NULL",
             rows         = sqlite.prepare(`
                 WITH unread_messages AS (
                     SELECT n.id AS messageId
@@ -3680,6 +3808,7 @@ class MailboxService extends Base {
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       AND json_extract(n.data, '$.properties.readAt') IS NULL
                       AND json_extract(n.data, '$.properties.archivedAt') IS NULL
+                      ${seenClause.replace('%SOURCE%', 'n')}
 
                     UNION
 
@@ -3691,6 +3820,7 @@ class MailboxService extends Base {
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       AND json_extract(e.data, '$.properties.readAt') IS NULL
                       AND json_extract(e.data, '$.properties.archivedAt') IS NULL
+                      ${seenClause.replace('%SOURCE%', 'e')}
                 )
                 SELECT DISTINCT messageId
                 FROM unread_messages
@@ -3714,6 +3844,36 @@ class MailboxService extends Base {
                     ? 'read'
                     : 'partial';
 
+        // A narrower drain that says nothing reads exactly like "everything cleared", which is the
+        // failure this whole change exists to remove — one level up. Counted only on the default
+        // path, because with `includeUnseen` nothing is withheld by construction.
+        const withheldUnseenCount = includeUnseen ? 0 : sqlite.prepare(`
+            WITH unseen_unread AS (
+                SELECT n.id AS messageId
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'SENT_TO'
+                  AND e.target IN (${placeholders})
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND json_extract(n.data, '$.properties.archivedAt') IS NULL
+                  AND json_extract(n.data, '$.properties.seenAt') IS NULL
+
+                UNION
+
+                SELECT n.id AS messageId
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'DELIVERED_TO'
+                  AND e.target IN (${placeholders})
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(e.data, '$.properties.readAt') IS NULL
+                  AND json_extract(e.data, '$.properties.archivedAt') IS NULL
+                  AND json_extract(e.data, '$.properties.seenAt') IS NULL
+            )
+            SELECT COUNT(DISTINCT messageId) AS count FROM unseen_unread
+        `).get(...targetStorageVariants, ...targetStorageVariants)?.count ?? 0;
+
         return {
             status,
             snapshotAt,
@@ -3722,6 +3882,7 @@ class MailboxService extends Base {
             durableCount,
             failureCount   : failures.length,
             nonDurableCount: nonDurable.length,
+            withheldUnseenCount,
             failures,
             nonDurable
         };

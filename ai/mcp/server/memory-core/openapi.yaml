@@ -2354,7 +2354,9 @@ paths:
       x-pass-as-object: true
       x-neo-tool-summary: Mark selected or all current unread A2A messages read.
       description: |
-        Marks selected messages or the caller's entire current unread inbox snapshot as read. Pass exactly one of `messageId` (a string or array) and `all: true`. Array mode returns per-id results and one stale or unauthorized id never fails the batch. All mode snapshots every currently unread, unarchived message before mutation; messages arriving after snapshot capture remain unread.
+        Marks selected messages or the caller's entire current unread inbox snapshot as read. Pass exactly one of `messageId` (a string or array) and `all: true`. Array mode returns per-id results and one stale or unauthorized id never fails the batch.
+
+        All mode sweeps only messages you have actually been SHOWN — those returned by one of your own `list_messages` calls. Mail that arrived since your last listing stays unread, which is what keeps a directed message findable after it scrolls out of a turn. The usual flow is unchanged and still two calls: list the backlog, then `all: true` clears every listed message at once, with no paging. The receipt's `withheldUnseenCount` reports how many unseen messages were left behind, so a narrower drain is never silent.
       tags: [Mailbox]
       requestBody:
         required: true
@@ -2371,7 +2373,11 @@ paths:
                       items: {type: string}
                 all:
                   type: boolean
-                  description: Set true instead of messageId to mark the current unread, unarchived snapshot.
+                  description: Set true instead of messageId to mark the current unread, unarchived snapshot you have been shown.
+                includeUnseen:
+                  type: boolean
+                  default: false
+                  description: Used with `all`, also sweeps messages you have never been shown. For clearing an accumulated backlog you do not intend to read; it can discard a directed message you have never seen.
       responses:
         '200':
           description: OK

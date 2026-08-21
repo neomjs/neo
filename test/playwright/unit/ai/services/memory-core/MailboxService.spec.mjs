@@ -2088,6 +2088,16 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             MailboxService.archiveMessage({messageId: archivedId})
         );
 
+        // The drain sweeps only mail the agent has been SHOWN, so this listing is the
+        // precondition the flow always had in practice — an agent cannot triage what it has not
+        // listed. Added rather than switching to `includeUnseen: true`, because this test's subject
+        // is carrier ownership under a bulk drain (bob's delivery edge marked, charlie's untouched),
+        // and that property must keep being asserted on the DEFAULT path rather than only on the
+        // widened one. Every assertion below is unchanged.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({box: 'inbox', status: 'unread'})
+        );
+
         const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
             MailboxService.markRead({all: true})
         );
@@ -2147,13 +2157,24 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
-    test('#15913 markRead all mode drains beyond the list_messages 100-row page size', async () => {
+    /**
+     * This guarantee was relocated rather than removed. The subject here is that the drain is
+     * NOT capped at the 100-row list page — these 125 carriers are seeded straight into the graph and
+     * were never listed, so under the default drain they are unseen and correctly withheld. The
+     * uncapped-depth property now lives on the explicit widening flag, which is the path that still
+     * means "everything, listed or not".
+     *
+     * The default path keeps its own depth coverage: the motivating-case arm below lists 120
+     * messages and clears all of them in one call. So neither path lost the guarantee — it is
+     * asserted twice, once per meaning.
+     */
+    test('#15913 markRead all+includeUnseen drains beyond the list_messages 100-row page size', async () => {
         for (let index = 0; index < 125; index++) {
             seedReadStateCarrier({messageId: `MESSAGE:read-all-depth-${index}`});
         }
 
         const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
-            MailboxService.markRead({all: true})
+            MailboxService.markRead({all: true, includeUnseen: true})
         );
 
         expect(receipt).toMatchObject({
@@ -2182,6 +2203,15 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 ids.push(messageId);
             }
         });
+
+        // The three seeded messages must be SEEN before a default drain will sweep them.
+        // This test's subject — post-snapshot arrivals excluded, exceptional rows reported — is
+        // orthogonal to seen-state, so the listing is a precondition rather than a change of
+        // subject. It also strengthens the arm: the late arrival is now excluded for two
+        // independent reasons, and the assertions below still isolate the snapshot one.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({box: 'inbox', status: 'unread'})
+        );
 
         const originalMarkRead = MailboxService.markRead;
         let lateMessageId;
@@ -2313,8 +2343,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         // A SwarmHeartbeatService-shaped read: a different identity, reading bob's mail through the
         // same method under a permission grant. This must not make bob's mail "seen".
-        await asBob(() => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
-            PermissionService.grantPermission({to: '@charlie', scope: 'CAN_READ_INBOX_OF'})));
+        GraphService.upsertNode({
+            id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}
+        });
+
+        await asBob(() => PermissionService.grantPermission({to: '@charlie', scope: 'CAN_READ_INBOX_OF'}));
 
         await RequestContextService.run({agentIdentityNodeId: '@charlie'}, () =>
             MailboxService.listMessages({box: 'inbox', to: '@bob', status: 'all'}));
@@ -2332,6 +2365,43 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         await asBob(() => MailboxService.markRead({all: true}));
 
         expect(await unreadOf(), 'an outbox read did not see the inbox').toContain(directed)
+    });
+
+    test('#17321 the receipt reports what it withheld, so a narrower drain is never silent', async () => {
+        const [seen] = await seedInbox(['listed']);
+        await asBob(() => MailboxService.listMessages({box: 'inbox', status: 'unread'}));
+        await seedInbox(['never listed one', 'never listed two']);
+
+        const receipt = await asBob(() => MailboxService.markRead({all: true}));
+
+        expect(receipt.readCount, 'the seen message cleared').toBe(1);
+        expect(receipt.withheldUnseenCount, 'and the two unseen are counted, not hidden').toBe(2);
+        expect(receipt.matchedCount).toBe(1);
+        expect(seen).toBeTruthy()
+    });
+
+    test('#17321 seenAt is stamped once and a later listing does not move it', async () => {
+        const [directed] = await seedInbox(['stamped once']);
+
+        await asBob(() => MailboxService.listMessages({box: 'inbox', status: 'unread'}));
+
+        expect(GraphService.db.nodes.get(directed).properties.seenAt, 'the first listing stamped it')
+            .toBeTruthy();
+
+        // Overwritten with a sentinel rather than waiting for the clock to tick. A sleep-based
+        // version would pass vacuously whenever both listings landed in the same millisecond —
+        // the assertion could not tell "not re-stamped" from "re-stamped identically".
+        const sentinel = '1999-12-31T23:59:59.000Z';
+
+        GraphService.db.nodes.get(directed).properties.seenAt = sentinel;
+
+        await asBob(() => MailboxService.listMessages({box: 'inbox', status: 'unread'}));
+
+        // `seenAt` records FIRST surfacing. Re-stamping would silently turn it into a last-listed
+        // timestamp, which answers a question nothing asks and would let a re-list revive a message
+        // the agent has already triaged past.
+        expect(GraphService.db.nodes.get(directed).properties.seenAt, 'a later listing left it alone')
+            .toBe(sentinel)
     });
 
     test('#17321 includeUnseen: true reproduces today\'s drain exactly — the widening fence', async () => {
