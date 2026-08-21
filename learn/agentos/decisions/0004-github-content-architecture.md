@@ -202,7 +202,7 @@ All 3 syncers (`IssueSyncer`, `PullRequestSyncer`, `DiscussionSyncer`) + new `Re
 
 ### 3.4 Release-cut substrate
 
-`buildScripts/release/publish.mjs` calls `GH_SyncService.runFullSync()` then regenerates ticket index. Archive placement delegated to syncers. Release-notes write-path uses the same universal helper.
+> **Amended 2026-08-21 (#17239):** the release cut is a two-command composition since the engine↔Brain severance. `buildScripts/release/publish.mjs` owns the ENGINE half only (version, atomic squash, GitHub release) and imports/spawns nothing under `ai/**` — the engine releases from a checkout where the Brain does not exist. The content half — Knowledge Base upload, `GH_SyncService.runFullSync()`, ticket-index regeneration, and the archive commit — lives in `ai/scripts/lifecycle/postReleaseSync.mjs` (`npm run ai:post-release-sync`), which `publish.mjs` prints as the next runbook step and which fail-closed preflights branch, version, and starting tree before its first mutation. Archive placement stays delegated to syncers; the release-notes write-path keeps the same universal helper.
 
 ### 3.5 Consumer recursion + index lookup
 

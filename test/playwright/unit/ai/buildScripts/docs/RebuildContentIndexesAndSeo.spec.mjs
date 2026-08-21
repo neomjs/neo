@@ -22,7 +22,6 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             baseUrl                 : 'https://example.test',
             sitemapPath             : '/repo/apps/portal/sitemap.xml',
             llmsPath                : '/repo/apps/portal/llms.txt',
-            reconcileActiveChunksFn : record('rechunk'),
             createReleaseIndexFn    : record('releases'),
             createPullRequestIndexFn: record('pulls'),
             createDiscussionIndexFn : record('discussions'),
@@ -34,21 +33,12 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         });
 
         expect(calls.map(call => call.name)).toEqual([
-            'rechunk',
-            'rechunk',
-            'rechunk',
             'releases',
             'pulls',
             'discussions',
             'tickets',
             'sitemap',
             'llms'
-        ]);
-        // The active-tier re-chunk runs for all three content types, before the index builders mirror them.
-        expect(calls.filter(call => call.name === 'rechunk').map(call => call.args[1].type)).toEqual([
-            'pulls',
-            'issues',
-            'discussions'
         ]);
         expect(calls.find(call => call.name === 'sitemap').args[0]).toEqual({
             baseUrl            : 'https://example.test',
@@ -78,7 +68,6 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         await rebuildContentIndexesAndSeo({
             includeLabelIndex       : true,
             createLabelIndexFn      : record('labels'),
-            reconcileActiveChunksFn : record('rechunk'),
             createReleaseIndexFn    : record('releases'),
             createPullRequestIndexFn: record('pulls'),
             createDiscussionIndexFn : record('discussions'),
@@ -89,7 +78,35 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             log                     : () => {}
         });
 
-        expect(calls).toEqual(['labels', 'rechunk', 'rechunk', 'rechunk', 'releases', 'pulls', 'discussions', 'tickets']);
+        expect(calls).toEqual(['labels', 'releases', 'pulls', 'discussions', 'tickets']);
+    });
+
+    test('imports nothing from ai/** — the corpus re-chunk belongs to the emitter, not this projection', async () => {
+        // The ordinal-100 re-chunk moved to `SyncService#emitGeneratedContentAndDerive` so the corpus
+        // WRITER leaves the layout canonical. This arm pins the boundary property at the module level,
+        // complementing the repo-wide `check-engine-brain-boundary` guard: a reintroduced `ai/` import
+        // fails here inside the unit suite, before the lint-staged/CI guard ever runs.
+        const source = await fs.readFile(
+            path.resolve(process.cwd(), 'buildScripts/docs/rebuildContentIndexesAndSeo.mjs'), 'utf8'
+        );
+
+        expect(source).not.toMatch(/from\s+'[^']*\bai\//);
+        expect(source).not.toMatch(/import\('[^']*\bai\//);
+
+        // And the pass did not simply vanish: the emitter carries it, ordered before its own derive
+        // call, so every reader — this script included — projects an already-canonical corpus. If the
+        // emitter ever drops the pass without a replacement, this fails before the drift can compound.
+        const emitter = await fs.readFile(
+            path.resolve(process.cwd(), 'ai/services/github-workflow/SyncService.mjs'), 'utf8'
+        );
+
+        const
+            firstRechunk = emitter.indexOf('await reconcileActiveChunks('),
+            deriveCall   = emitter.indexOf('await this.rebuildContentIndexesAndSeo()');
+
+        expect(firstRechunk).toBeGreaterThan(-1);
+        expect(deriveCall).toBeGreaterThan(firstRechunk);
+        expect(emitter.match(/await reconcileActiveChunks\(/g)).toHaveLength(3);
     });
 
     test('fails closed when a derive step rejects before generated artifacts are written', async () => {
@@ -97,7 +114,6 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
 
         await expect(rebuildContentIndexesAndSeo({
             createLabelIndexFn      : async () => {},
-            reconcileActiveChunksFn : async () => {},
             createReleaseIndexFn    : async () => {},
             createPullRequestIndexFn: async () => { throw new Error('pull index failed'); },
             createDiscussionIndexFn : async () => { throw new Error('must not run'); },

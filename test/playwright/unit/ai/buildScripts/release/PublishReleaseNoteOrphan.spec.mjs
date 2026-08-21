@@ -78,44 +78,94 @@ test.describe('Release-note orphan prevention', () => {
     });
 
     /**
-     * Every commit in `publish.mjs` uses `--no-verify` by design, so no git hook can see the release
-     * path and the `lint-staged` logical-identity guard is structurally blind to it. Two of its commits
+     * The two-command release protocol's ordered-handoff witness. The engine half (`publish.mjs`)
+     * must end by naming the Brain half's package script, AFTER the GitHub release and the staging
+     * note's removal — and that script must actually resolve to the lifecycle entrypoint on disk.
+     * Without this arm, a refactor could silently drop the print or rename the script, leaving the
+     * content half as terminal-only advice that no durable surface reaches.
+     */
+    test('the engine half hands off to a reachable package script, ordered after release and note removal', () => {
+        const
+            src        = fs.readFileSync(path.join(root, 'buildScripts/release/publish.mjs'), 'utf8'),
+            pkg        = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')),
+            // LAST occurrence, deliberately: the module docblock also names the command (first hit
+            // ~byte 1200), and matching documentation instead of the runtime print is how this arm
+            // shipped green while asserting nothing — CI caught it. If a refactor deletes the print,
+            // lastIndexOf falls back to the docblock mention and the order assertions below fail.
+            handoffIdx = src.lastIndexOf('npm run ai:post-release-sync'),
+            releaseIdx = src.indexOf('gh release create'),
+            cleanupIdx = src.indexOf('fs.removeSync(releaseNotePath)'),
+            script     = pkg.scripts['ai:post-release-sync'];
+
+        // The handoff is printed, and it is the LAST beat: after the release, after the cleanup.
+        expect(handoffIdx, 'publish.mjs must print the post-release handoff').toBeGreaterThan(-1);
+        expect(handoffIdx).toBeGreaterThan(releaseIdx);
+        expect(handoffIdx).toBeGreaterThan(cleanupIdx);
+
+        // The named script exists and resolves to a real lifecycle entrypoint.
+        expect(script, 'package.json must carry ai:post-release-sync').toBeTruthy();
+
+        const target = script.replace(/^node\s+/, '').replace(/^\.\//, '');
+
+        expect(target).toBe('ai/scripts/lifecycle/postReleaseSync.mjs');
+        expect(fs.existsSync(path.join(root, target)), `${target} must exist`).toBe(true);
+    });
+
+    /**
+     * Every commit on the release path uses `--no-verify` by design, so no git hook can see it and
+     * the `lint-staged` logical-identity guard is structurally blind to it. Two release-path commits
      * stage broadly with `git add .`, which means either can carry an archived-artifact collision onto
      * `dev` — and the archive one runs inside a `catch` that deliberately continues after
      * `runFullSync()` throws, i.e. exactly when the integrity verdict measured the corpus as unclean.
+     *
+     * The two broad stages live in two files since the engine↔Brain severance: the release-artifact
+     * commit stays in `buildScripts/release/publish.mjs` (engine, steps 1–5), and the archive commit
+     * moved to `ai/scripts/lifecycle/postReleaseSync.mjs` with the sync machinery it commits for.
+     * The population is pinned per file — a count over one file went stale the day the split landed,
+     * and a mere total would let both stages migrate into one unguarded file and still pass.
      *
      * This is a source-ORDERING claim, not a behavioural one, which is what makes a source assertion
      * the right instrument: the guard must appear BEFORE each broad stage. Running the real publisher
      * to prove it would require cutting a release.
      */
     test('every broad-staging release commit is preceded by the logical-identity guard', () => {
-        const
-            source = fs.readFileSync(path.join(root, 'buildScripts/release/publish.mjs'), 'utf8'),
-            lines  = source.split('\n'),
-            // `git add .` is the broad stage; `git add <path>` (the release note) cannot carry archive
-            // content and is deliberately NOT required to carry the guard.
-            broadStageLines = lines
-                .map((line, index) => ({line, index}))
-                .filter(entry => /runCommand\('git add \.'/.test(entry.line));
+        const releaseCommitFiles = [
+            {file: 'buildScripts/release/publish.mjs',          expectedBroadStages: 1},
+            {file: 'ai/scripts/lifecycle/postReleaseSync.mjs',  expectedBroadStages: 1}
+        ];
 
-        expect(broadStageLines.length, 'expected exactly the two known broad stages').toBe(2);
+        for (const {file, expectedBroadStages} of releaseCommitFiles) {
+            const
+                source = fs.readFileSync(path.join(root, file), 'utf8'),
+                lines  = source.split('\n'),
+                // `git add .` is the broad stage; `git add <path>` (the release note) cannot carry archive
+                // content and is deliberately NOT required to carry the guard.
+                broadStageLines = lines
+                    .map((line, index) => ({line, index}))
+                    .filter(entry => /runCommand\('git add \.'/.test(entry.line));
 
-        for (const {index} of broadStageLines) {
-            // The guard must be the immediately-preceding executable statement, so a later edit cannot
-            // slip a stage in between and still pass.
-            const preceding = lines
-                .slice(0, index)
-                .map(line => line.trim())
-                .filter(line => line && !line.startsWith('//'))
-                .pop();
+            expect(broadStageLines.length, `${file}: expected exactly ${expectedBroadStages} broad stage(s)`)
+                .toBe(expectedBroadStages);
 
-            expect(preceding, `broad stage at line ${index + 1} is unguarded`)
-                .toMatch(/assertNoArchiveLogicalIdentityCollisions\(/);
+            for (const {index} of broadStageLines) {
+                // The guard must be the immediately-preceding executable statement, so a later edit cannot
+                // slip a stage in between and still pass.
+                const preceding = lines
+                    .slice(0, index)
+                    .map(line => line.trim())
+                    .filter(line => line && !line.startsWith('//'))
+                    .pop();
+
+                expect(preceding, `${file}: broad stage at line ${index + 1} is unguarded`)
+                    .toMatch(/assertNoArchiveLogicalIdentityCollisions\(/);
+            }
+
+            // And the guard must actually consult the shared predicate rather than reimplementing it,
+            // so the release path and the sync path cannot disagree about what a collision is.
+            expect(source, `${file}: guard must import the shared predicate`)
+                .toMatch(/import \{findLogicalIdentityCollisions\}/);
+            expect(source, `${file}: guard must invoke the shared predicate`)
+                .toMatch(/findLogicalIdentityCollisions\(\{/)
         }
-
-        // And the guard must actually consult the shared predicate rather than reimplementing it,
-        // so the release path and the sync path cannot disagree about what a collision is.
-        expect(source).toMatch(/import \{findLogicalIdentityCollisions\}/);
-        expect(source).toMatch(/findLogicalIdentityCollisions\(\{/)
     })
 });
