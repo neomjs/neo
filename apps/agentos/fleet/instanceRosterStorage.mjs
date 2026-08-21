@@ -55,7 +55,12 @@ export function reviveInstanceRoster(json) {
     // yields `null` and lands in `not-an-array`, while `JSON.parse(undefined)` throws and lands in
     // `unparseable`. A warning that fires on every fresh install is one operators learn to ignore,
     // which would cost the real signal this envelope field exists to carry.
-    if (json === null || json === undefined || json === '') {
+    //
+    // ABSENCE IS THE CARRIER'S WORD, not a falsy family. LocalStorage answers a missing key with
+    // `null`, so `''` is a value somebody STORED and `JSON.parse('')` throws — it is corruption, and
+    // admitting it here would rebuild the conflation this function exists to remove, one state over.
+    // `undefined` stays only because no carrier can hand back a stored `undefined`.
+    if (json === null || json === undefined) {
         return {records: [], dropped: [], envelope: 'absent'}
     }
 

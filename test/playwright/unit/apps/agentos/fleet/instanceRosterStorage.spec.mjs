@@ -77,7 +77,12 @@ test.describe('instanceRosterStorage — persistence over the C1 guard (#17328)'
         // signal worth reading. Without this arm the arm above passes on a build that cries wolf.
         expect(reviveInstanceRoster(null).envelope).toBe('absent');
         expect(reviveInstanceRoster(undefined).envelope).toBe('absent');
-        expect(reviveInstanceRoster('').envelope).toBe('absent')
+
+        // Absence is the CARRIER's word, not a falsy family — and this is the boundary the control
+        // has to hold from BOTH sides. LocalStorage answers a missing key with `null`, so `''` is a
+        // value somebody stored and `JSON.parse('')` throws. Admitting it above would rebuild the
+        // exact conflation this envelope exists to remove, one state over.
+        expect(reviveInstanceRoster('').envelope).toBe('unparseable')
     });
 
     test('the storage key is versioned and owned here', () => {

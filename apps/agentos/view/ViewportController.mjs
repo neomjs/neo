@@ -79,12 +79,15 @@ class ViewportController extends Controller {
 
         dropped.forEach(({reason}) => console.warn(`fleet instance roster: dropped a stored row — ${reason}`));
 
+        // Damage is not absence, and the difference has to govern the WRITE as much as the warning.
+        const damaged = Boolean(readError) || envelope === 'unparseable' || envelope === 'not-an-array';
+
         // An envelope failure yields an EMPTY `dropped`, so the per-row warning above cannot fire for
         // it. Without this the switcher seeds the boot profile, shows exactly one instance, and is
         // indistinguishable from a fresh install while every configured instance is gone from view.
         if (readError) {
             console.warn(`fleet instance roster: storage unreadable, showing none of your configured instances — ${readError}`)
-        } else if (envelope === 'unparseable' || envelope === 'not-an-array') {
+        } else if (damaged) {
             console.warn(`fleet instance roster: stored value is ${envelope}, showing none of your configured instances — the value is still on disk under "${INSTANCE_ROSTER_STORAGE_KEY}" and recoverable`)
         }
         records.length > 0 && store.add(records.map(record => ({...record})));
@@ -98,7 +101,13 @@ class ViewportController extends Controller {
             seeded = true
         }
 
-        (seeded || dropped.length > 0) && me.persistInstanceRoster();
+        // The seed lives in MEMORY on a damaged read, never on disk. Seeding leaves the store holding
+        // exactly the boot profile, so `seeded` is true on damage too — and persisting there would
+        // overwrite `agentosFleetInstances.v1` milliseconds after telling the operator the value is
+        // "still on disk and recoverable". A warning whose own function destroys its subject is worse
+        // than the silence it replaced: it is silence with a receipt. Row-level `dropped` still
+        // persists, because there the envelope parsed and re-writing the survivors IS the salvage.
+        (!damaged && (seeded || dropped.length > 0)) && me.persistInstanceRoster();
         me.syncBoundInstance()
     }
 
