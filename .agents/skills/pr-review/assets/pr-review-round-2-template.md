@@ -1,8 +1,8 @@
 # PR Review — Round 2 (disposition only)
 
-**Status:** [Approved / Approve+Follow-Up / Comment / Request Changes]
+**Status:** [Approved / Approve+Follow-Up / Comment]
 
-*The Verdict rule forces this: any `STILL_OPEN` row ⇒ Comment; a fully dispositioned round is never Request Changes. The gate refuses a Status disagreeing with your table.*
+*Exactly one, and your table picks it: any `STILL_OPEN` row ⇒ `Comment`. Request Changes is not a Round-2 status — a discharged round approves, an open one comments.*
 
 **Opening:** [One sentence: which prior actions this dispositions, at which head.]
 

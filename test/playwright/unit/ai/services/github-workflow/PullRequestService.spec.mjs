@@ -2265,6 +2265,49 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         }).valid, 'STILL_OPEN under Comment').toBe(true)
     });
 
+    /**
+     * A coherence rule that reads one declaration is only as good as the guarantee that the
+     * declaration EXISTS. The first revision deferred a missing Status to the structural anchor
+     * layer in a code comment — and never checked that the anchor layer refuses it. It does not: a
+     * Round 2 with no Status at all returned `valid: true`, so the rule silently did not apply to
+     * the one body that most needed it. Found in review by @neo-gpt.
+     *
+     * `Request Changes` is likewise not a legal Round-2 Status: every branch of the coherence rule
+     * refuses it — with a STILL_OPEN row it must be Comment, and without one a fully dispositioned
+     * round does not spend another round. An enum offering a value with no legal branch is the same
+     * defect this PR started from, one value over.
+     */
+    test('#17354: a Round 2 with no Status is refused', () => {
+        const body   = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved\n\n', ''),
+              result = PullRequestService.validatePrReviewBody({body});
+
+        expect(result.valid, 'the coherence rule needs a declaration to read').toBe(false);
+        expect(result.message).toMatch(/Status/)
+    });
+
+    test('#17354: an unknown or placeholder Status is refused', () => {
+        for (const status of ['Request Changes', 'Merged', '[Approved / Approve+Follow-Up / Comment]']) {
+            const body   = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', `**Status:** ${status}`),
+                  result = PullRequestService.validatePrReviewBody({body});
+
+            expect(result.valid, `"${status}" is not a legal Round-2 Status`).toBe(false)
+        }
+    });
+
+    test('#17354: each legal Status is accepted in its coherent shape — the paired controls', () => {
+        // One accepted shape per legal value, so a fix that simply refuses more cannot pass.
+        expect(PullRequestService.validatePrReviewBody({body: VALID_ROUND_2_REVIEW_BODY}).valid,
+            'Approved with everything dispositioned').toBe(true);
+
+        expect(PullRequestService.validatePrReviewBody({
+            body: VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Approve+Follow-Up')
+        }).valid, 'Approve+Follow-Up with everything dispositioned').toBe(true);
+
+        expect(PullRequestService.validatePrReviewBody({
+            body: ROUND_2_STILL_OPEN_BODY.replace('**Status:** Approved', '**Status:** Comment')
+        }).valid, 'Comment carrying a STILL_OPEN row').toBe(true)
+    });
+
     test('#17354: a body missing a silent anchor is refused SILENTLY, even when it also contradicts itself', () => {
         // The ordering is the anti-Goodhart guard, and making refusals friendlier is exactly what
         // would sand it off. A body that trips BOTH layers must return the silent one: the named

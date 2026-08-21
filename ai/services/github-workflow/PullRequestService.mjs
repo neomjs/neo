@@ -1276,16 +1276,40 @@ function getRound2StateCoherenceFailure(body) {
 
     const statusMatch = String(body || '').match(ROUND_2_STATUS_PATTERN);
 
-    // A missing or unparseable Status is the anchor layer's to refuse, and a table the extractor
-    // cannot read is the relation layer's. Staying silent here keeps one defect to one owner.
-    if (!statusMatch) return null;
+    // A rule that reads one declaration is only as good as the guarantee the declaration EXISTS.
+    // An earlier revision deferred this to the structural anchor layer in a comment and never
+    // checked that the anchor layer refuses it — it does not, so a Round 2 with no Status passed
+    // entirely and the coherence rule silently did not apply to the body that most needed it.
+    if (!statusMatch) {
+        return round2StateCoherenceFailure([
+            '- This Round 2 declares no `**Status:**` line.',
+            `- A Round 2 states exactly one of ${ROUND_2_LEGAL_STATUSES.map(status => `\`${status}\``).join(', ')}.`,
+            '',
+            'Add the Status your disposition table already implies: any `STILL_OPEN` row means `Comment`.'
+        ])
+    }
 
     const rows = extractDispositionRows(body);
 
     if (rows.length === 0) return null;
 
-    const declared = statusMatch[1].replace(/[*_`]/g, '').trim().toLowerCase(),
-          stillOpen = rows.some(row => row.disposition === 'STILL_OPEN');
+    const declaredRaw = statusMatch[1].replace(/[*_`]/g, '').trim(),
+          declared    = declaredRaw.toLowerCase(),
+          stillOpen   = rows.some(row => row.disposition === 'STILL_OPEN');
+
+    // `Request Changes` is deliberately absent from the legal set. Every branch below refuses it —
+    // with a STILL_OPEN row it must be `Comment`, and without one a fully dispositioned round does
+    // not spend another round — so offering it is an enum carrying a value with no legal branch,
+    // which is the same defect this whole change started from.
+    if (!ROUND_2_LEGAL_STATUSES.some(status => status.toLowerCase() === declared)) {
+        return round2StateCoherenceFailure([
+            `- \`**Status:** ${declaredRaw}\` is not a legal Round-2 status.`,
+            `- The legal set is ${ROUND_2_LEGAL_STATUSES.map(status => `\`${status}\``).join(', ')}.`,
+            '',
+            '`Request Changes` is not among them: a round that dispositions everything is `Approved`,',
+            'and one leaving an item open is `Comment`, which keeps the ORIGINAL review authoritative.'
+        ])
+    }
 
     if (stillOpen && declared !== 'comment') {
         return round2StateCoherenceFailure([
@@ -1486,6 +1510,14 @@ const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OP
  * @type {RegExp}
  */
 const ROUND_2_STATUS_PATTERN = /^\*\*Status:\*\*[ \t]*(.+?)[ \t]*$/m;
+
+/**
+ * The complete legal Round-2 Status set. `Request Changes` is deliberately absent: the coherence
+ * rule refuses it on every branch, so offering it would be an enum carrying a value that can never
+ * validate — the exact defect the round-2 template held before this change.
+ * @type {String[]}
+ */
+const ROUND_2_LEGAL_STATUSES = ['Approved', 'Approve+Follow-Up', 'Comment'];
 
 const ACTION_PACKET_HEADING_PATTERN = /Required\s+Actions?\b/i;
 const ACTION_PACKET_ITEM_PATTERN    = /^[ \t]*[-*][ \t]+\[[ \t]*\][ \t]*\S/;

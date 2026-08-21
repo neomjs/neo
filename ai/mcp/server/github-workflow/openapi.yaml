@@ -818,16 +818,12 @@ paths:
       summary: Validate PR Review Body
       operationId: validate_pr_review_body
       x-neo-tool-tier: read
-      x-neo-tool-summary: Dry-run validate a PR review body against the canonical pr-review template before posting.
+      x-neo-tool-summary: Read-only shape check for a PR review body; does not predict the submit gate.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
-        Read-only preflight for PR review composition. Validates `body` against the `pr-review` template-shape rules without resolving a PR, creating or updating a review, or changing GitHub state.
-
-        A pass validates SHAPE ONLY and does not predict `manage_pr_review`. That gate also compares the body against the pull request's prior review state — each row against the previous round's Required Actions, and the disposition table against the submitted review state — inputs this tool never receives. So a body accepted here can still be refused there; that is the contract, not a contradiction.
-
-        Use before `manage_pr_review` when composing: a failure names the exact visible/premise/template-skeleton anchors the read-only lint can safely expose. The mutation path stays narrower to preserve the anti-anchor-stuffing guard.
+        Read-only review-body shape check. Does not resolve a PR or predict `manage_pr_review`, which additionally compares the body against the pull request's prior-review state. Use while composing, then submit through `manage_pr_review`.
       tags: [PullRequests]
       requestBody:
         required: true
