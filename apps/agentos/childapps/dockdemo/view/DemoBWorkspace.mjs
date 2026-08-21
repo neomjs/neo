@@ -3293,7 +3293,7 @@ class DemoBWorkspace extends Container {
 
     /**
      * @summary Brings a torn-out item HOME on vessel death — the exact-position return of the
-     * vessel close policy (harness docking design record §2.8; the disposition this host's
+     * vessel close policy (docking design record §2.8; the disposition this host's
      * pre-vessel-lifecycle comment deferred).
      *
      * The stored `{tabsNodeId, index}` pair (captured at the detach terminal) is the placement

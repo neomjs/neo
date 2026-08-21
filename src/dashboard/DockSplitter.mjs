@@ -14,7 +14,7 @@ import NeoArray      from '../util/Array.mjs';
  * @extends Neo.component.Base
  * @see Neo.dashboard.DockLayoutAdapter
  * @see Neo.dashboard.DockZoneModel
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockSplitter extends Component {
     static config = {

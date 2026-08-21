@@ -8,7 +8,7 @@ import * as dockPreviewContract from './dockPreviewContract.mjs';
  * @summary Drag-time dock preview renderer — the app-neutral overlay every docking workspace composes.
  *
  * Consumes the runtime-only `dockPreview` contract object
- * (schema `neo.harness.dockPreview.v1`, specified in `learn/agentos/HarnessDockZoneModel.md`)
+ * (schema `neo.harness.dockPreview.v1`, specified in `learn/agentos/DockZoneModel.md`)
  * and projects its candidate `placement` into a single transient visual affordance — an edge
  * band, a split guide, or a tab indicator — over the harness workspace while a pane is dragged.
  *

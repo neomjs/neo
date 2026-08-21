@@ -1,7 +1,7 @@
 /**
  * @summary Pure per-gesture claim arbiter — the session-scoped gesture/claim protocol that replaces
- * first-intersecting target resolution on the dock path (harness docking design record §2.8.1,
- * `learn/agentos/decisions/0029-harness-docking-design.md`).
+ * first-intersecting target resolution on the dock path (docking design record §2.8.1,
+ * `learn/agentos/decisions/0029-docking-design.md`).
  *
  * One arbiter IS one gesture: {@link Neo.manager.DragCoordinator} mints an arbiter at gesture start,
  * every claim references its token, and the whole claim set dies with the gesture (terminal or

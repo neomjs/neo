@@ -18,7 +18,7 @@ const stackHeaderSource = Symbol('dockStackHeaderSource');
  *
  * @class Neo.dashboard.DockLayoutAdapter
  * @extends Neo.core.Base
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockLayoutAdapter extends Base {
     static config = {
@@ -433,7 +433,7 @@ class DockLayoutAdapter extends Base {
      *
      * Walks edge-zone / split / tabs nodes recursively and returns every item whose record carries
      * `autoHidden === true`. `projectEdgeZoneNode` uses this to surface those items as a thin edge rail
-     * instead of a full pane — the QT-parity auto-hide affordance (see learn/agentos/HarnessDockZoneModel.md).
+     * instead of a full pane — the QT-parity auto-hide affordance (see learn/agentos/DockZoneModel.md).
      * @param {String} nodeId
      * @param {Object} context
      * @returns {String[]}
@@ -475,7 +475,7 @@ class DockLayoutAdapter extends Base {
      * (`pinnable !== false`) — a tab whose restore the model would reject renders disabled instead
      * of lying about the affordance.
      * No DOMRect, hover, or open geometry is emitted — reveal/open state stays runtime-only per the
-     * JSON-first guardrail (HarnessDockZoneModel.md §Serializable vs Runtime).
+     * JSON-first guardrail (DockZoneModel.md §Serializable vs Runtime).
      * @param {String} itemId
      * @param {String} edge
      * @param {Object} context

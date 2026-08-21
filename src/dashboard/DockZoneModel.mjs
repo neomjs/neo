@@ -6,10 +6,10 @@ import Base from '../core/Base.mjs';
  *
  * @summary Executor for the harness dock-zone semantic operations (`neo.harness.dockZone.v1`).
  *
- * The "missing middle" of the harness docking line: `Neo.dashboard.DockPreview.previewToOperation()`
+ * The "missing middle" of the docking line: `Neo.dashboard.DockPreview.previewToOperation()`
  * produces an operation descriptor on drop, this executor applies it to mutate the persisted
  * dock-zone tree, and `Neo.dashboard.DockLayoutAdapter` renders the committed result. The contract
- * and data model are defined in `learn/agentos/HarnessDockZoneModel.md` (§Data Model + §Operations);
+ * and data model are defined in `learn/agentos/DockZoneModel.md` (§Data Model + §Operations);
  * this class is the code realization of §Operations.
  *
  * All operations are **pure static functions** over a `dockZone.v1` document: each deep-clones the
@@ -515,8 +515,8 @@ class DockZoneModel extends Base {
 
     /**
      * @summary Captures an item's exact tree placement — the stored-position half of
-     * exact-position reintegration (harness docking design record §2.8,
-     * `learn/agentos/decisions/0029-harness-docking-design.md`).
+     * exact-position reintegration (docking design record §2.8,
+     * `learn/agentos/decisions/0029-docking-design.md`).
      *
      * `addTab` appends by default, so a detached item's way back to its ORIGINAL slot exists
      * only if this pair was captured while the item was still in the tree — capture happens
@@ -2051,8 +2051,8 @@ class DockZoneModel extends Base {
 
     /**
      * @summary Resolves a workspace document's transferable STACK ROOT — the explicit source-side
-     * projection for whole-stack reintegration (harness docking design record §2.8,
-     * `learn/agentos/decisions/0029-harness-docking-design.md`).
+     * projection for whole-stack reintegration (docking design record §2.8,
+     * `learn/agentos/decisions/0029-docking-design.md`).
      *
      * The canonical vessel document shape is an `edge-zone` ROOT (window chrome) whose `center`
      * zone names the subtree holding the vessel's content — so "the whole stack" is the root's

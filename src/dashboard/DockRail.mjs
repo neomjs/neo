@@ -44,7 +44,7 @@ import NeoArray               from '../util/Array.mjs';
  * @see Neo.dashboard.DockRevealOverlay
  * @see Neo.dashboard.DockSplitter
  * @see Neo.dashboard.DockZoneModel
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockRail extends Container {
     static config = {

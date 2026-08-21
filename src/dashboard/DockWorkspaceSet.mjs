@@ -1,7 +1,7 @@
 /**
  * @summary Pure worker-owned workspace-set registry — the `{workspaceId → document}` composition
- * of the harness docking design record (§2.1 workspace topology; §2.8.3 vessel lifecycle;
- * `learn/agentos/decisions/0029-harness-docking-design.md`).
+ * of the docking design record (§2.1 workspace topology; §2.8.3 vessel lifecycle;
+ * `learn/agentos/decisions/0029-docking-design.md`).
  *
  * A workspace is one dock-zone document owned by one workspace container; multi-window
  * composition registers each vessel's document under a STABLE workspace id. This registry is that

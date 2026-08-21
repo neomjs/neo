@@ -1,10 +1,10 @@
-# Agent Harness Dock-Zone Model Contract
+# Dock-Zone Model Contract
 
-`@summary` Minimal model contract for Agent Harness docking: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
+`@summary` Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
 
 ## Scope
 
-This contract is the first concrete slice of the QT-grade docking line under the Agent Harness. It defines the data model that future rendering, preview, and persistence slices consume.
+This contract is the first concrete slice of the QT-grade docking line; the Agent Harness cockpit is one consumer among several (workstation, `examples/dashboard/*`). It defines the data model that rendering, preview, and persistence slices consume.
 
 This document does not implement drag previews, split/tab rendering, layout persistence, or cross-window choreography. Those are follow-up leaves. This slice exists so those leaves do not invent incompatible object models.
 
@@ -26,7 +26,7 @@ No dedicated dock manager exists today. ADR 0020 names QT-grade docking as a gap
 
 ## Ownership Boundary
 
-The model is a harness product contract that lives in the dashboard layer (`src/dashboard/`), not a new core layout primitive yet.
+The model is a generic dashboard-layer contract (`src/dashboard/`), not a new core layout primitive yet.
 
 Initial durable surface: this document.
 
@@ -382,6 +382,8 @@ Schema-name row (the canonical vocabulary both tiers share — the design record
 | `neo.harness.dockLayout.v1` | legacy saved-layout wrapper | read-path only; migrates forward with honest defaults |
 | `neo.harness.dockLayout.v2` | THE saved-layout AND perspective wrapper | adds `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
 | `neo.harness.dockLayoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
+
+The `neo.harness.` string prefix in these identifiers is a **frozen legacy wire format** (ADR 0029 §2.9): the runtime keeps emitting and accepting it unchanged, and renaming it is a schema migration, never a text edit.
 
 Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 

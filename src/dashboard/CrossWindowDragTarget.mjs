@@ -6,7 +6,7 @@ import DragCoordinator from '../manager/DragCoordinator.mjs';
  * @extends Neo.core.Base
  *
  * @summary The receiving-window contract implementation for cross-window dock drags — §2.3 of
- * the harness docking design record (`learn/agentos/decisions/0029-harness-docking-design.md`,
+ * the docking design record (`learn/agentos/decisions/0029-docking-design.md`,
  * the amend-first authority for this contract).
  *
  * `Neo.manager.DragCoordinator` arbitrates WHICH window's target receives a drag that originated

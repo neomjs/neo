@@ -1788,7 +1788,7 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Brings a torn-out item HOME on vessel death — same instance, exact stored
-     * position (the vessel close policy of the harness docking design record §2.8).
+     * position (the vessel close policy of the docking design record §2.8).
      *
      * A window disconnect never destroys the popup's view tree, so the captured pane survives
      * LIVE; it hands off through {@link #returningTearOutPanes} and the resolver returns it

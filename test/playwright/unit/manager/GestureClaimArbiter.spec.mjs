@@ -12,7 +12,7 @@ import {test, expect}              from '@playwright/test';
 import {createGestureClaimArbiter} from '../../../../src/manager/GestureClaimArbiter.mjs';
 
 /**
- * @summary The gesture/claim protocol contract (harness docking design record §2.8.1): one token
+ * @summary The gesture/claim protocol contract (docking design record §2.8.1): one token
  * per gesture, hit-claims on stable identity, validity/expiry, and deterministic outcomes for all
  * three cases — tie (earliest valid acquisition, stable-id lexicographic final tiebreak), stale
  * (ignored), no-claim (fail closed: `resolve()` returns null).

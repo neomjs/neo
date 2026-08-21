@@ -105,7 +105,7 @@ const resolveComponentRef = (componentRef, _item, itemId) => ({
  * - {@link #onDockZoneDocumentChange} is the **view-sync**: it stores the committed document and re-projects from it.
  *
  * This is the first *runtime* exercise of the full model → operation → re-projection cycle in a standalone app; Slice 1
- * delivered the static render. See `learn/agentos/HarnessDockZoneModel.md` for the model/projection contract.
+ * delivered the static render. See `learn/agentos/DockZoneModel.md` for the model/projection contract.
  * @class Neo.examples.dashboard.dock.MainContainer
  * @extends Neo.container.Viewport
  */

@@ -58,7 +58,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
  * @see Neo.dashboard.DockZoneModel
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockPerspectiveStore extends Base {
     static config = {

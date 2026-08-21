@@ -7,8 +7,8 @@ import DockZoneModel         from './DockZoneModel.mjs';
  * @extends Neo.core.Base
  *
  * @summary The adapter-tier composition that makes ONE dock workspace a cross-window drag
- * participant — the integration half of the harness docking design record's §2.3 (see
- * `learn/agentos/decisions/0029-harness-docking-design.md`) over exclusively LANDED machinery.
+ * participant — the integration half of the docking design record's §2.3 (see
+ * `learn/agentos/decisions/0029-docking-design.md`) over exclusively LANDED machinery.
  *
  * It owns the target registration lifecycle (create on workspace mount, destroy on unmount) and
  * binds the owner seams of {@link Neo.dashboard.CrossWindowDragTarget} to the workspace's landed

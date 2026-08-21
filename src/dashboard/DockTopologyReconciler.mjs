@@ -298,7 +298,7 @@ function createAffinityDetails(captured, live) {
  * @extends Neo.core.Base
  * @see Neo.dashboard.DockRestorePlanner
  * @see Neo.dashboard.DockZoneModel
- * @see learn/agentos/HarnessDockZoneModel.md
+ * @see learn/agentos/DockZoneModel.md
  */
 class DockTopologyReconciler extends Base {
     static config = {

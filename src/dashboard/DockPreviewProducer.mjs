@@ -4,10 +4,10 @@ import Base from '../core/Base.mjs';
  * @class Neo.dashboard.DockPreviewProducer
  * @extends Neo.core.Base
  *
- * @summary Hit-test producer for the harness dock drag: maps a pointer plus the rendered dock-zone
+ * @summary Hit-test producer for the dock drag: maps a pointer plus the rendered dock-zone
  * rects to a runtime-only `neo.harness.dockPreview.v1` payload — the COMPUTE half of the preview →
- * operation pipeline (`learn/agentos/decisions/0029-harness-docking-design.md` §2.3, schema in
- * `learn/agentos/HarnessDockZoneModel.md`). It is the object an owning dock workspace wires into
+ * operation pipeline (`learn/agentos/decisions/0029-docking-design.md` §2.3, schema in
+ * `learn/agentos/DockZoneModel.md`). It is the object an owning dock workspace wires into
  * {@link Neo.dashboard.CrossWindowDragTarget#previewFor} (and, for the boolean claim, `hitTest`);
  * the same compute path serves in-window drags.
  *
