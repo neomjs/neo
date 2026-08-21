@@ -2,6 +2,7 @@ import fs                 from 'fs-extra';
 import {parse, writeJSON} from './docletPipeline/index.mjs';
 import {marked}           from 'marked';
 import path               from 'path';
+import {setNamespace}     from './setNamespace.mjs';
 
 console.log('Starting JSDoc documentation generation...');
 const totalStartTime = new Date();
@@ -75,20 +76,6 @@ function getNamespace(tree, names) {
     }
 
     return current;
-}
-
-function setNamespace(tree, names, value) {
-    names = Array.isArray(names) ? names : names.split('.');
-    let current = tree;
-
-    for (let i = 0; i < names.length - 1; i++) {
-        if (!current[names[i]]) {
-            current[names[i]] = {};
-        }
-        current = current[names[i]];
-    }
-
-    current[names[names.length - 1]] = value;
 }
 
 let neoStructure = [{
