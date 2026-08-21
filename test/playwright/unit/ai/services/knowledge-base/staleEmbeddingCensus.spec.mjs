@@ -32,9 +32,11 @@ function row(id, metadata) {
 
 test.describe('the provider-input format has a stored identity', () => {
     test('the identity is DERIVED from the format, so a format change cannot leave it behind', () => {
-        // The whole point of deriving it: "format changed, identity did not" must be unreachable
-        // rather than merely detectable. This arm pins the current value, so ANY change to a string
-        // the format produces reddens here and forces a deliberate decision about the corpus.
+        // The point of deriving it: "format changed, identity did not" is removed for every branch
+        // the probe set reaches, rather than merely detectable. Not unconditional — a branch no probe
+        // exercises can still change invisibly, which is why adding a format branch means adding a
+        // probe in the same change. This arm pins the current value, so ANY change to a string the
+        // format produces reddens here and forces a deliberate decision about the corpus.
         //
         // If you are reading this because the arm just went red: that is the mechanism working. A
         // format change invalidates every existing vector's interpretation, so the question to answer

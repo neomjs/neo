@@ -106,9 +106,12 @@ export const EMBEDDING_INPUT_FORMAT_METADATA_KEY = 'kbEmbeddingInputFormat';
  * **Why it is derived rather than declared.** A hand-maintained literal can be forgotten, and the
  * cost of forgetting is silent — rows would claim a format they were not built from, which is worse
  * than no marker at all because it reads as verified. Hashing the format's own output over
- * {@link FORMAT_PROBE_CHUNKS} makes "format changed, identity did not" **unreachable** rather than
- * merely detectable. Incidental edits that do not change any produced string correctly leave the
- * identity alone.
+ * {@link FORMAT_PROBE_CHUNKS} removes the whole class of "format changed, identity did not" **for
+ * every branch that set reaches** — which is what a derived identity can honestly buy, and it is
+ * strictly more than a hand-maintained literal offers. It is not unconditional: per the probe set's
+ * own contract above, a branch no probe exercises can change without changing the identity, so
+ * adding a branch to the format means adding a probe for it in the same change. Incidental edits
+ * that do not change any produced string correctly leave the identity alone.
  *
  * The human-readable prefix is kept so an operator reading row metadata sees a family rather than
  * only a hex string; the suffix is what carries the guarantee. Truncated to 12 hex characters
