@@ -1462,10 +1462,42 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             const targetPeak    = Number(process.env.PROBE_TARGET_PEAK);
             const expectedSpans = Number(process.env.PROBE_EXPECTED_SPANS);
 
-            let open    = 0,
-                maxOpen = 0;
+            let open       = 0,
+                maxOpen    = 0,
+                stalled    = false,
+                stallGuard = null;
 
-            const releaseAll = () => held.splice(0).forEach(release => release());
+            // A run that can never satisfy either release condition used to surface as the runner's
+            // 10s SIGKILL, and a SIGKILL names nothing: the verdict became "the process died" rather
+            // than "the peak was wrong". A single-worker mutant is exactly that shape — one request is
+            // ever open, so `open` cannot reach the target, and the rest never dispatch, so the arrival
+            // count cannot reach the total. BOTH release arms are unreachable in the mutant's world.
+            //
+            // This guard releases whatever is held so the run COMPLETES and the arm fails on `maxOpen`,
+            // by assertion, in about the baseline's wall-clock. It is armed once, cleared by any normal
+            // release, and generous enough that the green path never reaches it.
+            // Re-armed on every ARRIVAL, because at one worker the stall recurs per request: releasing
+            // the held one lets the service dispatch the next, which hangs identically. A guard armed
+            // once rescues exactly one request and the run dies on the second — measured.
+            //
+            // The debounce is the fact the probe cannot otherwise learn: "no further request is coming
+            // right now". Everything else it knows (target peak, total spans) is unreachable precisely
+            // in the world the mutant creates, which is what made the old predicate undecidable there.
+            // fixed-sleep-justification: an arrival debounce that makes a deadlock assertable, not a
+            // wait for a thing to happen — the green path clears it within milliseconds and it never fires.
+            const armStallGuard = () => {
+                clearTimeout(stallGuard);
+                stallGuard = setTimeout(() => {
+                    stalled = true;
+                    held.splice(0).forEach(release => release())
+                }, 250)
+            };
+
+            const releaseAll = () => {
+                clearTimeout(stallGuard);
+                stallGuard = null;
+                held.splice(0).forEach(release => release())
+            };
 
             const server = http.createServer((request, response) => {
                 let body = '';
@@ -1478,6 +1510,7 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
                     requestInputs.push(inputs);
                     open    += 1;
                     maxOpen  = Math.max(maxOpen, open);
+                    armStallGuard();
 
                     held.push(() => {
                         open -= 1;
@@ -1517,8 +1550,9 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
                     'openAiCompatible'
                 );
 
-                console.log(JSON.stringify({requestInputs, embeddings, maxOpen}));
+                console.log(JSON.stringify({requestInputs, embeddings, maxOpen, stalled}));
             } finally {
+                clearTimeout(stallGuard);
                 server.closeAllConnections?.();
                 await new Promise(resolve => server.close(resolve))
             }
@@ -1546,9 +1580,21 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             })
         ]);
 
-        // EXACT peak. A lane declaring five tasks at width 1 must hold four requests open at once.
+        // EXACT peak, asserted BEFORE the stall flag. Any concurrency below the target stalls the
+        // probe — the release needs peak 4 — so both lines redden together and the FIRST one decides
+        // what the failure says. `maxOpen` is the real subject and it reports the number observed, so
+        // "2 where 4 was declared" reads correctly; the stall flag alone would have called that
+        // "never overlapped", which is false at two workers and was the drift in my first draft.
         expect(fanOut.maxOpen, 'four available tasks at width 1 must yield exactly four in flight').toBe(4);
         expect(fanOut.requestInputs).toHaveLength(6);
+
+        // The residual case the peak assertion cannot express: the probe released on its DEADLINE
+        // rather than on the peak or the full arrival set. Reachable only if the peak was somehow met
+        // and the run still could not finish, so it stays a distinct condition rather than a duplicate
+        // of the line above. Its value is that a deadlock now arrives here in about a second instead of
+        // as the runner's 10s SIGKILL, which named nothing at all.
+        expect(fanOut.stalled, 'the fan-out probe released on its stall deadline rather than on peak or full arrival').toBe(false);
+        expect(clamped.stalled, 'the clamped probe released on its stall deadline rather than on peak or full arrival').toBe(false);
         expect(fanOut.requestInputs.every(inputs => inputs.length === 1), 'width 1 means single-input requests').toBe(true);
 
         // WIDTH clamps to the budget, and offered tasks stay under it.
