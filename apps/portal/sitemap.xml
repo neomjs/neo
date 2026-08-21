@@ -828,7 +828,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-21T14:09:59Z</lastmod>
+    <lastmod>2026-08-21T14:57:36Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2176,12 +2176,20 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/17477</loc>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17476</loc>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/17472</loc>
     <lastmod>2026-08-21T14:08:26Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17469</loc>
-    <lastmod>2026-08-21T14:08:26Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17467</loc>
@@ -2189,11 +2197,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17466</loc>
-    <lastmod>2026-08-21T14:08:26Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17461</loc>
-    <lastmod>2026-08-21T13:09:10Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17457</loc>
@@ -2225,7 +2233,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17442</loc>
-    <lastmod>2026-08-21T13:09:10Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17440</loc>
@@ -2521,7 +2529,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17321</loc>
-    <lastmod>2026-08-21T13:09:10Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17317</loc>
@@ -2769,7 +2777,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17225</loc>
-    <lastmod>2026-08-21T14:08:26Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17222</loc>
@@ -3721,7 +3729,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16765</loc>
-    <lastmod>2026-08-21T14:08:26Z</lastmod>
+    <lastmod>2026-08-21T14:56:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16763</loc>
@@ -48164,18 +48172,28 @@
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/news/pulls/17475</loc>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/17474</loc>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/pulls/17473</loc>
     <lastmod>2026-08-21T14:08:32Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17471</loc>
-    <lastmod>2026-08-21T14:08:32Z</lastmod>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17470</loc>
-    <lastmod>2026-08-21T14:08:32Z</lastmod>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -48185,17 +48203,17 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17464</loc>
-    <lastmod>2026-08-21T14:08:32Z</lastmod>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17463</loc>
-    <lastmod>2026-08-21T13:09:18Z</lastmod>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17462</loc>
-    <lastmod>2026-08-21T14:08:32Z</lastmod>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -48265,7 +48283,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17434</loc>
-    <lastmod>2026-08-21T14:08:32Z</lastmod>
+    <lastmod>2026-08-21T14:56:06Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
