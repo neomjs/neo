@@ -3538,7 +3538,7 @@ components:
             observationStatus:
               type: string
               enum: [available, stale, degraded, unavailable]
-              description: "Freshness/readability status of the deployment-state bridge observation used for this projection."
+              description: "Freshness/readability status of the deployment-state bridge observation used for this projection. Distinct from `backup.observationStatus`, which reports whether the verdict's own input was present."
             backup:
               type: object
               nullable: true
@@ -3547,6 +3547,10 @@ components:
                 status:
                   type: string
                   enum: [healthy, degraded, pending]
+                observationStatus:
+                  type: string
+                  enum: [observed, partial]
+                  description: "Whether the verdict's run-dependent input — the backup lane's task state — was PRESENT, as opposed to the sibling one level up, which reports whether the bridge could be READ. Optional so an orchestrator predating the field still validates during a rolling deploy; absent means coverage is unknown."
                 reasonCodes:
                   type: array
                   items:

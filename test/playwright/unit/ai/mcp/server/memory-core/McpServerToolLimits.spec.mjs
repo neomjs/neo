@@ -467,6 +467,83 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(declared.properties.observationStatus.enum).toEqual(['available', 'stale', 'degraded', 'unavailable']);
         expect(declared.properties.backup.properties.status.enum).toEqual(['healthy', 'degraded', 'pending']);
         expect(declared.properties.backup.properties.reasonCodes.items.type).toBe('string');
+
+        // The two `observationStatus` fields sit one level apart and answer different questions —
+        // whether the BRIDGE could be read, versus whether the verdict's own input was PRESENT. The
+        // enums are kept disjoint so no payload can blur them, and this pins that.
+        expect(declared.properties.backup.properties.observationStatus.enum).toEqual(['observed', 'partial']);
+        expect(declared.properties.backup.required).not.toContain('observationStatus');
+    });
+
+    test('a zero-bundle inventory vetoes a healthy backup verdict it contradicts (#17338)', async () => {
+        const
+            plane        = {id: 'test-plane', dataRoot: '/test-data'},
+            healthyDrain = {
+                observable                    : true,
+                state                         : 'caught-up',
+                stallThresholdMs              : 6 * 60 * 60 * 1000,
+                pendingDrainDepth             : 0,
+                oldestPendingAgeMs            : null,
+                allWritesSemanticallyQueryable: true
+            },
+            // No bundle is restorable here, and the two facts are produced by different processes:
+            // the orchestrator derives its verdict from task state and receipt, neither of which can
+            // see this mount.
+            emptyInventory = {lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0},
+            baseHealth     = {
+                backup : emptyInventory,
+                status : 'healthy',
+                details: ['Connected to ChromaDB', 'All features are operational']
+            },
+            inspectionWith = health => ({
+                ok      : true,
+                status  : 'available',
+                snapshot: {maintenance: {health}}
+            }),
+            compose        = (health, inspection) => toolService.composeMemoryCoreHealthcheck({
+                health,
+                memoryWalDrain      : healthyDrain,
+                plane,
+                deploymentInspection: inspection
+            }),
+            healthyVerdict = {
+                observationStatus: 'observed',
+                reasonCodes     : [],
+                staleAfterMs    : 90000000,
+                status          : 'healthy'
+            },
+            vetoed         = compose(baseHealth, inspectionWith(healthyVerdict));
+
+        expect(vetoed.maintenance.backup.status).toBe('degraded');
+        expect(vetoed.maintenance.backup.reasonCodes).toContain('backup-inventory-empty');
+        expect(vetoed.status).toBe('degraded');
+        expect(vetoed.details.at(-1)).toContain('backup-inventory-empty');
+        expect(vetoed.details).not.toContain('All features are operational');
+
+        // CONTROL 1: a bundle exists. The verdict passes through untouched — the SAME object, so a
+        // veto that fired on every call rather than on the contradiction would fail here.
+        const stocked = compose(
+            {...baseHealth, backup: {...emptyInventory, count: 3, lastSuccessful: '2026-08-20T00:00:00Z'}},
+            inspectionWith(healthyVerdict)
+        );
+
+        expect(stocked.maintenance.backup).toBe(healthyVerdict);
+        expect(stocked.status).toBe('healthy');
+
+        // CONTROL 2: a first boot has the same empty inventory and is not making a positive claim.
+        // `pending` is already honest, and degrading it would warn on every fresh deployment.
+        const fresh = compose(baseHealth, inspectionWith({...healthyVerdict, observationStatus: 'partial', status: 'pending'}));
+
+        expect(fresh.maintenance.backup.status).toBe('pending');
+        expect(fresh.maintenance.backup.reasonCodes).toEqual([]);
+        expect(fresh.status).toBe('healthy');
+
+        // CONTROL 3: an unread inventory vetoes nothing. Absence of a reading is not a reading, and
+        // a veto that fired on `undefined` would degrade every caller that does not census bundles.
+        const unread = compose({...baseHealth, backup: undefined}, inspectionWith(healthyVerdict));
+
+        expect(unread.maintenance.backup).toBe(healthyVerdict);
+        expect(unread.status).toBe('healthy');
     });
 
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {

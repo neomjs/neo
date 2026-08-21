@@ -201,6 +201,43 @@ const explorePullRequestHistoryOp = args => PullRequestHistoryService.explorePul
 const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
 
 /**
+ * @summary Lets the bundle inventory veto a `healthy` backup verdict it contradicts.
+ *
+ * The two facts arrive in the same payload from different processes and never met: `backup` is this
+ * container's own enumeration of what is restorable, while `maintenance.backup` is the orchestrator's
+ * derivation from task state, receipt and durability posture — none of which can see the bundle
+ * mount. So a plane holding zero bundles could carry a `healthy` verdict, and the deploy guide that
+ * tells an operator to drop named volumes "with Memory Core and backups untouched" is read against
+ * exactly this surface.
+ *
+ * The inventory only ever REMOVES a positive claim. `pending` survives untouched, because a fresh
+ * deployment legitimately has no bundles and degrading it would fire on every first boot — the same
+ * cry-wolf the `unanchored` phase avoids upstream. An unread inventory vetoes nothing either: absence
+ * of a reading is not a reading. That leaves one transition, `healthy` → `degraded`, which is
+ * precisely the claim no zero-bundle plane is entitled to make.
+ *
+ * @param {Object} options
+ * @param {Object|null|undefined} options.inventory `HealthService` bundle census for this plane.
+ * @param {Object|null} options.verdict Bridge backup verdict, or null when it is not current.
+ * @returns {Object|null} The verdict, or a degraded copy of it when the inventory contradicts it.
+ */
+function vetoHealthyAgainstEmptyInventory({inventory, verdict}) {
+    if (verdict?.status !== 'healthy' || !inventory) {
+        return verdict
+    }
+
+    if (inventory.count !== 0 || inventory.lastSuccessful !== null) {
+        return verdict
+    }
+
+    return {
+        ...verdict,
+        reasonCodes: [...new Set([...(verdict.reasonCodes || []), 'backup-inventory-empty'])],
+        status     : 'degraded'
+    }
+}
+
+/**
  * @summary Reconciles base Memory Core health with measured WAL and orchestrator maintenance state.
  *
  * A fresh asynchronous backlog is expected and leaves the base verdict unchanged. Once the shared
@@ -230,9 +267,10 @@ export function composeMemoryCoreHealthcheck({
     starvationStaleAfterMs = null
 }) {
     const
-        backupHealth = deploymentInspection?.ok === true
+        bridgeVerdict = deploymentInspection?.ok === true
             ? deploymentInspection.snapshot?.maintenance?.health ?? null
             : null,
+        backupHealth = vetoHealthyAgainstEmptyInventory({inventory: health?.backup, verdict: bridgeVerdict}),
         maintenance  = {
             observationStatus: deploymentInspection?.status ?? 'unavailable',
             backup           : backupHealth
