@@ -59,6 +59,47 @@ test.describe('optional Fleet server composition', () => {
         expect(ingressBlock).not.toMatch(/fleet-server:\s*\n\s+condition:/)
     });
 
+    test('local MCP receivers admit only the Compose Host names their callers use', () => {
+        let composeAvailable = true;
+
+        try {
+            execFileSync('docker', ['compose', 'version'], {stdio: 'ignore'})
+        } catch {
+            composeAvailable = false
+        }
+
+        if (!composeAvailable) {
+            test.skip(true, 'docker compose CLI unavailable');
+            return
+        }
+
+        const rendered = JSON.parse(execFileSync('docker', [
+            'compose',
+            '--env-file', '/dev/null',
+            '-f', basePath,
+            '-f', overlayPath,
+            '--profile', 'cloud',
+            '--profile', 'fleet',
+            'config', '--format', 'json'
+        ], {
+            cwd     : repoRoot,
+            encoding: 'utf8',
+            env     : {
+                PATH                      : process.env.PATH,
+                NEO_MCP_AUTH_TOKEN_FILE   : '/dev/null',
+                NEO_FLEET_PLANE_TOKEN_FILE: '/dev/null',
+                NEO_DEPLOY_PROJECT_NAME   : 'neo-fleet-host-allowlist-spec'
+            }
+        }));
+
+        const kbHosts = rendered.services['kb-server'].environment.NEO_MCP_ALLOWED_HOSTS,
+              mcHosts = rendered.services['mc-server'].environment.NEO_MCP_ALLOWED_HOSTS;
+
+        expect(kbHosts).toBe('kb-server');
+        expect(mcHosts).toBe('mc-server,ingress');
+        expect([kbHosts, mcHosts]).not.toContain('*')
+    });
+
     test('Compose profile membership excludes Fleet headlessly and includes it only when selected', () => {
         let composeAvailable = true;
 
