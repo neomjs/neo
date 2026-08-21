@@ -156,6 +156,36 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(spy.calls.upsert).toBe(2);
     });
 
+    test('rechecks AFTER batchDelay before purchasing another complete batch (#17414)', async () => {
+        const spy             = createSpyCollection(),
+              chunks          = makeChunks(6),
+              originalTimeout = KB_VectorService.timeout;
+
+        Object.assign(KB_Config.data, {batchSize: 2, batchDelay: 50});
+
+        let delayCompleted = false;
+
+        // Deterministic delay seam: the first between-batch vote is false, the delay then moves the
+        // lease across its bound. A loop that votes only BEFORE waiting buys one extra full batch.
+        KB_VectorService.timeout = async () => {
+            delayCompleted = true
+        };
+
+        try {
+            const result = await KB_VectorService.embedChunks({
+                collection     : spy,
+                chunksToProcess: chunks,
+                shouldYield    : () => delayCompleted
+            });
+
+            expect(result.yielded).toBe(true);
+            expect(result.embedded, 'the delay completed before batch 2, so only batch 1 may land').toBe(2);
+            expect(spy.calls.upsert).toBe(1);
+        } finally {
+            KB_VectorService.timeout = originalTimeout
+        }
+    });
+
     test('default (no predicate) embeds every batch — unchanged behavior, never yields', async () => {
         const spy    = createSpyCollection();
         const chunks = makeChunks(150);

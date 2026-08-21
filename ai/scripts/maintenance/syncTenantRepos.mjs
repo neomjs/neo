@@ -13,8 +13,8 @@
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug a/b --repo-slug c/d  # multiple
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>  # scoped full replay
  *
- * Exit code: 0 on `completed`, 1 on `failed` or `skipped`
- * (no-tenant-repos-configured), 2 on argument error, 3 when a selected
+ * Exit code: 0 on `completed`; 1 on another non-completed task outcome (`yielded`,
+ * `deferred`, `starved`, `failed`, or `skipped`); 2 on argument error; 3 when a selected
  * repo slug is not configured, and 4 when another heavy-maintenance task or
  * tenant-repo-sync process holds either cross-process lease. The outer global
  * lease prevents overlap with Dream/REM and other heavy lanes; the existing inner
@@ -113,7 +113,8 @@ outage would otherwise suppress a lane that now works.
 
 Exit codes:
   0  completed (or partial-completed with at least one repo successful)
-  1  failed (all repos failed) or skipped (no configured tenantRepos)
+  1  non-completed task outcome: yielded (active cohort committed; rerun to resume),
+     deferred, starved, failed, or skipped (no configured tenantRepos)
   3  --repo-slug requested but the named repo is not configured (KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED)
   4  another heavy task or tenant sync holds a required lease — retry after it finishes
   2  argument-parse error`);
@@ -277,7 +278,7 @@ async function main() {
  * pipelines branch on these codes, so changes here are contract changes.
  *
  * @param {Object} result `{status, details}` shape returned by `runTask`.
- * @returns {Number} 0 completed · 4 cross-process lease held · 3 requested repo not configured · 1 failed/skipped otherwise.
+ * @returns {Number} 0 completed · 4 cross-process lease held · 3 requested repo not configured · 1 any other task outcome.
  */
 function resolveExitCode(result) {
     if (result.status === 'completed') {

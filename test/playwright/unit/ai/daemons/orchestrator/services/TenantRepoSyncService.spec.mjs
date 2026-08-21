@@ -144,10 +144,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                     materializationReceipt: materializationReceipts.get(`${tenantId}/${repoSlug}`) || null
                 }
             },
-            async ingestSourceFiles(payload) {
+            async ingestSourceFiles(payload, controls) {
                 captureCalls.push({op: 'ingestSourceFiles', payload});
 
-                const summary = summaryFactory ? await summaryFactory(payload) : {
+                const summary = summaryFactory ? await summaryFactory(payload, controls) : {
                     ingested           : payload.files?.length || 0,
                     deleted            : payload.deleted?.length || 0,
                     embeddingsGenerated: 0,
@@ -4581,7 +4581,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }
     });
 
-    test('runTask propagates TenantRepoSyncError code + meta through outer details when syncTenantRepos throws', async () => {
+    test('#17414 a lease-yield outcome is refused when the active-cohort manifest commit fails', async () => {
         const taskStateService = createInMemoryTaskStateService();
         const logLines         = [];
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
@@ -4593,6 +4593,13 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const directoryAsTarget = path.join(manifestDir, 'revisions.json');
         await fs.ensureDir(`${directoryAsTarget}.tmp-${process.pid}`);
 
+        const ingestionService = makeFakeIngestionService();
+        ingestionService.ingestSourceFiles = async (payload, controls) => ({
+            ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [],
+            tenantId: payload.tenantId,
+            yielded : controls.shouldYield()
+        });
+
         const result = await TenantRepoSyncService.runTask({
             reason           : 'periodic-sweep:60000',
             taskStateService,
@@ -4602,14 +4609,18 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
-            knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : directoryAsTarget
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : directoryAsTarget,
+            seedBootstrap                : false,
+            leaseYieldVoter              : {cause: YIELD_CAUSE_LEASE, vote: () => true}
         });
 
         expect(result.status).toBe('failed');
+        expect(result.status).not.toBe('yielded');
         expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
         expect(result.details.meta?.phase).toBe('manifest-update');
         expect(result.details.meta?.filePath).toContain('revisions.json');
+        expect(await fs.pathExists(directoryAsTarget), 'the failed commit must not publish a checkpoint').toBe(false);
         const errLine = logLines.find(l => l.level === 'ERROR' && l.msg.includes('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'));
         expect(errLine).toBeDefined();
     });
@@ -7131,9 +7142,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             }
         });
 
-        await TenantRepoSyncService.runTask({
-            reason           : 'periodic-sweep:60000',
+        await TenantRepoSyncService.syncTenantRepos({
             taskStateService,
+            taskName         : 'tenant-repo-sync',
+            leaseGuard       : async () => {},
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/rotating', mirrorRoot, cloneUrl: 'https://github.com/neomjs/rotating.git'},
                 {tenantId: 't1', repoSlug: 'org/failing',  mirrorRoot, cloneUrl: 'https://github.com/neomjs/failing.git'}
@@ -7141,23 +7153,32 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService({
-                summaryFactory: payload => ({
-                    ingested           : 5916,
-                    deleted            : 0,
-                    embeddingsGenerated: 55,
+                async summaryFactory(payload, controls) {
+                    const rotating = payload.repoSlug === 'org/rotating';
+
+                    if (rotating) {
+                        await new Promise(resolve => setTimeout(resolve, 5))
+                    }
+
+                    return {
+                        ingested           : 5916,
+                        deleted            : 0,
+                        embeddingsGenerated: 55,
                     // The discriminator is NOT an error count on a partial slice — an error-bearing
                     // summary is classified as a failure before the `yielded` check is ever reached,
                     // so `partial-progress` is a clean run by construction. The two arms below are
                     // therefore different OUTCOMES, not two flavours of one.
-                    errors             : payload.repoSlug === 'org/failing'
-                        ? [{code: 'KB_VECTOR_EMBED_INPUT_TRUNCATED', message: 'oversized chunk'}]
-                        : [],
-                    yielded   : payload.repoSlug === 'org/rotating',
-                    tenantId  : payload.tenantId,
-                    durationMs: 1
-                })
+                        errors: payload.repoSlug === 'org/failing'
+                            ? [{code: 'KB_VECTOR_EMBED_INPUT_TRUNCATED', message: 'oversized chunk'}]
+                            : [],
+                        yielded   : rotating ? controls.shouldYield() : false,
+                        tenantId  : payload.tenantId,
+                        durationMs: 1
+                    }
+                }
             }),
             revisionsFilePath: revisionsFile,
+            sliceBudgetMs    : 1,
             seedBootstrap    : false
         });
 
@@ -7188,17 +7209,19 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         ).toBe('sha-rotating');
     });
 
-    test('a yielded head repo rotates its slot and the tail is admitted in the SAME sweep, with zero failure accounting (#17132 AC2/AC6)', async () => {
+    test('a slice-caused yield rotates its slot and admits the tail without ending the sweep (#17132 AC2/AC6, #17414)', async () => {
         const
             captureCalls = [],
             repos        = ['org/alpha', 'org/beta', 'org/gamma', 'org/delta'].map(repoSlug => ({
                 tenantId: 't1', repoSlug, mirrorRoot,
                 cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
             }));
+        let signalSliceObserved;
+        const sliceObserved = new Promise(resolve => { signalSliceObserved = resolve });
 
         TenantRepoSyncService.concurrencyLimit = 2;
 
-        await TenantRepoSyncService.syncTenantRepos({
+        const sliceResult = await TenantRepoSyncService.syncTenantRepos({
             taskStateService             : createInMemoryTaskStateService(),
             revisionsFilePath            : revisionsFile,
             leaseGuard                   : async () => {},
@@ -7210,18 +7233,36 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 // Only the head repo outruns its budget. The others exhaust their corpus normally,
                 // which is what makes the sweep a MIXED one rather than a uniformly-yielding
                 // fixture that could pass without the rotation working.
-                summaryFactory: payload => ({
-                    ingested           : 1,
-                    deleted            : 0,
-                    embeddingsGenerated: 1,
-                    errors             : [],
-                    yielded            : payload.repoSlug === 'org/alpha',
-                    tenantId           : payload.tenantId,
-                    durationMs         : 1
-                })
+                async summaryFactory(payload, controls) {
+                    const head    = payload.repoSlug === 'org/alpha',
+                          sibling = payload.repoSlug === 'org/beta';
+                    let   yielded = false;
+
+                    if (head) {
+                        await new Promise(resolve => setTimeout(resolve, 5));
+                        yielded = controls.shouldYield();
+                        signalSliceObserved()
+                    } else if (sibling) {
+                        // Do not free a slot until the slice cause has actually been observed. If
+                        // the sweep wrongly latches every cause as `lease`, gamma/delta are still
+                        // queued at that instant and this arm turns red.
+                        await sliceObserved
+                    }
+
+                    return {
+                        ingested           : 1,
+                        deleted            : 0,
+                        embeddingsGenerated: 1,
+                        errors             : [],
+                        yielded,
+                        tenantId           : payload.tenantId,
+                        durationMs         : 1
+                    }
+                }
             }),
             globalCadenceMs: 0,
             jitterRatio    : 0,
+            sliceBudgetMs  : 1,
             seedBootstrap  : false
         });
 
@@ -7232,6 +7273,14 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // Tail admission: with K=2 and a yielding head, all four still reach ingestion this sweep.
         expect(ingested.length, 'every due repo must be admitted within the sweep').toBe(4);
         expect(new Set(ingested).size).toBe(4);
+        expect(sliceResult).toMatchObject({
+            status : 'completed',
+            details: {
+                partialProgressCount: 1,
+                leaseYielded        : false,
+                leaseDeferredCount  : 0
+            }
+        });
 
         const revisions = (await fs.readJson(revisionsFile)).revisions;
 
@@ -7345,37 +7394,34 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         ).toBe(false);
     });
 
-    /*
-     * The production-path negative boundary, and it exists because its predecessor did not cross into
-     * production at all. That arm built a resolver and its boolean projection inside the fixture and
-     * asserted the projection was a Boolean — true of the fixture, and green no matter what the sweep
-     * did. A reviewer's falsifier found it: it could not fail if the sweep began stopping tail
-     * admission or releasing the outer lease early, which is precisely the behaviour it claimed to
-     * pin. Same wrong-subject class as an arm asserting a builder to prove something about a planner.
-     *
-     * **Three repos against a limit of TWO, and the third is the entire point.** A two-repo fixture
-     * at the production default limit of 2 has no tail at all: both repos ARE the active cohort, so
-     * the dependent exit — which stops admission after that cohort — could land, admit both, and
-     * leave the arm green. A reviewer's second falsifier caught exactly that, and the mutant the arm
-     * had claimed as faithful (`remainingRepos.slice(0, 1)`) drops half of the active cohort rather
-     * than the tail, so it was never the contract under test either. With a third due repo there is
-     * a repo BEYOND the cohort, and it is the one the exit will drop.
-     *
-     * Today's contract is that a lease-caused yield bounds work WITHIN a repo and touches neither
-     * admission nor the outer lease. So the arm pins three separable observables — the admitted SET
-     * includes the tail, the cohort ORDER still puts the tail last, and the sweep still reports
-     * `completed` rather than an early release — because the exit contract could arrive correct on
-     * one and wrong on another, and a single conflated assertion could not tell which.
-     */
-    test('#17398 a firing lease cause does NOT stop tail admission — the exit contract is not started here', async () => {
-        // Two fill the active cohort at the default limit; the third is the tail the dependent exit
-        // will stop. Names carry that role so a failure message reads as a contract violation rather
-        // than as an opaque slug mismatch.
-        const repoSlugs    = ['org/lease-cohort-a', 'org/lease-cohort-b', 'org/lease-tail'],
-              captureCalls = [],
-              // Fires on the very first consultation, so if any admission decision consulted the
-              // cause, it would have every opportunity to drop the tail.
-              alwaysYields = {cause: YIELD_CAUSE_LEASE, vote: () => true};
+    test('#17414 a lease cause settles the active cohort, commits it, and suppresses only the tail', async () => {
+        const
+            repoSlugs        = ['org/lease-observer', 'org/active-sibling', 'org/lease-tail'],
+            captureCalls     = [],
+            taskStateService = createInMemoryTaskStateService(),
+            seededRevisions  = Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : Date.now() - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]));
+
+        let voteCalls = 0,
+            releaseObserver,
+            signalLeaseObserved,
+            signalSiblingReturned,
+            signalTailEntered,
+            tailEntered = false;
+
+        const
+            observerRelease = new Promise(resolve => { releaseObserver = resolve }),
+            leaseObserved   = new Promise(resolve => { signalLeaseObserved = resolve }),
+            siblingReturned = new Promise(resolve => { signalSiblingReturned = resolve }),
+            tailStarted     = new Promise(resolve => { signalTailEntered = resolve }),
+            firstVoteOnly   = {cause: YIELD_CAUSE_LEASE, vote: () => ++voteCalls === 1};
+
+        TenantRepoSyncService.concurrencyLimit = 2;
 
         for (const repoSlug of repoSlugs) {
             await provisionMirrorDir({tenantId: 't1', repoSlug});
@@ -7383,14 +7429,301 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         await TenantRepoSyncService.writePersistedRevisions({
             filePath : revisionsFile,
-            revisions: Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
+            revisions: seededRevisions
+        });
+        const canonicalSeed = await TenantRepoSyncService.readPersistedRevisions({
+            filePath: revisionsFile,
+            strict  : true
+        });
+
+        const ingestionService = makeFakeIngestionService({captureCalls});
+
+        ingestionService.ingestSourceFiles = async (payload, controls) => {
+            captureCalls.push({op: 'ingestSourceFiles', payload});
+
+            if (payload.repoSlug === 'org/lease-observer') {
+                const yielded = controls.shouldYield();
+                signalLeaseObserved();
+                await observerRelease;
+
+                return {
+                    ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded
+                }
+            }
+
+            if (payload.repoSlug === 'org/active-sibling') {
+                await leaseObserved;
+                return {
+                    ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded: false
+                }
+            }
+
+            tailEntered = true;
+            signalTailEntered();
+            return {
+                ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded: false
+            }
+        };
+
+        const run = TenantRepoSyncService.runTask({
+            reason       : 'periodic-sweep:60000',
+            taskStateService,
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    if (status === 'completed' && details?.repo === 't1/org/active-sibling') {
+                        signalSiblingReturned()
+                    }
+                }
+            },
+            tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60_000,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : firstVoteOnly
+        });
+
+        // The sibling returns while the repo that actually observed the lease cause is still held
+        // open. A repo-local latch lets the tail acquire the sibling's released slot here.
+        await siblingReturned;
+        const tailEnteredBeforeObserverSettled = await Promise.race([
+            tailStarted.then(() => true),
+            new Promise(resolve => setTimeout(() => resolve(false), 250))
+        ]);
+
+        releaseObserver();
+        const result = await run;
+
+        const ingested = captureCalls
+            .filter(call => call.op === 'ingestSourceFiles')
+            .map(call => call.payload.repoSlug);
+
+        expect(
+            TenantRepoSyncService.concurrencyLimit,
+            'the fixture needs a repo beyond the active cohort'
+        ).toBeLessThan(repoSlugs.length);
+
+        expect(tailEnteredBeforeObserverSettled, 'the shared latch must publish before any active sibling releases').toBe(false);
+        expect([...ingested].sort()).toEqual(repoSlugs.slice(0, 2).sort());
+        expect(ingested).not.toContain('org/lease-tail');
+        expect(result.status).toBe('yielded');
+        expect(result.details).toMatchObject({
+            completedCount      : 1,
+            partialProgressCount: 1,
+            leaseDeferredCount  : 1,
+            leaseYielded        : true
+        });
+        expect(result.details.repos.find(row => row.repoSlug === 'org/lease-tail'))
+            .toMatchObject({status: 'lease-yield-deferred'});
+        expect(taskStateService.getTaskState('tenant-repo-sync')).toMatchObject({
+            running       : false,
+            lastCompletion: {status: 'yielded', leaseYielded: true}
+        });
+        expect(taskStateService.getTaskState('tenant-repo-sync').completedAt).toBeGreaterThan(0);
+        expect(taskStateService.getTaskState('tenant-repo-sync').skippedAt).toBeUndefined();
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions;
+        expect(persisted['t1/org/lease-observer'].lastRunAttemptAt)
+            .toBeGreaterThan(seededRevisions['t1/org/lease-observer'].lastRunAttemptAt);
+        expect(persisted['t1/org/active-sibling'].lastRunAttemptAt)
+            .toBeGreaterThan(seededRevisions['t1/org/active-sibling'].lastRunAttemptAt);
+        expect(persisted['t1/org/lease-tail']).toEqual(canonicalSeed['t1/org/lease-tail']);
+    });
+
+    test('#17414 a queued tail timeout after lease observation remains a clean lease deferral', async () => {
+        const
+            repoSlugs       = ['org/timeout-observer', 'org/timeout-tail'],
+            captureCalls    = [],
+            seededRevisions = Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
                 lastIngestedRev                   : null,
                 lastRunAttemptAt                  : Date.now() - 120_000,
                 consecutiveFailures               : 0,
                 ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
                 lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
-            }]))
+            }]));
+
+        TenantRepoSyncService.concurrencyLimit         = 1;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 500;
+
+        for (const repoSlug of repoSlugs) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: seededRevisions
         });
+        const canonicalSeed = await TenantRepoSyncService.readPersistedRevisions({
+            filePath: revisionsFile,
+            strict  : true
+        });
+
+        const ingestionService = makeFakeIngestionService({captureCalls});
+        ingestionService.ingestSourceFiles = async (payload, controls) => {
+            captureCalls.push({op: 'ingestSourceFiles', payload});
+
+            if (payload.repoSlug === 'org/timeout-observer') {
+                const yielded = controls.shouldYield();
+                await new Promise(resolve => setTimeout(resolve, 650));
+                return {ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded}
+            }
+
+            return {ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded: false}
+        };
+
+        const result = await TenantRepoSyncService.syncTenantRepos({
+            taskName         : 'tenant-repo-sync',
+            taskStateService : createInMemoryTaskStateService(),
+            leaseGuard       : async () => {},
+            tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : {cause: YIELD_CAUSE_LEASE, vote: () => true}
+        });
+
+        expect(captureCalls.filter(call => call.op === 'ingestSourceFiles').map(call => call.payload.repoSlug))
+            .toEqual(['org/timeout-observer']);
+        expect(result).toMatchObject({
+            status : 'yielded',
+            details: {
+                failedCount         : 0,
+                partialProgressCount: 1,
+                leaseYielded        : true,
+                leaseDeferredCount  : 1
+            }
+        });
+        expect(result.details.repos.find(row => row.repoSlug === 'org/timeout-tail'))
+            .toMatchObject({status: 'lease-yield-deferred', consecutiveFailures: 0});
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions;
+        expect(persisted['t1/org/timeout-tail']).toEqual(canonicalSeed['t1/org/timeout-tail']);
+    });
+
+    test('#17414 an ordinary deferral outranks a lease yield without reporting completed', async () => {
+        const
+            repoSlugs        = ['org/mixed-observer', 'org/mixed-complete', 'org/mixed-deferred', 'org/mixed-tail'],
+            captureCalls     = [],
+            taskStateService = createInMemoryTaskStateService(),
+            seededRevisions  = Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : Date.now() - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]));
+
+        let activeEntered = 0,
+            releaseActive;
+        const activeReady = new Promise(resolve => { releaseActive = resolve });
+
+        TenantRepoSyncService.concurrencyLimit = 3;
+
+        for (const repoSlug of repoSlugs) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: seededRevisions
+        });
+
+        const ingestionService = makeFakeIngestionService({captureCalls});
+        ingestionService.ingestSourceFiles = async (payload, controls) => {
+            captureCalls.push({op: 'ingestSourceFiles', payload});
+
+            if (payload.repoSlug === 'org/mixed-tail') {
+                return {ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded: false}
+            }
+
+            activeEntered++;
+            if (activeEntered === 3) releaseActive();
+            await activeReady;
+
+            const yielded = controls.shouldYield();
+
+            if (payload.repoSlug === 'org/mixed-deferred') {
+                return {
+                    ingested: 1, deleted: 0, embeddingsGenerated: 0,
+                    errors  : [{code: 'KB_VECTOR_EMBED_FAILED'}], yielded
+                }
+            }
+
+            return {
+                ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [],
+                yielded : payload.repoSlug === 'org/mixed-observer' && yielded
+            }
+        };
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : {cause: YIELD_CAUSE_LEASE, vote: () => true}
+        });
+
+        expect(captureCalls.filter(call => call.op === 'ingestSourceFiles').map(call => call.payload.repoSlug).sort())
+            .toEqual(repoSlugs.slice(0, 3).sort());
+        expect(result).toMatchObject({
+            status : 'deferred',
+            details: {
+                completedCount      : 1,
+                deferredCount       : 1,
+                partialProgressCount: 1,
+                failedCount         : 0,
+                leaseYielded        : true,
+                leaseDeferredCount  : 1
+            }
+        });
+        expect(result.details.repos.find(row => row.repoSlug === 'org/mixed-tail'))
+            .toMatchObject({status: 'lease-yield-deferred'});
+        expect(taskStateService.getTaskState('tenant-repo-sync')).toMatchObject({
+            running       : false,
+            lastCompletion: {status: 'deferred', leaseYielded: true}
+        });
+        expect(taskStateService.getTaskState('tenant-repo-sync').skippedAt).toBeGreaterThan(0);
+        expect(taskStateService.getTaskState('tenant-repo-sync').completedAt).toBeUndefined();
+    });
+
+    test('#17414 an unattributed yield fails loud for that repo while the tail keeps sweeping', async () => {
+        const repoSlugs    = ['org/unattributed-head', 'org/unattributed-peer', 'org/unattributed-tail'],
+              captureCalls = [];
+
+        for (const repoSlug of repoSlugs) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+        }
+
+        const service = makeFakeIngestionService({captureCalls});
+        service.ingestSourceFiles = async payload => {
+            captureCalls.push({op: 'ingestSourceFiles', payload});
+            return {
+                ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [],
+                yielded : payload.repoSlug === 'org/unattributed-head'
+            }
+        };
 
         const result = await TenantRepoSyncService.runTask({
             reason           : 'periodic-sweep:60000',
@@ -7401,63 +7734,59 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             }))},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
-            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls}),
+            knowledgeBaseIngestionService: service,
             revisionsFilePath            : revisionsFile,
-            globalCadenceMs              : 60_000,
+            globalCadenceMs              : 0,
             jitterRatio                  : 0,
             seedBootstrap                : false,
-            leaseYieldVoter              : alwaysYields
+            leaseYieldVoter              : null
         });
 
-        const ingested = captureCalls
-            .filter(call => call.op === 'ingestSourceFiles')
-            .map(call => call.payload.repoSlug);
+        expect(captureCalls.filter(call => call.op === 'ingestSourceFiles').map(call => call.payload.repoSlug).sort())
+            .toEqual([...repoSlugs].sort());
+        // Mixed-cycle policy remains unchanged: the two clean repos keep the sweep-level status
+        // completed, while the unattributed repo is an explicit degraded row and failed count.
+        expect(result.status).toBe('completed');
+        expect(result.details).toMatchObject({
+            completedCount    : 2,
+            failedCount       : 1,
+            leaseYielded      : false,
+            leaseDeferredCount: 0
+        });
+        expect(result.details.repos.find(row => row.repoSlug === 'org/unattributed-head'))
+            .toMatchObject({status: 'degraded', lastErrorCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED'});
+    });
 
-        // Non-vacuity FIRST, and it is what makes the tail claim mean anything: the limit must be
-        // strictly below the repo count, or there is no repo outside the active cohort and every
-        // assertion below is true of a fixture that cannot pose the question.
-        expect(
-            TenantRepoSyncService.concurrencyLimit,
-            'the fixture needs a repo BEYOND the active cohort — at the default limit of 2 a two-repo ' +
-            'sweep has no tail, so the dependent exit could admit the whole cohort and pass'
-        ).toBeLessThan(repoSlugs.length);
+    test('#17414 a completed final one-batch repo observes the bound without inventing remaining work', async () => {
+        const repoSlug = 'org/one-batch-lease';
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
 
-        // ADMISSION — asserted as the whole set rather than as containments, so the failure message
-        // distinguishes the two ways this breaks: a dropped tail shows the cohort alone, a sweep that
-        // admitted nothing shows an empty array. Containment checks would let the first mask the
-        // second, and the difference matters — one is the exit contract starting early, the other is
-        // a broken fixture.
-        expect(
-            [...ingested].sort(),
-            'a lease cause reached an ADMISSION decision — stopping the tail after the active cohort ' +
-            'is the dependent exit contract, and starting it here makes the two leaves impossible to ' +
-            'review independently. An EMPTY array instead means the fixture admitted nothing and the ' +
-            'arm never exercised admission at all'
-        ).toEqual([...repoSlugs].sort());
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: 'https://github.com/neomjs/one-batch-lease.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : {cause: YIELD_CAUSE_LEASE, vote: () => true}
+        });
 
-        // ORDER — the tail must still be admitted LAST. A sweep that kept the tail but hoisted it
-        // into the first cohort would satisfy the set assertion while having changed the very
-        // boundary the dependent exit is defined against, so the set alone cannot carry this.
-        expect(
-            ingested.indexOf('org/lease-tail'),
-            'the tail must remain the tail: admitted, and admitted after the active cohort'
-        ).toBe(repoSlugs.length - 1);
-
-        // OUTER LEASE — a lease-caused yield is a bound on work inside a repo, not a signal to hand
-        // the lease back. A sweep that released early would report something other than a completed
-        // run, and the caller would drop a lease it still holds work for.
-        expect(
-            result.status,
-            'a lease-caused yield must not turn a healthy sweep into a failure or an early release; ' +
-            'the cause is readable and nothing acts on it yet'
-        ).toBe('completed');
-
-        // And the whole cohort completed rather than deferring — the count is what a future exit
-        // would have to reduce, so pinning it names the number the dependent leaf must change.
-        expect(
-            result.details.completedCount,
-            'all three repos completed; the dependent exit will reduce this, and that red is intended'
-        ).toBe(repoSlugs.length);
+        expect(result).toMatchObject({
+            status : 'completed',
+            details: {
+                completedCount      : 1,
+                partialProgressCount: 0,
+                leaseYielded        : true,
+                leaseDeferredCount  : 0
+            }
+        });
     });
 });
 
@@ -7998,6 +8327,9 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
         expect(resolveExitCode({status: 'skipped', details: {reasonCode: 'KB_TENANT_REPO_SYNC_LEASE_HELD'}})).toBe(4);
         expect(resolveExitCode({status: 'failed', details: {reasonCode: 'KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED'}})).toBe(3);
         expect(resolveExitCode({status: 'failed', details: {reasonCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED'}})).toBe(1);
+        expect(resolveExitCode({status: 'yielded', details: {leaseYielded: true}})).toBe(1);
+        expect(resolveExitCode({status: 'deferred', details: {deferredCount: 1}})).toBe(1);
+        expect(resolveExitCode({status: 'starved', details: {starved: true}})).toBe(1);
         expect(resolveExitCode({status: 'skipped', details: {reason: 'no-tenant-repos-configured'}})).toBe(1);
     });
 

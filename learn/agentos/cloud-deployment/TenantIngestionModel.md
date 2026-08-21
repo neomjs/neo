@@ -256,7 +256,7 @@ returns an error-free ingestion summary. Current releases automatically revalida
 checkpoints through the periodic lane; use `--full` only to accelerate or explicitly repeat one
 selected repo after correcting its underlying failure. Do not delete the revisions file.
 
-Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error, `3` when a requested repo slug is not configured, and `4` when either the deployment-wide heavy-maintenance lease or the narrower tenant-repo-sync lease is held. A global deferral writes `Deferred: heavy-maintenance lease held by <owner>` to stderr; a same-lane deferral returns `KB_TENANT_REPO_SYNC_LEASE_HELD`, so the diagnostic — not the shared exit code — identifies the holder class. Global holders such as Dream/REM or backup can legitimately be long-lived (up to the configured heavy-maintenance stale bound; six hours by default), so wait for the named task rather than retrying on the shorter tenant-sync cadence. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; both leases, not task state, provide cross-process serialization — a held lease is a bounded busy exit, never a silent race.
+Exit code: `0` on `completed`; `1` on another non-completed task outcome (`yielded`, `deferred`, `starved`, `failed`, or `skipped`); `2` on argument error; `3` when a requested repo slug is not configured; and `4` when either the deployment-wide heavy-maintenance lease or the narrower tenant-repo-sync lease is held. `yielded` is healthy but intentionally incomplete: the active cohort's resumable state was committed, the outer lease was returned so another heavy task can interleave, and rerunning resumes the remaining repos. A global deferral writes `Deferred: heavy-maintenance lease held by <owner>` to stderr; a same-lane deferral returns `KB_TENANT_REPO_SYNC_LEASE_HELD`, so the diagnostic — not the shared exit code — identifies the holder class. Global holders such as Dream/REM or backup can legitimately be long-lived (up to the configured heavy-maintenance stale bound; six hours by default), so wait for the named task rather than retrying on the shorter tenant-sync cadence. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; both leases, not task state, provide cross-process serialization — a held lease is a bounded busy exit, never a silent race.
 
 ### Mirror Volume
 
@@ -344,16 +344,20 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
 {
     reason                       : 'periodic-sweep:60000' | 'manual' | 'no-tenant-repos-configured',
     repoCount                    : 3,
-    completedCount               : 3,
+    completedCount               : 1,
+    deferredCount                : 0,
+    partialProgressCount         : 1,
     failedCount                  : 0,
-    revalidationDeferredCount     : 0,
+    revalidationDeferredCount    : 0,
+    leaseYielded                 : true,
+    leaseDeferredCount           : 1,
     repos: [
         {
             tenantId             : 'neomjs',
             repoSlug             : 'neomjs/create-app',
             lastIngestedRev      : 'a1b2c3d4',    // short SHA from the most recent successful ingest
             lastSyncAt           : '2026-05-25T05:30:00.000Z',
-            status               : 'active',      // also degraded, revalidation-deferred, quarantined, or disabled
+            status               : 'active',      // also partial-progress, lease-yield-deferred, degraded, or another bounded lane state
             checkpointStatus     : 'complete',    // 'pending' | 'failed' | 'complete' | 'uninitialized' | 'unsupported'
             lastSyncDeletedCount : 0,
             lastErrorCode        : null,          // present only when status !== 'active'
@@ -363,7 +367,7 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
 }
 ```
 
-The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. Empty `tenantRepos[]` produces `repos: []`, not an omission.
+The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. `leaseYielded: true` means the outer hold bound was observed. When a clean cohort leaves work behind, each suppressed row is reported as `lease-yield-deferred`, `leaseDeferredCount` carries the total, and the task outcome is `yielded`. An ordinary failure or deferral retains its stronger `failed` / `deferred` status; if the final active repo had already exhausted the corpus and no tail remained, the outcome stays `completed`. `partialProgressCount` remains distinct because a slice-caused rotation continues the same sweep and does not return the outer lease. Empty `tenantRepos[]` produces `repos: []`, not an omission.
 
 For authenticated remote MCP diagnostics, the deployment-state bridge also projects a redacted
 `tenantRepoSync` section into `inspect_deployment` / `get_deployment_state_snapshot`. Use that
@@ -392,6 +396,8 @@ usernames, fingerprints, Git output, and stacks never enter the snapshot.
 | Status | Meaning | Transition |
 |---|---|---|
 | `active` | Last cycle succeeded; lane is on its normal cadence | Successful sync from any non-`disabled` status |
+| `partial-progress` | A clean repo slice committed durable vector progress but retained its head checkpoint because work remains | Slice budget fired; the next repo is admitted in the same sweep |
+| `lease-yield-deferred` | Repo was due but remained queued after an active repo observed the outer lease bound | Next sweep after the wrapper releases and later reacquires the outer lease |
 | `degraded` | Last cycle failed but retry budget remains; lane will retry on next tick | First non-success after `active` |
 | `quarantined` | Consecutive failures exceeded the backoff threshold; operator action needed | Implementation tracked in [#11942](https://github.com/neomjs/neo/issues/11942) (per-repo backoff state). Until that lands, repeated failure surfaces as `degraded` with the same operator-runbook guidance |
 | `disabled` | Operator explicitly disabled the repo in `tenantRepos[]` config | Config flag; not a runtime transition |
@@ -449,7 +455,7 @@ Each `runTask` cycle emits per-repo log lines in this shape:
 [TenantRepoSync] Refreshing neomjs/create-app.
 [TenantRepoSync] neomjs/create-app completed: head=a1b2c3d4 ingested=12 deleted=1 (842ms)
 [TenantRepoSync] neomjs/create-app failed: KB_TENANT_REPO_SYNC_SYNC_FAILED (auth failed) [redacted]
-[TenantRepoSync] Cycle summary: 3 repos, 2 completed, 1 failed.
+[TenantRepoSync] Cycle summary: 3 repos, 1 completed, 0 deferred, 0 failed, 1 partial-progress, 0 not-due, 0 revalidation-deferred, 1 lease-yield-deferred — OUTER LEASE YIELDED.
 ```
 
 All credential material and raw git stderr passes through `redactTenantRepoSecrets()` before logging. The deployment log MUST NOT carry `https://user:token@...` URLs, resolved secrets, or stderr that includes the secret material.
