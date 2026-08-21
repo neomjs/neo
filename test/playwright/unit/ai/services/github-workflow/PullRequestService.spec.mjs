@@ -2223,6 +2223,23 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         }).valid, 'STILL_OPEN under Comment').toBe(true)
     });
 
+    test('#17354: a body missing a silent anchor is refused SILENTLY, even when it also contradicts itself', () => {
+        // The ordering is the anti-Goodhart guard, and making refusals friendlier is exactly what
+        // would sand it off. A body that trips BOTH layers must return the silent one: the named
+        // coherence message must never become a side channel that tells a caller which unnamed
+        // anchor they are missing, one bisected submission at a time.
+        //
+        // The heading is REMOVED rather than renamed. A first attempt renamed `Disposition` to
+        // `Dispositions`, which the presence check reads as still present because it is a substring —
+        // so the body tripped only the coherence layer and the test proved nothing about ordering.
+        const body   = ROUND_2_STILL_OPEN_BODY.replace('### ⚓ Anchor\n', ''),
+              result = PullRequestService.validatePrReviewBody({body});
+
+        expect(result.valid, 'the structural layer still refuses').toBe(false);
+        expect(result.message, 'and the coherence message did not preempt it')
+            .not.toContain('contradicts itself')
+    });
+
     test('#17178: validatePrReviewBody names the template it ACTUALLY applied', () => {
         // It returned the canonical path unconditionally, so a Round-2 body was told it matched
         // `pr-review-template.md` — sending an author who later hit a rejection to the wrong file.
