@@ -421,6 +421,7 @@ Here you find the full history of Neo.mjs updates.
 - [Neural Link: Live Application Mutability](https://neomjs.com/raw/learn/agentos/NeuralLink.md)
 - [The Knowledge Base Server](https://neomjs.com/raw/learn/agentos/KnowledgeBase.md)
 - [Knowledge Base Enhancement (Anchor & Echo)](https://neomjs.com/raw/learn/agentos/KnowledgeBaseEnhancement.md)
+- [The Embedding Lane](https://neomjs.com/raw/learn/agentos/EmbeddingLane.md)
 - [The Memory Core Server](https://neomjs.com/raw/learn/agentos/MemoryCore.md)
 - [The Seat Memory Layer](https://neomjs.com/raw/learn/agentos/SeatMemoryLayer.md)
 - [Self-Healing Immune System](https://neomjs.com/raw/learn/agentos/SelfHealing.md)
@@ -559,6 +560,8 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17499](https://neomjs.com/raw/news/tickets/17499.md)
+- [Ticket #17497](https://neomjs.com/raw/news/tickets/17497.md)
 - [Ticket #17495](https://neomjs.com/raw/news/tickets/17495.md)
 - [Ticket #17494](https://neomjs.com/raw/news/tickets/17494.md)
 - [Ticket #17492](https://neomjs.com/raw/news/tickets/17492.md)
@@ -12070,6 +12073,7 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17498](https://neomjs.com/raw/news/pulls/17498.md)
 - [Pull Request #17496](https://neomjs.com/raw/news/pulls/17496.md)
 - [Pull Request #17493](https://neomjs.com/raw/news/pulls/17493.md)
 - [Pull Request #17491](https://neomjs.com/raw/news/pulls/17491.md)
