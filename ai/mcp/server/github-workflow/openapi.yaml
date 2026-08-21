@@ -823,9 +823,11 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: |
-        Read-only preflight for PR review composition. Validates `body` against the same `pr-review` template-shape rules used by `manage_pr_review`, without resolving a PR, creating a review, updating a review, or changing GitHub state.
+        Read-only preflight for PR review composition. Validates `body` against the `pr-review` template-shape rules without resolving a PR, creating or updating a review, or changing GitHub state.
 
-        Use before `manage_pr_review` when composing a review body: a failed result names the exact visible/premise/template-skeleton anchors that the read-only lint can safely expose. The formal mutation path remains narrower to preserve the anti-anchor-stuffing guard.
+        A pass validates SHAPE ONLY and does not predict `manage_pr_review`. That gate also compares the body against the pull request's prior review state — each row against the previous round's Required Actions, and the disposition table against the submitted review state — inputs this tool never receives. So a body accepted here can still be refused there; that is the contract, not a contradiction.
+
+        Use before `manage_pr_review` when composing: a failure names the exact visible/premise/template-skeleton anchors the read-only lint can safely expose. The mutation path stays narrower to preserve the anti-anchor-stuffing guard.
       tags: [PullRequests]
       requestBody:
         required: true

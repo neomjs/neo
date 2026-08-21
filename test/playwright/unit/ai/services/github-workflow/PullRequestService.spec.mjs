@@ -2039,6 +2039,48 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(failure.message).toContain("against the prior round's 2");
     });
 
+    /**
+     * The count in the refusal is DERIVED from the parse, and it was reported as if it were an
+     * observation. A cell reading `**ADDRESSED** — and answered better than the action asked` carries
+     * its verdict, but the extractor matches a cell that IS the verb, so the row is dropped silently
+     * and the author is told they dispositioned nothing. That accuses them of the wrong mistake: they
+     * wrote the row, and the message sends them to write it again rather than to unwrap the cell.
+     */
+    test('#17354: an unparseable disposition cell is named, not counted as absent', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body: round2With([
+                '| RA-1 | make the tier semantic | **ADDRESSED** — and answered better than the action asked | done |',
+                '| RA-2 | name the anchors | ADDRESSED | done |'
+            ]),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+
+        // The defect is the cell, so the refusal must say so.
+        expect(failure.message, 'the refusal names the unreadable cell')
+            .toMatch(/could not be read|unparseable|unreadable/i);
+
+        // And it must NOT claim the author dispositioned fewer actions than they wrote. Asserted
+        // separately because a fix that only appends a hint would leave the false accusation standing.
+        expect(failure.message, 'no derived count is presented as an observation')
+            .not.toContain("dispositions 1 action(s) against the prior round's 2");
+    });
+
+    test('#17354: a genuinely short table still reports the count — the non-vacuity control', () => {
+        // Without this, a fix that deletes the count message entirely passes the arm above. A table
+        // that parses cleanly and is simply missing a row must still be told so.
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure.message, 'a clean short table keeps the count').toContain("against the prior round's 2");
+        expect(failure.message, 'and is not blamed on a parse failure').not.toMatch(/could not be read/i)
+    });
+
     test('#17178: a STILL_OPEN round submitted as APPROVED is refused', () => {
         // The second exact-head falsifier: an APPROVED round carrying a STILL_OPEN silently discharges
         // the item it just declared unresolved.

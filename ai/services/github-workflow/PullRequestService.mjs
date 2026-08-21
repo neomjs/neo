@@ -1179,6 +1179,16 @@ function getRound2DispositionRelationFailure({body, reviews, state}) {
         ])
     }
 
+    // BEFORE the count, because the count is DERIVED from this parse. A cell the extractor cannot
+    // read is dropped silently, so the row the author actually wrote becomes an absence in the tally
+    // and the refusal accuses them of dispositioning nothing. Returning here keeps one defect to one
+    // cause: fix the cell, then see whatever the relation still objects to.
+    const unreadable = extractUnreadableDispositionCells(body);
+
+    if (unreadable.length > 0) {
+        return round2CellParseFailure(unreadable)
+    }
+
     if (rows.length !== expected.length) {
         defects.push(`dispositions ${rows.length} action(s) against the prior round's ${expected.length} — every action gets a row, in order`)
     }
@@ -1346,6 +1356,56 @@ function extractRequiredActions(body) {
  * @param {String} body
  * @returns {Array<{action: String, disposition: String}>}
  */
+/**
+ * @summary Returns disposition cells that CARRY a verdict verb but are not one, so cannot be read.
+ *
+ * The extractor matches a cell that IS a verb. `**ADDRESSED** — and answered better than the action
+ * asked` carries its verdict and is dropped, which turns a row the author wrote into an absence in
+ * the count. This is the same line set the extractor walks, kept deliberately separate rather than
+ * folded into its return shape: the extractor has two callers and only one of them reports defects.
+ *
+ * @param {String} body
+ * @returns {String[]} The offending cell texts, in document order.
+ */
+function extractUnreadableDispositionCells(body) {
+    return String(body || '').split('\n')
+        .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))
+        .map(line => {
+            const cells = line.split('|').slice(1, -1).map(cell => cell.trim());
+
+            // A readable row is not a defect, even when other cells mention a verb in prose.
+            if (cells.some(cell => ROUND_2_DISPOSITIONS.includes(cell))) return null;
+
+            return cells.find(cell => ROUND_2_DISPOSITIONS.some(verb => cell.includes(verb))) || null
+        })
+        .filter(Boolean)
+}
+
+/**
+ * @summary Renders a refusal for disposition cells that could not be read.
+ *
+ * Names the cell and the shape that would parse, because neither is stuffable: the required content
+ * IS the corrected cell. Kept apart from the relation failure's header, which prescribes re-reading
+ * the template — the wrong remedy for an author whose only error is decoration inside one cell.
+ *
+ * @param {String[]} cells
+ * @returns {Object}
+ */
+function round2CellParseFailure(cells) {
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'A disposition cell could not be read, so this round cannot be matched against the prior one.',
+            '',
+            ...cells.map(cell => `- \`${cell}\` carries a verdict but is not one.`),
+            '',
+            'The Disposition cell must be exactly `ADDRESSED`, `DEFENDED` or `STILL_OPEN` — no bold, no',
+            'trailing prose. Anything you want to say about the disposition goes in the Evidence column.'
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
 function extractDispositionRows(body) {
     return String(body || '').split('\n')
         .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))
