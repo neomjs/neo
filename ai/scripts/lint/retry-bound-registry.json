@@ -230,6 +230,13 @@
             "witness": "Second term of the same squared distance \u2014 `(ty - me.mouse.y) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
+        "buildScripts/docs/index/labels.mjs#getRetryDelay:a340dce2": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(RETRY_MAX_DELAY_MS, ...)` in the same expression; the loop is additionally attempt-bounded (`attempt <= MAX_RETRY_ATTEMPTS`, 3) and `labelsFetchRetry.spec.mjs` proves exhaustion at exactly four calls.",
+            "note": "GitHub GraphQL label-fetch transport retry; mirrors GraphqlService after the engine↔Brain severance dissolved the import."
+        },
         "src/canvas/Header.mjs#getStreamOffset:08d3b17b": {
             "kind": "not-a-retry",
             "witness": "`Math.pow((1 + Math.cos(...)) / 2, 3)` cubes a raised-cosine envelope for a sharper falloff; the source comment says so and the exponent is the literal 3.",
