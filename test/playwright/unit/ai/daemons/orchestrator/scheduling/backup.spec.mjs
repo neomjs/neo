@@ -317,7 +317,8 @@ test.describe('orchestrator/scheduling/backup — maintenance health (#17068)', 
         });
 
         expect(health).toEqual({
-            reasonCodes: [
+            observationStatus: 'observed',
+            reasonCodes      : [
                 'off-host-durability-unmet',
                 'backup-retry-exhausted',
                 'backup-last-run-failed',
@@ -340,6 +341,72 @@ test.describe('orchestrator/scheduling/backup — maintenance health (#17068)', 
                 lastSuccessAt   : iso(T)
             },
             retryWindowMs: WINDOW_MS
-        })).toEqual({reasonCodes: [], staleAfterMs: DAY_MS + WINDOW_MS, status: 'healthy'});
+        })).toEqual({
+            observationStatus: 'observed',
+            reasonCodes      : [],
+            staleAfterMs     : DAY_MS + WINDOW_MS,
+            status           : 'healthy'
+        });
+    });
+
+    // The affected plane, field for field: `status: healthy`, `reasonCodes: []`, `staleAfterMs:
+    // 90000000` — reproduced from the shipped 24h/1h defaults, not from convenient numbers. The
+    // receipt is what makes the absent retry state a failure to OBSERVE rather than an absence.
+    test('an unread retry state cannot report healthy, and names itself', () => {
+        expect(describeBackupMaintenanceHealth({
+            backupIntervalMs: DAY_MS,
+            durability      : {posture: 'configured'},
+            lastBackup      : {backup: {status: 'success'}, status: 'ok'},
+            retryState      : null,
+            retryWindowMs   : WINDOW_MS
+        })).toEqual({
+            observationStatus: 'partial',
+            reasonCodes      : ['backup-retry-state-unobserved'],
+            staleAfterMs     : DAY_MS + WINDOW_MS,
+            status           : 'degraded'
+        });
+    });
+
+    // CONTROL. Without a receipt the same absent retry state is equally consistent with "nothing
+    // has run here yet", and `pending` already says so. Degrading it would warn on every first
+    // boot, which is the signal-destroying half of the fix rather than the fix.
+    test('a first boot stays pending, and reports its coverage rather than a verdict', () => {
+        expect(describeBackupMaintenanceHealth({
+            backupIntervalMs: DAY_MS,
+            durability      : {posture: 'configured'},
+            lastBackup      : null,
+            retryState      : null,
+            retryWindowMs   : WINDOW_MS
+        })).toEqual({
+            observationStatus: 'partial',
+            reasonCodes      : [],
+            staleAfterMs     : DAY_MS + WINDOW_MS,
+            status           : 'pending'
+        });
+    });
+
+    // The invariant, not one of its instances: whatever else is in hand, an unread run-dependent
+    // input never buys a positive claim. Two routes enforce it — a receipt pushes a reason code, no
+    // receipt lands on the pending arm — so a change that removes either one is caught here.
+    test('partial coverage never reaches healthy, across every other input', () => {
+        const cases = [];
+
+        for (const lastBackup of [null, {backup: {status: 'success'}, status: 'ok'}, {status: 'unreadable'}]) {
+            for (const durability of [{}, {posture: 'configured'}, {posture: 'unmet'}, {configErrorCode: 'E'}]) {
+                const health = describeBackupMaintenanceHealth({
+                    backupIntervalMs: DAY_MS,
+                    durability,
+                    lastBackup,
+                    retryState      : null,
+                    retryWindowMs   : WINDOW_MS
+                });
+
+                cases.push(health.status);
+                expect(health.observationStatus).toBe('partial');
+            }
+        }
+
+        expect(cases).toHaveLength(12);
+        expect(cases).not.toContain('healthy');
     });
 });

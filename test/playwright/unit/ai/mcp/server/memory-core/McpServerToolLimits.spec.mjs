@@ -467,7 +467,14 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(declared.properties.observationStatus.enum).toEqual(['available', 'stale', 'degraded', 'unavailable']);
         expect(declared.properties.backup.properties.status.enum).toEqual(['healthy', 'degraded', 'pending']);
         expect(declared.properties.backup.properties.reasonCodes.items.type).toBe('string');
+
+        // The two `observationStatus` fields sit one level apart and answer different questions —
+        // whether the BRIDGE could be read, versus whether the verdict's own input was PRESENT. The
+        // enums are kept disjoint so no payload can blur them, and this pins that.
+        expect(declared.properties.backup.properties.observationStatus.enum).toEqual(['observed', 'partial']);
+        expect(declared.properties.backup.required).not.toContain('observationStatus');
     });
+
 
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {
         const observedArgs   = [];

@@ -200,6 +200,7 @@ const explorePullRequestHistoryOp = args => PullRequestHistoryService.explorePul
 
 const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
 
+
 /**
  * @summary Reconciles base Memory Core health with measured WAL and orchestrator maintenance state.
  *

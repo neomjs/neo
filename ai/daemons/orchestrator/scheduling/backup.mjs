@@ -272,13 +272,27 @@ export function describeBackupRetryState({
  * safety decision from several fields. Backup freshness becomes overdue after one ordinary cadence
  * plus its bounded recovery window — the existing two configuration authorities, not a new hidden
  * threshold.
+ *
+ * **`healthy` is a positive claim, so it requires the run-dependent input to have been READ.**
+ * `retryState` is the only input that can go unobserved: `durability` is config-derived and always
+ * resolvable, and `lastBackup: null` is observed-absent rather than unread — the bridge reports a
+ * failed receipt read as `unreadable`, never as nothing. `retryState`, by contrast, reaches this
+ * function through `taskStateService?.getTaskState?.('backup') || null`, which collapses
+ * service-not-wired, wrong-shape and lane-never-ran into one `null`; every code below reads it
+ * through `?.`, so an absent observation scored as a clean one and the verdict said `healthy` with
+ * an empty `reasonCodes` on a plane holding no backup at all.
+ *
+ * `observationStatus` carries that difference. It is deliberately NOT the field of the same name one
+ * level up in the healthcheck payload: `maintenance.observationStatus` reports whether the
+ * deployment-state bridge could be READ, this one whether the verdict's own input was PRESENT. Their
+ * value vocabularies are kept disjoint so no payload can blur them.
  * @param {Object} options
  * @param {Object} [options.durability={}] Deployment durability posture.
  * @param {Object|null} [options.lastBackup=null] Validated last-backup receipt projection.
  * @param {Object|null} [options.retryState=null] Output of {@link describeBackupRetryState}.
  * @param {Number} [options.backupIntervalMs=0] Ordinary backup cadence.
  * @param {Number} [options.retryWindowMs=0] Bounded failed-run recovery window.
- * @returns {{status: 'healthy'|'degraded'|'pending', reasonCodes: String[], staleAfterMs: Number|null}}
+ * @returns {{status: 'healthy'|'degraded'|'pending', observationStatus: 'observed'|'partial', reasonCodes: String[], staleAfterMs: Number|null}}
  */
 export function describeBackupMaintenanceHealth({
     durability       = {},
@@ -289,6 +303,7 @@ export function describeBackupMaintenanceHealth({
 } = {}) {
     const
         reasonCodes  = [],
+        retryRead    = retryState !== null && retryState !== undefined,
         staleAfterMs = backupIntervalMs > 0
             ? backupIntervalMs + Math.max(0, retryWindowMs)
             : null;
@@ -317,11 +332,21 @@ export function describeBackupMaintenanceHealth({
     if (staleAfterMs !== null && retryState?.lastSuccessAgeMs > staleAfterMs) {
         reasonCodes.push('backup-success-overdue')
     }
+    // A receipt is proof the lane HAS run, so its retry posture exists and simply went unread — a
+    // failure to observe, which degrades. Without a receipt the same absence is equally consistent
+    // with "nothing has ever run", and `pending` below already reports that honestly; degrading
+    // there would fire on every fresh deployment, for the same reason `unanchored` stays pending.
+    if (!retryRead && lastBackup) {
+        reasonCodes.push('backup-retry-state-unobserved')
+    }
 
+    // An unread input can therefore never reach `healthy` by either route: with a receipt the code
+    // above forces `degraded`, and without one the `!lastBackup && !retryState` arm forces `pending`.
     return {
-        reasonCodes: [...new Set(reasonCodes)],
+        observationStatus: retryRead ? 'observed' : 'partial',
+        reasonCodes      : [...new Set(reasonCodes)],
         staleAfterMs,
-        status     : reasonCodes.length > 0
+        status           : reasonCodes.length > 0
             ? 'degraded'
             : (!lastBackup && (!retryState || retryState.phase === BACKUP_RETRY_PHASE.unanchored)
                 ? 'pending'
