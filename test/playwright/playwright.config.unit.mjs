@@ -4,7 +4,7 @@ import {defineConfig}      from '@playwright/test';
 import {existsSync}        from 'node:fs';
 import path                from 'path';
 import {fileURLToPath}     from 'url';
-import {resolvePackageDir} from './chromaProcess.mjs';
+import {CHROMA_CLI_ENTRYPOINT, resolvePackageDir} from './chromaProcess.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -89,13 +89,19 @@ export const brainHookTestMatch = /[\\/]hooks[\\/](codexContextHook|kimiTurnPres
  * entrypoint", never "did the native build produce its artifact", so it would report armed for
  * exactly the broken install this probe exists to catch. Resolution is used to find the package
  * DIRECTORY ({@link resolvePackageDir}); the file checks inside it are unchanged.
+ *
+ * **The entrypoint list is what each project ACTUALLY executes, not what the package advertises.**
+ * `chromadb` carries two: Brain specs import `dist/chromadb.mjs`, and the `chroma-setup` dependency
+ * this gate admits spawns {@link CHROMA_CLI_ENTRYPOINT}. Admitting on the first alone let a partial
+ * install pass the gate and die at the heartbeat — an admission gate that proves a different
+ * artifact from the one its dependent runs is not an admission gate.
  * @param {String} rootDir Directory to resolve `node_modules` from — a repo root or a worktree.
  * @returns {Boolean}
  */
 export function hasBrainTier(rootDir) {
     return [
         ['better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node'],
-        ['chromadb', 'dist/chromadb.mjs'],
+        ['chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT],
         ['@chroma-core/default-embed', 'dist/default-embed.mjs']
     ].every(([pkg, ...entrypoints]) => {
         const packageDir = resolvePackageDir(rootDir, pkg);

@@ -6,6 +6,18 @@ import path                  from 'node:path';
 const temporaryPrefix = 'neo-chroma-unit-test-';
 
 /**
+ * @summary The chromadb artifact `chroma-setup` actually EXECUTES.
+ *
+ * Exported so the Brain-tier probe admits the tier on the same file this module spawns. Admission
+ * previously proved `dist/chromadb.mjs` — the library entrypoint Brain specs import — while the
+ * setup project it gates runs this one. A partial install carrying the first without the second
+ * passed the gate and then failed at the heartbeat, which is the indirection the whole probe exists
+ * to remove. One constant, two consumers, no drift.
+ * @type {String}
+ */
+export const CHROMA_CLI_ENTRYPOINT = 'dist/cli.mjs';
+
+/**
  * @summary Locates a package directory the way Node's resolver does — first `node_modules/<pkg>`
  * found walking up from `fromDir`, or `null`.
  *
@@ -17,6 +29,11 @@ const temporaryPrefix = 'neo-chroma-unit-test-';
  * FIRST match wins, with no fallback to a further ancestor — also Node's behaviour, and load-bearing
  * for the Brain-tier probe: a pruned husk at depth 0 must stay a husk rather than being papered over
  * by a good copy higher up.
+ *
+ * A candidate must be a DIRECTORY. `existsSync` answers "is there an entry at this path", which a
+ * regular file satisfies — and every caller then joins entrypoints beneath it and gets a confusing
+ * miss instead of a clean "not installed here". `statSync` follows symlinks, so a symlinked package
+ * directory stays valid; a broken link stats as an error and is treated as absent.
  *
  * It lives here rather than in the config because this module already owns *where the chromadb
  * package is*; the config imports it so one answer serves both the probe and the spawn.
@@ -30,8 +47,12 @@ export function resolvePackageDir(fromDir, pkg) {
     for (;;) {
         const candidate = path.join(current, 'node_modules', pkg);
 
-        if (fs.existsSync(candidate)) {
-            return candidate
+        try {
+            if (fs.statSync(candidate).isDirectory()) {
+                return candidate
+            }
+        } catch {
+            // Absent, or a broken symlink. Both are "not installed here"; keep walking.
         }
 
         const parent = path.dirname(current);
@@ -165,6 +186,8 @@ export function readChromaLogTail(logPath, maximumLength = 4000) {
  * @param {Number} [options.timeoutMs=120000]
  * @param {Function} [options.spawnFn=spawn]
  * @param {Function} [options.probeFn=probeChromaHeartbeat]
+ * @param {Function} [options.resolveFn=resolvePackageDir] Injected so a spec can control the walk
+ *     instead of letting the host filesystem above `repoRoot` decide the result.
  * @returns {Promise<Number>} The detached process-group leader PID.
  */
 export async function startChromaProcess({
@@ -175,7 +198,8 @@ export async function startChromaProcess({
     logPath,
     timeoutMs = 120000,
     spawnFn   = spawn,
-    probeFn   = probeChromaHeartbeat
+    probeFn   = probeChromaHeartbeat,
+    resolveFn = resolvePackageDir
 }) {
     if (await probeFn({host, port})) {
         throw new Error(`Refusing to reuse a Chroma server already listening at ${host}:${port}`)
@@ -185,13 +209,22 @@ export async function startChromaProcess({
     // winning. From a linked worktree `repoRoot/node_modules` does not exist, so a joined path spawns
     // a CLI that is not there — the child dies immediately and the failure reports "Chroma exited
     // before its heartbeat became ready", naming the symptom two layers from the missing file.
-    const packageDir = resolvePackageDir(repoRoot, 'chromadb');
+    const packageDir = resolveFn(repoRoot, 'chromadb');
 
     if (packageDir === null) {
         throw new Error(`Cannot locate the chromadb package from ${repoRoot} — is the Brain tier installed?`)
     }
 
-    const cliPath = path.join(packageDir, 'dist', 'cli.mjs');
+    const cliPath = path.join(packageDir, CHROMA_CLI_ENTRYPOINT);
+
+    // Locating a package and proving the capability are separate checks, and only the second one is
+    // what this function is about to execute. `hasBrainTier` admits the tier on `dist/chromadb.mjs`;
+    // a partial install carrying that file without this one passes admission and then dies at the
+    // heartbeat — the same indirection the resolution fix removed, one artifact over. `CHROMA_CLI_
+    // ENTRYPOINT` is exported so the probe and the spawn cannot drift apart again.
+    if (!fs.existsSync(cliPath)) {
+        throw new Error(`chromadb is installed at ${packageDir} but ${CHROMA_CLI_ENTRYPOINT} is missing — the Brain tier install is partial`)
+    }
 
     fs.mkdirSync(dataDir, {recursive: true});
     fs.mkdirSync(path.dirname(logPath), {recursive: true});

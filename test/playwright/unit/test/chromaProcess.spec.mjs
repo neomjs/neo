@@ -3,6 +3,7 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
+    CHROMA_CLI_ENTRYPOINT,
     cleanupChromaArtifacts,
     isDetachedProcessAlive,
     ownsChromaDataDir,
@@ -120,7 +121,34 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
             mk('@chroma-core/default-embed', 'dist/default-embed.mjs');
             expect(hasBrainTier(root)).toBe(false);
             mk('better-sqlite3', 'build/Release/better_sqlite3.node');
+            // Still false: `chromadb` is admitted on the LIBRARY entrypoint above, and the
+            // `chroma-setup` project this gate admits spawns the CLI one. Proving a different
+            // artifact from the one the dependent runs is not an admission gate — a partial install
+            // in exactly this shape passed and then died at the heartbeat.
+            expect(hasBrainTier(root)).toBe(false);
+            mk('chromadb', CHROMA_CLI_ENTRYPOINT);
             expect(hasBrainTier(root)).toBe(true);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('a regular file named like a package does not satisfy the resolver', () => {
+        // `existsSync` answers "is there an entry at this path", which a FILE satisfies. Callers then
+        // join entrypoints beneath it and get a confusing miss instead of "not installed here", and
+        // the walk stops at a candidate that can never hold anything.
+        // A name no real install can carry, so the upward walk past the rejected candidate cannot
+        // reach a host package and decide this result — the fixture owns the whole answer.
+        const pkg  = '@neo-fixture-17477/not-a-real-package',
+              root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-file-')),
+              full = path.join(root, 'node_modules', pkg);
+
+        try {
+            fs.mkdirSync(path.dirname(full), {recursive: true});
+            fs.writeFileSync(full, 'not a package');
+
+            expect(fs.existsSync(full)).toBe(true);
+            expect(resolvePackageDir(root, pkg)).toBeNull()
         } finally {
             fs.rmSync(root, {force: true, recursive: true})
         }
@@ -140,7 +168,7 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         try {
             fs.mkdirSync(nested);
             mk(parent, 'better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node');
-            mk(parent, 'chromadb', 'dist/chromadb.mjs');
+            mk(parent, 'chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT);
             mk(parent, '@chroma-core/default-embed', 'dist/default-embed.mjs');
 
             expect(fs.existsSync(path.join(nested, 'node_modules'))).toBe(false);
@@ -171,11 +199,11 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
             fs.mkdirSync(nested);
             // Intact one level up …
             mk(parent, 'better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node');
-            mk(parent, 'chromadb', 'dist/chromadb.mjs');
+            mk(parent, 'chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT);
             mk(parent, '@chroma-core/default-embed', 'dist/default-embed.mjs');
             // … husked right here. The nearer one is what Node would load, so it is what decides.
             mk(nested, 'better-sqlite3', 'lib/index.js');
-            mk(nested, 'chromadb', 'dist/chromadb.mjs');
+            mk(nested, 'chromadb', 'dist/chromadb.mjs', CHROMA_CLI_ENTRYPOINT);
             mk(nested, '@chroma-core/default-embed', 'dist/default-embed.mjs');
 
             expect(hasBrainTier(nested)).toBe(false);
@@ -191,8 +219,11 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-absent-'));
 
         try {
-            expect(resolvePackageDir(root, 'a-package-that-is-not-installed-17477')).toBeNull();
-            expect(hasBrainTier(path.parse(root).root)).toBe(false);
+            // The name is unique on purpose: the walk genuinely runs to the filesystem root, and no
+            // real `node_modules` anywhere above can carry it, so termination is what is proven and
+            // not the host's contents. An assertion against `path.parse(root).root` would let a
+            // machine that happens to have `/node_modules` decide a unit result.
+            expect(resolvePackageDir(root, '@neo-fixture-17477/absent-everywhere')).toBeNull()
         } finally {
             fs.rmSync(root, {force: true, recursive: true})
         }
@@ -274,9 +305,67 @@ test.describe('test/playwright/chromaProcess — run-scoped Chroma lifecycle', (
                 logPath : path.join(root, 'chroma.log'),
                 port    : 18192,
                 probeFn : async () => false,
-                repoRoot: path.parse(root).root,
-                spawnFn : () => { throw new Error('must not reach spawn') }
+                repoRoot: root,
+                // Injected rather than walked. A real walk from a temp dir reads whatever the host
+                // has above it, so the assertion would be about this machine — the same class of
+                // uncontrolled read as the `path.parse(root).root` fixtures this replaces.
+                resolveFn: () => null,
+                spawnFn  : () => { throw new Error('must not reach spawn') }
             })).rejects.toThrow(/Cannot locate the chromadb package/);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('a located-but-partial chromadb names the missing CLI, and never reaches spawn', async () => {
+        // The admission gate and the process it enables checked DIFFERENT artifacts: `hasBrainTier`
+        // proved `dist/chromadb.mjs`, `chroma-setup` spawns the CLI. An install carrying the first
+        // without the second passed the gate and then failed as "Chroma exited before its heartbeat
+        // became ready" — the same indirection the resolution fix removed, one artifact over.
+        const root       = fs.mkdtempSync(path.join(os.tmpdir(), 'chroma-cli-partial-')),
+              packageDir = path.join(root, 'node_modules', 'chromadb');
+
+        let spawnCalled = false;
+
+        try {
+            fs.mkdirSync(path.join(packageDir, 'dist'), {recursive: true});
+            fs.writeFileSync(path.join(packageDir, 'dist', 'chromadb.mjs'), '');
+
+            // Admission refuses it, so the projects are never armed …
+            expect(hasBrainTier(root)).toBe(false);
+
+            // … and the spawn refuses it too, by name. Both halves, because either one alone leaves
+            // the other free to disagree again.
+            await expect(startChromaProcess({
+                dataDir : path.join(root, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(root, 'chroma.log'),
+                port    : 18193,
+                probeFn : async () => false,
+                repoRoot: root,
+                spawnFn : () => { spawnCalled = true }
+            })).rejects.toThrow(new RegExp(`${CHROMA_CLI_ENTRYPOINT.replace('.', '\\.')} is missing`));
+
+            expect(spawnCalled).toBe(false);
+
+            // CONTROL: same fixture, one file added, and the spawn is now reached. Without this the
+            // arm above is satisfied by a build that refuses every install it is handed.
+            fs.writeFileSync(path.join(packageDir, CHROMA_CLI_ENTRYPOINT), '');
+
+            await expect(startChromaProcess({
+                dataDir : path.join(root, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(root, 'chroma.log'),
+                port    : 18193,
+                probeFn : async () => false,
+                repoRoot: root,
+                spawnFn : () => {
+                    spawnCalled = true;
+                    throw new Error('reached spawn')
+                }
+            })).rejects.toThrow(/reached spawn/);
+
+            expect(spawnCalled).toBe(true)
         } finally {
             fs.rmSync(root, {force: true, recursive: true})
         }
