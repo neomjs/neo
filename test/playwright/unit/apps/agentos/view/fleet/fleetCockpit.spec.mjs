@@ -1625,9 +1625,10 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             ensureViewerWakeStream: () => driven.push('viewerWake'),
             // the resident-pane re-drives route through the phase-blind accessors: a vesseled
             // pane must receive the reconnect re-drive too, so the seam is the accessor, not the raw reference
-            getCatchUpPane : () => panes['catch-up'],
-            getMemoriesPane: () => panes.memories,
-            getReference   : reference => panes[reference] ?? null
+            getCatchUpPane   : () => panes['catch-up'],
+            getMemoriesPane  : () => panes.memories,
+            getWakeRoutesPane: () => panes.wakeRoutes ?? null,
+            getReference     : reference => panes[reference] ?? null
         });
 
         expect(driven.sort()).toEqual([
@@ -1645,6 +1646,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             ensureViewerWakeStream: () => driven.push('viewerWake'),
             getCatchUpPane        : () => null,
             getMemoriesPane       : () => null,
+            getWakeRoutesPane     : () => null,
             getReference          : () => null
         });
 
@@ -2494,6 +2496,7 @@ test.describe('Fleet cockpit — the wake-routes read (loadWakeRoutes)', () => {
         isDestroyed             : false,
         wakeRoutesReadGeneration: 0,
         wakeRoutesSnapshot      : null,
+        getWakeRoutesPane       : () => pane,
         getReference            : reference => reference === 'wakeRoutes' ? pane : null,
         loadWakeRoutes          : FleetCockpit.prototype.loadWakeRoutes
     });
