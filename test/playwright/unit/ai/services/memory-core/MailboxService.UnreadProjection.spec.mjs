@@ -30,7 +30,8 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
  *
  * Arms 1-2 pin the healthy shapes (clean + re-hydrated lifecycles). Arms 3-4 inject the two
  * divergence pathologies directly — a stale cached property and a source-index eviction — and
- * assert the storage-truth merge overrides both. Arm 5 pins the count-stability contract.
+ * assert the storage-truth merge overrides both. Arm 5 pins the count-stability contract;
+ * arm 6 poisons full-store iteration across the single-message broadcast paths.
  */
 test.describe.configure({mode: 'serial'});
 
@@ -72,7 +73,7 @@ test.describe('MailboxService — unread projection observes a committed mark_re
 
     /** The cached per-recipient DELIVERED_TO edge, exactly as the in-memory projection holds it. */
     const cachedDeliveryEdge = messageId =>
-        GraphService.db.edges.items.find(edge =>
+        GraphService.db.edges.getByIndex('source', messageId).find(edge =>
             (edge.source ?? edge.get?.('source')) === messageId &&
             (edge.type   ?? edge.get?.('type'))   === 'DELIVERED_TO' &&
             (edge.target ?? edge.get?.('target')) === RECIPIENT);
@@ -154,10 +155,16 @@ test.describe('MailboxService — unread projection observes a committed mark_re
         // while storage keeps the committed receipt (the durable divergence both seats measured).
         const edge = cachedDeliveryEdge(messageId);
         expect(edge, 'fixture must hold a cached delivery edge').toBeTruthy();
-        expect(readAtOf(edge)).toBe(receipt.readAt);
 
-        corruptCacheEdgeToUnread(edge, null);
+        if (readAtOf(edge) !== null) {
+            corruptCacheEdgeToUnread(edge, null)
+        }
         expect(readAtOf(edge), 'the corruption itself must be in place').toBeNull();
+
+        const stored = GraphService.db.storage.db.prepare(
+            "SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Edges WHERE id = ?"
+        ).get(edge.id ?? edge.get?.('id'));
+        expect(stored?.readAt, 'storage retains the committed receipt').toBe(receipt.readAt);
 
         const after = await listUnread();
         expect(after.messages.find(m => m.messageId === messageId),
@@ -193,10 +200,14 @@ test.describe('MailboxService — unread projection observes a committed mark_re
             type      : 'DELIVERED_TO',
             properties: {deliveredAt: receipt.readAt, readAt: null, deliveryKind: 'broadcast'}
         };
+        const fresh = {
+            ...twin,
+            properties: {...twin.properties, readAt: receipt.readAt}
+        };
 
         sourceSet.delete(edge);
         sourceSet.add(twin); // stale twin iterates first
-        sourceSet.add(edge); // fresh copy still present, second
+        sourceSet.add(fresh); // fresh copy still present, second
 
         const after = await listUnread();
         expect(after.messages.find(m => m.messageId === messageId),
@@ -209,5 +220,134 @@ test.describe('MailboxService — unread projection observes a committed mark_re
 
         expect(second.totalCount).toBe(first.totalCount);
         expect(second.messages.map(m => m.messageId)).toEqual(first.messages.map(m => m.messageId));
+    });
+
+    test('arm 6 — get, mark-read, and archive never enumerate the full edge Store', async () => {
+        const
+            messageId     = await sendBroadcast('arm 6: indexed single-message paths'),
+            edges         = GraphService.db.edges,
+            ownDescriptor = Object.getOwnPropertyDescriptor(edges, 'items'),
+            items         = edges.items;
+
+        let phase = 'setup';
+
+        const iterationMethods = new Set(['filter', 'find', 'forEach', 'map', 'reduce', 'some']);
+        const poisonedItems    = new Proxy(items, {
+            get(target, property, receiver) {
+                if (property === Symbol.iterator || iterationMethods.has(property)) {
+                    return () => {
+                        throw new Error(`full edge Store iteration is forbidden during ${phase}`)
+                    }
+                }
+
+                return Reflect.get(target, property, receiver)
+            }
+        });
+
+        Object.defineProperty(edges, 'items', {
+            configurable: true,
+            get() {
+                return poisonedItems
+            }
+        });
+
+        try {
+            phase = 'get_message';
+            const fetched = await asRecipient(() => MailboxService.getMessage({messageId}));
+            expect(fetched.messageId).toBe(messageId);
+
+            phase = 'mark_read';
+            const readReceipt = await asRecipient(() => MailboxService.markRead({messageId}));
+            expect(readReceipt.status).toBe('read');
+
+            phase = 'archive_message';
+            const archiveReceipt = await asRecipient(() => MailboxService.archiveMessage({messageId}));
+            expect(archiveReceipt.status).toBe('archived')
+        } finally {
+            if (ownDescriptor) {
+                Object.defineProperty(edges, 'items', ownDescriptor)
+            } else {
+                delete edges.items
+            }
+        }
+    });
+
+    test('arm 7 — index-only receipt writes preserve the other storage-owned timestamp', async () => {
+        const
+            messageId   = await sendBroadcast('arm 7: index-only receipt writes'),
+            readReceipt = await asRecipient(() => MailboxService.markRead({messageId})),
+            db          = GraphService.db,
+            {edges}     = db,
+            indexedEdge = cachedDeliveryEdge(messageId),
+            edgeId      = indexedEdge?.id ?? indexedEdge?.get?.('id'),
+            sourceSet   = edges.indexMaps.get('source')?.get(messageId),
+            originalMap = edges.map.get(edgeId),
+            originalSet = [...sourceSet].filter(edge => (edge.id ?? edge.get?.('id')) === edgeId),
+            staleEdge   = {
+                id        : edgeId,
+                source    : messageId,
+                target    : RECIPIENT,
+                type      : 'DELIVERED_TO',
+                properties: {
+                    ...(indexedEdge?.properties ?? indexedEdge?.get?.('properties')),
+                    archivedAt: null,
+                    readAt    : null
+                }
+            };
+
+        expect(readReceipt.readAt).toBeTruthy();
+        expect(indexedEdge, 'the fixture needs a source-index receipt').toBeTruthy();
+        expect(originalMap, 'the fixture starts with a Store-canonical receipt').toBeTruthy();
+
+        const readStoredReceipt = () => db.storage.db.prepare(
+            "SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Edges WHERE id = ?"
+        ).get(edgeId);
+
+        const installIndexOnlyStaleEdge = () => {
+            originalSet.forEach(edge => sourceSet.delete(edge));
+            sourceSet.add(staleEdge);
+            edges.map.delete(edgeId);
+            db.vicinityLoadedNodes.add(messageId);
+            db.lastSyncId = db.storage.getLatestLogId()
+        };
+
+        try {
+            installIndexOnlyStaleEdge();
+
+            const archiveReceipt = await asRecipient(() => MailboxService.archiveMessage({messageId}));
+            let   stored         = readStoredReceipt();
+
+            expect(stored.readAt, 'archive preserves the committed read receipt').toBe(readReceipt.readAt);
+            expect(stored.archivedAt).toBe(archiveReceipt.archivedAt);
+
+            staleEdge.properties.archivedAt = null;
+            installIndexOnlyStaleEdge();
+
+            const secondRead = await asRecipient(() => MailboxService.markRead({messageId}));
+            stored = readStoredReceipt();
+
+            expect(stored.readAt).toBe(secondRead.readAt);
+            expect(stored.archivedAt, 'mark-read preserves the committed archive receipt')
+                .toBe(archiveReceipt.archivedAt);
+
+            const storedRow  = db.storage.db.prepare('SELECT data FROM Edges WHERE id = ?').get(edgeId),
+                  storedData = JSON.parse(storedRow.data);
+
+            storedData.properties.archivedAt = null;
+            db.storage.db.prepare('UPDATE Edges SET data = ? WHERE id = ?')
+                .run(JSON.stringify(storedData), edgeId);
+
+            staleEdge.properties.archivedAt = archiveReceipt.archivedAt;
+            installIndexOnlyStaleEdge();
+
+            await asRecipient(() => MailboxService.markRead({messageId}));
+            stored = readStoredReceipt();
+
+            expect(stored.archivedAt, 'a durable null beats a stale cache timestamp').toBeNull()
+        } finally {
+            sourceSet.delete(staleEdge);
+            originalSet.forEach(edge => sourceSet.add(edge));
+            edges.map.set(edgeId, originalMap)
+        }
     });
 });

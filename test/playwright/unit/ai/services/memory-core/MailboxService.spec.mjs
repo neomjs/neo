@@ -2353,11 +2353,22 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         // The mark must land on the RESTORED per-recipient edge, not the shared MESSAGE node — writing
         // the latter is the cross-recipient read-state collapse this lane also exists to prevent.
-        const restored = GraphService.db.edges.items.find(edge =>
-            edge.source === messageId && edge.type === 'DELIVERED_TO' && /charlie/i.test(String(edge.target))
+        const restored = GraphService.db.edges.getByIndex('source', messageId).find(edge =>
+            edge.source === messageId &&
+            edge.type === 'DELIVERED_TO' &&
+            /charlie/i.test(String(edge.target))
         );
         expect(restored, 'charlie edge rebuilt from the WAL').toBeTruthy();
-        expect(restored.properties?.readAt, 'mark landed on the restored per-recipient carrier').toBeTruthy();
+
+        const stored = GraphService.db.storage.db.prepare(
+            "SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO'"
+        ).get(messageId, '@charlie');
+        const storedMessage = GraphService.db.storage.db.prepare(
+            "SELECT json_extract(data, '$.properties.readAt') AS readAt FROM Nodes WHERE id = ?"
+        ).get(messageId);
+
+        expect(stored?.readAt, 'the restored receipt carries the durable mark').toBe(result.readAt);
+        expect(storedMessage?.readAt, 'the shared MESSAGE stays unread for other recipients').toBeNull();
     });
 
     test('#15322 a broadcast non-recipient registered AFTER send still fails closed — repair rebuilds only the snapshot', async () => {
@@ -2861,13 +2872,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             })).messageId;
         });
 
-        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
-            await MailboxService.markRead({messageId});
-        });
+        const canonicalReceipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({messageId})
+        );
 
-        const canonicalReceipt = GraphService.db.edges.getByIndex('source', messageId)
-            .find(edge => edge.type === 'DELIVERED_TO' && edge.target === '@bob');
-        expect(canonicalReceipt.properties.readAt).toBeTruthy();
+        expect(canonicalReceipt.readAt).toBeTruthy();
 
         // Historical stores can contain an equivalent bare-id receipt beside the canonical one.
         // The former `getBroadcastDeliveryEdge(...).find(...)` contract selected the first match;
@@ -2878,7 +2887,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             const result  = await MailboxService.listMessages({status: 'read'});
             const message = result.messages.find(candidate => candidate.messageId === messageId);
 
-            expect(message?.readAt).toBe(canonicalReceipt.properties.readAt);
+            expect(message?.readAt).toBe(canonicalReceipt.readAt);
         });
     });
 
