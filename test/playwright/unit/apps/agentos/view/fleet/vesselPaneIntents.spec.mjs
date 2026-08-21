@@ -10,15 +10,17 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
+import Component    from '../../../../../../../src/component/Base.mjs';
 import FleetCockpit   from '../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs';
 
 /**
  * @summary The vessel-safety contract for every tear-out-capable intent pane (the memories
  * precedent generalized): string listeners carry the EXPLICIT controller scope — a
- * vessel-mounted pane has no controller above it, so an unscoped string would resolve dead in
- * the vessel and cache that miss — and every owner push routes through a phase-blind accessor
- * resolved at WRITE time, so a pane torn out, returning-parked, or rebuilt mid-flight still
- * receives the truth.
+ * vessel-mounted pane has no controller above it, so an unscoped string resolves dead in the
+ * vessel (a TypeError per fire; the null lookup is NOT sticky — `getController`'s fast path is
+ * truthy-only, so it re-walks once docked) — and every owner push routes through a phase-blind
+ * accessor resolved at WRITE time, so a pane torn out, returning-parked, or rebuilt mid-flight
+ * still receives the truth.
  */
 function ownerStub(controller, overrides = {}) {
     return {
@@ -38,10 +40,22 @@ function ownerStub(controller, overrides = {}) {
 test.describe('FleetCockpit — vessel-fired pane intents + phase-blind owner pushes', () => {
     const proto = FleetCockpit.prototype;
 
-    test('every tear-out-capable intent pane binds its string listeners to the owning controller', () => {
-        const controller = {id: 'the-owning-controller'};
+    test('vessel-fired intents reach the scoped controller through the REAL fire path — and die without the scope', () => {
+        // every configured intent name per pane, from the resolver's own listener configs
+        const paneIntents = {
+            'operator-mailbox': ['compose', 'inboxPageRequest'],
+            'catch-up'        : ['historyRequest', 'markCaughtUpRequest', 'liveSurfaceRequest'],
+            'memories'        : ['memoriesRequest', 'sessionDetailRequest', 'sessionDetailClosed'],
+            'wakeRoutes'      : ['wakeRoutesRequest']
+        };
 
-        for (const ref of ['operator-mailbox', 'catch-up', 'memories', 'wakeRoutes']) {
+        for (const [ref, events] of Object.entries(paneIntents)) {
+            const
+                received   = [],
+                // the scope-liveness check inside Observable#fire drops handlers whose resolved
+                // scope has no id, so the recorder must look alive
+                controller = {id: 'the-owning-controller'};
+
             const config = proto.resolveDockComponentRef.call(
                 ownerStub(controller, {
                     memoriesTarget           : null,
@@ -54,8 +68,49 @@ test.describe('FleetCockpit — vessel-fired pane intents + phase-blind owner pu
                 ref, {title: ref}, ref
             );
 
-            expect(config.listeners.scope, `${ref} resolves its intents without a controller chain`)
-                .toBe(controller)
+            // the recorder learns each handler NAME from the resolver's own config — the witness
+            // can never drift from the listener strings it exists to prove
+            for (const event of events) {
+                const name = config.listeners[event];
+
+                expect(typeof name, `${ref}.${event} is a configured string handler`).toBe('string');
+                controller[name] = data => received.push({event, data})
+            }
+
+            // the vessel condition: a real component with NO parent — no controller chain exists
+            // above it, exactly like a pane mounted inside a tear-out vessel window
+            const vesseled = Neo.create(Component, {
+                appName  : 'VesselPaneIntentsTest',
+                listeners: config.listeners
+            });
+
+            for (const event of events) {
+                vesseled.fire(event, {probe: event})
+            }
+
+            expect(received.map(r => r.event), `${ref}: every configured intent reaches the scoped controller`)
+                .toEqual(events);
+            received.forEach(r => {
+                expect(r.data.probe).toBe(r.event);
+                expect(r.data.source, 'the payload rides the real Observable#fire path').toBe(vesseled.id)
+            });
+
+            // the red-proof: the SAME config minus the explicit scope — the fire resolves through
+            // the vesseled component's (empty) controller chain and dies as a TypeError per fire,
+            // the close-target's exact defect made observable
+            const {scope, ...unscoped} = config.listeners;
+            const bare                 = Neo.create(Component, {
+                appName  : 'VesselPaneIntentsTest',
+                listeners: unscoped
+            });
+
+            expect(() => bare.fire(events[0], {probe: 'dead'}),
+                `${ref}: the unscoped vessel fire dies instead of reaching the controller`)
+                .toThrow(TypeError);
+            expect(received.length, 'the controller never hears the unscoped fire').toBe(events.length);
+
+            vesseled.destroy();
+            bare.destroy()
         }
     });
 

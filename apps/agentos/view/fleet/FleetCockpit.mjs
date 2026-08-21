@@ -1498,7 +1498,8 @@ class FleetCockpit extends Container {
                 // The listener scope is bound EXPLICITLY to the owning controller: string handlers
                 // resolve through the component's controller chain at fire time, and a vesseled
                 // pane (click pop-out / gesture tear-out) has no controller above it — an
-                // unscoped string would resolve dead in the vessel and cache that miss.
+                // unscoped string resolves dead in the vessel (a TypeError per fire; the miss is
+                // NOT cached: getController's fast path is truthy-only, so it re-walks once docked).
                 return {
                     module       : MemoriesPane,
                     cls          : [marker],
