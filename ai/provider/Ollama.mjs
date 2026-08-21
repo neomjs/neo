@@ -73,6 +73,32 @@ function finiteNumber(value) {
 }
 
 /**
+ * @summary Asserts a request carries a model id, naming the omission at the call site.
+ *
+ * Ollama answers a missing `model` with a generic 400/404 that names neither the caller nor the
+ * empty field, so an unconfigured provider used to look like an unreachable daemon. Throwing here
+ * is what lets `modelName` default to `null` instead of a model name that would silently be the
+ * wrong one — validating the shape without substituting a default, as
+ * `assertProviderReadinessConfig` does for the readiness block.
+ *
+ * @param {String|null} [model] Resolved model id for the request.
+ * @param {String} lane `'chat'` or `'embedding'` — which request shape lacked the id.
+ * @returns {String} The validated model id.
+ * @throws {Error} When no model id resolved.
+ */
+function assertModelId(model, lane) {
+    if (!model) {
+        throw new Error(
+            `[Neo.ai.provider.Ollama] no ${lane} model id resolved (got ${JSON.stringify(model)}). ` +
+            'Pass `modelName` from the resolved `aiConfig.ollama` block — this provider defaults no model, ' +
+            'because an unqualified fallback resolves to a different tag than the deployment configured.'
+        );
+    }
+
+    return model
+}
+
+/**
  * @summary Converts Ollama token-count and duration counters into tokens/second.
  *
  * Native Ollama responses report durations in nanoseconds. Returning `null` for
@@ -268,9 +294,26 @@ class OllamaProvider extends Base {
          */
         host: 'http://127.0.0.1:11434',
         /**
-         * @member {String} modelName='gemma4'
+         * @summary Chat / generation model id. Injected by the caller, never defaulted here.
+         *
+         * `null` rather than a model name, because a provider-shaped fallback silently targets a
+         * DIFFERENT model than the deployment configured. This slot read `'gemma4'` while
+         * `aiConfig.ollama.model` resolves `gemma4:26b`, and an unqualified Ollama name resolves to
+         * the `:latest` tag — so `Neo.create(Ollama, {})`, the shape {@link Neo.ai.Agent} uses when
+         * its `providerConfig` omits a model, reached the daemon asking for `gemma4:latest`.
+         *
+         * The dispatchers already inject it (`buildChatModel.mjs`, `services/graph/providerDispatch.mjs`
+         * both pass `modelName` from the resolved `aiConfig.ollama` block), so the default only ever
+         * served the paths that forgot to. Those now fail by name via {@link assertModelId}.
+         *
+         * This is convergence, not innovation: {@link Neo.ai.provider.Base} declares `modelName: null`,
+         * and {@link Neo.ai.provider.OpenAiCompatible} already removed its own literal for the same
+         * reason — it had carried an Ollama-namespaced id no OpenAI-compatible server could serve.
+         * Ollama was the last of the three local-endpoint providers still defaulting a model, so this
+         * slot was the outlier and `null` is the convention.
+         * @member {String|null} modelName=null
          */
-        modelName: 'gemma4',
+        modelName: null,
         /**
          * @summary Ollama `/api/chat` keep-alive retention window.
          *
@@ -323,7 +366,7 @@ class OllamaProvider extends Base {
         }
 
         const payload = {
-            model : this.modelName,
+            model : assertModelId(this.modelName, 'chat'),
             messages,
             stream: stream
         };
@@ -503,7 +546,7 @@ class OllamaProvider extends Base {
             truncate = false,
             ...ollamaOptions
         } = options;
-        const model            = modelOverride || this.embeddingModel || this.modelName;
+        const model            = assertModelId(modelOverride || this.embeddingModel || this.modelName, 'embedding');
         const rawTimeoutMs     = Number(timeoutMs);
         const requestTimeoutMs = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : 60 * 60 * 1000;
         const payload          = {

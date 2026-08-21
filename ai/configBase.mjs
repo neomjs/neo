@@ -703,21 +703,24 @@ class ConfigBase extends ConfigProvider {
                 autoProvisionIdentitySources: leaf([])
             },
             /**
-             * @summary Deployment-wide chat / generation model provider.
+             * @summary Deployment-wide chat / generation model provider. Supported values today:
+             * `gemini`, `openAiCompatible`, `ollama`.
              *
-             * Tier-1 source of truth for model-consuming Agent OS lanes. Memory Core maps
-             * this into its historical `modelProvider` key until runtime provider routing
-             * converges on one canonical key. Supported values today: `gemini`,
-             * `openAiCompatible`.
-             * @type {String}
-             */
-            chatProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),
-            /**
-             * @summary Runtime alias for the active chat provider.
+             * The single leaf bound to `NEO_MODEL_PROVIDER`, and the only one. A sibling
+             * `chatProvider` stood beside this for a while, documented as the Tier-1 source of truth
+             * with this key as its "runtime alias" — two leaves on one env var, with an instruction to
+             * keep them aligned by hand. That is two sources of truth by definition, and the ADR
+             * naming this primitive forbids aliasing the SSOT even when only reading it.
              *
-             * Existing Memory Core consumers read `modelProvider`; keep the Tier-1
-             * template aligned with `chatProvider` until provider routing converges on
-             * one canonical key.
+             * `chatProvider` was deleted rather than migrated to, because it had **zero** readers while
+             * this key had thirteen plus a config slice consumed downstream: both bound the same env
+             * var, so behaviour was identical either way, and deleting the unread leaf removed a claim
+             * of authority nothing honoured. The cost is that the surviving name is less symmetric with
+             * its `graphProvider` / `embeddingProvider` siblings — a later mechanical rename, not a
+             * reason to rewrite provider branching that already works.
+             *
+             * Distinct from {@link graphProvider}: graph extraction supports only native Ollama or an
+             * OpenAI-compatible endpoint, while chat may also use Gemini.
              * @type {String}
              */
             modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),
@@ -751,6 +754,10 @@ class ConfigBase extends ConfigProvider {
              */
             ollama: {
                 host          : leaf('http://127.0.0.1:11434', 'NEO_OLLAMA_HOST', 'string'),
+                // The Ollama tag for the same weights as `openAiCompatible.model`, which carries the
+                // canonical identity of the three per-runtime ids. `:26b` is load-bearing: a bare
+                // `gemma4` resolves to the `:latest` tag, i.e. a different model with no error to
+                // notice it — which is why `Neo.ai.provider.Ollama` now defaults no model at all.
                 model         : leaf('gemma4:26b', 'NEO_OLLAMA_MODEL', 'string'),
                 embeddingModel: leaf('qwen3-embedding', 'NEO_OLLAMA_EMBEDDING_MODEL', 'string'),
                 keep_alive    : leaf(-1, 'NEO_OLLAMA_KEEP_ALIVE', 'keepAlive'),
@@ -786,7 +793,18 @@ class ConfigBase extends ConfigProvider {
                 // gemma-4-26b-a4b MoE (~4B active): ~15× faster cold prefill than the dense gemma-4-31b-it
                 // (3s vs ~47s on ~9k tok) at quality parity for summary + tri-vector extraction.
                 // Exact LM Studio identifier — keep the 'google/' org prefix. No-think toggle:
-                // localModels.chat.{summary,graph}ReasoningEffort. The ollama provider configures its own model.
+                // localModels.chat.{summary,graph}ReasoningEffort.
+                //
+                // CANONICAL CHAT-MODEL IDENTITY. Three runtimes name these same weights three ways,
+                // and each is the correct id in its own registry:
+                //   openAiCompatible.model        google/gemma-4-26b-a4b                 (LM Studio)
+                //   ollama.model                  gemma4:26b                             (Ollama tag)
+                //   orchestrator.mlx.model        mlx-community/gemma-4-26b-a4b-it-bf16  (MLX)
+                // Unifying the STRINGS would break two of the three, so the ids stay distinct; what
+                // was missing is the statement that they denote ONE model. It lives here, at the
+                // default provider's leaf, so a reader who changes one knows the other two are the
+                // same choice — and so a divergence reads as a decision rather than a typo. The MLX
+                // leaf records what an accidental divergence costs: two models resident at once.
                 model                  : leaf('google/gemma-4-26b-a4b', 'NEO_OPENAI_COMPATIBLE_MODEL', 'string'),
                 embeddingModel         : leaf('text-embedding-qwen3-embedding-8b', 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'string'),
                 apiKey                 : leaf('', 'NEO_OPENAI_COMPATIBLE_API_KEY', 'string'),

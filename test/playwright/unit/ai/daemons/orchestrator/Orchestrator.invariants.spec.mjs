@@ -48,7 +48,6 @@ let savedLmsConfig                 = undefined;
 let savedOrchestratorOllamaConfig  = undefined;
 let savedProviderOllamaConfig      = undefined;
 let savedOpenAiCompatibleConfig    = undefined;
-let savedChatProvider              = undefined;
 let savedModelProvider             = undefined;
 let savedGraphProvider             = undefined;
 let savedEmbeddingProvider         = undefined;
@@ -100,7 +99,6 @@ test.beforeEach(() => {
     savedOrchestratorOllamaConfig = AiConfig.orchestrator.ollama ? {...AiConfig.orchestrator.ollama} : undefined;
     savedProviderOllamaConfig     = AiConfig.ollama ? {...AiConfig.ollama} : undefined;
     savedOpenAiCompatibleConfig = AiConfig.openAiCompatible ? {...AiConfig.openAiCompatible} : undefined;
-    savedChatProvider           = AiConfig.chatProvider;
     savedModelProvider          = AiConfig.modelProvider;
     savedGraphProvider          = AiConfig.graphProvider;
     savedEmbeddingProvider      = AiConfig.embeddingProvider;
@@ -150,7 +148,6 @@ test.afterEach(() => {
     } else {
         AiConfig.openAiCompatible = savedOpenAiCompatibleConfig;
     }
-    AiConfig.chatProvider      = savedChatProvider;
     AiConfig.modelProvider     = savedModelProvider;
     AiConfig.graphProvider     = savedGraphProvider;
     AiConfig.embeddingProvider = savedEmbeddingProvider;
