@@ -221,7 +221,30 @@ export function readCodexContext() {
     return readFileSync(contextUrl, 'utf8').trim();
 }
 
-async function main() {
+/**
+ * @summary The one bounded sentence a lifecycle reset re-injects.
+ *
+ * `SessionStart` fires on startup, resume and compact — the three moments a seat can lose the fact
+ * that its institutional tools never attached. A repo-local probe cannot certify attachment (it was
+ * green throughout the 2026-08-20 incident), so this is a reminder, not a health oracle.
+ * @type {String}
+ */
+export const CORE_PREFLIGHT = 'Core preflight: call `list_messages({status:\'unread\'})` now. Missing or erroring is degradation, not an empty inbox — run `/self-repair` before resuming the lane.';
+
+async function main({sessionStart = false} = {}) {
+    // SessionStart carries no operator prompt and opens no turn. Minting a turn-presence interval
+    // here would fabricate liveness for a seat that has not acted, and writing prompt provenance
+    // would attribute the reset itself as a prompt.
+    if (sessionStart) {
+        const bootContext = readCodexContext();
+
+        process.stdout.write(`${CORE_PREFLIGHT}\n`);
+        if (bootContext) {
+            process.stdout.write(`${bootContext}\n`);
+        }
+        return;
+    }
+
     let hookPayload = '';
     try {
         const rawPayload = await readHookPayload();
@@ -246,5 +269,8 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    await main();
+    // An explicit flag rather than payload sniffing: the two registrations share one command string,
+    // and the SessionStart payload shape is harness-owned, so a flag is the only self-evidencing
+    // discriminator this module can assert about in a unit spec.
+    await main({sessionStart: process.argv.includes('--session-start')});
 }

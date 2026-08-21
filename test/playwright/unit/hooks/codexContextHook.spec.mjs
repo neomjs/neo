@@ -3,6 +3,8 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 
+import {execFileSync}  from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {IDENTITIES} from '../../../../ai/graph/identityRoots.mjs';
 import {
     extractPromptingTextFromHookPayload,
@@ -35,6 +37,57 @@ test.describe('codex-context hook - wake submit nonce', () => {
         expect(context).not.toMatch(/\b(?:Claude|Gemini|GPT)[ -]?\d/i);
         expect(context).not.toMatch(/\/Users\//);
         expect(context).not.toMatch(/A2A peers|Expected Codex identity|GitHub username/i);
+    });
+
+    test('#17442: SessionStart emits the core preflight ahead of the guard card', () => {
+        const hook = fileURLToPath(new URL('../../../../.codex/hooks/codex-context.mjs', import.meta.url)),
+              out  = execFileSync('node', [hook, '--session-start'], {input: '{}', encoding: 'utf8'});
+
+        // The sentence must name the negative transition, not merely remind about the call — an
+        // agent that reads "check your mailbox" and gets an error still needs to know that is
+        // degradation rather than an empty inbox.
+        expect(out).toContain("list_messages({status:'unread'})");
+        expect(out).toMatch(/not an empty inbox/);
+        expect(out).toMatch(/self-repair/);
+        expect(out.indexOf('Core preflight')).toBeLessThan(out.indexOf('# Codex Desktop Guard Card'));
+    });
+
+    test('#17442: SessionStart mints NO turn-presence interval and writes NO prompt provenance', () => {
+        // The load-bearing arm. SessionStart fires on startup/resume/compact — none of which is an
+        // operator turn. Minting presence there fabricates liveness for a seat that has not acted.
+        const hook     = fileURLToPath(new URL('../../../../.codex/hooks/codex-context.mjs', import.meta.url)),
+              dir      = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-session-start-')),
+              ctxPath  = getCodexPromptContextPath({env: {NEO_AI_DAEMON_DIR: dir}}),
+              sentinel = '__17442_untouched__';
+
+        fs.mkdirSync(path.dirname(ctxPath), {recursive: true});
+        fs.writeFileSync(ctxPath, sentinel, 'utf8');
+
+        execFileSync('node', [hook, '--session-start'], {
+            input   : JSON.stringify({prompt: 'ignored'}),
+            encoding: 'utf8',
+            env     : {...process.env, NEO_AI_DAEMON_DIR: dir}
+        });
+
+        expect(fs.readFileSync(ctxPath, 'utf8')).toBe(sentinel);
+    });
+
+    test('#17442 CONTROL: without the flag the hook still takes the prompt path', () => {
+        // Without this pair, both arms above pass on a hook that has stopped working entirely.
+        const hook    = fileURLToPath(new URL('../../../../.codex/hooks/codex-context.mjs', import.meta.url)),
+              dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-session-control-')),
+              ctxPath = getCodexPromptContextPath({env: {NEO_AI_DAEMON_DIR: dir}});
+
+        fs.mkdirSync(path.dirname(ctxPath), {recursive: true});
+        fs.writeFileSync(ctxPath, '__stale__', 'utf8');
+
+        execFileSync('node', [hook], {
+            input   : JSON.stringify({prompt: 'a real operator prompt'}),
+            encoding: 'utf8',
+            env     : {...process.env, NEO_AI_DAEMON_DIR: dir}
+        });
+
+        expect(fs.readFileSync(ctxPath, 'utf8')).not.toBe('__stale__');
     });
 
     test('extracts a wake-submit nonce from nested hook payload text', () => {
