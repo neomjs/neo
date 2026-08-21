@@ -2377,6 +2377,77 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(receipt.withheldUnseenCount, 'the two unshown are counted, not hidden').toBe(2)
     });
 
+    /** Storage-side truth, so a cache-only assertion cannot stand in for durability. */
+    const storedSeenAtOf = messageId => {
+        const row = GraphService.db.storage.db
+            .prepare('SELECT data FROM Nodes WHERE id = ?').get(messageId);
+
+        return row ? (JSON.parse(row.data).properties?.seenAt ?? null) : null
+    };
+
+    test('#17321 a FAILED seen write leaves cache and storage coherent, and the next listing RETRIES', async () => {
+        // The defect this arm exists for is one the boundary correction introduced, not a
+        // pre-existing one: the write-once guard reads the CACHED `seenAt`, so a cache-first write
+        // that then fails to persist marks the row seen for the life of the process while storage
+        // still says null — and every later listing skips it, because the guard sees the value its
+        // own failed attempt left behind. Rolling the cache back is what makes the retry possible.
+        const
+            {callTool}  = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+            [directed]  = await seedFor(['the persist fails the first time']),
+            storage     = GraphService.db.storage,
+            originalAdd = storage.addNodes.bind(storage);
+
+        let failNext = true;
+
+        storage.addNodes = async nodes => {
+            if (failNext) {
+                failNext = false;
+                throw new Error('simulated storage failure');
+            }
+
+            return originalAdd(nodes)
+        };
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+            // Coherent, not merely unset: cache must not claim a durability storage does not have.
+            expect(seenAtOf(directed), 'the cache is rolled back when the persist throws').toBeNull();
+            expect(storedSeenAtOf(directed), 'and storage never got it either').toBeNull();
+
+            // The retry — the half that a rollback-free implementation fails.
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+            expect(seenAtOf(directed), 'the next listing retries the write').toBeTruthy();
+            expect(storedSeenAtOf(directed), 'and this time it is durable').toBeTruthy()
+        } finally {
+            storage.addNodes = originalAdd
+        }
+    });
+
+    test('#17321 first-seen is write-once — a second listing does not restamp', async () => {
+        // Without this, the rollback above could be "correct" by simply rewriting `seenAt` on every
+        // listing, which would make the timestamp mean "last listed" instead of "first shown".
+        const
+            {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
+            [directed] = await seedFor(['stamped exactly once']);
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+        const firstSeenAt = seenAtOf(directed);
+
+        expect(firstSeenAt).toBeTruthy();
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+        expect(seenAtOf(directed), 'seenAt means FIRST shown, not last listed').toBe(firstSeenAt);
+        expect(storedSeenAtOf(directed), 'and storage agrees').toBe(firstSeenAt)
+    });
+
     test('#15913 markRead all mode returns an explicit compact no-op and rejects ambiguous input', async () => {
         const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         const receipt    = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>

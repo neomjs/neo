@@ -2160,20 +2160,33 @@ async function setMessageNodeReadAt(node, readAt) {
  * `seenAt` is the state between *arrived* and *explicitly marked read* — the distinction a bulk
  * drain needs, because without it `all: true` can only mean "every unread message that exists".
  *
- * Persisted through `persistReceiptNode`, the same path `readAt` and `archivedAt` already use. That
- * path replaces the whole record, so a concurrent receipt write can race — a real hazard, and a
- * PRE-EXISTING one shared by every receipt on this surface rather than introduced here. Giving
- * `seenAt` a stronger durability guarantee than `readAt` would be the wrong asymmetry to add; the
- * race is filed separately so it can be fixed for all three at once.
+ * Persisted through `persistReceiptNode`, the same path `readAt` and `archivedAt` already use.
+ *
+ * **The cache is rolled back when the write fails, and that is not symmetric with `readAt`.** The
+ * caller's write-once guard reads the cached `seenAt`, so a cache-first write that then fails to
+ * persist would mark the row seen for the rest of the process without ever storing it — and every
+ * later listing would skip it, because the guard sees the value its own failed attempt left behind.
+ * `readAt` tolerates the same shape only because it is user-driven and can simply be re-issued;
+ * `seenAt` is automatic and write-once, so a poisoned cache is permanent. Restoring the prior value
+ * is what makes the next listing retry.
  *
  * @param {Object} node Direct-DM `MESSAGE` node.
  * @param {String} seenAt ISO timestamp.
  * @returns {Promise<Boolean>}
  */
 async function setMessageNodeSeenAt(node, seenAt) {
-    getRecordProperties(node).seenAt = seenAt;
+    const
+        properties = getRecordProperties(node),
+        previous   = properties.seenAt ?? null;
 
-    return persistReceiptNode(node);
+    properties.seenAt = seenAt;
+
+    try {
+        return await persistReceiptNode(node)
+    } catch (error) {
+        properties.seenAt = previous;
+        throw error
+    }
 }
 
 /**
@@ -2183,17 +2196,30 @@ async function setMessageNodeSeenAt(node, seenAt) {
  * same carrier. On the node instead, one recipient's listing would mark the broadcast seen for the
  * entire audience.
  *
+ * Rolls the cache back on failure for the same reason as `setMessageNodeSeenAt` — the write-once
+ * guard reads the cached value, so a failed persist must not leave the row looking already-seen.
+ *
  * @param {Object} edge Per-recipient `DELIVERED_TO` edge.
  * @param {String} seenAt ISO timestamp.
  * @returns {Promise<Boolean>}
  */
 async function setDeliveryEdgeSeenAt(edge, seenAt) {
+    const previous = getRecordProperties(edge).seenAt ?? null;
+
     setRecordProperties(edge, {
         ...getRecordProperties(edge),
         seenAt
     });
 
-    return persistReceiptEdge(edge);
+    try {
+        return await persistReceiptEdge(edge)
+    } catch (error) {
+        setRecordProperties(edge, {
+            ...getRecordProperties(edge),
+            seenAt: previous
+        });
+        throw error
+    }
 }
 
 /**
@@ -3126,6 +3152,15 @@ class MailboxService extends Base {
      *   but is hidden from the default inbox view. Retracted messages (sender-side `deleteMessage`)
      *   are NOT filtered — they surface with the `'[retracted by sender]'` placeholder so thread
      *   context remains coherent.
+     * @param {Object} [callerOptions] Adapter-owned options, deliberately a SECOND argument so they
+     *   cannot arrive over the wire. The MCP request schema never declares them, and the Zod facade
+     *   strips undeclared keys — so folding them into `args` would read `undefined` in production
+     *   while every test passed.
+     * @param {Boolean} [callerOptions.recordSeen=false] Stamp `seenAt` on the rows this call
+     *   surfaces inbound to the caller. Only the model-visible MCP adapter passes it; a direct
+     *   service read is non-stamping BY OMISSION, which is what keeps the background heartbeat from
+     *   marking a roster's mail as shown. Caller identity cannot substitute for this — it proves
+     *   mailbox authority, not that anything was displayed to a model.
      * @returns {Promise<Object>} A PAGE, never a set. `messages` carries at most `limit` rows,
      *   newest-first, and the completeness of that page is established by `totalCount` (rows
      *   matching the filter before pagination), `truncated` (rows remain beyond this page) and
@@ -3395,12 +3430,6 @@ class MailboxService extends Base {
     }
 
     /**
-     * Retrieves a single message.
-     * @param {Object} args
-     * @param {String} args.messageId The ID of the message to retrieve
-     * @returns {Promise<Object>}
-     */
-    /**
      * @summary Records `seenAt` on rows this call surfaced INBOUND to the caller.
      *
      * Two guards, and they are independent:
@@ -3465,6 +3494,12 @@ class MailboxService extends Base {
         }
     }
 
+    /**
+     * Retrieves a single message.
+     * @param {Object} args
+     * @param {String} args.messageId The ID of the message to retrieve
+     * @returns {Promise<Object>}
+     */
     async getMessage({ messageId }) {
         const boundIdentity = RequestContextService.getAgentIdentityNodeId();
         if (!boundIdentity) {
@@ -3716,7 +3751,13 @@ class MailboxService extends Base {
      * advertised input schema.
      * @param {Object} args
      * @param {String|String[]} [args.messageId] The ID of the message to mark read, or an array of IDs
-     * @param {Boolean} [args.all=false] Mark the current unread, unarchived snapshot.
+     * @param {Boolean} [args.all=false] Mark the current unread, unarchived snapshot. By default
+     *   the snapshot covers only rows already SEEN by the caller — mail that was never surfaced to
+     *   a model is withheld and reported as `withheldUnseenCount` rather than swept.
+     * @param {Boolean} [args.includeUnseen=false] Widen the `all` snapshot back to every unread row
+     *   regardless of `seenAt`, reproducing the historical drain. The escape hatch for a caller who
+     *   genuinely wants the old semantics; validated with the same boolean strictness as `all`, and
+     *   BEFORE the `all` branch, so a fat-fingered value is reported rather than silently ignored.
      * @returns {Promise<Object>} Single form: `{messageId, readAt, status}` (plus
      *   `{durable: false, warning}` when storage is absent); array form: `{results: [...]}`;
      *   all form: compact aggregate counts plus exceptional rows.
@@ -3873,7 +3914,12 @@ class MailboxService extends Base {
      * intentionally compact: successful rows become counts; only failures and non-durable receipts
      * retain per-message detail.
      *
-     * @returns {Promise<Object>} Aggregate snapshot receipt with matched/read/durable/failure counts.
+     * @param {Object} [args]
+     * @param {Boolean} [args.includeUnseen=false] Widen the snapshot to every unread row regardless
+     *   of `seenAt`. The default narrows to seen rows only, so a bulk drain cannot clear directed
+     *   mail the caller was never shown.
+     * @returns {Promise<Object>} Aggregate snapshot receipt with matched/read/durable/failure counts,
+     *   plus `withheldUnseenCount` naming what the narrow default held back.
      * @private
      */
     async _markUnreadSnapshotRead({includeUnseen = false} = {}) {
