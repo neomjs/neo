@@ -1,11 +1,19 @@
 /**
- * @module buildScripts/docs/setNamespace
- * @summary Writes a dotted namespace path into a plain-object tree.
+ * @module buildScripts/docs/namespaceTree
+ * @summary Reads and writes dotted namespace paths in a plain-object tree.
+ *
+ * **Both directions live here because the safety property is only true when both obey it.** Hardening
+ * the writer alone left the defect fully reachable through the reader: `getNamespace` returned an
+ * INHERITED value, the caller adopted it as `namespace`, and the generator then attached `classData`
+ * to it. Measured on that intermediate state — for a class named `Neo.Foo.toString` whose parent node
+ * already existed, `getNamespace` returned `Object.prototype.toString` itself, `classData` landed on
+ * the global, and the docs leaf serialized as `undefined`. A get-before-set sequence is only as safe
+ * as its weaker half.
  *
  * Extracted from `generateDocsJson.mjs` so the traversal can be covered directly: that module runs a
- * documentation build as a top-level side effect, so importing it to test one pure function is not
- * available. One function, one purpose — deliberately not folded into `docletPipeline/utils.mjs`,
- * which is a 768-line default-export aggregate.
+ * documentation build as a top-level side effect, so importing it to test these functions is not
+ * available. Deliberately not folded into `docletPipeline/utils.mjs`, which is a 768-line
+ * default-export aggregate.
  */
 
 /**
@@ -70,6 +78,39 @@ export function setNamespace(tree, names, value) {
     }
 
     current[segments[segments.length - 1]] = value
+}
+
+/**
+ * @summary Resolves a dotted path, returning `null` when any segment is not an OWN property.
+ *
+ * The read half of the same contract, and it carries the same defect history: `if (!current[name])`
+ * consulted inherited properties, so a legal-but-inherited leaf name resolved to the global rather
+ * than to a docs node. The caller's `getNamespace(...) || {}` idiom then adopted that global as the
+ * namespace object and attached class data to it.
+ *
+ * `Object.hasOwn` is sufficient here and no denylist is needed: `__proto__`, `constructor` and
+ * `prototype` are never own properties of a freshly-built node, so they resolve to `null` naturally.
+ * A miss returning `null` — rather than throwing as the writer does — preserves the existing read
+ * contract that callers rely on, and a read that resolves nothing cannot mutate anything.
+ *
+ * @param {Object} tree Root object to read from.
+ * @param {String|String[]} names Dotted path, or its already-split segments.
+ * @returns {*|null} The value at the path, or `null` if any segment is absent as an own property.
+ */
+export function getNamespace(tree, names) {
+    const segments = (Array.isArray(names) ? names : String(names).split('.')).map(String);
+
+    let current = tree;
+
+    for (const segment of segments) {
+        if (current === null || typeof current !== 'object' || !Object.hasOwn(current, segment)) {
+            return null
+        }
+
+        current = current[segment]
+    }
+
+    return current
 }
 
 export default setNamespace;

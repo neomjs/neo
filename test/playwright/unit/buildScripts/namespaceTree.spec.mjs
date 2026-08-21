@@ -8,11 +8,11 @@ import {test, expect} from '@playwright/test';
  *
  * @see https://github.com/neomjs/neo/issues/17494
  */
-test.describe('setNamespace — own-property traversal, not inherited', () => {
-    let setNamespace;
+test.describe('namespaceTree — own-property traversal, not inherited', () => {
+    let getNamespace, setNamespace;
 
     test.beforeAll(async () => {
-        ({setNamespace} = await import('../../../../buildScripts/docs/setNamespace.mjs'));
+        ({getNamespace, setNamespace} = await import('../../../../buildScripts/docs/namespaceTree.mjs'));
     });
 
     test.afterEach(() => {
@@ -53,6 +53,48 @@ test.describe('setNamespace — own-property traversal, not inherited', () => {
         // A build-time authoring error is only actionable if it says which namespace produced it.
         expect(() => setNamespace({}, 'Neo.foo.prototype.bar', 1))
             .toThrow(/Neo\.foo\.prototype\.bar/)
+    });
+
+    test('THE PRODUCTION SEQUENCE: a legal inherited leaf survives get-before-set', () => {
+        // The arm that was missing, and the reason the writer-only fix was incomplete. The generator
+        // does `namespace = getNamespace(tree, path) || {}` and then attaches `classData` to whatever
+        // came back. With a truthy-checking reader and a parent node an earlier class already
+        // created, `Neo.Foo.toString` resolved to Object.prototype.toString ITSELF — measured:
+        // `namespace === Object.prototype.toString` true, `classData` landed on the global, and the
+        // docs leaf serialized as `undefined`.
+        //
+        // A direct `toString.x` write arm cannot see this: the corruption happens on the READ.
+        const neoTree = {};
+
+        // An earlier class creates the intermediate node — ordinary production ordering.
+        setNamespace(neoTree, 'Neo.Foo.Bar', {});
+
+        const namespace = getNamespace(neoTree, 'Neo.Foo.toString') || {};
+
+        expect(namespace, 'the reader must not hand back the inherited function')
+            .not.toBe(Object.prototype.toString);
+
+        setNamespace(neoTree, 'Neo.Foo.toString', namespace);
+        namespace.classData = {name: 'Neo.Foo.toString'};
+
+        expect(Object.prototype.toString.classData, 'the global is untouched').toBeUndefined();
+        expect(neoTree.Neo.Foo.toString.classData?.name, 'and classData landed on the tree')
+            .toBe('Neo.Foo.toString');
+
+        // Serializable: the failure mode was a leaf that vanished from JSON while reads succeeded.
+        expect(JSON.parse(JSON.stringify(neoTree)).Neo.Foo.toString.classData.name)
+            .toBe('Neo.Foo.toString')
+    });
+
+    test('the reader returns null for inherited and prototype keys rather than the global', () => {
+        const tree = {};
+
+        setNamespace(tree, 'a.b', 1);
+
+        expect(getNamespace(tree, 'a.toString'),    'inherited leaf').toBeNull();
+        expect(getNamespace(tree, '__proto__'),     'prototype key').toBeNull();
+        expect(getNamespace(tree, 'a.constructor'), 'constructor key').toBeNull();
+        expect(getNamespace(tree, 'a.b'),           'a real own path still resolves').toBe(1)
     });
 
     test('ordinary nested namespaces are unchanged — the non-vacuity control', () => {
