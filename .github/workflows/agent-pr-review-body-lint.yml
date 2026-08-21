@@ -94,6 +94,39 @@ jobs:
             // validated in.
             const isRound2Disposition = /^#[ \t]+PR Review — Round 2\b/m.test(body);
 
+            // Body-only Status coherence, mirroring `getRound2StateCoherenceFailure` in
+            // `PullRequestService.mjs`. Deliberately scoped to what a body alone decides: the
+            // prior-round relation checks (row count, verbatim quoting) need PR history and stay
+            // submit-only. Without this, the exact contradiction the managed dry-run now refuses
+            // stays submittable by clicking, which is the bypass this workflow exists to observe.
+            if (isRound2Disposition) {
+              const LEGAL_ROUND_2_STATUSES = ['Approved', 'Approve+Follow-Up', 'Comment'];
+              const DISPOSITIONS           = ['ADDRESSED', 'DEFENDED', 'STILL_OPEN'];
+              const statusMatch            = body.match(/^\*\*Status:\*\*[ \t]*(.+?)[ \t]*$/m);
+              const declaredStatus         = statusMatch ? statusMatch[1].replace(/[*_`]/g, '').trim() : null;
+
+              const dispositionCells = body.split('\n')
+                .filter(line => line.trim().startsWith('|') && DISPOSITIONS.some(verb => line.includes(verb)))
+                .map(line => line.split('|').slice(1, -1).map(cell => cell.trim()))
+                .map(cells => cells.find(cell => DISPOSITIONS.includes(cell)))
+                .filter(Boolean);
+
+              if (!declaredStatus) {
+                core.setFailed(`Round-2 review by ${reviewer} declares no \`**Status:**\`. State exactly one of ${LEGAL_ROUND_2_STATUSES.join(', ')} — any STILL_OPEN row means Comment.`);
+                return;
+              }
+
+              if (!LEGAL_ROUND_2_STATUSES.some(status => status.toLowerCase() === declaredStatus.toLowerCase())) {
+                core.setFailed(`Round-2 review by ${reviewer} declares \`**Status:** ${declaredStatus}\`, which is not a legal Round-2 status (${LEGAL_ROUND_2_STATUSES.join(', ')}). Request Changes is not among them: a discharged round approves, an open one comments.`);
+                return;
+              }
+
+              if (dispositionCells.includes('STILL_OPEN') && declaredStatus.toLowerCase() !== 'comment') {
+                core.setFailed(`Round-2 review by ${reviewer} carries a STILL_OPEN row while \`**Status:**\` reads "${declaredStatus}". A STILL_OPEN round keeps the ORIGINAL review authoritative, so its Status is Comment.`);
+                return;
+              }
+            }
+
             // Ordinary COMMENTED reviews remain supplementary and skip the heavy template.
             // The RC2 closure packet is one exception (it carries the budget's frozen semantic
             // contract and receives the narrow Micro-Delta validation below); a Round-2 disposition

@@ -2028,6 +2028,48 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(failure.message, 'it names the drift rather than just refusing').toContain('carry it verbatim');
     });
 
+    /**
+     * The third live specimen: a prior action quoted correctly, with its markdown stripped.
+     * `**RA-1 (scope):** make the tier semantic` became `RA-1 (scope): make the tier semantic`.
+     *
+     * The byte-verbatim rule is right and is not being relaxed — it is what stops a Round 2 quietly
+     * softening the demand it claims to discharge. The defect is that the rule is unstated and its
+     * violation unnamed: the refusal prints both strings, and when the only difference is emphasis
+     * the two render nearly identically, so the author is told to "carry it verbatim" while looking
+     * at what appears to be a verbatim copy.
+     */
+    const PRIOR_RC_WITH_MARKDOWN = {
+        ...PRIOR_RC,
+        body: ['# PR Review Summary', '', '### 📋 Required Actions', '',
+               '- [ ] **make the tier semantic** so the label survives a rename'].join('\n')
+    };
+
+    test('#17354: a quote differing only in formatting is told so, not just "carry it verbatim"', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic so the label survives a rename | ADDRESSED | done |']),
+            reviews: [PRIOR_RC_WITH_MARKDOWN],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message, 'the refusal names formatting as the difference')
+            .toMatch(/formatting|emphasis|markdown/i)
+    });
+
+    test('#17354: a genuinely reworded action is NOT excused as formatting — the non-vacuity control', () => {
+        // Without this, a fix that labels every verbatim mismatch "formatting" passes the arm above
+        // while telling an author who softened a demand that they merely mis-styled it.
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier a bit more semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure.message, 'real drift keeps the verbatim demand').toContain('carry it verbatim');
+        expect(failure.message, 'and is not excused as styling').not.toMatch(/only in formatting/i)
+    });
+
     test('#17178: a dropped action is refused — omission must not retire a demand', () => {
         const failure = getRound2DispositionRelationFailure({
             body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |']),
@@ -2037,6 +2079,48 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
         expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
         expect(failure.message).toContain("against the prior round's 2");
+    });
+
+    /**
+     * The count in the refusal is DERIVED from the parse, and it was reported as if it were an
+     * observation. A cell reading `**ADDRESSED** — and answered better than the action asked` carries
+     * its verdict, but the extractor matches a cell that IS the verb, so the row is dropped silently
+     * and the author is told they dispositioned nothing. That accuses them of the wrong mistake: they
+     * wrote the row, and the message sends them to write it again rather than to unwrap the cell.
+     */
+    test('#17354: an unparseable disposition cell is named, not counted as absent', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body: round2With([
+                '| RA-1 | make the tier semantic | **ADDRESSED** — and answered better than the action asked | done |',
+                '| RA-2 | name the anchors | ADDRESSED | done |'
+            ]),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+
+        // The defect is the cell, so the refusal must say so.
+        expect(failure.message, 'the refusal names the unreadable cell')
+            .toMatch(/could not be read|unparseable|unreadable/i);
+
+        // And it must NOT claim the author dispositioned fewer actions than they wrote. Asserted
+        // separately because a fix that only appends a hint would leave the false accusation standing.
+        expect(failure.message, 'no derived count is presented as an observation')
+            .not.toContain("dispositions 1 action(s) against the prior round's 2");
+    });
+
+    test('#17354: a genuinely short table still reports the count — the non-vacuity control', () => {
+        // Without this, a fix that deletes the count message entirely passes the arm above. A table
+        // that parses cleanly and is simply missing a row must still be told so.
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure.message, 'a clean short table keeps the count').toContain("against the prior round's 2");
+        expect(failure.message, 'and is not blamed on a parse failure').not.toMatch(/could not be read/i)
     });
 
     test('#17178: a STILL_OPEN round submitted as APPROVED is refused', () => {
@@ -2128,6 +2212,117 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
             expect(result.code, `the relation runs for ${state}`).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
         }
+    });
+
+    /**
+     * The dry-run used to accept a Round-2 body that contradicts ITSELF.
+     *
+     * The submit gate refuses `stillOpen && state !== 'COMMENT'` by comparing the disposition column
+     * to the API `state` parameter, which the dry-run never receives. That much is structural. But the
+     * body ALSO declares its own verdict on its `**Status:**` line, so the same contradiction is
+     * visible with no PR context at all — and naming it is not stuffable, because the fix is to decide
+     * which of the author's two declarations is true.
+     *
+     * The live specimen that motivated this carried `**Status:** Request Changes`, two STILL_OPEN rows
+     * and a Verdict opening `COMMENT.`. The dry-run and CI both accepted it; only the submit gate
+     * refused, and the author's eventual direct submission landed as COMMENTED — agreeing with the
+     * gate. The dry-run held everything needed to say so first, and the template's Status enum had
+     * offered no coherent value for a STILL_OPEN round, so the author was following it.
+     */
+    const ROUND_2_STILL_OPEN_BODY = VALID_ROUND_2_REVIEW_BODY.replace(
+        '| RA-1 | prior template miss | ADDRESSED | current body keeps canonical headings |',
+        '| RA-1 | prior template miss | STILL_OPEN | the original review stays authoritative |'
+    );
+
+    test('#17354: a STILL_OPEN row under a non-COMMENT Status is refused by the dry-run', () => {
+        // Status says Approved, the row says STILL_OPEN. A STILL_OPEN round keeps the original review
+        // authoritative and must be COMMENT, so these two cannot both be true.
+        const result = PullRequestService.validatePrReviewBody({body: ROUND_2_STILL_OPEN_BODY});
+
+        expect(result.valid, 'the body contradicts its own Status line').toBe(false);
+        expect(result.message, 'the refusal names the contradiction rather than the template')
+            .toMatch(/STILL_OPEN/)
+    });
+
+    test('#17354: a fully-dispositioned round under a Request Changes Status is refused by the dry-run', () => {
+        // The mirror: no STILL_OPEN row anywhere, yet the body spends a REQUEST_CHANGES round. A fully
+        // discharged round is APPROVED or COMMENT. Asserted separately so a fix that only handles the
+        // STILL_OPEN direction cannot pass both.
+        const body   = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+              result = PullRequestService.validatePrReviewBody({body});
+
+        expect(result.valid, 'every action is dispositioned, so the round is not a Request Changes').toBe(false)
+    });
+
+    test('#17354: the coherent bodies stay accepted — the non-vacuity control', () => {
+        // Without this, a fix that refuses every Round 2 passes both arms above. Each accepted shape
+        // pairs with one refused shape on a single differing declaration.
+        expect(PullRequestService.validatePrReviewBody({body: VALID_ROUND_2_REVIEW_BODY}).valid,
+            'ADDRESSED under Approved').toBe(true);
+
+        expect(PullRequestService.validatePrReviewBody({
+            body: ROUND_2_STILL_OPEN_BODY.replace('**Status:** Approved', '**Status:** Comment')
+        }).valid, 'STILL_OPEN under Comment').toBe(true)
+    });
+
+    /**
+     * A coherence rule that reads one declaration is only as good as the guarantee that the
+     * declaration EXISTS. The first revision deferred a missing Status to the structural anchor
+     * layer in a code comment — and never checked that the anchor layer refuses it. It does not: a
+     * Round 2 with no Status at all returned `valid: true`, so the rule silently did not apply to
+     * the one body that most needed it. Found in review by @neo-gpt.
+     *
+     * `Request Changes` is likewise not a legal Round-2 Status: every branch of the coherence rule
+     * refuses it — with a STILL_OPEN row it must be Comment, and without one a fully dispositioned
+     * round does not spend another round. An enum offering a value with no legal branch is the same
+     * defect this PR started from, one value over.
+     */
+    test('#17354: a Round 2 with no Status is refused', () => {
+        const body   = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved\n\n', ''),
+              result = PullRequestService.validatePrReviewBody({body});
+
+        expect(result.valid, 'the coherence rule needs a declaration to read').toBe(false);
+        expect(result.message).toMatch(/Status/)
+    });
+
+    test('#17354: an unknown or placeholder Status is refused', () => {
+        for (const status of ['Request Changes', 'Merged', '[Approved / Approve+Follow-Up / Comment]']) {
+            const body   = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', `**Status:** ${status}`),
+                  result = PullRequestService.validatePrReviewBody({body});
+
+            expect(result.valid, `"${status}" is not a legal Round-2 Status`).toBe(false)
+        }
+    });
+
+    test('#17354: each legal Status is accepted in its coherent shape — the paired controls', () => {
+        // One accepted shape per legal value, so a fix that simply refuses more cannot pass.
+        expect(PullRequestService.validatePrReviewBody({body: VALID_ROUND_2_REVIEW_BODY}).valid,
+            'Approved with everything dispositioned').toBe(true);
+
+        expect(PullRequestService.validatePrReviewBody({
+            body: VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Approve+Follow-Up')
+        }).valid, 'Approve+Follow-Up with everything dispositioned').toBe(true);
+
+        expect(PullRequestService.validatePrReviewBody({
+            body: ROUND_2_STILL_OPEN_BODY.replace('**Status:** Approved', '**Status:** Comment')
+        }).valid, 'Comment carrying a STILL_OPEN row').toBe(true)
+    });
+
+    test('#17354: a body missing a silent anchor is refused SILENTLY, even when it also contradicts itself', () => {
+        // The ordering is the anti-Goodhart guard, and making refusals friendlier is exactly what
+        // would sand it off. A body that trips BOTH layers must return the silent one: the named
+        // coherence message must never become a side channel that tells a caller which unnamed
+        // anchor they are missing, one bisected submission at a time.
+        //
+        // The heading is REMOVED rather than renamed. A first attempt renamed `Disposition` to
+        // `Dispositions`, which the presence check reads as still present because it is a substring —
+        // so the body tripped only the coherence layer and the test proved nothing about ordering.
+        const body   = ROUND_2_STILL_OPEN_BODY.replace('### ⚓ Anchor\n', ''),
+              result = PullRequestService.validatePrReviewBody({body});
+
+        expect(result.valid, 'the structural layer still refuses').toBe(false);
+        expect(result.message, 'and the coherence message did not preempt it')
+            .not.toContain('contradicts itself')
     });
 
     test('#17178: validatePrReviewBody names the template it ACTUALLY applied', () => {
@@ -3306,6 +3501,75 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             expect(result.terminalClassificationChanged).toBe(true);
             expect(updateCalls).toBe(0)
         }
+    });
+
+    /**
+     * The refusal's measured cost: a reviewer who hit it concluded the capability did not exist,
+     * told the PR author and the operator that a submitted review body is immutable to this tool,
+     * and fell back to a comment. Body edits ARE supported. What happened is that `create` appends
+     * a machine-owned tail the caller never wrote, and `update` requires it back byte-identical —
+     * so resubmitting your own edited body trips the comparison and is refused as an "audit-field
+     * change". The refusal held every fact needed to print the remedy and printed a category.
+     */
+    test('#17354: the update refusal names the tail round-trip as its remedy', async () => {
+        const current     = managedReviewBody(VALID_ORDINARY_REQUEST_CHANGES_BODY, 'within-budget');
+        let   updateCalls = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestReview')) {
+                return {node: {id: REVIEW_NODE.id, body: current, state: 'CHANGES_REQUESTED'}}
+            }
+
+            updateCalls++;
+            return null
+        };
+
+        // Exactly what an author who edited their own copy sends: the prose, without a tail they
+        // never wrote and cannot know about.
+        const result = await PullRequestService.managePrReview({
+            action   : 'update',
+            review_id: REVIEW_NODE.id,
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
+        });
+
+        expect(result.code, 'the guard still refuses — it is load-bearing').toBe('PR_REVIEW_BUDGET_AUDIT_IMMUTABLE');
+        expect(updateCalls, 'and never reaches the mutation').toBe(0);
+
+        // The remedy is mechanical and therefore not stuffable: re-fetch, edit above the marker,
+        // resubmit the tail unchanged.
+        expect(result.message, 'names the machine-owned tail').toContain('[review-budget-managed]');
+        expect(result.message, 'names the round-trip as the fix').toMatch(/unchanged|re-?fetch|resubmit/i);
+
+        // And hands back the exact bytes to restore, so the caller does not have to reconstruct them.
+        expect(result.requiredTail, 'the tail to resubmit is returned verbatim').toContain('[review-budget-managed]')
+    });
+
+    test('#17354: create surfaces the machine-owned tail it appended', async () => {
+        // A caller planning an update learns the tail exists from the create response, rather than
+        // from a refusal after the fact. This is the half that stops the loop from starting.
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {nodes: [], pageInfo: {hasPreviousPage: false}}
+                })
+            }
+
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        RepositoryService.viewerLogin = 'neo-opus-grace';
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17354,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
+        });
+
+        expect(result.reviewBudget, 'the create response reports the budget').toBeTruthy();
+        expect(result.machineOwnedTail, 'and names the tail it appended')
+            .toContain('[review-budget-managed]')
     });
 
     test('#15257: review updates cannot add/remove provenance or rewrite managed audit fields', async () => {

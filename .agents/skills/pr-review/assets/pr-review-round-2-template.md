@@ -1,6 +1,8 @@
 # PR Review — Round 2 (disposition only)
 
-**Status:** [Approved / Approve+Follow-Up / Request Changes]
+**Status:** [Approved / Approve+Follow-Up / Comment]
+
+*Exactly one, and your table picks it: any `STILL_OPEN` row ⇒ `Comment`. Request Changes is not a Round-2 status — a discharged round approves, an open one comments.*
 
 **Opening:** [One sentence: which prior actions this dispositions, at which head.]
 

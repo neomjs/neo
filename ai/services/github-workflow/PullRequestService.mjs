@@ -854,7 +854,7 @@ async function buildMergeReadinessProjection({
         // observation, so nested inside `predicate` it reaches no reader of the surface that
         // actually travels to the merge gate.
         advisories: predicate.advisories.map(message => ({code: 'APPROVAL_ANCHOR_STALE', message})),
-        audit: [
+        audit     : [
             ...audit,
             {source: 'validateMergeReady', call: 1, outcome: sourceMergeReady ? 'positive' : 'negative'},
             {
@@ -1179,6 +1179,16 @@ function getRound2DispositionRelationFailure({body, reviews, state}) {
         ])
     }
 
+    // BEFORE the count, because the count is DERIVED from this parse. A cell the extractor cannot
+    // read is dropped silently, so the row the author actually wrote becomes an absence in the tally
+    // and the refusal accuses them of dispositioning nothing. Returning here keeps one defect to one
+    // cause: fix the cell, then see whatever the relation still objects to.
+    const unreadable = extractUnreadableDispositionCells(body);
+
+    if (unreadable.length > 0) {
+        return round2CellParseFailure(unreadable)
+    }
+
     if (rows.length !== expected.length) {
         defects.push(`dispositions ${rows.length} action(s) against the prior round's ${expected.length} — every action gets a row, in order`)
     }
@@ -1187,7 +1197,14 @@ function getRound2DispositionRelationFailure({body, reviews, state}) {
         const row = rows[index];
 
         if (row && row.action !== action) {
-            defects.push(`row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
+            // When the ONLY difference is emphasis, printing both strings is not a diagnosis: they
+            // render nearly identically, so the author reads "carry it verbatim" while looking at
+            // what appears to be a verbatim copy. The rule is right and stays — byte-verbatim is what
+            // stops a Round 2 quietly softening the demand it claims to discharge — but the rule was
+            // unstated and its violation unnamed, which is the whole defect.
+            defects.push(normalizeQuoteForComparison(row.action) === normalizeQuoteForComparison(action)
+                ? `row ${index + 1} differs from the prior round ONLY in formatting. The quote must be byte-verbatim INCLUDING its markdown, so restore the emphasis exactly as written: "${action}"`
+                : `row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
         }
     });
 
@@ -1231,6 +1248,115 @@ function round2RelationFailure(lines) {
 }
 
 /**
+ * @summary Refuses a Round-2 body whose declared `**Status:**` contradicts its own disposition table.
+ *
+ * The submit gate already refuses `STILL_OPEN` under a non-`COMMENT` state, but it does so by
+ * comparing the table to the API `state` argument — which a dry-run holding only a body never
+ * receives. That much of the divergence is structural. This is the part that is not: the body
+ * ALSO declares its verdict on its own `**Status:**` line, so the same contradiction is decidable
+ * with no pull request resolved.
+ *
+ * **Why naming this is safe.** The invisible anchor layer stays silent because an anchor is
+ * stuffable — told which token is missing, a caller can paste the token and skip the structure.
+ * A contradiction is not stuffable: the only way to satisfy it is to decide which of the author's
+ * two declarations is true, and that decision IS the required content.
+ *
+ * Live specimen: a Round 2 carrying `**Status:** Request Changes`, two `STILL_OPEN` rows, and a
+ * Verdict opening `COMMENT.` was accepted by the dry-run and by CI, then refused by the submit
+ * gate. The author had followed the template — whose Status enum omitted `Comment` entirely while
+ * its own Verdict rule required it, so no coherent Status existed for a `STILL_OPEN` round. Both
+ * halves are fixed together; the enum without this check would leave the contradiction silent, and
+ * this check without the enum would refuse a body the template told the author to write.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} A structured refusal, or `null` when the body is coherent or out of scope.
+ */
+function getRound2StateCoherenceFailure(body) {
+    if (!isRound2PrReview(body)) return null;
+
+    const statusMatch = String(body || '').match(ROUND_2_STATUS_PATTERN);
+
+    // A rule that reads one declaration is only as good as the guarantee the declaration EXISTS.
+    // An earlier revision deferred this to the structural anchor layer in a comment and never
+    // checked that the anchor layer refuses it — it does not, so a Round 2 with no Status passed
+    // entirely and the coherence rule silently did not apply to the body that most needed it.
+    if (!statusMatch) {
+        return round2StateCoherenceFailure([
+            '- This Round 2 declares no `**Status:**` line.',
+            `- A Round 2 states exactly one of ${ROUND_2_LEGAL_STATUSES.map(status => `\`${status}\``).join(', ')}.`,
+            '',
+            'Add the Status your disposition table already implies: any `STILL_OPEN` row means `Comment`.'
+        ])
+    }
+
+    const rows = extractDispositionRows(body);
+
+    if (rows.length === 0) return null;
+
+    const declaredRaw = statusMatch[1].replace(/[*_`]/g, '').trim(),
+          declared    = declaredRaw.toLowerCase(),
+          stillOpen   = rows.some(row => row.disposition === 'STILL_OPEN');
+
+    // `Request Changes` is deliberately absent from the legal set. Every branch below refuses it —
+    // with a STILL_OPEN row it must be `Comment`, and without one a fully dispositioned round does
+    // not spend another round — so offering it is an enum carrying a value with no legal branch,
+    // which is the same defect this whole change started from.
+    if (!ROUND_2_LEGAL_STATUSES.some(status => status.toLowerCase() === declared)) {
+        return round2StateCoherenceFailure([
+            `- \`**Status:** ${declaredRaw}\` is not a legal Round-2 status.`,
+            `- The legal set is ${ROUND_2_LEGAL_STATUSES.map(status => `\`${status}\``).join(', ')}.`,
+            '',
+            '`Request Changes` is not among them: a round that dispositions everything is `Approved`,',
+            'and one leaving an item open is `Comment`, which keeps the ORIGINAL review authoritative.'
+        ])
+    }
+
+    if (stillOpen && declared !== 'comment') {
+        return round2StateCoherenceFailure([
+            `- The table carries a \`STILL_OPEN\` row while \`**Status:**\` reads "${statusMatch[1].trim()}".`,
+            '- A `STILL_OPEN` round keeps the ORIGINAL review authoritative, so its Status is `Comment`.',
+            '',
+            'Set `**Status:** Comment`, or disposition the open item as `ADDRESSED` / `DEFENDED` — whichever is true.'
+        ])
+    }
+
+    if (!stillOpen && declared === 'request changes') {
+        return round2StateCoherenceFailure([
+            '- Every prior action is dispositioned, yet `**Status:**` reads "Request Changes".',
+            '- A fully discharged round is `Approved` or `Comment`; it does not spend another round.',
+            '',
+            'Set `**Status:**` to the verdict the table already reached, or say which action is still open.'
+        ])
+    }
+
+    return null
+}
+
+/**
+ * @summary Renders a Round-2 state-coherence refusal.
+ *
+ * Deliberately does NOT reuse the relation failure's header. That header prescribes reading the
+ * template and quoting prior actions verbatim, which is the right remedy for a relation defect and
+ * the wrong one here — the template was followed and the quoting was already verbatim. A fixed
+ * remedy printed under a variable defect is what taught two separate maintainers something false
+ * about this surface.
+ *
+ * @param {String[]} lines
+ * @returns {Object}
+ */
+function round2StateCoherenceFailure(lines) {
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'This Round 2 contradicts itself: its declared Status and its disposition table disagree.',
+            '',
+            ...lines
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
+/**
  * @summary Extracts a review's Required Actions as ordered verbatim strings.
  *
  * The canonical and follow-up templates both carry actions as a `- [ ]` checklist under a Required
@@ -1261,6 +1387,71 @@ function extractRequiredActions(body) {
  * @param {String} body
  * @returns {Array<{action: String, disposition: String}>}
  */
+/**
+ * @summary Strips markdown emphasis and collapses whitespace, for DIAGNOSIS only.
+ *
+ * Never used to decide whether a quote matches — the verbatim rule compares raw strings and keeps
+ * doing so. This exists solely to tell an author WHICH kind of mismatch they have, because
+ * "formatting" and "you reworded the demand" need opposite responses and the raw diff cannot
+ * distinguish them on screen.
+ *
+ * @param {String} text
+ * @returns {String}
+ */
+function normalizeQuoteForComparison(text) {
+    return String(text || '').replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * @summary Returns disposition cells that CARRY a verdict verb but are not one, so cannot be read.
+ *
+ * The extractor matches a cell that IS a verb. `**ADDRESSED** — and answered better than the action
+ * asked` carries its verdict and is dropped, which turns a row the author wrote into an absence in
+ * the count. This is the same line set the extractor walks, kept deliberately separate rather than
+ * folded into its return shape: the extractor has two callers and only one of them reports defects.
+ *
+ * @param {String} body
+ * @returns {String[]} The offending cell texts, in document order.
+ */
+function extractUnreadableDispositionCells(body) {
+    return String(body || '').split('\n')
+        .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))
+        .map(line => {
+            const cells = line.split('|').slice(1, -1).map(cell => cell.trim());
+
+            // A readable row is not a defect, even when other cells mention a verb in prose.
+            if (cells.some(cell => ROUND_2_DISPOSITIONS.includes(cell))) return null;
+
+            return cells.find(cell => ROUND_2_DISPOSITIONS.some(verb => cell.includes(verb))) || null
+        })
+        .filter(Boolean)
+}
+
+/**
+ * @summary Renders a refusal for disposition cells that could not be read.
+ *
+ * Names the cell and the shape that would parse, because neither is stuffable: the required content
+ * IS the corrected cell. Kept apart from the relation failure's header, which prescribes re-reading
+ * the template — the wrong remedy for an author whose only error is decoration inside one cell.
+ *
+ * @param {String[]} cells
+ * @returns {Object}
+ */
+function round2CellParseFailure(cells) {
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'A disposition cell could not be read, so this round cannot be matched against the prior one.',
+            '',
+            ...cells.map(cell => `- \`${cell}\` carries a verdict but is not one.`),
+            '',
+            'The Disposition cell must be exactly `ADDRESSED`, `DEFENDED` or `STILL_OPEN` — no bold, no',
+            'trailing prose. Anything you want to say about the disposition goes in the Evidence column.'
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
 function extractDispositionRows(body) {
     return String(body || '').split('\n')
         .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))
@@ -1311,6 +1502,22 @@ function isRound2PrReview(body) {
  * @type {RegExp}
  */
 const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
+
+/**
+ * The body's OWN declared verdict, which is what makes state coherence decidable without a PR.
+ * Anchored to line start so a Status quoted inside prose or a fenced block cannot be read as the
+ * declaration — the same reason the Post-Merge Validation heading check is anchored.
+ * @type {RegExp}
+ */
+const ROUND_2_STATUS_PATTERN = /^\*\*Status:\*\*[ \t]*(.+?)[ \t]*$/m;
+
+/**
+ * The complete legal Round-2 Status set. `Request Changes` is deliberately absent: the coherence
+ * rule refuses it on every branch, so offering it would be an enum carrying a value that can never
+ * validate — the exact defect the round-2 template held before this change.
+ * @type {String[]}
+ */
+const ROUND_2_LEGAL_STATUSES = ['Approved', 'Approve+Follow-Up', 'Comment'];
 
 const ACTION_PACKET_HEADING_PATTERN = /Required\s+Actions?\b/i;
 const ACTION_PACKET_ITEM_PATTERN    = /^[ \t]*[-*][ \t]+\[[ \t]*\][ \t]*\S/;
@@ -2485,6 +2692,73 @@ function getReviewBudgetAuditSnapshot(body) {
 }
 
 /**
+ * @summary Renders the audit-immutability refusal from the condition that actually fired.
+ *
+ * The guard is load-bearing and stays: editing a submitted review is a second way to raise a packet,
+ * and until it ran here the create-side guards could be walked around entirely. What was wrong was
+ * the message. It named three abstract categories and never the concrete cause, and the cost was
+ * measured — a reviewer hitting it concluded the capability did not exist, told the PR author and the
+ * operator that a submitted body is immutable to this tool, and fell back to a comment. Two greps on
+ * the error string disprove that.
+ *
+ * The dominant cause deserves its own branch because it is the one nobody can deduce: `create`
+ * appends a tail the caller never wrote, so a caller resubmitting their OWN edited body is refused
+ * for omitting bytes they have never seen. Naming it is safe — the remedy is mechanical, and a
+ * mechanical remedy cannot be gamed the way an anchor name can.
+ *
+ * @param {Object} options
+ * @param {Object} options.currentAudit    Snapshot of the submitted body.
+ * @param {Object} options.incomingAudit   Snapshot of the candidate body.
+ * @param {String[]} options.markerChanges Marker-level differences.
+ * @param {String[]} options.auditFieldChanges Field-level differences.
+ * @param {Boolean} options.terminalChanged Whether ordinary/Drop+Supersede classification moved.
+ * @returns {String}
+ */
+function buildReviewBudgetAuditRefusal({currentAudit, incomingAudit, markerChanges, auditFieldChanges, terminalChanged}) {
+    const headline = 'A submitted review update cannot change review-budget provenance, audit fields, or ordinary-versus-Drop+Supersede classification.';
+
+    // The unguessable case, and by far the most common: the tail is simply absent from the update.
+    if (currentAudit.tail && !incomingAudit.tail) {
+        return [
+            headline,
+            '',
+            'Body edits ARE supported. What happened: `create` appended a machine-owned tail your body',
+            'never contained, and this update omits it — so the round-trip check reads the omission as',
+            'an audit-field change.',
+            '',
+            'Re-fetch the current review body, edit only the content ABOVE the `---` marker, and resubmit',
+            'with this tail unchanged:',
+            '',
+            ...currentAudit.tail.split('\n').map(line => `    ${line}`)
+        ].join('\n')
+    }
+
+    const causes = [];
+
+    if (terminalChanged) {
+        causes.push('- The ordinary/Drop+Supersede classification differs between the submitted review and this update. A terminal verdict is a different packet, not an edit of an ordinary one — post it as its own review.')
+    }
+
+    if (!currentAudit.structureValid || !incomingAudit.structureValid) {
+        causes.push('- The machine-owned tail is malformed. It must appear once, immediately after a `---` line, with any override marker before the managed marker.')
+    }
+
+    markerChanges.filter(marker => marker !== 'machine-owned-tail-structure').forEach(marker => {
+        causes.push(`- \`${marker}\` appears a different number of times than in the submitted review. It must round-trip exactly once.`)
+    });
+
+    if (currentAudit.auditFieldsOutsideTail.length > 0 || incomingAudit.auditFieldsOutsideTail.length > 0) {
+        causes.push('- Audit fields appear OUTSIDE the machine-owned tail. They belong only inside it, below the `---` marker.')
+    }
+
+    if (auditFieldChanges.includes('machine-owned-tail') && causes.length === 0) {
+        causes.push('- The machine-owned tail differs from the submitted review\'s. Resubmit it byte-identical; edit only the content above the `---` marker.')
+    }
+
+    return [headline, '', ...causes].join('\n')
+}
+
+/**
  * @summary Rejects caller-authored review-budget provenance before a review CREATE reaches GitHub.
  * @param {String} body Candidate review body.
  * @returns {Object|null} Structured validation failure or `null` when no reserved provenance exists.
@@ -3401,6 +3675,19 @@ class PullRequestService extends Base {
             };
         }
 
+        // Structure is not coherence. A Round 2 can carry every canonical heading and still declare a
+        // Status its own disposition table refuses, which the submit gate then rejects on a comparison
+        // the dry-run was never given the inputs for. This closes the half of that divergence that is
+        // decidable from the body, so the two surfaces disagree on strictly less.
+        const stateCoherenceFailure = getRound2StateCoherenceFailure(body);
+
+        if (stateCoherenceFailure) {
+            return {
+                valid: false,
+                ...stateCoherenceFailure
+            };
+        }
+
         // The selected asset, not a constant. This returned `PR_REVIEW_TEMPLATE_PATH` unconditionally,
         // so a Round-2 or micro-delta body was told it matched the canonical template — sending an
         // author who then hit a rejection to the wrong file to find out why. A validator that
@@ -3706,6 +3993,13 @@ class PullRequestService extends Base {
                     };
                 }
 
+                // The submitted body is not the body the caller handed us: a machine-owned tail was
+                // appended. `update` requires that tail back byte-identical, so a caller who later
+                // edits their own copy — which never contained it — is refused as if they had changed
+                // an audit field. Surfacing it here is what stops that loop before it starts; a
+                // reviewer who hit the refusal without this concluded the capability did not exist.
+                const machineOwnedTail = getReviewBudgetAuditSnapshot(submissionBody).tail;
+
                 return {
                     message    : `Successfully created ${review.state} review on PR #${pr_number}`,
                     reviewId   : review.id,
@@ -3713,7 +4007,11 @@ class PullRequestService extends Base {
                     url        : review.url,
                     submittedAt: review.submittedAt,
                     databaseId : review.databaseId,
-                    ...(reviewBudgetAudit ? {reviewBudget: reviewBudgetAudit} : {})
+                    ...(reviewBudgetAudit ? {reviewBudget: reviewBudgetAudit} : {}),
+                    ...(machineOwnedTail ? {
+                        machineOwnedTail,
+                        machineOwnedTailNote: 'Appended by this tool. An `update` must resubmit it unchanged: re-fetch the review body and edit only the content above the `---` marker.'
+                    } : {})
                 };
             } catch (error) {
                 logger.error(`Error creating PR review on PR #${pr_number}:`, error);
@@ -3776,8 +4074,16 @@ class PullRequestService extends Base {
             if (markerChanges.length > 0 || currentTerminal !== incomingTerminal || auditFieldChanges.length > 0) {
                 return {
                     error                        : 'PR Review Budget Audit Validation Failed',
-                    message                      : 'A submitted review update cannot change review-budget provenance, audit fields, or ordinary-versus-Drop+Supersede classification.',
+                    message: buildReviewBudgetAuditRefusal({
+                        currentAudit,
+                        incomingAudit,
+                        markerChanges,
+                        auditFieldChanges,
+                        terminalChanged: currentTerminal !== incomingTerminal
+                    }),
                     code                         : 'PR_REVIEW_BUDGET_AUDIT_IMMUTABLE',
+                    // The exact bytes to restore, so the remedy does not require reconstructing them.
+                    ...(currentAudit.tail ? {requiredTail: currentAudit.tail} : {}),
                     markerChanges,
                     auditFieldChanges,
                     terminalClassificationChanged: currentTerminal !== incomingTerminal
