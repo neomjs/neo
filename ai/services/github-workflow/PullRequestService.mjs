@@ -1207,7 +1207,16 @@ function getRound2DispositionRelationFailure({body, reviews, state}) {
             // instruction they can follow and one they cannot: both known parse causes collapse a
             // pipe into whitespace, so when the two strings agree once pipes and spaces are
             // normalised away, the row is telling us about our own reconstruction.
-            const pipeShaped = collapsePipesAndSpace(row.action) === collapsePipesAndSpace(action);
+            //
+            // The pipe in the EXPECTED text is the cause witness, and it is required rather than
+            // implied. `collapsePipesAndSpace` also removes spaces, so "observed partial" and
+            // "observedpartial" compare equal with no pipe anywhere in either — and the branch below
+            // would then instruct an author to escape a pipe their text does not contain. That is
+            // the unfollowable-instruction class this gate exists to remove, reintroduced by the
+            // diagnosis instead of by the rule. Similarity cannot prove which byte the parser lost;
+            // only the presence of that byte can.
+            const pipeShaped = action.includes('|')
+                && collapsePipesAndSpace(row.action) === collapsePipesAndSpace(action);
 
             defects.push(normalizeQuoteForComparison(row.action) === normalizeQuoteForComparison(action)
                 ? `row ${index + 1} differs from the prior round ONLY in formatting. The quote must be byte-verbatim INCLUDING its markdown, so restore the emphasis exactly as written: "${action}"`
@@ -1509,6 +1518,18 @@ function splitTableRow(line) {
 // silently drops a genuine first cell.
 const ROUND_2_ROW_LABEL_PATTERN = /^(?:§|#)?[ \t]*(?:RA[ _-]?)?\d+[a-z]?\.?$/i;
 
+/**
+ * @summary Reads the Round-2 disposition table out of a review body.
+ *
+ * Selection is deliberately loose and extraction strict. A candidate line is any table row carrying
+ * one of the disposition verbs, because a body that got the table's SHAPE wrong still needs to reach
+ * the validator and be told so — filtering on a well-formed table here would turn a reportable
+ * template error into silence, and the round would then pass by producing no rows to check.
+ *
+ * @param {String} body Review body markdown.
+ * @returns {Object[]} One entry per disposition row, in document order.
+ * @private
+ */
 function extractDispositionRows(body) {
     return String(body || '').split('\n')
         .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))

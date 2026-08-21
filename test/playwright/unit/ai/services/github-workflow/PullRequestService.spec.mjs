@@ -2295,6 +2295,27 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.message).toContain('ends the cell');
     });
 
+    test('#17284: a no-pipe difference is NOT diagnosed as a pipe — the byte is the witness', async () => {
+        // Emmy's falsifier, RA-1 on the round-2 review. `collapsePipesAndSpace` removes spaces as
+        // well as pipes, so "observed partial" and "observedpartial" compare equal with no pipe
+        // anywhere in either string. Similarity alone was enough to reach the pipe branch, which then
+        // told an author to escape a pipe their text does not contain -- the exact unfollowable
+        // instruction this gate exists to remove, reintroduced by the diagnosis rather than the rule.
+        //
+        // The discriminating half is the SECOND assertion. Refusing is right either way; refusing
+        // with the wrong mechanism is the defect, so an arm that only checked for rejection would
+        // have passed against the broken code.
+        const spacedPrior = 'Record the observed partial contract';
+
+        withPriorAction(spacedPrior);
+
+        const result = await submitRoundTwo(pipedRoundTwo('Record the observedpartial contract'));
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.message, 'no pipe in the expected text means no pipe diagnosis').not.toMatch(/must be escaped as/);
+        expect(result.message, 'it falls through to the ordinary verbatim demand').toContain('carry it verbatim')
+    });
+
     test('#17284: sub-lettered and section labels are stripped, and a real first cell is NOT', async () => {
         // The original defect. `RA-1a` / `§0` were folded into the carried action, so the row compared
         // as reworded against a prior round that never contained the label.
