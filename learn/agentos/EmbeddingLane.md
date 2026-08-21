@@ -207,23 +207,45 @@ flowchart TD
     subgraph pair3["starvation watchdog × lease holder"]
         C1["waiter starves"] --> C2["watchdog names the holder"] --> C3["holder consults no bound<br/>so naming changes nothing"]
     end
-    subgraph pair4["carry arithmetic × concurrency"]
-        D1["completions arrive out of order"] --> D2["count × width names a span<br/>containing inputs that never landed"] --> D3["binding guard fails CLOSED<br/>work conservation silently off"]
+    subgraph pair4["carry arithmetic × an unstated invariant"]
+        D1["formula: count × width"] --> D2["stated reason FALSE<br/>(final span is short)"] --> D3["conclusion held anyway,<br/>via dispatch order nobody wrote down"]
     end
 ```
 
-**The fourth pair is the one worth internalising**, because its failure signature
-is silence. The carry computed a completed span as
-`completedChunkCount * chunkSize` — a count multiplied by a width — which names a
-range only while completions arrive in issue order. Add concurrency and a span can
-land after a hole; the product then claims inputs that never completed. The
-positional-binding guard refuses a non-densely-indexed carry, so the outcome was
-never a corrupt vector: it was work conservation switching itself off, with the
-lane re-purchasing the same vectors on every retry and nothing in the logs.
+**The fourth pair is the one worth internalising, and it is not a failure — it is
+a correct answer resting on a reason its own comment got wrong.** The carry
+computed a completed span as `completedChunkCount * chunkSize`, justified by *"a
+yield lands on a chunk boundary, so every completed chunk is full-width"*. That
+justification is false: the final span is short whenever the input count is not a
+multiple of the width.
 
-**A guard that fails closed converts a wrong answer into a silent loss.** That is
-usually the right trade, and it means the loss needs its own report — otherwise
-the safety property hides the regression it prevented.
+The product was nevertheless always right, for a reason the comment never stated —
+the dispatch loop consults the yield predicate only while spans remain
+undispatched, and dispatch is in span order, so a yielded prefix structurally
+excludes the short final span. Per `TextEmbeddingService.mjs`: *"No reachable
+input reddened the product, and none can."*
+
+So nothing was ever mis-carried, and this document previously claimed otherwise —
+it described work conservation switching itself off and a lane re-purchasing
+vectors with nothing in the logs. **That failure never occurred.** It was derived
+from the mechanism rather than observed, which is precisely the error the passage
+was trying to teach.
+
+**The real lesson is narrower and more useful: a computation that is correct by
+accident is one refactor from being wrong in silence.** The repair passes the
+measured prefix instead of re-deriving it — not because the derivation was
+producing bad spans, but because its correctness depended on a caller-side
+ordering invariant the leaf cannot see. Reorder dispatch, or consult the predicate
+once more after the last admission, and it returns a count one width too large; at
+that point the ordered-embedding assembly throws from inside the yield
+constructor, the abandonment loses its yield code, and a resumable checkpoint
+becomes a hard failure. Two branches also disagreed about the same prefix, since
+the failure path one level up already passed the measured count.
+
+**A guard that fails closed converts a wrong answer into a silent loss** — the
+reason the latent version was worth removing before anything reached it. That
+trade is usually right, and it means such a loss needs its own report, or the
+safety property hides the regression it prevented.
 
 ## 5. Verified axes, and the one that is not
 
