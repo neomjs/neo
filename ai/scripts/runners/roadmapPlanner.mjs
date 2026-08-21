@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 // Load Neo runtime side effects before booting agent services.
 import Neo                  from '../../../src/Neo.mjs';
 import * as core            from '../../../src/core/_export.mjs';
+import Memory_Config from '../../mcp/server/memory-core/config.mjs';
 import MemoryService from '../../services/memory-core/MemoryService.mjs';
 import DreamService from '../../daemons/orchestrator/services/DreamService.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
@@ -85,9 +86,17 @@ Output the final, fully written markdown content for the updated ROADMAP.md file
 
     console.log('Querying openAiCompatible to synthesize new ROADMAP.md...');
 
-    // Resolve provider endpoint/model from Memory Core config, with CLI-safe defaults.
-    const host = Memory_Config?.data?.openAiCompatible?.host || 'http://127.0.0.1:8000';
-    const model = Memory_Config?.data?.openAiCompatible?.model || 'gemma4';
+    // Read the resolved leaves directly, and default neither: a ROADMAP synthesized against an
+    // endpoint or model the deployment did not choose is worse than no ROADMAP, because the file
+    // it overwrites carries no record of which model wrote it.
+    const {host, model} = Memory_Config.openAiCompatible;
+
+    if (!host || !model) {
+        throw new Error(
+            `[roadmapPlanner] aiConfig.openAiCompatible is incomplete (host=${host}, model=${model}). ` +
+            'Refusing to synthesize ROADMAP.md against an unnamed endpoint or model.'
+        );
+    }
 
     try {
         const payload = JSON.stringify({

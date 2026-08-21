@@ -17,13 +17,14 @@ class QA extends Agent {
         /**
          * The QA Bot executes natively on the local swarm to prevent token explosion.
          * Default Provider is Ollama, targeting the workspace's default local inference daemon.
+         *
+         * The model is NOT declared here. This profile carried a `model: 'gemma4'` config that
+         * nothing read — `Neo.ai.Agent` declares no `model`, and it builds its provider from
+         * `providerConfig`, so the key pinned nothing while reading as though it did. Model
+         * selection belongs to whatever supplies `providerConfig`.
          * @member {String|Neo.ai.provider.Base} modelProvider='ollama'
          */
         modelProvider: 'ollama',
-        /**
-         * @member {String} model='gemma4'
-         */
-        model: 'gemma4',
         /**
          * The QA agent needs context matching capabilities to assert components,
          * so we attach the knowledge base and the file system server.
