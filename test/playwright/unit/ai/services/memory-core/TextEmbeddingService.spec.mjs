@@ -1447,27 +1447,97 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         });
     });
 
-    test('OpenAI-compatible batches reserve one declared engine slot without mutating shared config (#17048)', async () => {
+    test('the declared parallelism is a TASK budget: exact peak fan-out, and width clamps to it (#17412)', async () => {
+        // Replaces an arm that asserted `parallel - 1` as a request WIDTH. The provider's capacity unit
+        // is a TASK — one multi-input POST expands to one task per input — so offered work is
+        // concurrency × width and the two are jointly constrained by one budget.
+        //
+        // Concurrency is observed by OVERLAP and asserted as an EXACT peak, never by call count: a
+        // sequential loop makes the same number of calls, and a peak of "more than one" would pass on a
+        // lane that manages two when it declared room for four.
         const probe = async () => {
-            const http          = await import('node:http');
-            const requestInputs = [];
-            const server        = http.createServer((request, response) => {
+            const http                 = await import('node:http');
+            const requestInputs        = [];
+            const held                 = [];
+            const targetPeak    = Number(process.env.PROBE_TARGET_PEAK);
+            const expectedSpans = Number(process.env.PROBE_EXPECTED_SPANS);
+
+            let open       = 0,
+                maxOpen    = 0,
+                stalled    = false,
+                stallGuard = null;
+
+            // A run that can never satisfy either release condition used to surface as the runner's
+            // 10s SIGKILL, and a SIGKILL names nothing: the verdict became "the process died" rather
+            // than "the peak was wrong". A single-worker mutant is exactly that shape — one request is
+            // ever open, so `open` cannot reach the target, and the rest never dispatch, so the arrival
+            // count cannot reach the total. BOTH release arms are unreachable in the mutant's world.
+            //
+            // This guard releases whatever is held so the run COMPLETES and the arm fails on `maxOpen`,
+            // by assertion, in about the baseline's wall-clock. It is armed once, cleared by any normal
+            // release, and generous enough that the green path never reaches it.
+            // Re-armed on every ARRIVAL, because at one worker the stall recurs per request: releasing
+            // the held one lets the service dispatch the next, which hangs identically. A guard armed
+            // once rescues exactly one request and the run dies on the second — measured.
+            //
+            // The debounce is the fact the probe cannot otherwise learn: "no further request is coming
+            // right now". Everything else it knows (target peak, total spans) is unreachable precisely
+            // in the world the mutant creates, which is what made the old predicate undecidable there.
+            // fixed-sleep-justification: an arrival debounce that makes a deadlock assertable, not a
+            // wait for a thing to happen — the green path clears it within milliseconds and it never fires.
+            const armStallGuard = () => {
+                clearTimeout(stallGuard);
+                stallGuard = setTimeout(() => {
+                    stalled = true;
+                    held.splice(0).forEach(release => release())
+                }, 250)
+            };
+
+            const releaseAll = () => {
+                clearTimeout(stallGuard);
+                stallGuard = null;
+                held.splice(0).forEach(release => release())
+            };
+
+            const server = http.createServer((request, response) => {
                 let body = '';
 
                 request.on('data', chunk => body += chunk);
                 request.on('end', () => {
-                    const payload = JSON.parse(body),
+                    const payload = body ? JSON.parse(body) : {input: []},
                           inputs  = Array.isArray(payload.input) ? payload.input : [payload.input];
 
                     requestInputs.push(inputs);
-                    response.writeHead(200, {'Content-Type': 'application/json'});
-                    response.end(JSON.stringify({
-                        data: inputs.map((input, index) => ({
-                            index,
-                            embedding: [requestInputs.length, index]
+                    open    += 1;
+                    maxOpen  = Math.max(maxOpen, open);
+                    armStallGuard();
+
+                    held.push(() => {
+                        open -= 1;
+                        response.writeHead(200, {'Content-Type': 'application/json'});
+                        // Vectors encode the INPUT's identity, not arrival order, so a mis-binding is
+                        // visible in the assembled output rather than merely absent.
+                        response.end(JSON.stringify({
+                            data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
                         }))
-                    }));
-                });
+                    });
+
+                    // Release on EITHER condition, both derived from values the probe already knows.
+                    // No timer, no macrotask chain, and no state where a request waits for something
+                    // that cannot arrive:
+                    //
+                    //   open >= targetPeak       the overlap this run exists to measure has happened
+                    //   all spans have arrived   nothing further is coming, so holding is pointless
+                    //
+                    // The target is per-run because only one run can overlap: the fan-out run expects 4,
+                    // the width-clamped run expects 1 and therefore releases on first arrival. Three
+                    // earlier designs failed here and are recorded in the PR body — an unconditional
+                    // macrotask deferral collapsed the measurement to 1, and both a per-arrival and a
+                    // centralised no-growth hop chain starved the poll phase so I/O never progressed.
+                    if (open >= targetPeak || requestInputs.length === expectedSpans) {
+                        releaseAll()
+                    }
+                })
             });
             await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 
@@ -1476,40 +1546,303 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
 
                 const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
                 const embeddings         = await Service.embedTexts(
-                    ['a', 'b', 'c', 'd', 'e'],
+                    ['a', 'b', 'c', 'd', 'e', 'f'],
                     'openAiCompatible'
                 );
 
-                console.log(JSON.stringify({requestInputs, embeddings}));
+                console.log(JSON.stringify({requestInputs, embeddings, maxOpen, stalled}));
             } finally {
+                clearTimeout(stallGuard);
                 server.closeAllConnections?.();
-                await new Promise(resolve => server.close(resolve));
+                await new Promise(resolve => server.close(resolve))
             }
         };
         const commonEnv = {
-            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '5',
-            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0'
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT: '0'
         };
-        const [multiSlot, singleSlot] = await Promise.all([
+        const [fanOut, clamped] = await Promise.all([
+            // budget 5, width 1 -> one task reserved, four available, six spans: peak exactly 4.
             runIsolatedEmbeddingProbe(probe, {
                 ...commonEnv,
-                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: '4'
+                NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '1',
+                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '5',
+                PROBE_TARGET_PEAK                               : '4',
+                PROBE_EXPECTED_SPANS                            : '6'
             }),
+            // budget 4, configured width 5 -> width CLAMPS to 3 and there is no room to fan out. This is
+            // the shipped plane's shape, and it reproduces the old clamp's output exactly.
             runIsolatedEmbeddingProbe(probe, {
                 ...commonEnv,
-                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: '1'
+                NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '5',
+                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4',
+                PROBE_TARGET_PEAK                               : '1',
+                PROBE_EXPECTED_SPANS                            : '2'
             })
         ]);
 
-        expect(multiSlot.requestInputs).toEqual([
+        // EXACT peak, asserted BEFORE the stall flag. Any concurrency below the target stalls the
+        // probe — the release needs peak 4 — so both lines redden together and the FIRST one decides
+        // what the failure says. `maxOpen` is the real subject and it reports the number observed, so
+        // "2 where 4 was declared" reads correctly; the stall flag alone would have called that
+        // "never overlapped", which is false at two workers and was the drift in my first draft.
+        expect(fanOut.maxOpen, 'four available tasks at width 1 must yield exactly four in flight').toBe(4);
+        expect(fanOut.requestInputs).toHaveLength(6);
+
+        // The residual case the peak assertion cannot express: the probe released on its DEADLINE
+        // rather than on the peak or the full arrival set. Reachable only if the peak was somehow met
+        // and the run still could not finish, so it stays a distinct condition rather than a duplicate
+        // of the line above. Its value is that a deadlock now arrives here in about a second instead of
+        // as the runner's 10s SIGKILL, which named nothing at all.
+        expect(fanOut.stalled, 'the fan-out probe released on its stall deadline rather than on peak or full arrival').toBe(false);
+        expect(clamped.stalled, 'the clamped probe released on its stall deadline rather than on peak or full arrival').toBe(false);
+        expect(fanOut.requestInputs.every(inputs => inputs.length === 1), 'width 1 means single-input requests').toBe(true);
+
+        // WIDTH clamps to the budget, and offered tasks stay under it.
+        expect(clamped.requestInputs, 'configured width 5 must clamp to 3 at a budget of 4').toEqual([
             ['a', 'b', 'c'],
-            ['d', 'e']
+            ['d', 'e', 'f']
         ]);
-        expect(singleSlot.requestInputs).toEqual([
-            ['a', 'b', 'c', 'd', 'e']
-        ]);
-        expect(multiSlot.embeddings).toHaveLength(5);
-        expect(singleSlot.embeddings).toHaveLength(5);
+        expect(clamped.maxOpen, 'no room to fan out at four tasks with width 3').toBe(1);
+
+        // ORDERING is a contract, not an accident: vectors encode input identity, so both runs must
+        // assemble the same output in input order despite different completion orders.
+        const expected = ['a', 'b', 'c', 'd', 'e', 'f'].map(input => [input.charCodeAt(0), input.length]);
+
+        expect(fanOut.embeddings, 'fan-out must preserve input order').toEqual(expected);
+        expect(clamped.embeddings, 'the clamped run must agree with the fanned-out one').toEqual(expected);
+    });
+
+
+    test('the TASK budget binds ACROSS concurrent callers, not per call (#17412)', async () => {
+        // `resolveDispatchPlan` reserves headroom per `embedTexts` call. The queue then admitted by
+        // POST while the budget is denominated in TASKS, so two callers each satisfied their own
+        // reservation and jointly offered six tasks against a budget of four.
+        const probe = async () => {
+            const http   = await import('node:http');
+            const budget = Number(process.env.PROBE_TASK_BUDGET);
+            const held   = [];
+
+            let inFlightTasks = 0,
+                maxTasks      = 0,
+                stallGuard    = null;
+
+            // Once the budget IS honoured the callers serialize, so an arm that waited for both to
+            // overlap would hang exactly where the fix makes it correct. Releasing on arrival-quiet
+            // keeps the arm decidable in both worlds.
+            // fixed-sleep-justification: arrival debounce that keeps the arm decidable, not a wait.
+            const armStallGuard = () => {
+                clearTimeout(stallGuard);
+                stallGuard = setTimeout(() => held.splice(0).forEach(release => release()), 250)
+            };
+
+            const server = http.createServer((request, response) => {
+                let body = '';
+
+                request.on('data', chunk => body += chunk);
+                request.on('end', () => {
+                    const payload = body ? JSON.parse(body) : {input: []},
+                          inputs  = Array.isArray(payload.input) ? payload.input : [payload.input];
+
+                    // TASKS, not requests: one multi-input POST is one provider task per input.
+                    inFlightTasks += inputs.length;
+                    maxTasks       = Math.max(maxTasks, inFlightTasks);
+                    armStallGuard();
+
+                    held.push(() => {
+                        inFlightTasks -= inputs.length;
+                        response.writeHead(200, {'Content-Type': 'application/json'});
+                        response.end(JSON.stringify({
+                            data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
+                        }))
+                    });
+
+                    if (inFlightTasks >= budget) {
+                        clearTimeout(stallGuard);
+                        stallGuard = null;
+                        held.splice(0).forEach(release => release())
+                    }
+                })
+            });
+
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                process.env.NEO_OPENAI_COMPATIBLE_HOST = `http://127.0.0.1:${server.address().port}`;
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                const [first, second]    = await Promise.all([
+                    Service.embedTexts(['a', 'b', 'c'], 'openAiCompatible'),
+                    Service.embedTexts(['d', 'e', 'f'], 'openAiCompatible')
+                ]);
+
+                console.log(JSON.stringify({maxTasks, first, second}));
+            } finally {
+                clearTimeout(stallGuard);
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve))
+            }
+        };
+
+        const result = await runIsolatedEmbeddingProbe(probe, {
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0',
+            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '3',
+            NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4',
+            PROBE_TASK_BUDGET                               : '4'
+        });
+
+        // Admission paces; it must not reorder or drop. Without these, a change that merged or lost a
+        // caller would satisfy the budget assertion below.
+        expect(result.first,  'caller one must receive its own vectors, in its own order').toEqual(
+            ['a', 'b', 'c'].map(input => [input.charCodeAt(0), input.length]));
+        expect(result.second, 'caller two must receive its own vectors, in its own order').toEqual(
+            ['d', 'e', 'f'].map(input => [input.charCodeAt(0), input.length]));
+
+        expect(result.maxTasks,
+            'the declared task budget must bind across concurrent callers, not per call'
+        ).toBeLessThanOrEqual(4);
+    });
+
+    test('an interactive post is admitted while batch work holds the rest of the budget', async () => {
+        // Two earlier versions of this arm were unsound and both were caught by mutating it. The first
+        // recorded `interactiveAdmitted` and never asserted it, and never enqueued interactive work at
+        // all. The second fired the interactive post as soon as batch reached three, which is BEFORE
+        // batch settles — so a mutant removing the reservation still admitted it and the arm passed on
+        // a race. This one waits for batch to reach STEADY STATE first, which is the only moment the
+        // reservation is observable.
+        const probe = async () => {
+            const http = await import('node:http');
+            const held = [];
+
+            let draining             = false,
+                batchInFlight        = 0,
+                steadyBatchInFlight  = -1,
+                interactiveArrivedAt = -1,
+                batchReleasedAt      = -1,
+                seq                  = 0,
+                settleTimer          = null,
+                resolveSteady        = null;
+
+            const steady = new Promise(resolve => { resolveSteady = resolve });
+            // Once released, STAY released. `embedTexts` has more spans than the budget admits, so the
+            // remainder dispatches only after the first cohort drains — and a probe that holds by
+            // default puts those later arrivals into `held` with nothing left to empty it. The run then
+            // hangs on `await batch` with the contract already satisfied, which is a probe defect
+            // wearing a product failure's clothes. Cost four rewrites before I traced it.
+            const releaseAll = () => {
+                draining = true;
+                if (batchReleasedAt === -1) batchReleasedAt = ++seq;
+                held.splice(0).forEach(release => release())
+            };
+
+            // Steady state = no new batch arrival for a beat. That is the fact the probe cannot
+            // otherwise learn, and it is what makes the peak observable rather than sampled mid-ramp.
+            // fixed-sleep-justification: arrival-quiet detector, not a wait for a thing to happen.
+            const armSettle = () => {
+                clearTimeout(settleTimer);
+                settleTimer = setTimeout(() => {
+                    steadyBatchInFlight = batchInFlight;
+                    resolveSteady()
+                }, 250)
+            };
+
+            const server = http.createServer((request, response) => {
+                // Route by PATH. The interactive entry point resolves an embedding runtime first, and
+                // that resolution issues `GET /v1/models`. A probe that treats every request as
+                // embedding traffic HOLDS that one — so `embedText` blocks before it ever enqueues,
+                // and the arm dies by SIGKILL with nothing to read. Cost me three rewrites of this arm
+                // before I looked at the request URL instead of the request body.
+                if (!request.url.includes('/embeddings')) {
+                    response.writeHead(200, {'Content-Type': 'application/json'});
+                    response.end(JSON.stringify({data: [{id: 'probe-embedding-model'}]}));
+                    return
+                }
+
+                let body = '';
+
+                request.on('data', chunk => body += chunk);
+                request.on('end', () => {
+                    const payload = body ? JSON.parse(body) : {input: []},
+                          inputs  = Array.isArray(payload.input) ? payload.input : [payload.input],
+                          respond = () => {
+                              response.writeHead(200, {'Content-Type': 'application/json'});
+                              response.end(JSON.stringify({
+                                  data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
+                              }))
+                          };
+
+                    if (inputs.includes('INTERACTIVE')) {
+                        interactiveArrivedAt = ++seq;
+                        respond();
+                        return
+                    }
+
+                    if (draining) { respond(); return }
+
+                    batchInFlight += inputs.length;
+                    armSettle();
+                    held.push(() => { batchInFlight -= inputs.length; respond() })
+                })
+            });
+
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                process.env.NEO_OPENAI_COMPATIBLE_HOST = `http://127.0.0.1:${server.address().port}`;
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                // TWO batch callers, deliberately. With one, `resolveDispatchPlan`'s per-call
+                // reservation already caps offered work at three, so the GLOBAL ceiling never binds
+                // and a mutant removing it is invisible — measured: that version of this arm passed
+                // under exactly the mutant it exists to catch.
+                const batch = Promise.all([
+                    Service.embedTexts(['a', 'b', 'c'], 'openAiCompatible'),
+                    Service.embedTexts(['d', 'e', 'f'], 'openAiCompatible')
+                ]);
+
+                await steady;
+
+                // Fire interactive, and guarantee the run ENDS whether or not it is admitted: if the
+                // reservation is gone the post is stuck behind held batch work, so release after a
+                // bound and let the ordering assertion decide. A stuck run must fail by assertion,
+                // never by the runner's SIGKILL.
+                // fixed-sleep-justification: bounded escape that keeps the arm decidable, not a wait.
+                const escape      = setTimeout(releaseAll, 500);
+                const interactive = await Service.embedText('INTERACTIVE', 'openAiCompatible');
+
+                clearTimeout(escape);
+                clearTimeout(settleTimer);
+                releaseAll();
+                await batch;
+
+                console.log(JSON.stringify({steadyBatchInFlight, interactiveArrivedAt, batchReleasedAt, interactive}))
+            } finally {
+                clearTimeout(settleTimer);
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve))
+            }
+        };
+
+        const result = await runIsolatedEmbeddingProbe(probe, {
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0',
+            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '1',
+            NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4'
+        });
+
+        // THE RESERVATION, as a peak: six single-input batch tasks against a budget of four settle at
+        // three, never four. Removing the batch ceiling makes this read 4.
+        expect(result.steadyBatchInFlight,
+            'batch work must settle at budget - 1, leaving one task of the declared budget free'
+        ).toBe(3);
+
+        // THE RESERVATION, as an ordering fact: the free slot is usable WHILE batch holds the rest.
+        // Applying the batch ceiling to the interactive lane makes this arrive only after release.
+        expect(result.interactiveArrivedAt, 'the interactive post must reach the provider').toBeGreaterThan(0);
+        expect(result.interactiveArrivedAt,
+            'a slot reserved but not reachable is not headroom: interactive must be served before batch release'
+        ).toBeLessThan(result.batchReleasedAt);
+
+        expect(result.interactive, 'the interactive call must return its own vector')
+            .toEqual(['INTERACTIVE'.charCodeAt(0), 'INTERACTIVE'.length]);
     });
 
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {

@@ -4,6 +4,11 @@ import {
 }                           from '@google/generative-ai';
 import aiConfig       from '../../mcp/server/memory-core/config.mjs';
 import Base           from '../../../src/core/Base.mjs';
+import {
+    resolveCompletedPrefix,
+    resolveDispatchPlan,
+    resolveEmbeddingTaskBudget
+}                           from './helpers/embeddingDispatchPlan.mjs';
 import logger         from '../../mcp/server/memory-core/logger.mjs';
 import OllamaProvider from '../../provider/Ollama.mjs';
 import {
@@ -202,18 +207,33 @@ function toOrderedEmbeddings(data, expectedCount) {
  * provider work AND persist nothing, so an acquisition that repeatedly yields at the same chunk
  * would re-embed the same prefix forever — the caller needs the partial to make the checkpoint a
  * durable unit rather than merely a reached one.
+ * **Takes the measured prefix; does not re-derive it.** This previously computed
+ * `completedChunkCount * chunkSize`, justified by "a yield lands on a chunk boundary, so every
+ * completed chunk is full-width". That justification is false — the final span is short whenever the
+ * input count is not a multiple of the width — while the conclusion happened to hold for a different
+ * reason the comment never stated: the dispatch loop only consults the yield predicate while spans
+ * remain UNDISPATCHED, and dispatch is in span order, so a yielded prefix structurally excludes the
+ * final span. No reachable input reddened the product, and none can.
+ *
+ * It is passed in anyway, because a leaf whose correctness depends on a caller-side ordering invariant
+ * it cannot see is one refactor away from being wrong silently: reorder dispatch, or consult the
+ * predicate once more after the last admission, and this returns a count one width too large — at
+ * which point `toOrderedEmbeddings` throws from inside the yield constructor and the abandonment loses
+ * its `EMBEDDING_BATCH_YIELDED_CODE`, downgrading a resumable checkpoint to a hard failure. The
+ * failure path one branch up already passed the measured count, so the two also disagreed about the
+ * same prefix — the divergence the single-producer rule above exists to prevent.
+ *
  * @param {Object} options
  * @param {Number} options.completedChunkCount Provider chunks that completed before the yield.
  * @param {Number} options.totalChunkCount Provider chunks the batch would otherwise have issued.
+ * @param {Number} options.completedTextCount Inputs covered by that prefix, measured by the caller.
  * @param {Object[]} options.data Accumulated `{index, embedding}` entries for the completed chunks.
  * @returns {Error}
  */
-function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data}) {
-    // Derived from the chunks SENT, not from `data.length`. A yield only ever happens at a chunk boundary,
-    // so every completed chunk is full-width — which makes this an independent expectation the response
-    // must satisfy, rather than a restatement of whatever the provider chose to return.
-    const completedTextCount = completedChunkCount * chunkSize,
-          embeddings         = toOrderedEmbeddings(data, completedTextCount),
+function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, completedTextCount, data}) {
+    // Still an independent expectation rather than a restatement of what came back: the count is
+    // measured from the spans that were SENT and completed, never from `data.length`.
+    const embeddings = toOrderedEmbeddings(data, completedTextCount),
           error              = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s), ${completedTextCount} embedding(s) carried`);
 
     error.code                = EMBEDDING_BATCH_YIELDED_CODE;
@@ -690,8 +710,15 @@ class TextEmbeddingService extends Base {
         openAiCompatibleLoadedModelsProbe: null
     }
 
-    #openAiCompatiblePostQueue       = [];
-    #openAiCompatiblePostQueueActive = false;
+    #openAiCompatiblePostQueue        = [];
+    // A COUNT, not a boolean. The boolean it replaces was a single-worker re-entrancy guard, and it
+    // was the real concurrency bound on this path: the dispatch loop above could issue N requests and
+    // they queued behind one drain. Bounded by the declared parallelism, so the provider's own stated
+    // width is the only authority.
+    #openAiCompatiblePostQueueWorkers = 0;
+    // Provider TASKS in flight, not posts. One multi-input POST is one task per input, and the budget
+    // is written in tasks, so admission has to count the same unit.
+    #openAiCompatibleInFlightTasks    = 0;
 
     // Native Ollama admission control. The openAiCompatible path has been serialized since
     // `#openAiCompatiblePostQueue` existed; this path reached the provider through
@@ -721,9 +748,12 @@ class TextEmbeddingService extends Base {
     /**
      * @summary Queues OpenAI-compatible embedding posts behind an interactive-first scheduler.
      *
-     * Local OpenAI-compatible embedding servers frequently serialize model requests. This queue
-     * keeps TextEmbeddingService from creating competing local-provider concurrency while allowing
-     * latency-sensitive single embeddings to run before subsequent KB-sync batch chunks.
+     * A local OpenAI-compatible engine schedules TASKS: one multi-input embedding POST expands to one
+     * task per input. This queue owns admission ORDER **and** admission VOLUME — it lets a
+     * latency-sensitive single embedding overtake queued KB-sync batch work, and it is the only place
+     * that can bound total outstanding tasks, because it is the only place every caller is visible.
+     * `resolveDispatchPlan` still reserves per `embedTexts` call, and that reservation is sound for
+     * one caller and insufficient for two: each satisfies its own and they jointly fill the budget.
      *
      * @param {String|String[]} inputData The text or array of texts to embed.
      * @param {Object} options The `#postOpenAiCompatible` retry/timeout options.
@@ -813,21 +843,119 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Runs queued OpenAI-compatible posts one at a time, preferring interactive work.
+     * @summary Admits queue workers up to the declared parallelism, preferring interactive work.
+     *
+     * Every worker selects through {@link #peekNextOpenAiCompatiblePostQueueIndex}, so the
+     * interactive-first fairness contract is unchanged: an interactive item still overtakes queued
+     * batch work, and it now becomes runnable when any worker frees rather than only the single one.
+     *
+     * No latency claim is made here. Whether that reduces interactive wait in practice depends on the
+     * engine's own scheduling and has not been measured; what IS structural is the headroom, and it is
+     * enforced HERE — batch posts are admitted only to `taskBudget - 1` while interactive posts may
+     * use the whole budget, so a single-task interactive request has a slot to take rather than a
+     * queue to wait behind. Enforcing it per call cannot hold: two batch callers each stay inside
+     * their own reservation and jointly leave nothing free.
+     *
+     * Not `await`ed: a caller enqueues and waits on its own task's promise, never on the drain.
+     * @returns {void}
+     * @private
+     */
+    #drainOpenAiCompatiblePostQueue() {
+        // Admission lives HERE, and the placement is the fix rather than a detail.
+        // `resolveDispatchPlan` reserves headroom per `embedTexts` call, which is sound for one caller
+        // and silently false for two: each satisfies its own reservation and they jointly overshoot the
+        // budget the reservation exists to protect. An earlier revision of this comment asserted the
+        // opposite — "it can never be the binding constraint … the dispatch loop keeps ITS OWN offered
+        // tasks" — and "its own" was the defect. Measured: two callers at width 3 offered six tasks
+        // against a budget of four.
+        //
+        // A worker cannot enforce it by declining after being spawned. An async function that returns
+        // before its first `await` runs synchronously to its `finally`, so the worker count is already
+        // back down when control reaches this loop — which respawns it, and the pair spins without
+        // bound. That shape reads from outside as a hang; it is measured here as the reason admission
+        // must decide BEFORE a worker exists.
+        const maxTasks = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel);
+
+        while (this.#openAiCompatiblePostQueueWorkers < maxTasks && this.#openAiCompatiblePostQueue.length > 0) {
+            const {index} = this.#peekNextOpenAiCompatiblePostQueueIndex();
+
+            if (index === -1) break;
+
+            // A slot withheld here returns the moment a settling worker re-drains.
+            if (!this.#mayAdmitOpenAiCompatiblePost(this.#openAiCompatiblePostQueue[index])) {
+                break
+            }
+
+            this.#openAiCompatiblePostQueueWorkers++;
+            this.#runOpenAiCompatiblePostQueueWorker()
+        }
+    }
+
+    /**
+     * @summary The number of provider tasks one queued post represents.
+     * @param {Object} task Queued post.
+     * @returns {Number} One per input, minimum one.
+     * @private
+     */
+    #openAiCompatibleTaskWeight(task) {
+        return Array.isArray(task?.inputData) ? Math.max(task.inputData.length, 1) : 1
+    }
+
+    /**
+     * @summary Whether one queued post may be dispatched against the declared task budget.
+     *
+     * BATCH work is admitted only up to `budget - 1`, which is the interactive-headroom contract
+     * expressed where it can actually hold. Reserving per `embedTexts` call cannot hold it: two batch
+     * callers each satisfy their own reservation and jointly fill the budget, leaving an interactive
+     * post no slot — the falsifier a reviewer supplied against an earlier version of this guard, where
+     * admission ran to the full budget for every lane.
+     *
+     * INTERACTIVE work may use the whole budget, because the reserved slot exists FOR it.
+     *
+     * `inFlightTasks === 0` always admits, so a post wider than the budget still makes forward
+     * progress rather than livelocking, and a single-slot deployment is untouched.
+     * @param {Object} task Queued post.
+     * @returns {Boolean}
+     * @private
+     */
+    #mayAdmitOpenAiCompatiblePost(task) {
+        if (this.#openAiCompatibleInFlightTasks === 0) {
+            return true
+        }
+
+        const budget  = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel),
+              ceiling = task?.priority === 'interactive' ? budget : Math.max(budget - 1, 1);
+
+        return this.#openAiCompatibleInFlightTasks + this.#openAiCompatibleTaskWeight(task) <= ceiling
+    }
+
+    /**
+     * @summary Drains queued posts until the queue empties or admission declines, then retires.
      * @returns {Promise<void>}
      * @private
      */
-    async #drainOpenAiCompatiblePostQueue() {
-        if (this.#openAiCompatiblePostQueueActive) return;
-
-        this.#openAiCompatiblePostQueueActive = true;
-
+    async #runOpenAiCompatiblePostQueueWorker() {
         try {
             while (this.#openAiCompatiblePostQueue.length > 0) {
-                const taskIndex = this.#getNextOpenAiCompatiblePostQueueIndex(),
-                      task      = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
+                const {index: taskIndex, bypassedBatchIndex} = this.#peekNextOpenAiCompatiblePostQueueIndex();
+
+                if (taskIndex === -1) break;
+
+                const weight = this.#openAiCompatibleTaskWeight(this.#openAiCompatiblePostQueue[taskIndex]);
+
+                // The drain admitted this worker once. A worker looping to a SECOND task re-checks,
+                // because capacity may have been taken since. Exiting is safe and cannot spin: this
+                // worker has already awaited, so its count is live when the drain next runs.
+                if (!this.#mayAdmitOpenAiCompatiblePost(this.#openAiCompatiblePostQueue[taskIndex])) {
+                    break
+                }
+
+                this.#commitOpenAiCompatibleSelection(bypassedBatchIndex);
+
+                const task = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
 
                 task.markDispatched();
+                this.#openAiCompatibleInFlightTasks += weight;
 
                 const startedAt = Date.now();
 
@@ -836,9 +964,11 @@ class TextEmbeddingService extends Base {
                 try {
                     const result = await this.#postOpenAiCompatible(task.inputData, task.options);
 
+                    this.#openAiCompatibleInFlightTasks -= weight;
                     task.lifecycle.onSettled({completedAt: Date.now(), success: true});
                     task.resolve(result);
                 } catch (err) {
+                    this.#openAiCompatibleInFlightTasks -= weight;
                     task.lifecycle.onSettled({completedAt: Date.now(), success: false});
 
                     // The queue task — not each transport attempt — owns final failure, so by the
@@ -857,7 +987,18 @@ class TextEmbeddingService extends Base {
                 }
             }
         } finally {
-            this.#openAiCompatiblePostQueueActive = false;
+            this.#openAiCompatiblePostQueueWorkers--;
+
+            // Wake capacity once, on retirement, rather than after every settle. This worker's own
+            // loop already re-checks admission and picks up freed capacity itself, so a per-settle
+            // drain only ever spawned EXTRA workers — and doing that on every completed task kept
+            // creating async work during container teardown, which surfaced as a native
+            // `RemoveEnvironmentCleanupHook` assertion in the parity stack rather than as anything
+            // visible from the unit suite. Retirement is the only moment another worker is genuinely
+            // needed, and by then this one has awaited, so the count is live and cannot spin.
+            if (this.#openAiCompatiblePostQueue.length > 0) {
+                this.#drainOpenAiCompatiblePostQueue()
+            }
         }
     }
 
@@ -872,7 +1013,7 @@ class TextEmbeddingService extends Base {
      * @returns {Number}
      * @private
      */
-    #getNextOpenAiCompatiblePostQueueIndex() {
+    #peekNextOpenAiCompatiblePostQueueIndex() {
         let firstBatchIndex       = -1,
             firstInteractiveIndex = -1;
 
@@ -887,18 +1028,37 @@ class TextEmbeddingService extends Base {
         }
 
         if (firstBatchIndex === -1 || firstInteractiveIndex === -1) {
-            return firstInteractiveIndex === -1 ? firstBatchIndex : firstInteractiveIndex;
+            return {index: firstInteractiveIndex === -1 ? firstBatchIndex : firstInteractiveIndex, bypassedBatchIndex: -1};
         }
 
         const oldestBatch = this.#openAiCompatiblePostQueue[firstBatchIndex];
 
         if (oldestBatch.interactiveBypassCount > 0) {
-            return firstBatchIndex;
+            return {index: firstBatchIndex, bypassedBatchIndex: -1};
         }
 
-        oldestBatch.interactiveBypassCount++;
+        // The bypass is a CONSEQUENCE of dispatching the interactive item, so it is reported here and
+        // applied by {@link #commitOpenAiCompatibleSelection} only when that dispatch actually happens.
+        // Previously the increment lived here, which made selection a state change: any caller that
+        // looked at what WOULD be selected — admission control needs exactly that, to weigh it —
+        // silently consumed a batch item's one bypass without dispatching anything.
+        return {index: firstInteractiveIndex, bypassedBatchIndex: firstBatchIndex};
+    }
 
-        return firstInteractiveIndex;
+    /**
+     * @summary Applies the fairness bookkeeping for a selection that is actually being dispatched.
+     *
+     * Split from {@link #peekNextOpenAiCompatiblePostQueueIndex} so that observing the queue is free
+     * and only dispatch costs a bypass. The pair is the reason admission can weigh a candidate before
+     * admitting it without corrupting interactive-first fairness.
+     * @param {Number} bypassedBatchIndex Index of the batch item an interactive item overtook, or -1.
+     * @returns {void}
+     * @private
+     */
+    #commitOpenAiCompatibleSelection(bypassedBatchIndex) {
+        if (bypassedBatchIndex !== -1) {
+            this.#openAiCompatiblePostQueue[bypassedBatchIndex].interactiveBypassCount++
+        }
     }
 
     /**
@@ -1882,11 +2042,15 @@ class TextEmbeddingService extends Base {
     /**
      * @summary Embeds a text array through OpenAI-compatible chunked batch requests.
      *
-     * Local OpenAI-compatible embedding servers often serialize model requests. Sending the whole
-     * KB-sync batch as one provider call can monopolize that server for minutes. Chunking keeps
-     * batch ingestion moving while yielding between chunks so interactive single embeddings can
-     * enter the provider queue before the next batch chunk. Multi-slot lanes additionally reserve
-     * one declared slot from each batch request so another provider request remains admissible.
+     * Sending a whole KB-sync batch as one provider call can monopolize the engine for minutes, so the
+     * batch is divided into spans and the lease bound is consulted between them — that is what lets an
+     * interactive single embedding enter the queue rather than waiting out the batch.
+     *
+     * Capacity is accounted in TASKS, not requests: one multi-input POST becomes one task per input, so
+     * a batch's offered work is `concurrency × width`. `resolveDispatchPlan` resolves both against the
+     * declared budget and holds one task back where the budget allows it, which is where the
+     * interactive-headroom guarantee lives. A budget of one reserves nothing — there is nothing to
+     * reserve from — and keeps its configured width unchanged.
      *
      * @param {String[]} texts The texts to embed.
      * @param {Object} options Abort and observability context.
@@ -1912,111 +2076,185 @@ class TextEmbeddingService extends Base {
             batchEmbeddingTimeoutMs = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS,
             batchEmbeddingYieldMs   = 0
         } = aiConfig.openAiCompatible;
-        const configuredChunkSize = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
-              embeddingParallel   = aiConfig.localModels.embedding.parallel,
-              // llama.cpp expands a multi-input embedding POST into one task per input. Keeping one
-              // declared slot outside this request makes interleaving possible without inventing a
-              // second slot-count authority or collapsing single-slot / generic remote endpoints.
-              slotHeadroomWidth = Number.isInteger(embeddingParallel) && embeddingParallel > 1 ?
-                  embeddingParallel - 1 :
-                  configuredChunkSize,
-              chunkSize          = Math.min(configuredChunkSize, slotHeadroomWidth),
-              requestTimeoutMs   = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
-              totalChunkCount    = Math.ceil(texts.length / chunkSize),
-              data               = [];
 
-        let completedChunkCount = 0;
+        // The provider's capacity unit is a TASK, not a request: one multi-input POST expands to one
+        // task per input, so offered work is `concurrency × width`. Width and concurrency are still
+        // separate contracts — width bounds what one failure or yield costs, concurrency bounds
+        // throughput — but they are jointly constrained by the same budget, which is why one function
+        // resolves both. The predecessor computed a width alone and could not express the constraint;
+        // it also fell through unclamped at `parallel <= 1`, the shipped default, where a configured
+        // width of 5 offered five tasks against one declared slot.
+        const taskBudget = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel),
+              plan       = resolveDispatchPlan({
+                  textCount   : texts.length,
+                  requestWidth: batchEmbeddingChunkSize,
+                  taskBudget
+              }),
+              {spans, width: chunkSize, concurrency: maxInFlight} = plan,
+              requestTimeoutMs = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
+              totalChunkCount  = spans.length,
+              // Parallel to `spans`. A COUNT of completions cannot locate them once they arrive out of
+              // order, and locating them is the entire carry problem — see `resolveCompletedPrefix`.
+              completedFlags   = new Array(totalChunkCount).fill(false),
+              inFlight         = new Set(),
+              data             = [];
 
-        for (let offset = 0; offset < texts.length; offset += chunkSize) {
-            operation.phase = 'batch-chunk';
-            throwIfEmbeddingAborted(signal, operationLabel);
+        let nextSpanIndex = 0,
+            firstError    = null,
+            yielded       = false;
 
-            // Cooperative heavy-maintenance-lease yield-point: BETWEEN provider chunks, never before the
-            // first — the same forward-progress guarantee `VectorService.embedChunks` makes between its own
-            // batches, so at least one chunk always lands per acquisition and the pair cannot livelock.
-            //
-            // The consultation has to happen HERE and not only one frame up, because the interval between two
-            // consultations up there is `maxRetries * ceil(batchSize / chunkSize) * (1 + unloadRetryCount) *
-            // batchEmbeddingTimeoutMs` — 16h40m at stock leaves, against a 30-minute `maxActiveHoldMs`. A
-            // cooperative bound whose checkpoint interval exceeds the bound is not a bound: the holder's
-            // first chance to honour it can arrive after it has already elapsed. Checking per chunk makes
-            // the worst case `(1 + unloadRetryCount) * batchEmbeddingTimeoutMs`.
-            //
-            // `completedChunkCount > 0` is a forward-progress guarantee only because the error carries the
-            // embeddings: a reached checkpoint is not a durable one. Dropping them would let an acquisition
-            // that yields at the same chunk every time re-embed the same prefix forever.
-            if (completedChunkCount > 0 && shouldYield?.()) {
-                operation.phase = 'lease-yield';
-                throw createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data})
-            }
-
-            const chunk = texts.slice(offset, offset + chunkSize);
+        /**
+         * Issues one span and registers its settlement. Rejections are captured rather than thrown so
+         * the pool can drain: abandoning in-flight requests would discard provider work that has
+         * already been paid for, which is the same waste the carry exists to prevent.
+         * @param {Number} spanIndex
+         * @returns {Promise}
+         */
+        const dispatchSpan = spanIndex => {
+            const span  = spans[spanIndex],
+                  chunk = texts.slice(span.offset, span.offset + span.count);
 
             recordEmbeddingSubmissions(providerActivityRecorder, chunk);
 
-            let result;
+            const settled = this.#enqueueOpenAiCompatiblePost(chunk, {
+                unloadRetriesLeft: unloadRetryCount,
+                requestTimeoutMs,
+                signal,
+                operationLabel,
+                onProviderTimeout,
+                operation,
+                providerActivity,
+                providerActivityRecorder
+            }, 'batch').then(result => {
+                data.push(...(result.data || []).map(item => ({
+                    ...item,
+                    index: span.offset + item.index
+                })));
 
-            try {
-                result = await this.#enqueueOpenAiCompatiblePost(chunk, {
-                    unloadRetriesLeft: unloadRetryCount,
-                    requestTimeoutMs,
-                    signal,
-                    operationLabel,
-                    onProviderTimeout,
-                    operation,
-                    providerActivity,
-                    providerActivityRecorder
-                }, 'batch');
-            } catch (err) {
-                // Producer attribution for the FAILED request, decorated unconditionally: a provider
-                // timeout names the whole multi-input POST, so the consumer's undeliverable
-                // classification must know exactly which input span was in flight — assigning the
-                // failure to the first batch member when the request held five is how an innocent
-                // neighbour inherits a monster's strikes. Pure indices derived from what was SENT;
-                // unlike the carry below they need no positional-binding proof because they bind
-                // nothing — they only NAME the span.
-                err.failedTextOffset = offset;
-                err.failedTextCount  = chunk.length;
+                completedFlags[spanIndex] = true
+            }).catch(err => {
+                // Producer attribution for the FAILED request. A provider timeout names the whole
+                // multi-input POST, so the consumer's undeliverable classification must know which
+                // input span was in flight — assigning the failure to the first batch member when the
+                // request held five is how an innocent neighbour inherits a monster's strikes. Under
+                // concurrency this is why the span travels with the error rather than being re-derived
+                // from a loop variable that has already moved on.
+                err.failedTextOffset = span.offset;
+                err.failedTextCount  = span.count;
 
-                // Work conservation on the FAILURE path. The yield-point above carries its
-                // completed prefix; a provider failure mid-batch used to discard it, so the caller's
-                // retry — and every later sweep — re-purchased vectors the provider had already
-                // returned. The ORIGINAL error is decorated rather than replaced: its `code` is what
-                // the caller's timeout/circuit classification reads. Completed chunks are full-width
-                // by the same boundary argument the yield error makes (only a batch's final chunk can
-                // be short, and a completed final chunk leaves nothing to fail), so the expected count
-                // derives from what was SENT. If the accumulated data cannot satisfy the positional-
-                // binding guard, the error travels undecorated — carrying nothing beats binding
-                // vectors to the wrong ids.
-                if (completedChunkCount > 0) {
-                    try {
-                        const completedTextCount = completedChunkCount * chunkSize,
-                              embeddings         = toOrderedEmbeddings(data, completedTextCount);
+                // FIRST error wins. A later failure describes a request issued after the lane was
+                // already failing, and reporting it would name a span the caller did not stop on.
+                firstError ??= err
+            }).finally(() => {
+                inFlight.delete(settled)
+            });
 
-                        err.completedChunkCount = completedChunkCount;
-                        err.totalChunkCount     = totalChunkCount;
-                        err.completedTextCount  = completedTextCount;
-                        err.embeddings          = embeddings;
-                    } catch {
-                        // Positional binding could not be proven; the failure travels uncarried.
-                    }
-                }
+            inFlight.add(settled);
 
-                throw err;
+            return settled
+        };
+
+        while (nextSpanIndex < totalChunkCount && !firstError && !yielded) {
+            throwIfEmbeddingAborted(signal, operationLabel);
+
+            // Cooperative heavy-maintenance-lease yield-point: between ADMISSIONS, and never before at
+            // least one span has landed — the same forward-progress guarantee `VectorService.embedChunks`
+            // makes between its own batches, so at least one span always lands per acquisition and the
+            // pair cannot livelock.
+            //
+            // The consultation has to happen HERE and not one frame up, because the interval between two
+            // consultations up there is `maxRetries * ceil(batchSize / chunkSize) * (1 + unloadRetryCount)
+            // * batchEmbeddingTimeoutMs` — 16h40m at stock leaves, against a 30-minute `maxActiveHoldMs`.
+            // A cooperative bound whose checkpoint interval exceeds the bound is not a bound.
+            //
+            // Keyed on the CARRYABLE prefix rather than on any completion: a span that landed after a
+            // hole is not durable, so treating it as forward progress would let an acquisition yield
+            // having banked nothing and re-embed the same span forever.
+            if (resolveCompletedPrefix({spans, completedFlags}).chunkCount > 0 && shouldYield?.()) {
+                yielded = true;
+                break
             }
 
-            data.push(...(result.data || []).map(item => ({
-                ...item,
-                index: offset + item.index
-            })));
+            while (inFlight.size < maxInFlight && nextSpanIndex < totalChunkCount && !firstError) {
+                operation.phase = 'batch-chunk';
+                dispatchSpan(nextSpanIndex++);
 
-            completedChunkCount++;
+                if (batchEmbeddingYieldMs > 0 && nextSpanIndex < totalChunkCount) {
+                    operation.phase = 'batch-yield';
+                    await waitForOpenAiCompatibleBatchYield(batchEmbeddingYieldMs, signal, operationLabel)
+                }
+            }
 
-            if (offset + chunkSize < texts.length) {
-                operation.phase = 'batch-yield';
-                await waitForOpenAiCompatibleBatchYield(batchEmbeddingYieldMs, signal, operationLabel);
+            if (inFlight.size > 0) {
+                await Promise.race([...inFlight])
             }
         }
+
+        // Drain before reporting anything. An outstanding request may still complete and extend the
+        // carryable prefix, and its work is already paid for.
+        while (inFlight.size > 0) {
+            await Promise.race([...inFlight])
+        }
+
+        const carried = resolveCompletedPrefix({spans, completedFlags});
+
+        // Completed-but-unbindable work is REPORTED, never dropped in silence: the consumer binds by
+        // position and the ordering guard refuses a sparse carry, so a span landing after a hole cannot
+        // be handed over — and a lane quietly re-purchasing it on every retry is the failure this leaf
+        // is about. The count rides the thrown envelope AND the operation record, because an internal
+        // field no consumer reads is not a report.
+        //
+        // A zero is an assertion that nothing was lost, so it is set unconditionally rather than only
+        // when non-zero: an absent field cannot distinguish "no loss" from "never measured".
+        operation.droppedCompletedChunkCount = carried.droppedChunkCount;
+
+        // PRECEDENCE: a provider failure or caller abort outranks a cooperative yield vote observed
+        // earlier in the same batch. The yield is a decision to stop politely; a failure is the reason
+        // the batch cannot continue at all, and reporting the polite version would hand the caller a
+        // resumable checkpoint for a lane that is actually broken. Evaluated after the drain, so a
+        // failure surfacing while in-flight requests settled still wins.
+        if (firstError) {
+            // Work conservation on the FAILURE path. The ORIGINAL error is decorated rather than
+            // replaced: its `code` is what the caller's timeout/circuit classification reads.
+            firstError.droppedCompletedChunkCount = carried.droppedChunkCount;
+
+            if (carried.chunkCount > 0) {
+                try {
+                    // Bind BEFORE assigning anything. The guard throws on an unprovable prefix, and a
+                    // field-by-field decoration would already have written `completedTextCount` by then
+                    // — handing the consumer a count with no vectors, which it slices onto ids anyway.
+                    const embeddings = toOrderedEmbeddings(
+                        data.filter(entry => entry.index < carried.textCount),
+                        carried.textCount
+                    );
+
+                    firstError.completedChunkCount = carried.chunkCount;
+                    firstError.totalChunkCount     = totalChunkCount;
+                    firstError.completedTextCount  = carried.textCount;
+                    firstError.embeddings          = embeddings
+                } catch {
+                    // Positional binding could not be proven; the failure travels uncarried.
+                }
+            }
+
+            throw firstError
+        }
+
+        if (yielded) {
+            operation.phase = 'lease-yield';
+
+            const yieldError = createEmbeddingBatchYieldError({
+                completedChunkCount: carried.chunkCount,
+                totalChunkCount,
+                completedTextCount : carried.textCount,
+                data               : data.filter(entry => entry.index < carried.textCount)
+            });
+
+            yieldError.droppedCompletedChunkCount = carried.droppedChunkCount;
+
+            throw yieldError
+        }
+
 
         return toOrderedEmbeddings(data, texts.length);
     }
