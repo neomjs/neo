@@ -1070,35 +1070,40 @@ class TenantRepoSyncService extends Base {
         if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) return null;
 
         this.embeddingRecoveryClock = clock;
+
         // The band is read HERE, at the use site that owns the decision, and injected into the pure
         // builder — the sanctioned shape for an `ai/` consumer, and the reason `embeddingProbe.mjs`
-        // stays Neo-free. Resolved per probe rather than cached, so a deployment that narrows its
-        // slot mid-run is probed against the ceiling it actually has.
-        this.embeddingRecoveryProbeFn = runProbe || (() => {
-            // A 44-byte canary certified a property nobody needed. Peak memory for one non-causal
-            // embedding request scales with the SQUARE of its token count, so a probe three orders
-            // of magnitude under the workload cannot fail the way the lane fails — and its `healthy`
-            // was the green light that re-dispatched the batch that killed the engine, 36 times.
-            const probeSize = buildEmbeddingProbeInput({
-                estimateBandTokens: resolveEmbeddingAdmissionBand({
-                    contextLimitTokens       : AiConfig.localModels.embedding.contextLimitTokens,
-                    safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
-                }).estimateBandTokens,
-                // The recovery probe is NOT full-band, and that is a measured retreat rather than
-                // a preference. A full-band probe genuinely bounds the re-dispatch it authorizes —
-                // the call site cannot see the cohort's input sizes, so the band ceiling is the only
-                // available dominating bound — but the SWEEP AWAITS this probe, and the suite priced
-                // it: the same `runTask` arm passes in 12.7 s at a quarter band and exceeds 30 s at
-                // the full one. In production that latency is a held lease against a dead provider.
-                //
-                // So neither published fork survives contact: the cheap probe does not bound the
-                // authorization, and the bounding probe blocks the sweep. The shape that works is
-                // one neither of us had — obtain the full-size proof OUT of the sweep's critical
-                // path, and let eligibility consume it — and that is open on the PR rather than
-                // guessed at here.
-                fraction: EMBEDDING_PROBE_BAND_FRACTION
-            });
+        // stays Neo-free. Resolved per call, so a deployment that narrows its slot mid-run is probed
+        // against the ceiling it actually has.
+        //
+        // Resolved BEFORE the gate key, not inside the probe: the key NAMES this geometry, so a
+        // value produced by the run the key admits can only describe the PREVIOUS run's bound.
+        //
+        // A 44-byte canary certified a property nobody needed. Peak memory for one non-causal
+        // embedding request scales with the SQUARE of its token count, so a probe three orders
+        // of magnitude under the workload cannot fail the way the lane fails — and its `healthy`
+        // was the green light that re-dispatched the batch that killed the engine, 36 times.
+        const probeSize = buildEmbeddingProbeInput({
+            estimateBandTokens: resolveEmbeddingAdmissionBand({
+                contextLimitTokens       : AiConfig.localModels.embedding.contextLimitTokens,
+                safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
+            }).estimateBandTokens,
+            // The recovery probe is NOT full-band, and that is a measured retreat rather than
+            // a preference. A full-band probe genuinely bounds the re-dispatch it authorizes —
+            // the call site cannot see the cohort's input sizes, so the band ceiling is the only
+            // available dominating bound — but the SWEEP AWAITS this probe, and the suite priced
+            // it: the same `runTask` arm passes in 12.7 s at a quarter band and exceeds 30 s at
+            // the full one. In production that latency is a held lease against a dead provider.
+            //
+            // So neither published fork survives contact: the cheap probe does not bound the
+            // authorization, and the bounding probe blocks the sweep. The shape that works is
+            // one neither of us had — obtain the full-size proof OUT of the sweep's critical
+            // path, and let eligibility consume it — and that is open on the PR rather than
+            // guessed at here.
+            fraction: EMBEDDING_PROBE_BAND_FRACTION
+        });
 
+        this.embeddingRecoveryProbeFn = runProbe || (() => {
             // NOT scaled to the size, and that is currently a KNOWN DEFECT rather than a decision.
             //
             // The reviewer is right that a 30 s ceiling under a full-band probe makes a HEALTHY lane
@@ -1113,8 +1118,6 @@ class TenantRepoSyncService extends Base {
             // needs. That is a design decision on a recovery path, and it is open on the PR rather
             // than picked here.
             const sizedTimeoutMs = timeoutMs;
-
-            this.embeddingRecoveryProbeGeometry = `${probeSize.estimateTokens}:${probeSize.fraction ?? 'unsized'}`;
 
             return buildEmbeddingProbeBlock({
                 cfg      : AiConfig,
@@ -1177,7 +1180,11 @@ class TenantRepoSyncService extends Base {
         // Geometry is part of the proof's IDENTITY, not metadata about it. A cached quarter-band
         // `healthy` cannot answer a full-band question, and a key that omits the bound lets it —
         // the proof would satisfy a question it never bounded, which is RA-1 one layer along.
-        const key = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${this.embeddingRecoveryProbeGeometry ?? 'pending'}:${[...episodeKeys].sort().join(',')}`;
+        //
+        // `sized` is the builder's own word for a band it could not resolve. Read that, rather than
+        // inferring absence from a null fraction: the two are the same today only by coincidence.
+        const geometry = probeSize.sized ? `${probeSize.estimateTokens}:${probeSize.fraction}` : 'unsized',
+              key      = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${geometry}:${[...episodeKeys].sort().join(',')}`;
 
         this.embeddingRecoveryLastResult = await this.embeddingRecoveryGate.tick({key});
         return this.embeddingRecoveryLastResult;

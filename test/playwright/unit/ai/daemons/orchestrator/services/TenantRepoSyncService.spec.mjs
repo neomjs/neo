@@ -1039,6 +1039,41 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(calls, 'an unreachable provider is worth asking again').toBeGreaterThan(1);
     });
 
+    test('the gate key names a band the service resolved, not one the previous probe left behind', async () => {
+        // The key IS the proof's identity, and the gate rotates a fresh generation on any key change
+        // — clean streak, empty cache, no backoff. So a key component produced by the run that key
+        // admits can only describe the PREVIOUS run's bound, and every first failure is discarded:
+        // the death record written under call 1's key is unreachable to call 2, and the killing
+        // request fires a second time against the lane it just killed.
+        //
+        // The two arms above pass either way, which is the part worth keeping. They inject `runProbe`,
+        // and the geometry used to be assigned inside the branch that injection replaces — so the
+        // spec held one key while production moved it. Identity has to be a function of config and
+        // episodes alone; who runs the probe is not part of the question being asked.
+        const
+            keys     = [],
+            runProbe = async context => {
+                keys.push(context.key);
+
+                return {
+                    status             : 'failed',
+                    errorClassification: 'provider-unreachable',
+                    errorCode          : 'ECONNREFUSED'
+                }
+            },
+            episodeKeys = ['f'.repeat(32)];
+
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000});
+        // Past the failure-backoff window, so the second attempt actually happens and there are two
+        // identities to compare.
+        await TenantRepoSyncService.probeEmbeddingRecovery({episodeKeys, runProbe, clock: () => 1_000 + 15 * 60 * 1000});
+
+        expect(keys.length, 'the comparison needs two attempts').toBe(2);
+        expect(keys[0], 'identity is a function of config and episodes, never of call order').toBe(keys[1]);
+        expect(keys[0], 'a resolved band reading, not a placeholder for a probe that has not run')
+            .not.toContain(':pending:');
+    });
+
     test('the probe size reaches the process-owned snapshot, not just the probe result', async () => {
         // The gap a reviewer found: `buildEmbeddingProbeBlock` produced the coverage fields and the
         // bridge summarizer declared them, and THIS projection — an explicit allowlist — dropped them
