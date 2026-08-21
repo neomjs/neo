@@ -841,7 +841,7 @@ class TextEmbeddingService extends Base {
     /**
      * @summary Admits queue workers up to the declared parallelism, preferring interactive work.
      *
-     * Every worker selects through {@link #getNextOpenAiCompatiblePostQueueIndex}, so the
+     * Every worker selects through {@link #peekNextOpenAiCompatiblePostQueueIndex}, so the
      * interactive-first fairness contract is unchanged: an interactive item still overtakes queued
      * batch work, and it now becomes runnable when any worker frees rather than only the single one.
      *
@@ -856,10 +856,15 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #drainOpenAiCompatiblePostQueue() {
-        // The TASK budget, used here only as a ceiling on concurrent workers. It can never be the
-        // binding constraint on batch work: the dispatch loop keeps its own offered tasks at or below
-        // `taskBudget - 1`, so a batch fan-out plus one interactive request still fits. Task
-        // accounting lives in `resolveDispatchPlan`, and this queue deliberately does not repeat it.
+        // The TASK budget bounds concurrent WORKERS here — and a worker is one POST, not one task.
+        // A post carrying N inputs is N provider tasks, so this ceiling does not bind the unit the
+        // budget is written in. Known open; the admission fix belongs beside this line.
+        // `resolveDispatchPlan` reserves headroom per `embedTexts` call, which is sound for one caller
+        // and silently false for two: each satisfies its own reservation and they jointly overshoot the
+        // budget the reservation exists to protect. An earlier revision of this comment asserted the
+        // opposite — "it can never be the binding constraint … the dispatch loop keeps ITS OWN offered
+        // tasks" — and "its own" was the defect. Measured: two callers at width 3 offered six tasks
+        // against a budget of four.
         const maxWorkers = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel);
 
         while (this.#openAiCompatiblePostQueueWorkers < maxWorkers && this.#openAiCompatiblePostQueue.length > 0) {
@@ -876,8 +881,13 @@ class TextEmbeddingService extends Base {
     async #runOpenAiCompatiblePostQueueWorker() {
         try {
             while (this.#openAiCompatiblePostQueue.length > 0) {
-                const taskIndex = this.#getNextOpenAiCompatiblePostQueueIndex(),
-                      task      = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
+                const {index: taskIndex, bypassedBatchIndex} = this.#peekNextOpenAiCompatiblePostQueueIndex();
+
+                if (taskIndex === -1) break;
+
+                this.#commitOpenAiCompatibleSelection(bypassedBatchIndex);
+
+                const task = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
 
                 task.markDispatched();
 
@@ -924,7 +934,7 @@ class TextEmbeddingService extends Base {
      * @returns {Number}
      * @private
      */
-    #getNextOpenAiCompatiblePostQueueIndex() {
+    #peekNextOpenAiCompatiblePostQueueIndex() {
         let firstBatchIndex       = -1,
             firstInteractiveIndex = -1;
 
@@ -939,18 +949,37 @@ class TextEmbeddingService extends Base {
         }
 
         if (firstBatchIndex === -1 || firstInteractiveIndex === -1) {
-            return firstInteractiveIndex === -1 ? firstBatchIndex : firstInteractiveIndex;
+            return {index: firstInteractiveIndex === -1 ? firstBatchIndex : firstInteractiveIndex, bypassedBatchIndex: -1};
         }
 
         const oldestBatch = this.#openAiCompatiblePostQueue[firstBatchIndex];
 
         if (oldestBatch.interactiveBypassCount > 0) {
-            return firstBatchIndex;
+            return {index: firstBatchIndex, bypassedBatchIndex: -1};
         }
 
-        oldestBatch.interactiveBypassCount++;
+        // The bypass is a CONSEQUENCE of dispatching the interactive item, so it is reported here and
+        // applied by {@link #commitOpenAiCompatibleSelection} only when that dispatch actually happens.
+        // Previously the increment lived here, which made selection a state change: any caller that
+        // looked at what WOULD be selected — admission control needs exactly that, to weigh it —
+        // silently consumed a batch item's one bypass without dispatching anything.
+        return {index: firstInteractiveIndex, bypassedBatchIndex: firstBatchIndex};
+    }
 
-        return firstInteractiveIndex;
+    /**
+     * @summary Applies the fairness bookkeeping for a selection that is actually being dispatched.
+     *
+     * Split from {@link #peekNextOpenAiCompatiblePostQueueIndex} so that observing the queue is free
+     * and only dispatch costs a bypass. The pair is the reason admission can weigh a candidate before
+     * admitting it without corrupting interactive-first fairness.
+     * @param {Number} bypassedBatchIndex Index of the batch item an interactive item overtook, or -1.
+     * @returns {void}
+     * @private
+     */
+    #commitOpenAiCompatibleSelection(bypassedBatchIndex) {
+        if (bypassedBatchIndex !== -1) {
+            this.#openAiCompatiblePostQueue[bypassedBatchIndex].interactiveBypassCount++
+        }
     }
 
     /**
