@@ -7,6 +7,23 @@ const GRAPH_SCHEMA_VERSION_ID = 'graph';
 const GRAPH_SCHEMA_WIPE_ENV   = 'NEO_ALLOW_SCHEMA_WIPE';
 
 /**
+ * @summary Maps a narrow UPDATE's result to the `GraphLog` id it produced, or `0` when nothing matched.
+ *
+ * The `node_update` / `edge_update` triggers insert a `GraphLog` row inside the statement, so
+ * `lastInsertRowid` names exactly this write's log position. Returning it lets a caller acknowledge
+ * **its own** row instead of the global maximum — the difference between skipping the replay of a
+ * write you just made and skipping a concurrent peer's write you have never seen.
+ *
+ * `0` rather than `false` on no-match keeps every existing truthiness check working while making the
+ * id available to callers that need it.
+ * @param {Object} result better-sqlite3 `RunResult`.
+ * @returns {Number} `GraphLog` id, or `0`.
+ */
+function narrowWriteResult(result) {
+    return result.changes > 0 ? Number(result.lastInsertRowid) : 0
+}
+
+/**
  * Native Write-Ahead Logging (WAL) SQLite engine proxy driving memory graph persistence logic.
  * Bounded uniquely inside backend Node.js domains, this integration leverages dynamic imports natively,
  * bypassing generic browser module restraints while translating instantaneous $O(1)$ memory mapping directly to physical data rows.
@@ -467,12 +484,12 @@ class SQLite extends Base {
 
         if (!path) return false;
 
-        return this.db.prepare(`
+        return narrowWriteResult(this.db.prepare(`
             UPDATE ${table}
             SET   data = json_set(data, '${path}', ?)
             WHERE id = ?
               AND json_extract(data, '${path}') IS NULL
-        `).run(value, id).changes > 0;
+        `).run(value, id));
     }
 
     /**
@@ -492,11 +509,11 @@ class SQLite extends Base {
 
         if (!path) return false;
 
-        return this.db.prepare(`
+        return narrowWriteResult(this.db.prepare(`
             UPDATE ${table}
             SET   data = json_set(data, '${path}', ?)
             WHERE id = ?
-        `).run(value, id).changes > 0;
+        `).run(value, id));
     }
 
     /**

@@ -1989,9 +1989,17 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(result.results[2]).toMatchObject({messageId: 'MESSAGE:ghost-does-not-exist', status: 'error'});
         expect(result.results[2].error).toMatch(/Message not found/);
 
-        // every valid id really read
+        // Every valid id really read — asserted against STORAGE rather than the cache map.
+        //
+        // Storage, not the cache map: a durability claim should not be witnessed by a cache that is
+        // designed to be invalidated and lazy-reloaded. The stored row is the thing the claim is
+        // about, and it survives regardless of what the coherence layer does to the cache entry.
         for (const id of ids) {
-            expect(GraphService.db.nodes.get(id).properties.readAt).toBeTruthy();
+            const stored = JSON.parse(
+                GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id).data
+            );
+
+            expect(stored.properties.readAt, `${id} is durably read`).toBeTruthy();
         }
     });
 
@@ -2116,8 +2124,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
         expect(receipt.snapshotAt).toBeTruthy();
         expect(GraphService.db.nodes.get(directId).properties.readAt).toBeTruthy();
-        expect(getBroadcastDeliveryEdgeForTest(broadcastId, '@bob').properties.readAt).toBeTruthy();
-        expect(getBroadcastDeliveryEdgeForTest(broadcastId, '@charlie').properties.readAt).toBeNull();
+        // Storage, not the cache index: a narrow receipt write acknowledges only its own GraphLog
+        // row, so an edge whose row was not the immediate next one is invalidated pending lazy
+        // reload. The durable carrier is the claim here, and it is the one that survives either way.
+        const edgeReadAt = target => {
+            const row = GraphService.db.storage.db.prepare(
+                `SELECT data FROM Edges WHERE type = 'DELIVERED_TO' AND source = ? AND target = ? LIMIT 1`
+            ).get(broadcastId, target);
+
+            return row ? (JSON.parse(row.data).properties?.readAt ?? null) : null
+        };
+
+        expect(edgeReadAt('@bob'), 'the recipient who drained carries the receipt').toBeTruthy();
+        expect(edgeReadAt('@charlie'), 'and no other recipient does').toBeNull();
         expect(GraphService.db.nodes.get(archivedId).properties.readAt).toBeNull();
 
         const bobUnread = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
@@ -2644,13 +2663,15 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(first).toBeTruthy();
 
         // A direct second write through the same narrow path must overwrite, not be refused.
+        // The writers return the GraphLog id they produced (0 = no row matched), so a caller can
+        // acknowledge its OWN log position instead of the global maximum. Truthiness is unchanged.
         expect(storage.setRecordProperty('Nodes', directed, 'readAt', '2099-01-01T00:00:00.000Z'),
-            'the unconditional writer reports a row was updated').toBe(true);
+            'the unconditional writer reports the log id it wrote').toBeGreaterThan(0);
         expect(readAtOf(), 'and the value actually changed').toBe('2099-01-01T00:00:00.000Z');
 
         // The paired control: the write-once variant refuses, which is why the two are separate.
         expect(storage.setRecordPropertyIfAbsent('Nodes', directed, 'readAt', '2100-01-01T00:00:00.000Z'),
-            'the write-once variant refuses an already-set field').toBe(false)
+            'the write-once variant refuses an already-set field').toBe(0)
     });
 
     test('#17321 first-seen is write-once — a second listing does not restamp', async () => {

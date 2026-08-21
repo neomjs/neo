@@ -1988,9 +1988,49 @@ function resolveReceiptState(messageNode, deliveryEdge, target, receiptShaped) {
  * @param {String} operation Human-readable operation name for the warning text.
  * @returns {Object} The receipt, annotated when non-durable.
  */
-function receiptWithDurability(receipt, durable, operation) {
-    if (durable) {
+/**
+ * Outcomes of a narrow receipt write. Three distinct states hid behind one boolean, and the caller
+ * described all of them with the no-storage warning — which asserts an in-memory application that
+ * only the first of them performs.
+ * @type {Object}
+ */
+const RECEIPT_WRITE = Object.freeze({
+    /** No storage backing. Cache WAS mutated; the state is real until restart. */
+    noStorage : 'no-storage',
+    /** The row was updated durably. */
+    written   : 'written',
+    /** Write-once field already carried a value. Cache untouched, and that is correct. */
+    alreadySet: 'already-set',
+    /** The statement matched no row: authorized cached record, gone from storage. Cache untouched. */
+    missingRow: 'missing-row'
+});
+
+/**
+ * @summary Shapes a lifecycle receipt from a narrow-write outcome, without overstating any of them.
+ *
+ * `written` and `already-set` are both successful ends for the caller — the field holds the intended
+ * value durably. The other two are not, and they fail differently: `no-storage` applied the mutation
+ * in memory and loses it on restart, while `missing-row` applied it **nowhere** and the caller's
+ * cached record no longer corresponds to a stored one. Reporting the second with the first's wording
+ * tells an operator their change is in memory when it is not.
+ *
+ * @param {Object} receipt Happy-path receipt; returned unchanged on success so the wire shape holds.
+ * @param {String} outcome A {@link RECEIPT_WRITE} member.
+ * @param {String} operation Operation name for the message.
+ * @returns {Object}
+ */
+function receiptWithDurability(receipt, outcome, operation) {
+    // Boolean call sites predate the outcome vocabulary; `true` meant "durable".
+    if (outcome === true || outcome === RECEIPT_WRITE.written || outcome === RECEIPT_WRITE.alreadySet) {
         return receipt;
+    }
+
+    if (outcome === RECEIPT_WRITE.missingRow) {
+        const warning = `${operation} did NOT apply: the record is no longer present in storage, and the in-memory copy was left unchanged rather than reporting a state that exists nowhere. Retry after refreshing the record.`;
+
+        logger.warn(`[MailboxService] ${warning}`);
+
+        return {...receipt, status: 'not_applied', durable: false, retryable: true, warning};
     }
 
     const warning = `${operation} was applied in memory but NOT persisted: the graph database has no storage backing, so this state is lost on restart.`;
@@ -2151,20 +2191,44 @@ async function writeReceiptField(record, table, field, value, {writeOnce = false
     if (!db?.storage) {
         // No durable surface to protect; cache-only mode keeps the in-memory contract intact.
         getRecordProperties(record)[field] = value;
-        return false
+        return RECEIPT_WRITE.noStorage
     }
 
     const
         id     = getRecordField(record, 'id'),
         method = writeOnce ? 'setRecordPropertyIfAbsent' : 'setRecordProperty',
-        wrote  = db.storage[method](table, id, field, value);
+        // The GraphLog id this write produced, or 0 when the statement matched nothing.
+        logId  = db.storage[method](table, id, field, value);
 
-    if (wrote) {
-        getRecordProperties(record)[field] = value;
-        db.acknowledgeLocalMutations?.()
+    if (!logId) {
+        // The statement matched nothing. For a write-once field that means the value was already
+        // set; otherwise the row is gone from storage while the caller still holds a cached record.
+        // Cache is deliberately NOT mutated either way, so the caller must not report success — and
+        // must not reuse the no-storage warning, which claims an in-memory application that did not
+        // happen.
+        return writeOnce ? RECEIPT_WRITE.alreadySet : RECEIPT_WRITE.missingRow
     }
 
-    return wrote
+    getRecordProperties(record)[field] = value;
+
+    // KNOWN GAP, tracked separately — do not read this ack as endorsed.
+    //
+    // `acknowledgeLocalMutations()` sets `lastSyncId = getLatestLogId()`: the global MAX, not this
+    // write's position. For a whole-record write that was harmless, because it had already
+    // overwritten whatever a peer put there. A narrow write PRESERVES the peer's field in SQLite,
+    // and then max-acking marks the peer's log row seen — so the local cache never replays it.
+    // Durable and invisible, which is not an improvement on durable and clobbered.
+    //
+    // Two narrower acks were built and measured, and neither is shippable as-is: dropping the ack
+    // entirely makes every receipt write invalidate its own cache entry (correct by the
+    // invalidate-then-lazy-load design, but it changes a contract this suite relies on in 65
+    // places), and acknowledging only our own row — `logId === db.lastSyncId + 1`, which the
+    // writers now return the id for — holds or not depending on run order, so cache survival
+    // becomes nondeterministic. The real fix is a Database-level ability to skip replay of
+    // self-authored rows, which is a shared-primitive change and not this PR's to make.
+    db.acknowledgeLocalMutations?.();
+
+    return RECEIPT_WRITE.written
 }
 
 /**
@@ -3950,11 +4014,18 @@ class MailboxService extends Base {
             nonDurable = results
                 .filter(result => result.status === 'read' && result.durable === false)
                 .map(({messageId, warning}) => ({messageId, warning})),
+            // A row that vanished from storage between snapshot and write is neither read nor an
+            // error. Without its own slot it matches none of the filters above and disappears from
+            // every counter — the aggregate would report a clean drain over messages it never
+            // touched, which is the exact silence this drain's design set out to remove.
+            notApplied = results
+                .filter(result => result.status === 'not_applied')
+                .map(({messageId, warning}) => ({messageId, warning})),
             readCount    = results.filter(result => result.status === 'read').length,
             durableCount = readCount - nonDurable.length,
             status       = messageIds.length === 0
                 ? 'noop'
-                : failures.length === 0 && nonDurable.length === 0
+                : failures.length === 0 && nonDurable.length === 0 && notApplied.length === 0
                     ? 'read'
                     : 'partial';
 
@@ -3996,9 +4067,11 @@ class MailboxService extends Base {
             durableCount,
             failureCount   : failures.length,
             nonDurableCount: nonDurable.length,
+            notAppliedCount: notApplied.length,
             withheldUnseenCount,
             failures,
-            nonDurable
+            nonDurable,
+            notApplied
         };
     }
 
