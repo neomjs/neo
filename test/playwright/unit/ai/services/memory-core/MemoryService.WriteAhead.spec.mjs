@@ -59,6 +59,13 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         testWalDir     = aiConfig.memoryWal.dir;
         testPlaneId    = aiConfig.plane.id;
 
+        // `Neo.get` is an InstanceManager alias, and both production entrypoints that reach these
+        // services — `ai/mcp/server/memory-core/mcp-server.mjs:5` and `ai/services.mjs:24` — import
+        // it at module load. Without it the graph write path throws `Neo.get is not a function`,
+        // which is a harness gap rather than a defect: the suite was booting services along a path
+        // production never uses. Surfaced by @neo-gpt's RA-3 effect arm.
+        await import('../../../../../../src/manager/Instance.mjs');
+
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         ({default: MemoryService, MEMORY_ACCEPTED_MESSAGE} =
             await import('../../../../../../ai/services/memory-core/MemoryService.mjs'));
@@ -359,6 +366,120 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             TurnPresenceService.recordTurnPresence = originalPresence;
             MemoryService.describeWriteVisibility  = originalVisibility;
         }
+    });
+
+    test('#17342: a failed presence terminal carries a sanitized reason, not a bare constant', async () => {
+        const originalPresence = TurnPresenceService.recordTurnPresence;
+
+        // A realistic shape for this defect class: the throw carries a credential-looking token and
+        // ragged whitespace, so the arm exercises the reduction rather than a tidy string.
+        TurnPresenceService.recordTurnPresence = () => Promise.reject(
+            new Error('presence write rejected\n\n  token=ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIII   mid-work')
+        );
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt  : 'failed presence prompt',
+                thought : 'failed presence thought',
+                response: 'failed presence result'
+            }));
+
+            expect(result.stageTimings.presenceTerminal).toBe('failed');
+
+            const reason = result.stageTimings.presenceReason;
+
+            expect(reason).toBeTruthy();
+            expect(reason).toContain('presence write rejected');
+            // collapsed, bounded, and the credential family masked — the whole point is that this
+            // field can be read by an operator without becoming a leak.
+            expect(reason).not.toMatch(/\s{2,}/);
+            expect(reason.length).toBeLessThanOrEqual(240);
+            expect(reason).not.toContain('ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIII');
+        } finally {
+            TurnPresenceService.recordTurnPresence = originalPresence;
+        }
+    });
+
+    test('#17342: the save TERMINALIZES a real active turn, not just the no-op path', async () => {
+        // @neo-gpt's RA-3. The control below reaches TurnPresenceService's `no-active-turn` noop
+        // (:129), which the wrapper also classifies `completed` — so it proves classification and
+        // NOT the effect. This arm creates the effect-bearing precondition first: a real interval
+        // under the same bound context, then the production save, then the interval's own state.
+        const started = await asTenant(() => TurnPresenceService.recordTurnPresence({
+            action: 'start',
+            source: '17342-effect-arm'
+        }));
+
+        expect(started.status).toBe('recorded');
+        expect(started.turnId).toBeTruthy();
+
+        // The interval is real and persisted — asserted against SQLite directly, because that is the
+        // store the terminal write and its readers share.
+        const readInterval = () => GraphService.db.storage.db.prepare(
+            "SELECT data FROM Nodes WHERE json_extract(data,'$.properties.turnId') = ?"
+        ).get(started.turnId);
+
+        const beforeRow = JSON.parse(readInterval().data).properties;
+
+        expect(beforeRow.status).toBe('active');
+        expect(beforeRow.terminalState).toBeNull();
+
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt  : 'terminalizing presence prompt',
+            thought : 'terminalizing presence thought',
+            response: 'terminalizing presence result'
+        }));
+
+        expect(result.stageTimings.presenceTerminal).toBe('completed');
+        expect(result.stageTimings.presenceReason ?? null).toBeNull();
+
+        // The effect: THAT interval is now terminal. Read from the same store, not from the
+        // wrapper's own disposition, which would be circular. The before/after pairing is the
+        // proof — either row alone is a state, not a change.
+        const afterRow = JSON.parse(readInterval().data).properties;
+
+        expect(afterRow.status).toBe('terminal');
+        expect(afterRow.terminalState).toBe('completed');
+    });
+
+    test('#17342: a DEFERRED terminal carries a reason too — OpenAPI promises it for both incomplete states', async () => {
+        // @neo-gpt's RA-3. Without this, a mutant that populates the reason only on `failed` keeps
+        // every other assertion green while the schema promises it for `deferred` as well.
+        const originalPresence = TurnPresenceService.recordTurnPresence;
+
+        TurnPresenceService.recordTurnPresence = () => new Promise(() => {});
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt  : 'deferred reason prompt',
+                thought : 'deferred reason thought',
+                response: 'deferred reason result'
+            }));
+
+            expect(result.stageTimings.presenceTerminal).toBe('deferred');
+
+            const reason = result.stageTimings.presenceReason;
+
+            expect(reason).toBeTruthy();
+            expect(reason.length).toBeLessThanOrEqual(240);
+            expect(reason).not.toMatch(/\s{2,}/);
+        } finally {
+            TurnPresenceService.recordTurnPresence = originalPresence;
+        }
+    });
+
+    test('#17342 CONTROL: a completed presence terminal carries NO reason', async () => {
+        // Deliberately retained WITHOUT a started turn: it pins that the no-op path stays
+        // `completed` and reason-free. Kept as a classification control, never as terminalization
+        // proof — the arm above owns that claim.
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt  : 'completed presence prompt',
+            thought : 'completed presence thought',
+            response: 'completed presence result'
+        }));
+
+        expect(result.stageTimings.presenceTerminal).toBe('completed');
+        expect(result.stageTimings.presenceReason ?? null).toBeNull();
     });
 
     test('AC4: a presence rejection after the local deadline is handled exactly once', async () => {

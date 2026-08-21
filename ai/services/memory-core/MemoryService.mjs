@@ -34,6 +34,7 @@ import {normalizeAgentIdentityNodeId}                           from '../../grap
 import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildMemoryResolveCandidate}                                                     from './conceptWalkMemoryGate.mjs';
 import MemoryCoreRecorderService                                                         from './MemoryCoreRecorderService.mjs';
+import {redactReadFailure}                                                               from '../fleet/redactReadFailure.mjs';
 
 /**
  * The `add_memory` success message. Deliberately says ACCEPTED rather than "successfully added":
@@ -428,7 +429,8 @@ class MemoryService extends Base {
      * @returns {Promise<{id: String, sessionId: String, timestamp: String, message: String,
      *     visibility: Object, mailbox: null, stageTimings: {walMs: Number, mailboxMs: null,
      *     mailboxTerminal: 'omitted', mailboxReason: 'synchronous-query-outside-accepted-write-contract',
-     *     presenceMs: Number, presenceTerminal: 'completed'|'deferred'|'failed', visibilityMs: Number,
+     *     presenceMs: Number, presenceTerminal: 'completed'|'deferred'|'failed',
+     *     presenceReason: String|null|undefined, visibilityMs: Number,
      *     postWalMs: Number, postWalBudgetMs: Number}}>} Memory-write confirmation. `mailbox` is
      *     deliberately `null`: its synchronous SQLite enrichment is outside the accepted-write
      *     latency contract, and callers use `list_messages` for the authoritative mailbox read.
@@ -583,17 +585,33 @@ class MemoryService extends Base {
                 // Pre-attach the late-failure handler BEFORE racing: on a budget overrun the
                 // original write keeps running fire-and-forget (the terminal still lands, late)
                 // and its own catch prevents an unhandled rejection.
-                const presenceWrite = TurnPresenceService.recordTurnPresence({
+                // `recordTurnPresence` is SYNCHRONOUS — it returns the persisted payload, not a
+                // promise. Calling `.catch()` on that object threw `presenceWrite.catch is not a
+                // function` inside this try on every single save, which is why the disposition read
+                // a constant `failed` while the terminal itself landed correctly: the write already
+                // completed on the line above. Deferring through `then` makes the value a real
+                // thenable AND converts a synchronous throw into a rejection this block can classify.
+                const presenceWrite = Promise.resolve().then(() => TurnPresenceService.recordTurnPresence({
                     action       : 'terminal',
                     terminalState: 'completed',
                     source       : 'add_memory'
-                });
+                }));
                 presenceWrite.catch(error => logger.warn(`[MemoryService] Late turn-presence terminal failed (non-fatal): ${error.message}`));
 
                 await withTimeout(presenceWrite, PRESENCE_TERMINAL_BUDGET_MS, 'add_memory presence terminal');
                 stageTimings.presenceTerminal = 'completed';
             } catch (error) {
                 stageTimings.presenceTerminal = error.code === WITH_TIMEOUT_CODE ? 'deferred' : 'failed';
+
+                // The outcome alone is not diagnosable. A constant `failed` beside a server-only
+                // warn cost multiple seats days of blind sampling, because the one client surface
+                // that carries service logs could not slice back far enough on a chatty plane.
+                // Carrying the sanitized reason to the caller makes the NEXT occurrence of this
+                // class self-diagnosing. Reuses the shared reduction rather than growing a fourth
+                // private copy — its order is load-bearing: collapse, redact, and only then bound,
+                // because a replacement can outgrow its match.
+                stageTimings.presenceReason = redactReadFailure(error);
+
                 logger.warn(`[MemoryService] Turn presence terminalization ${stageTimings.presenceTerminal} (non-fatal): ${error.message}`);
             }
             stageTimings.presenceMs = Date.now() - presenceStartedAt;

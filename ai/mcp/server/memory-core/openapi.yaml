@@ -4105,6 +4105,13 @@ components:
               description: >-
                 `completed` landed within budget; `deferred` is still observed after the local
                 wait expired; `failed` means the terminal rejected without rejecting the accepted save.
+            presenceReason:
+              type: string
+              nullable: true
+              maxLength: 240
+              description: >-
+                Sanitized, bounded reason for a `deferred` or `failed` presence terminal; absent on
+                `completed`.
             visibilityMs:
               type: integer
               minimum: 0
