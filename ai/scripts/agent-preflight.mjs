@@ -385,15 +385,60 @@ function firstLiveObligation(section = '') {
     return line ? line.trim() : null
 }
 
+// The ONE signal separating "the cited ticket is not there" from "we could not look": `gh` exits 1
+// for both, so the exit code decides nothing. This repo has been bitten from the other side —
+// `gh pr checks` exits 1 for a failing check AND for an unreachable API, which read a 503 as a red
+// board. Only a 404 is an answer about the TICKET; everything else is an answer about the
+// TRANSPORT, and a gate must never convert one into the other.
+const GH_NOT_FOUND_PATTERN = /\(HTTP 404\)/;
+
+/**
+ * @summary Reads a cited issue's LIVE state, or reports that it could not be read.
+ *
+ * Three readings and one honest non-reading: `open`, `closed` and `missing` (the 404 above) are
+ * answers about the ticket; `unknown` is the absence of an answer. Callers must treat `unknown` as
+ * NOT CHECKED — never as a pass, never as a failure. An offline author, an expired token, a rate
+ * limit and an outage all land there, and none of them is evidence about the ticket.
+ *
+ * `gh` resolves `{owner}`/`{repo}` from the working directory's remote, which works from a linked
+ * worktree as well as from the clone.
+ * @param {Number|String} number Issue number, already extracted from the declaration.
+ * @param {Object} [options]
+ * @param {String} [options.cwd=process.cwd()]
+ * @param {Function} [options.execFileSyncImpl=execFileSync]
+ * @returns {'open'|'closed'|'missing'|'unknown'}
+ */
+export function resolveIssueState(number, {cwd = process.cwd(), execFileSyncImpl = execFileSync} = {}) {
+    try {
+        const state = String(execFileSyncImpl(
+            'gh',
+            ['api', `repos/{owner}/{repo}/issues/${number}`, '--jq', '.state'],
+            {cwd, encoding: 'utf8', stdio: 'pipe'}
+        )).trim();
+
+        // An unrecognised body is not a reading either: a changed API shape must not decide a gate.
+        return state === 'open' || state === 'closed' ? state : 'unknown'
+    } catch (error) {
+        return GH_NOT_FOUND_PATTERN.test(String(error?.stderr ?? '')) ? 'missing' : 'unknown'
+    }
+}
+
 /**
  * @summary Mirrors the Agent PR Body Lint workflow's local body-shape checks.
+ *
+ * `resolveOwnerState` is INJECTED and absent by default, so the validator stays pure, synchronous
+ * and offline — `npm run agent-preflight` is the author's own pre-flight and its value is that it
+ * runs anywhere. Supplied, it turns the `Residual-Owner` check from a shape check into a state
+ * check: a closed or missing owner fails, and an unreadable one produces a WARNING and no verdict.
  * @param {String} body
  * @param {Object} [options]
  * @param {Boolean} [options.draft=false]
- * @returns {Object}
+ * @param {Function|null} [options.resolveOwnerState=null] `(number) => 'open'|'closed'|'missing'|'unknown'`.
+ * @returns {{missingInvisible: String[], missingVisible: String[], valid: Boolean, warnings: String[]}}
  */
-export function validatePrBody(body, {draft = false} = {}) {
+export function validatePrBody(body, {draft = false, resolveOwnerState = null} = {}) {
     const
+        warnings               = [],
         missingVisible         = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
         missingInvisible       = INVISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
         forbiddenClose         = body.match(FORBIDDEN_CLOSE_PATTERN),
@@ -460,13 +505,33 @@ export function validatePrBody(body, {draft = false} = {}) {
             missingVisible.push(`This PR still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
         } else if (owner === closeTarget) {
             missingVisible.push(`\`Residual-Owner: #${owner}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
+        } else if (resolveOwnerState) {
+            // The close-target rule above is already a SURVIVABILITY rule — a home that will not
+            // outlive the merge is refused. A ticket that closed BEFORE the citation fails that
+            // requirement more completely: the close target at least survives until merge. The
+            // pattern `#(\d+)` cannot see the difference, so a well-formed reference was read as a
+            // live one, and this is the read that separates them.
+            const state = resolveOwnerState(owner);
+
+            if (state === 'closed') {
+                missingVisible.push(`\`Residual-Owner: #${owner}\` is CLOSED. Deferred work must name a home that survives the merge. Finish it, drop the obligation, or name an OPEN ticket. Do not open a ticket to satisfy this.`)
+            } else if (state === 'missing') {
+                missingVisible.push(`\`Residual-Owner: #${owner}\` does not exist. Name an EXISTING open ticket that owns the work, finish it, or drop the obligation. Do not open a ticket to satisfy this.`)
+            } else if (state !== 'open') {
+                // Could-not-verify is not did-not-happen. An offline run, an expired token, a rate
+                // limit and an outage are all facts about the transport, and a gate that turns one
+                // into a verdict manufactures the diagnosis. Neither a pass nor a failure: the
+                // author is told which check did not run, so silence never reads as clearance.
+                warnings.push(`\`Residual-Owner: #${owner}\` was NOT state-checked — GitHub could not be read. The owner's shape is valid; whether it is still open is unverified.`)
+            }
         }
     }
 
     return {
         missingInvisible,
         missingVisible,
-        valid: missingVisible.length === 0 && missingInvisible.length === 0
+        valid: missingVisible.length === 0 && missingInvisible.length === 0,
+        warnings
     }
 }
 
@@ -712,18 +777,26 @@ function runNodeGate({args, cwd, execFileSyncImpl, name}) {
     }
 }
 
-function runPrBodyGate({cwd, existsSyncImpl, prBody, prDraft, readFileSyncImpl}) {
+function runPrBodyGate({cwd, execFileSyncImpl, existsSyncImpl, prBody, prDraft, readFileSyncImpl}) {
     const filePath = path.resolve(cwd, prBody);
 
     if (!existsSyncImpl(filePath)) {
         return {
             missingInvisible: [],
             missingVisible  : [`PR body file not found: ${prBody}`],
-            valid           : false
+            valid           : false,
+            warnings        : []
         }
     }
 
-    return validatePrBody(readFileSyncImpl(filePath, 'utf8'), {draft: prDraft})
+    return validatePrBody(readFileSyncImpl(filePath, 'utf8'), {
+        draft: prDraft,
+        // Wired unconditionally rather than behind a flag: the read only happens when a body
+        // actually declares a `Residual-Owner`, which is rare, and every failure of it degrades to
+        // `unknown` rather than to a verdict. So the gate is never network-DEPENDENT — it is
+        // network-INFORMED when it can be, and says so when it cannot.
+        resolveOwnerState: owner => resolveIssueState(owner, {cwd, execFileSyncImpl})
+    })
 }
 
 /**
@@ -851,11 +924,17 @@ export function runAgentPreflight({
     if (options.prBody) {
         const result = runPrBodyGate({
             cwd,
+            execFileSyncImpl,
             existsSyncImpl,
             prBody : options.prBody,
             prDraft: options.prDraft,
             readFileSyncImpl
         });
+
+        // Printed on BOTH paths and before the verdict: a check that did not run is news whether or
+        // not the rest passed, and burying it under a green line is how "not checked" becomes
+        // indistinguishable from "checked and fine".
+        result.warnings?.forEach(warning => writeLine(stderr, `agent-preflight: WARNING — ${warning}`));
 
         if (result.valid) {
             writeLine(stdout, 'agent-preflight: PR body contains the required template anchors.');
