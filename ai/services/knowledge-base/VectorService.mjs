@@ -1218,11 +1218,11 @@ class VectorService extends Base {
      * @param {Object}   options
      * @param {Object}   options.collection      Chroma collection target.
      * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
-     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
+     * @param {Function} [options.shouldYield]   Cooperative work-yield predicate,
      *     consulted BETWEEN batches here AND between provider chunks inside `TextEmbeddingService.embedTexts`.
-     *     Returns truthy once the lease holder has exceeded the fairness bound
-     *     (`HeavyMaintenanceLeaseService.shouldYield`); the loop then stops so a starved heavy task can
-     *     interleave. Defaults to never-yield, so callers that do not hold the lease are unaffected.
+     *     The caller retains the cause: tenant-repo sync uses the same boolean projection for a
+     *     per-repo slice and the outer lease bound, then decides whether to rotate or end the sweep.
+     *     Defaults to never-yield, so callers with no cooperative bound are unaffected.
      *
      *     The inner consultation is what makes the bound reachable: this loop alone checks at most once per
      *     `maxRetries * ceil(batchSize / batchEmbeddingChunkSize) * (1 + unloadRetryCount) *
@@ -1353,20 +1353,26 @@ class VectorService extends Base {
         };
 
         while (cursor < chunksToProcess.length) {
-            // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
-            // first — so at least one batch lands per lease acquisition: a forward-progress guarantee, never a
-            // livelock), if the lease holder has exceeded the fairness bound, stop embedding so a starved heavy
-            // task (e.g. githubWorkflowSync) can interleave. The completed batches are already durably upserted
-            // into the shadow and indexed by the write-ahead resume marker, so the next sweep resumes here
-            // (decideResume -> selectResumableChunks). The caller releases the lease on the `yielded` signal.
-            if (cursor > 0 && shouldYield()) {
-                yielded = true;
-                logger.log(`Yielding the heavy-maintenance lease after ${cursor} chunk(s) (${embeddedCount} embedded); ${chunksToProcess.length - cursor} remaining will resume on the next sweep.`);
-                break;
+            // Cooperative work-yield checkpoint: BETWEEN batches (never before the first, so at
+            // least one batch lands per embedding invocation — a forward-progress guarantee, never
+            // a livelock). When the caller's bound fires, stop embedding. The completed batches are
+            // already durably upserted into the shadow and indexed by the write-ahead resume marker,
+            // so the next sweep resumes here
+            // (decideResume -> selectResumableChunks). The caller retains the cause separately: a
+            // slice yield rotates repos, while an outer-lease yield ends the sweep so its wrapper releases.
+            let yieldRequested = cursor > 0 && shouldYield();
+
+            if (!yieldRequested && cursor > 0 && batchDelay) {
+                await this.timeout(batchDelay);
+                // The fairness bound can be crossed while sleeping. Rechecking before slicing the
+                // next stride keeps the delay from purchasing one unbounded extra complete batch.
+                yieldRequested = shouldYield()
             }
 
-            if (cursor > 0 && batchDelay) {
-                await this.timeout(batchDelay);
+            if (yieldRequested) {
+                yielded = true;
+                logger.log(`Cooperative embedding yield after ${cursor} chunk(s) (${embeddedCount} embedded); ${chunksToProcess.length - cursor} remaining will resume on the next sweep.`);
+                break;
             }
 
             const stride        = chunksToProcess.slice(cursor, cursor + batchSize);
@@ -1596,7 +1602,7 @@ class VectorService extends Base {
 
                         await persistCarriedPrefix(carried, err.completedTextCount, 'Yielded');
 
-                        logger.log(`Yielding the heavy-maintenance lease inside batch ${batchNumber} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
+                        logger.log(`Cooperative embedding yield inside batch ${batchNumber} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
                         break;
                     }
 
@@ -2015,13 +2021,14 @@ class VectorService extends Base {
      * @param {Object}   options.liveCollection Existing canonical collection handle.
      * @param {Object[]} options.knowledgeBase   Full tenant-stamped corpus.
      * @param {Number}   options.idsToDeleteCount Logical stale-id count removed from the canonical view.
-     * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
+     * @param {Function} [options.shouldYield]   Cooperative work-yield predicate,
      *     threaded to `embedChunks`. On a between-batch yield the shadow is preserved-not-promoted (the
-     *     write-ahead resume marker already indexes it) and a `{yielded: true}` envelope is returned so the
-     *     lease holder releases; the next sweep resumes from the preserved shadow.
+     *     write-ahead resume marker already indexes it) and a `{yielded: true}` envelope is returned. The
+     *     caller retains the cause and decides whether to rotate work or release its outer lease; the next
+     *     sweep resumes from the preserved shadow.
      * @param {AbortSignal} [options.signal] Shared tenant-sweep provider circuit signal.
      * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
-     * @returns {Promise<Object>} Embedding result (carries `yielded: true` when the lease was cooperatively released).
+     * @returns {Promise<Object>} Embedding result (carries `yielded: true` when work stopped at a cooperative boundary).
      */
     async embedViaShadowSwap({
         liveCollection,
@@ -2120,15 +2127,15 @@ class VectorService extends Base {
             });
 
             if (embedResult.yielded) {
-                // Cooperative lease-yield: the shadow holds the completed batches and the write-ahead
+                // Cooperative embedding yield: the shadow holds the completed batches and the write-ahead
                 // resume marker already indexes it, so DO NOT promote and DO NOT clear the marker — the next
                 // sweep resumes (decideResume -> selectResumableChunks). The live collection is untouched
                 // (preserved-not-promoted), so githubWorkflowSync can write resources/content/ freely while we
                 // are yielded; the resumed run re-reads the updated corpus. Torn-read-free by the same shadow
                 // isolation that protects a normal run.
-                logger.log(`Yielded the heavy-maintenance lease mid shadow-swap; preserving shadow '${shadowName}' for resume (${embedResult.embedded + alreadyEmbedded} embedded so far).`);
+                logger.log(`Yielded embedding work mid shadow-swap; preserving shadow '${shadowName}' for resume (${embedResult.embedded + alreadyEmbedded} embedded so far).`);
                 return {
-                    message         : `KB embedding yielded the heavy-maintenance lease after ${embedResult.embedded + alreadyEmbedded} chunk(s); the next sweep resumes from the preserved shadow.`,
+                    message         : `KB embedding yielded at a cooperative boundary after ${embedResult.embedded + alreadyEmbedded} chunk(s); the next sweep resumes from the preserved shadow.`,
                     embedded        : embedResult.embedded + alreadyEmbedded,
                     deleted         : idsToDeleteCount,
                     staleStrategy   : 'shadow-swap',
@@ -2353,11 +2360,11 @@ class VectorService extends Base {
      *                                             preserves the historical behavior;
      *                                             `shadow-swap` rebuilds into a fresh collection
      *                                             before promoting it to the canonical name.
-     * @param {Function} [opts.shouldYield]        Cooperative heavy-maintenance-lease yield predicate
-     *                                             threaded to the shadow-swap embed loop so a long
-     *                                             re-embed releases the lease at a batch boundary for a starved
-     *                                             heavy task, then resumes from the preserved shadow. Default
-     *                                             never yields, so non-lease-held callers are unaffected.
+     * @param {Function} [opts.shouldYield]        Cooperative work-yield predicate threaded to the
+     *                                             shadow-swap embed loop. The caller retains the cause
+     *                                             and decides whether the boundary rotates local work or
+     *                                             ends an outer lease-held sweep; resume uses the preserved
+     *                                             shadow. Defaults to never-yield.
      * @param {AbortSignal} [opts.signal]          Shared tenant-sweep provider circuit signal.
      * @param {Function} [opts.onProviderTimeout]  Synchronous native-provider timeout hook.
      * @param {Boolean} [opts.replayEmbeddingPoison=false] Explicit operator replay clears the

@@ -795,6 +795,35 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(activeHeavyTask.name).toBe('kbSync');
     });
 
+    test('#17414 a yielded tenant-repo sweep releases the scheduler-owned outer lease exactly once', async () => {
+        const releases = [];
+        let   settleSweep;
+        const sweep   = new Promise(resolve => { settleSweep = resolve });
+        const service = buildService({
+            taskStateService: buildTaskStateService({}),
+            acquireLeaseFn  : () => ({acquired: true, lease: {token: 'tok-yield'}}),
+            releaseLeaseFn  : opts => releases.push(opts.token)
+        });
+
+        const result = service.acquireLeaseAndExecute({
+            taskName       : 'tenant-repo-sync',
+            executeFn      : () => sweep,
+            reason         : 'periodic-sweep:60000',
+            activeHeavyTask: {name: null}
+        });
+
+        expect(releases, 'the wrapper must retain ownership while the active cohort is unsettled').toEqual([]);
+
+        settleSweep({status: 'yielded'});
+        await expect(result).resolves.toEqual({status: 'yielded'});
+        expect(releases).toEqual(['tok-yield']);
+
+        // A second microtask turn catches a release wired both to the promise and to an imagined
+        // sweep callback. The outer wrapper is the only owner and must discharge exactly once.
+        await Promise.resolve();
+        expect(releases).toEqual(['tok-yield']);
+    });
+
     test('acquireLeaseAndExecute releases on async settle (reject) without swallowing rejection', async () => {
         const releases = [];
         const service  = buildService({

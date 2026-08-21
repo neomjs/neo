@@ -51,6 +51,7 @@ import {
     resolveMinimumBackoffCapMs,
     resolveRepoBaseCadenceMs,
     resolveUnknownRepoSelectorFailure,
+    YIELD_CAUSE_LEASE,
     YIELD_CAUSE_SLICE
 } from '../scheduling/tenantRepoSync.mjs';
 import {
@@ -1357,7 +1358,7 @@ class TenantRepoSyncService extends Base {
      * @param {Number} [options.embeddingRecoveryProbeTimeoutMs=30000] Canary provider deadline.
      * @param {Number} [options.embeddingRecoveryFailureTtlMs=30000] Canary backoff floor.
      * @param {Number} [options.embeddingRecoveryFailureTtlMaxMs=600000] Canary backoff ceiling.
-     * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`, `starved`}.
+     * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `deferred`, `failed`, `skipped`, `starved`, `yielded`}.
      */
     async runTask({
         taskName = 'tenant-repo-sync',
@@ -1557,9 +1558,11 @@ class TenantRepoSyncService extends Base {
                 ...result.details
             };
 
-            if (status === 'completed' || status === 'starved') {
+            if (status === 'completed' || status === 'starved' || status === 'yielded') {
                 // A starved reading is a CLEAN sweep reporting a starved lane — the machinery
-                // ran, so the run bookkeeping (lastSuccessAt) must still advance.
+                // ran, so the run bookkeeping (lastSuccessAt) must still advance. A yielded
+                // reading is likewise clean: its active cohort committed before the outer wrapper
+                // released, while `lastCompletion.status` preserves that the corpus is unfinished.
                 taskStateService.markCompleted(taskName, lastCompletion);
             } else if (status === 'failed') {
                 taskStateService.markFailed(taskName, null, lastCompletion);
@@ -1604,7 +1607,7 @@ class TenantRepoSyncService extends Base {
      * Iterates configured tenantRepos and refreshes each via GitMirror → envelope → KB.
      *
      * @param {Object} options Forwarded from `runTask`.
-     * @returns {Promise<Object>} `{status, details: {repoCount, completedCount, deferredCount, partialProgressCount, failedCount, results}}`.
+     * @returns {Promise<Object>} `{status, details: {repoCount, completedCount, deferredCount, partialProgressCount, failedCount, leaseYielded, leaseDeferredCount, repos}}`.
      */
     async syncTenantRepos({
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
@@ -2010,6 +2013,36 @@ class TenantRepoSyncService extends Base {
         // Folding them would make the two indistinguishable in the one number an operator reads.
         let partialProgressCount = 0;
         let abortedCount         = 0;
+        // A lease cause belongs to the SWEEP rather than to one repo. Once any active repo observes
+        // it, queued repos must not enter protected work; repos already holding a semaphore slot are
+        // the active cohort and finish normally so their resumable state can be committed together.
+        let leaseYielded       = false;
+        let leaseDeferredCount = 0;
+
+        /**
+         * @summary Records a due repo that never entered protected work because the active cohort
+         * yielded the outer lease. Shared by ordinary semaphore hand-off and an opt-in queue timeout
+         * that expires after the cause is known; neither path mutates the repo checkpoint/backoff.
+         * @param {Object} options
+         * @param {Object} options.repo Configured tenant repo.
+         * @param {String} options.repoLabel Stable tenant/repo label.
+         * @param {Object|null} options.priorState Persisted state before this sweep.
+         * @param {String} options.checkpointStatus Classified prior checkpoint.
+         * @returns {void}
+         */
+        const recordLeaseYieldDeferral = ({repo, repoLabel, priorState, checkpointStatus}) => {
+            leaseDeferredCount++;
+            writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} deferred because the active cohort yielded the outer lease.`);
+            repoStates.push({
+                tenantId           : repo.tenantId,
+                repoSlug           : repo.repoSlug,
+                lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
+                lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
+                status             : 'lease-yield-deferred',
+                checkpointStatus,
+                consecutiveFailures: priorState?.consecutiveFailures ?? 0
+            })
+        };
 
         // Per-runTask concurrency gate caps simultaneous git/ingest work.
         // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
@@ -2206,6 +2239,17 @@ class TenantRepoSyncService extends Base {
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
+
+                // Checked only AFTER admission to the semaphore queue. Every repo promise is created
+                // up front, so checking before `acquire()` would let the whole tail observe `false`
+                // before either active repo had a chance to publish the lease cause. The active repo
+                // latches the cause before its `finally` releases this slot, making this boundary a
+                // deterministic hand-off rather than a timing convention.
+                if (leaseYielded) {
+                    recordLeaseYieldDeferral({repo, repoLabel, priorState, checkpointStatus});
+                    return
+                }
+
                 // The actual attempt begins when capacity is admitted, not when the repo joined
                 // the FIFO. Otherwise a long legitimate wait is persisted as work time and can
                 // make a just-completed repo immediately due again.
@@ -2354,31 +2398,75 @@ class TenantRepoSyncService extends Base {
                     // roughly N × sliceBudgetMs, which is how waiters starve while every bound the
                     // holder can see reads satisfied.
                     //
-                    // Resolved to a CAUSE rather than a boolean because the two exits differ, and the
-                    // exits belong to a separate dependent change. Stopping tail admission, committing
-                    // the cohort and releasing the outer lease are deliberately absent here: this makes
-                    // the cause readable, and the sweep below still consumes only the boolean
-                    // projection. With a null voter that projection is the slice predicate's own
-                    // answer, byte for byte, which keeps every caller holding no outer lease unchanged.
+                    // Resolved to a CAUSE rather than a boolean because the two exits differ. The
+                    // resolver's boolean projection still drives the vector loop, while the retained
+                    // cause below decides whether this sweep rotates one repo or settles its active
+                    // cohort. With a null outer voter, the projection remains exactly the slice
+                    // predicate's answer and callers holding no outer lease stay unchanged.
                     yieldCause = createYieldCauseResolver([
                         leaseYieldVoter,
                         {cause: YIELD_CAUSE_SLICE, vote: createSliceBudgetPredicate({startedMs, sliceBudgetMs})}
-                    ]),
-                    rawSummary = retryReceipt
-                        ? {
-                            ingested              : 0,
-                            deleted               : 0,
-                            errors                : [],
-                            materializationReceipt: retryReceipt
-                        }
-                        : await ingestSourceFilesForTenantSync({
-                            ...envelope,
-                            ...(materializationAttempt ? {materializationAttempt} : {}),
-                            viaMcp: false // operator-bulk path
-                        }, {
-                            ...providerCircuitControls,
-                            shouldYield: () => yieldCause() !== null
-                        });
+                    ]);
+
+                // Preserve the strongest cause seen anywhere below this boundary. A downstream
+                // provider may consult the voter several times, and a later slice reading must not
+                // overwrite an earlier lease reading — the outer bound has precedence by contract.
+                let   observedYieldCause = null;
+                const resolveYieldCause  = () => {
+                    const cause = yieldCause();
+
+                    if (cause === YIELD_CAUSE_LEASE) {
+                        observedYieldCause = cause;
+                        // Publish at the exact observation, not after this repo's ingestion call
+                        // returns. An active sibling can finish and release its semaphore slot while
+                        // this repo is still unwinding; the queued tail must see the latch before that
+                        // hand-off or one repo slips past an already-observed outer bound.
+                        leaseYielded = true;
+                    } else if (cause !== null && observedYieldCause === null) {
+                        observedYieldCause = cause;
+                    }
+
+                    return cause
+                };
+
+                const rawSummary = retryReceipt
+                    ? {
+                        ingested              : 0,
+                        deleted               : 0,
+                        errors                : [],
+                        materializationReceipt: retryReceipt
+                    }
+                    : await ingestSourceFilesForTenantSync({
+                        ...envelope,
+                        ...(materializationAttempt ? {materializationAttempt} : {}),
+                        viaMcp: false // operator-bulk path
+                    }, {
+                        ...providerCircuitControls,
+                        shouldYield: () => resolveYieldCause() !== null
+                    });
+
+                // A one-batch or receipt-only repo may never ask the vector loop for another batch.
+                // Re-consult at the repo boundary so an expired OUTER lease still ends this sweep.
+                // The call also gives a lease vote that crossed while the provider drained precedence
+                // over an earlier slice vote.
+                resolveYieldCause();
+
+                if (rawSummary?.yielded === true && observedYieldCause === null) {
+                    // Fail this repo loudly while preserving per-repo isolation. The safe ambiguity
+                    // policy is to keep sweeping and refuse the OUTER exit; treating an unattributed
+                    // yield as `lease` would stand the holder down on a cause no acquisition supplied.
+                    throw new TenantRepoSyncError(
+                        KB_TENANT_REPO_SYNC_SYNC_FAILED,
+                        `Tenant-repo-sync received an unattributed yield from ${repoLabel}; continuing the sweep without returning an outer lease-yield outcome.`,
+                        {phase: 'yield-cause', repoLabel}
+                    )
+                }
+
+                if (observedYieldCause === YIELD_CAUSE_LEASE) {
+                    // Set before any outcome branch can return. `finally` releases the semaphore slot,
+                    // and the next queued repo reads this latch immediately after acquiring it.
+                    leaseYielded = true;
+                }
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:
                 // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and
@@ -2734,6 +2822,19 @@ class TenantRepoSyncService extends Base {
                     checkpointStatus: TenantRepoCheckpointStatus.COMPLETE
                 });
             } catch (e) {
+                // An opt-in queue timeout is ordinarily a repo failure. Once the active cohort has
+                // already observed the OUTER lease cause, however, this repo is exactly the tail the
+                // sweep must leave untouched. It timed out before slot hand-off rather than reading
+                // the latch after hand-off; both paths have the same lease-yield-deferred outcome.
+                if (
+                    !slotAcquired
+                    && leaseYielded
+                    && e.code === KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT
+                ) {
+                    recordLeaseYieldDeferral({repo, repoLabel, priorState, checkpointStatus});
+                    return
+                }
+
                 // Lease loss is a RUN-level abort, not a repo failure: leave the
                 // repo's checkpoint, attempt timestamp, and backoff state untouched
                 // (the successor owns forward progress now), record an 'aborted'
@@ -2899,7 +3000,10 @@ class TenantRepoSyncService extends Base {
         }
 
         await leaseGuard();
-        await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
+        await this.writePersistedRevisions({
+            filePath : resolvedRevisionsPath,
+            revisions: persistedRevisions
+        });
 
         // Status logic: not-due repos don't change the success/failure tally — a cycle
         // where ALL repos were not-due is still 'completed' (the cycle ran successfully;
@@ -2927,13 +3031,25 @@ class TenantRepoSyncService extends Base {
         // A mixed sweep stays `completed` deliberately — real repos did advance, and the deferred
         // ones are reported per-repo. `deferred` routes to `markSkipped` through the existing
         // consumer branch, so `lastSuccessAt` does not advance on a cycle that ingested nothing.
-        const status = detection.starved
+        const ordinaryStatus = detection.starved
             ? 'starved'
             : (completedCount === 0 && failedCount === 0 && deferredCount > 0
                 ? 'deferred'
                 : (attemptedCount === 0
                     ? 'completed' // all repos were not-due; cycle ran cleanly
                     : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'))));
+        // Error-bearing outcomes retain their stronger status. On a CLEAN active cohort, `yielded`
+        // is reserved for an observed lease cause that leaves actual work behind: a partial repo or
+        // a queued tail. Merely observing the bound after the final one-batch repo completed is still
+        // an ordinary completed sweep — there is nothing to resume and the wrapper releases on
+        // natural settlement. The sweep never receives nor invokes a release callback itself.
+        const cleanLeaseYieldWithRemainder = leaseYielded
+            && failedCount === 0
+            && deferredCount === 0
+            && (partialProgressCount > 0 || leaseDeferredCount > 0);
+        const status = leaseYielded && failedCount > 0
+            ? 'failed'
+            : (cleanLeaseYieldWithRemainder ? 'yielded' : ordinaryStatus);
 
         // Record-with-diagnosis: exactly one durable heal-ledger record per starved
         // episode (the detector's marker flows through the lane's completion metadata), once
@@ -2958,7 +3074,7 @@ class TenantRepoSyncService extends Base {
             });
         }
 
-        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${deferredCount} deferred, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${deferredCount} deferred, ${failedCount} failed, ${partialProgressCount} partial-progress, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred, ${leaseDeferredCount} lease-yield-deferred${status === 'yielded' ? ' — OUTER LEASE YIELDED' : (leaseYielded ? ' — OUTER LEASE BOUND OBSERVED' : '')}${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
 
         return {
             status,
@@ -2975,6 +3091,8 @@ class TenantRepoSyncService extends Base {
                 partialProgressCount,
                 notDueCount,
                 revalidationDeferredCount,
+                leaseYielded,
+                leaseDeferredCount,
                 ...(detection.starved ? {starved: true, starvedEvidence: detection.evidence} : {}),
                 starvedEventAt: detection.starvedEventAt,
                 repos         : repoStates
@@ -3285,7 +3403,8 @@ class TenantRepoSyncService extends Base {
      * @param {String} options.filePath
      * @param {Object<String, String>} options.revisions
      * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
-     * @returns {Promise<void>}
+     * @returns {Promise<Object>} Commit receipt with `committed`; `false` is reserved for a lost
+     *     optional ownership fence and carries a bounded `reason`.
      */
     async writePersistedRevisions({filePath, revisions, fsModule = fs, assertOwnership = null}) {
         const tmpPath = `${filePath}.tmp-${process.pid}`;
