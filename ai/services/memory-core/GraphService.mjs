@@ -119,11 +119,41 @@ class GraphService extends Base {
     }
 
     /**
-     * Initializes the SQLite Database and Native Edge database structures.
+     * @summary Completes construction WITHOUT touching the database.
+     *
+     * `core.Base` schedules `initAsync()` unconditionally from every constructor, and this class is
+     * a `singleton`, so `Neo.setupClass` constructs it during module evaluation. Mounting storage
+     * here therefore meant that *importing* the Brain barrel opened the graph — a native module
+     * load, a `mkdir`, a SQLite handle and a WAL writer — in every process that touched
+     * `ai/services.mjs`, whether or not it ever read a node.
      */
     async initAsync() {
-        await super.initAsync();
+        await super.initAsync()
+    }
 
+    /**
+     * @summary Mounts the graph on first readiness await, then memoizes.
+     *
+     * The open moves here rather than disappearing, because ~20 call sites already treat
+     * `await GraphService.ready()` as "the graph is usable" and would otherwise be handed a null
+     * database. Deferring to `ready()` keeps that contract exactly and only changes *when* the cost
+     * is paid: a process that imports the barrel without awaiting readiness never opens the file.
+     * @returns {Promise<void>}
+     */
+    async ready() {
+        await super.ready();
+        await this.mountGraph()
+    }
+
+    /**
+     * @summary Opens the SQLite database and native edge structures, once.
+     *
+     * Split out of `initAsync()` verbatim so the mount sequence stays one reviewable unit. The
+     * `_initPromise` guard is the memoization: concurrent `ready()` awaits share one mount, and a
+     * mount that already failed is not retried — `graphInitError` stays the record of why.
+     * @returns {Promise<void>}
+     */
+    async mountGraph() {
         if (this.db || this._initPromise) {
             if (this._initPromise) {
                 await this._initPromise;

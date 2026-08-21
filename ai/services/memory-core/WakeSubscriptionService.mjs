@@ -202,15 +202,39 @@ class WakeSubscriptionService extends Base {
     liveCursorStateFile = AiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath
 
     /**
-     * Sets the initial live cursor to the current graph log head to prevent
-     * replaying historical events on boot.
+     * @member {Boolean} _liveCursorSeeded=false
+     * @protected
      */
-    async init() {
+    _liveCursorSeeded = false
+
+    /**
+     * @summary Seeds the live cursor to the current graph log head, once, before the first pump.
+     *
+     * This was `init()` — a `core.Base` construction hook — on a `singleton`. So constructing the
+     * service awaited `GraphService.ready()` and mounted the graph, and because `Neo.setupClass`
+     * instantiates singletons during module evaluation, *importing* `ai/services.mjs` opened the
+     * SQLite database in every process on the barrel path.
+     *
+     * Deferring to the first pump preserves the guarantee this exists for — a boot must not replay
+     * historical events — because there is no replay before the first pump. It is idempotent via
+     * `_liveCursorSeeded`, which is set BEFORE the await so a concurrent pump cannot double-seed
+     * and rewind the cursor over events the first pass already claimed.
+     * @returns {Promise<void>}
+     */
+    async ensureLiveCursor() {
+        if (this._liveCursorSeeded) {
+            return;
+        }
+
+        this._liveCursorSeeded = true;
+
         await GraphService.ready();
+
         if (!GraphService.db) {
             const reason = GraphService.graphInitError?.message || 'graph database is not mounted';
             throw new Error(`GraphService unavailable: ${reason}`);
         }
+
         const storage = GraphService.db?.storage;
         if (storage?.db) {
             try {
@@ -255,6 +279,12 @@ class WakeSubscriptionService extends Base {
     async pump() {
         this._pumpRequested = true;
         if (this._pumping) return;
+
+        // Seeds the cursor to the log head on the first pump only. It used to happen in the
+        // construction hook, which is what made importing the Brain barrel open the graph.
+        // It must run BEFORE the delta read below, or that read would replay history from cursor 0 —
+        // the exact outcome the original boot-time seeding existed to prevent.
+        await this.ensureLiveCursor();
 
         try {
             this._pumping = true;
