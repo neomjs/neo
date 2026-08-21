@@ -1197,7 +1197,14 @@ function getRound2DispositionRelationFailure({body, reviews, state}) {
         const row = rows[index];
 
         if (row && row.action !== action) {
-            defects.push(`row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
+            // When the ONLY difference is emphasis, printing both strings is not a diagnosis: they
+            // render nearly identically, so the author reads "carry it verbatim" while looking at
+            // what appears to be a verbatim copy. The rule is right and stays — byte-verbatim is what
+            // stops a Round 2 quietly softening the demand it claims to discharge — but the rule was
+            // unstated and its violation unnamed, which is the whole defect.
+            defects.push(normalizeQuoteForComparison(row.action) === normalizeQuoteForComparison(action)
+                ? `row ${index + 1} differs from the prior round ONLY in formatting. The quote must be byte-verbatim INCLUDING its markdown, so restore the emphasis exactly as written: "${action}"`
+                : `row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
         }
     });
 
@@ -1356,6 +1363,21 @@ function extractRequiredActions(body) {
  * @param {String} body
  * @returns {Array<{action: String, disposition: String}>}
  */
+/**
+ * @summary Strips markdown emphasis and collapses whitespace, for DIAGNOSIS only.
+ *
+ * Never used to decide whether a quote matches — the verbatim rule compares raw strings and keeps
+ * doing so. This exists solely to tell an author WHICH kind of mismatch they have, because
+ * "formatting" and "you reworded the demand" need opposite responses and the raw diff cannot
+ * distinguish them on screen.
+ *
+ * @param {String} text
+ * @returns {String}
+ */
+function normalizeQuoteForComparison(text) {
+    return String(text || '').replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim()
+}
+
 /**
  * @summary Returns disposition cells that CARRY a verdict verb but are not one, so cannot be read.
  *

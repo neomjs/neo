@@ -2028,6 +2028,48 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(failure.message, 'it names the drift rather than just refusing').toContain('carry it verbatim');
     });
 
+    /**
+     * The third live specimen: a prior action quoted correctly, with its markdown stripped.
+     * `**RA-1 (scope):** make the tier semantic` became `RA-1 (scope): make the tier semantic`.
+     *
+     * The byte-verbatim rule is right and is not being relaxed — it is what stops a Round 2 quietly
+     * softening the demand it claims to discharge. The defect is that the rule is unstated and its
+     * violation unnamed: the refusal prints both strings, and when the only difference is emphasis
+     * the two render nearly identically, so the author is told to "carry it verbatim" while looking
+     * at what appears to be a verbatim copy.
+     */
+    const PRIOR_RC_WITH_MARKDOWN = {
+        ...PRIOR_RC,
+        body: ['# PR Review Summary', '', '### 📋 Required Actions', '',
+               '- [ ] **make the tier semantic** so the label survives a rename'].join('\n')
+    };
+
+    test('#17354: a quote differing only in formatting is told so, not just "carry it verbatim"', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic so the label survives a rename | ADDRESSED | done |']),
+            reviews: [PRIOR_RC_WITH_MARKDOWN],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message, 'the refusal names formatting as the difference')
+            .toMatch(/formatting|emphasis|markdown/i)
+    });
+
+    test('#17354: a genuinely reworded action is NOT excused as formatting — the non-vacuity control', () => {
+        // Without this, a fix that labels every verbatim mismatch "formatting" passes the arm above
+        // while telling an author who softened a demand that they merely mis-styled it.
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier a bit more semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure.message, 'real drift keeps the verbatim demand').toContain('carry it verbatim');
+        expect(failure.message, 'and is not excused as styling').not.toMatch(/only in formatting/i)
+    });
+
     test('#17178: a dropped action is refused — omission must not retire a demand', () => {
         const failure = getRound2DispositionRelationFailure({
             body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |']),
