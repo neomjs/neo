@@ -15,6 +15,7 @@ setup({
     }
 });
 
+import {buildEmbeddingProbeInput} from '../../../../../../../ai/services/shared/embeddingProbe.mjs';
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
@@ -1093,7 +1094,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                         errorClassification: 'connection-refused',
                         errorCode          : 'EMBEDDING_CONNECTION_REFUSED'
                     }
-                    : {status: 'healthy'}
+                    // FULL coverage, because the shipped recovery probe now exercises the whole
+                    // admitted band. `{status: 'healthy'}` alone is what eligibility used to accept,
+                    // and this arm is now the POSITIVE control for the coverage guard: a verdict
+                    // that bounds the re-dispatch still authorizes it, end to end through runTask.
+                    : {status: 'healthy', probeBandFraction: 1, probeEstimateTokens: 21238, probeSized: true}
             },
             embeddingRecoveryClock          : () => probeNow,
             embeddingRecoveryFailureTtlMs   : 60_000,

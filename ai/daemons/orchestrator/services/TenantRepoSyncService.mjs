@@ -1074,7 +1074,21 @@ class TenantRepoSyncService extends Base {
                 estimateBandTokens: resolveEmbeddingAdmissionBand({
                     contextLimitTokens       : AiConfig.localModels.embedding.contextLimitTokens,
                     safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
-                }).estimateBandTokens
+                }).estimateBandTokens,
+                // FULL band for a RECOVERY probe, not the cadence default.
+                //
+                // This verdict authorizes a re-dispatch of the whole awaiting cohort, and the call
+                // site cannot see those inputs' sizes — nothing in the checkpoint or the KB services
+                // carries a largest-chunk measure. The band ceiling is the one bound available that
+                // DOMINATES every admitted input, so probing it is what makes the coverage cover the
+                // authorization instead of a quarter of it.
+                //
+                // The ticket's Avoided Trap against a full-ceiling probe is scoped to a CADENCE
+                // probe — "a cadence probe of that weight would itself starve the lane" — and this
+                // one runs at most once per bounded-retry backoff. If the engine dies here, that is
+                // the probe finally failing the way the workload fails: one request, classified
+                // `provider-died`, instead of the batch that killed it 36 times.
+                fraction: 1
             });
 
             return buildEmbeddingProbeBlock({
@@ -1919,7 +1933,20 @@ class TenantRepoSyncService extends Base {
                 failureTtlMaxMs: embeddingRecoveryFailureTtlMaxMs
             });
 
-            if (observation?.status === 'healthy') {
+            // `healthy` is not sufficient — `healthy AT THE SIZE THIS AUTHORIZES` is. The verdict
+            // below mints a bypass generation that re-dispatches the whole awaiting cohort, and a
+            // probe that exercised a quarter of the admitted band never bounded that work. Reading
+            // `status` alone is how a 44-byte canary greenlit the batch that killed the engine.
+            //
+            // Asserted HERE as well as sized at the probe call site, deliberately: the call site can
+            // be changed by anyone tuning cadence cost, and this is the decision that spends the
+            // compute. If a future fraction drops below the band, recovery refuses rather than
+            // silently over-authorizing again — the failure mode returns as a stall, which is
+            // visible, instead of as a loop, which is what it was.
+            const coverageBoundsAuthorization = observation?.probeSized === true
+                && observation?.probeBandFraction >= 1;
+
+            if (observation?.status === 'healthy' && coverageBoundsAuthorization) {
                 const
                     generationId = randomBytes(16).toString('hex'),
                     observedAt   = observation.gate?.checkedAt ?? embeddingRecoveryClock(),
