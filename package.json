@@ -224,7 +224,7 @@
         "html-minifier-terser"         : "^7.2.0",
         "husky"                        : "^9.1.7",
         "inquirer"                     : "^13.4.3",
-        "js-yaml"                      : "^5.2.0",
+        "js-yaml"                      : "^5.2.3",
         "jsdoc-api"                    : "^9.3.6",
         "lint-staged"                  : "^17.0.8",
         "marked"                       : "^18.0.5",
@@ -242,6 +242,11 @@
         "webpack-hook-plugin"          : "^1.0.7",
         "ws"                           : "^8.21.0",
         "zod"                          : "^4.4.3"
+    },
+    "overrides": {
+        "gray-matter": {
+            "js-yaml": "^3.15.1"
+        }
     },
     "funding": {
         "type": "GitHub Sponsors",
