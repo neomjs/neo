@@ -62,7 +62,9 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
 
         await expect(detailRoot).toBeVisible({timeout: 30000});
 
-        // the SHELL owns the affordance: the toolbar toggle exists; the pane carries none
+        // the SHELL owns the affordance; it renders in the PANE's chrome (the shellTools slot),
+        // so the verb travels with the pane into a vessel — the bar carries only the
+        // exception-only recall twin while the pane is away
         const toggle = page.locator('.fm-detail-window-toggle');
 
         await expect(toggle).toBeVisible();

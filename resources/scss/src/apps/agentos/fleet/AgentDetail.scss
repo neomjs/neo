@@ -37,6 +37,13 @@
         background   : color-mix(in srgb, var(--fm-ink-dim) 20%, transparent);
     }
 
+    /* the shell-supplied window verb docks at the header's trailing edge — layout owned here,
+       never as an inline style on the shell's config */
+    .fm-detail-header .fm-detail-window-toggle {
+        flex       : none;
+        margin-left: auto;
+    }
+
     .fm-detail-identity {
         gap      : 2px;
         overflow : hidden;

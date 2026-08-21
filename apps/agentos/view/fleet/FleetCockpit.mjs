@@ -1091,9 +1091,10 @@ class FleetCockpit extends Container {
         });
 
         // the exception-only recall verb: visible ONLY while the pane is away — the main view
-        // must always hold a way home, and the traveling pane-side toggle cannot provide it here
+        // must always hold a way home, and the traveling pane-side toggle cannot provide it here.
+        // An ADOPTED gesture vessel recalls (returnDetail); mid-gesture disables instead of racing.
         me.getReference('detail-recall-chrome')?.set({
-            disabled: state === 'reattaching',
+            disabled: state === 'reattaching' || (torn && !me.tearOutPanes?.detail),
             hidden  : !(out || torn),
             text    : torn ? 'Recall detail' : 'Reattach detail'
         });
@@ -1281,11 +1282,9 @@ class FleetCockpit extends Container {
         return {
             module   : Button,
             cls      : ['fm-detail-window-toggle'],
-            flex     : 'none',
             handler  : this.onDetailWindowToggle.bind(this),
             iconCls  : 'fa-solid fa-arrow-up-right-from-square',
             reference: 'detail-window-toggle',
-            style    : {marginLeft: 'auto'},
             text     : 'Pop out detail'
         }
     }
@@ -2171,7 +2170,41 @@ class FleetCockpit extends Container {
             return Promise.resolve({errors: ['reattach in flight'], reattached: false})
         }
 
+        // the memories twin's gesture grammar: an ADOPTED gesture vessel returns home through
+        // this same verb (the main view's recall chrome routes here), while the mid-gesture
+        // window (captured handle, no adopted vessel yet) refuses instead of racing the gesture
+        if (me.tearOutPanes?.detail) {
+            return me.returnDetail()
+        }
+        if (me.tearOutPaneHandles?.detail) {
+            return Promise.resolve({errors: ['a gesture tear-out owns the pane'], detached: false})
+        }
+
         return me.detachedDetail ? me.reattachAgentDetail() : me.popOutAgentDetail()
+    }
+
+    /**
+     * @summary Bring the gesture-torn inspector home by closing its OS window: vessel death IS
+     * the return path — {@link #onWindowDisconnect}'s tear-out branch correlates the close and
+     * {@link #reintegrateTearOutItem} restores the same live instance at its stored home
+     * position ({@link #returnMemories}' contract, mirrored for the detail pane).
+     * @returns {Promise<{returned: Boolean, errors: String[]}>}
+     */
+    async returnDetail() {
+        let me    = this,
+            entry = me.tearOutPanes?.detail;
+
+        if (!entry) {
+            return {returned: false, errors: ['detail is not in a gesture vessel']}
+        }
+
+        try {
+            await Neo.Main.windowClose({names: [entry.windowName], windowId: me.windowId})
+        } catch (error) {
+            // best-effort: an already-gone window still fires (or already fired) the disconnect
+        }
+
+        return {returned: true, errors: []}
     }
 
     /**

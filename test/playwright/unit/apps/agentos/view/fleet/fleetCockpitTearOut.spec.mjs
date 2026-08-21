@@ -346,6 +346,39 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
         expect(cockpit.returningTearOutPanes.fleet).toBeUndefined()
     });
 
+    test('the main-view recall verb returns a GESTURE-torn detail — same instance home (the memories twin\'s grammar)', async () => {
+        vessel = installWindowVessel();
+
+        // reveal the auto-hidden inspector so it is a projected, tearable pane
+        const reveal = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false});
+        cockpit.onDockZoneDocumentChange(reveal.document);
+        await cockpit.refreshPromise;
+
+        const detailPane = cockpit.getAgentDetailPane(),
+              zone       = await tearOutExit('detail');
+
+        cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'detail', sortZone: zone});
+        await cockpit.refreshPromise;
+
+        // an ADOPTED gesture vessel (the connect already correlated) — the recall verb's target
+        cockpit.tearOutPanes.detail = {windowName: `fm-tearout-detail-${cockpit.id}`, windowId: 'recall-win-1'};
+
+        // the MAIN view's recall routes through the same toggle verb the pane carries
+        const result = await cockpit.onDetailWindowToggle();
+
+        expect(result).toEqual({returned: true, errors: []});
+        expect(vessel.closeCalls).toHaveLength(1);
+        expect(vessel.closeCalls[0].names).toEqual([`fm-tearout-detail-${cockpit.id}`]);
+
+        // vessel death completes the return: the SAME live instance lands back in the tree
+        cockpit.onWindowDisconnect({windowId: 'recall-win-1'});
+        await cockpit.refreshPromise;
+
+        expect(detailPane.isDestroyed, 'same-instance return: the pane is never destroyed').toBeFalsy();
+        expect(cockpit.getAgentDetailPane(), 'the accessor resolves the ORIGINAL instance').toBe(detailPane);
+        expect(DockZoneModel.findContainingTabsId(cockpit.dockModel, 'detail'), 'the item is back in the tree').toBeTruthy()
+    });
+
     test('a surviving home node gets the EXACT stored position back — not append order', async () => {
         vessel = installWindowVessel();
 
