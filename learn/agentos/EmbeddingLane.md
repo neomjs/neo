@@ -107,9 +107,18 @@ flowchart TD
 contracts.** Width is a durability decision — how many inputs one failure or one
 yield can cost. Concurrency is a throughput decision — how many of those may be
 in flight. They were conflated: `parallel` was spent computing a *width*
-(`parallel - 1`, to "reserve" a slot the client cannot hold open, since the server
-assigns slots from its own queue), and the concurrency it declares was used by
-nothing.
+(`parallel - 1`), and the concurrency it declares was used by nothing.
+
+The clamp is worth reading precisely, because the obvious reading of it is wrong
+and this document previously carried that reading. The provider's capacity unit
+is a **task** — one multi-input POST expands to one task per input — so a client
+*can* control offered work, and `parallel - 1` did reserve real headroom: three
+inputs is three tasks against four slots, which leaves one free. The clamp was
+arithmetically correct and its intent was sound. Its defect was the unit it was
+spent in: headroom expressed as a width consumes the same budget concurrency
+needs, so a lane declaring four slots offered one request at a time. A correct
+reading of this passage cost a reviewer a round, and the wrong reading is the
+tempting one.
 
 `NEO_LOCAL_MODELS_EMBEDDING_PARALLEL` is the SSOT for the intent and applies
 across provider options. `LLAMA_ARG_N_PARALLEL` in a deployment's Compose is a
