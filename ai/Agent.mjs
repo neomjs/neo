@@ -2,9 +2,9 @@ import Base             from '../src/core/Base.mjs';
 import Client           from './mcp/client/Client.mjs';
 import ContextAssembler from './context/Assembler.mjs';
 import GeminiProvider   from './provider/Gemini.mjs';
-import OllamaProvider   from './provider/Ollama.mjs';
 import Loop             from './agent/Loop.mjs';
 import Scheduler        from './agent/Scheduler.mjs';
+import {resolveProviderClass} from './provider/resolveProviderClass.mjs';
 
 /**
  * A base class for AI Agents that manages multiple MCP Client connections
@@ -26,8 +26,16 @@ class Agent extends Base {
          */
         loop: null,
         /**
-         * The AI Provider class or string alias ('gemini', 'ollama').
-         * @member {Neo.ai.provider.Base|String} modelProvider=GeminiProvider
+         * @summary The AI provider: a `Neo.ai.provider.Base` subclass, or one of the canonical aliases
+         * `'gemini'` / `'openAiCompatible'` / `'ollama'`.
+         *
+         * The alias list is not restated here by choice — {@link module:ai/provider/providerAliases}
+         * owns it and {@link resolveProviderClass} enforces it, so this docblock cannot drift out of
+         * step with the set the way the previous one had: it advertised two aliases while the
+         * deployment's own configured default is the third.
+         *
+         * Aliases are matched **exactly**; a mis-cased value is refused rather than coerced.
+         * @member {Function|String} modelProvider=GeminiProvider
          */
         modelProvider: GeminiProvider,
         /**
@@ -155,13 +163,10 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
             // 2. Initialize Cognitive Runtime
             console.log('[Agent] Initializing Cognitive Runtime...');
 
-            let providerClass = this.modelProvider;
-
-            if (typeof providerClass === 'string') {
-                providerClass = providerClass.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
-            }
-
-            const provider = Neo.create(providerClass, this.providerConfig || {});
+            // One alias vocabulary, shared with `buildChatModel`. The inline resolution this replaces was a
+            // two-way test over a three-value set, so `openAiCompatible` selected Gemini.
+            const providerClass = resolveProviderClass(this.modelProvider),
+                  provider      = Neo.create(providerClass, this.providerConfig || {});
 
             const assembler = Neo.create(ContextAssembler);
             await assembler.ready(); // Connects to Memory Core via Services SDK
