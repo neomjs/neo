@@ -393,12 +393,28 @@ function firstLiveObligation(section = '') {
 const GH_NOT_FOUND_PATTERN = /\(HTTP 404\)/;
 
 /**
- * @summary Reads a cited issue's LIVE state, or reports that it could not be read.
+ * @summary Hard deadline on the live read.
+ *
+ * The local preflight must not become network-DEPENDENT, and correct failure classification after an
+ * unbounded call does not achieve that: an offline author with a hanging resolver blocks before the
+ * graceful-degradation branch is ever reached. The bound is what makes `unknown` reachable in the
+ * case that needs it most. Short on purpose — this is one cheap metadata read, not a fetch.
+ * @type {Number}
+ */
+const GH_PROBE_TIMEOUT_MS = 5000;
+
+/**
+ * @summary Reads a cited issue's LIVE state and ENTITY KIND, or reports that it could not be read.
  *
  * Three readings and one honest non-reading: `open`, `closed` and `missing` (the 404 above) are
  * answers about the ticket; `unknown` is the absence of an answer. Callers must treat `unknown` as
  * NOT CHECKED — never as a pass, never as a failure. An offline author, an expired token, a rate
- * limit and an outage all land there, and none of them is evidence about the ticket.
+ * limit, a timeout and an outage all land there, and none of them is evidence about the ticket.
+ *
+ * **`isPullRequest` is carried rather than collapsed.** A pull request IS an issue to the REST API
+ * and reports `state: open` exactly like a ticket; only the `pull_request` key separates them, and a
+ * `--jq .state` projection throws that key away. Reducing two facts to one string here would hand
+ * the caller a reading it cannot un-collapse — the precise failure this gate exists to remove.
  *
  * `gh` resolves `{owner}`/`{repo}` from the working directory's remote, which works from a linked
  * worktree as well as from the clone.
@@ -406,21 +422,67 @@ const GH_NOT_FOUND_PATTERN = /\(HTTP 404\)/;
  * @param {Object} [options]
  * @param {String} [options.cwd=process.cwd()]
  * @param {Function} [options.execFileSyncImpl=execFileSync]
- * @returns {'open'|'closed'|'missing'|'unknown'}
+ * @param {Number} [options.timeoutMs=GH_PROBE_TIMEOUT_MS]
+ * @returns {{isPullRequest: Boolean, state: 'open'|'closed'|'missing'|'unknown'}}
  */
-export function resolveIssueState(number, {cwd = process.cwd(), execFileSyncImpl = execFileSync} = {}) {
+export function resolveIssueState(number, {
+    cwd              = process.cwd(),
+    execFileSyncImpl = execFileSync,
+    timeoutMs        = GH_PROBE_TIMEOUT_MS
+} = {}) {
+    const unreadable = {isPullRequest: false, state: 'unknown'};
+
     try {
-        const state = String(execFileSyncImpl(
+        const raw = String(execFileSyncImpl(
             'gh',
-            ['api', `repos/{owner}/{repo}/issues/${number}`, '--jq', '.state'],
-            {cwd, encoding: 'utf8', stdio: 'pipe'}
+            ['api', `repos/{owner}/{repo}/issues/${number}`, '--jq', '{state, isPullRequest: has("pull_request")}'],
+            {cwd, encoding: 'utf8', stdio: 'pipe', timeout: timeoutMs}
         )).trim();
 
+        const parsed = JSON.parse(raw);
+
         // An unrecognised body is not a reading either: a changed API shape must not decide a gate.
-        return state === 'open' || state === 'closed' ? state : 'unknown'
+        return parsed?.state === 'open' || parsed?.state === 'closed'
+            ? {isPullRequest: parsed.isPullRequest === true, state: parsed.state}
+            : unreadable
     } catch (error) {
-        return GH_NOT_FOUND_PATTERN.test(String(error?.stderr ?? '')) ? 'missing' : 'unknown'
+        // A timeout kill and a 404 both surface here. Only the 404 says anything about the ticket.
+        return GH_NOT_FOUND_PATTERN.test(String(error?.stderr ?? ''))
+            ? {isPullRequest: false, state: 'missing'}
+            : unreadable
     }
+}
+
+/**
+ * @summary Every owner number a body DECLARES, across all owing units.
+ *
+ * The shape check upstream deliberately reports on ONE section — the first unowned one, so its
+ * message names genuinely orphaned work. The state check must not inherit that selection: a body
+ * whose first owing section is correctly owned and whose second names a closed ticket would
+ * otherwise never have the second owner read.
+ *
+ * Inline code is blanked for the same reason it is upstream: a backticked `Residual-Owner: #200`
+ * documents the spelling rather than declaring an owner.
+ * @param {Object} options
+ * @param {String} options.fenceless Body with fences and HTML comments removed.
+ * @param {String[]} options.owingSections Post-Merge Validation sections that still owe work.
+ * @returns {String[]} Declared owner numbers, in body order, duplicates included.
+ * @private
+ */
+function collectDeclaredResidualOwners({fenceless, owingSections}) {
+    const owners = [];
+
+    owingSections.forEach(section => {
+        const match = withoutInlineCode(section).match(RESIDUAL_OWNER_LINE_PATTERN);
+
+        match && owners.push(match[1])
+    });
+
+    const inline = withoutInlineCode(fenceless).match(RESIDUAL_OWNER_INLINE_PATTERN);
+
+    inline && owners.push(inline[1]);
+
+    return owners
 }
 
 /**
@@ -505,25 +567,46 @@ export function validatePrBody(body, {draft = false, resolveOwnerState = null} =
             missingVisible.push(`This PR still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
         } else if (owner === closeTarget) {
             missingVisible.push(`\`Residual-Owner: #${owner}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
-        } else if (resolveOwnerState) {
-            // The close-target rule above is already a SURVIVABILITY rule — a home that will not
-            // outlive the merge is refused. A ticket that closed BEFORE the citation fails that
-            // requirement more completely: the close target at least survives until merge. The
-            // pattern `#(\d+)` cannot see the difference, so a well-formed reference was read as a
-            // live one, and this is the read that separates them.
-            const state = resolveOwnerState(owner);
+        }
 
-            if (state === 'closed') {
-                missingVisible.push(`\`Residual-Owner: #${owner}\` is CLOSED. Deferred work must name a home that survives the merge. Finish it, drop the obligation, or name an OPEN ticket. Do not open a ticket to satisfy this.`)
-            } else if (state === 'missing') {
-                missingVisible.push(`\`Residual-Owner: #${owner}\` does not exist. Name an EXISTING open ticket that owns the work, finish it, or drop the obligation. Do not open a ticket to satisfy this.`)
-            } else if (state !== 'open') {
-                // Could-not-verify is not did-not-happen. An offline run, an expired token, a rate
-                // limit and an outage are all facts about the transport, and a gate that turns one
-                // into a verdict manufactures the diagnosis. Neither a pass nor a failure: the
-                // author is told which check did not run, so silence never reads as clearance.
-                warnings.push(`\`Residual-Owner: #${owner}\` was NOT state-checked — GitHub could not be read. The owner's shape is valid; whether it is still open is unverified.`)
-            }
+        // EVERY declared owner is state-checked, not the one section selected above for SHAPE
+        // reporting. That selection is deliberately biased toward the first UNOWNED section so the
+        // message names genuinely orphaned work — which means a body whose first owing section is
+        // correctly owned and whose second names a closed ticket would never have reached the read.
+        // The surrounding code already learned this once for the missing-owner case; the state check
+        // reintroduced the single-representative shape one dimension along.
+        if (resolveOwnerState) {
+            const
+                declared = collectDeclaredResidualOwners({fenceless, owingSections}),
+                // Deduplicated so one repeated owner costs one network read, and sorted so the
+                // failure order is the body's order rather than a Set's insertion accident.
+                unique   = [...new Set(declared)].filter(number => number !== closeTarget);
+
+            unique.forEach(number => {
+                // The close-target rule above is already a SURVIVABILITY rule — a home that will not
+                // outlive the merge is refused. A ticket that closed BEFORE the citation fails that
+                // requirement more completely: the close target at least survives until merge. The
+                // pattern `#(\d+)` cannot see the difference, and this is the read that separates them.
+                const {isPullRequest, state} = resolveOwnerState(number) ?? {};
+
+                if (state === 'closed') {
+                    missingVisible.push(`\`Residual-Owner: #${number}\` is CLOSED. Deferred work must name a home that survives the merge. Finish it, drop the obligation, or name an OPEN ticket. Do not open a ticket to satisfy this.`)
+                } else if (state === 'missing') {
+                    missingVisible.push(`\`Residual-Owner: #${number}\` does not exist. Name an EXISTING open ticket that owns the work, finish it, or drop the obligation. Do not open a ticket to satisfy this.`)
+                } else if (state === 'open' && isPullRequest) {
+                    // A pull request IS an issue to the REST API and reports `state: open` exactly
+                    // like a ticket. It is a WORSE owner than a closed one: it disappears by design,
+                    // on merge, and takes the deferral with it. Collapsing the two to the string
+                    // `open` is the same conflation this gate exists to remove.
+                    missingVisible.push(`\`Residual-Owner: #${number}\` is a PULL REQUEST, not a ticket. It closes when it merges, so the deferral dies with it. Name an EXISTING open ISSUE that owns the work, finish it, or drop the obligation.`)
+                } else if (state !== 'open') {
+                    // Could-not-verify is not did-not-happen. An offline run, an expired token, a rate
+                    // limit and an outage are all facts about the transport, and a gate that turns one
+                    // into a verdict manufactures the diagnosis. Neither a pass nor a failure: the
+                    // author is told which check did not run, so silence never reads as clearance.
+                    warnings.push(`\`Residual-Owner: #${number}\` was NOT state-checked — GitHub could not be read. The owner's shape is valid; whether it is still an open ticket is unverified.`)
+                }
+            })
         }
     }
 
