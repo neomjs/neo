@@ -229,19 +229,27 @@ export function readCodexContext() {
  * green throughout the 2026-08-20 incident), so this is a reminder, not a health oracle.
  * @type {String}
  */
-export const CORE_PREFLIGHT = 'Core preflight: call `list_messages({status:\'unread\'})` now. Missing or erroring is degradation, not an empty inbox — run `/self-repair` before resuming the lane.';
+const CORE_PREFLIGHT = 'Core preflight: call `list_messages({status:\'unread\'})` now. Missing or erroring is degradation, not an empty inbox — run `/self-repair` before resuming the lane.';
 
+/**
+ * @summary Hook entry. Two paths: a lifecycle reset re-injects one sentence, an operator prompt
+ * opens a turn.
+ *
+ * The reset path mints no turn-presence interval — that would fabricate liveness for a seat which
+ * has not acted — and writes no prompt provenance, which would attribute the reset itself as a
+ * prompt.
+ *
+ * It emits the reminder ALONE, and both halves of that are deliberate. `UserPromptSubmit` injects
+ * the guard card on the very next prompt, so emitting it here bought one duplicate card per
+ * lifecycle reset and no earlier delivery. Reading that card FIRST was worse than redundant: it
+ * made the one sentence this path exists to deliver contingent on an unrelated file being present.
+ * @param {Object} [options]
+ * @param {Boolean} [options.sessionStart=false] Startup / resume / compact rather than a prompt.
+ * @returns {Promise<void>}
+ */
 async function main({sessionStart = false} = {}) {
-    // SessionStart carries no operator prompt and opens no turn. Minting a turn-presence interval
-    // here would fabricate liveness for a seat that has not acted, and writing prompt provenance
-    // would attribute the reset itself as a prompt.
     if (sessionStart) {
-        const bootContext = readCodexContext();
-
         process.stdout.write(`${CORE_PREFLIGHT}\n`);
-        if (bootContext) {
-            process.stdout.write(`${bootContext}\n`);
-        }
         return;
     }
 
