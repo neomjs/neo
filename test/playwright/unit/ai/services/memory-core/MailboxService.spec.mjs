@@ -2520,6 +2520,116 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
+    /**
+     * Interposes a storage-only field at the write seam, then runs `mutate` and reports whether the
+     * interposed field survived. The interposition must land AFTER this process last read the row and
+     * BEFORE it writes — interposing up front proves nothing, because the read that precedes the
+     * write refreshes cache from storage and carries the field back in.
+     */
+    const survivesInterposition = async ({table, id, mutate}) => {
+        const
+            storage = GraphService.db.storage,
+            sqlite  = storage.db,
+            // Interpose on BOTH write paths, so the arm tests the PROPERTY (does the field survive)
+            // rather than the implementation (is the narrow writer used). Hooking only the narrow
+            // path makes a whole-record regression fail the precondition instead of the probe —
+            // still red, but red for the wrong reason and far less diagnosable.
+            originals = {
+                setRecordProperty: storage.setRecordProperty.bind(storage),
+                addNodes         : storage.addNodes.bind(storage),
+                addEdges         : storage.addEdges.bind(storage)
+            };
+
+        let interposed = false;
+
+        const interpose = () => {
+            if (interposed) return;
+            interposed = true;
+            sqlite.prepare(
+                `UPDATE ${table} SET data = json_set(data, '$.properties.concurrentProbe', 'interposed') WHERE id = ?`
+            ).run(id)
+        };
+
+        for (const name of Object.keys(originals)) {
+            storage[name] = (...args) => { interpose(); return originals[name](...args) }
+        }
+
+        try {
+            await mutate()
+        } finally {
+            for (const [name, fn] of Object.entries(originals)) storage[name] = fn
+        }
+
+        const row = sqlite.prepare(`SELECT data FROM ${table} WHERE id = ?`).get(id);
+
+        return {
+            interposed,
+            probe: row ? (JSON.parse(row.data).properties?.concurrentProbe ?? null) : null
+        }
+    };
+
+    test('#17486 readAt survives an interposed storage field — NODE carrier', async () => {
+        // The whole-record clobber, on the carrier that never had the edge overlay. Before the
+        // migration this wrote the entire node from a cached copy, so a field committed inside the
+        // write window was erased.
+        const [directed] = await seedFor(['read receipt must not clobber']);
+
+        const {interposed, probe} = await survivesInterposition({
+            table : 'Nodes',
+            id    : directed,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId: directed}))
+        });
+
+        expect(interposed, 'precondition: the write seam was reached').toBe(true);
+        expect(probe, 'the interposed field survived the readAt write').toBe('interposed');
+        expect(GraphService.db.nodes.get(directed).properties.readAt, 'and readAt landed').toBeTruthy()
+    });
+
+    test('#17486 archivedAt survives an interposed storage field — NODE carrier', async () => {
+        // Same carrier, different receipt. A fix applied to readAt alone would leave this red, which
+        // is the asymmetry the whole ticket exists to end.
+        const [directed] = await seedFor(['archive must not clobber either']);
+
+        const {interposed, probe} = await survivesInterposition({
+            table : 'Nodes',
+            id    : directed,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.archiveMessage({messageId: directed}))
+        });
+
+        expect(interposed, 'precondition: the write seam was reached').toBe(true);
+        expect(probe, 'the interposed field survived the archivedAt write').toBe('interposed')
+    });
+
+    test('#17486 readAt is NOT write-once — a second write still lands', async () => {
+        // Guards the variant choice. `seenAt` takes the absence predicate because it means FIRST
+        // shown; routing readAt through the same helper would silently drop every write after the
+        // first, and every arm above would still pass.
+        const
+            [directed] = await seedFor(['read twice']),
+            storage    = GraphService.db.storage,
+            readAtOf   = () => JSON.parse(
+                storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(directed).data
+            ).properties?.readAt ?? null;
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({messageId: directed}));
+
+        const first = readAtOf();
+
+        expect(first).toBeTruthy();
+
+        // A direct second write through the same narrow path must overwrite, not be refused.
+        expect(storage.setRecordProperty('Nodes', directed, 'readAt', '2099-01-01T00:00:00.000Z'),
+            'the unconditional writer reports a row was updated').toBe(true);
+        expect(readAtOf(), 'and the value actually changed').toBe('2099-01-01T00:00:00.000Z');
+
+        // The paired control: the write-once variant refuses, which is why the two are separate.
+        expect(storage.setRecordPropertyIfAbsent('Nodes', directed, 'readAt', '2100-01-01T00:00:00.000Z'),
+            'the write-once variant refuses an already-set field').toBe(false)
+    });
+
     test('#17321 first-seen is write-once — a second listing does not restamp', async () => {
         // Without this, the cache-last ordering above could be "correct" by simply rewriting `seenAt`
         // on every listing, which would make the timestamp mean "last listed" instead of "first shown".
