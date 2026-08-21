@@ -305,6 +305,12 @@ class OllamaProvider extends Base {
          * The dispatchers already inject it (`buildChatModel.mjs`, `services/graph/providerDispatch.mjs`
          * both pass `modelName` from the resolved `aiConfig.ollama` block), so the default only ever
          * served the paths that forgot to. Those now fail by name via {@link assertModelId}.
+         *
+         * This is convergence, not innovation: {@link Neo.ai.provider.Base} declares `modelName: null`,
+         * and {@link Neo.ai.provider.OpenAiCompatible} already removed its own literal for the same
+         * reason — it had carried an Ollama-namespaced id no OpenAI-compatible server could serve.
+         * Ollama was the last of the three local-endpoint providers still defaulting a model, so this
+         * slot was the outlier and `null` is the convention.
          * @member {String|null} modelName=null
          */
         modelName: null,
