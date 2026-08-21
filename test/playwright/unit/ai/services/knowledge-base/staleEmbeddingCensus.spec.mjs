@@ -31,7 +31,7 @@ function row(id, metadata) {
 }
 
 test.describe('the provider-input format has a stored identity', () => {
-    test('the identity is DERIVED from the format, so a format change cannot leave it behind', () => {
+    test('the identity is DERIVED from the format, so a change to any PROBED branch cannot leave it behind', () => {
         // The point of deriving it: "format changed, identity did not" is removed for every branch
         // the probe set reaches, rather than merely detectable. Not unconditional — a branch no probe
         // exercises can still change invisibly, which is why adding a format branch means adding a

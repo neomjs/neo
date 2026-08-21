@@ -55,7 +55,8 @@ export function buildEmbeddingInputText(chunk) {
 }
 
 /**
- * @summary Chunks that exercise every branch the format has, so the identity below cannot miss one.
+ * @summary Chunks that exercise every branch the format has TODAY, so the identity below cannot miss
+ * one of them. A branch added later without a probe added beside it is the gap this set cannot close.
  *
  * The digest is only as sensitive as this set: a branch no probe reaches can change without changing
  * the identity, which would leave rows claiming a format they were not built from. So each entry
