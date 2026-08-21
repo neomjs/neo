@@ -338,6 +338,28 @@ export function composeMemoryCoreHealthcheck({
  */
 const addMessageTool = args => MailboxService.addMessage(args, {deferProjection: true});
 
+/**
+ * @summary The model-visible mailbox boundary — the only place a listing records `seenAt`.
+ *
+ * `MailboxService.listMessages` defaults `recordSeen` to false, so a direct service read cannot
+ * stamp by omission. That is the whole safety argument, and it replaces an earlier design that
+ * keyed on caller identity: `SwarmHeartbeatService` binds the polled agent as the request identity
+ * before reading that agent's own inbox, so an owner-identity test ADMITS the background sweep
+ * rather than excluding it. Caller identity proves mailbox authority, not display authority.
+ *
+ * Arming it here means the heartbeat and the diagnostics scripts are safe by construction — they
+ * never cross this boundary — instead of safe because a predicate happened to exclude them.
+ *
+ * Passed as the SECOND argument rather than folded into `args`, matching `addMessageTool` directly
+ * above. Two reasons, and the first is mechanical: the Zod facade strips keys the operation schema
+ * does not declare, so an options key smuggled through `args` would read `undefined` in production
+ * while every unit test that constructs the call directly still passed. The second is that seen is
+ * not a caller decision — an agent must not be able to suppress or forge it from the wire.
+ * @param {Object} args
+ * @returns {Promise<Object>}
+ */
+const listMessagesTool = args => MailboxService.listMessages(args, {recordSeen: true});
+
 const serviceMapping = {
     add_memory           : MemoryService          .addMemory               .bind(MemoryService),
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
@@ -394,7 +416,7 @@ const serviceMapping = {
     get_memory_core_tool_metrics:
                               MemoryCoreRecorderService.getMemoryCoreToolMetrics.bind(MemoryCoreRecorderService),
     add_message           : addMessageTool,
-    list_messages         : MailboxService         .listMessages            .bind(MailboxService),
+    list_messages         : listMessagesTool,
     get_message           : MailboxService         .getMessage              .bind(MailboxService),
     get_rem_pipeline_state: HealthService          .getRemPipelineState     .bind(HealthService),
     get_sqlite_holder_diagnostics:

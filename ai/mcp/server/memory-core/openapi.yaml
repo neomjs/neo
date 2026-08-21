@@ -2352,9 +2352,11 @@ paths:
       operationId: mark_read
       x-neo-tool-tier: write
       x-pass-as-object: true
-      x-neo-tool-summary: Mark selected or all current unread A2A messages read.
+      x-neo-tool-summary: Mark selected A2A messages read, or drain the unread messages you were actually shown.
       description: |
-        Marks selected messages or the caller's entire current unread inbox snapshot as read. Pass exactly one of `messageId` (a string or array) and `all: true`. Array mode returns per-id results and one stale or unauthorized id never fails the batch. All mode snapshots every currently unread, unarchived message before mutation; messages arriving after snapshot capture remain unread.
+        Marks selected messages read, or drains a snapshot of the caller's unread inbox. Pass exactly one of `messageId` (a string or array) and `all: true`. Array mode returns per-id results and one stale or unauthorized id never fails the batch.
+
+        All mode drains only messages you have SEEN — rows a previous `list_messages` call actually surfaced to you. Mail that arrived but was never displayed is withheld and counted in `withheldUnseenCount`, so a bulk drain cannot silently clear a directed request you never read. Pass `includeUnseen: true` to widen the snapshot back to every unread row. The snapshot is captured before mutation; messages arriving after capture remain unread.
       tags: [Mailbox]
       requestBody:
         required: true
@@ -2371,7 +2373,11 @@ paths:
                       items: {type: string}
                 all:
                   type: boolean
-                  description: Set true instead of messageId to mark the current unread, unarchived snapshot.
+                  description: Set true instead of messageId to mark the unread, unarchived messages you have been shown.
+                includeUnseen:
+                  type: boolean
+                  default: false
+                  description: Used with `all`, also sweeps messages you were never shown. For clearing a backlog you do not intend to read; it can discard a directed message you have never seen. The receipt's `withheldUnseenCount` reports what the default drain held back.
       responses:
         '200':
           description: OK

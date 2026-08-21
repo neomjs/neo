@@ -35,6 +35,33 @@ class Base extends NeoBase {
     addEdges(edges) {}
 
     /**
+     * @summary Sets ONE property on an existing record, only when it is currently absent.
+     *
+     * The narrow counterpart to {@link addNodes} / {@link addEdges}, which replace the whole document
+     * and therefore erase any field another process committed between this process's read and its
+     * write. Receipt timestamps are exactly the fields two processes legitimately write at once — a
+     * listing, a drain and an archive are independent operations on one row — so they need a write
+     * that cannot carry a stale copy of its neighbours.
+     *
+     * Write-once is enforced in SQL rather than by a read-then-check in the caller, because a caller
+     * -side guard reads cache and races the same window it is trying to close.
+     *
+     * @param {String} table `'Nodes'` or `'Edges'`.
+     * @param {String} id Record id.
+     * @param {String} property Property name under `$.properties`.
+     * @param {*} value Value to set.
+     * @returns {Boolean} `true` when this call performed the write; `false` when the property was
+     *   already set or the row does not exist — the caller cannot distinguish, and must not care.
+     *
+     * An adapter that does not override this returns `false`, meaning "no durable write happened".
+     * Callers treat that as a retryable non-write rather than as success, so an unimplemented adapter
+     * degrades to never recording the property instead of claiming a durability it does not have.
+     */
+    setRecordPropertyIfAbsent(table, id, property, value) {
+        return false
+    }
+
+    /**
      * Purges specific Nodes array data natively resolving cascade anomalies internally at the driver stratum.
      * @param {Object[]} nodes
      */
