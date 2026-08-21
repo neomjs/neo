@@ -67,6 +67,25 @@ const
     selfClosingComponentRegex = /<((?:[A-Z][\w\.]*)|(?:neotag\d+))([^>]*?)\/?>/g;
 
 /**
+ * Wraps a static template chunk as a single-quoted JavaScript string literal for an addition chain.
+ *
+ * Order matters: backslashes are escaped BEFORE quotes, otherwise the backslash this function itself
+ * introduces in front of a quote would be escaped again on a second pass and the literal would close
+ * early. Both characters need handling, not just the quote — a chunk ending in `\` escapes the closing
+ * delimiter (a syntax error), while an interior `a\b` is reinterpreted as the `\b` escape and silently
+ * becomes a backspace character. The latter parses cleanly, so it is the one that reaches production.
+ *
+ * The text-node chain and the attribute chain both call this. They previously inlined the same
+ * expression, which is why the same defect existed twice.
+ * @param {string} value The raw static chunk.
+ * @returns {string} The chunk as a quoted, escape-safe JS string literal.
+ * @private
+ */
+function toQuotedStringLiteral(value) {
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
+/**
  * Recursively converts a single parse5 AST node into a Neo.mjs VDOM node.
  * This is the heart of the transformation process, translating the HTML structure into a JSON structure.
  * @param {object} node The parse5 AST node to process.
@@ -116,8 +135,7 @@ function convertNodeToVdom(node, values, originalString, attributeNameMap, optio
                         return `(${exprMatch[1]})`; // Wrap expression in parens for safety
                     }
                 }
-                // Escape single quotes for the string literal part of the chain.
-                return `'${part.replace(/'/g, "\'" )}'`;
+                return toQuotedStringLiteral(part);
             }).filter(p => p !== `''`).join(' + ');
 
             // The entire chain becomes a single expression placeholder.
@@ -179,7 +197,7 @@ function convertNodeToVdom(node, values, originalString, attributeNameMap, optio
                             return exprMatch ? `(${exprMatch[1]})` : JSON.stringify(value);
                         }
                     }
-                    return `'${part.replace(/'/g, "\'" )}'`;
+                    return toQuotedStringLiteral(part);
                 });
 
                 if (hasDynamicPart) {
