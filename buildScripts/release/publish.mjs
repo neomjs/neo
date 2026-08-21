@@ -7,22 +7,28 @@
  * to maintain a clean, linear, and atomic git history on the production branch. It bridges the gap
  * between local development artifacts and remote GitHub infrastructure.
  *
- * The workflow consists of 6 key stages:
+ * The workflow consists of 5 key stages, plus an explicit Brain-side handoff:
  * 1. **Pre-flight Checks**: Validates environment state (branch, auth, versioning).
  * 2. **Preparation**: Generates build artifacts and prepares the dev branch.
  * 3. **Atomic Squash**: Uses low-level git plumbing (`commit-tree`) to graft the dev state onto main
  *    as a single commit, avoiding merge conflicts and preserving history cleanliness.
  * 4. **Documentation**: Finalizes release notes with the production commit hash.
- * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm) and updates the AI Knowledge Base.
- * 6. **Synchronization**: Syncs the latest GitHub state back to local markdown files and archives tickets.
+ * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm).
  *
- * @keywords Release Automation, Git Plumbing, Local-First, Knowledge Base, GitHub Sync, CI/CD
+ * The content half of the release — Knowledge Base upload, the full GitHub sync that archives the
+ * release's tickets and chunks the release note, and the archive commit — is Brain-side lifecycle
+ * work and lives in `ai/scripts/lifecycle/postReleaseSync.mjs` (`npm run ai:post-release-sync`),
+ * which this script names as the next runbook step when it finishes. The boundary is deliberate:
+ * this script imports and spawns NOTHING under `ai/**`, so the engine can be released from a
+ * checkout in which the agent OS does not exist — `check-engine-brain-boundary` enforces the
+ * import half of that property.
+ *
+ * @keywords Release Automation, Git Plumbing, Local-First, CI/CD, Engine-Brain Boundary
  */
 
 import {execSync}                      from 'child_process';
 import fs                              from 'fs-extra';
 import path                            from 'path';
-import {GH_SyncService}                from '../../ai/services.host.mjs';
 import {findLogicalIdentityCollisions} from '../util/check-content-logical-identity.mjs';
 
 const root = path.resolve();
@@ -256,64 +262,20 @@ async function main() {
 
     console.log('✅ Release created! GitHub Actions will now publish to npm.');
 
-    // The release note is now the GitHub release body. Step 6's GH_SyncService.runFullSync() re-materializes
-    // it under resources/content/release-notes/chunk-N/ (with frontmatter) via the ordinal-100 bucketing.
-    // Remove the top-level staging copy here so it does not linger as a duplicate of the chunked record —
-    // the broad `git add .` in Step 6 stages this removal alongside the archive moves.
+    // The release note is now the GitHub release body. The Brain-side post-release sync
+    // re-materializes it under resources/content/release-notes/chunk-N/ (with frontmatter) via the
+    // ordinal-100 bucketing. Remove the top-level staging copy here so it does not linger as a
+    // duplicate of the chunked record — the post-release sync's broad `git add .` stages this
+    // removal alongside the archive moves it produces.
     if (fs.existsSync(releaseNotePath)) {
         fs.removeSync(releaseNotePath);
         console.log(`🧹 Removed top-level staging release note: ${path.relative(root, releaseNotePath)}`);
     }
 
-
-    // --- 5.5 Upload Knowledge Base ---
-
-    console.log('\n🧠 Step 5.5: Uploading Knowledge Base...');
-    runCommand('node ai/scripts/maintenance/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
-
-
-    // --- 6. Post-Release Cleanup ---
-
-    console.log('\n🧹 Step 6: Post-Release Cleanup (Sync & Archive)...');
-
-    console.log('Waiting 10 seconds for release propagation...');
-    await new Promise(resolve => setTimeout(resolve, 10000));
-
-    console.log('🔄 Running GH Sync Service...');
-    try {
-        await GH_SyncService.runFullSync();
-        console.log('✅ Sync complete.');
-
-        // Regenerate ticket index to reflect moves (active -> archive)
-        console.log('🔄 Regenerating Ticket Index...');
-        runCommand('node buildScripts/docs/index/tickets.mjs', 'Failed to regenerate ticket index');
-    } catch (error) {
-        console.error('❌ Sync Service failed:', error);
-        // Don't exit, try to commit what we have
-    }
-
-    // Commit Archived Tickets
-    //
-    // `GH_SyncService.runFullSync()` above writes archived items to the universal
-    // ordinal-100 chunked shape (`resources/content/archive/{type}/v*/chunk-N/`).
-    // The `git add .` below is intentionally broad to capture the archive/ moves plus
-    // the `_index.json` / `.sync-metadata.json` updates produced by the sync.
-    console.log('💾 Committing archived tickets...');
-    const status = runCommandWithOutput('git status --porcelain');
-
-    if (status) {
-        // Deliberately AFTER the catch above, so it also fires on the path where `runFullSync()`
-        // threw and this script chose to continue: that throw is the integrity verdict, and this is
-        // the commit that would publish what the verdict refused.
-        assertNoArchiveLogicalIdentityCollisions('commit archived tickets');
-        runCommand('git add .', 'Failed to stage archive changes');
-        runCommand(`git commit --no-verify -m "chore: Archive tickets for v${newVersion}"`, 'Failed to commit archive changes');
-        runCommand('git push origin dev', 'Failed to push archive changes');
-    } else {
-        console.log('No changes to archive.');
-    }
-
-    console.log('\n✨ Release Workflow Complete! ✨');
+    console.log('\n✨ Engine Release Complete! ✨');
+    console.log('\nNext runbook step — the Brain-side content lifecycle (Knowledge Base upload,');
+    console.log('ticket archive sync, archive commit) runs from the agent OS:');
+    console.log(`\n    npm run ai:post-release-sync\n`);
 }
 
 main().catch(error => {

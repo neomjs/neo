@@ -1,9 +1,1 @@
-[
-    {
-        "file": "buildScripts/release/publish.mjs",
-        "specifier": "../../ai/services.host.mjs",
-        "count": 1,
-        "class": "A",
-        "note": "Class A, and the sharp end: performs the atomic dev -> main release commit, so releasing the framework currently requires the agent OS to be present and importable. Its relocation must keep the release workflow's entry point reachable — the one sequencing constraint in the burndown."
-    }
-]
+[]

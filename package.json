@@ -86,6 +86,7 @@
         "ai:kb-gc"                             : "node ./ai/daemons/kb-gc/daemon.mjs",
         "ai:host-edge"                         : "node ./ai/daemons/orchestrator/hostEdge.mjs",
         "ai:orchestrator"                      : "node ./ai/daemons/orchestrator/daemon.mjs",
+        "ai:post-release-sync"                 : "node ./ai/scripts/lifecycle/postReleaseSync.mjs",
         "ai:wake-manifest"                     : "node ./ai/daemons/wake/buildReceiverManifest.mjs",
         "ai:wake-receiver"                     : "node ./ai/daemons/wake/receiver.mjs",
         "ai:revalidation-sweep"                : "node ./ai/scripts/lifecycle/revalidationSweep.mjs",
