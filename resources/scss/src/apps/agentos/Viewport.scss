@@ -1,6 +1,10 @@
 /* The harness shell — everything scoped under the viewport root (its cls) for isolation:
-   top chrome, the left-rail keeper-view nav, the agent-button hierarchy, and the Home/Chat surfaces. */
-.agent-os-viewport.neo-viewport {
+   top chrome, the left-rail keeper-view nav, the agent-button hierarchy, and the Home/Chat surfaces.
+   The instance menu is a framework-floating document.body child, so it joins this scope to inherit
+   the SAME structural FM role/spacing/motion tokens without duplicating their definitions. Its
+   feature sheet consumes only the relevant vars; the shell selectors below remain descendant-bound. */
+.agent-os-viewport.neo-viewport,
+.fm-instance-menu {
     /* The keeper-view nav's active tab indicator reads as FM signal — the stock theme's
        neutral-contrast white strip is a foreign accent inside the FM tonal stack (shell-scope
        only; the framework token itself is untouched). */

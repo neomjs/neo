@@ -1,36 +1,32 @@
-/* AgentOS.view.fleet.InstanceSwitcher — the top-chrome instance scope control (#17328).
-   Chip class: AFFORDANCE (§06 T2 third class — an action, never an observation; 6px radius is the
-   recorded affordance-class distinction). Colors read the --fm-* token layer only; the dot binds
-   --fm-dot through the state class exactly like StateDot (one token indirection, unmatched class
-   renders quiet). Type resolves through the §04 role tokens (#17265 — the pre-annotated literals
-   became real consumers). Menu motion: reveal/dismiss class on the FM alias over the standards
-   vocabulary, with the reduced-motion collapse in-file (the StateDot inclusion-gate precedent —
-   outside the dock's token-layer scope). */
-.fm-instance-switcher {
-    position: relative;
+/* AgentOS.view.fleet.InstanceSwitcher — the top-chrome instance scope control (#17367).
+   The trigger and menu mechanics belong to Neo.button.Base + Neo.menu.List: alignment, floating
+   position, layering, reveal/dismiss, focus, and keyboard behavior are deliberately absent here.
+   This sheet is skin only. Colors consume the --fm-* layer; row type and spacing consume the §04
+   role/rhythm tokens shared onto the body-level floating menu by Viewport.scss. */
+.fm-instance-switcher.fm-instance-trigger.neo-button {
+    align-items  : center;
+    background   : transparent;
+    border       : 1px solid var(--fm-line);
+    border-radius: 6px;            /* affordance-class distinction, recorded in §06 T2 */
+    color        : var(--fm-ink-dim);
+    height       : auto;
+    min-width    : 0;
+    padding      : var(--fm-space-1) var(--fm-space-2);
 
-    .fm-instance-trigger {
-        align-items  : center;
-        background   : transparent;
-        border       : 1px solid var(--fm-line);
-        border-radius: 6px;            /* affordance-class distinction, recorded in §06 T2 */
-        color        : var(--fm-ink-dim);
-        cursor        : pointer;
-        display       : inline-flex;
+    .neo-button-text {
+        align-items   : center;
+        color         : inherit;
+        display       : flex;
         font          : var(--fm-text-chrome);
         gap           : var(--fm-space-2);
         letter-spacing: var(--fm-text-chrome-tracking);
-        padding       : var(--fm-space-1) var(--fm-space-2);
         text-transform: uppercase;
-
-        &:hover {
-            border-color: var(--fm-line-soft);
-            color       : var(--fm-ink)
-        }
     }
 
-    /* the dot IS the family's mark-only member — the shared .fm-state-dot class carries geometry,
-       halo, and the state-class → --fm-dot mapping (StateDot.scss); nothing re-styled here */
+    &:hover {
+        border-color: var(--fm-line-soft);
+        color       : var(--fm-ink)
+    }
 
     .fm-instance-label {
         max-width    : 180px;
@@ -42,43 +38,32 @@
     .fm-instance-caret {
         color: var(--fm-ink-dim);
     }
+}
 
-    .fm-instance-menu {
-        background   : var(--fm-panel-2);
-        border       : 1px solid var(--fm-line);
-        border-radius: 6px;
-        box-shadow   : var(--fm-shadow-overlay);
-        display      : flex;
-        flex-direction: column;
-        min-width    : 320px;
-        padding      : var(--fm-space-1);
-        position     : absolute;
-        right        : 0;
-        top          : calc(100% + var(--fm-space-1));
-        z-index      : 50;
+.fm-instance-menu.neo-menu-list {
+    --menu-list-background-color              : var(--fm-panel-2);
+    --menu-list-border-color                  : var(--fm-line);
+    --menu-list-item-background-color         : transparent;
+    --menu-list-item-background-color-hover   : var(--fm-panel);
+    --menu-list-item-background-color-selected: var(--fm-panel);
+    --menu-list-item-color                    : var(--fm-ink-dim);
+    --menu-list-item-height                   : auto;
+    --menu-list-item-line-height              : normal;
+    --menu-list-item-outline-focus            : 1px solid var(--fm-signal);
+    --menu-list-item-padding                  : var(--fm-space-2);
 
-        /* reveal class (§06 T4): chrome enters from its edge; dismissal removes the node, so only
-           the reveal needs a rule — and reduced-motion collapses it below */
-        animation: fm-instance-menu-reveal var(--fm-motion-panel) var(--ease-out-soft);
-    }
+    border-radius: 6px;
+    box-shadow   : var(--fm-shadow-overlay);
+    min-width    : 320px;
+    padding      : var(--fm-space-1);
 
-    .fm-instance-row,
-    .fm-instance-manage {
-        align-items  : center;
-        background   : transparent;
+    .neo-list-item.fm-instance-row,
+    .neo-list-item.fm-instance-manage {
         border       : 1px solid transparent;
         border-radius: 4px;
-        color        : var(--fm-ink-dim);
         cursor       : pointer;
-        display      : flex;
         gap          : var(--fm-space-2);
-        padding      : var(--fm-space-2);
         text-align   : left;
-
-        &:hover {
-            background: var(--fm-panel);
-            color     : var(--fm-ink)
-        }
     }
 
     /* the bound row is marked STRUCTURALLY — border + weight, never hue-alone (§06 law-1) */
@@ -120,23 +105,5 @@
 
     .fm-instance-manage {
         font: var(--fm-text-body);
-    }
-}
-
-@keyframes fm-instance-menu-reveal {
-    from {
-        opacity  : 0;
-        transform: translateY(-4px);
-    }
-    to {
-        opacity  : 1;
-        transform: translateY(0);
-    }
-}
-
-/* reduced-motion collapse (§06 T4): the state change lands instantly, never removed */
-@media (prefers-reduced-motion: reduce) {
-    .fm-instance-switcher .fm-instance-menu {
-        animation: none;
     }
 }

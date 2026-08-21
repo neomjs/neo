@@ -15,14 +15,17 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
-import Instance       from '../../../../../../../src/manager/Instance.mjs';
+import '../../../../../../../src/manager/Instance.mjs';
 
-test.describe('InstanceSwitcher — the chrome scope control, constructed (#17328)', () => {
-    let InstanceSwitcher, FleetInstances, createFleetProfile;
+test.describe('InstanceSwitcher — framework button + Store-backed menu (#17367)', () => {
+    let Button, InstanceSwitcher, FleetInstances, createFleetProfile;
 
-    const localId = 'fleet-profile:v1:http://127.0.0.1:8083/fleet';
+    const
+        localId = 'fleet-profile:v1:http://127.0.0.1:8083/fleet',
+        cloudId = 'fleet-profile:v1:https://fleet.example.io/fleet';
 
     test.beforeAll(async () => {
+        Button             = (await import('../../../../../../../src/button/Base.mjs')).default;
         InstanceSwitcher   = (await import('../../../../../../../apps/agentos/view/fleet/InstanceSwitcher.mjs')).default;
         FleetInstances     = (await import('../../../../../../../apps/agentos/store/FleetInstances.mjs')).default;
         createFleetProfile = (await import('../../../../../../../apps/agentos/fleet/connectionProfiles.mjs')).createFleetProfile
@@ -33,99 +36,153 @@ test.describe('InstanceSwitcher — the chrome scope control, constructed (#1732
         {...createFleetProfile({custodian: 'session-only', endpoint: 'https://fleet.example.io/fleet', label: 'cloud-eu'})}
     ]});
 
-    test('the accessible name IS the tested surface: "Instance: <label> — <state word>" (the review-adopted AC), with the dot as a decorated second channel', () => {
+    const waitForMenu = async switcher => {
+        await expect.poll(() => Boolean(switcher.menuList)).toBe(true);
+        return switcher.menuList
+    };
+
+    test('the switcher IS a button.Base and keeps the exact accessible-name contract', async () => {
         const store    = makeStore();
         const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
+        const root     = switcher.getVdomRoot();
 
-        const trigger = switcher.vdom.cn[0];
+        expect(switcher).toBeInstanceOf(Button);
+        expect(root.tag).toBe('button');
+        expect(root['aria-haspopup']).toBe('menu');
+        expect(root['aria-expanded']).toBe('false');
+        expect(root['aria-label']).toBe('Instance: local — connected');
+        expect(switcher.textNode.cn[0].cls).toEqual(expect.arrayContaining(['fm-state-dot', 'fm-state-ok']));
+        expect(switcher.textNode.cn[0]['aria-hidden']).toBe('true');
+        expect(switcher.textNode.cn[1].text).toBe('local');
 
-        expect(trigger['aria-label']).toBe('Instance: local — connected');
-        expect(trigger.cn[0].cls).toContain('fm-state-dot');
-        expect(trigger.cn[0].cls).toContain('fm-state-ok');
-        expect(trigger.cn[0]['aria-hidden']).toBe('true');
-        expect(trigger.cn[1].text).toBe('local');
-
-        // menu closed: the reveal panel does not exist (dismissed chrome leaves the tree)
-        expect(switcher.vdom.cn).toHaveLength(1);
+        const menu = await waitForMenu(switcher);
+        expect(menu.store).toBe(store);
+        expect(menu.autoDestroyStore).toBe(false);
 
         switcher.destroy();
+        expect(store.isDestroyed).not.toBe(true);
         store.destroy()
     });
 
-    test('honest absence: an unknown bound profile renders the endpoint-less fallback, never an invented identity', () => {
+    test('honest absence: an unknown bound profile renders the endpoint-less fallback', async () => {
         const store    = makeStore();
         const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: 'fleet-profile:v1:http://gone/fleet', instanceState: 'off', instanceStore: store});
 
-        expect(switcher.vdom.cn[0]['aria-label']).toBe('Instance: no instance — not connected');
+        expect(switcher.getVdomRoot()['aria-label']).toBe('Instance: no instance — not connected');
 
+        await waitForMenu(switcher);
         switcher.destroy();
         store.destroy()
     });
 
-    test('the open menu renders every profile row + the manage terminal row; the BOUND row is marked structurally (aria-checked + is-bound), never hue-alone', () => {
+    test('menu.List renders the provider Store records plus one terminal manage item; bound state is structural', async () => {
         const store    = makeStore();
-        const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store, menuOpen: true});
+        const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
+        const menu     = await waitForMenu(switcher);
 
-        const menu = switcher.vdom.cn[1];
+        menu.createItems(true);
 
-        expect(menu.role).toBe('menu');
-        // 2 profile rows + separator + manage row
-        expect(menu.cn).toHaveLength(4);
+        expect(menu.getVdomRoot().role).toBe('menu');
+        expect(menu.vdom.cn).toHaveLength(4);
 
-        const [cloudRow, localRow] = [menu.cn.find(r => r.cn?.[1]?.text === 'cloud-eu'), menu.cn.find(r => r.cn?.[1]?.text === 'local')];
+        const
+            profileRows = menu.vdom.cn.filter(item => item.cls?.includes('fm-instance-row')),
+            localRow    = profileRows.find(item => item['data-profile-id'] === localId),
+            cloudRow    = profileRows.find(item => item['data-profile-id'] === cloudId);
 
+        expect(profileRows).toHaveLength(2);
+        expect(localRow.role).toBe('menuitemradio');
         expect(localRow.cls).toContain('is-bound');
         expect(localRow['aria-checked']).toBe('true');
         expect(cloudRow.cls).not.toContain('is-bound');
         expect(cloudRow['aria-checked']).toBe('false');
-
-        // an unreachable/unbound instance stays PICKABLE — a broken profile must remain fixable
-        expect(cloudRow.tag).toBe('button');
+        expect(cloudRow.cn[1].text).toBe('cloud-eu');
         expect(cloudRow.cn[2].text).toBe('https://fleet.example.io/fleet');
         expect(cloudRow.cn[3].text).toBe('session-only');
-
-        expect(menu.cn[3].cls).toContain('fm-instance-manage');
-
-        switcher.destroy();
-        store.destroy()
-    });
-
-    test('row pick fires the switch INTENT with the profileId and closes the menu; picking the bound row only closes — no churn reconnect', () => {
-        const store    = makeStore();
-        const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store, menuOpen: true});
-        const fired    = [];
-
-        switcher.on('switchinstance', data => fired.push(data.profileId));
-
-        const cloudId = 'fleet-profile:v1:https://fleet.example.io/fleet';
-
-        switcher.onSwitcherRowClick({path: [{data: {profileId: cloudId}}]});
-        expect(fired).toEqual([cloudId]);
-        expect(switcher.menuOpen).toBe(false);
-
-        switcher.menuOpen = true;
-        switcher.onSwitcherRowClick({path: [{data: {profileId: localId}}]});
-        expect(fired).toEqual([cloudId]);
-        expect(switcher.menuOpen).toBe(false);
+        expect(menu.vdom.cn.at(-1).cls).toContain('fm-instance-manage');
+        expect(menu.vdom.cn.at(-1).role).toBe('menuitem');
 
         switcher.destroy();
         store.destroy()
     });
 
-    test('the manage row fires its intent; a roster load re-renders the label without a reactive-data detour', () => {
+    test('profile and manage choices preserve the controller-facing intent contracts', async () => {
         const store    = makeStore();
         const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
-        const fired    = [];
+        const switched = [], managed = [];
 
-        switcher.on('manageinstances', () => fired.push(true));
-        switcher.onSwitcherManageClick({});
-        expect(fired).toHaveLength(1);
+        switcher.on('switchinstance', data => switched.push(data.profileId));
+        switcher.on('manageinstances', data => managed.push(data.source));
 
-        // label edit lands in the store → the load event path re-renders the chip
+        switcher.onInstanceMenuSelect(store.get(cloudId));
+        switcher.onInstanceMenuSelect(store.get(localId));
+        switcher.onInstanceMenuManage();
+
+        expect(switched).toEqual([cloudId]);
+        expect(managed).toEqual([switcher.id]);
+
+        await waitForMenu(switcher);
+        switcher.destroy();
+        store.destroy()
+    });
+
+    test('a state-word change replaces the trigger content without rebuilding the menu row set', async () => {
+        const store    = makeStore();
+        const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
+        const menu     = await waitForMenu(switcher);
+
+        menu.createItems(true);
+
+        const
+            rowSetBefore    = menu.vdom.cn,
+            triggerBefore   = switcher.textNode.cn,
+            createItemsBase = menu.createItems;
+        let rebuilds = 0;
+
+        menu.createItems = () => rebuilds++;
+        switcher.instanceState = 'limited';
+
+        expect(rebuilds).toBe(0);
+        expect(menu.vdom.cn).toBe(rowSetBefore);
+        expect(switcher.textNode.cn).not.toBe(triggerBefore);
+        expect(switcher.getVdomRoot()['aria-label']).toBe('Instance: local — degraded');
+
+        menu.createItems = createItemsBase;
+        switcher.destroy();
+        store.destroy()
+    });
+
+    test('the body-level floating menu carries the owner viewport skin on every open', async () => {
+        const store    = makeStore();
+        const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
+        const menu     = await waitForMenu(switcher);
+
+        switcher.getTheme = () => 'neo-theme-neo-light';
+        switcher.syncMenuTheme(menu);
+
+        expect(menu.cls).toContain('neo-theme-neo-light');
+        expect(menu.cls).not.toContain('neo-theme-neo-dark');
+
+        switcher.getTheme = () => 'neo-theme-neo-dark';
+        switcher.syncMenuTheme(menu);
+
+        expect(menu.cls).toContain('neo-theme-neo-dark');
+        expect(menu.cls).not.toContain('neo-theme-neo-light');
+
+        switcher.destroy();
+        store.destroy()
+    });
+
+    test('roster load refreshes the trigger label while the menu owns its Store-driven rows', async () => {
+        const store    = makeStore();
+        const switcher = Neo.create(InstanceSwitcher, {appName, boundProfileId: localId, instanceState: 'ok', instanceStore: store});
+
         store.get(localId).label = 'renamed';
         store.fire('load');
-        expect(switcher.vdom.cn[0].cn[1].text).toBe('renamed');
 
+        expect(switcher.textNode.cn[1].text).toBe('renamed');
+
+        await waitForMenu(switcher);
         switcher.destroy();
         store.destroy()
     })
