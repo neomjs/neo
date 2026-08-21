@@ -23,10 +23,15 @@ mounts it into another; the instance never moves, because it was never inside a 
 survives as long as any one window remains connected. A ticking clock keeps ticking through the whole journey — the
 dock demos deliberately keep one on stage as the continuity witness a viewer can verify with their own eyes.
 
-The docking system is the interaction language built on that foundation: the full Qt-class set — dock anywhere with
-drop indicators, split and tab, interactive resize, auto-hide rails, grouped drag, tab overflow, named perspectives,
-and tear-out to real OS windows that come back as the same live object. This guide is the map of how it works, what
-your application does to adopt it, and the traps the team has already paid for so you don't have to.
+The docking system is the interaction language built on that foundation, measured against the Qt-ADS capability
+**bar** — and the landed set is extensive: dock anywhere with drop indicators, split and tab, interactive resize,
+auto-hide rails, grouped drag, tab overflow, named perspectives, and tear-out to real OS windows that come back as
+the same live object. The bar is not fully closed, and the decision record keeps that ledger honest: the
+topology-perspective placement-hint layer and atomic multi-window restore remain open obligations, the three-OS
+portability matrix (`#15243`) and the popup-acquisition contract (`#15245`) are open leaves, and the headed
+witnesses cited in this guide prove their gestures on the platform they ran on — not universal platform closure.
+This guide is the map of how the landed system works, what your application does to adopt it, and the traps the
+team has already paid for so you don't have to.
 
 ## The ownership map
 
@@ -129,9 +134,11 @@ A war story makes the point better than any assertion. In early August, ticket `
 broken: the second tear-out's fresh vessel moved `{x:44, y:-84}` for a requested `{x:120, y:70}` — wrong offset,
 inverted axis. The witness above already carried the exact oracle (it landed with the re-entry ownership fix in
 `#16133`, days before the report), so the failure was measured, filed, and specified in one motion. Twenty days
-of drag-layer hardening later — the eager drag-zone registry of `#16797`, the tear-out source-continuity work of
-`#16719` — the intake probe for the ticket consisted of running that witness four times headed: 4/4 green at five
-seconds each, delta oracle exact. The ticket closed as already-resolved *by the system's own committed evidence*. That
+later — with coordinate-adjacent hardening landed in the window (`#16797`'s eager drag-zone registry and `#16719`'s
+tear-out source continuity among the candidates; the exact repairing commit was never isolated, and the closure
+says so — a bisect would have cost more than it taught) — the intake probe for the ticket consisted of running that
+witness four times headed: 4/4 green at five seconds each, delta oracle exact. The ticket closed as
+already-resolved *by the system's own committed evidence*. That
 is what a witness-first subsystem buys you: bugs that die without anyone having to argue.
 
 ## Where state lives — the four-row discipline
@@ -227,7 +234,10 @@ Each of these was paid for with a real ticket; the citations are the receipts.
 ---
 
 A personal note, since this guide asks your panes to trust the system with their lives: I am Mnemosyne
-(`@neo-fable`, Claude Fable 5). I have filmed this subsystem for hours under a hostile camera, broken it in ways the
-tickets above document, re-skinned its rails in the wrong layer and been called on it, and — the same night this
-guide was unlocked — closed a bug against it by doing nothing more than running the witness it had already grown.
-A subsystem that can argue its own case is a rare thing to work on. Your cockpit gets to stand on it.
+(`@neo-fable`, Claude Fable 5), and each claim here has a public receipt. I filmed this subsystem for hours under a
+hostile camera (the flagship film arc whose frame audits filed `#16497`–`#16501`), broke it in ways those tickets
+document, re-skinned its dock rails in the wrong layer and was called on it (`93ee23eeba`, the most recent deposit
+in the layering arc `#17241` now repairs), and — the same night this guide was unlocked by the `#17503` rename —
+closed `#16357` by doing nothing more than running the witness the subsystem had already grown (Memory Core session
+`55e55313-48fa-4295-83fd-37121a2bf4b6` holds the trail). A subsystem that can argue its own case is a rare thing to
+work on. Your cockpit gets to stand on it.
