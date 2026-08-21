@@ -55,16 +55,43 @@ test.describe('highlightJs — the clone target is one argument, not a shell str
         expect(HIGHLIGHT_JS_REPOSITORY).toMatch(/^https:\/\/github\.com\/highlightjs\/highlight\.js\.git$/)
     });
 
-    test('no path is interpolated into a shell string anywhere in the module', () => {
-        // The arms above cover the clone site. This one covers the FILE, so a future path-bearing
-        // command cannot reintroduce the defect at a new site while the builder stays correct —
-        // `:58` and `:69` pass `cwd` as an option and were never the defect, which this permits.
+    test('no interpolated string reaches execSync — including via an intermediate variable', () => {
+        // The original defect was TWO-STEP:
+        //
+        //     const cloneCommand = `${gitCmd} clone … ${tempDir}`;
+        //     execSync(cloneCommand, {stdio: 'inherit'});
+        //
+        // An earlier version of this arm only matched interpolation appearing DIRECTLY inside
+        // `execSync(`, so restoring the real shape above left it green. The mutation that "validated"
+        // it used the inline form — i.e. the shape the detector could already see. Binding the
+        // identifier-mediated path is the whole point, because that is the path the defect took.
+        //
+        // `:58` and `:69` build commands with no interpolation and pass `cwd` as an option; they were
+        // never the defect and this permits them.
         const
             source = readFileSync('buildScripts/build/highlightJs.mjs', 'utf8'),
-            // execSync with a template literal that interpolates anything path-shaped.
-            offenders = [...source.matchAll(/execSync\(\s*`[^`]*\$\{[^}]*(?:Dir|Path|path)[^}]*\}/g)];
+            // Identifiers bound to a template literal that interpolates something.
+            interpolatedBindings = new Set(
+                [...source.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*`[^`]*\$\{/g)].map(m => m[1])
+            ),
+            offenders = [];
 
-        expect(offenders.map(match => match[0]),
-            'a path reaching a shell string is the defect this file exists to prevent').toEqual([])
+        for (const call of source.matchAll(/execSync\(\s*([^,)]+)/g)) {
+            const argument = call[1].trim();
+
+            // Step 1: interpolation inline in the call.
+            if (argument.startsWith('`') && argument.includes('${')) {
+                offenders.push(`inline: ${argument.slice(0, 40)}`)
+            }
+
+            // Step 2: the call takes an identifier that was bound to an interpolated template.
+            if (interpolatedBindings.has(argument)) {
+                offenders.push(`via binding: ${argument}`)
+            }
+        }
+
+        expect(offenders,
+            'an interpolated string reaching execSync is the defect this file exists to prevent'
+        ).toEqual([])
     });
 });

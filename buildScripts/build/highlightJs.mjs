@@ -1,4 +1,4 @@
-import {execFileSync, execSync} from 'child_process';
+import {execFileSync}  from 'child_process';
 import {fileURLToPath} from 'url';
 import fs              from 'fs/promises';
 import os              from 'os';
@@ -75,19 +75,11 @@ async function main() {
 
         // 3. Install dependencies
         console.log(`Installing dependencies in ${tempDir}`);
-        const installCommand = `${npmCmd} install`;
-        execSync(installCommand, { cwd: tempDir, stdio: 'inherit' });
+        execFileSync(npmCmd, ['install'], { cwd: tempDir, stdio: 'inherit' });
 
         // 4. Run the build script
         console.log('Running build script...');
-        const buildCommand = [
-            nodeCmd,
-            'tools/build.js',
-            '-n',
-            ...languages
-        ].join(' ');
-
-        execSync(buildCommand, { cwd: tempDir, stdio: 'inherit' });
+        execFileSync(nodeCmd, ['tools/build.js', '-n', ...languages], { cwd: tempDir, stdio: 'inherit' });
 
         // 5. Copy and minify the generated bundle
         const generatedFile = path.join(tempDir, 'build/highlight.js');
