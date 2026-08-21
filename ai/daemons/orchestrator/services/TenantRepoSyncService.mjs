@@ -2462,12 +2462,6 @@ class TenantRepoSyncService extends Base {
                     )
                 }
 
-                if (observedYieldCause === YIELD_CAUSE_LEASE) {
-                    // Set before any outcome branch can return. `finally` releases the semaphore slot,
-                    // and the next queued repo reads this latch immediately after acquiring it.
-                    leaseYielded = true;
-                }
-
                 // Emitted before BOTH guards on this path, which is what makes it useful:
                 // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and
                 // `assertFullMaterializationEffect` throws on a zero-effect one. Between them they
@@ -3038,18 +3032,21 @@ class TenantRepoSyncService extends Base {
                 : (attemptedCount === 0
                     ? 'completed' // all repos were not-due; cycle ran cleanly
                     : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'))));
-        // Error-bearing outcomes retain their stronger status. On a CLEAN active cohort, `yielded`
-        // is reserved for an observed lease cause that leaves actual work behind: a partial repo or
-        // a queued tail. Merely observing the bound after the final one-batch repo completed is still
-        // an ordinary completed sweep — there is nothing to resume and the wrapper releases on
-        // natural settlement. The sweep never receives nor invokes a release callback itself.
+        // Failure and ordinary deferral retain their stronger status even when the lease bound also
+        // fired: both already mean non-completed work and keep their existing markFailed/markSkipped
+        // task-state semantics. On a CLEAN active cohort, `yielded` is reserved for an observed lease
+        // cause that leaves actual work behind: a partial repo or a queued tail. Merely observing the
+        // bound after the final one-batch repo completed is still an ordinary completed sweep — there
+        // is nothing to resume and the wrapper releases on natural settlement. The sweep never
+        // receives nor invokes a release callback itself.
         const cleanLeaseYieldWithRemainder = leaseYielded
             && failedCount === 0
-            && deferredCount === 0
             && (partialProgressCount > 0 || leaseDeferredCount > 0);
         const status = leaseYielded && failedCount > 0
             ? 'failed'
-            : (cleanLeaseYieldWithRemainder ? 'yielded' : ordinaryStatus);
+            : (leaseYielded && deferredCount > 0
+                ? 'deferred'
+                : (cleanLeaseYieldWithRemainder ? 'yielded' : ordinaryStatus));
 
         // Record-with-diagnosis: exactly one durable heal-ledger record per starved
         // episode (the detector's marker flows through the lane's completion metadata), once

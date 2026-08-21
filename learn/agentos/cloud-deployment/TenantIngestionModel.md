@@ -367,7 +367,7 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
 }
 ```
 
-The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. `leaseYielded: true` means the outer hold bound was observed. When work remains, each suppressed row is reported as `lease-yield-deferred`, `leaseDeferredCount` carries the total, and the task outcome is `yielded`; if the final active repo had already exhausted the corpus and no tail remained, the outcome stays `completed`. `partialProgressCount` remains distinct because a slice-caused rotation continues the same sweep and does not return the outer lease. Empty `tenantRepos[]` produces `repos: []`, not an omission.
+The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. `leaseYielded: true` means the outer hold bound was observed. When a clean cohort leaves work behind, each suppressed row is reported as `lease-yield-deferred`, `leaseDeferredCount` carries the total, and the task outcome is `yielded`. An ordinary failure or deferral retains its stronger `failed` / `deferred` status; if the final active repo had already exhausted the corpus and no tail remained, the outcome stays `completed`. `partialProgressCount` remains distinct because a slice-caused rotation continues the same sweep and does not return the outer lease. Empty `tenantRepos[]` produces `repos: []`, not an omission.
 
 For authenticated remote MCP diagnostics, the deployment-state bridge also projects a redacted
 `tenantRepoSync` section into `inspect_deployment` / `get_deployment_state_snapshot`. Use that

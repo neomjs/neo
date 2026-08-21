@@ -7613,6 +7613,101 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(persisted['t1/org/timeout-tail']).toEqual(canonicalSeed['t1/org/timeout-tail']);
     });
 
+    test('#17414 an ordinary deferral outranks a lease yield without reporting completed', async () => {
+        const
+            repoSlugs        = ['org/mixed-observer', 'org/mixed-complete', 'org/mixed-deferred', 'org/mixed-tail'],
+            captureCalls     = [],
+            taskStateService = createInMemoryTaskStateService(),
+            seededRevisions  = Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : Date.now() - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]));
+
+        let activeEntered = 0,
+            releaseActive;
+        const activeReady = new Promise(resolve => { releaseActive = resolve });
+
+        TenantRepoSyncService.concurrencyLimit = 3;
+
+        for (const repoSlug of repoSlugs) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: seededRevisions
+        });
+
+        const ingestionService = makeFakeIngestionService({captureCalls});
+        ingestionService.ingestSourceFiles = async (payload, controls) => {
+            captureCalls.push({op: 'ingestSourceFiles', payload});
+
+            if (payload.repoSlug === 'org/mixed-tail') {
+                return {ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], yielded: false}
+            }
+
+            activeEntered++;
+            if (activeEntered === 3) releaseActive();
+            await activeReady;
+
+            const yielded = controls.shouldYield();
+
+            if (payload.repoSlug === 'org/mixed-deferred') {
+                return {
+                    ingested: 1, deleted: 0, embeddingsGenerated: 0,
+                    errors  : [{code: 'KB_VECTOR_EMBED_FAILED'}], yielded
+                }
+            }
+
+            return {
+                ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [],
+                yielded : payload.repoSlug === 'org/mixed-observer' && yielded
+            }
+        };
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : {cause: YIELD_CAUSE_LEASE, vote: () => true}
+        });
+
+        expect(captureCalls.filter(call => call.op === 'ingestSourceFiles').map(call => call.payload.repoSlug).sort())
+            .toEqual(repoSlugs.slice(0, 3).sort());
+        expect(result).toMatchObject({
+            status : 'deferred',
+            details: {
+                completedCount      : 1,
+                deferredCount       : 1,
+                partialProgressCount: 1,
+                failedCount         : 0,
+                leaseYielded        : true,
+                leaseDeferredCount  : 1
+            }
+        });
+        expect(result.details.repos.find(row => row.repoSlug === 'org/mixed-tail'))
+            .toMatchObject({status: 'lease-yield-deferred'});
+        expect(taskStateService.getTaskState('tenant-repo-sync')).toMatchObject({
+            running       : false,
+            lastCompletion: {status: 'deferred', leaseYielded: true}
+        });
+        expect(taskStateService.getTaskState('tenant-repo-sync').skippedAt).toBeGreaterThan(0);
+        expect(taskStateService.getTaskState('tenant-repo-sync').completedAt).toBeUndefined();
+    });
+
     test('#17414 an unattributed yield fails loud for that repo while the tail keeps sweeping', async () => {
         const repoSlugs    = ['org/unattributed-head', 'org/unattributed-peer', 'org/unattributed-tail'],
               captureCalls = [];
