@@ -589,7 +589,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         }
     });
 
-    test('#16902: returns a checks verdict but withholds B-prime when Memory Core identity is unbound', async () => {
+    test('#17445: an absent cross-check certifies against one surface and SAYS so — it is not a blocker', async () => {
         const identityAssertion = {
             ok        : true,
             code      : 'OK',
@@ -603,23 +603,92 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
             identityAssertion
         }, deps);
 
-        expect(result.verdict).toBe('unavailable');
+        expect(result.verdict).toBe('merge-ready-observed');
         expect(result.checksVerdict).toBe('green');
-        expect(result.checksGreen).toBe(true);
         expect(result.predicate.strictMergeReady).toBe(true);
-        expect(result.identityBinding).toEqual({complete: false, missing: ['memoryCoreIdentity']});
-        expect(result.principals.memoryCoreIdentity).toBeNull();
-        expect(result.blockers).toContainEqual(expect.objectContaining({
-            code             : 'IDENTITY_BINDING_MISSING',
-            missingPrincipals: ['memoryCoreIdentity'],
-            affects          : ['b-prime-certification']
-        }));
-        expect(result.marker).toBeUndefined();
+        // The guard above this branch already refused every unbound principal, so reaching the
+        // projection at all IS the binding proof. A missing optional cross-check reports itself.
+        expect(result.identityBinding).toEqual({complete: true, missing: []});
+        expect(result.crossCheck).toEqual({available: false, surfaces: ['github']});
+        expect(result.blockers).not.toContainEqual(
+            expect.objectContaining({code: 'IDENTITY_BINDING_MISSING'})
+        );
+        expect(result.advisories).toContainEqual(
+            expect.objectContaining({code: 'IDENTITY_CROSS_CHECK_UNAVAILABLE'})
+        );
+        // The advisory is worthless if it does not reach the sentence that travels to the human
+        // gate: a marker earned on one surface must not read identically to one earned on two.
+        expect(result.marker).toBe(`[merge-eligible][B-prime:${result.observationId}]`);
+        expect(result.statement).toContain('advisory requires');
         expect(result.audit).toContainEqual({
             source : 'memory-core-identity',
-            outcome: 'unbound-certification-withheld'
+            outcome: 'cross-check-unavailable'
         });
         expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
+    });
+
+    test('#17445 CONTROL: a present cross-check certifies on two surfaces and raises NO advisory', async () => {
+        const deps   = dependencies();
+        const result = await PullRequestService.getConversation({
+            pr_number        : 16029,
+            projection       : 'merge-readiness',
+            identityAssertion: {ok: true, code: 'OK', reason: null, principals: PRINCIPALS}
+        }, deps);
+
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.crossCheck).toEqual({available: true, surfaces: ['github', 'memory-core']});
+        expect(result.advisories).not.toContainEqual(
+            expect.objectContaining({code: 'IDENTITY_CROSS_CHECK_UNAVAILABLE'})
+        );
+        expect(result.audit).toContainEqual({source: 'memory-core-identity', outcome: 'cross-checked'});
+        // Without this pairing the arm above is satisfied by a projection that ALWAYS advises.
+        expect(result.statement).not.toContain('advisory requires');
+    });
+
+    test('#17445 NEGATIVE CONTROL: a genuinely unbound principal still fails closed on IDENTITY_BINDING_MISSING', async () => {
+        for (const missing of ['agentIdentity', 'githubLogin']) {
+            const result = await PullRequestService.getConversation({
+                pr_number        : 16029,
+                projection       : 'merge-readiness',
+                identityAssertion: {
+                    ok        : true,
+                    code      : 'OK',
+                    reason    : null,
+                    principals: {...PRINCIPALS, [missing]: null}
+                }
+            }, dependencies());
+
+            expect(result.verdict).toBe('unavailable');
+            expect(result.blockers).toContainEqual(
+                expect.objectContaining({code: 'IDENTITY_BINDING_MISSING'})
+            );
+            expect(result.marker).toBeUndefined();
+        }
+    });
+
+    test('#17445 NEGATIVE CONTROL: a DETECTED cross-check mismatch still fails closed, and not as an advisory', async () => {
+        // assertExpectedIdentity returns ok:false on MEMORY_CORE_MISMATCH, so drift detected is
+        // refused at the guard. This is the arm that makes the AC-2 deletion safe rather than a
+        // hole: absent is advisory, mismatched is not.
+        const result = await PullRequestService.getConversation({
+            pr_number        : 16029,
+            projection       : 'merge-readiness',
+            identityAssertion: {
+                ok        : false,
+                code      : 'MEMORY_CORE_MISMATCH',
+                reason    : 'identity drift: Memory-Core identity other-agent, expected neo-opus-ada',
+                principals: {...PRINCIPALS, memoryCoreIdentity: '@other-agent'}
+            }
+        }, dependencies());
+
+        expect(result.verdict).toBe('unavailable');
+        expect(result.blockers).toContainEqual(
+            expect.objectContaining({code: 'IDENTITY_BINDING_MISSING'})
+        );
+        expect(result.advisories ?? []).not.toContainEqual(
+            expect.objectContaining({code: 'IDENTITY_CROSS_CHECK_UNAVAILABLE'})
+        );
+        expect(result.marker).toBeUndefined();
     });
 
     test('#16902: latest workflow invocation supersedes an earlier failure on the same exact head', async () => {

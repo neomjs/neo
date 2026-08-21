@@ -340,6 +340,8 @@ acceptance can be A2A-only. Authority moved → hand off. Relay §9, not flatten
 `[merge-eligible]` requires the current positive B-prime observation marker;
 otherwise use `[merge-readiness-uncertified][no-positive-observation]`, or
 `[merge-readiness-uncertified][issuer-unavailable:cloud-mode]` in cloud.
+An `IDENTITY_CROSS_CHECK_UNAVAILABLE` advisory still issues the marker — certified on
+GitHub alone; cite it when relaying. A *detected* mismatch fails closed instead.
 
 ## 11. Post-Review-Cycle Reviewer Pickup
 

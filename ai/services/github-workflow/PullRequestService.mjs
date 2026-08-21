@@ -635,7 +635,14 @@ async function buildMergeReadinessProjection({
         });
     }
 
-    const identityBindingComplete = Boolean(principals.memoryCoreIdentity);
+    // Past the guard above, both required principals are bound and drift has already been ruled out:
+    // `assertExpectedIdentity` returns `ok: false` on MEMORY_CORE_MISMATCH, so a mismatched second
+    // surface fails closed there rather than here. What is left to decide is whether that surface was
+    // available to compare at all — a property of the caller's request context, not of the binding.
+    // Conflating the two spends the binding code on a missing cross-check, and a consumer branching
+    // on `code` (as this API's docblock instructs, over string-matching `reason`) cannot tell a
+    // certification that was refused from one that was merely never offered a second opinion.
+    const crossCheckAvailable = principals.memoryCoreIdentity != null;
 
     const variables = {owner, repo, prNumber};
     let firstSnapshot;
@@ -784,7 +791,19 @@ async function buildMergeReadinessProjection({
         headRefOid      : snapshot.headRefOid
     });
     const sourceMergeReady    = predicate.strictMergeReady && sourceBlockers.length === 0;
-    const certifiedMergeReady = sourceMergeReady && identityBindingComplete;
+    const certifiedMergeReady = sourceMergeReady;
+    // An unavailable cross-check is an advisory, never a blocker: the drifted-token case it exists to
+    // catch already fails closed at the guard above. It rides in `advisories` so it inherits the
+    // count clause in the merge-ready statement, which is the only sentence that reaches the human
+    // gate — a `[merge-eligible]` marker earned against one surface must say so there, or it reads
+    // identically to one earned against two.
+    const advisories = [
+        ...(crossCheckAvailable ? [] : [{
+            code   : 'IDENTITY_CROSS_CHECK_UNAVAILABLE',
+            message: 'Memory Core identity was not supplied, so this observation is certified against the GitHub surface alone.'
+        }]),
+        ...predicate.advisories.map(message => ({code: 'APPROVAL_ANCHOR_STALE', message}))
+    ];
     const requiredSet         = {
         source  : `GET ${rulesPath}`,
         digest  : digestValue(requiredContexts),
@@ -800,9 +819,16 @@ async function buildMergeReadinessProjection({
         mergedAt       : snapshot.mergedAt,
         observedAt,
         principals,
+        // `complete` is unconditionally true here and that is the assertion, not a simplification:
+        // every path reaching this point cleared the required-principals guard. The field reports
+        // binding; the optional second surface reports itself under `crossCheck`.
         identityBinding: {
-            complete: identityBindingComplete,
-            missing : identityBindingComplete ? [] : ['memoryCoreIdentity']
+            complete: true,
+            missing : []
+        },
+        crossCheck     : {
+            available: crossCheckAvailable,
+            surfaces : crossCheckAvailable ? ['github', 'memory-core'] : ['github']
         },
         requiredSet,
         contextStates: comparison.requiredStates,
@@ -820,12 +846,8 @@ async function buildMergeReadinessProjection({
         emittedOnly     : comparison.emittedOnly,
         checksGreen,
         checksVerdict,
-        verdict         : identityBindingComplete
-            ? sourceMergeReady ? 'merge-ready-observed' : 'not-merge-ready'
-            : 'unavailable',
-        statement       : !identityBindingComplete
-            ? `Observed GitHub checks verdict '${checksVerdict}' at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}; B-prime certification is unavailable because Memory Core identity is unbound.`
-            : certifiedMergeReady
+        verdict         : sourceMergeReady ? 'merge-ready-observed' : 'not-merge-ready',
+        statement       : certifiedMergeReady
                 // An advisory rides INSIDE the merge-ready sentence rather than after it. It fires
                 // only when everything else is green — exactly when nothing draws the eye — and the
                 // merge-ready statement travels beside `[merge-eligible]` to the human gate. A
@@ -835,15 +857,9 @@ async function buildMergeReadinessProjection({
                 // deliverable — it travels beside `[merge-eligible]` to the human gate — so it is
                 // the one string where wording carries weight, and `1 advisory/advisories require`
                 // reads as generated text a reader discounts.
-                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} ${predicate.advisories.length === 1 ? 'advisory requires' : 'advisories require'} a reader judgement before merge — see 'advisories'.` : ''}`
+                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${advisories.length > 0 ? ` ${advisories.length} ${advisories.length === 1 ? 'advisory requires' : 'advisories require'} a reader judgement before merge — see 'advisories'.` : ''}`
                 : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
         blockers: [
-            ...(!identityBindingComplete ? [{
-                code             : 'IDENTITY_BINDING_MISSING',
-                message          : 'Memory Core identity is unbound; GitHub checks remain readable but B-prime certification is unavailable.',
-                missingPrincipals: ['memoryCoreIdentity'],
-                affects          : ['b-prime-certification']
-            }] : []),
             ...sourceBlockers,
             ...predicate.blockers.map(message => ({code: 'STRICT_MERGE_READINESS', message}))
         ],
@@ -853,13 +869,13 @@ async function buildMergeReadinessProjection({
         // three signals. An advisory has NO redundancy: it fires only on an otherwise-green
         // observation, so nested inside `predicate` it reaches no reader of the surface that
         // actually travels to the merge gate.
-        advisories: predicate.advisories.map(message => ({code: 'APPROVAL_ANCHOR_STALE', message})),
+        advisories,
         audit: [
             ...audit,
             {source: 'validateMergeReady', call: 1, outcome: sourceMergeReady ? 'positive' : 'negative'},
             {
                 source : 'memory-core-identity',
-                outcome: identityBindingComplete ? 'bound' : 'unbound-certification-withheld'
+                outcome: crossCheckAvailable ? 'cross-checked' : 'cross-check-unavailable'
             }
         ],
         ...(certifiedMergeReady ? {marker: `[merge-eligible][B-prime:${observationId}]`} : {})
