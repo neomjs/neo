@@ -94,6 +94,52 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — resident boot lifecycl
         expect(cockpit.getCatchUpPane().partitionOptions.map(option => option.partition)).toEqual(['@neo-opus-vega'])
     });
 
+    test('loadRoster ingests into the PROVIDER Store with NO grid at all — the projected child renders, it never owns the roster', async () => {
+        const store = Neo.create(FleetRoster, {autoLoad: false}),
+              sets  = {catchUp: [], mailbox: [], memories: []},
+              host  = {
+                  buildActivityActorDirectory  : FleetCockpit.prototype.buildActivityActorDirectory,
+                  buildCatchUpPartitionOptions : FleetCockpit.prototype.buildCatchUpPartitionOptions,
+                  buildMemoriesAgentOptions    : FleetCockpit.prototype.buildMemoriesAgentOptions,
+                  buildOperatorRecipientOptions: FleetCockpit.prototype.buildOperatorRecipientOptions,
+                  clearDegradedReason          : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface          : FleetCockpit.prototype.degradeWiredSurface,
+                  getCatchUpPane               : () => ({set: values => sets.catchUp.push(values), onRefreshClick() {}}),
+                  getMemoriesPane              : () => ({set: values => sets.memories.push(values)}),
+                  getOperatorMailboxPane       : () => ({set: values => sets.mailbox.push(values)}),
+                  getReference                 : () => null, // NO grid, NO activity stream — torn or absent
+                  gridAdapterState             : 'sample',
+                  gridReadGeneration           : 0,
+                  mapRosterRow                 : FleetCockpit.prototype.mapRosterRow,
+                  reconcileRoster              : FleetCockpit.prototype.reconcileRoster,
+                  reconcileSelection           : FleetCockpit.prototype.reconcileSelection,
+                  resolveFleetRosterStore      : () => store,
+                  rosterSourceMode             : 'sample',
+                  rosterWired                  : false,
+                  syncSpineBanner              : () => {}
+              };
+
+        globalThis.AgentOS.fleet = {registryBridge: {
+            selected   : true,
+            fleetRoster: async () => ({capabilities: {}, rows: [{id: 'vega', githubUsername: 'neo-opus-vega', displayName: 'Vega'}]})
+        }};
+
+        await FleetCockpit.prototype.loadRoster.call(host);
+
+        // the live rows landed in the PROVIDER Store despite the missing projection
+        expect(store.getCount()).toBe(1);
+        expect(store.getAt(0).githubUsername).toBe('neo-opus-vega');
+        expect(host.gridAdapterState).toBe('live');
+        expect(host.rosterWired).toBe(true);
+
+        // and every resident consumer refreshed from that same truth
+        expect(sets.mailbox.some(values => values.recipientOptions?.some(option => option.id === '@neo-opus-vega'))).toBe(true);
+        expect(sets.memories.some(values => values.agentOptions?.some(option => option.agentIdentity === '@neo-opus-vega'))).toBe(true);
+        expect(sets.catchUp.some(values => values.partitionOptions?.some(option => option.partition === '@neo-opus-vega'))).toBe(true);
+
+        store.destroy()
+    });
+
     test('cold-before-bridge CatchUp recovers exactly once at bridge arrival; a healthy snapshot never re-drives', async () => {
         await cockpit.refreshPromise;
 

@@ -25,7 +25,7 @@ export function resolveCitationTarget(citation) {
 }
 
 /**
- * The invoked S3 Fleet catch-up surface.
+ * The resident S3 Fleet catch-up reading surface (a south-strip tab).
  *
  * @summary Renders two source-owned `notAuthority` Bird View envelopes without synthesizing,
  * ranking, merging, or caching them. The pane owns only local projection Stores: one record per

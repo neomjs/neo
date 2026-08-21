@@ -929,7 +929,9 @@ class FleetCockpit extends Container {
 
         let me = this;
 
-        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
+        // the listener authority is the provider-owned Store, same as every roster read/write —
+        // it exists (and keeps reconciling) whether or not the grid projection currently does
+        me.resolveFleetRosterStore()?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         me.loadActivity();
         me.loadRoster();
@@ -1540,7 +1542,7 @@ class FleetCockpit extends Container {
             me.reconcilingRoster = true;
 
             try {
-                me.reconcileRoster(me.getReference('fleet-grid').store, me.lastLiveRows)
+                me.reconcileRoster(me.resolveFleetRosterStore(), me.lastLiveRows)
             } finally {
                 me.reconcilingRoster = false
             }
@@ -1592,7 +1594,7 @@ class FleetCockpit extends Container {
      * @returns {Neo.container.Base|null} The memories pane, or `null` before materialization.
      */
     getMemoriesPane() {
-        // returningTearOutPanes covers the vessel-death parking window: the rail's lazy reveal may
+        // returningTearOutPanes covers the vessel-death parking window: the next projection may
         // not adopt the returning pane for a while, and an owner push landing in that window must
         // still reach the LIVE instance — otherwise the eventual adoption renders a stale snapshot.
         return this.tearOutPaneHandles?.memories || this.returningTearOutPanes?.memories || this.getReference('memories')
@@ -2128,11 +2130,12 @@ class FleetCockpit extends Container {
      * `?detail=agent-detail` shape loads; {@link #onWindowConnect}'s tear-out branch adopts it.
      * The dock document stays the layout SSOT: {@link #applyTearOutOperation} captures the exact
      * `{tabsNodeId, index}` placement before the `detachItem` commit, so the vessel-death return
-     * ({@link #reintegrateTearOutItem}) restores the item at its stored rail position.
+     * ({@link #reintegrateTearOutItem}) restores the item at its stored home position.
      *
      * Selection travel is BY IDENTITY: the vessel hosts the LIVE pane instance (or one
-     * materialized from the owner-held `memoriesTarget`/`memoriesSnapshot` when the rail's lazy
-     * reveal never projected it), so the active agent and cards move with the window — stronger
+     * materialized from the owner-held `memoriesTarget`/`memoriesSnapshot` when a custom
+     * document dropped it from the tree — resident tabs otherwise always project), so the active
+     * agent and cards move with the window — stronger
      * than a URL parameter, and exactly the rematerialization contract the memories source
      * documents. A blocked popup (`windowOpen` resolves `false`, it never throws) refuses before
      * any document mutation — commit-or-neither.
@@ -2194,7 +2197,7 @@ class FleetCockpit extends Container {
     /**
      * @summary Bring the vesseled Memories pane home by closing its OS window: vessel death IS
      * the return path — {@link #onWindowDisconnect}'s tear-out branch correlates the close and
-     * {@link #reintegrateTearOutItem} restores the same live instance at its stored rail
+     * {@link #reintegrateTearOutItem} restores the same live instance at its stored home
      * position. Closing by the immutable window NAME covers the not-yet-connected window too.
      * @returns {Promise<{returned: Boolean, errors: String[]}>}
      */
@@ -2380,7 +2383,7 @@ class FleetCockpit extends Container {
         }
 
         const
-            store   = me.getReference('fleet-grid')?.store,
+            store   = me.resolveFleetRosterStore(),
             current = store?.get(me.detailRecord.agentId) ?? null;
 
         if (current !== me.detailRecord) {
@@ -2409,7 +2412,7 @@ class FleetCockpit extends Container {
         me.viewerWakeConsumer = null;
         me.viewerWakeBridge   = null;
 
-        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
+        me.resolveFleetRosterStore()?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         Neo.currentWorker.un({
             connect   : me.onWindowConnect,
@@ -2563,7 +2566,10 @@ class FleetCockpit extends Container {
      * @protected
      */
     async loadRoster() {
-        let me     = this,
+        let me = this,
+            // the WRITE authority is the provider-owned Store — a torn/absent grid must not stop
+            // live ingest (round-2 RA-1: the projected child renders, it never owns the roster)
+            store  = me.resolveFleetRosterStore(),
             grid   = me.getReference('fleet-grid'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
@@ -2571,7 +2577,7 @@ class FleetCockpit extends Container {
         // read. See {@link #gridReadGeneration}.
         const generation = ++me.gridReadGeneration;
 
-        if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
+        if (!store || typeof bridge?.fleetRoster !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so. Absence is a
             // DISTINCT transition from a thrown call, and it owns the same retraction duty: a
             // never-wired surface's retained ANSWERED cause ("server connected · registry
@@ -2631,10 +2637,10 @@ class FleetCockpit extends Container {
             me.rosterSourceMode = 'selected';
 
             if (me.rosterWired) {
-                me.reconcileRoster(grid.store, mapped)
+                me.reconcileRoster(store, mapped)
             } else {
-                grid.store.clear();
-                mapped.length > 0 && grid.store.add(mapped);
+                store.clear();
+                mapped.length > 0 && store.add(mapped);
                 me.rosterWired = true;
                 // the first live snapshot replaces the sample seed wholesale — re-seat or clear a
                 // selection made against a now-removed sample record (reconcileRoster owns the later reconciles)
@@ -2642,12 +2648,14 @@ class FleetCockpit extends Container {
             }
 
             me.gridAdapterState = 'live';
-            grid.adapterState   = 'live';
+            // rendering-only writes: the grid is a PROJECTION of the store's truth — torn/absent,
+            // it simply has nothing to paint, and the ingest above happened regardless
+            grid && (grid.adapterState = 'live');
             // the presence-CAPABILITY envelope rides every admitted snapshot onto the grid's chip:
             // a degraded producer gets NAMED at roster level (every band correctly vanished — the
             // "no one is online" operator falsifier), and a recovered producer clears it on the
             // next poll. Absent/malformed envelopes plumb null — the chip claims nothing.
-            grid.presenceCapability = capabilities?.presence ?? null;
+            grid && (grid.presenceCapability = capabilities?.presence ?? null);
             me.getCatchUpPane()?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
             me.getMemoriesPane()?.set({agentOptions: me.buildMemoriesAgentOptions()});
             // the activity rows' actor chips join the same roster truth (avatar + display name)
@@ -3105,8 +3113,8 @@ class FleetCockpit extends Container {
      * (never a viewer-default — a self-default at a trust boundary is spoof-adjacent), so the cockpit first
      * learns its own @-id via `resolveViewerIdentity`, then the pane passes it and the mirror's admission
      * re-stamps + proves it. Pushing the record to a materialized pane drives its first read (the pane fires
-     * `inboxPageRequest` on a newly-bound identity); an autoHidden pane materializes from the held record on
-     * reveal. Fail-closed: an unwired source / unbound context / absent bridge leaves `operatorRecord` null,
+     * `inboxPageRequest` on a newly-bound identity); a pane a custom document dropped materializes from the
+     * held record at its next projection. Fail-closed: an unwired source / unbound context / absent bridge leaves `operatorRecord` null,
      * so the pane stays honestly unobserved — never a fabricated or fallback identity.
      * @protected
      */

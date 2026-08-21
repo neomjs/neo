@@ -626,7 +626,13 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection: FleetCockpit.prototype.reconcileSelection,
             reconcilingRoster : false,
-            rosterWired       : false,
+            // the provider-owned roster authority — the SAME store the grid fake binds, so the
+            // write path, the listener latch and the selection re-seat all read one truth
+            resolveFleetRosterStore: () => store,
+            // resident-pane accessors: unmaterialized here — the same silence contract as getReference
+            getCatchUpPane        : () => null,
+            getOperatorMailboxPane: () => null,
+            rosterWired           : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
             syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
@@ -813,10 +819,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             makeHost = (detailRecord, storeGet) => {
                 const host = Object.create(FleetCockpit.prototype);
 
-                host.detailRecord = detailRecord;
-                host.getReference = name =>
-                    name === 'fleet-grid'   ? {store: {get: storeGet}} :
-                    name === 'agent-detail' ? detail : null;
+                host.detailRecord            = detailRecord;
+                host.resolveFleetRosterStore = () => ({get: storeGet});
+                host.getReference            = name => name === 'agent-detail' ? detail : null;
 
                 return host
             };
