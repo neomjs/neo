@@ -1,12 +1,14 @@
-import ComboBoxField from '../../../../src/form/field/ComboBox.mjs';
 import FormContainer from '../../../../src/form/Container.mjs';
 import Button        from '../../../../src/button/Base.mjs';
 import Label         from '../../../../src/component/Label.mjs';
 import List          from '../../../../src/list/Base.mjs';
+import Radio         from '../../../../src/form/field/Radio.mjs';
 import Store         from '../../../../src/data/Store.mjs';
 import SwitchField   from '../../../../src/form/field/Switch.mjs';
 import TextField     from '../../../../src/form/field/Text.mjs';
 import TextAreaField from '../../../../src/form/field/TextArea.mjs';
+
+const BROADCAST_ID = 'AGENT:*';
 
 /**
  * The operator's compose surface — the write half of the FM operator mailbox.
@@ -32,6 +34,14 @@ import TextAreaField from '../../../../src/form/field/TextArea.mjs';
  * collapses its value to one scalar (`getSelection()[0]`) and cannot express "several peers", so the
  * shipped `singleSelect:false` selection model is the one that can. `to` is read as the ARRAY of
  * selected ids, and the owning cockpit fans out per recipient (the compose verb is one-target).
+ *
+ * **Removable selection.** The list opts into `toggleOnClick` (click a selected row to
+ * unselect), and the CURRENT selection renders as a chip row of real Buttons on the `.fm-chip`
+ * affordance family — × removes exactly that recipient, routed through the selection model so the
+ * chips stay presentation over the one selection truth. The `AGENT:*` sentinel is exclusive: it and
+ * named picks never co-exist — whichever side was newly picked wins, the other yields. Priority is
+ * a three-option radio group (the whole decision space visible), `high` remaining the shipped
+ * default per the AC-7 steering rationale.
  *
  * The form owns no `state.Provider` (a leaf form scoped by the cockpit above it) and no `data.Store`
  * of its own — recipient *options* are supplied by the owning cockpit from the live roster it already
@@ -92,6 +102,16 @@ class OperatorComposeForm extends FormContainer {
                 cls   : ['fm-operator-compose-recipients-label'],
                 text  : 'To'
             }, {
+                // the CURRENT selection as removable chips: real Buttons on the .fm-chip
+                // affordance family — one per selected recipient, × removes it. Presentation over
+                // the working multi-select below; rebuilt from selectionChange, never a second truth.
+                ntype    : 'container',
+                reference: 'compose-recipient-chips',
+                cls      : ['fm-compose-recipient-chips'],
+                flex     : 'none',
+                layout   : {ntype: 'hbox'},
+                items    : []
+            }, {
                 module      : List,
                 reference   : 'compose-recipients',
                 cls         : ['fm-operator-compose-recipients-list'],
@@ -99,8 +119,9 @@ class OperatorComposeForm extends FormContainer {
                 height      : 132,
                 // real multi-select: one, several, or the AGENT:* broadcast row. singleSelect:false is the
                 // shipped multi-select the single-select ComboBox/Chip primitive can't express (its value is
-                // one scalar) — the operator steering several peers at once is the whole point of the surface
-                selectionModel: {ntype: 'selection-listmodel', singleSelect: false},
+                // one scalar) — the operator steering several peers at once is the whole point of the surface.
+                // toggleOnClick is the removable-selection floor: clicking a selected row unselects it.
+                selectionModel: {ntype: 'selection-listmodel', singleSelect: false, toggleOnClick: true},
                 // a real data.Store of {id: canonical-@-form, name: display} records, fed by the owning
                 // cockpit's live roster via `recipientOptions` — never a hand-mapped plain array (apps/** gate)
                 store: {
@@ -131,23 +152,28 @@ class OperatorComposeForm extends FormContainer {
             required     : true,
             height       : 160
         }, {
-            module       : ComboBoxField,
-            reference    : 'compose-priority',
-            name         : 'priority',
-            labelText    : 'Priority',
-            labelPosition: 'top',
-            // the transport's own priority vocabulary; HIGH is the default (AC-7): operator steering
-            // ranks first at the recipient's turn-start drain — paired with wake-off below it reads
-            // "top of your queue when you next look, but I won't interrupt you now"
-            value         : 'high',
-            forceSelection: true,
-            store         : {
-                data: [
-                    {id: 'low',    name: 'low'},
-                    {id: 'normal', name: 'normal'},
-                    {id: 'high',   name: 'high'}
-                ]
-            }
+            // priority as a 3-option radio group (operator UX: "combo for 3 items is bad
+            // UX" — the whole decision space visible at zero cost). The Accounts harness-picker
+            // idiom: shared name, per-option valueLabel, one field label on the first. HIGH stays
+            // the default — the shipped product decision (operator steering ranks first at the
+            // recipient's turn-start drain; today's wake-priority incident is its proof), amending
+            // the ticket's original normal-default line.
+            ntype : 'container',
+            cls   : ['fm-compose-priority'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center'},
+            items : [
+                {id: 'low', label: 'low'}, {id: 'normal', label: 'normal'}, {id: 'high', label: 'high'}
+            ].map((entry, index) => ({
+                module        : Radio,
+                reference     : `compose-priority-${entry.id}`,
+                checked       : entry.id === 'high',
+                hideValueLabel: false,
+                labelText     : index === 0 ? 'Priority' : '',
+                name          : 'priority',
+                value         : entry.id,
+                valueLabel    : entry.label
+            }))
         }, {
             module       : SwitchField,
             reference    : 'compose-wake',
@@ -182,6 +208,112 @@ class OperatorComposeForm extends FormContainer {
             cls      : ['fm-operator-compose-outcome'],
             flex     : 'none'
         }]
+    }
+
+    /**
+     * The previous recipient selection (canonical ids) — the direction memory the broadcast
+     * exclusivity rule needs: knowing WHICH side of AGENT:*-vs-named was newly picked decides
+     * which side yields.
+     * @member {Set} #lastRecipientIds=new Set()
+     * @private
+     */
+    #lastRecipientIds = new Set()
+    /**
+     * Reentrancy guard: the exclusivity rule deselects from INSIDE the selectionChange handler,
+     * which re-fires it — one pass settles the state, the echo returns early.
+     * @member {Boolean} #syncingSelection=false
+     * @private
+     */
+    #syncingSelection = false
+
+    /**
+     * @summary Bind the recipient chips + broadcast rule to the list's selection lifecycle. The
+     * selectionModel fires `selectionChange` for select AND deselect (the toggle path included),
+     * so one subscription owns the whole presentation sync.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        this.getReference('compose-recipients')?.selectionModel?.on(
+            'selectionChange', this.onRecipientSelectionChange, this
+        )
+    }
+
+    /**
+     * @summary The one selection-truth sync: applies the broadcast exclusivity rule —
+     * `AGENT:*` and named recipients never co-exist; whichever side was newly picked wins and the
+     * other yields — then rebuilds the removable chip row from the settled selection. The chips
+     * are presentation over the selection model, never a second truth.
+     * @protected
+     */
+    onRecipientSelectionChange() {
+        let me    = this,
+            list  = me.getReference('compose-recipients'),
+            model = list?.selectionModel;
+
+        if (!model || me.#syncingSelection) {
+            return
+        }
+
+        let records = model.items
+                .map(vdomId => list.store.get(list.getItemRecordId(vdomId)))
+                .filter(Boolean),
+            ids       = new Set(records.map(record => record.id)),
+            broadcast = ids.has(BROADCAST_ID);
+
+        // exclusivity: decide by what is NEW relative to the last settled state
+        if (broadcast && ids.size > 1) {
+            const broadcastIsNew = !me.#lastRecipientIds.has(BROADCAST_ID);
+
+            me.#syncingSelection = true;
+
+            try {
+                records.forEach(record => {
+                    const yields = broadcastIsNew ? record.id !== BROADCAST_ID : record.id === BROADCAST_ID;
+                    yields && model.deselect(record)
+                })
+            } finally {
+                me.#syncingSelection = false
+            }
+
+            // re-read the settled selection for the chip row
+            records = model.items
+                .map(vdomId => list.store.get(list.getItemRecordId(vdomId)))
+                .filter(Boolean);
+            ids = new Set(records.map(record => record.id))
+        }
+
+        me.#lastRecipientIds = ids;
+
+        const chips = me.getReference('compose-recipient-chips');
+
+        if (chips) {
+            chips.removeAll();
+
+            records.length > 0 && chips.add(records.map(record => ({
+                module      : Button,
+                cls         : ['fm-chip', 'fm-compose-recipient-chip'],
+                text        : record.name,
+                iconCls     : 'fa fa-xmark',
+                iconPosition: 'right',
+                recipientId : record.id,
+                handler     : 'up.onRecipientChipRemove'
+            })))
+        }
+    }
+
+    /**
+     * @summary A chip's × removes exactly its recipient — routed through the selection model, so
+     * the list row unhighlights and the chip row rebuilds from the one truth.
+     * @param {Object} data
+     * @param {Neo.button.Base} data.component
+     * @protected
+     */
+    onRecipientChipRemove({component}) {
+        let list   = this.getReference('compose-recipients'),
+            record = list?.store.get(component.recipientId);
+
+        record && list.selectionModel.deselect(record)
     }
 
     /**

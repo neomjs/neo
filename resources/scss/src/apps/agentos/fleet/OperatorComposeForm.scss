@@ -21,6 +21,26 @@
         }
     }
 
+    /* the removable recipient chips (#17311): anatomy comes from the Chips.scss affordance family —
+       this row owns only wrap + rhythm, and costs zero pixels while nothing is selected */
+    .fm-compose-recipient-chips {
+        flex-wrap: wrap;
+        gap      : var(--fm-space-1);
+
+        &:empty {
+            display: none;
+        }
+
+        .neo-button.fm-compose-recipient-chip .neo-button-glyph {
+            font-size: 10px;   /* the × stays one step below the label — decoration-scale, §04 T3 */
+        }
+    }
+
+    /* the priority radio row (#17311): three options in one line, rhythm-token gap */
+    .fm-compose-priority {
+        gap: var(--fm-space-2);
+    }
+
     /* the recipient picker is a real multi-select list (not a form field), so it carries its own quiet
        label and a bordered, scrollable well; a selected row takes the signal accent to read as chosen —
        every color a --fm-* token, so both skins hold by construction */
