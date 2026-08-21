@@ -17,26 +17,9 @@ import ExamplesTabContainer   from '../../../../../../../apps/portal/view/exampl
 import TabContainerController from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
 
 const
-    directory       = path.dirname(fileURLToPath(import.meta.url)),
-    repoRoot        = path.resolve(directory, '../../../../../../../'),
-    dataRoot        = path.join(repoRoot, 'apps/portal/resources/data'),
-    registryConfigs = [{
-        file       : 'examples_devmode.json',
-        devIndexUrl: 'apps/devindex/index.html',
-        dockDemoUrl: 'apps/agentos/childapps/dockdemo/index.html'
-    }, {
-        file       : 'examples_dist_dev.json',
-        devIndexUrl: 'dist/development/apps/devindex/index.html',
-        dockDemoUrl: 'dist/development/apps/agentos/childapps/dockdemo/index.html'
-    }, {
-        file       : 'examples_dist_esm.json',
-        devIndexUrl: 'dist/esm/apps/devindex/index.html',
-        dockDemoUrl: 'dist/esm/apps/agentos/childapps/dockdemo/index.html'
-    }, {
-        file       : 'examples_dist_prod.json',
-        devIndexUrl: 'dist/production/apps/devindex/index.html',
-        dockDemoUrl: 'dist/production/apps/agentos/childapps/dockdemo/index.html'
-    }];
+    directory = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot  = path.resolve(directory, '../../../../../../../'),
+    dataRoot  = path.join(repoRoot, 'apps/portal/resources/data');
 
 /**
  * The examples tab routes resolve `activeIndex` through the controller's `tabItems` array.
@@ -114,7 +97,13 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         // These four tracked files are the build authority. `dist/**` copies are ignored generated
         // output and do not exist in a fresh checkout, so they are verified through the owning build
         // receipt rather than a conditional unit arm that would pass vacuously when they are absent.
-        const registries = Object.fromEntries(registryConfigs.map(({file}) => [
+        const registryFiles = [
+            'examples_devmode.json',
+            'examples_dist_dev.json',
+            'examples_dist_esm.json',
+            'examples_dist_prod.json'
+        ];
+        const registries = Object.fromEntries(registryFiles.map(file => [
             file,
             JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8'))
         ]));
@@ -155,7 +144,25 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
     });
 
     test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {
-        registryConfigs.forEach(({file, devIndexUrl, dockDemoUrl}) => {
+        const registries = [{
+            file       : 'examples_devmode.json',
+            devIndexUrl: 'apps/devindex/index.html',
+            dockDemoUrl: 'apps/agentos/childapps/dockdemo/index.html'
+        }, {
+            file       : 'examples_dist_dev.json',
+            devIndexUrl: 'dist/development/apps/devindex/index.html',
+            dockDemoUrl: 'dist/development/apps/agentos/childapps/dockdemo/index.html'
+        }, {
+            file       : 'examples_dist_esm.json',
+            devIndexUrl: 'dist/esm/apps/devindex/index.html',
+            dockDemoUrl: 'dist/esm/apps/agentos/childapps/dockdemo/index.html'
+        }, {
+            file       : 'examples_dist_prod.json',
+            devIndexUrl: 'dist/production/apps/devindex/index.html',
+            dockDemoUrl: 'dist/production/apps/agentos/childapps/dockdemo/index.html'
+        }];
+
+        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
             const
                 records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
                 dockDemo  = records.find(record => record.name === 'Dock Layouts'),
