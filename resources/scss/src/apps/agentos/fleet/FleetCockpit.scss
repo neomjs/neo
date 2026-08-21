@@ -1,30 +1,3 @@
-/* The window-verb pair — quiet secondary, declared OUTSIDE the bar scope because these verbs live
-   in TWO homes: the pane chrome (AgentDetail header / MemoriesPane actions, placed through the
-   shellTools slot) and the bar's exception-only recall chrome. Windowing a pane is a secondary
-   cockpit action everywhere it appears; without this root-level rule the pane-hosted instances
-   fell through to the stock primary button skin. */
-.neo-button.fm-detail-window-toggle,
-.neo-button.fm-memories-window-toggle {
-    border       : 1px solid var(--fm-line);
-    border-radius: 6px;
-    background   : var(--fm-panel-2);
-    color        : var(--fm-ink-dim);
-    box-shadow   : none;
-    font-weight  : 500;
-    transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
-
-    &:hover {
-        border-color: var(--fm-ink-dim);
-        background  : var(--fm-panel);
-        color       : var(--fm-ink);
-    }
-
-    .neo-button-glyph,
-    .neo-button-text {
-        color: inherit;
-    }
-}
-
 /* Fleet cockpit — the Fleet keeper-view: the design SSOT §01 two-zone split (fleet zone beside the
    activity stream). A soft divider separates the zones; the surface is the ground tone. */
 .fm-fleet-cockpit {

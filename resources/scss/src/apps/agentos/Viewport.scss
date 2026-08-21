@@ -21,6 +21,34 @@
        fact, and the animation exists only under no-preference (the StateDot inclusion-gate). */
     --fm-motion-pulse: 2400ms;
 
+    /* The window-verb pair — quiet secondary, owned HERE because the skin must travel with the
+       pane: the verbs render in pane chrome (which reparents into the widget vessel, where no
+       FleetCockpit sheet ever loads) and as the cockpit bar's exception-only recall pair. This
+       sheet reaches both viewports by the same opt-in that carries the chip tokens above, so the
+       control reads identically docked, windowed, and recalled. Windowing a pane is a secondary
+       cockpit action everywhere it appears. */
+    .neo-button.fm-detail-window-toggle,
+    .neo-button.fm-memories-window-toggle {
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        background   : var(--fm-panel-2);
+        color        : var(--fm-ink-dim);
+        box-shadow   : none;
+        font-weight  : 500;
+        transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+
+        &:hover {
+            border-color: var(--fm-ink-dim);
+            background  : var(--fm-panel);
+            color       : var(--fm-ink);
+        }
+
+        .neo-button-glyph,
+        .neo-button-text {
+            color: inherit;
+        }
+    }
+
     /* HEIGHT CONTAINMENT FOR THE SHELL'S FLEX SPINE.
        A flex item's automatic minimum size is its CONTENT size, and `min-height: auto` only
        resolves to zero when the item's overflow is not `visible`. Every box listed here sits in the
