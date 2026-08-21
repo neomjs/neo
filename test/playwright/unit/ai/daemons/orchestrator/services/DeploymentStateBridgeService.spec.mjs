@@ -1617,6 +1617,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             corpusOutstanding: {
                 state          : 'outstanding',
                 observable     : true,
+                settled        : 10_000,
+                remaining      : 40_000,
                 outstanding    : 40_000,
                 lastDecreasedAt: OBSERVED_AT - 5_000,
                 observedAt     : OBSERVED_AT - 1_000
@@ -1628,6 +1630,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(measuredSnapshot.repos[0].corpusOutstanding).toEqual({
             state          : 'outstanding',
             observable     : true,
+            settled        : 10_000,
+            remaining      : 40_000,
             outstanding    : 40_000,
             lastDecreasedAt: OBSERVED_AT - 5_000,
             observedAt     : OBSERVED_AT - 1_000
@@ -1658,10 +1662,13 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         // with 42 chunks left. Presence-validation admits this; only coherence rejects it. Repairing it
         // to a count would invent an observation nobody made, so it degrades WHOLE.
         for (const incoherent of [
-            {state: 'complete',     observable: true,  outstanding: 42, observedAt: OBSERVED_AT - 1_000},
-            {state: 'outstanding',  observable: true,  outstanding: 0,  observedAt: OBSERVED_AT - 1_000},
-            {state: 'unobservable', observable: true,  outstanding: 7,  observedAt: OBSERVED_AT - 1_000},
-            {state: 'converging',   observable: true,  outstanding: 7,  observedAt: OBSERVED_AT - 1_000}
+            {state: 'complete',     observable: true, settled: 8, remaining: 42, outstanding: 42, observedAt: OBSERVED_AT - 1_000},
+            {state: 'outstanding',  observable: true, settled: 8, remaining: 0,  outstanding: 0,  observedAt: OBSERVED_AT - 1_000},
+            {state: 'outstanding',  observable: true, settled: 8, remaining: 7,  outstanding: 6,  observedAt: OBSERVED_AT - 1_000},
+            {state: 'outstanding',  observable: true, settled: 1.5, remaining: 7, outstanding: 7,  observedAt: OBSERVED_AT - 1_000},
+            {state: 'outstanding',  observable: true, settled: 8, remaining: -1, outstanding: -1, observedAt: OBSERVED_AT - 1_000},
+            {state: 'unobservable', observable: true, settled: 8, remaining: 7,  outstanding: 7,  observedAt: OBSERVED_AT - 1_000},
+            {state: 'converging',   observable: true, settled: 8, remaining: 7,  outstanding: 7,  observedAt: OBSERVED_AT - 1_000}
         ]) {
             const svc  = makeService({...baseCheckpoint, corpusOutstanding: incoherent}),
                   snap = await svc.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
@@ -1688,24 +1695,26 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         // readerOfProducerBlind — the ROUND TRIP. A valid `unobservable` straight from the producer was
         // rejected, because `outstanding: null` laundered to 0 and `Number.isFinite(0)` is true. The
         // reader was blind to its own writer's output, which no amount of incoherent-input testing finds.
-        const producerUnobservable = describeCorpusOutstanding({outstanding: null, observedAt: OBSERVED_AT - 1_000}),
+        const producerUnobservable = describeCorpusOutstanding({settled: null, remaining: null, observedAt: OBSERVED_AT - 1_000}),
               roundTrip            = makeService({...baseCheckpoint, corpusOutstanding: producerUnobservable}),
               roundTripSnap        = await roundTrip.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
 
         expect(roundTripSnap.repos[0].corpusOutstanding).toMatchObject({
             state      : 'unobservable',
             observable : false,
+            settled    : null,
+            remaining  : null,
             outstanding: null
         });
         roundTrip.destroy();
 
         // …and the positive round trip, so the reader is not merely permissive.
-        const producerOutstanding = describeCorpusOutstanding({outstanding: 618, observedAt: OBSERVED_AT - 1_000}),
+        const producerOutstanding = describeCorpusOutstanding({settled: 250, remaining: 618, observedAt: OBSERVED_AT - 1_000}),
               positive            = makeService({...baseCheckpoint, corpusOutstanding: producerOutstanding}),
               positiveSnap        = await positive.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
 
         expect(positiveSnap.repos[0].corpusOutstanding).toMatchObject({
-            state: 'outstanding', observable: true, outstanding: 618
+            state: 'outstanding', observable: true, settled: 250, remaining: 618, outstanding: 618
         });
         positive.destroy();
 
@@ -3752,10 +3761,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — identity
  */
 test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — startup log head', () => {
     const
-        STARTED = '2026-08-18T10:00:00.000Z',
-        WINDOW  = 60_000,
+        STARTED   = '2026-08-18T10:00:00.000Z',
+        WINDOW    = 60_000,
         MAX_LINES = 10_000,
-        cfg     = overrides => ({
+        cfg       = overrides => ({
             includeLogs       : true, logMaxBytes: 32 * 1024, logTail: 120, startupLogWindowMs: WINDOW,
             startupLogMaxLines: MAX_LINES, ...overrides
         }),

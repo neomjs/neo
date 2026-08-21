@@ -4625,6 +4625,330 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(errLine).toBeDefined();
     });
 
+    test('#17439 K=2 composes real Vector resume and cumulative settlement through completion', async () => {
+        const
+            SDK                                                                  = await import('../../../../../../../ai/services.mjs'),
+            {default: VectorService}                                             = await import('../../../../../../../ai/services/knowledge-base/VectorService.mjs'),
+            {KB_ChromaManager, KB_Config, KB_IngestionService: IngestionService} = SDK,
+            slugs                                                                = ['org/a', 'org/b', 'org/c', 'org/d'],
+            rows                                                                 = new Map(),
+            graphRows                                                            = new Map(),
+            upsertedIds                                                          = [],
+            ingestionCalls                                                       = [],
+            ingestionSummaries                                                   = [],
+            events                                                               = [],
+            taskStateService                                                     = createInMemoryTaskStateService(),
+            original                                                             = {
+                batchConfig: {
+                    batchDelay: KB_Config.data.batchDelay,
+                    batchSize : KB_Config.data.batchSize,
+                    maxRetries: KB_Config.data.maxRetries
+                },
+                chromaManager                 : IngestionService.chromaManager,
+                embedTexts                    : TextEmbeddingService.embedTexts,
+                getKnowledgeBaseCollection    : KB_ChromaManager.getKnowledgeBaseCollection,
+                getTenantConfig               : IngestionService.getTenantConfig,
+                graphService                  : IngestionService.graphService,
+                recorderService               : IngestionService.recorderService,
+                requestContextService         : IngestionService.requestContextService,
+                resolveEmbeddingGuardrail     : VectorService.resolveEmbeddingGuardrail,
+                resolveEmbeddingInputGuardrail: IngestionService.resolveEmbeddingInputGuardrail,
+                resumeStateDir                : VectorService.resumeStateDir,
+                revisionResolver              : IngestionService.revisionResolver,
+                sourceRegistry                : IngestionService.sourceRegistry,
+                vectorService                 : IngestionService.vectorService
+            };
+
+        TenantRepoSyncService.concurrencyLimit = 2;
+
+        const matchesWhere = (metadata, where) => {
+            if (!where) return true;
+            if (Array.isArray(where.$and)) {
+                return where.$and.every(clause => matchesWhere(metadata, clause))
+            }
+
+            return Object.entries(where).every(([field, condition]) => {
+                const expected = condition && typeof condition === 'object' && '$eq' in condition
+                    ? condition.$eq
+                    : condition;
+
+                return metadata[field] === expected
+            })
+        };
+        const collection = {
+            name: 'tenant-slice-composition',
+            async get({ids, where, limit = 2000, offset = 0, include = []} = {}) {
+                const idFilter = Array.isArray(ids) ? new Set(ids) : null;
+                const selected = [...rows.values()]
+                    .filter(row => (!idFilter || idFilter.has(row.id)) && matchesWhere(row.metadata, where))
+                    .slice(offset, offset + limit);
+
+                return {
+                    ids      : selected.map(row => row.id),
+                    metadatas: include.includes('metadatas') ? selected.map(row => row.metadata) : [],
+                    documents: include.includes('documents') ? selected.map(row => row.document || '') : []
+                }
+            },
+            async upsert({ids, embeddings, metadatas}) {
+                ids.forEach((id, index) => {
+                    const metadata = metadatas[index];
+
+                    rows.set(id, {id, embedding: embeddings[index], metadata});
+                    upsertedIds.push({id, repoSlug: metadata.repoSlug});
+                });
+            },
+            async delete({ids}) {
+                ids.forEach(id => rows.delete(id));
+            },
+            async count() {
+                return rows.size
+            }
+        };
+        const graphService = {
+            async ready() {},
+            getNodeRecord({id}) {
+                return graphRows.get(id) || null
+            },
+            listNodeRecordsByType({type, idPrefix}) {
+                return {
+                    records: [...graphRows.values()]
+                        .filter(record => record.type === type && (!idPrefix || record.id.startsWith(idPrefix)))
+                }
+            },
+            async upsertNode({id, type, properties}) {
+                graphRows.set(id, {id, type, properties: {...properties}});
+            }
+        };
+        const embeddingGuardrail = () => ({
+            recognized               : true,
+            embeddingProvider        : 'openAiCompatible',
+            contextLimitTokens       : 1_000_000,
+            safeProcessingLimitTokens: 800_000,
+            model                    : 'tenant-slice-composition-model'
+        });
+        const envelopeBuilder = async ({tenantId, repoSlug, lastIngestedRev}) => {
+            const count  = repoSlug === 'org/a' ? 3 : 1;
+            const chunks = Array.from({length: count}, (_, index) => ({
+                schemaVersion: '1.0.0',
+                tenantId,
+                repoSlug,
+                rootKind     : 'bare-repo',
+                sourcePath   : `${repoSlug}/chunk-${index}.mjs`,
+                content      : `export const value${index} = '${repoSlug}';`,
+                hashInputs   : ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+                parserId     : 'client-parser',
+                parserVersion: '1.0.0',
+                kind         : 'module-context',
+                name         : `${repoSlug}/chunk-${index}.mjs - [Module]`
+            }));
+
+            return {
+                tenantId,
+                repoSlug,
+                files: [{
+                    sourcePath  : `${repoSlug}/fixture.mjs`,
+                    repoSlug,
+                    parsedChunks: chunks
+                }],
+                deleted         : [],
+                headRevision    : `sha-head-${repoSlug}`,
+                manifestSnapshot: {
+                    repoSlug,
+                    pathsAfterPush: chunks.map(chunk => chunk.sourcePath)
+                },
+                ...(lastIngestedRev ? {baseRevision: lastIngestedRev} : {})
+            }
+        };
+
+        let resolveTailStarted;
+        const
+            tailStarted      = new Promise(resolve => { resolveTailStarted = resolve; }),
+            realIngest       = IngestionService.ingestSourceFilesForTenantSync.bind(IngestionService),
+            ingestionService = {
+                getTenantManifest: IngestionService.getTenantManifest.bind(IngestionService),
+                async ingestSourceFilesForTenantSync(payload, controls) {
+                    const slug = payload.repoSlug;
+
+                    ingestionCalls.push(slug);
+                    events.push(`start:${slug}`);
+
+                    if (slug === 'org/a') {
+                        // Expire A's one-millisecond repo budget before Vector starts. Vector must
+                        // still land its first complete batch (forward-progress floor), then the
+                        // production predicate is true at the next safe point.
+                        // fixed-sleep-justification: deterministic precondition, not outcome polling.
+                        await new Promise(resolve => setTimeout(resolve, 5))
+                    }
+
+                    // B deliberately occupies the second real runTask slot. C can be admitted only
+                    // after A returns from VectorService's safe point, and then releases B so the
+                    // tail finishes through the same production ingestion path.
+                    if (slug === 'org/b') {
+                        await tailStarted;
+                    } else if (slug === 'org/c' || slug === 'org/d') {
+                        resolveTailStarted();
+                    }
+
+                    const summary = await realIngest(payload, controls);
+
+                    ingestionSummaries.push({slug, summary});
+                    events.push(`end:${slug}:${summary.yielded ? 'partial-progress' : 'complete'}`);
+                    return summary
+                }
+            },
+            options = {
+                reason           : 'periodic-sweep:60000',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: slugs.map(repoSlug => ({
+                    tenantId: 't1', repoSlug, mirrorRoot, cadenceMs: 1, cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+                }))},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder,
+                knowledgeBaseIngestionService: ingestionService,
+                revisionsFilePath            : revisionsFile,
+                leaseGuard                   : async () => {},
+                globalCadenceMs              : 60 * 60 * 1000,
+                jitterRatio                  : 0,
+                sliceBudgetMs                : 1,
+                seedBootstrap                : false
+            };
+
+        try {
+            Object.assign(KB_Config.data, {batchDelay: 5, batchSize: 1, maxRetries: 1});
+            KB_ChromaManager.getKnowledgeBaseCollection = async () => collection;
+            TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
+            VectorService.resumeStateDir = path.join(tmpDir, 'tenant-slice-vector-state');
+            VectorService.resolveEmbeddingGuardrail = embeddingGuardrail;
+
+            IngestionService.chromaManager                  = KB_ChromaManager;
+            IngestionService.getTenantConfig                = async () => ({version: 0});
+            IngestionService.graphService                   = graphService;
+            IngestionService.recorderService                = {recordIngestionMetric() {}};
+            IngestionService.requestContextService          = {
+                getAgentIdentityNodeId: () => '@neo-gpt',
+                getUserId             : () => 't1'
+            };
+            IngestionService.resolveEmbeddingInputGuardrail = embeddingGuardrail;
+            IngestionService.revisionResolver               = null;
+            IngestionService.sourceRegistry                 = {getParserIds: () => [], getParsers: () => []};
+            IngestionService.vectorService                  = VectorService;
+            IngestionService.activeIngestionProgress        = null;
+            IngestionService.lastIngestionProgress          = null;
+
+            const first             = await TenantRepoSyncService.syncTenantRepos(options);
+            const firstAlphaSummary = ingestionSummaries.find(item => item.slug === 'org/a')?.summary;
+
+            expect(firstAlphaSummary, 'the real Vector/Ingestion path must hit a resumable boundary')
+                .toMatchObject({ingested: 3, embeddingsGenerated: 1, yielded: true});
+
+            expect(first.status).toBe('completed');
+            expect(first.details).toMatchObject({
+                completedCount      : 3,
+                partialProgressCount: 1,
+                failedCount         : 0
+            });
+
+            const partial = first.details.repos.find(row => row.repoSlug === 'org/a');
+            const rowsFor = repoSlug => [...rows.values()].filter(row => row.metadata.repoSlug === repoSlug);
+
+            expect(partial).toMatchObject({
+                status           : 'partial-progress',
+                corpusOutstanding: {
+                    state      : 'outstanding',
+                    observable : true,
+                    settled    : 1,
+                    remaining  : 2,
+                    outstanding: 2
+                }
+            });
+            expect(rowsFor('org/a')).toHaveLength(1);
+            expect(events.indexOf('end:org/a:partial-progress')).toBeLessThan(events.indexOf('start:org/c'));
+            expect(rowsFor('org/c')).toHaveLength(1);
+            expect(rowsFor('org/d')).toHaveLength(1);
+            expect((await IngestionService.getTenantManifest({tenantId: 't1', repoSlug: 'org/a'})).materializationReceipt)
+                .toBeNull();
+
+            const firstPersisted = (await fs.readJson(revisionsFile)).revisions;
+
+            expect(firstPersisted['t1/org/a'], 'partial progress persists observation without advancing the revision checkpoint')
+                .toMatchObject({
+                    lastIngestedRev  : null,
+                    corpusOutstanding: {settled: 1, remaining: 2, outstanding: 2}
+                });
+            expect(firstPersisted['t1/org/b'].consecutiveFailures).toBe(0);
+
+            const second        = await TenantRepoSyncService.syncTenantRepos(options);
+            const secondPartial = second.details.repos.find(row => row.repoSlug === 'org/a');
+            const aUpserts      = upsertedIds.filter(row => row.repoSlug === 'org/a');
+
+            expect(second.details.partialProgressCount).toBe(1);
+            expect(secondPartial.corpusOutstanding).toMatchObject({
+                state      : 'outstanding',
+                observable : true,
+                settled    : 2,
+                remaining  : 1,
+                outstanding: 1
+            });
+            expect(ingestionCalls.filter(slug => slug === 'org/a')).toHaveLength(2);
+            expect(rowsFor('org/a')).toHaveLength(2);
+            expect(aUpserts).toHaveLength(2);
+            expect(new Set(aUpserts.map(row => row.id)).size,
+                'the second slice must select a new durable id instead of repurchasing the first').toBe(2);
+            expect((await IngestionService.getTenantManifest({tenantId: 't1', repoSlug: 'org/a'})).materializationReceipt,
+                'a partial slice must never create the retry-receipt shortcut').toBeNull();
+            const secondPersisted = (await fs.readJson(revisionsFile)).revisions['t1/org/a'];
+
+            expect(secondPersisted.lastIngestedRev ?? null).toBeNull();
+            expect(secondPersisted.corpusOutstanding).toMatchObject({
+                settled: 2, remaining: 1, outstanding: 1
+            });
+
+            const third          = await TenantRepoSyncService.syncTenantRepos(options);
+            const thirdCompleted = third.details.repos.find(row => row.repoSlug === 'org/a');
+            const finalUpserts   = upsertedIds.filter(row => row.repoSlug === 'org/a');
+
+            expect(thirdCompleted).toMatchObject({
+                status           : 'active',
+                lastIngestedRev  : 'sha-head',
+                corpusOutstanding: {
+                    state      : 'complete',
+                    observable : true,
+                    settled    : 3,
+                    remaining  : 0,
+                    outstanding: 0
+                }
+            });
+            expect(rowsFor('org/a')).toHaveLength(3);
+            expect(finalUpserts).toHaveLength(3);
+            expect(new Set(finalUpserts.map(row => row.id)).size).toBe(3);
+
+            const finalPersisted = (await fs.readJson(revisionsFile)).revisions['t1/org/a'];
+
+            expect(finalPersisted.lastIngestedRev).toBe('sha-head-org/a');
+            expect(finalPersisted.corpusOutstanding).toMatchObject({
+                settled: 3, remaining: 0, outstanding: 0
+            });
+            expect((await IngestionService.getTenantManifest({tenantId: 't1', repoSlug: 'org/a'})).materializationReceipt,
+                'only the corpus-exhausting slice may publish the positive materialization proof').toBeTruthy();
+        } finally {
+            Object.assign(KB_Config.data, original.batchConfig);
+            KB_ChromaManager.getKnowledgeBaseCollection       = original.getKnowledgeBaseCollection;
+            TextEmbeddingService.embedTexts                   = original.embedTexts;
+            VectorService.resolveEmbeddingGuardrail           = original.resolveEmbeddingGuardrail;
+            VectorService.resumeStateDir                      = original.resumeStateDir;
+            IngestionService.chromaManager                    = original.chromaManager;
+            IngestionService.getTenantConfig                  = original.getTenantConfig;
+            IngestionService.graphService                     = original.graphService;
+            IngestionService.recorderService                  = original.recorderService;
+            IngestionService.requestContextService            = original.requestContextService;
+            IngestionService.resolveEmbeddingInputGuardrail   = original.resolveEmbeddingInputGuardrail;
+            IngestionService.revisionResolver                 = original.revisionResolver;
+            IngestionService.sourceRegistry                   = original.sourceRegistry;
+            IngestionService.vectorService                    = original.vectorService;
+        }
+    });
+
+
     test('concurrency-gate: concurrencyLimit=1 serializes per-repo work (#11942 AC2)', async () => {
         TenantRepoSyncService.concurrencyLimit = 1;
 
@@ -7003,16 +7327,14 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 summaryFactory() {
                     ingestCallCount++;
 
-                    // Run 1: 100 embeddable accepted, 10 DISJOINT guardrail rejections, 30 embedded
-                    // before the provider gave out -> 70 outstanding. Run 2: the corpus fully embedded.
-                    //
-                    // 110 total - 30 embedded - 10 declined = 70, which is identically 100 - 30:
-                    // `ingested` and `skippedOversized` are disjoint (the progress projection sums
-                    // them for its total), so the declined chunks cancel out instead of inflating a
-                    // backlog that could never reach zero.
+                    // Run 1: 100 unique accepted, 30 cumulatively settled, 70 remaining. Run 2:
+                    // the identical accepted corpus is fully settled. `embeddingsGenerated` stays
+                    // the newly-landed term and is deliberately not used to reconstruct remainder.
                     return ingestCallCount === 1
                         ? {
                             ingested           : 100,
+                            settled            : 30,
+                            remaining          : 70,
                             skippedOversized   : 10,
                             embeddingsGenerated: 30,
                             deleted            : 0,
@@ -7020,6 +7342,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                         }
                         : {
                             ingested           : 100,
+                            settled            : 100,
+                            remaining          : 0,
                             skippedOversized   : 10,
                             embeddingsGenerated: 100,
                             deleted            : 0,
@@ -7040,6 +7364,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(deferredRun.status).toBe('deferred');
 
         expect(deferredState.corpusOutstanding.outstanding).toBe(70);
+        expect(deferredState.corpusOutstanding.remaining).toBe(70);
+        expect(deferredState.corpusOutstanding.settled).toBe(30);
         expect(deferredState.corpusOutstanding.observable).toBe(true);
         expect(deferredState.corpusOutstanding.state).toBe('outstanding');
 
@@ -7056,6 +7382,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         expect(completedRun.status).toBe('completed');
         expect(completedState.corpusOutstanding.outstanding).toBe(0);
+        expect(completedState.corpusOutstanding.remaining).toBe(0);
+        expect(completedState.corpusOutstanding.settled).toBe(100);
         expect(completedState.corpusOutstanding.state).toBe('complete');
 
         const completedProjection = completedRun.details.repos.find(row => row.repoSlug === slug);
@@ -7063,46 +7391,61 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(completedProjection.corpusOutstanding.outstanding).toBe(0);
     });
 
-    test('a summary that never reported embeddings publishes UNKNOWN, never a reassuring zero', async () => {
+    test('a summary that never reported settlement publishes UNKNOWN, never a reassuring zero', async () => {
         // The empty-is-not-success guard, at the surface rather than in the helper. A run whose
-        // summary omits `embeddingsGenerated` was not measured; publishing `0` there would claim a
-        // finished corpus on the strength of a missing field, which is the exact defect this ticket
-        // family exists to close — and it would be indistinguishable from the completed case above.
+        // summary omits `settled` / `remaining` was not measured; publishing `0` there would claim
+        // a finished corpus on the strength of missing fields, which is the exact defect this ticket
+        // closes. The second run supplies an internally impossible tuple; present-but-invalid is no
+        // more authoritative than absent.
         const
             taskStateService = createInMemoryTaskStateService(),
             slug             = 'org/unmeasured-outstanding',
-            repoLabel        = `t1/${slug}`;
+            repoLabel        = `t1/${slug}`,
+            options          = {
+                reason           : 'periodic-sweep:60000',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [
+                    {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/unmeasured.git'}
+                ]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService({
+                    summaryFactory: () => ++summaryCallCount === 1
+                        ? {ingested: 5, embeddingsGenerated: 5, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]}
+                        : {ingested: 5, embeddingsGenerated: 5, settled: 6, remaining: 0, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]}
+                }),
+                revisionsFilePath: revisionsFile,
+                globalCadenceMs  : 0,
+                jitterRatio      : 0,
+                backoffCapMs     : 7_200_000,
+                seedBootstrap    : false
+            };
+
+        let summaryCallCount = 0;
 
         await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
 
-        const run = await TenantRepoSyncService.runTask({
-            reason           : 'periodic-sweep:60000',
-            taskStateService,
-            tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/unmeasured.git'}
-            ]},
-            gitMirror      : makeFakeGitMirror(),
-            envelopeBuilder: makeFakeEnvelopeBuilder(),
-            // No `embeddingsGenerated` — the shape every pre-existing fixture in this file uses.
-            knowledgeBaseIngestionService: makeFakeIngestionService({
-                summaryFactory: () => ({ingested: 5, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]})
-            }),
-            revisionsFilePath: revisionsFile,
-            globalCadenceMs  : 0,
-            jitterRatio      : 0,
-            backoffCapMs     : 7_200_000,
-            seedBootstrap    : false
-        });
+        const run = await TenantRepoSyncService.runTask(options);
 
         const state = (await fs.readJson(revisionsFile)).revisions[repoLabel];
 
         expect(run.status).toBe('deferred');
         expect(state.corpusOutstanding.observable).toBe(false);
+        expect(state.corpusOutstanding.settled).toBeNull();
+        expect(state.corpusOutstanding.remaining).toBeNull();
         expect(state.corpusOutstanding.outstanding).toBeNull();
         expect(state.corpusOutstanding.state).toBe('unobservable');
         // The discrimination stated as a comparison, so a future change that collapses unknown into
         // zero fails here rather than passing quietly on a plausible-looking number.
         expect(state.corpusOutstanding.outstanding).not.toBe(0);
+
+        await TenantRepoSyncService.runTask(options);
+
+        const malformedState = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(malformedState.corpusOutstanding).toMatchObject({
+            state: 'unobservable', observable: false, settled: null, remaining: null, outstanding: null
+        });
     });
 
     /*

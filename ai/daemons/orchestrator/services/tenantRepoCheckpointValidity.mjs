@@ -230,12 +230,15 @@ function normalizeCorpusOutstanding(value) {
     // null/undefined/negative to `0`, which destroys the exact distinction this field exists to carry.
     // Built on it, the coherence check below could neither DETECT a missing count (a torn
     // `{state:'complete', observable:true}` laundered to `complete/0` — a finished corpus asserted from
-    // an absent number) nor RECOGNISE a legitimate `outstanding: null`, so every valid `unobservable`
-    // the producer emits was rejected and could never round-trip. One helper, both residuals.
+    // an absent number) nor RECOGNISE a legitimate all-null settlement tuple, so every valid
+    // `unobservable` the producer emits was rejected and could never round-trip. One helper, both
+    // residuals.
     const
         {state}     = value,
         observable  = value.observable === true,
-        outstanding = Number.isFinite(value.outstanding) && value.outstanding >= 0 ? value.outstanding : null,
+        settled     = Number.isSafeInteger(value.settled) && value.settled >= 0 ? value.settled : null,
+        remaining   = Number.isSafeInteger(value.remaining) && value.remaining >= 0 ? value.remaining : null,
+        outstanding = Number.isSafeInteger(value.outstanding) && value.outstanding >= 0 ? value.outstanding : null,
         observedAt  = Number.isFinite(value.observedAt)  && value.observedAt  >  0 ? value.observedAt  : null;
 
     // CLOSED vocabulary. An arbitrary string was previously admitted, which let a hand-edited or
@@ -246,21 +249,28 @@ function normalizeCorpusOutstanding(value) {
         return null;
     }
 
-    // An observation claiming to be observable must carry both the count and the moment it was taken;
-    // one without the other cannot support either the number or its staleness, so it degrades whole.
-    if (observable && !(outstanding !== null && observedAt !== null)) {
+    // An observation claiming to be observable must carry the complete partition, its compatibility
+    // alias, and the moment it was taken. A partial tuple cannot support either the number or its
+    // staleness, so it degrades whole.
+    if (observable && !(
+        settled !== null
+        && remaining !== null
+        && outstanding === remaining
+        && observedAt !== null
+    )) {
         return null;
     }
 
     // COHERENCE, not merely presence. Each state admits exactly one tuple, so a record whose fields
     // contradict each other degrades WHOLE rather than being published field-by-field. The dangerous
-    // specimen is `{state:'complete', observable:true, outstanding:42}`: every field is individually
-    // well-typed, and together they assert a finished corpus with 42 chunks left. Repairing that to a
-    // count would invent an observation; rejecting it is the only honest reading.
+    // specimen is `{state:'complete', observable:true, settled:0, remaining:42, outstanding:42}`:
+    // every field is individually well-typed, and together they assert a finished corpus with 42
+    // chunks left. Repairing that to a count would invent an observation; rejecting it is the only
+    // honest reading.
     const coherent = state === OUTSTANDING_STATE.unobservable
-        ? (!observable && outstanding === null)
+        ? (!observable && settled === null && remaining === null && outstanding === null)
         : (observable && outstanding !== null
-            && (state === OUTSTANDING_STATE.complete ? outstanding === 0 : outstanding > 0));
+            && (state === OUTSTANDING_STATE.complete ? remaining === 0 : remaining > 0));
 
     if (!coherent) {
         return null;
@@ -269,6 +279,8 @@ function normalizeCorpusOutstanding(value) {
     return {
         state,
         observable,
+        settled        : observable ? settled : null,
+        remaining      : observable ? remaining : null,
         outstanding    : observable ? outstanding : null,
         lastDecreasedAt: Number.isFinite(value.lastDecreasedAt) && value.lastDecreasedAt > 0 ? value.lastDecreasedAt : null,
         observedAt

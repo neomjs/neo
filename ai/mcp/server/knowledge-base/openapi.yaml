@@ -1242,13 +1242,25 @@ components:
       properties:
         ingested:
           type: integer
-          description: Count of chunks embedded/upserted.
+          description: Count of embeddable chunks accepted for this ingestion run.
         deleted:
           type: integer
           description: Count of Chroma rows removed via deletion signaling.
         embeddingsGenerated:
           type: integer
-          description: Count of embeddings generated for this push.
+          description: Count of embeddings newly landed during this invocation; never cumulative across resumed slices.
+        settled:
+          type: integer
+          nullable: true
+          description: >-
+            Cumulative accepted chunks requiring no provider work on an identical next sweep.
+            Null when any repository group used a legacy/unobservable or invalid settlement producer.
+        remaining:
+          type: integer
+          nullable: true
+          description: >-
+            Cumulative accepted chunks still requiring provider work on an identical next sweep.
+            Null when any repository group used a legacy/unobservable or invalid settlement producer.
         skippedOversized:
           type: integer
           description: Count of local-provider over-budget chunks skipped before embedding.
@@ -1343,6 +1355,11 @@ components:
           type: integer
         remaining:
           type: integer
+          nullable: true
+          description: >-
+            Authoritative cumulative remaining count when the current/last Vector producer supplied
+            a coherent settlement tuple; null when settlement was unobserved. Legacy in-memory
+            ledgers created before this field fall back to accepted minus newly embedded.
         deletedRows:
           type: integer
         errorCount:

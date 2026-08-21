@@ -13,6 +13,8 @@ import SourceRegistry     from './source/_export.mjs';
 import {loadTenantParser} from './source/tenantParserLoader.mjs';
 import {normalizeTenantRepoConfig}
                             from './helpers/tenantRepoAccessContract.mjs';
+import {normalizeSettlementCounts}
+                            from './helpers/corpusOutstanding.mjs';
 import {createTenantRepoMaterializationDigest}
                             from './helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {isChromaConnectionError}
@@ -252,7 +254,7 @@ class IngestionService extends Base {
      * @param {Object} [controls={}] Internal non-MCP execution controls.
      * @param {AbortSignal} [controls.signal] Shared tenant-sweep provider circuit signal.
      * @param {Function} [controls.onProviderTimeout] Synchronous native-provider timeout hook.
-     * @returns {Promise<{ingested: Number, deleted: Number, embeddingsGenerated: Number, errors: Array, tenantId: String, durationMs: Number}>}
+     * @returns {Promise<{ingested: Number, settled: Number|null, remaining: Number|null, deleted: Number, embeddingsGenerated: Number, errors: Array, tenantId: String, durationMs: Number}>}
      */
     async ingestSourceFiles(payload = {}, controls = {}) {
         const startedAt = Date.now();
@@ -293,9 +295,16 @@ class IngestionService extends Base {
             });
 
             const embeddableChunks = this.filterEmbeddingInputBudget({chunks, tenantContext, summary});
+
+            // The accepted corpus is known before provider work starts. Remaining begins as the
+            // whole accepted set, then each observed group replaces its accepted contribution with
+            // the producer's authoritative remainder. A missing/malformed group nulls BOTH counts.
+            summary.remaining = embeddableChunks.length;
             this.updateIngestionProgress({
                 embeddableChunks: embeddableChunks.length,
                 errorCount      : summary.errors.length,
+                remainingChunks : summary.remaining,
+                settledChunks   : summary.settled,
                 skippedChunks   : summary.skippedOversized
             });
 
@@ -466,7 +475,8 @@ class IngestionService extends Base {
         replayEmbeddingPoison = false,
         shouldYield
     }) {
-        const groups = new Map();
+        const groups               = new Map();
+        let   settlementObservable = true;
 
         for (const chunk of chunks) {
             const repoSlug = chunk.repoSlug || tenantContext.repoSlug;
@@ -490,6 +500,44 @@ class IngestionService extends Base {
                     viaMcp
                 });
 
+                const
+                    hasSettled   = Object.hasOwn(result || {}, 'settled'),
+                    hasRemaining = Object.hasOwn(result || {}, 'remaining');
+
+                if (!hasSettled && !hasRemaining) {
+                    // Legacy producer: absence is unobserved, not a reassuring zero and not an
+                    // error. Sticky across the remaining groups because a partial aggregate has no
+                    // honest corpus meaning.
+                    settlementObservable = false;
+                    summary.settled       = null;
+                    summary.remaining     = null
+                } else {
+                    const counts = normalizeSettlementCounts({
+                        accepted : group.length,
+                        settled  : result?.settled,
+                        remaining: result?.remaining
+                    });
+
+                    if (!counts) {
+                        settlementObservable = false;
+                        summary.settled       = null;
+                        summary.remaining     = null;
+                        summary.errors.push(this.createError({
+                            code   : 'KB_VECTOR_EMBED_SETTLEMENT_INVALID',
+                            message: 'VectorService returned a malformed or inconsistent settlement tuple.',
+                            details: {
+                                repoSlug,
+                                accepted : group.length,
+                                settled  : Number.isFinite(result?.settled) ? result.settled : null,
+                                remaining: Number.isFinite(result?.remaining) ? result.remaining : null
+                            }
+                        }))
+                    } else if (settlementObservable) {
+                        summary.settled   += counts.settled;
+                        summary.remaining += counts.remaining - group.length
+                    }
+                }
+
                 if (result?.error) {
                     summary.errors.push(this.createError({
                         // Classified rather than defaulted. A provider code is truthy, so the old
@@ -501,8 +549,10 @@ class IngestionService extends Base {
                         details: result
                     }));
                     this.updateIngestionProgress({
-                        embeddedChunks: summary.embeddingsGenerated,
-                        errorCount    : summary.errors.length
+                        embeddedChunks : summary.embeddingsGenerated,
+                        errorCount     : summary.errors.length,
+                        remainingChunks: summary.remaining,
+                        settledChunks  : summary.settled
                     });
                     continue;
                 }
@@ -546,12 +596,13 @@ class IngestionService extends Base {
 
                 // `result.embedded` or nothing — never `group.length`. The old fallback credited the
                 // ENTIRE group as landed whenever the field was absent, which is the one direction
-                // this counter must never round: `embeddingsGenerated` is the `embedded` term in
-                // `deriveOutstanding`, so over-crediting it reports a corpus as fully embedded while
-                // chunks are still outstanding, and the checkpoint settles over work that never
-                // landed. Under-counting is recoverable — the next sweep re-selects; over-counting
-                // is not, because nothing goes looking again.
-                summary.embeddingsGenerated += Number.isSafeInteger(result?.embedded) ? result.embedded : 0;
+                // this per-call counter must never round: over-crediting makes telemetry claim work
+                // landed when it did not. Cumulative completion now comes from the independently
+                // validated settlement tuple above, so `embeddingsGenerated` remains exactly what
+                // its name promises. Under-counting is recoverable; over-counting is not.
+                summary.embeddingsGenerated += Number.isSafeInteger(result?.embedded) && result.embedded >= 0
+                    ? result.embedded
+                    : 0;
 
                 // A slice that stopped early is not a corpus that finished. Sticky across groups:
                 // one yielded group means the run as a whole did not exhaust its work, and a later
@@ -561,10 +612,15 @@ class IngestionService extends Base {
                 }
 
                 this.updateIngestionProgress({
-                    embeddedChunks: summary.embeddingsGenerated,
-                    errorCount    : summary.errors.length
+                    embeddedChunks : summary.embeddingsGenerated,
+                    errorCount     : summary.errors.length,
+                    remainingChunks: summary.remaining,
+                    settledChunks  : summary.settled
                 });
             } catch (error) {
+                settlementObservable = false;
+                summary.settled       = null;
+                summary.remaining     = null;
                 const residencyDisposition = classifyEmbedResidencyDisposition(error);
                 // The graduation receipt travels ON the original timeout rather than replacing it:
                 // the code below still names the timeout, and this bounded evidence — a hash and
@@ -592,8 +648,10 @@ class IngestionService extends Base {
                     }
                 }));
                 this.updateIngestionProgress({
-                    embeddedChunks: summary.embeddingsGenerated,
-                    errorCount    : summary.errors.length
+                    embeddedChunks : summary.embeddingsGenerated,
+                    errorCount     : summary.errors.length,
+                    remainingChunks: null,
+                    settledChunks  : null
                 });
             } finally {
                 await fs.remove(tempFile);
@@ -744,6 +802,8 @@ class IngestionService extends Base {
     createSummary({startedAt}) {
         return {
             ingested           : 0,
+            settled            : 0,
+            remaining          : 0,
             deleted            : 0,
             embeddingsGenerated: 0,
             skippedOversized   : 0,
@@ -862,6 +922,8 @@ class IngestionService extends Base {
             totalChunks     : 0,
             embeddableChunks: 0,
             embeddedChunks  : 0,
+            settledChunks   : null,
+            remainingChunks : null,
             skippedChunks   : 0,
             deletedRows     : 0,
             errorCount      : 0
@@ -911,9 +973,13 @@ class IngestionService extends Base {
             lastProgressAt: now,
             completedAt   : now,
             embeddedChunks: summary.embeddingsGenerated,
-            skippedChunks : summary.skippedOversized,
-            deletedRows   : summary.deleted,
-            errorCount    : summary.errors.length
+            ...(Object.hasOwn(summary, 'settled') && Object.hasOwn(summary, 'remaining') ? {
+                settledChunks  : summary.settled,
+                remainingChunks: summary.remaining
+            } : {}),
+            skippedChunks: summary.skippedOversized,
+            deletedRows  : summary.deleted,
+            errorCount   : summary.errors.length
         };
 
         this.activeIngestionProgress = null;
@@ -934,10 +1000,14 @@ class IngestionService extends Base {
         const embeddedChunks   = progress.embeddedChunks || 0;
         const skippedChunks    = progress.skippedChunks || 0;
         const targetChunks     = embeddableChunks > 0 || skippedChunks > 0 ? embeddableChunks : totalChunks;
-        const remaining        = Math.max(0, targetChunks - embeddedChunks);
-        const stalled          = active && staleAfterMs > 0 && now - progress.lastProgressAt > staleAfterMs;
-        const chunksPerSecond  = durationMs > 0 ? embeddedChunks / (durationMs / 1000) : 0;
-        const etaMs            = active && chunksPerSecond > 0 ? Math.ceil((remaining / chunksPerSecond) * 1000) : null;
+        const remaining        = Object.hasOwn(progress, 'remainingChunks')
+            ? progress.remainingChunks
+            : Math.max(0, targetChunks - embeddedChunks);
+        const stalled         = active && staleAfterMs > 0 && now - progress.lastProgressAt > staleAfterMs;
+        const chunksPerSecond = durationMs > 0 ? embeddedChunks / (durationMs / 1000) : 0;
+        const etaMs           = active && Number.isSafeInteger(remaining) && chunksPerSecond > 0
+            ? Math.ceil((remaining / chunksPerSecond) * 1000)
+            : null;
 
         return {
             status        : progress.status,

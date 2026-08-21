@@ -313,6 +313,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
         expect(result.message).toContain('No changes detected');
         expect('error' in result).toBe(false);
+        expect(result).toMatchObject({embedded: 0, settled: 3, remaining: 0, yielded: false});
         expect(spy.calls.upsert).toBe(0); // no embedding work attempted
     });
 
@@ -327,6 +328,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
         expect('error' in result).toBe(false);
         expect(result.message).toContain('Embedding complete');
+        expect(result).toMatchObject({embedded: 3, settled: 3, remaining: 0});
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
     });
 
@@ -359,6 +361,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
             const firstPoisonId = first.poisonedChunks[0].chunkId;
 
             expect(first.embedded).toBe(2);
+            expect(first).toMatchObject({settled: 3, remaining: 0});
             expect(first.poisonedChunks).toHaveLength(1);
             expect(providerCalls).toBe(4);
             expect(JSON.stringify(first.poisonedChunks)).not.toContain('private provider detail');
@@ -368,6 +371,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
             expect(providerCalls, 'unchanged poison is never re-offered').toBe(beforeSecondSweep);
             expect(second.embedded).toBe(0);
+            expect(second).toMatchObject({settled: 3, remaining: 0});
             expect(second.poisonedChunks).toEqual(first.poisonedChunks);
             expect(second.message).toContain('proven poison');
 
@@ -558,6 +562,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         const result = await KB_VectorService.embed(fixturePath);
 
         expect(result.embedded).toBe(0);
+        expect(result).toMatchObject({settled: 1, remaining: 0});
         expect(explicitProviders).toEqual([]); // the provider was never called
         expect(spy.calls.upsert).toBe(0);
     });
@@ -588,6 +593,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         const result = await KB_VectorService.embed(fixturePath);
 
         expect(result.embedded).toBe(1);
+        expect(result).toMatchObject({settled: 1, remaining: 0});
         expect(explicitProviders).toEqual(['gemini']);
         expect(spy.calls.upsert).toBe(1);
     });
@@ -627,7 +633,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
         expect('error' in result).toBe(false);
         expect(result.staleStrategy).toBe('shadow-swap');
-        expect(result.embedded).toBe(3);
+        expect(result).toMatchObject({embedded: 3, settled: 3, remaining: 0});
         expect(result.deleted).toBe(1);
         expect(result.shadowCollection).toContain(`${KB_Config.data.collectionName}-shadow-`);
         expect(result.parkedCollection).toContain(`${KB_Config.data.collectionName}-parking-`);
@@ -795,41 +801,63 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         }
     });
 
-    test('shadow-swap PRESERVES the shadow on a cooperative lease YIELD — no promote, marker intact', async () => {
-        const live                = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
-        const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
+    test('#17439 shadow-swap resume keeps embedded per-call while settlement advances cumulatively', async () => {
+        const
+            live          = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName}),
+            originalBatch = {
+                batchDelay: KB_Config.data.batchDelay,
+                batchSize : KB_Config.data.batchSize,
+                maxRetries: KB_Config.data.maxRetries
+            };
+
         let shadow;
 
         KB_ChromaManager.client = {
+            getCollection: async ({name}) => {
+                if (shadow?.name === name) return shadow;
+                throw new Error(`Collection ${name} does not exist.`)
+            },
             createCollection: async ({name}) => {
                 shadow = createSpyCollection({name});
                 return shadow;
             }
         };
-        // Simulate embedChunks yielding mid-corpus — the embedChunks-level yield mechanism (between-batch,
-        // forward-progress) is covered in VectorService.leaseYield.spec.mjs; here we assert embedViaShadowSwap's
-        // yield HANDLING reuses the same preserve-not-promote path as a transient failure.
-        KB_VectorService.embedChunks = async () => ({embedded: 1, skipped: 0, yielded: true});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => {
+            return shadow?.name === KB_Config.data.collectionName ? shadow : live
+        };
+        Object.assign(KB_Config.data, {batchDelay: 0, batchSize: 1, maxRetries: 1});
+        writeFixtureJsonl(fixturePath, 3);
 
         try {
-            const result = await KB_VectorService.embedViaShadowSwap({
-                liveCollection  : live,
-                knowledgeBase   : [{id: 'chunk-0', type: 'method', name: 'method0'}],
-                idsToDeleteCount: 0,
-                shouldYield     : () => true
+            const first = await KB_VectorService.embed(fixturePath, {
+                staleStrategy: 'shadow-swap',
+                shouldYield  : () => true
             });
 
-            // On yield: a {yielded:true} envelope (the lease holder releases on it), the shadow is preserved-
-            // not-promoted (NEITHER collection renamed), and the write-ahead resume marker is NOT cleared — so
-            // the next sweep re-acquires and resumes from the completed batches instead of rebuilding.
-            expect(result.yielded).toBe(true);
+            expect(first).toMatchObject({embedded: 1, settled: 1, remaining: 2, yielded: true});
             expect(live.calls.modify).toEqual([]);
             expect(shadow.calls.modify).toEqual([]);
 
             const resumeState = await readResumeState({dir: KB_VectorService.resumeStateDir});
             expect(resumeState?.shadowName).toBe(shadow.name);
+
+            const second = await KB_VectorService.embed(fixturePath, {
+                staleStrategy: 'shadow-swap',
+                shouldYield  : () => true
+            });
+
+            expect(second).toMatchObject({embedded: 1, settled: 2, remaining: 1, yielded: true});
+
+            const completed = await KB_VectorService.embed(fixturePath, {
+                staleStrategy: 'shadow-swap',
+                shouldYield  : () => false
+            });
+
+            expect(completed).toMatchObject({embedded: 1, settled: 3, remaining: 0});
+            expect(shadow.rows.size).toBe(3);
+            expect(shadow.name).toBe(KB_Config.data.collectionName)
         } finally {
-            KB_VectorService.embedChunks = originalEmbedChunks;
+            Object.assign(KB_Config.data, originalBatch)
         }
     });
 

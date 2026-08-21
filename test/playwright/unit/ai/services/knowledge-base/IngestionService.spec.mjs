@@ -170,7 +170,13 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             embed                       : async (filePath, options) => {
                 const lines = (await fs.readFile(filePath, 'utf8')).trim().split('\n').filter(Boolean);
                 vectorCalls.push({filePath, options, records: lines.map(line => JSON.parse(line))});
-                return {message: 'Embedding complete. Collection now contains 1 items.', embedded: lines.length, deleted: 0};
+                return {
+                    message  : 'Embedding complete. Collection now contains 1 items.',
+                    embedded : lines.length,
+                    settled  : lines.length,
+                    remaining: 0,
+                    deleted  : 0
+                };
             }
         };
         Service.activeIngestionProgress = null;
@@ -215,6 +221,83 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
+    test('#17439 aggregates cumulative settlement across repo groups without redefining accepted or newly landed', async () => {
+        Service.vectorService.embed = async filePath => {
+            const records  = (await fs.readFile(filePath, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line)),
+                  repoSlug = records[0].repoSlug;
+
+            return repoSlug === 'repo-a'
+                ? {message: 'slice stopped', embedded: 1, settled: 1, remaining: 1, deleted: 0, yielded: true}
+                : {message: 'already durable', embedded: 0, settled: 1, remaining: 0, deleted: 0, yielded: false}
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [
+                validParsedChunk({sourcePath: 'src/a.js', name: 'a', content: 'a'}),
+                validParsedChunk({sourcePath: 'src/b.js', name: 'b', content: 'b'}),
+                validParsedChunk({repoSlug: 'repo-b', sourcePath: 'src/c.js', name: 'c', content: 'c'})
+            ]}]
+        });
+
+        expect(summary).toMatchObject({
+            ingested           : 3,
+            embeddingsGenerated: 1,
+            settled            : 2,
+            remaining          : 1,
+            yielded            : true
+        });
+        expect(summary.settled + summary.remaining, 'the partition stays anchored to accepted').toBe(summary.ingested)
+    });
+
+    test('#17439 one missing legacy producer makes the multi-group aggregate unobserved without inventing an error', async () => {
+        Service.vectorService.embed = async filePath => {
+            const records = (await fs.readFile(filePath, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+
+            return records[0].repoSlug === 'repo-a'
+                ? {message: 'observed', embedded: 1, settled: 1, remaining: 0, deleted: 0}
+                : {message: 'legacy producer', embedded: 1, deleted: 0}
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [
+                validParsedChunk({sourcePath: 'src/a.js', name: 'a', content: 'a'}),
+                validParsedChunk({repoSlug: 'repo-b', sourcePath: 'src/b.js', name: 'b', content: 'b'})
+            ]}]
+        });
+
+        expect(summary.embeddingsGenerated).toBe(2);
+        expect(summary.settled).toBeNull();
+        expect(summary.remaining).toBeNull();
+        expect(summary.errors).toEqual([]);
+        expect(Service.getIngestionProgress().lastRunSummary.remaining,
+            'the diagnostics surface preserves unobserved instead of falling back to accepted minus per-call embedded').toBeNull()
+    });
+
+    test('#17439 malformed present settlement fields fail loud and can never project zero remaining', async () => {
+        const invalidTuples = [
+            {settled: 1},
+            {remaining: 0},
+            {settled: -1, remaining: 2},
+            {settled: 0.5, remaining: 0.5},
+            {settled: 2, remaining: 0}
+        ];
+
+        for (const tuple of invalidTuples) {
+            Service.vectorService.embed = async () => ({message: 'invalid tuple', embedded: 0, deleted: 0, ...tuple});
+
+            const summary = await Service.ingestSourceFiles({
+                tenantId: 'tenant-a',
+                files   : [{parsedChunks: [validParsedChunk()]}]
+            });
+
+            expect(summary.settled, JSON.stringify(tuple)).toBeNull();
+            expect(summary.remaining, JSON.stringify(tuple)).toBeNull();
+            expect(summary.errors.some(error => error.code === 'KB_VECTOR_EMBED_SETTLEMENT_INVALID'), JSON.stringify(tuple)).toBe(true)
+        }
+    });
+
     test('#16995: the unwrapped tenant-sync entry preserves circuit controls outside OpenAPI', async () => {
         const controller        = new AbortController(),
               onProviderTimeout = () => {};
@@ -252,6 +335,8 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             return {
                 message       : 'Embedding completed with one poison fenced.',
                 embedded      : 0,
+                settled       : 1,
+                remaining     : 0,
                 deleted       : 0,
                 poisonedChunks: [{
                     chunkId,
@@ -270,6 +355,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
 
         expect(vectorCalls[0].options.replayEmbeddingPoison).toBe(true);
         expect(summary.embeddingsGenerated).toBe(0);
+        expect(summary).toMatchObject({ingested: 1, settled: 1, remaining: 0});
         expect(summary.errors).toEqual([{
             code   : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
             message: 'A proven embedding poison remains fenced pending changed content, generation, or explicit replay.',
@@ -405,6 +491,16 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         expect(summaryLine).toBeTruthy();
         expect(summaryLine).toMatch(/THIS PROCESS/);
         expect(summaryLine.split('x-neo-tool-summary:')[1].trim().length).toBeLessThanOrEqual(120);
+
+        const ingestSchema = spec.slice(
+            spec.indexOf('IngestSourceFilesResponse:'),
+            spec.indexOf('IngestionProgressResponse:')
+        );
+
+        expect(ingestSchema).toMatch(/settled:\n\s+type: integer\n\s+nullable: true/);
+        expect(ingestSchema).toMatch(/remaining:\n\s+type: integer\n\s+nullable: true/);
+        expect(ingestSchema).toMatch(/ingested:[\s\S]*accepted/);
+        expect(schema.slice(0, 5000)).toMatch(/remaining:\n\s+type: integer\n\s+nullable: true/)
     });
 
     test('reports active ingestion progress and preserves the last-run summary (#14028)', async () => {
@@ -417,7 +513,13 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             vectorCalls.push({filePath, options, records: lines.map(line => JSON.parse(line))});
             activeSnapshot = Service.getIngestionProgress({staleAfterMs: 60000});
             await embedGate;
-            return {message: 'Embedding complete.', embedded: lines.length, deleted: 0};
+            return {
+                message  : 'Embedding complete.',
+                embedded : lines.length,
+                settled  : lines.length,
+                remaining: 0,
+                deleted  : 0
+            };
         };
 
         const ingestPromise = Service.ingestSourceFiles({
@@ -445,7 +547,9 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         releaseEmbed();
 
         const summary = await ingestPromise;
+        expect(summary.ingested, 'accepted stays distinct from newly landed').toBe(1);
         expect(summary.embeddingsGenerated).toBe(1);
+        expect(summary).toMatchObject({settled: 1, remaining: 0});
 
         const idle = Service.getIngestionProgress();
         expect(idle).toMatchObject({
