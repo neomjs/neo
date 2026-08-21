@@ -2241,6 +2241,108 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         );
     });
 
+    /**
+     * The drain has nothing to be discriminating WITH. Read state is two-valued — a message has
+     * either arrived or been explicitly marked read — so `all: true` can only mean "every unread
+     * message that exists", when the safe meaning is "every unread message I have actually seen".
+     * Three maintainers destroyed unread state with this call on one day; one of them lost a
+     * directed ruling for 100 minutes and spent them treating an unblocked lane as blocked.
+     *
+     * `seenAt` is the missing third state, stamped only when a message is surfaced to its OWN
+     * recipient. The stamp must key on mailbox OWNERSHIP rather than on the presence of a bound
+     * identity: the heartbeat daemon and the diagnostics script both read other agents' inboxes
+     * through the same method, and stamping there would let a daemon mark the whole swarm's mail
+     * as seen — strictly worse than the defect being fixed.
+     */
+    const seedInbox = async (subjects, sender = '@alice', recipient = '@bob') => {
+        await RequestContextService.run({agentIdentityNodeId: recipient}, async () => {
+            await PermissionService.grantPermission({to: sender, scope: 'CAN_REPLY_TO'});
+        });
+
+        return RequestContextService.run({agentIdentityNodeId: sender}, async () => {
+            const ids = [];
+
+            for (const subject of subjects) {
+                const {messageId} = await MailboxService.addMessage({to: recipient, subject, body: subject});
+                ids.push(messageId)
+            }
+
+            return ids
+        })
+    };
+
+    const asBob    = fn => RequestContextService.run({agentIdentityNodeId: '@bob'}, fn),
+          unreadOf = () => asBob(() => MailboxService.listMessages({box: 'inbox', status: 'unread'}))
+              .then(result => result.messages.map(message => message.messageId));
+
+    test('#17321 a message that arrived after the last listing survives the drain', async () => {
+        const [seen] = await seedInbox(['seen before the drain']);
+
+        // The agent lists — this is what makes `seen` seen.
+        await asBob(() => MailboxService.listMessages({box: 'inbox', status: 'unread'}));
+
+        // A directed message lands DURING triage. It was never surfaced to the agent.
+        const [late] = await seedInbox(['arrived mid-triage']);
+
+        await asBob(() => MailboxService.markRead({all: true}));
+
+        const stillUnread = await unreadOf();
+
+        expect(stillUnread, 'the unseen arrival is not swept').toContain(late);
+        // Asserted separately: a drain that simply stopped working would satisfy the line above.
+        expect(stillUnread, 'the message the agent actually saw IS swept').not.toContain(seen)
+    });
+
+    test('#17321 listing an aged backlog still clears it in ONE call — the motivating case', async () => {
+        // The case any fix must not break: back after a day, 100+ accumulated messages, cleared in
+        // one swipe with no paging ceremony. Clearing already begins by listing, so every one of
+        // them is genuinely seen.
+        const subjects = Array.from({length: 120}, (unused, index) => `aged ${index}`);
+        await seedInbox(subjects);
+
+        await asBob(() => MailboxService.listMessages({box: 'inbox', status: 'unread', limit: 200}));
+
+        const receipt = await asBob(() => MailboxService.markRead({all: true}));
+
+        expect(receipt.readCount, 'all 120 clear in a single call').toBe(120);
+        expect(await unreadOf()).toEqual([])
+    });
+
+    test('#17321 a foreign inbox read stamps nothing — the daemon must not see for the owner', async () => {
+        const [directed] = await seedInbox(['for bob only']);
+
+        // A SwarmHeartbeatService-shaped read: a different identity, reading bob's mail through the
+        // same method under a permission grant. This must not make bob's mail "seen".
+        await asBob(() => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            PermissionService.grantPermission({to: '@charlie', scope: 'CAN_READ_INBOX_OF'})));
+
+        await RequestContextService.run({agentIdentityNodeId: '@charlie'}, () =>
+            MailboxService.listMessages({box: 'inbox', to: '@bob', status: 'all'}));
+
+        await asBob(() => MailboxService.markRead({all: true}));
+
+        expect(await unreadOf(), 'a foreign read did not see on bob\'s behalf').toContain(directed)
+    });
+
+    test('#17321 an outbox listing stamps nothing', async () => {
+        const [directed] = await seedInbox(['inbound to bob']);
+
+        // Bob lists his OUTBOX. Nothing inbound was surfaced, so nothing inbound becomes seen.
+        await asBob(() => MailboxService.listMessages({box: 'outbox', status: 'all'}));
+        await asBob(() => MailboxService.markRead({all: true}));
+
+        expect(await unreadOf(), 'an outbox read did not see the inbox').toContain(directed)
+    });
+
+    test('#17321 includeUnseen: true reproduces today\'s drain exactly — the widening fence', async () => {
+        const [never] = await seedInbox(['never listed']);
+
+        const receipt = await asBob(() => MailboxService.markRead({all: true, includeUnseen: true}));
+
+        expect(receipt.readCount, 'the escape hatch still clears everything').toBe(1);
+        expect(await unreadOf()).not.toContain(never)
+    });
+
     test('#15913 markRead all mode returns an explicit compact no-op and rejects ambiguous input', async () => {
         const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         const receipt    = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
