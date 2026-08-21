@@ -124,7 +124,7 @@ The narrower per-skill suspension of Auto Mode velocity-bias lives in `/lead-rol
 For substrate-quality heuristics that operationalize this principle without becoming gameable counters, see §contributions_over_commits_heuristics.
 
 ## §pr_diff_equals_pr_body
-Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review templates are graph-ingestion substrate.
+Bias: PR diff >> PR body. For us: PR Diff === PR Body — graph-ingestion substrate AND a peer's bounded window: complete anchors, never volume. One fact, ONE artifact — summarize + link. Before posting: same intent in fewer words? Cut until yes; voice/warmth are non-targets (#16528).
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## §neo_identity_anchor
