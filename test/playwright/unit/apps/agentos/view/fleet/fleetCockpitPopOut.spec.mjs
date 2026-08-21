@@ -224,7 +224,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 
         // the placement truth: `addTab` appends by default — the restore must land the item back
         // at its STORED index (0, before the rest of the rail), not at the tail
-        expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator']);
+        expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'wakeRoutes']);
 
         // same instance re-adopted by the projection; the vessel was closed by name
         expect(cockpit.getReference('agent-detail')).toBe(pane);
@@ -259,7 +259,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 
             // the SAME instance is docked again at its exact home; nothing was closed (nothing opened)
             expect(cockpit.getReference('agent-detail')).toBe(pane);
-            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator']);
+            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'wakeRoutes']);
             expect(vessel.closeCalls).toHaveLength(0)
         } finally {
             console.warn = origWarn
@@ -494,16 +494,19 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 /**
  * Contract specs for the Memories click pop-out: the shell verb rides the GENERIC
  * tear-out substrate — no second vessel state machine. The pins: document truth + the established
- * `?tearout=` param shape, selection-carry BY IDENTITY (live and rail-lazy materialization paths),
+ * `?tearout=` param shape, selection-carry BY IDENTITY (live and re-materialization paths),
  * owner-push routing through {@link getMemoriesPane} in every phase (vesseled, returning-parked),
  * intent routing from the vessel (the explicit listener scope — a vesseled pane has no controller
  * chain), exact-position reintegration on vessel death, the blocked-popup refusal before any
  * document mutation, and toggle routing incl. the mid-gesture guard.
+ *
+ * The memories pane is a RESIDENT south reading-surface tab (stream-tabs), no longer
+ * rail-collapsed chrome — its home truth and the reveal pre-state reflect that residency.
  */
 test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out (#17315)', () => {
     let cockpit, vessel;
 
-    const RAIL_HOME = ['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator'];
+    const SOUTH_HOME = ['stream', 'memories', 'operator', 'catchUp'];
 
     /**
      * A minimal wired memories envelope for owner-held state and push assertions.
@@ -524,15 +527,11 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
     }
 
     /**
-     * Reveals the auto-hidden memories pane through the standard commit loop — the materialized
-     * pre-state of the "live pane" pop-out path.
+     * Resolves the resident south-tab memories pane (projected with the strip — resident tabs
+     * need no rail reveal step) — the materialized pre-state of the "live pane" pop-out path.
      * @returns {Promise<Neo.container.Base>} the projected MemoriesPane instance
      */
     async function revealMemories() {
-        const result = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'memories', autoHidden: false});
-
-        expect(result.errors).toEqual([]);
-        cockpit.onDockZoneDocumentChange(result.document);
         await cockpit.refreshPromise;
 
         const pane = cockpit.getReference('memories');
@@ -590,11 +589,11 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
 
         expect(result).toEqual({detached: true, errors: []});
 
-        // document truth: the item left the rail but keeps its catalog record
+        // document truth: the item left the south strip but keeps its catalog record
         const doc = cockpit.getDockZoneDocument();
 
         expect(doc.items.memories).toBeTruthy();
-        expect(doc.nodes['secondary-rail'].items).not.toContain('memories');
+        expect(doc.nodes['stream-tabs'].items).not.toContain('memories');
 
         // the LIVE pane is vessel-owned — same instance, never a recreation
         expect(cockpit.tearOutPaneHandles.memories).toBe(pane);
@@ -610,29 +609,38 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         expect(cockpit.getReference('memories-window-toggle').text).toBe('Return memories')
     });
 
-    test('pop-out of the RAIL-LAZY pane materializes from owner-held state — selection carries', async () => {
-        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+    test('re-materialization after true absence carries owner-held selection', async () => {
+        // memories is a RESIDENT tab, so the projection holds a live pane from boot — the old
+        // rail-lazy pre-state ("in the tree, no pane") no longer exists for it. The owner-held
+        // materialization path still does: a document that drops the item destroys the pane
+        // (true absence), and its return must reopen AT the owner-held selection.
+        await cockpit.refreshPromise;
+        expect(cockpit.getReference('memories')).toBeTruthy();
 
-        // never revealed: the rail's lazy projection holds no live pane
+        const doc = cockpit.getDockZoneDocument();
+
+        doc.nodes['stream-tabs'].items = doc.nodes['stream-tabs'].items.filter(id => id !== 'memories');
+        cockpit.onDockZoneDocumentChange(doc);
+        await cockpit.refreshPromise;
+
+        // true absence: the catalog keeps the item, the tree and the projection do not
+        expect(cockpit.getDockZoneDocument().items.memories).toBeTruthy();
         expect(cockpit.getReference('memories')).toBeFalsy();
 
         cockpit.memoriesTarget   = '@neo-fable-clio';
         cockpit.memoriesSnapshot = wiredEnvelope('@neo-fable-clio', 'owner-held');
 
-        const result = await cockpit.popOutMemories();
+        const readd = cockpit.applyDockZoneOperation({operation: 'addTab', itemId: 'memories', tabsNodeId: 'stream-tabs'});
 
-        expect(result).toEqual({detached: true, errors: []});
+        expect(readd.errors).toEqual([]);
+        cockpit.onDockZoneDocumentChange(readd.document);
+        await cockpit.refreshPromise;
 
-        const pane = cockpit.tearOutPaneHandles.memories;
+        const pane = cockpit.getReference('memories');
 
         expect(pane).toBeTruthy();
         expect(pane.activeAgent).toBe('@neo-fable-clio');
-        expect(pane.snapshot?.sessions?.[0]?.title).toBe('owner-held');
-
-        // the vessel adopts the materialized pane on connect
-        const mainView = await simulateConnect('mem-vessel-lazy');
-
-        expect(mainView.items).toContain(pane)
+        expect(pane.snapshot?.sessions?.[0]?.title).toBe('owner-held')
     });
 
     test('owner pushes reach the vesseled pane; vessel-fired intents reach the controller', async () => {
@@ -674,7 +682,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         }
     });
 
-    test('vessel death brings the pane home at its exact rail position — state intact', async () => {
+    test('vessel death brings the pane home at its exact south-strip position — state intact', async () => {
         vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
 
         const pane = await revealMemories();
@@ -687,8 +695,8 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         cockpit.onWindowDisconnect({windowId: 'mem-vessel-home'});
         await cockpit.refreshPromise;
 
-        // exact-position restore: memories back at its stored rail index, full order preserved
-        await expect.poll(() => cockpit.getDockZoneDocument().nodes['secondary-rail'].items, {timeout: 2000}).toEqual(RAIL_HOME);
+        // exact-position restore: memories back at its stored south-strip index, full order preserved
+        await expect.poll(() => cockpit.getDockZoneDocument().nodes['stream-tabs'].items, {timeout: 2000}).toEqual(SOUTH_HOME);
 
         // the same live instance survived the return; owner pushes still reach it while parked
         expect(pane.isDestroyed).toBeFalsy();
@@ -716,8 +724,8 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
             expect(result.detached).toBe(false);
             expect(result.errors[0]).toContain('popup blocked');
 
-            // zero mutation: the rail still holds the item, nothing is vessel-owned, nothing closed
-            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(RAIL_HOME);
+            // zero mutation: the south strip still holds the item, nothing is vessel-owned, nothing closed
+            expect(cockpit.getDockZoneDocument().nodes['stream-tabs'].items).toEqual(SOUTH_HOME);
             expect(cockpit.tearOutPanes.memories).toBeFalsy();
             expect(cockpit.tearOutPaneHandles.memories).toBeFalsy();
             expect(vessel.closeCalls).toHaveLength(0);

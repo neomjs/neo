@@ -268,7 +268,7 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
 
         // ...and back to the default duty
         await NeuralLink_InstanceService.callMethod({
-            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Fleet']
+            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Overview']
         });
 
         await expect.poll(primarySizes, {message: 'the Fleet switch must restore the default split', timeout: 10000, intervals: [100]})

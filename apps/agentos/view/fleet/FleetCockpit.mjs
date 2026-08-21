@@ -827,6 +827,11 @@ class FleetCockpit extends Container {
      * Pane continuity across a switch preserves component identity when the item already exists;
      * genuinely absent surfaces materialize from OWNER-held state ({@link #resolveDockComponentRef}),
      * while the provider-owned roster store never restarts.
+     *
+     * A perspective that reveals the inspector must not land on the empty state: a cold
+     * entry (nothing inspected yet) defaults {@link #detailRecord} to the roster's first resident
+     * BEFORE the commit re-projects, so the pane materializes loaded; a prior selection stays the
+     * owner-held truth. A live pane updates in place through the select seam's owner accessor.
      * @param {String} name The preset's `perspectiveName` (or technical `layoutId`).
      * @returns {{switched: Boolean, errors: String[]}}
      */
@@ -840,8 +845,13 @@ class FleetCockpit extends Container {
             return {errors, switched: false}
         }
 
+        if (!document.items.detail?.autoHidden && !me.detailRecord) {
+            me.detailRecord = me.getReference('fleet-grid')?.store?.first() ?? null
+        }
+
         me.presetError = null;
         me.onDockZoneDocumentChange(document);
+        me.detailRecord && me.getAgentDetailPane()?.set({record: me.detailRecord});
         return {errors: [], switched: true}
     }
 
