@@ -2088,6 +2088,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             MailboxService.archiveMessage({messageId: archivedId})
         );
 
+        // The drain now sweeps only mail the agent was SHOWN, so this listing is the precondition
+        // the flow always had in practice. Routed through `callTool` deliberately: that is the
+        // model-visible boundary where seen is recorded, and a direct service read would correctly
+        // stamp nothing. This test's subject — bob's delivery edge marked, charlie's untouched — is
+        // orthogonal to seen-state, so it keeps every assertion on the DEFAULT drain path rather
+        // than moving to `includeUnseen`.
+        const {callTool: listTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            listTool('list_messages', {box: 'inbox', status: 'unread'})
+        );
+
         const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
             MailboxService.markRead({all: true})
         );
@@ -2147,13 +2159,22 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
-    test('#15913 markRead all mode drains beyond the list_messages 100-row page size', async () => {
+    /**
+     * The uncapped-depth guarantee was relocated, not removed. These 125 carriers are seeded straight
+     * into the graph and never surfaced through the model-visible boundary, so under the default
+     * drain they are unseen and correctly withheld. "Everything, listed or not" is now precisely what
+     * the explicit widening flag means, so that is where the property lives.
+     *
+     * The default path keeps its own depth coverage: the backlog arm lists 120 messages through
+     * `list_messages` and clears all of them in one call. Asserted twice, once per meaning.
+     */
+    test('#15913 markRead all+includeUnseen drains beyond the list_messages 100-row page size', async () => {
         for (let index = 0; index < 125; index++) {
             seedReadStateCarrier({messageId: `MESSAGE:read-all-depth-${index}`});
         }
 
         const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
-            MailboxService.markRead({all: true})
+            MailboxService.markRead({all: true, includeUnseen: true})
         );
 
         expect(receipt).toMatchObject({
@@ -2182,6 +2203,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 ids.push(messageId);
             }
         });
+
+        // The three seeded messages must be SHOWN before a default drain will sweep them, and the
+        // model-visible boundary is where that is recorded. This test's subject — post-snapshot
+        // arrivals excluded, exceptional rows reported — is orthogonal to seen-state, so the listing
+        // is a precondition rather than a change of subject. It also strengthens the arm: the late
+        // arrival is now excluded for two independent reasons, and the assertions still isolate the
+        // snapshot one.
+        const {callTool: seedListTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            seedListTool('list_messages', {box: 'inbox', status: 'unread'})
+        );
 
         const originalMarkRead = MailboxService.markRead;
         let lateMessageId;
@@ -2239,6 +2272,109 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(unread.messages.map(message => message.messageId)).toEqual(
             expect.arrayContaining([ids[1], ids[2], lateMessageId])
         );
+    });
+
+    /**
+     * `seenAt` is the state between *arrived* and *explicitly marked read*, and it is what lets a
+     * bulk drain be discriminating. The authority question is where it may be recorded.
+     *
+     * **A previous attempt keyed it on caller identity — "the mailbox owner is reading" — and that
+     * is falsified by the production caller.** `SwarmHeartbeatService.getRecentActivityTimestamps`
+     * binds the polled agent as the request identity and then reads that agent's own inbox, so an
+     * owner-identity test admits the daemon rather than excluding it, and the background sweep would
+     * mark up to 100 rows per identity as seen for the whole roster on every pass. The verifying test
+     * for that attempt bound a DIFFERENT identity and read under a permission grant, so it never
+     * traversed the branch it claimed to protect.
+     *
+     * Caller identity proves mailbox AUTHORITY, not DISPLAY authority. Seen is therefore armed at the
+     * model-visible MCP adapter boundary: direct service calls are non-stamping by construction, so
+     * the heartbeat is safe because it never crosses that boundary — not because a predicate happens
+     * to exclude it.
+     */
+    const seedFor = async (subjects, {sender = '@alice', recipient = '@bob'} = {}) => {
+        await RequestContextService.run({agentIdentityNodeId: recipient}, () =>
+            PermissionService.grantPermission({to: sender, scope: 'CAN_REPLY_TO'}));
+
+        return RequestContextService.run({agentIdentityNodeId: sender}, async () => {
+            const ids = [];
+
+            for (const subject of subjects) {
+                const {messageId} = await MailboxService.addMessage({to: recipient, subject, body: subject});
+                ids.push(messageId)
+            }
+
+            return ids
+        })
+    };
+
+    const seenAtOf = messageId => GraphService.db.nodes.get(messageId)?.properties?.seenAt ?? null;
+
+    test('#17321 the production heartbeat shape stamps NOTHING — owner-bound, own inbox, direct service call', async () => {
+        const [directed] = await seedFor(['heartbeat must not see this']);
+
+        // EXACTLY SwarmHeartbeatService.getRecentActivityTimestamps: bind the polled agent as the
+        // request identity, then read that same agent's inbox. An owner-identity guard reads this as
+        // "the owner is looking at their own mail" and stamps. It is a background poll.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({box: 'inbox', to: '@bob', limit: 100, includeArchived: false}));
+
+        expect(seenAtOf(directed), 'a direct service read is non-stamping by construction').toBeNull();
+
+        // And the consequence that matters: the drain must still withhold it.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true}));
+
+        expect(GraphService.db.nodes.get(directed).properties.readAt,
+            'mail the agent was never shown survives the drain').toBeNull()
+    });
+
+    test('#17321 the MCP adapter path DOES stamp — the paired control', async () => {
+        // Without this, "stamp nothing anywhere" passes the arm above and the feature does nothing.
+        const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+        const [directed] = await seedFor(['the agent actually saw this']);
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            callTool('list_messages', {box: 'inbox', status: 'unread'}));
+
+        expect(seenAtOf(directed), 'crossing the model-visible boundary is what records seen').toBeTruthy();
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true}));
+
+        expect(GraphService.db.nodes.get(directed).properties.readAt,
+            'and a seen message IS swept').toBeTruthy()
+    });
+
+    test('#17321 listing a 120-message backlog still clears it in ONE call — the motivating case', async () => {
+        // The flow any fix must not break: back after a day, cleared in one swipe with no paging.
+        // Clearing already begins by listing, so every one of them is genuinely shown.
+        const {callTool: backlogTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+
+        await seedFor(Array.from({length: 120}, (unused, index) => `aged ${index}`));
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            backlogTool('list_messages', {box: 'inbox', status: 'unread', limit: 200}));
+
+        const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true}));
+
+        expect(receipt.readCount, 'all 120 clear in a single call').toBe(120);
+        expect(receipt.withheldUnseenCount, 'and nothing was withheld').toBe(0)
+    });
+
+    test('#17321 the receipt reports what it withheld, so a narrower drain is never silent', async () => {
+        const {callTool: withheldTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+
+        await seedFor(['shown']);
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            withheldTool('list_messages', {box: 'inbox', status: 'unread'}));
+        await seedFor(['never shown one', 'never shown two']);
+
+        const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true}));
+
+        expect(receipt.readCount, 'the shown message cleared').toBe(1);
+        expect(receipt.withheldUnseenCount, 'the two unshown are counted, not hidden').toBe(2)
     });
 
     test('#15913 markRead all mode returns an explicit compact no-op and rejects ambiguous input', async () => {

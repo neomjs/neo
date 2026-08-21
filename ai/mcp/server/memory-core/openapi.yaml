@@ -2371,7 +2371,11 @@ paths:
                       items: {type: string}
                 all:
                   type: boolean
-                  description: Set true instead of messageId to mark the current unread, unarchived snapshot.
+                  description: Set true instead of messageId to mark the unread, unarchived messages you have been shown.
+                includeUnseen:
+                  type: boolean
+                  default: false
+                  description: Used with `all`, also sweeps messages you were never shown. For clearing a backlog you do not intend to read; it can discard a directed message you have never seen. The receipt's `withheldUnseenCount` reports what the default drain held back.
       responses:
         '200':
           description: OK
