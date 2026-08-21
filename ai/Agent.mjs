@@ -2,9 +2,9 @@ import Base             from '../src/core/Base.mjs';
 import Client           from './mcp/client/Client.mjs';
 import ContextAssembler from './context/Assembler.mjs';
 import GeminiProvider   from './provider/Gemini.mjs';
-import OllamaProvider   from './provider/Ollama.mjs';
 import Loop             from './agent/Loop.mjs';
 import Scheduler        from './agent/Scheduler.mjs';
+import {resolveProviderClass} from './provider/resolveProviderClass.mjs';
 
 /**
  * A base class for AI Agents that manages multiple MCP Client connections
@@ -155,13 +155,10 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
             // 2. Initialize Cognitive Runtime
             console.log('[Agent] Initializing Cognitive Runtime...');
 
-            let providerClass = this.modelProvider;
-
-            if (typeof providerClass === 'string') {
-                providerClass = providerClass.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
-            }
-
-            const provider = Neo.create(providerClass, this.providerConfig || {});
+            // One alias vocabulary, shared with `buildChatModel`. The inline resolution this replaces was a
+            // two-way test over a three-value set, so `openAiCompatible` selected Gemini.
+            const providerClass = resolveProviderClass(this.modelProvider),
+                  provider      = Neo.create(providerClass, this.providerConfig || {});
 
             const assembler = Neo.create(ContextAssembler);
             await assembler.ready(); // Connects to Memory Core via Services SDK
