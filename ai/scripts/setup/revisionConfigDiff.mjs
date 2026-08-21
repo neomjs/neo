@@ -92,6 +92,34 @@ const REVISION_CONFIG_DIFF_STATIC_UNRESOLVED_CODE = 'REVISION_CONFIG_DIFF_STATIC
 const DECODER_SOURCE_DIGEST_BOUND                 = 'decoder-own-source-text; imports excluded; formatting-sensitive';
 
 /**
+ * @summary Classifies a decoder binding transition without hiding boot-behaviour directionality.
+ *
+ * - `DECODER_BOUND`: `null` → decoder; a new parse/validation and possible boot-failure path.
+ * - `DECODER_UNBOUND`: decoder → `null`; an existing validation gate disappears.
+ * - `DECODER_REBOUND`: decoder A → decoder B; the leaf keeps a decoder but changes identity.
+ *
+ * Same-identity source changes are classified separately as `DECODER_BODY_CHANGED`. Nullish legacy
+ * fields normalize to the same absence sentinel as current parser output.
+ * @param {String|null|undefined} fromIdentity Decoder identity in the earlier revision.
+ * @param {String|null|undefined} toIdentity Decoder identity in the later revision.
+ * @returns {{kind: String, from: String|null, to: String|null}|null}
+ */
+function classifyDecoderBindingTransition(fromIdentity, toIdentity) {
+    const from = fromIdentity ?? null,
+          to   = toIdentity   ?? null;
+
+    if (from === to) return null;
+
+    const kind = from === null
+        ? 'DECODER_BOUND'
+        : to === null
+            ? 'DECODER_UNBOUND'
+            : 'DECODER_REBOUND';
+
+    return {kind, from, to}
+}
+
+/**
  * @summary Closed receipt schema for revision-aware declared-config diffs.
  * @type {String}
  */
@@ -1368,12 +1396,13 @@ export function diffDeclaredConfigSurfaces({
             if (before.requirementsFingerprint !== after.requirementsFingerprint) {
                 changes.requiredFor = {from: before.requirements, to: after.requirements}
             }
-            if (before.decoderIdentity !== after.decoderIdentity) {
-                changes.decoder = {
-                    kind: 'DECODER_REBOUND',
-                    from: before.decoderIdentity,
-                    to  : after.decoderIdentity
-                }
+            const decoderBindingChange = classifyDecoderBindingTransition(
+                before.decoderIdentity,
+                after.decoderIdentity
+            );
+
+            if (decoderBindingChange) {
+                changes.decoder = decoderBindingChange
             } else if (before.decoderIdentity && before.decoderSourceDigest !== after.decoderSourceDigest) {
                 changes.decoder = {
                     kind         : 'DECODER_BODY_CHANGED',

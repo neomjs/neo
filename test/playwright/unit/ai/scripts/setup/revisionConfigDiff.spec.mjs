@@ -106,7 +106,9 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
                 requiredFor: {modes: 'prod', reason: 'same contract'}
             }),
             decoderBodyChange: leaf('', 'NEO_DECODER_BODY_CHANGE', 'string', {parse: PARSER}),
+            decoderBound: leaf('', 'NEO_DECODER_BOUND', 'string'),
             decoderRebound: leaf('', 'NEO_DECODER_REBOUND', 'string', {parse: PARSER_A}),
+            decoderUnbound: leaf('', 'NEO_DECODER_UNBOUND', 'string', {parse: PARSER_A}),
             spacing: leaf(5 * 60, 'NEO_SPACING', 'number')
         }`, `import {BOUND_DEFAULT, BOUND_ENV, DEPENDENCY_DEFAULT, PARSER, PARSER_A} from './env.mjs';`));
         write('ai/mcp/server/alpha/config.template.mjs', 'export default {};\n');
@@ -150,7 +152,9 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
                 ]
             }),
             decoderBodyChange: leaf('', 'NEO_DECODER_BODY_CHANGE', 'string', {parse: PARSER}),
+            decoderBound: leaf('', 'NEO_DECODER_BOUND', 'string', {parse: PARSER_B}),
             decoderRebound: leaf('', 'NEO_DECODER_REBOUND', 'string', {parse: PARSER_B}),
+            decoderUnbound: leaf('', 'NEO_DECODER_UNBOUND', 'string'),
             spacing: leaf(300, 'NEO_SPACING', 'number'),
             additions: {
                 defaulted: leaf('d', 'NEO_DEFAULTED', 'string'),
@@ -303,11 +307,31 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
 
         expect(receipt.changed).toContainEqual({
             surface : 'tier1',
+            leafPath: 'decoderBound',
+            changes : {decoder: {
+                kind: 'DECODER_BOUND',
+                from: null,
+                to  : 'PARSER_B'
+            }}
+        });
+
+        expect(receipt.changed).toContainEqual({
+            surface : 'tier1',
             leafPath: 'decoderRebound',
             changes : {decoder: {
                 kind: 'DECODER_REBOUND',
                 from: 'PARSER_A',
                 to  : 'PARSER_B'
+            }}
+        });
+
+        expect(receipt.changed).toContainEqual({
+            surface : 'tier1',
+            leafPath: 'decoderUnbound',
+            changes : {decoder: {
+                kind: 'DECODER_UNBOUND',
+                from: 'PARSER_A',
+                to  : null
             }}
         });
 
@@ -387,6 +411,35 @@ test.describe.serial('revisionConfigDiff — declared inputs across immutable re
                 to   : "HELPER('/value')"
             }}
         })
+    });
+
+    test('normalizes omitted legacy decoder identity to the absence sentinel', () => {
+        const parse = source => parseDeclaredConfigSource({
+            source,
+            filePath: 'ai/configBase.mjs',
+            surface : 'tier1'
+        });
+        const from = parse(configSource(`{
+                  gainsLegacy: leaf('', 'NEO_GAINS_LEGACY', 'string'),
+                  losesLegacy: leaf('', 'NEO_LOSES_LEGACY', 'string', {parse: PARSER})
+              }`, `const PARSER = value => value;`)),
+              to   = parse(configSource(`{
+                  gainsLegacy: leaf('', 'NEO_GAINS_LEGACY', 'string', {parse: PARSER}),
+                  losesLegacy: leaf('', 'NEO_LOSES_LEGACY', 'string')
+              }`, `const PARSER = value => value;`));
+
+        delete from.leaves.get('gainsLegacy').decoderIdentity;
+        delete to.leaves.get('losesLegacy').decoderIdentity;
+
+        const result = diffDeclaredConfigSurfaces({
+            fromSurfaces: new Map([['tier1', from]]),
+            toSurfaces  : new Map([['tier1', to]])
+        });
+
+        expect(result.changed.map(({leafPath, changes}) => ({leafPath, decoder: changes.decoder}))).toEqual([
+            {leafPath: 'gainsLegacy', decoder: {kind: 'DECODER_BOUND', from: null, to: 'PARSER'}},
+            {leafPath: 'losesLegacy', decoder: {kind: 'DECODER_UNBOUND', from: 'PARSER', to: null}}
+        ])
     });
 
     test('classifies each added leaf with the exact four-way target verdict', () => {
