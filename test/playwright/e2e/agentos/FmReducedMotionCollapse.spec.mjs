@@ -67,14 +67,13 @@ test.describe('AgentOS FM motion vocabulary — reduced-motion collapse witness 
 
     /**
      * The panel-tier rendered witness: the FM panel alias (`--fm-motion-panel`) drives REAL reveal
-     * motion on the two production reveal surfaces that consume it — the instance-switcher menu
-     * (`fm-instance-menu-reveal`) and the manage-instances drawer (`fm-im-reveal`) — and collapses
-     * under `prefers-reduced-motion`: the alias inherits the vocabulary-layer 0ms AND each surface's
-     * in-file inclusion gate removes the reveal animation outright (instant, never absent). Computed
-     * values on mounted elements, per the ratified motion audit — source inheritance is not motion
-     * evidence.
+     * motion on the manage-instances drawer (`fm-im-reveal`) and collapses under
+     * `prefers-reduced-motion`. The instance switcher is now a framework menu, so this also
+     * guards the ownership handoff: no retired FM-specific menu animation may survive on that
+     * floating surface. Computed values on mounted elements, per the ratified motion audit — source
+     * inheritance is not motion evidence.
      */
-    test('the panel reveal alias renders 280ms on the switcher menu + manager drawer and collapses under reduced motion', async ({page}) => {
+    test('the manager panel reveal renders 280ms and collapses, while the framework switcher owns no FM animation', async ({page}) => {
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
 
@@ -101,9 +100,8 @@ test.describe('AgentOS FM motion vocabulary — reduced-motion collapse witness 
 
         const menuAnimated = await readMotion(menu);
 
-        expect(menuAnimated.name,     'the switcher menu runs its reveal animation').toBe('fm-instance-menu-reveal');
-        expect(menuAnimated.duration, 'the menu reveal is timed by the panel alias (280ms)').toBe('0.28s');
-        expect(menuAnimated.panel,    '--fm-motion-panel resolves 280ms under no-preference').toBe('280ms');
+        expect(menuAnimated.name, 'the framework menu carries no retired FM-specific reveal animation')
+            .not.toBe('fm-instance-menu-reveal');
 
         // the manage-instances drawer rides the same alias through its own reveal
         await page.locator('.fm-instance-manage').click();
