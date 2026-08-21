@@ -61,7 +61,7 @@
     /* the send rail sits under a soft divider, its control pushed to the trailing edge by the spacer */
     .fm-operator-compose-actions {
         gap          : var(--fm-space-2);
-        margin-top   : 4px;
+        margin-top   : var(--fm-space-1);
         padding-top  : 10px;
         border-top   : 1px solid var(--fm-line-soft);
 
@@ -82,13 +82,13 @@
         gap           : 2px;
 
         &:not(:empty) {
-            margin-top: 8px;
+            margin-top: var(--fm-space-2);
         }
 
         .fm-compose-outcome-row {
             border-radius: 4px;
             font         : var(--fm-text-body);
-            padding      : 3px 8px;
+            padding      : 3px var(--fm-space-2);
 
             &.is-sent    { color: var(--fm-state-ok); }
             &.is-refused { color: var(--fm-ink-dim); }

@@ -123,7 +123,7 @@
         padding   : 0 20px;
 
         @media (max-width: 560px) {
-            padding: 0 12px;
+            padding: 0 var(--fm-space-3);
         }
     }
 
@@ -181,7 +181,7 @@
     .neo-toolbar.agent-form-actions,
     .neo-toolbar.agent-fleet-actions {
         flex-wrap : wrap;
-        gap       : 8px;
+        gap       : var(--fm-space-2);
         background: transparent;
     }
 

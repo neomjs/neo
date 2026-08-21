@@ -94,7 +94,7 @@
        a denial is a NAMED access fact — readable ink on an alert-tinted panel, mirroring
        the freshness .is-lost AA treatment; a degrade uses the wedged tone */
     .fm-mailbox-state {
-        padding      : 12px 10px;
+        padding      : var(--fm-space-3) 10px;
         font         : var(--fm-text-detail);
         color        : var(--fm-ink-dim);
         border       : 1px solid var(--fm-line-soft);
@@ -118,7 +118,7 @@
     /* one message row — an immutable timestamped fact: subject line over a mono meta line.
        NO hover affordance beyond the thread head (the only interactive surface). */
     .fm-mail-row {
-        padding      : 6px 8px;
+        padding      : 6px var(--fm-space-2);
         border       : 1px solid var(--fm-line-soft);
         border-radius: 6px;
         background   : var(--fm-panel);
@@ -188,7 +188,7 @@
         }
 
         > .fm-mail-row + .fm-mail-row {
-            margin-top: 4px;
+            margin-top: var(--fm-space-1);
         }
     }
 

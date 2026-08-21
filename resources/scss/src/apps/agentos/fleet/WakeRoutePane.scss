@@ -59,7 +59,7 @@
 
     /* honest quiet state — absence is not an error (drawer-shell contract item 5) */
     .fm-wakeroutes-empty {
-        padding: 14px 4px;
+        padding: 14px var(--fm-space-1);
         color  : var(--fm-ink-dim);
     }
 }

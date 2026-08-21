@@ -5,7 +5,7 @@
    baseline nudges on time/recipient — recorded here, deferred to the #17268 pane-composition
    pass. The stream head joins the chrome tier (tracking .06 → the role's .08). */
 .fm-activity-stream {
-    padding   : 12px 14px;
+    padding   : var(--fm-space-3) 14px;
     background: var(--fm-rail);
     overflow  : hidden;
 
