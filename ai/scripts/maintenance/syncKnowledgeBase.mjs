@@ -10,8 +10,8 @@ import KB_DatabaseService  from '../../services/knowledge-base/DatabaseService.m
 import KB_ChromaManager    from '../../services/knowledge-base/ChromaManager.mjs';
 import KB_LifecycleService from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
 import {
+    createLeaseYieldVoter,
     resolveHeavyMaintenanceLeasePath,
-    shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {fileURLToPath}                                               from 'node:url';
@@ -36,18 +36,25 @@ import {fileURLToPath}                                               from 'node:
 const logProgress = (...args) => console.error('[INFO]', ...args);
 
 /**
- * Builds the cooperative heavy-maintenance-lease yield predicate from a lease acquisition descriptor.
- * Reads the active-hold fairness bound from the AiConfig leaf at the use site (per call, never module-load-captured). Exported so a
- * boundary test can assert this script reads the correct config branch — `orchestrator.heavyMaintenance`
- * (which holds `maxActiveHoldMs`), NOT the sibling `orchestrator.heavyMaintenanceLease` (which holds only
- * `staleAfterMs`). The direct VectorService embed seam cannot prove the script-level config wiring.
+ * Adapts the shared lease yield voter to the bare predicate this script's embed loop consults.
+ * Kept exported so the existing boundary test still asserts THIS script reaches the correct config
+ * branch — `orchestrator.heavyMaintenance` (which holds `maxActiveHoldMs`), NOT the sibling
+ * `orchestrator.heavyMaintenanceLease` (which holds only `staleAfterMs`); the direct VectorService
+ * embed seam cannot prove the script-level config wiring.
+ *
+ * The reading itself moved to `createLeaseYieldVoter`, which is now the single site that knows the
+ * branch. Two copies of one config read is how the sibling-leaf trap gets fixed in one place and
+ * left standing in the other.
+ *
+ * The no-lease fallback is `() => false` rather than the voter's `null`, and that is not a widening:
+ * `shouldYieldHeavyMaintenanceLease` returns `false` for a missing lease (`!lease` is its first
+ * guard), so the previous body answered `false` on that input too. This loop wants a callable.
+ *
  * @param {{lease: Object}} acquisition The `withHeavyMaintenanceLease` descriptor (`{status, acquired, lease}`).
  * @returns {Function} A zero-arg predicate the shadow-swap embed loop consults between batches.
  */
 export function buildLeaseYieldPredicate(acquisition) {
-    return () => shouldYieldHeavyMaintenanceLease(acquisition.lease, {
-        maxActiveHoldMs: AiConfig.orchestrator.heavyMaintenance.maxActiveHoldMs
-    });
+    return createLeaseYieldVoter(acquisition)?.vote ?? (() => false);
 }
 
 /**

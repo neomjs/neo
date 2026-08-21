@@ -5,6 +5,7 @@ import Base     from '../../../../src/core/Base.mjs';
 import AiConfig from '../../../config.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
+    createLeaseYieldVoter,
     releaseHeavyMaintenanceLeaseSync,
     resolveHeavyMaintenanceLeasePath as resolveLeasePath
 } from './HeavyMaintenanceLeaseService.mjs';
@@ -891,7 +892,7 @@ export class MaintenanceBackpressureService extends Base {
      *
      * @param {Object} options
      * @param {String} options.taskName Stable orchestrator task name.
-     * @param {Function} options.executeFn Task body `(taskName, reason, onSuccess, taskOptions) => result`.
+     * @param {Function} options.executeFn Task body `(taskName, reason, onSuccess, taskOptions) => result`, where `taskOptions` is `{env, leaseYieldVoter, onComplete}` — all three derived from this acquisition.
      * @param {Object} [options.reason] Scheduling reason (string or trigger object).
      * @param {Function|null} [options.onSuccess=null] Success hook forwarded to `executeFn`.
      * @param {Object} options.activeHeavyTask Mutable `{name: String|null}` tracker for the current poll.
@@ -1040,9 +1041,15 @@ export class MaintenanceBackpressureService extends Base {
             }
         };
 
+        // Three things the task can only learn from THIS acquisition: the token to inherit, the
+        // release to call, and when the hold began. The third is what lets a long task stand down
+        // cooperatively instead of occupying the exclusive slot until it finishes — and a task that
+        // cannot ask is the mechanism behind waiters deferred for a day and a half under one holder.
+        // `null` when the compatible-pair bypass ran, because that candidate owns no lease to yield.
         const taskOptions = {
-            env       : leaseToken ? {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: leaseToken} : {},
-            onComplete: releaseLease
+            env            : leaseToken ? {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: leaseToken} : {},
+            leaseYieldVoter: leaseToken ? createLeaseYieldVoter(acquisition) : null,
+            onComplete     : releaseLease
         };
 
         let result;

@@ -25,7 +25,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
-import {classifyEmbeddingRecoveryState, isRepoDue, resolveUnknownRepoSelectorFailure}
+import {classifyEmbeddingRecoveryState, isRepoDue, resolveUnknownRepoSelectorFailure, YIELD_CAUSE_LEASE}
                             from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
     classifyTenantRepoCheckpoint,
@@ -7257,6 +7257,208 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             'a repo that exhausted its corpus DOES advance — otherwise this arm passes by breaking everything'
         ).toBeTruthy();
     });
+
+    /*
+     * The last propagation edge of the outer-lease fairness vote. The three upstream edges — the
+     * scheduler's `taskOptions`, the service-runner's forwarding, the CLI's acquisition — are each
+     * guarded in `leaseYieldVoterWiring.spec.mjs`, and all three can be correct while the vote still
+     * dies inside the service. This arm owns `runTask` → `syncTenantRepos` → the composed resolver →
+     * the `shouldYield` the ingest call actually receives.
+     *
+     * The slice voter cannot fire here: this sweep elapses milliseconds against the configured
+     * `sliceBudgetMs`, and `assertSliceBudgetMs` refuses a budget of 0, so there is no setting that
+     * makes it degenerate. A `shouldYield()` of `true` is therefore attributable to the lease voter
+     * alone — and the second run, identical but for `leaseYieldVoter: null`, is the control that
+     * keeps the first from passing on some unrelated always-yield.
+     *
+     * The voter is hand-built rather than derived from a real acquisition on purpose. Whether the
+     * voter reads the right config leaf is a different subject with its own arm; mixing it in here
+     * would make a config-branch regression redden this arm too, and then neither arm says which
+     * edge broke.
+     */
+    test('#17398 the outer lease vote REACHES the ingest call, and its absence is the control', async () => {
+        const
+            repoSlug = 'org/lease-vote',
+
+            /**
+             * Runs one sweep and returns what the ingest call was handed as its yield predicate.
+             * @param {{cause: String, vote: Function}|null} leaseYieldVoter
+             * @returns {Promise<Function|null>}
+             */
+            runWith = async leaseYieldVoter => {
+                const base     = makeFakeIngestionService();
+                let   observed = null;
+
+                await provisionMirrorDir({tenantId: 't1', repoSlug});
+                await TenantRepoSyncService.writePersistedRevisions({
+                    filePath : revisionsFile,
+                    revisions: {[`t1/${repoSlug}`]: {
+                        lastIngestedRev                   : null,
+                        lastRunAttemptAt                  : Date.now() - 120_000,
+                        consecutiveFailures               : 0,
+                        ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    }}
+                });
+
+                await TenantRepoSyncService.runTask({
+                    reason           : 'periodic-sweep:60000',
+                    taskStateService : createInMemoryTaskStateService(),
+                    tenantReposConfig: {tenantRepos: [{
+                        tenantId: 't1', repoSlug, mirrorRoot,
+                        cloneUrl: `https://github.com/neomjs/lease-vote.git`
+                    }]},
+                    gitMirror                    : makeFakeGitMirror(),
+                    envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                    knowledgeBaseIngestionService: {
+                        ...base,
+                        async ingestSourceFiles(payload, controls) {
+                            observed = controls?.shouldYield ?? null;
+                            return base.ingestSourceFiles(payload, controls)
+                        }
+                    },
+                    revisionsFilePath: revisionsFile,
+                    globalCadenceMs  : 60_000,
+                    jitterRatio      : 0,
+                    seedBootstrap    : false,
+                    leaseYieldVoter
+                });
+
+                return observed
+            };
+
+        const withVote = await runWith({cause: YIELD_CAUSE_LEASE, vote: () => true}),
+              without  = await runWith(null);
+
+        expect(withVote, 'the ingest call must receive a yield predicate at all').toBeTruthy();
+        expect(
+            withVote(),
+            'the lease vote did not survive runTask → syncTenantRepos → the resolver; a bound the ' +
+            'holder cannot consult is the whole starvation mechanism'
+        ).toBe(true);
+
+        expect(without, 'the control run must reach the same call site').toBeTruthy();
+        expect(
+            without(),
+            'with no outer lease the sweep must answer exactly as the slice budget does — otherwise ' +
+            'the arm above proves nothing about the lease voter'
+        ).toBe(false);
+    });
+
+    /*
+     * The production-path negative boundary, and it exists because its predecessor did not cross into
+     * production at all. That arm built a resolver and its boolean projection inside the fixture and
+     * asserted the projection was a Boolean — true of the fixture, and green no matter what the sweep
+     * did. A reviewer's falsifier found it: it could not fail if the sweep began stopping tail
+     * admission or releasing the outer lease early, which is precisely the behaviour it claimed to
+     * pin. Same wrong-subject class as an arm asserting a builder to prove something about a planner.
+     *
+     * **Three repos against a limit of TWO, and the third is the entire point.** A two-repo fixture
+     * at the production default limit of 2 has no tail at all: both repos ARE the active cohort, so
+     * the dependent exit — which stops admission after that cohort — could land, admit both, and
+     * leave the arm green. A reviewer's second falsifier caught exactly that, and the mutant the arm
+     * had claimed as faithful (`remainingRepos.slice(0, 1)`) drops half of the active cohort rather
+     * than the tail, so it was never the contract under test either. With a third due repo there is
+     * a repo BEYOND the cohort, and it is the one the exit will drop.
+     *
+     * Today's contract is that a lease-caused yield bounds work WITHIN a repo and touches neither
+     * admission nor the outer lease. So the arm pins three separable observables — the admitted SET
+     * includes the tail, the cohort ORDER still puts the tail last, and the sweep still reports
+     * `completed` rather than an early release — because the exit contract could arrive correct on
+     * one and wrong on another, and a single conflated assertion could not tell which.
+     */
+    test('#17398 a firing lease cause does NOT stop tail admission — the exit contract is not started here', async () => {
+        // Two fill the active cohort at the default limit; the third is the tail the dependent exit
+        // will stop. Names carry that role so a failure message reads as a contract violation rather
+        // than as an opaque slug mismatch.
+        const repoSlugs    = ['org/lease-cohort-a', 'org/lease-cohort-b', 'org/lease-tail'],
+              captureCalls = [],
+              // Fires on the very first consultation, so if any admission decision consulted the
+              // cause, it would have every opportunity to drop the tail.
+              alwaysYields = {cause: YIELD_CAUSE_LEASE, vote: () => true};
+
+        for (const repoSlug of repoSlugs) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: Object.fromEntries(repoSlugs.map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : Date.now() - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]))
+        });
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls}),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60_000,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            leaseYieldVoter              : alwaysYields
+        });
+
+        const ingested = captureCalls
+            .filter(call => call.op === 'ingestSourceFiles')
+            .map(call => call.payload.repoSlug);
+
+        // Non-vacuity FIRST, and it is what makes the tail claim mean anything: the limit must be
+        // strictly below the repo count, or there is no repo outside the active cohort and every
+        // assertion below is true of a fixture that cannot pose the question.
+        expect(
+            TenantRepoSyncService.concurrencyLimit,
+            'the fixture needs a repo BEYOND the active cohort — at the default limit of 2 a two-repo ' +
+            'sweep has no tail, so the dependent exit could admit the whole cohort and pass'
+        ).toBeLessThan(repoSlugs.length);
+
+        // ADMISSION — asserted as the whole set rather than as containments, so the failure message
+        // distinguishes the two ways this breaks: a dropped tail shows the cohort alone, a sweep that
+        // admitted nothing shows an empty array. Containment checks would let the first mask the
+        // second, and the difference matters — one is the exit contract starting early, the other is
+        // a broken fixture.
+        expect(
+            [...ingested].sort(),
+            'a lease cause reached an ADMISSION decision — stopping the tail after the active cohort ' +
+            'is the dependent exit contract, and starting it here makes the two leaves impossible to ' +
+            'review independently. An EMPTY array instead means the fixture admitted nothing and the ' +
+            'arm never exercised admission at all'
+        ).toEqual([...repoSlugs].sort());
+
+        // ORDER — the tail must still be admitted LAST. A sweep that kept the tail but hoisted it
+        // into the first cohort would satisfy the set assertion while having changed the very
+        // boundary the dependent exit is defined against, so the set alone cannot carry this.
+        expect(
+            ingested.indexOf('org/lease-tail'),
+            'the tail must remain the tail: admitted, and admitted after the active cohort'
+        ).toBe(repoSlugs.length - 1);
+
+        // OUTER LEASE — a lease-caused yield is a bound on work inside a repo, not a signal to hand
+        // the lease back. A sweep that released early would report something other than a completed
+        // run, and the caller would drop a lease it still holds work for.
+        expect(
+            result.status,
+            'a lease-caused yield must not turn a healthy sweep into a failure or an early release; ' +
+            'the cause is readable and nothing acts on it yet'
+        ).toBe('completed');
+
+        // And the whole cohort completed rather than deferring — the count is what a future exit
+        // would have to reduce, so pinning it names the number the dependent leaf must change.
+        expect(
+            result.details.completedCount,
+            'all three repos completed; the dependent exit will reduce this, and that red is intended'
+        ).toBe(repoSlugs.length);
+    });
 });
 
 test.describe('the persisted cause DISCRIMINATES, and still leaks nothing (#16056)', () => {
@@ -7594,6 +7796,7 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
         const
             taskStateService = {name: 'task-state'},
             writeLog         = () => {},
+            voter            = {cause: YIELD_CAUSE_LEASE, vote: () => false},
             options          = buildRunTaskOptions({
                 parsed: {
                     fullReplay: true,
@@ -7603,13 +7806,28 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
                 writeLog
             });
 
+        // Exhaustive rather than partial, deliberately: the envelope is the CLI's whole contract with
+        // the service, so a field silently appearing or vanishing here is a dispatch change nobody
+        // asked for. `leaseYieldVoter` defaults to `null` — an explicit "this caller holds no outer
+        // lease", which is not the same statement as a voter that always answers false.
         expect(options).toEqual({
-            reason       : 'manual',
+            reason         : 'manual',
             taskStateService,
             writeLog,
-            onlyRepoSlugs: ['org/a', 'org/b'],
-            fullReplay   : true
+            leaseYieldVoter: null,
+            onlyRepoSlugs  : ['org/a', 'org/b'],
+            fullReplay     : true
         });
+
+        expect(
+            buildRunTaskOptions({
+                parsed         : {fullReplay: false, repoSlugs: []},
+                taskStateService,
+                writeLog,
+                leaseYieldVoter: voter
+            }).leaseYieldVoter,
+            'a supplied voter must reach the service unwrapped — the envelope is not a place to re-derive it'
+        ).toBe(voter);
     });
 
     test('global held lease defers without dispatching tenant sync', async () => {
@@ -7663,16 +7881,27 @@ test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
                 });
 
                 expect(outcome.status).toBe('completed');
-                expect(outcome.result).toEqual({
-                    status,
-                    options: {
-                        reason       : 'manual',
-                        taskStateService,
-                        writeLog,
-                        onlyRepoSlugs: ['org/a', 'org/b'],
-                        fullReplay   : true
-                    }
+
+                const {leaseYieldVoter, ...dispatched} = outcome.result.options;
+
+                expect(outcome.result.status).toBe(status);
+                expect(dispatched).toEqual({
+                    reason       : 'manual',
+                    taskStateService,
+                    writeLog,
+                    onlyRepoSlugs: ['org/a', 'org/b'],
+                    fullReplay   : true
                 });
+
+                // Split out of the strict compare rather than dropped from it: this run holds a REAL
+                // lease through the real wrapper, so it is the one place the CLI's voter is built from
+                // a genuine acquisition instead of a fixture. A voter carrying a live `acquiredAt`
+                // seconds old must answer `false` — the honest negative control on the live path, and
+                // the one that catches a bound resolved from the wrong config leaf.
+                expect(leaseYieldVoter, 'a real acquisition must produce a real voter').not.toBeNull();
+                expect(leaseYieldVoter.cause).toBe(YIELD_CAUSE_LEASE);
+                expect(leaseYieldVoter.vote(), 'a lease acquired moments ago is nowhere near its bound').toBe(false);
+
                 expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
             });
         }
