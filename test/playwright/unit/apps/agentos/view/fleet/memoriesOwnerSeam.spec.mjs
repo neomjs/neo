@@ -25,6 +25,9 @@ function ownerStub({memoriesTarget = null, memoriesSnapshot = null, pane = null}
         memoriesSnapshot,
         memoriesReadGeneration   : 0,
         buildMemoriesAgentOptions: () => [],
+        // the shell-owned window verb rides the resolver config; this seam test asserts
+        // selection travel, so an empty tool config is the honest minimal stub
+        buildMemoriesWindowToggle: () => ({}),
         // the cockpit surface the seam methods consume: the explicit listener scope
         // resolves through getController, and owner pushes route through the phase-blind
         // accessor instead of a raw reference read

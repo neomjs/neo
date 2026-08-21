@@ -37,9 +37,21 @@
         background   : color-mix(in srgb, var(--fm-ink-dim) 20%, transparent);
     }
 
+    /* the shell-supplied window verb docks at the header's trailing edge — layout owned here,
+       never as an inline style on the shell's config */
+    .fm-detail-header .fm-detail-window-toggle {
+        flex       : none;
+        margin-left: auto;
+    }
+
     .fm-detail-identity {
-        gap     : 2px;
-        overflow: hidden;
+        gap      : 2px;
+        overflow : hidden;
+        /* a flex child's automatic minimum is its content size: without a floor the identity
+           column refuses to shrink and the header's trailing shell tool pays with a clipped
+           label. The ch-floor makes the squeeze SHARED: the name ellipsizes down to a readable
+           stub, and only past that does the trailing verb start giving way. */
+        min-width: 12ch;
     }
 
     .fm-detail-name-row {

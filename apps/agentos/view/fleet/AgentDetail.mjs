@@ -108,6 +108,13 @@ class AgentDetail extends Container {
          */
         baseCls: ['fm-agent-detail'],
         /**
+         * Optional SHELL-supplied tool configs appended to the identity header. The pane stays
+         * layout-blind: it places these controls at its header's trailing edge and never inspects
+         * what they do — ownership, handlers and state sync remain with the supplying shell.
+         * @member {Object[]|null} shellTools=null
+         */
+        shellTools: null,
+        /**
          * The provider-hosted `AgentDefinitions` Store, resolved via the standard bind (the same
          * instance Accounts writes into) — the configuration tab's data surface. The JOIN is the
          * Fleet Registry key: `FleetAgent.agentId` IS the roster row's `id`, which IS
@@ -297,6 +304,9 @@ class AgentDetail extends Container {
         // labeled region on drill-in, not an unnamed pane. Set on the root before applyRecord's first
         // render flush; a later re-seat (applyRecord) keeps the root, so the region survives.
         Object.assign(this.vdom, {role: 'region', 'aria-label': 'Agent detail'});
+
+        // shell-supplied window verbs land at the identity header's trailing edge (layout-blind slot)
+        this.shellTools?.length && this.getReference('detail-header')?.add(this.shellTools);
         // the pane renders and never fetches: it fires the page intent, this view (which holds the
         // read seam and the subject) performs the bounded re-read. Wired explicitly rather than via
         // a string handler — this view carries no controller for one to resolve against.

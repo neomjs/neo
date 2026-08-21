@@ -19,7 +19,9 @@
     display      : inline-flex;
     align-items  : center;
     flex         : 0 1 auto;
-    min-width    : 0;
+    /* the shrink floor: quiet furniture may truncate, never vanish — the nominal one-token
+       readout stays whole under bar crowding (the de-crowding contract) */
+    min-width    : 12ch;
     max-width    : 40ch;
     padding      : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
     border-left  : var(--fm-chip-mark-w) solid var(--fm-viewer-wake-mark);

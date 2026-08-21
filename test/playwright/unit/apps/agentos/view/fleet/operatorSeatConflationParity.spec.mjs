@@ -1,7 +1,16 @@
+import {setup} from '../../../../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'AgentOSOperatorSeatConflationParityTest'
+    }
+});
+
+// The full setup() chain — not just Neo/core — MUST precede the FleetCockpit import: its
+// transitive graph reaches DOM-typed core modules (util.Rectangle extends DOMRect), so a bare
+// import only booted when ANOTHER spec in the same worker had installed the environment first —
+// worker-scheduling luck, twice now (first the Neo namespace, then the DOM globals).
 import {expect, test}                   from '@playwright/test';
-// Neo + core MUST load before any Neo-class import (unit-test rule 1): FleetCockpit's transitive
-// graph reaches gatekept core modules, and without this pair the file only booted when ANOTHER
-// spec in the same worker had initialized the namespace first — worker-scheduling luck, not order.
 import Neo                              from '../../../../../../../src/Neo.mjs';
 import * as core                        from '../../../../../../../src/core/_export.mjs';
 import {describeOperatorSeatConflation} from '../../../../../../../ai/services/fleet/operatorSeatConflation.mjs';

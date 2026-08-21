@@ -62,7 +62,9 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
 
         await expect(detailRoot).toBeVisible({timeout: 30000});
 
-        // the SHELL owns the affordance: the toolbar toggle exists; the pane carries none
+        // the SHELL owns the affordance; it renders in the PANE's chrome (the shellTools slot),
+        // so the verb travels with the pane into a vessel — the bar carries only the
+        // exception-only recall twin while the pane is away
         const toggle = page.locator('.fm-detail-window-toggle');
 
         await expect(toggle).toBeVisible();
@@ -106,7 +108,12 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
 
         const popup = await popupPromise;
 
+        // assert the URL only after the vessel's content proves navigation happened: right after
+        // the popup event, `domcontentloaded` can belong to the initial about:blank document and
+        // url() reads '' — the pre-existing race the sibling journeys never hit because they wait
+        // on a selector first
         await popup.waitForLoadState('domcontentloaded');
+        await expect(popup.locator('.fm-agent-detail')).toBeVisible({timeout: 30000});
         expect(popup.url()).toContain('childapps/widget/index.html');
         expect(popup.url()).toContain('cockpitId=');
 

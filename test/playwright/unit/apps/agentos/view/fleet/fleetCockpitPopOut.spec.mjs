@@ -170,7 +170,8 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
         expect(vessel.openCalls[0].url).toContain(`cockpitId=${cockpit.id}`);
 
         // the shell affordance now names the reverse action
-        expect(cockpit.getReference('detail-window-toggle').text).toBe('Reattach detail')
+        // the verb lives in the pane's chrome and travels with it — resolve through the accessor
+        expect(cockpit.getAgentDetailPane().getReference('detail-window-toggle').text).toBe('Reattach detail')
     });
 
     test('connect: the matching vessel adopts the SAME instance — opening → windowed', async () => {
@@ -231,7 +232,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
         expect(vessel.closeCalls).toHaveLength(1);
         expect(vessel.closeCalls[0].names).toEqual([`fm-agent-detail-${cockpit.id}`]);
 
-        expect(cockpit.getReference('detail-window-toggle').text).toBe('Pop out detail')
+        expect(cockpit.getAgentDetailPane().getReference('detail-window-toggle').text).toBe('Pop out detail')
     });
 
     test('blocked popup: windowOpen=false takes the failed-blocked edge and rolls back commit-or-neither', async () => {
@@ -606,7 +607,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         expect(vessel.openCalls[0].url).toContain(`cockpitId=${cockpit.id}`);
 
         // the shell affordance now names the reverse action
-        expect(cockpit.getReference('memories-window-toggle').text).toBe('Return memories')
+        expect(cockpit.getMemoriesPane().getReference('memories-window-toggle').text).toBe('Return memories')
     });
 
     test('re-materialization after true absence carries owner-held selection', async () => {
@@ -706,7 +707,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out
         expect(pane.activeAgent).toBe('@neo-fable-clio');
 
         // the shell affordance names the forward action again
-        expect(cockpit.getReference('memories-window-toggle').text).toBe('Pop out memories')
+        expect(cockpit.getMemoriesPane().getReference('memories-window-toggle').text).toBe('Pop out memories')
     });
 
     test('blocked popup refuses BEFORE any document mutation — commit-or-neither', async () => {

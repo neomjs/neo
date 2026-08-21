@@ -40,6 +40,13 @@ class MemoriesPane extends Container {
          */
         baseCls: ['fm-memories-pane'],
         /**
+         * Optional SHELL-supplied tool configs appended to the actions row. The pane stays
+         * layout-blind: it places these controls beside its own verbs and never inspects what
+         * they do — ownership, handlers and state sync remain with the supplying shell.
+         * @member {Object[]|null} shellTools=null
+         */
+        shellTools: null,
+        /**
          * Selected target agent as canonical `@identity`, or null for the explicit
          * "pick an agent" state.
          * @member {String|null} activeAgent_=null
@@ -114,11 +121,12 @@ class MemoriesPane extends Container {
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'memories-rows'
         }, {
-            ntype : 'container',
-            cls   : ['fm-memories-actions'],
-            flex  : 'none',
-            layout: {ntype: 'hbox', align: 'center'},
-            items : [{
+            ntype    : 'container',
+            cls      : ['fm-memories-actions'],
+            flex     : 'none',
+            layout   : {ntype: 'hbox', align: 'center'},
+            reference: 'memories-actions',
+            items    : [{
                 ntype: 'component',
                 flex : 1
             }, {
@@ -166,6 +174,9 @@ class MemoriesPane extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
+
+        // shell-supplied window verbs land beside the pane's own actions (layout-blind slot)
+        this.shellTools?.length && this.getReference('memories-actions')?.add(this.shellTools);
 
         const me = this;
 
