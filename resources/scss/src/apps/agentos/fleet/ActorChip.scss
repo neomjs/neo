@@ -1,7 +1,10 @@
-/* AgentOS.view.fleet.ActorChip — the actor-identity badge on feed rows: avatar-first, handle
-   always, canonical id on the title. Sized for the one-line row contract — the chip may never
-   add a second text line to the density-frozen window. Colors read from the --fm-* token layer;
-   the chip family reconciliation (one designed system) owns any future anatomy change. */
+/* class: always-rendered — a chip-family-ADJACENT identity badge (see Chips.scss): it names WHO,
+   never a status, so it carries no mark, no severity, and no state class. The actor-identity
+   badge on feed rows: avatar-first, handle always, canonical id on the title. Sized for the
+   one-line row contract — the chip may never add a second text line to the density-frozen window.
+   Recorded exceptions (deliberate, not drift): the 4px internal gap (sub-chip spacing between a
+   14px avatar and micro text — the family gap token is inter-chip rhythm) and the plate-less
+   anatomy (an identity is furniture, not an observation to tint). */
 .fm-actor-chip {
     display    : inline-flex;
     align-items: center;

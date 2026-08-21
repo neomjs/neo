@@ -6,6 +6,21 @@
        only; the framework token itself is untouched). */
     --tab-indicator-background-color-active: var(--fm-signal);
 
+    /* The chip-family geometry contract (TOKENS.md §04): ONE anatomy for every status/kind
+       idiom — telltale, spine banner, viewer-wake, event chips, state dots. The family owns
+       GEOMETRY only; color value-authority stays with the theme twins (--fm-state-* / --fm-kind-*),
+       and each idiom binds it through one local indirection. Theme-neutral by construction, so
+       both skins inherit the same anatomy for free. */
+    --fm-chip-mark-w: 3px;
+    --fm-chip-pad-y : 2px;
+    --fm-chip-pad-x : 8px;
+    --fm-chip-radius: 4px;
+    --fm-chip-gap   : 8px;
+
+    /* The liveness pulse period (motion ladder): decoration only — the hue + word carry the
+       fact, and the animation exists only under no-preference (the StateDot inclusion-gate). */
+    --fm-motion-pulse: 2400ms;
+
     /* HEIGHT CONTAINMENT FOR THE SHELL'S FLEX SPINE.
        A flex item's automatic minimum size is its CONTENT size, and `min-height: auto` only
        resolves to zero when the item's overflow is not `visible`. Every box listed here sits in the

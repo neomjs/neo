@@ -27,20 +27,24 @@ test.describe('check-theme-surfaces.mjs', () => {
         fs.rmSync(tempDir, {recursive: true, force: true});
     });
 
-    // Materialize a skin/view fixture set in the temp dir and run the collector against it.
-    const run = ({dark, light, views = {}, contractedTokens = new Set(), ...rest}) => {
-        const darkPath  = path.join(tempDir, 'dark.scss'),
-              lightPath = path.join(tempDir, 'light.scss'),
-              viewDir   = path.join(tempDir, 'views');
+    // Materialize a skin/view fixture set in the temp dir and run the collector against it. The
+    // structural shell-root file is always materialized (possibly empty) so the census check reads
+    // fixture state, never the real tree; the empty-set default keeps pre-census tests untouched.
+    const run = ({dark, light, views = {}, contractedTokens = new Set(), structural = '', structuralTokens = new Set(), ...rest}) => {
+        const darkPath       = path.join(tempDir, 'dark.scss'),
+              lightPath      = path.join(tempDir, 'light.scss'),
+              structuralPath = path.join(tempDir, 'structural.scss'),
+              viewDir        = path.join(tempDir, 'views');
 
         fs.writeFileSync(darkPath, dark, 'utf8');
         fs.writeFileSync(lightPath, light, 'utf8');
+        fs.writeFileSync(structuralPath, structural, 'utf8');
         fs.mkdirSync(viewDir, {recursive: true}); // idempotent — a test may call run() more than once
         for (const [name, content] of Object.entries(views)) {
             fs.writeFileSync(path.join(viewDir, name), content, 'utf8');
         }
 
-        return collectThemeSurfaceFailures({darkPath, lightPath, viewDir, contractedTokens, ...rest});
+        return collectThemeSurfaceFailures({darkPath, lightPath, structuralPath, viewDir, contractedTokens, structuralTokens, ...rest});
     };
 
     // A surface is a TOKEN LANGUAGE, so these drive the collector under a foreign namespace.
@@ -196,6 +200,31 @@ test.describe('check-theme-surfaces.mjs', () => {
     test('bare hex literal fails token-only', () => {
         const failures = run({dark: DARK, light: LIGHT, views: {'a.scss': '.a { color: #ff0000; }\n'}});
         expect(failures.some(m => m.startsWith('[token-only]'))).toBe(true);
+    });
+
+    test('#17264: a structural census member vanishing fails even while unconsumed — the alias-exemption false-green', () => {
+        // The shell root defines mark-w but the contracted gap member was deleted; nothing consumes
+        // gap, so parity/completeness/token-only all stay silent — exactly the mutation the census owns.
+        const failures = run({
+            dark            : DARK,
+            light           : LIGHT,
+            structural      : '.shell {\n    --fm-chip-mark-w: 3px;\n}\n',
+            structuralTokens: new Set(['--fm-chip-mark-w', '--fm-chip-gap'])
+        });
+
+        expect(failures.filter(m => m.startsWith('[structural-contract]'))).toHaveLength(1);
+        expect(failures.some(m => m.startsWith('[structural-contract]') && m.includes('--fm-chip-gap'))).toBe(true);
+    });
+
+    test('#17264: the full structural set defined at the shell root passes the census', () => {
+        const failures = run({
+            dark            : DARK,
+            light           : LIGHT,
+            structural      : '.shell {\n    --fm-chip-mark-w: 3px;\n    --fm-chip-gap: 8px;\n}\n',
+            structuralTokens: new Set(['--fm-chip-mark-w', '--fm-chip-gap'])
+        });
+
+        expect(failures.some(m => m.startsWith('[structural-contract]'))).toBe(false);
     });
 
     test('component-local --fm-* alias is exempt from completeness', () => {
