@@ -40,7 +40,12 @@ const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
  * @throws {Error} When any segment is `__proto__`, `constructor`, or `prototype`.
  */
 export function setNamespace(tree, names, value) {
-    const segments = Array.isArray(names) ? names : names.split('.');
+    // Coerce BEFORE the guard, and traverse with the coerced values. A property write stringifies its
+    // key while `Set.has` compares raw values, so an unnormalized check and the write it protects can
+    // disagree about which key is being used — measured: a segment object whose `toString` returned
+    // `'__proto__'` passed the denylist, then replaced the tree's prototype on assignment. The tree
+    // then serialized as `{}` while property reads returned the injected value.
+    const segments = (Array.isArray(names) ? names : String(names).split('.')).map(String);
 
     let current = tree;
 

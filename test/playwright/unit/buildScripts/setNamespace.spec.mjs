@@ -71,6 +71,26 @@ test.describe('setNamespace — own-property traversal, not inherited', () => {
         })
     });
 
+    test('a NON-STRING segment cannot slip past the denylist by coercion', () => {
+        // Found by attacking my own fix after CodeQL flagged the fixed function. `Set.has` compares
+        // raw values; a property write stringifies its key. So an object whose `toString` returns
+        // `'__proto__'` passed the guard and then hit the setter on assignment.
+        //
+        // It never reached `Object.prototype` — it replaced the TREE's prototype — but the result is
+        // the failure this module exists to prevent: `JSON.stringify(tree)` returned `{}` while
+        // `tree.x` read the injected value. A corrupted tree that serializes as empty.
+        const hostile = {toString: () => '__proto__'};
+
+        expect(() => setNamespace({}, [hostile, 'x'], 'PWNED')).toThrow(/__proto__/);
+
+        const tree = {};
+
+        try { setNamespace(tree, [hostile, 'x'], 'PWNED') } catch {}
+
+        expect(Object.getPrototypeOf(tree), 'the tree prototype is intact').toBe(Object.prototype);
+        expect(tree.x, 'and nothing was injected').toBeUndefined()
+    });
+
     test('an array path behaves identically to its dotted form', () => {
         // Both call shapes exist at the call sites, so a fix applied to one is not applied to both.
         const dotted = {}, arrayed = {};
