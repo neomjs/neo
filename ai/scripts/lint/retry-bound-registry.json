@@ -60,6 +60,11 @@
             "witness": "`10 ** decimals` is decimal-place rounding: the exponent is a formatting precision argument, not an attempt counter. No loop encloses it.",
             "note": "Classified because every growth expression is gated, not because it was suspected."
         },
+        "ai/scripts/setup/revisionConfigDiff.mjs#evaluateStatic:fbde6d8c": {
+            "kind": "not-a-retry",
+            "witness": "The static AST evaluator applies a BinaryExpression's `**` operator once to the declared left/right operands; no retry loop, attempt counter, or persisted growth state encloses it.",
+            "note": "Supports arithmetic in an immutable revision's declared default expression; exponentiation changes the projected value, never control-flow timing."
+        },
         "ai/services/fleet/fleetWakeSseConsumer.mjs#runLoop:5f68f770": {
             "kind": "retry-growth",
             "lifetime": "process-local",
