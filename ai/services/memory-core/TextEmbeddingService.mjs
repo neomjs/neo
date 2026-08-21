@@ -879,13 +879,8 @@ class TextEmbeddingService extends Base {
 
             if (index === -1) break;
 
-            const weight = this.#openAiCompatibleTaskWeight(this.#openAiCompatiblePostQueue[index]);
-
-            // `inFlightTasks === 0` always admits, so a post wider than the whole budget still makes
-            // forward progress instead of livelocking. A slot withheld here returns the moment a
-            // settling worker re-drains.
-            if (this.#openAiCompatibleInFlightTasks > 0 &&
-                this.#openAiCompatibleInFlightTasks + weight > maxTasks) {
+            // A slot withheld here returns the moment a settling worker re-drains.
+            if (!this.#mayAdmitOpenAiCompatiblePost(this.#openAiCompatiblePostQueue[index])) {
                 break
             }
 
@@ -894,11 +889,6 @@ class TextEmbeddingService extends Base {
         }
     }
 
-    /**
-     * @summary Drains queued posts until the queue empties, then retires.
-     * @returns {Promise<void>}
-     * @private
-     */
     /**
      * @summary The number of provider tasks one queued post represents.
      * @param {Object} task Queued post.
@@ -909,6 +899,39 @@ class TextEmbeddingService extends Base {
         return Array.isArray(task?.inputData) ? Math.max(task.inputData.length, 1) : 1
     }
 
+    /**
+     * @summary Whether one queued post may be dispatched against the declared task budget.
+     *
+     * BATCH work is admitted only up to `budget - 1`, which is the interactive-headroom contract
+     * expressed where it can actually hold. Reserving per `embedTexts` call cannot hold it: two batch
+     * callers each satisfy their own reservation and jointly fill the budget, leaving an interactive
+     * post no slot — the falsifier a reviewer supplied against an earlier version of this guard, where
+     * admission ran to the full budget for every lane.
+     *
+     * INTERACTIVE work may use the whole budget, because the reserved slot exists FOR it.
+     *
+     * `inFlightTasks === 0` always admits, so a post wider than the budget still makes forward
+     * progress rather than livelocking, and a single-slot deployment is untouched.
+     * @param {Object} task Queued post.
+     * @returns {Boolean}
+     * @private
+     */
+    #mayAdmitOpenAiCompatiblePost(task) {
+        if (this.#openAiCompatibleInFlightTasks === 0) {
+            return true
+        }
+
+        const budget  = resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel),
+              ceiling = task?.priority === 'interactive' ? budget : Math.max(budget - 1, 1);
+
+        return this.#openAiCompatibleInFlightTasks + this.#openAiCompatibleTaskWeight(task) <= ceiling
+    }
+
+    /**
+     * @summary Drains queued posts until the queue empties or admission declines, then retires.
+     * @returns {Promise<void>}
+     * @private
+     */
     async #runOpenAiCompatiblePostQueueWorker() {
         try {
             while (this.#openAiCompatiblePostQueue.length > 0) {
@@ -921,9 +944,7 @@ class TextEmbeddingService extends Base {
                 // The drain admitted this worker once. A worker looping to a SECOND task re-checks,
                 // because capacity may have been taken since. Exiting is safe and cannot spin: this
                 // worker has already awaited, so its count is live when the drain next runs.
-                if (this.#openAiCompatibleInFlightTasks > 0 &&
-                    this.#openAiCompatibleInFlightTasks + weight >
-                        resolveEmbeddingTaskBudget(aiConfig.localModels.embedding.parallel)) {
+                if (!this.#mayAdmitOpenAiCompatiblePost(this.#openAiCompatiblePostQueue[taskIndex])) {
                     break
                 }
 

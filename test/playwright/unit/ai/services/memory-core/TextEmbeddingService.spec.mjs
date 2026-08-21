@@ -1702,6 +1702,91 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         ).toBeLessThanOrEqual(4);
     });
 
+    test('BATCH work leaves the interactive slot open at the declared budget (#17048) (#17412)', async () => {
+        // The cross-caller arm above asserts offered work stays WITHIN the budget. That is the budget
+        // noun, not the headroom noun: filling all four slots with batch work satisfies it and still
+        // destroys the interactive reservation. Reviewer-supplied falsifier — at budget 4 two
+        // batch callers can jointly reach four, and a later interactive post finds no slot.
+        const probe = async () => {
+            const http = await import('node:http');
+            const held = [];
+
+            let batchInFlight       = 0,
+                maxBatchInFlight    = 0,
+                interactiveAdmitted = false,
+                stallGuard          = null;
+
+            // fixed-sleep-justification: arrival debounce that keeps the arm decidable, not a wait.
+            const armStallGuard = () => {
+                clearTimeout(stallGuard);
+                stallGuard = setTimeout(() => held.splice(0).forEach(release => release()), 250)
+            };
+
+            const server = http.createServer((request, response) => {
+                let body = '';
+
+                request.on('data', chunk => body += chunk);
+                request.on('end', () => {
+                    const payload = body ? JSON.parse(body) : {input: []},
+                          inputs  = Array.isArray(payload.input) ? payload.input : [payload.input],
+                          release = () => {
+                              response.writeHead(200, {'Content-Type': 'application/json'});
+                              response.end(JSON.stringify({
+                                  data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
+                              }))
+                          };
+
+                    // The interactive probe uses a distinguishable input so the server can tell the
+                    // lanes apart without reading provider internals.
+                    if (inputs.includes('INTERACTIVE')) {
+                        interactiveAdmitted = true;
+                        release();
+                        clearTimeout(stallGuard);
+                        held.splice(0).forEach(r => r());
+                        return
+                    }
+
+                    batchInFlight   += inputs.length;
+                    maxBatchInFlight = Math.max(maxBatchInFlight, batchInFlight);
+                    armStallGuard();
+                    held.push(() => { batchInFlight -= inputs.length; release() })
+                })
+            });
+
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                process.env.NEO_OPENAI_COMPATIBLE_HOST = `http://127.0.0.1:${server.address().port}`;
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+
+                await Promise.all([
+                    Service.embedTexts(['a', 'b'], 'openAiCompatible'),
+                    Service.embedTexts(['c', 'd'], 'openAiCompatible')
+                ]);
+
+                console.log(JSON.stringify({maxBatchInFlight, interactiveAdmitted}));
+            } finally {
+                clearTimeout(stallGuard);
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve))
+            }
+        };
+
+        const result = await runIsolatedEmbeddingProbe(probe, {
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0',
+            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '1',
+            NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4'
+        });
+
+        // THE HEADROOM CONTRACT: batch work never occupies the last slot. Four single-input batch
+        // tasks are available and the budget is four, so an admission that ignores lane would reach
+        // four; the reservation requires it to stop at three.
+        expect(result.maxBatchInFlight,
+            'batch work must leave one task of the declared budget free for interactive use'
+        ).toBeLessThanOrEqual(3);
+    });
+
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {
         const evidence = await runIsolatedEmbeddingProbe(async () => {
             const http                = await import('node:http');
