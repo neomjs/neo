@@ -149,6 +149,24 @@ export function isInScopePath(file, scanPaths, ignores) {
         && !ignores.some(ignore => file.split('/').includes(ignore))
 }
 
+/**
+ * @summary Phrases how many selected files were actually opened, never how many were selected.
+ *
+ * The two numbers diverge whenever a selected path fails to open: the failure warns on one line and is
+ * skipped, and reporting the SELECTED count as the scanned one turns that skip into a green claim about
+ * a file nobody read. Only the count of successful reads is entitled to the word.
+ *
+ * @param {Number} read     Files opened without error.
+ * @param {Number} selected Files the selection produced.
+ * @returns {String}
+ */
+export function describeRead(read, selected) {
+    const unreadable = selected - read,
+          base       = `${read} file(s) read`;
+
+    return unreadable > 0 ? `${base}, ${unreadable} unreadable` : base
+}
+
 function main() {
     let gitRoot;
     try {
@@ -228,12 +246,28 @@ function main() {
             ? argvFiles.filter(f => f.endsWith('.mjs'))
             : collectDefaultFiles();
 
+    // Which of the three selections produced this file set, named in the receipt.
+    //
+    // The success line was a bare count, and the three modes select wildly different sets: a CI run
+    // reports the files a branch changed, a pre-commit run reports what was staged, a default run
+    // reports the whole audit scope. Quoted anywhere else all three read as "the repository is
+    // clean" — and the two narrow ones are the common cases. A count without its selection is a
+    // claim about whatever the reader had in mind.
+    const selection = options.base ? `changed vs ${options.base}`
+        : hasFileArgs             ? 'supplied paths'
+        : `full audit scope: ${scanPaths.join(', ')}`;
+
     if (files.length === 0) {
-        console.log('check-ticket-archaeology: 0 .mjs files in scope, nothing to check.');
+        console.log(`check-ticket-archaeology: 0 .mjs files in scope, nothing to check (${selection}).`);
         process.exit(0);
     }
 
+    // Counted, not assumed. `files.length` is what the SELECTION produced; a file that fails to open
+    // is warned about and skipped, and reporting the selected count as the scanned one turns that skip
+    // into a green claim about a file nobody read.
     const violations = [];
+    let   read       = 0;
+
     for (const file of files) {
         let content;
         try {
@@ -242,6 +276,8 @@ function main() {
             console.error(`check-ticket-archaeology: could not read ${file}: ${e.message}`);
             continue;
         }
+
+        read++;
 
         // Boy-scout rule (operator-directed): scan the WHOLE touched file, exactly like
         // check-block-alignment — touching a file obligates cleaning ALL its ticket-archaeology, not just
@@ -252,7 +288,7 @@ function main() {
     }
 
     if (violations.length > 0) {
-        console.error(`\x1b[31mcheck-ticket-archaeology: ${violations.length} decay-prone ref(s) (ticket/Epic/Discussion/ADR) in durable comments:\x1b[0m`);
+        console.error(`\x1b[31mcheck-ticket-archaeology: ${violations.length} decay-prone ref(s) (ticket/Epic/Discussion/ADR) in durable comments, across ${describeRead(read, files.length)} (${selection}):\x1b[0m`);
         if (!options.quiet) {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nDurable comments/JSDoc must describe behavior, not cite tracking refs — tickets, Epics, Discussions, or ADRs (they rot when the');
@@ -262,7 +298,7 @@ function main() {
         process.exit(1);
     }
 
-    console.log(`check-ticket-archaeology: ${files.length} files scanned, 0 violations.`);
+    console.log(`check-ticket-archaeology: ${describeRead(read, files.length)}, 0 violations (${selection}).`);
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === __filename;

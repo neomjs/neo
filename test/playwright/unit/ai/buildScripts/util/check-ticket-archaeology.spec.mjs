@@ -1,23 +1,23 @@
 import {test, expect}                                                                       from '@playwright/test';
-import {execFileSync}                                                                       from 'node:child_process';
+import {execFileSync, spawnSync}                                                                          from 'node:child_process';
 import {mkdtempSync, rmSync, writeFileSync}                                                 from 'node:fs';
 import {tmpdir}                                                                             from 'node:os';
 import path                                                                                 from 'node:path';
 import {fileURLToPath}                                                                      from 'node:url';
-import {extractComment, findTicketRefs, isInScopePath, DEFAULT_SCAN_PATHS, DEFAULT_IGNORES} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
+import {describeRead, extractComment, findTicketRefs, isInScopePath, DEFAULT_SCAN_PATHS, DEFAULT_IGNORES} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../../../../..');
 const GUARD     = path.join(REPO_ROOT, 'buildScripts/util/check-ticket-archaeology.mjs');
 
 // CLI-invoked from REPO_ROOT (where node_modules resolves Commander), capturing exit code + combined output.
+// Both streams, on both paths. The failure branch already merged them; the success branch returned
+// stdout alone, so anything a PASSING run wrote to stderr was invisible to every arm here — and an
+// unreadable input warns on stderr while still exiting 0.
 const runGuard = (args, env = {}) => {
-    try {
-        const stdout = execFileSync('node', [GUARD, ...args], {cwd: REPO_ROOT, encoding: 'utf8', env: {...process.env, ...env}});
-        return {code: 0, stdout};
-    } catch (e) {
-        return {code: e.status, stdout: `${e.stdout || ''}${e.stderr || ''}`};
-    }
+    const result = spawnSync('node', [GUARD, ...args], {cwd: REPO_ROOT, encoding: 'utf8', env: {...process.env, ...env}});
+
+    return {code: result.status, stdout: `${result.stdout || ''}${result.stderr || ''}`};
 };
 
 /**
@@ -207,4 +207,28 @@ test.describe('check-ticket-archaeology CLI parser contract (#14279)', () => {
         expect(code).toBe(1);
         expect(stdout).toContain('#11111');
     });
+});
+
+test.describe('the receipt reports what was READ, not what was selected', () => {
+    test('an unreadable selected file is never counted as read', () => {
+        // Selection and IO diverge. A selected path that fails to open warns and is skipped; reporting
+        // the SELECTED count as the scanned one is a green claim about a file nobody opened.
+        expect(describeRead(0, 1)).toBe('0 file(s) read, 1 unreadable');
+        expect(describeRead(7, 9)).toBe('7 file(s) read, 2 unreadable')
+    });
+
+    test('CONTROL: a fully-read run says nothing about unreadable files', () => {
+        // Otherwise "names the unreadable count" is equally consistent with an always-present suffix,
+        // which carries no information.
+        expect(describeRead(3, 3)).toBe('3 file(s) read')
+    });
+
+    test('the CLI does not claim to have read a missing file', () => {
+        // The reviewer falsifier, committed: previously `1 file(s) scanned, 0 violations`, exit 0.
+        const {code, stdout} = runGuard(['src/doesNotExist17435.mjs']);
+
+        expect(code).toBe(0);
+        expect(stdout).toContain('could not read');
+        expect(stdout).toContain('0 file(s) read, 1 unreadable')
+    })
 });

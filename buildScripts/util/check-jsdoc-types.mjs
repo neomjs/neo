@@ -146,6 +146,46 @@ export function inScope(file) {
     return DEFAULT_DIRS.some(dir => file === dir || file.startsWith(dir + '/'))
 }
 
+/**
+ * @summary Describes what a run actually read, phrased to survive being quoted somewhere else.
+ *
+ * The success line was a bare count, and a bare count is read as coverage of whatever the reader was
+ * doing — their diff, their directory, their repository. It is none of those: the scanned set is the
+ * docs-build parse scope, which for a consumer of this package is a different set of files entirely.
+ * This receipt has been pasted into pull-request bodies as evidence for changes it never opened, and
+ * the number was true every time.
+ *
+ * Caller-supplied paths report `N of M`, because {@link inScope} drops the rest SILENTLY — a hook
+ * handing over seven staged files and hearing about three is the same defect one layer down. When the
+ * two numbers differ the line says so, which is what makes a run that read NONE of the caller's files
+ * distinguishable from one that read all of them. That distinction is the whole point: "mentions a
+ * scope" is satisfiable by text, "0 of 7" is not.
+ *
+ * **Three counts, not two, because selection and IO diverge.** `offered` is what the caller or the
+ * default scan put forward; `admitted` is what survived the scope filter; `read` is what was actually
+ * opened. A count that stops at `admitted` reports a file it never read: an unreadable path warns on
+ * one line and is then counted as scanned on the next, which is this function's own defect committed
+ * inside the fix for it. `read` is the only number entitled to the word.
+ *
+ * Exported so the receipt is a contract with its own coverage rather than a string inside `main()`.
+ *
+ * @param {Object} counts
+ * @param {Number} counts.supplied How many positional paths the caller passed (0 = default scan).
+ * @param {Number} counts.offered  How many candidate paths were considered.
+ * @param {Number} counts.admitted How many survived the scope filter.
+ * @param {Number} counts.read     How many were opened without error.
+ * @returns {{scope: String, scanned: String}}
+ */
+export function describeScan({supplied, offered, admitted, read}) {
+    const unreadable = admitted - read,
+          base       = supplied > 0 ? `${read} of ${offered} supplied file(s) read` : `${read} file(s) read`;
+
+    return {
+        scope  : `docs-build parse scope: ${DEFAULT_DIRS.join(', ')}`,
+        scanned: unreadable > 0 ? `${base}, ${unreadable} unreadable` : base
+    }
+}
+
 function collectDefaultFiles(gitRoot) {
     const result = spawnSync('find', [...DEFAULT_DIRS, '-type', 'f', '-name', '*.mjs'], {cwd: gitRoot, encoding: 'utf-8'});
     // A missing optional dir makes `find` exit non-zero while still listing the others — tolerate stdout.
@@ -170,12 +210,23 @@ function main() {
     const rawFiles = argvFiles.length > 0 ? argvFiles : collectDefaultFiles(gitRoot);
     const files    = rawFiles.map(f => toRepoRelative(f, gitRoot)).filter(inScope);
 
+    const describe = read => describeScan({
+        supplied: argvFiles.length, offered: rawFiles.length, admitted: files.length, read
+    });
+
     if (files.length === 0) {
-        console.log('check-jsdoc-types: 0 in-scope .mjs files, nothing to check.');
+        const {scope, scanned} = describe(0);
+
+        console.log(`check-jsdoc-types: ${scanned}, nothing to check (${scope}).`);
         process.exit(0)
     }
 
+    // Counted, not assumed. `files.length` is what the scope ADMITTED; a file that fails to open is
+    // warned about and skipped, and reporting the admitted count as the scanned one turns that skip
+    // into a green claim about a file nobody read.
     const violations = [];
+    let   read       = 0;
+
     for (const file of files) {
         let content;
         try {
@@ -184,11 +235,14 @@ function main() {
             console.error(`check-jsdoc-types: could not read ${file}: ${e.message}`);
             continue
         }
+        read++;
         findUnparseableTypes(content).forEach(({line, tag, expr}) => violations.push(`${file}:${line}  @${tag} {${expr}}`))
     }
 
+    const {scope, scanned} = describe(read);
+
     if (violations.length > 0) {
-        console.error(`\x1b[31mcheck-jsdoc-types: ${violations.length} unparseable JSDoc type expression(s):\x1b[0m`);
+        console.error(`\x1b[31mcheck-jsdoc-types: ${violations.length} unparseable JSDoc type expression(s) in ${scanned} (${scope}):\x1b[0m`);
         if (!quiet) {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nThe docs build (`npm run generate-docs-json`, the last `build all` step) parses these with');
@@ -201,7 +255,7 @@ function main() {
         process.exit(1)
     }
 
-    console.log(`check-jsdoc-types: ${files.length} file(s) scanned, 0 unparseable type expressions.`)
+    console.log(`check-jsdoc-types: ${scanned}, 0 unparseable type expressions (${scope}).`)
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === __filename;

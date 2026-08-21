@@ -93,20 +93,27 @@ function evaluateImportAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectImportRuns(lines, maskedLines)) {
-        if (run.length < 2) continue; // a lone import is not an alignment group
+    // Only runs that ARE groups are numbered, so "group 2 of 3" counts what a reader can see.
+    const groups = collectImportRuns(lines, maskedLines).filter(run => run.length >= 2);
 
+    groups.forEach((run, groupIndex) => {
         // The `from` column = widest `import <clause>` in the run + one space.
         const fromColumn = Math.max(...run.map(entry => IMPORT_PREFIX.length + entry.clause.length)) + 1;
 
         for (const entry of run) {
             const expected = alignedImportLine(entry, fromColumn);
             if (expected !== lines[entry.lineIndex]) {
-                violations.push({lineIndex: entry.lineIndex, expectedColumn: fromColumn, kind: 'import'});
+                violations.push({
+                    lineIndex     : entry.lineIndex,
+                    expectedColumn: fromColumn,
+                    kind          : 'import',
+                    group         : groupIndex + 1,
+                    groupCount    : groups.length
+                });
                 fixedLines[entry.lineIndex] = expected;
             }
         }
-    }
+    });
 
     return {violations, fixedLines};
 }
@@ -181,24 +188,32 @@ function evaluateColonAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const run of collectPropertyRuns(lines, maskedLines)) {
-        const colonMembers = run.filter(entry => entry.kind === 'colon');
-        if (colonMembers.length < 2) continue; // a lone colon property is not an alignment group
+    const runs = collectPropertyRuns(lines, maskedLines),
+          // Only runs that ARE alignment groups are counted, so "group 2 of 3" matches what a reader
+          // can see. Counting skipped single-property runs would name a total nothing displays.
+          groups = runs.filter(run => run.filter(entry => entry.kind === 'colon').length >= 2);
 
-        const
-            indent   = run[0].indent,
-            keyWidth = Math.max(...colonMembers.map(entry => entry.key.length));
+    groups.forEach((run, groupIndex) => {
+        const colonMembers = run.filter(entry => entry.kind === 'colon'),
+              indent       = run[0].indent,
+              keyWidth     = Math.max(...colonMembers.map(entry => entry.key.length));
 
         for (const entry of colonMembers) {
             const expected = `${indent}${entry.key.padEnd(keyWidth)}: ${entry.value}`;
             if (expected !== lines[entry.lineIndex]) {
-                violations.push({lineIndex: entry.lineIndex, expectedColumn: indent.length + keyWidth, kind: 'object-colon'});
+                violations.push({
+                    lineIndex     : entry.lineIndex,
+                    expectedColumn: indent.length + keyWidth,
+                    kind          : 'object-colon',
+                    group         : groupIndex + 1,
+                    groupCount    : groups.length
+                });
                 fixedLines[entry.lineIndex] = expected;
             }
         }
-    }
+    });
 
-    return {violations, fixedLines};
+    return {violations, fixedLines, notices: detectCommentOnlyFragmentation(lines, groups)};
 }
 
 // ─────────────────────────── `=` declaration blocks (v1b) ───────────────────────────
@@ -379,10 +394,14 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
         violations = [],
         fixedLines = lines.slice();
 
-    for (const {entries, mode} of collectAssignmentRuns(lines, maskedLines)) {
+    // Only runs that ARE groups are numbered, so "group 2 of 3" counts what a reader can see.
+    const groups = collectAssignmentRuns(lines, maskedLines).filter(({entries}) =>
+        entries.length > 0 &&
+        !(entries.length < 2 && lines[entries[0].lineIndex] === `${entries[0].left} = ${entries[0].value}`)
+    );
+
+    groups.forEach(({entries, mode}, groupIndex) => {
         const simpleParts = entries;
-        if (simpleParts.length === 0) continue;
-        if (simpleParts.length < 2 && lines[simpleParts[0].lineIndex] === `${simpleParts[0].left} = ${simpleParts[0].value}`) continue;
 
         const
             keywordWidth = mode === 'keyword' ? Math.max(...simpleParts.map(part => part.keyword.length)) : 0,
@@ -397,11 +416,17 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
                 : left;
             const expected = `${normalizedLeft.padEnd(leftWidth)} = ${value}`;
             if (expected !== lines[lineIndex]) {
-                violations.push({lineIndex, expectedColumn: leftWidth + 1, kind: 'assignment'});
+                violations.push({
+                    lineIndex,
+                    expectedColumn: leftWidth + 1,
+                    kind          : 'assignment',
+                    group         : groupIndex + 1,
+                    groupCount    : groups.length
+                });
                 fixedLines[lineIndex] = expected;
             }
         }
-    }
+    });
 
     return {violations, fixedLines};
 }
@@ -545,11 +570,55 @@ function computeTemplateLiteralLineMask(lines) {
  * @param {{lineIndex: Number, expectedColumn: Number, kind: String}} violation
  * @returns {String}
  */
-function formatViolation(file, {lineIndex, expectedColumn, kind}) {
-    const at = `${file}:${lineIndex + 1}`;
-    if (kind === 'object-colon') return `Misaligned object-literal colon in ${at} — expected ':' at column ${expectedColumn + 1}`;
-    if (kind === 'assignment')   return `Misaligned '=' in ${at} — expected '=' at column ${expectedColumn + 1}`;
-    return `Misaligned import 'from' in ${at} — expected 'from' at column ${expectedColumn + 1}`;
+function formatViolation(file, {lineIndex, expectedColumn, kind, group, groupCount}) {
+    // The unit is named because this checker judges GROUPS, and a column number alone cannot tell a
+    // reader which it judged. "group 2 of 3" says a boundary exists above this line — the difference
+    // between "my literal is misaligned" and "my literal was split in two, and each half is
+    // internally consistent". A green run has always meant every group is aligned; it has never
+    // meant the file reads as one block, and the output never said so.
+    const at    = `${file}:${lineIndex + 1}`,
+          where = groupCount > 1 ? ` (group ${group} of ${groupCount})` : '';
+
+    if (kind === 'object-colon') return `Misaligned object-literal colon in ${at}${where} — expected ':' at column ${expectedColumn + 1}`;
+    if (kind === 'assignment')   return `Misaligned '=' in ${at}${where} — expected '=' at column ${expectedColumn + 1}`;
+    return `Misaligned import 'from' in ${at}${where} — expected 'from' at column ${expectedColumn + 1}`;
+}
+
+/**
+ * @summary Adjacent property runs at one indent, separated by comment lines ONLY.
+ *
+ * A blank line between two runs is a deliberate separator and is left alone. A comment is not: the
+ * author wrote prose about the next key and unknowingly split one alignment group in two, each of
+ * which is then aligned independently and reported clean. The file reads wrong and every gate on the
+ * path agrees it is fine.
+ *
+ * Reported as a NOTICE, never a failure. The split is occasionally deliberate, and a checker that
+ * cannot tell which should not be the thing that blocks a commit — only the thing that makes the
+ * author look.
+ *
+ * @param {String[]} lines
+ * @param {Array<Object[]>} runs As returned by `collectPropertyRuns`.
+ * @returns {Array<{lineIndex: Number}>}
+ */
+function detectCommentOnlyFragmentation(lines, runs) {
+    const notices = [];
+
+    for (let i = 1; i < runs.length; i++) {
+        const previous = runs[i - 1],
+              current  = runs[i],
+              from     = previous[previous.length - 1].lineIndex + 1,
+              to       = current[0].lineIndex;
+
+        if (to <= from || previous[0].indent !== current[0].indent) continue;
+
+        const between = lines.slice(from, to).map(line => line.trim());
+
+        if (between.every(line => line.startsWith('//') || line.startsWith('*') || line.startsWith('/*'))) {
+            notices.push({lineIndex: current[0].lineIndex})
+        }
+    }
+
+    return notices
 }
 
 /**
@@ -583,10 +652,24 @@ function processFile(file, fix, gitRoot = null, scopedFix = false) {
     const maskedLines   = computeTemplateLiteralLineMask(originalLines);
     let   lines         = originalLines;
 
+    const allNotices = [];
+
     for (const evaluate of EVALUATORS) {
-        const {violations, fixedLines} = evaluate(lines, maskedLines);
+        const {violations, fixedLines, notices} = evaluate(lines, maskedLines);
         allViolations.push(...violations);
+        notices && allNotices.push(...notices);
         lines = fixedLines;
+    }
+
+    // Printed before the clean/dirty verdict, and independently of it, because the whole point is a
+    // file that IS clean by this checker's own rule while reading wrong. Emitting it only alongside a
+    // violation would hide it in exactly the case it exists to describe.
+    for (const notice of allNotices.sort((a, b) => a.lineIndex - b.lineIndex)) {
+        console.warn(
+            `check-block-alignment: ${file}:${notice.lineIndex + 1} — an alignment group starts here, ` +
+            'separated from the one above by a comment only. Each half aligns independently, so this ' +
+            'file can pass while the two read at different columns. Deliberate? Leave it.'
+        )
     }
 
     if (allViolations.length === 0) return 'clean';
