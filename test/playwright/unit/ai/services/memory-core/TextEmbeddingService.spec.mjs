@@ -1702,54 +1702,85 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         ).toBeLessThanOrEqual(4);
     });
 
-    test('BATCH work leaves the interactive slot open at the declared budget (#17048) (#17412)', async () => {
-        // The cross-caller arm above asserts offered work stays WITHIN the budget. That is the budget
-        // noun, not the headroom noun: filling all four slots with batch work satisfies it and still
-        // destroys the interactive reservation. Reviewer-supplied falsifier — at budget 4 two
-        // batch callers can jointly reach four, and a later interactive post finds no slot.
+    test('an interactive post is admitted while batch work holds the rest of the budget', async () => {
+        // Two earlier versions of this arm were unsound and both were caught by mutating it. The first
+        // recorded `interactiveAdmitted` and never asserted it, and never enqueued interactive work at
+        // all. The second fired the interactive post as soon as batch reached three, which is BEFORE
+        // batch settles — so a mutant removing the reservation still admitted it and the arm passed on
+        // a race. This one waits for batch to reach STEADY STATE first, which is the only moment the
+        // reservation is observable.
         const probe = async () => {
             const http = await import('node:http');
             const held = [];
 
-            let batchInFlight       = 0,
-                maxBatchInFlight    = 0,
-                interactiveAdmitted = false,
-                stallGuard          = null;
+            let draining             = false,
+                batchInFlight        = 0,
+                steadyBatchInFlight  = -1,
+                interactiveArrivedAt = -1,
+                batchReleasedAt      = -1,
+                seq                  = 0,
+                settleTimer          = null,
+                resolveSteady        = null;
 
-            // fixed-sleep-justification: arrival debounce that keeps the arm decidable, not a wait.
-            const armStallGuard = () => {
-                clearTimeout(stallGuard);
-                stallGuard = setTimeout(() => held.splice(0).forEach(release => release()), 250)
+            const steady = new Promise(resolve => { resolveSteady = resolve });
+            // Once released, STAY released. `embedTexts` has more spans than the budget admits, so the
+            // remainder dispatches only after the first cohort drains — and a probe that holds by
+            // default puts those later arrivals into `held` with nothing left to empty it. The run then
+            // hangs on `await batch` with the contract already satisfied, which is a probe defect
+            // wearing a product failure's clothes. Cost four rewrites before I traced it.
+            const releaseAll = () => {
+                draining = true;
+                if (batchReleasedAt === -1) batchReleasedAt = ++seq;
+                held.splice(0).forEach(release => release())
+            };
+
+            // Steady state = no new batch arrival for a beat. That is the fact the probe cannot
+            // otherwise learn, and it is what makes the peak observable rather than sampled mid-ramp.
+            // fixed-sleep-justification: arrival-quiet detector, not a wait for a thing to happen.
+            const armSettle = () => {
+                clearTimeout(settleTimer);
+                settleTimer = setTimeout(() => {
+                    steadyBatchInFlight = batchInFlight;
+                    resolveSteady()
+                }, 250)
             };
 
             const server = http.createServer((request, response) => {
+                // Route by PATH. The interactive entry point resolves an embedding runtime first, and
+                // that resolution issues `GET /v1/models`. A probe that treats every request as
+                // embedding traffic HOLDS that one — so `embedText` blocks before it ever enqueues,
+                // and the arm dies by SIGKILL with nothing to read. Cost me three rewrites of this arm
+                // before I looked at the request URL instead of the request body.
+                if (!request.url.includes('/embeddings')) {
+                    response.writeHead(200, {'Content-Type': 'application/json'});
+                    response.end(JSON.stringify({data: [{id: 'probe-embedding-model'}]}));
+                    return
+                }
+
                 let body = '';
 
                 request.on('data', chunk => body += chunk);
                 request.on('end', () => {
                     const payload = body ? JSON.parse(body) : {input: []},
                           inputs  = Array.isArray(payload.input) ? payload.input : [payload.input],
-                          release = () => {
+                          respond = () => {
                               response.writeHead(200, {'Content-Type': 'application/json'});
                               response.end(JSON.stringify({
                                   data: inputs.map((input, index) => ({index, embedding: [input.charCodeAt(0), input.length]}))
                               }))
                           };
 
-                    // The interactive probe uses a distinguishable input so the server can tell the
-                    // lanes apart without reading provider internals.
                     if (inputs.includes('INTERACTIVE')) {
-                        interactiveAdmitted = true;
-                        release();
-                        clearTimeout(stallGuard);
-                        held.splice(0).forEach(r => r());
+                        interactiveArrivedAt = ++seq;
+                        respond();
                         return
                     }
 
-                    batchInFlight   += inputs.length;
-                    maxBatchInFlight = Math.max(maxBatchInFlight, batchInFlight);
-                    armStallGuard();
-                    held.push(() => { batchInFlight -= inputs.length; release() })
+                    if (draining) { respond(); return }
+
+                    batchInFlight += inputs.length;
+                    armSettle();
+                    held.push(() => { batchInFlight -= inputs.length; respond() })
                 })
             });
 
@@ -1759,15 +1790,33 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
                 process.env.NEO_OPENAI_COMPATIBLE_HOST = `http://127.0.0.1:${server.address().port}`;
 
                 const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
-
-                await Promise.all([
-                    Service.embedTexts(['a', 'b'], 'openAiCompatible'),
-                    Service.embedTexts(['c', 'd'], 'openAiCompatible')
+                // TWO batch callers, deliberately. With one, `resolveDispatchPlan`'s per-call
+                // reservation already caps offered work at three, so the GLOBAL ceiling never binds
+                // and a mutant removing it is invisible — measured: that version of this arm passed
+                // under exactly the mutant it exists to catch.
+                const batch = Promise.all([
+                    Service.embedTexts(['a', 'b', 'c'], 'openAiCompatible'),
+                    Service.embedTexts(['d', 'e', 'f'], 'openAiCompatible')
                 ]);
 
-                console.log(JSON.stringify({maxBatchInFlight, interactiveAdmitted}));
+                await steady;
+
+                // Fire interactive, and guarantee the run ENDS whether or not it is admitted: if the
+                // reservation is gone the post is stuck behind held batch work, so release after a
+                // bound and let the ordering assertion decide. A stuck run must fail by assertion,
+                // never by the runner's SIGKILL.
+                // fixed-sleep-justification: bounded escape that keeps the arm decidable, not a wait.
+                const escape      = setTimeout(releaseAll, 500);
+                const interactive = await Service.embedText('INTERACTIVE', 'openAiCompatible');
+
+                clearTimeout(escape);
+                clearTimeout(settleTimer);
+                releaseAll();
+                await batch;
+
+                console.log(JSON.stringify({steadyBatchInFlight, interactiveArrivedAt, batchReleasedAt, interactive}))
             } finally {
-                clearTimeout(stallGuard);
+                clearTimeout(settleTimer);
                 server.closeAllConnections?.();
                 await new Promise(resolve => server.close(resolve))
             }
@@ -1779,12 +1828,21 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             NEO_LOCAL_MODELS_EMBEDDING_PARALLEL             : '4'
         });
 
-        // THE HEADROOM CONTRACT: batch work never occupies the last slot. Four single-input batch
-        // tasks are available and the budget is four, so an admission that ignores lane would reach
-        // four; the reservation requires it to stop at three.
-        expect(result.maxBatchInFlight,
-            'batch work must leave one task of the declared budget free for interactive use'
-        ).toBeLessThanOrEqual(3);
+        // THE RESERVATION, as a peak: six single-input batch tasks against a budget of four settle at
+        // three, never four. Removing the batch ceiling makes this read 4.
+        expect(result.steadyBatchInFlight,
+            'batch work must settle at budget - 1, leaving one task of the declared budget free'
+        ).toBe(3);
+
+        // THE RESERVATION, as an ordering fact: the free slot is usable WHILE batch holds the rest.
+        // Applying the batch ceiling to the interactive lane makes this arrive only after release.
+        expect(result.interactiveArrivedAt, 'the interactive post must reach the provider').toBeGreaterThan(0);
+        expect(result.interactiveArrivedAt,
+            'a slot reserved but not reachable is not headroom: interactive must be served before batch release'
+        ).toBeLessThan(result.batchReleasedAt);
+
+        expect(result.interactive, 'the interactive call must return its own vector')
+            .toEqual(['INTERACTIVE'.charCodeAt(0), 'INTERACTIVE'.length]);
     });
 
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {

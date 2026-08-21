@@ -749,10 +749,11 @@ class TextEmbeddingService extends Base {
      * @summary Queues OpenAI-compatible embedding posts behind an interactive-first scheduler.
      *
      * A local OpenAI-compatible engine schedules TASKS: one multi-input embedding POST expands to one
-     * task per input. This queue's job is admission ORDER, not admission volume — it lets a
-     * latency-sensitive single embedding overtake queued KB-sync batch work. How much work may be
-     * outstanding is decided upstream by `resolveDispatchPlan`, which keeps a batch's offered tasks
-     * below the declared budget; this queue deliberately does not repeat that accounting.
+     * task per input. This queue owns admission ORDER **and** admission VOLUME — it lets a
+     * latency-sensitive single embedding overtake queued KB-sync batch work, and it is the only place
+     * that can bound total outstanding tasks, because it is the only place every caller is visible.
+     * `resolveDispatchPlan` still reserves per `embedTexts` call, and that reservation is sound for
+     * one caller and insufficient for two: each satisfies its own and they jointly fill the budget.
      *
      * @param {String|String[]} inputData The text or array of texts to embed.
      * @param {Object} options The `#postOpenAiCompatible` retry/timeout options.
@@ -850,9 +851,10 @@ class TextEmbeddingService extends Base {
      *
      * No latency claim is made here. Whether that reduces interactive wait in practice depends on the
      * engine's own scheduling and has not been measured; what IS structural is the headroom, and it is
-     * enforced upstream — `resolveDispatchPlan` keeps a batch's offered tasks at or below
-     * `taskBudget - 1`, so a single-task interactive request fits inside the declared budget rather
-     * than competing for it.
+     * enforced HERE — batch posts are admitted only to `taskBudget - 1` while interactive posts may
+     * use the whole budget, so a single-task interactive request has a slot to take rather than a
+     * queue to wait behind. Enforcing it per call cannot hold: two batch callers each stay inside
+     * their own reservation and jointly leave nothing free.
      *
      * Not `await`ed: a caller enqueues and waits on its own task's promise, never on the drain.
      * @returns {void}
