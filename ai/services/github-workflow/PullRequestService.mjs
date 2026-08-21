@@ -854,7 +854,7 @@ async function buildMergeReadinessProjection({
         // observation, so nested inside `predicate` it reaches no reader of the surface that
         // actually travels to the merge gate.
         advisories: predicate.advisories.map(message => ({code: 'APPROVAL_ANCHOR_STALE', message})),
-        audit: [
+        audit     : [
             ...audit,
             {source: 'validateMergeReady', call: 1, outcome: sourceMergeReady ? 'positive' : 'negative'},
             {
@@ -1231,6 +1231,91 @@ function round2RelationFailure(lines) {
 }
 
 /**
+ * @summary Refuses a Round-2 body whose declared `**Status:**` contradicts its own disposition table.
+ *
+ * The submit gate already refuses `STILL_OPEN` under a non-`COMMENT` state, but it does so by
+ * comparing the table to the API `state` argument — which a dry-run holding only a body never
+ * receives. That much of the divergence is structural. This is the part that is not: the body
+ * ALSO declares its verdict on its own `**Status:**` line, so the same contradiction is decidable
+ * with no pull request resolved.
+ *
+ * **Why naming this is safe.** The invisible anchor layer stays silent because an anchor is
+ * stuffable — told which token is missing, a caller can paste the token and skip the structure.
+ * A contradiction is not stuffable: the only way to satisfy it is to decide which of the author's
+ * two declarations is true, and that decision IS the required content.
+ *
+ * Live specimen: a Round 2 carrying `**Status:** Request Changes`, two `STILL_OPEN` rows, and a
+ * Verdict opening `COMMENT.` was accepted by the dry-run and by CI, then refused by the submit
+ * gate. The author had followed the template — whose Status enum omitted `Comment` entirely while
+ * its own Verdict rule required it, so no coherent Status existed for a `STILL_OPEN` round. Both
+ * halves are fixed together; the enum without this check would leave the contradiction silent, and
+ * this check without the enum would refuse a body the template told the author to write.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} A structured refusal, or `null` when the body is coherent or out of scope.
+ */
+function getRound2StateCoherenceFailure(body) {
+    if (!isRound2PrReview(body)) return null;
+
+    const statusMatch = String(body || '').match(ROUND_2_STATUS_PATTERN);
+
+    // A missing or unparseable Status is the anchor layer's to refuse, and a table the extractor
+    // cannot read is the relation layer's. Staying silent here keeps one defect to one owner.
+    if (!statusMatch) return null;
+
+    const rows = extractDispositionRows(body);
+
+    if (rows.length === 0) return null;
+
+    const declared = statusMatch[1].replace(/[*_`]/g, '').trim().toLowerCase(),
+          stillOpen = rows.some(row => row.disposition === 'STILL_OPEN');
+
+    if (stillOpen && declared !== 'comment') {
+        return round2StateCoherenceFailure([
+            `- The table carries a \`STILL_OPEN\` row while \`**Status:**\` reads "${statusMatch[1].trim()}".`,
+            '- A `STILL_OPEN` round keeps the ORIGINAL review authoritative, so its Status is `Comment`.',
+            '',
+            'Set `**Status:** Comment`, or disposition the open item as `ADDRESSED` / `DEFENDED` — whichever is true.'
+        ])
+    }
+
+    if (!stillOpen && declared === 'request changes') {
+        return round2StateCoherenceFailure([
+            '- Every prior action is dispositioned, yet `**Status:**` reads "Request Changes".',
+            '- A fully discharged round is `Approved` or `Comment`; it does not spend another round.',
+            '',
+            'Set `**Status:**` to the verdict the table already reached, or say which action is still open.'
+        ])
+    }
+
+    return null
+}
+
+/**
+ * @summary Renders a Round-2 state-coherence refusal.
+ *
+ * Deliberately does NOT reuse the relation failure's header. That header prescribes reading the
+ * template and quoting prior actions verbatim, which is the right remedy for a relation defect and
+ * the wrong one here — the template was followed and the quoting was already verbatim. A fixed
+ * remedy printed under a variable defect is what taught two separate maintainers something false
+ * about this surface.
+ *
+ * @param {String[]} lines
+ * @returns {Object}
+ */
+function round2StateCoherenceFailure(lines) {
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'This Round 2 contradicts itself: its declared Status and its disposition table disagree.',
+            '',
+            ...lines
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
+/**
  * @summary Extracts a review's Required Actions as ordered verbatim strings.
  *
  * The canonical and follow-up templates both carry actions as a `- [ ]` checklist under a Required
@@ -1311,6 +1396,14 @@ function isRound2PrReview(body) {
  * @type {RegExp}
  */
 const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
+
+/**
+ * The body's OWN declared verdict, which is what makes state coherence decidable without a PR.
+ * Anchored to line start so a Status quoted inside prose or a fenced block cannot be read as the
+ * declaration — the same reason the Post-Merge Validation heading check is anchored.
+ * @type {RegExp}
+ */
+const ROUND_2_STATUS_PATTERN = /^\*\*Status:\*\*[ \t]*(.+?)[ \t]*$/m;
 
 const ACTION_PACKET_HEADING_PATTERN = /Required\s+Actions?\b/i;
 const ACTION_PACKET_ITEM_PATTERN    = /^[ \t]*[-*][ \t]+\[[ \t]*\][ \t]*\S/;
@@ -3398,6 +3491,19 @@ class PullRequestService extends Base {
             return {
                 valid: false,
                 ...templateValidationFailure
+            };
+        }
+
+        // Structure is not coherence. A Round 2 can carry every canonical heading and still declare a
+        // Status its own disposition table refuses, which the submit gate then rejects on a comparison
+        // the dry-run was never given the inputs for. This closes the half of that divergence that is
+        // decidable from the body, so the two surfaces disagree on strictly less.
+        const stateCoherenceFailure = getRound2StateCoherenceFailure(body);
+
+        if (stateCoherenceFailure) {
+            return {
+                valid: false,
+                ...stateCoherenceFailure
             };
         }
 

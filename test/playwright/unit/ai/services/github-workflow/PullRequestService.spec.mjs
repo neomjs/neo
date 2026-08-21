@@ -2130,6 +2130,57 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         }
     });
 
+    /**
+     * The dry-run used to accept a Round-2 body that contradicts ITSELF.
+     *
+     * The submit gate refuses `stillOpen && state !== 'COMMENT'` by comparing the disposition column
+     * to the API `state` parameter, which the dry-run never receives. That much is structural. But the
+     * body ALSO declares its own verdict on its `**Status:**` line, so the same contradiction is
+     * visible with no PR context at all — and naming it is not stuffable, because the fix is to decide
+     * which of the author's two declarations is true.
+     *
+     * The live specimen that motivated this carried `**Status:** Request Changes`, two STILL_OPEN rows
+     * and a Verdict opening `COMMENT.`. The dry-run and CI both accepted it; only the submit gate
+     * refused, and the author's eventual direct submission landed as COMMENTED — agreeing with the
+     * gate. The dry-run held everything needed to say so first, and the template's Status enum had
+     * offered no coherent value for a STILL_OPEN round, so the author was following it.
+     */
+    const ROUND_2_STILL_OPEN_BODY = VALID_ROUND_2_REVIEW_BODY.replace(
+        '| RA-1 | prior template miss | ADDRESSED | current body keeps canonical headings |',
+        '| RA-1 | prior template miss | STILL_OPEN | the original review stays authoritative |'
+    );
+
+    test('#17354: a STILL_OPEN row under a non-COMMENT Status is refused by the dry-run', () => {
+        // Status says Approved, the row says STILL_OPEN. A STILL_OPEN round keeps the original review
+        // authoritative and must be COMMENT, so these two cannot both be true.
+        const result = PullRequestService.validatePrReviewBody({body: ROUND_2_STILL_OPEN_BODY});
+
+        expect(result.valid, 'the body contradicts its own Status line').toBe(false);
+        expect(result.message, 'the refusal names the contradiction rather than the template')
+            .toMatch(/STILL_OPEN/)
+    });
+
+    test('#17354: a fully-dispositioned round under a Request Changes Status is refused by the dry-run', () => {
+        // The mirror: no STILL_OPEN row anywhere, yet the body spends a REQUEST_CHANGES round. A fully
+        // discharged round is APPROVED or COMMENT. Asserted separately so a fix that only handles the
+        // STILL_OPEN direction cannot pass both.
+        const body   = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+              result = PullRequestService.validatePrReviewBody({body});
+
+        expect(result.valid, 'every action is dispositioned, so the round is not a Request Changes').toBe(false)
+    });
+
+    test('#17354: the coherent bodies stay accepted — the non-vacuity control', () => {
+        // Without this, a fix that refuses every Round 2 passes both arms above. Each accepted shape
+        // pairs with one refused shape on a single differing declaration.
+        expect(PullRequestService.validatePrReviewBody({body: VALID_ROUND_2_REVIEW_BODY}).valid,
+            'ADDRESSED under Approved').toBe(true);
+
+        expect(PullRequestService.validatePrReviewBody({
+            body: ROUND_2_STILL_OPEN_BODY.replace('**Status:** Approved', '**Status:** Comment')
+        }).valid, 'STILL_OPEN under Comment').toBe(true)
+    });
+
     test('#17178: validatePrReviewBody names the template it ACTUALLY applied', () => {
         // It returned the canonical path unconditionally, so a Round-2 body was told it matched
         // `pr-review-template.md` — sending an author who later hit a rejection to the wrong file.
