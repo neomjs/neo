@@ -827,6 +827,11 @@ class FleetCockpit extends Container {
      * Pane continuity across a switch preserves component identity when the item already exists;
      * genuinely absent surfaces materialize from OWNER-held state ({@link #resolveDockComponentRef}),
      * while the provider-owned roster store never restarts.
+     *
+     * A perspective that reveals the inspector must not land on the empty state: a cold
+     * entry (nothing inspected yet) defaults {@link #detailRecord} to the roster's first resident
+     * BEFORE the commit re-projects, so the pane materializes loaded; a prior selection stays the
+     * owner-held truth. A live pane updates in place through the select seam's owner accessor.
      * @param {String} name The preset's `perspectiveName` (or technical `layoutId`).
      * @returns {{switched: Boolean, errors: String[]}}
      */
@@ -840,9 +845,33 @@ class FleetCockpit extends Container {
             return {errors, switched: false}
         }
 
+        const revealsInspector = me.isInspectorRevealed(document);
+
+        if (revealsInspector && !me.detailRecord) {
+            me.detailRecord = me.resolveFleetRosterStore()?.first() ?? null
+        }
+
         me.presetError = null;
         me.onDockZoneDocumentChange(document);
+        revealsInspector && me.detailRecord && me.getAgentDetailPane()?.set({record: me.detailRecord});
         return {errors: [], switched: true}
+    }
+
+    /**
+     * @summary TRUE only when a document actually REVEALS the inspector: the detail item sits in a
+     * tabs node of the tree (absence fails — a valid no-detail document must never read as
+     * revealed), is not auto-hidden to the rail, and is its node's active tab or the node's only
+     * member. `!items.detail?.autoHidden` alone is TRUE for an absent item, so an unrelated valid
+     * perspective would mutate the owner-held selection — the round-1 falsifier.
+     * @param {Object} document A committed `dockZone.v1` document.
+     * @returns {Boolean}
+     */
+    isInspectorRevealed(document) {
+        const tabsId = DockZoneModel.findContainingTabsId(document, 'detail'),
+              node   = tabsId ? document.nodes[tabsId] : null;
+
+        return !!node && !document.items.detail?.autoHidden
+            && (node.activeItemId === 'detail' || node.items.length === 1)
     }
 
     /**
@@ -900,7 +929,9 @@ class FleetCockpit extends Container {
 
         let me = this;
 
-        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
+        // the listener authority is the provider-owned Store, same as every roster read/write —
+        // it exists (and keeps reconciling) whether or not the grid projection currently does
+        me.resolveFleetRosterStore()?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         me.loadActivity();
         me.loadRoster();
@@ -1238,6 +1269,23 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the provider-hosted `fleetRoster` Store — the sanctioned
+     * `getStateProvider().getStore()` access ({@link #resolveAgentDefinitionsStore}'s pattern).
+     * The roster's value authority is the root provider, never the projected grid child: resident
+     * panes resolve BEFORE the grid exists in the projection order, and the inspector must be able
+     * to default a selection while the grid is torn out or absent. Bare unit mounts degrade to
+     * `null` — consumers render their honest empty options.
+     * @returns {Neo.data.Store|null}
+     */
+    resolveFleetRosterStore() {
+        try {
+            return this.getStateProvider()?.getStore('fleetRoster') ?? null
+        } catch {
+            return null
+        }
+    }
+
+    /**
      * @summary Resolves a dock item's `componentRef` to its pane config — the cockpit's keeper
      * surfaces for the live refs, honest placeholders for panes whose views are sibling leaves.
      *
@@ -1386,7 +1434,7 @@ class FleetCockpit extends Container {
                     reference: 'catch-up'
                 };
             case 'memories':
-                // invoked per-agent session-summary recall: the pane renders the owner-held
+                // resident per-agent session-summary recall (a south reading-surface tab): the pane renders the owner-held
                 // source envelope and fires intent; this cockpit owns the authenticated bridge.
                 // The selected target travels WITH the snapshot (one coherent state key), so a
                 // rematerialized pane never shows cards no selection points at. Agent choices
@@ -1494,7 +1542,7 @@ class FleetCockpit extends Container {
             me.reconcilingRoster = true;
 
             try {
-                me.reconcileRoster(me.getReference('fleet-grid').store, me.lastLiveRows)
+                me.reconcileRoster(me.resolveFleetRosterStore(), me.lastLiveRows)
             } finally {
                 me.reconcilingRoster = false
             }
@@ -1526,6 +1574,17 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the live {@link AgentOS.view.fleet.CatchUpPane} instance whether it is
+     * docked or gesture-torn into a vessel — the {@link #getOperatorMailboxPane} contract for the
+     * catch-up reading surface, so roster-driven option refreshes and the bridge-arrival history
+     * re-drive reach a torn pane too.
+     * @returns {Neo.container.Base|null} The catch-up pane, or `null` before materialization.
+     */
+    getCatchUpPane() {
+        return this.tearOutPaneHandles?.catchUp || this.getReference('catch-up')
+    }
+
+    /**
      * @summary Resolve the live {@link AgentOS.view.fleet.MemoriesPane} instance whether it is
      * docked, revealed, or vesseled — the click pop-out ({@link #popOutMemories}) and the gesture
      * tear-out share one pathway, so one handle map answers both. Owner-side pushes (snapshot
@@ -1535,7 +1594,7 @@ class FleetCockpit extends Container {
      * @returns {Neo.container.Base|null} The memories pane, or `null` before materialization.
      */
     getMemoriesPane() {
-        // returningTearOutPanes covers the vessel-death parking window: the rail's lazy reveal may
+        // returningTearOutPanes covers the vessel-death parking window: the next projection may
         // not adopt the returning pane for a while, and an owner push landing in that window must
         // still reach the LIVE instance — otherwise the eventual adoption renders a stale snapshot.
         return this.tearOutPaneHandles?.memories || this.returningTearOutPanes?.memories || this.getReference('memories')
@@ -1553,8 +1612,9 @@ class FleetCockpit extends Container {
      * @param {String} request.itemId
      * @param {Object} request.proxyRect
      * @param {Boolean} [request.requireProjectedPane=true] The gesture needs a LIVE projected pane
-     *     (you tear what you can see); the click pop-out ({@link #popOutMemories}) materializes a
-     *     rail-lazy pane from owner-held state itself, so it opts out of this precondition only.
+     *     (you tear what you can see); the click pop-out ({@link #popOutMemories}) can materialize
+     *     a not-yet-projected pane from owner-held state itself (rail-lazy chrome, or a resident
+     *     item a custom document dropped), so it opts out of this precondition only.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
@@ -2070,11 +2130,12 @@ class FleetCockpit extends Container {
      * `?detail=agent-detail` shape loads; {@link #onWindowConnect}'s tear-out branch adopts it.
      * The dock document stays the layout SSOT: {@link #applyTearOutOperation} captures the exact
      * `{tabsNodeId, index}` placement before the `detachItem` commit, so the vessel-death return
-     * ({@link #reintegrateTearOutItem}) restores the item at its stored rail position.
+     * ({@link #reintegrateTearOutItem}) restores the item at its stored home position.
      *
      * Selection travel is BY IDENTITY: the vessel hosts the LIVE pane instance (or one
-     * materialized from the owner-held `memoriesTarget`/`memoriesSnapshot` when the rail's lazy
-     * reveal never projected it), so the active agent and cards move with the window — stronger
+     * materialized from the owner-held `memoriesTarget`/`memoriesSnapshot` when a custom
+     * document dropped it from the tree — resident tabs otherwise always project), so the active
+     * agent and cards move with the window — stronger
      * than a URL parameter, and exactly the rematerialization contract the memories source
      * documents. A blocked popup (`windowOpen` resolves `false`, it never throws) refuses before
      * any document mutation — commit-or-neither.
@@ -2118,8 +2179,9 @@ class FleetCockpit extends Container {
         }
 
         // capture the live pane synchronously before the commit's re-projection can destroy it
-        // (the gesture order); a rail-lazy pane that was never projected materializes from
-        // owner-held state instead — same resolver, vessel-bound rather than projection-bound
+        // (the gesture order); a pane that was never projected (rail-lazy chrome — resident tabs
+        // always project) materializes from owner-held state instead — same resolver,
+        // vessel-bound rather than projection-bound
         me.captureTearOutPane(itemId);
 
         if (!me.tearOutPaneHandles[itemId]) {
@@ -2135,7 +2197,7 @@ class FleetCockpit extends Container {
     /**
      * @summary Bring the vesseled Memories pane home by closing its OS window: vessel death IS
      * the return path — {@link #onWindowDisconnect}'s tear-out branch correlates the close and
-     * {@link #reintegrateTearOutItem} restores the same live instance at its stored rail
+     * {@link #reintegrateTearOutItem} restores the same live instance at its stored home
      * position. Closing by the immutable window NAME covers the not-yet-connected window too.
      * @returns {Promise<{returned: Boolean, errors: String[]}>}
      */
@@ -2321,7 +2383,7 @@ class FleetCockpit extends Container {
         }
 
         const
-            store   = me.getReference('fleet-grid')?.store,
+            store   = me.resolveFleetRosterStore(),
             current = store?.get(me.detailRecord.agentId) ?? null;
 
         if (current !== me.detailRecord) {
@@ -2350,7 +2412,7 @@ class FleetCockpit extends Container {
         me.viewerWakeConsumer = null;
         me.viewerWakeBridge   = null;
 
-        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
+        me.resolveFleetRosterStore()?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         Neo.currentWorker.un({
             connect   : me.onWindowConnect,
@@ -2504,7 +2566,10 @@ class FleetCockpit extends Container {
      * @protected
      */
     async loadRoster() {
-        let me     = this,
+        let me = this,
+            // the WRITE authority is the provider-owned Store — a torn/absent grid must not stop
+            // live ingest (round-2 RA-1: the projected child renders, it never owns the roster)
+            store  = me.resolveFleetRosterStore(),
             grid   = me.getReference('fleet-grid'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
@@ -2512,7 +2577,7 @@ class FleetCockpit extends Container {
         // read. See {@link #gridReadGeneration}.
         const generation = ++me.gridReadGeneration;
 
-        if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
+        if (!store || typeof bridge?.fleetRoster !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so. Absence is a
             // DISTINCT transition from a thrown call, and it owns the same retraction duty: a
             // never-wired surface's retained ANSWERED cause ("server connected · registry
@@ -2572,10 +2637,10 @@ class FleetCockpit extends Container {
             me.rosterSourceMode = 'selected';
 
             if (me.rosterWired) {
-                me.reconcileRoster(grid.store, mapped)
+                me.reconcileRoster(store, mapped)
             } else {
-                grid.store.clear();
-                mapped.length > 0 && grid.store.add(mapped);
+                store.clear();
+                mapped.length > 0 && store.add(mapped);
                 me.rosterWired = true;
                 // the first live snapshot replaces the sample seed wholesale — re-seat or clear a
                 // selection made against a now-removed sample record (reconcileRoster owns the later reconciles)
@@ -2583,16 +2648,32 @@ class FleetCockpit extends Container {
             }
 
             me.gridAdapterState = 'live';
-            grid.adapterState   = 'live';
+            // rendering-only writes: the grid is a PROJECTION of the store's truth — torn/absent,
+            // it simply has nothing to paint, and the ingest above happened regardless
+            grid && (grid.adapterState = 'live');
             // the presence-CAPABILITY envelope rides every admitted snapshot onto the grid's chip:
             // a degraded producer gets NAMED at roster level (every band correctly vanished — the
             // "no one is online" operator falsifier), and a recovered producer clears it on the
             // next poll. Absent/malformed envelopes plumb null — the chip claims nothing.
-            grid.presenceCapability = capabilities?.presence ?? null;
-            me.getReference('catch-up')?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
+            grid && (grid.presenceCapability = capabilities?.presence ?? null);
+            me.getCatchUpPane()?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
             me.getMemoriesPane()?.set({agentOptions: me.buildMemoriesAgentOptions()});
             // the activity rows' actor chips join the same roster truth (avatar + display name)
             me.getReference('activity-stream')?.set({actorDirectory: me.buildActivityActorDirectory()});
+            // resident panes snapshot their roster-derived options at projection time, which can
+            // precede this first live answer — every consumer refreshes here, the mailbox included
+            // (recipients grow beyond the boot-time AGENT:* sentinel), and the seat-conflation
+            // posture re-derives against the roster that can now actually judge it.
+            me.getOperatorMailboxPane()?.set({recipientOptions: me.buildOperatorRecipientOptions()});
+            if (me.operatorRecord) {
+                me.operatorIdentityPosture = me.deriveOperatorIdentityPosture(me.operatorRecord.agentIdentityNodeId);
+                me.getOperatorMailboxPane()?.set({identityPosture: me.operatorIdentityPosture})
+            }
+            // a resident CatchUp can emit its construction-time history request BEFORE the bridge
+            // wires (the cold-before-bridge ordering); that one-shot miss recovers the moment the
+            // bridge answers, through the pane's own guarded refresh path — the Reconnect
+            // affordance's documented re-drive, fired automatically at bridge arrival.
+            me.catchUpSnapshot?.capability?.state === 'unavailable' && me.getCatchUpPane()?.onRefreshClick();
             me.clearDegradedReason('grid')
         } catch (error) {
             // fenced: a slow failure must not overwrite a newer success (see the stream twin)
@@ -2618,7 +2699,7 @@ class FleetCockpit extends Container {
      * @returns {Object}
      */
     buildActivityActorDirectory() {
-        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+        const rows = this.resolveFleetRosterStore()?.items ?? [];
 
         return Object.fromEntries(rows
             .filter(row => row.agentId)
@@ -2637,7 +2718,7 @@ class FleetCockpit extends Container {
      * @returns {Object[]}
      */
     buildOperatorRecipientOptions() {
-        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+        const rows = this.resolveFleetRosterStore()?.items ?? [];
 
         return [
             {id: 'AGENT:*', name: 'All agents (broadcast)'},
@@ -2653,7 +2734,7 @@ class FleetCockpit extends Container {
      * @returns {Object[]}
      */
     buildCatchUpPartitionOptions() {
-        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+        const rows = this.resolveFleetRosterStore()?.items ?? [];
 
         return rows
             .filter(row => row.githubUsername)
@@ -2672,7 +2753,7 @@ class FleetCockpit extends Container {
      * @returns {Object[]}
      */
     buildMemoriesAgentOptions() {
-        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+        const rows = this.resolveFleetRosterStore()?.items ?? [];
 
         return rows
             .filter(row => row.githubUsername)
@@ -2937,15 +3018,33 @@ class FleetCockpit extends Container {
     /**
      * @summary Focus the existing bounded live Activity surface as adjacency. No history citation is
      * injected into it and no alternate historical authority is implied.
+     *
+     * The stream is a resident south tab, so adjacency ACTIVATES its tab first: the jump usually
+     * originates from a sibling reading surface (catch-up) whose tab is active, and focusing the
+     * inactive card's unmounted DOM would be a silent no-op.
      * @param {Object} request `{target}`
-     * @returns {{opened: Boolean, target: String}}
+     * @returns {Promise<{opened: Boolean, target: String}>}
      */
-    openCatchUpLiveSurface({target} = {}) {
-        const stream = target === 'activity-stream' ? this.getReference('activity-stream') : null;
+    async openCatchUpLiveSurface({target} = {}) {
+        const me     = this,
+              stream = target === 'activity-stream' ? me.getReference('activity-stream') : null;
 
-        stream?.focus(stream.id, false, true);
+        if (!stream) {
+            return {opened: false, target: target || 'unknown'}
+        }
 
-        return {opened: Boolean(stream), target: target || 'unknown'}
+        const strip = me.down({dockNodeId: 'stream-tabs'}),
+              index = me.dockModel?.nodes?.['stream-tabs']?.items?.indexOf('stream') ?? -1;
+
+        if (strip && index > -1 && strip.activeIndex !== index) {
+            strip.activeIndex = index;
+            // the card layout mounts the newly active item asynchronously; focus needs the DOM
+            await me.timeout(50)
+        }
+
+        stream.focus(stream.id, false, true);
+
+        return {opened: true, target}
     }
 
     /**
@@ -3014,8 +3113,8 @@ class FleetCockpit extends Container {
      * (never a viewer-default — a self-default at a trust boundary is spoof-adjacent), so the cockpit first
      * learns its own @-id via `resolveViewerIdentity`, then the pane passes it and the mirror's admission
      * re-stamps + proves it. Pushing the record to a materialized pane drives its first read (the pane fires
-     * `inboxPageRequest` on a newly-bound identity); an autoHidden pane materializes from the held record on
-     * reveal. Fail-closed: an unwired source / unbound context / absent bridge leaves `operatorRecord` null,
+     * `inboxPageRequest` on a newly-bound identity); a pane a custom document dropped materializes from the
+     * held record at its next projection. Fail-closed: an unwired source / unbound context / absent bridge leaves `operatorRecord` null,
      * so the pane stays honestly unobserved — never a fabricated or fallback identity.
      * @protected
      */
@@ -3044,8 +3143,9 @@ class FleetCockpit extends Container {
             // already holds knows every registered agent identity, and a viewer claim matching one
             // means sends are attributed to that seat — a truth the pane must render, not swallow
             me.operatorIdentityPosture = me.deriveOperatorIdentityPosture(nodeId);
-            // a materialized pane picks up the identity live and reads; an autoHidden one materializes from
-            // the held record on reveal
+            // a materialized pane picks up the identity live and reads; when this resolution loses
+            // the boot race instead, the resident pane already projected without a record and takes
+            // the identity through this same live set — both orderings land exactly one first read
             me.getOperatorMailboxPane()?.set({record: me.operatorRecord, identityPosture: me.operatorIdentityPosture})
         }
     }
@@ -3062,7 +3162,7 @@ class FleetCockpit extends Container {
      * @returns {{conflated: Boolean, seatIdentity: String}|null}
      */
     deriveOperatorIdentityPosture(viewerIdentity) {
-        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+        const rows = this.resolveFleetRosterStore()?.items ?? [];
 
         if (typeof viewerIdentity !== 'string' || !viewerIdentity.trim() || rows.length < 1) {
             return null
@@ -3369,7 +3469,7 @@ class FleetCockpit extends Container {
         // manual pane action — the dead-pane gap. Each pane's own refresh handler carries its
         // guards (active agent / partition), so re-driving through it is exactly the button's path.
         me.getMemoriesPane()?.onRefreshClick();
-        me.getReference('catch-up')?.onRefreshClick();
+        me.getCatchUpPane()?.onRefreshClick();
         me.getReference('wakeRoutes')?.onRefreshClick()
     }
 

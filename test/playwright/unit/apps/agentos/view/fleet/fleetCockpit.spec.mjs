@@ -213,10 +213,15 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     const makeCockpit = (grid, rosterWired = false, gridAdapterState = 'sample', rosterSourceMode = 'sample') => ({
         clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
         degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
-        // the memories owner push routes through the phase-blind accessor; an
+        // the resident-pane owner pushes route through the phase-blind accessors; an
         // unmaterialized pane resolves null — the same silence contract as getReference
-        getMemoriesPane: () => null,
-        getReference   : reference => reference === 'fleet-grid' ? grid : null,
+        getCatchUpPane        : () => null,
+        getMemoriesPane       : () => null,
+        getOperatorMailboxPane: () => null,
+        getReference          : reference => reference === 'fleet-grid' ? grid : null,
+        // the provider-owned roster authority: in this fixture the grid's bound store IS the
+        // provider store, so the builders read the same truth the reconcile writes
+        resolveFleetRosterStore: () => grid?.store ?? null,
         // mirrors the class field default — the loss edge reads it to keep a never-wired surface
         // on its honest sample seed instead of claiming last-known data
         gridAdapterState,
@@ -621,7 +626,13 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection: FleetCockpit.prototype.reconcileSelection,
             reconcilingRoster : false,
-            rosterWired       : false,
+            // the provider-owned roster authority — the SAME store the grid fake binds, so the
+            // write path, the listener latch and the selection re-seat all read one truth
+            resolveFleetRosterStore: () => store,
+            // resident-pane accessors: unmaterialized here — the same silence contract as getReference
+            getCatchUpPane        : () => null,
+            getOperatorMailboxPane: () => null,
+            rosterWired           : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
             syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
@@ -808,10 +819,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             makeHost = (detailRecord, storeGet) => {
                 const host = Object.create(FleetCockpit.prototype);
 
-                host.detailRecord = detailRecord;
-                host.getReference = name =>
-                    name === 'fleet-grid'   ? {store: {get: storeGet}} :
-                    name === 'agent-detail' ? detail : null;
+                host.detailRecord            = detailRecord;
+                host.resolveFleetRosterStore = () => ({get: storeGet});
+                host.getReference            = name => name === 'agent-detail' ? detail : null;
 
                 return host
             };
@@ -1276,17 +1286,21 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         const cockpit = {
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
-            // the memories owner push routes through the phase-blind accessor; an
+            // the resident-pane owner pushes route through the phase-blind accessors; an
             // unmaterialized pane resolves null — the same silence contract as getReference
-            getMemoriesPane   : () => null,
-            getReference      : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
-            gridAdapterState  : 'sample',
-            gridReadGeneration: 0,
-            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
-            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
-            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
-            loadRoster        : FleetCockpit.prototype.loadRoster,
-            rosterWired       : false,
+            getCatchUpPane        : () => null,
+            getMemoriesPane       : () => null,
+            getOperatorMailboxPane: () => null,
+            getReference          : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            // the provider-owned roster authority — the same REAL store the grid binds
+            resolveFleetRosterStore: () => store,
+            gridAdapterState       : 'sample',
+            gridReadGeneration     : 0,
+            mapRosterRow           : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster        : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection     : FleetCockpit.prototype.reconcileSelection,
+            loadRoster             : FleetCockpit.prototype.loadRoster,
+            rosterWired            : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
             syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
@@ -1607,8 +1621,9 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             loadBrainHealth       : () => driven.push('brainHealth'),
             loadRoster            : () => driven.push('roster'),
             ensureViewerWakeStream: () => driven.push('viewerWake'),
-            // the memories re-drive routes through the phase-blind accessor: a vesseled
+            // the resident-pane re-drives route through the phase-blind accessors: a vesseled
             // pane must receive the reconnect re-drive too, so the seam is the accessor, not the raw reference
+            getCatchUpPane : () => panes['catch-up'],
             getMemoriesPane: () => panes.memories,
             getReference   : reference => panes[reference] ?? null
         });
@@ -1626,6 +1641,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             loadBrainHealth       : () => driven.push('brainHealth'),
             loadRoster            : () => driven.push('roster'),
             ensureViewerWakeStream: () => driven.push('viewerWake'),
+            getCatchUpPane        : () => null,
             getMemoriesPane       : () => null,
             getReference          : () => null
         });
@@ -2687,8 +2703,8 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
 
     // --- buildOperatorRecipientOptions: the live roster → @githubUsername identity mapping -------------
 
-    test('recipients · no roster grid yet → only the broadcast sentinel', () => {
-        const owner = {getReference: () => null};
+    test('recipients · no provider roster yet → only the broadcast sentinel', () => {
+        const owner = {resolveFleetRosterStore: () => null};
 
         expect(FleetCockpit.prototype.buildOperatorRecipientOptions.call(owner)).toEqual([
             {id: 'AGENT:*', name: 'All agents (broadcast)'}
@@ -2703,7 +2719,7 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
             {agentId: 'grace', githubUsername: 'neo-claude-opus'},
             {agentId: 'guest'}
         ];
-        const owner = {getReference: reference => reference === 'fleet-grid' ? {store: {items}} : null};
+        const owner = {resolveFleetRosterStore: () => ({items})};
 
         expect(FleetCockpit.prototype.buildOperatorRecipientOptions.call(owner)).toEqual([
             {id: 'AGENT:*',          name: 'All agents (broadcast)'},
@@ -2830,7 +2846,8 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
                   operatorRecord               : null,
                   deriveOperatorIdentityPosture: FleetCockpit.prototype.deriveOperatorIdentityPosture,
                   getReference                 : () => null,
-                  getOperatorMailboxPane       : () => pane
+                  getOperatorMailboxPane       : () => pane,
+                  resolveFleetRosterStore      : () => null
               };
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
@@ -2855,17 +2872,20 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         expect(cockpit.operatorRecord, 'a refusal leaves the pane honestly unobserved, never a fallback identity').toBe(null)
     });
 
-    test('identity · an autoHidden pane (not materialized at boot) still seeds the record for a reveal-time read', async () => {
+    test('identity · a not-yet-materialized pane (torn, or dropped by a custom document) still seeds the record for a projection-time read', async () => {
         setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: '@neo-opus-grace'})});
 
-        // the pane is not materialized yet (accessor → null); the `?.set` no-ops but the record is held
-        // owner-side (with the possession authority), so a later projection materializes the pane and reads.
-        // The posture derive rides the same resolution over the cockpit surface (an absent grid → null posture).
+        // the pane resolves null (the resident tab normally exists at identity time, but a torn
+        // vessel mid-flight or a memories-less custom document leaves the accessor empty); the
+        // `?.set` no-ops but the record is held owner-side (with the possession authority), so the
+        // next projection materializes the pane and reads. The posture derive rides the same
+        // resolution over the cockpit surface (an empty provider roster → null posture).
         const cockpit = {
             operatorRecord               : null,
             deriveOperatorIdentityPosture: FleetCockpit.prototype.deriveOperatorIdentityPosture,
             getReference                 : () => null,
-            getOperatorMailboxPane       : () => null
+            getOperatorMailboxPane       : () => null,
+            resolveFleetRosterStore      : () => null
         };
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
@@ -2883,7 +2903,7 @@ test.describe('Fleet cockpit — operator-seat identity posture (the conflation 
     });
 
     const derive = (viewerIdentity, rows) => FleetCockpit.prototype.deriveOperatorIdentityPosture.call(
-        {getReference: reference => reference === 'fleet-grid' ? {store: {items: rows}} : null},
+        {resolveFleetRosterStore: () => ({items: rows})},
         viewerIdentity
     );
 
@@ -2905,7 +2925,7 @@ test.describe('Fleet cockpit — operator-seat identity posture (the conflation 
               me     = {
                   isDestroyed                  : false,
                   deriveOperatorIdentityPosture: FleetCockpit.prototype.deriveOperatorIdentityPosture,
-                  getReference                 : reference => reference === 'fleet-grid' ? {store: {items: ROWS}} : null,
+                  resolveFleetRosterStore      : () => ({items: ROWS}),
                   getOperatorMailboxPane       : () => ({set: config => pushes.push(config)})
               },
               previousNs = globalThis.AgentOS;

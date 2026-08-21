@@ -25,7 +25,7 @@ export function resolveCitationTarget(citation) {
 }
 
 /**
- * The invoked S3 Fleet catch-up surface.
+ * The resident S3 Fleet catch-up reading surface (a south-strip tab).
  *
  * @summary Renders two source-owned `notAuthority` Bird View envelopes without synthesizing,
  * ranking, merging, or caching them. The pane owns only local projection Stores: one record per
@@ -196,8 +196,11 @@ class CatchUpPane extends Container {
     partitionStore = null
 
     /**
-     * @summary Create the two pane-local Stores, render held owner state, then request history. An
-     * auto-hidden pane is constructed only when revealed, so this is invoked-not-ambient by layout.
+     * @summary Create the two pane-local Stores, render held owner state, then request history. A
+     * resident south-tab pane constructs at projection time, so this first request can fire BEFORE
+     * the fleet bridge wires; the owning cockpit re-drives history at bridge arrival (and via the
+     * Reconnect affordance), so the cold-before-bridge ordering recovers instead of pinning the
+     * unavailable envelope.
      * @param {...*} args
      */
     onConstructed(...args) {

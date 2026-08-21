@@ -160,8 +160,8 @@ class MemoriesPane extends Container {
 
     /**
      * @summary Create the pane-local Store and render held owner state. No read fires here:
-     * choosing an agent is the explicit first act, so an auto-hidden pane construction never
-     * queries the plane on its own.
+     * choosing an agent is the explicit first act, so pane construction never queries the plane
+     * on its own — a resident tab constructs at projection time, before any operator intent.
      * @param {...*} args
      */
     onConstructed(...args) {

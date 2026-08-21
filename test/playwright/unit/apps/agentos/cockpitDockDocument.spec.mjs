@@ -36,15 +36,19 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
         expect(fleetSize / streamSize).toBeCloseTo(1.55, 1) // ~1.55 : 1
     });
 
-    test('declares the secondary chrome panes autoHidden (the #14617 rail input); primaries are not', () => {
+    test('declares the inspector + tool chrome autoHidden (the #14617 rail input); primaries and reading surfaces are not', () => {
         const {items} = cockpitDockDocument();
 
         const autoHidden = Object.entries(items).filter(([, i]) => i.autoHidden === true).map(([id]) => id);
-        expect(autoHidden.length).toBeGreaterThan(0);
-        expect(autoHidden).toEqual(expect.arrayContaining(['detail', 'perspectives', 'defineAgent', 'catchUp']));
+        expect(autoHidden.sort()).toEqual(['defineAgent', 'detail', 'perspectives', 'wakeRoutes']);
 
         expect(items.fleet.autoHidden).toBeUndefined();
-        expect(items.stream.autoHidden).toBeUndefined()
+        expect(items.stream.autoHidden).toBeUndefined();
+
+        // reading surfaces are resident south tabs, never rail-collapsed
+        expect(items.memories.autoHidden).toBeUndefined();
+        expect(items.operator.autoHidden).toBeUndefined();
+        expect(items.catchUp.autoHidden).toBeUndefined()
     });
 
     test('carries the S5 define-agent zone: rail-resident, invoked-not-ambient tool chrome (the design ruling)', () => {
@@ -64,18 +68,19 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
         expect(doc.nodes['stream-tabs'].items).not.toContain('defineAgent')
     });
 
-    test('carries S3 catch-up as invoked rail chrome, never ambient cockpit density', () => {
+    test('carries the south reading-surface family: resident tabs beside Activity, Activity active', () => {
         const doc = cockpitDockDocument();
 
-        expect(doc.items.catchUp).toEqual({
-            componentRef: 'catch-up',
-            title       : 'Catch up',
-            kind        : 'tool',
-            autoHidden  : true
-        });
-        expect(doc.nodes['secondary-rail'].items).toContain('catchUp');
-        expect(doc.nodes['fleet-tabs'].items).not.toContain('catchUp');
-        expect(doc.nodes['stream-tabs'].items).not.toContain('catchUp')
+        expect(doc.items.memories).toEqual({componentRef: 'memories',         title: 'Memories', kind: 'panel'});
+        expect(doc.items.operator).toEqual({componentRef: 'operator-mailbox', title: 'Mailbox',  kind: 'panel'});
+        expect(doc.items.catchUp).toEqual({componentRef: 'catch-up',          title: 'Catch up', kind: 'panel'});
+
+        expect(doc.nodes['stream-tabs'].items).toEqual(['stream', 'memories', 'operator', 'catchUp']);
+        expect(doc.nodes['stream-tabs'].activeItemId).toBe('stream');
+
+        // the rail is inspector + invoked tools only — reading surfaces never squeeze onto it
+        expect(doc.nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'wakeRoutes']);
+        expect(doc.nodes['fleet-tabs'].items).toEqual(['fleet'])
     });
 
     test('is pure data — a fresh, equal document each call (no shared mutable singleton)', () => {

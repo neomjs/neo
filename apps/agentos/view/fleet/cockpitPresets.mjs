@@ -5,7 +5,9 @@ import cockpitDockDocument from './cockpitDockDocument.mjs';
  * The Fleet Cockpit's seeded perspective presets — the §01 duty variants as pure
  * `dockLayoutCollection.v1` data over the landed saved-layout wrappers:
  *
- * - **Fleet** — the default mission-control split (the authored dock document, unchanged).
+ * - **Overview** — the default mission-control split (the authored dock document, unchanged).
+ *   Named so the preset reads as a LAYOUT control: the former "Fleet" name collided with the
+ *   Fleet keeper tab while meaning something else entirely.
  * - **Focus** — the fleet zone dominant: the ranked roster takes nearly the full column, the
  *   activity stream stays a thin live strip (watching the fleet, not the feed).
  * - **Review** — one agent under review: the right chrome band opens on the agent-detail pane
@@ -19,10 +21,10 @@ import cockpitDockDocument from './cockpitDockDocument.mjs';
  * thrown loudly (an authored preset that fails validation is a build-time defect, not a
  * runtime condition).
  *
- * @returns {Object} a fresh `neo.harness.dockLayoutCollection.v1` collection, `fleet` active
+ * @returns {Object} a fresh `neo.harness.dockLayoutCollection.v1` collection, `overview` active
  */
 export function cockpitPresetCollection() {
-    const fleetDoc = cockpitDockDocument();
+    const overviewDoc = cockpitDockDocument();
 
     const focusDoc = cockpitDockDocument();
     focusDoc.nodes['primary-split'].sizes = [0.85, 0.15];
@@ -32,9 +34,9 @@ export function cockpitPresetCollection() {
     reviewDoc.items.detail.autoHidden      = false;
 
     const layouts = [
-        {document: fleetDoc,  layoutId: 'fleet',  perspectiveName: 'Fleet',  title: 'Fleet — mission control'},
-        {document: focusDoc,  layoutId: 'focus',  perspectiveName: 'Focus',  title: 'Focus — roster dominant'},
-        {document: reviewDoc, layoutId: 'review', perspectiveName: 'Review', title: 'Review — one agent + the trail'}
+        {document: overviewDoc, layoutId: 'overview', perspectiveName: 'Overview', title: 'Overview — mission control'},
+        {document: focusDoc,    layoutId: 'focus',    perspectiveName: 'Focus',    title: 'Focus — roster dominant'},
+        {document: reviewDoc,   layoutId: 'review',   perspectiveName: 'Review',   title: 'Review — one agent + the trail'}
     ].map(({document, layoutId, perspectiveName, title}) => {
         const {layout, errors} = DockZoneModel.createSavedLayout(document, {
             layoutId,
@@ -51,7 +53,7 @@ export function cockpitPresetCollection() {
     });
 
     const {collection, errors} = DockZoneModel.createSavedLayoutCollection(layouts, {
-        activeLayoutId: 'fleet',
+        activeLayoutId: 'overview',
         metadata      : {owner: 'fm-cockpit'}
     });
 

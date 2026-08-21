@@ -304,24 +304,26 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
     test('vessel death brings the item HOME — same instance, no orphan under the dead view, semantic fallback placement', async () => {
         vessel = installWindowVessel();
 
-        const streamPane = cockpit.getReference('activity-stream');
-        const zone       = await tearOutExit('stream');
+        // 'fleet' lives ALONE in fleet-tabs — detaching it empties and collapses its node,
+        // which is exactly the pre-state the semantic-fallback return path exists for
+        const fleetPane = cockpit.getReference('fleet-grid');
+        const zone      = await tearOutExit('fleet');
 
-        cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
+        cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'fleet', sortZone: zone});
 
-        // capture rode the detach commit: 'stream' lived alone in stream-tabs at index 0
-        expect(cockpit.tearOutPlacements.stream).toEqual({tabsNodeId: 'stream-tabs', index: 0});
+        // capture rode the detach commit: 'fleet' lived alone in fleet-tabs at index 0
+        expect(cockpit.tearOutPlacements.fleet).toEqual({tabsNodeId: 'fleet-tabs', index: 0});
 
         vessel.restore();
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=stream&cockpitId=${cockpit.id}`});
+        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=fleet&cockpitId=${cockpit.id}`});
 
         const mainView = Neo.create(Container, {});
         Neo.apps ??= {};
         Neo.apps['tearout-win-3'] = {mainView};
 
         await cockpit.onWindowConnect({windowId: 'tearout-win-3'});
-        expect(cockpit.tearOutPanes.stream.windowId).toBe('tearout-win-3');
-        expect(mainView.items).toContain(streamPane);
+        expect(cockpit.tearOutPanes.fleet.windowId).toBe('tearout-win-3');
+        expect(mainView.items).toContain(fleetPane);
 
         cockpit.onWindowDisconnect({windowId: 'tearout-win-3'});
         await cockpit.refreshPromise;
@@ -329,50 +331,39 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
         // A window disconnect does NOT destroy the popup application or its view tree — the
         // worker only fires the event — so the captured pane survives LIVE and comes HOME:
         // the same instance, out of the dead vessel's view, back in the projection. The
-        // emptied stream-tabs node collapsed at detach, so placement recovery is the SEMANTIC
+        // emptied fleet-tabs node collapsed at detach, so placement recovery is the SEMANTIC
         // fallback (a surviving tabs node), never a resurrected node, never geometry.
-        expect(mainView.items, 'the dead vessel view keeps no pane').not.toContain(streamPane);
-        expect(streamPane.isDestroyed, 'same-instance return: the pane is never destroyed').toBeFalsy();
-        expect(cockpit.getReference('activity-stream'), 'the projection resolves the ORIGINAL instance').toBe(streamPane);
-        expect(DockZoneModel.findContainingTabsId(cockpit.dockModel, 'stream'), 'the item is back in the tree').toBeTruthy();
+        expect(mainView.items, 'the dead vessel view keeps no pane').not.toContain(fleetPane);
+        expect(fleetPane.isDestroyed, 'same-instance return: the pane is never destroyed').toBeFalsy();
+        expect(cockpit.getReference('fleet-grid'), 'the projection resolves the ORIGINAL instance').toBe(fleetPane);
+        expect(DockZoneModel.findContainingTabsId(cockpit.dockModel, 'fleet'), 'the item is back in the tree').toBeTruthy();
 
         // every record is consumed exact-once
-        expect(cockpit.tearOutPanes.stream).toBeUndefined();
-        expect(cockpit.tearOutConnects.stream).toBeUndefined();
-        expect(cockpit.tearOutPaneHandles.stream).toBeUndefined();
-        expect(cockpit.tearOutPlacements.stream).toBeUndefined();
-        expect(cockpit.returningTearOutPanes.stream).toBeUndefined()
+        expect(cockpit.tearOutPanes.fleet).toBeUndefined();
+        expect(cockpit.tearOutConnects.fleet).toBeUndefined();
+        expect(cockpit.tearOutPaneHandles.fleet).toBeUndefined();
+        expect(cockpit.tearOutPlacements.fleet).toBeUndefined();
+        expect(cockpit.returningTearOutPanes.fleet).toBeUndefined()
     });
 
     test('a surviving home node gets the EXACT stored position back — not append order', async () => {
         vessel = installWindowVessel();
 
-        // pre-arrange a two-item strip so the emptied-node collapse cannot hide append-shaped
-        // returns: 'stream' at index 0 AHEAD of 'perspectives'
-        const arrange = cockpit.applyDockZoneOperation({operation: 'addTab', itemId: 'perspectives', tabsNodeId: 'stream-tabs'});
-
-        expect(arrange.errors).toEqual([]);
-        cockpit.onDockZoneDocumentChange(arrange.document);
-        await cockpit.refreshPromise;
-
-        const move = cockpit.applyDockZoneOperation({operation: 'moveItem', itemId: 'stream', targetNodeId: 'stream-tabs', index: 0});
-
-        expect(move.errors).toEqual([]);
-        cockpit.onDockZoneDocumentChange(move.document);
-        await cockpit.refreshPromise;
-        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['stream', 'perspectives']);
+        // the south strip ships 'stream' at index 0 AHEAD of three reading-surface
+        // siblings — the surviving-node pre-state where an append-shaped return cannot hide
+        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['stream', 'memories', 'operator', 'catchUp']);
 
         const zone = await tearOutExit('stream');
 
         cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
         expect(cockpit.tearOutPlacements.stream).toEqual({tabsNodeId: 'stream-tabs', index: 0});
-        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['perspectives']);
+        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['memories', 'operator', 'catchUp']);
 
         cockpit.tearOutPanes.stream = {windowName: `fm-tearout-stream-${cockpit.id}`, windowId: 'tearout-win-5'};
         cockpit.onWindowDisconnect({windowId: 'tearout-win-5'});
         await cockpit.refreshPromise;
 
-        expect(cockpit.dockModel.nodes['stream-tabs'].items, 'identical order, not append order').toEqual(['stream', 'perspectives'])
+        expect(cockpit.dockModel.nodes['stream-tabs'].items, 'identical order, not append order').toEqual(['stream', 'memories', 'operator', 'catchUp'])
     });
 
     test('the no-home terminal still settles ownership: a closed-out item\'s pane is destroyed, never orphaned', async () => {

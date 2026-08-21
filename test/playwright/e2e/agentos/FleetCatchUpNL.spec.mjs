@@ -5,6 +5,10 @@ import {
     fleetE2ESuccess,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
+// the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
+// the expectation imports the same helper instead of hard-coding either the UTC wire form or a
+// zone-dependent literal (browser and runner share the host zone)
+import {formatViewerTime} from '../../../../apps/agentos/view/fleet/viewerTime.mjs';
 
 const WINDOW = {
     semantics  : 'half-open',
@@ -116,18 +120,19 @@ async function startCatchUpFleet() {
 }
 
 /**
- * @summary Native Fleet catch-up journey: the real auto-hide rail invokes the pane; the App Worker
- * crosses the authenticated allowlisted bridge; a first-use choice yields two source-owned
- * `notAuthority` envelopes; per-agent partitioning changes the Memory read intent; the exact rendered
- * end advances the runtime-only anchor; and Live Activity focuses the existing bounded adjacency.
+ * @summary Native Fleet catch-up journey: activating the resident south-strip tab shows the pane;
+ * the App Worker crosses the authenticated allowlisted bridge; a first-use choice yields two
+ * source-owned `notAuthority` envelopes; per-agent partitioning changes the Memory read intent;
+ * the exact rendered end advances the runtime-only anchor; and Live Activity re-activates the
+ * stream tab and focuses the existing bounded adjacency.
  *
  * Run: NEO_E2E_PORT=49221 NEO_TEST_SKIP_CI=true npx playwright test agentos/FleetCatchUpNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-test.describe('AgentOS Fleet catch-up — authenticated rail journey (#14620)', () => {
+test.describe('AgentOS Fleet catch-up — authenticated resident-tab journey (#14620)', () => {
     test.setTimeout(120000);
     test.use({viewport: {width: 1600, height: 1000}});
 
-    test('rail → explicit window → independent envelopes → partition → mark → live adjacency', async ({page, neuralLink}) => {
+    test('tab → explicit window → independent envelopes → partition → mark → live adjacency', async ({page, neuralLink}) => {
         const fleet = await startCatchUpFleet();
 
         try {
@@ -141,9 +146,10 @@ test.describe('AgentOS Fleet catch-up — authenticated rail journey (#14620)', 
             expect(cockpit?.properties?.id).toBeTruthy();
             await app.callMethod(cockpit.properties.id, 'loadRoster');
 
-            const rail = page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Catch up'});
-            await expect(rail).toHaveCount(1);
-            await rail.click();
+            // resident south reading-surface tab (the navigation model): activate, never rail-reveal
+            const tab = page.getByRole('tab', {name: 'Catch up', exact: true});
+            await expect(tab).toHaveCount(1);
+            await tab.click();
 
             const pane = page.locator('.fm-catch-up-pane');
             await expect(pane).toBeVisible({timeout: 10000});
@@ -165,7 +171,7 @@ test.describe('AgentOS Fleet catch-up — authenticated rail journey (#14620)', 
             await expect(pane.locator('.fm-catch-up-source').nth(0)).toContainText('Memory history for @neo-opus-ada');
 
             await pane.getByRole('button', {name: 'Mark caught up'}).click();
-            await expect(pane).toContainText('Caught up through 2026-07-18 12:00Z');
+            await expect(pane).toContainText(`Caught up through ${formatViewerTime(WINDOW.windowEnd).text}`);
 
             await pane.getByRole('button', {name: 'Live activity'}).click();
             await expect.poll(() => page.locator('.fm-activity-stream').evaluate(element => document.activeElement === element))

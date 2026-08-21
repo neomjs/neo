@@ -129,9 +129,11 @@ class OperatorMailbox extends Container {
      *
      * The flush is load-bearing: `afterSetRecord`/`afterSetSnapshot`/`afterSetRecipientOptions` all return
      * early while `!isConstructed`, so `record`/`snapshot`/`recipientOptions` supplied as construction
-     * configs (the normal reveal-after-boot path, when the cockpit already holds the resolved operator
-     * identity) never reached the children — the pane materialized empty and could not pass possession.
-     * Flush them here, then a construction-time identity kicks its first read exactly as a live set does.
+     * configs (the identity-before-pane ordering, when the cockpit already holds the resolved operator
+     * identity as the resident pane projects) never reached the children — the pane materialized empty
+     * and could not pass possession. Flush them here, then a construction-time identity kicks its first
+     * read exactly as a live set does; the opposite ordering (pane projects first) lands its single
+     * first read through the cockpit's later live identity set instead.
      * @param {...*} args
      */
     onConstructed(...args) {
@@ -153,7 +155,7 @@ class OperatorMailbox extends Container {
         me.applyIdentityPosture();
 
         // a construction-time identity lands its first inbox read without a page gesture (afterSetRecord
-        // was skipped pre-construct, so this is the single fire for the reveal path)
+        // was skipped pre-construct, so this is the single fire for the identity-before-pane ordering)
         me.record && me.onInboxPageRequest({offset: 0})
     }
 

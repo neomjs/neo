@@ -204,16 +204,10 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             await app.callMethod(cockpitId, 'loadActivity');
             await app.callMethod(cockpitId, 'loadOperatorIdentity');
 
-            // Materialize the operator pane through the production reducer/commit pair. The pane
-            // stays ordinary dock content; no film-only product control or executor is introduced.
-            const pinResult = await app.callMethod(cockpitId, 'applyDockZoneOperation', [{
-                operation : 'setItemAutoHidden',
-                itemId    : 'operator',
-                autoHidden: false
-            }]);
-
-            expect(pinResult.errors).toEqual([]);
-            await app.callMethod(cockpitId, 'onDockZoneDocumentChange', [pinResult.document]);
+            // The operator pane is a resident south tab (the navigation model): activating its tab
+            // mounts the body through the production tab machinery. The pane stays ordinary dock
+            // content; no film-only product control or executor is introduced.
+            await page.getByRole('tab', {name: 'Mailbox', exact: true}).click();
 
             await expect.poll(async () => first(await app.queryComponent(
                 {className: 'AgentOS.view.fleet.OperatorMailbox'},
