@@ -1397,15 +1397,6 @@ function extractRequiredActions(body) {
 }
 
 /**
- * @summary Extracts a Round-2 body's disposition table as `{action, disposition}` rows, in order.
- *
- * Reads the SECOND-to-last cell as the verb and everything before it as the carried action, so a
- * table with or without a trailing Evidence column parses the same way. Separator rows (`|---|`) and
- * the header are dropped by requiring a known verb.
- * @param {String} body
- * @returns {Array<{action: String, disposition: String}>}
- */
-/**
  * @summary Collapses pipes and surrounding whitespace, so a parse-caused mismatch is recognisable.
  *
  * Both known cell-parse defects end the same way: a literal `|` inside a cell is treated as a
@@ -1519,15 +1510,18 @@ function splitTableRow(line) {
 const ROUND_2_ROW_LABEL_PATTERN = /^(?:§|#)?[ \t]*(?:RA[ _-]?)?\d+[a-z]?\.?$/i;
 
 /**
- * @summary Reads the Round-2 disposition table out of a review body.
+ * @summary Extracts a Round-2 body's disposition table as `{action, disposition}` rows, in order.
  *
- * Selection is deliberately loose and extraction strict. A candidate line is any table row carrying
- * one of the disposition verbs, because a body that got the table's SHAPE wrong still needs to reach
- * the validator and be told so — filtering on a well-formed table here would turn a reportable
- * template error into silence, and the round would then pass by producing no rows to check.
+ * Reads the SECOND-to-last cell as the verb and everything before it as the carried action, so a
+ * table with or without a trailing Evidence column parses the same way. Separator rows (`|---|`) and
+ * the header are dropped by requiring a known verb.
  *
+ * Selection is deliberately loose and extraction strict: a candidate line is any table row carrying
+ * one of the verbs, because a body that got the table's SHAPE wrong still has to reach the validator
+ * and be told so. Filtering on a well-formed table here would turn a reportable template error into
+ * silence, and the round would pass by producing no rows to check.
  * @param {String} body Review body markdown.
- * @returns {Object[]} One entry per disposition row, in document order.
+ * @returns {Array<{action: String, disposition: String}>} One entry per row, in document order.
  * @private
  */
 function extractDispositionRows(body) {
@@ -1877,12 +1871,6 @@ function getMicroDeltaPrReviewTemplateMisses(body) {
 }
 
 /**
- * @summary Returns a structured validation failure for malformed Micro-Delta review bodies.
- *
- * @param {String} body The candidate Micro-Delta PR review body.
- * @returns {Object|null} Validation failure payload or `null` when valid.
- */
-/**
  * @summary Validates an ordinary Round-2 disposition review against its own minimal floor.
  *
  * Round 2 gets its OWN tier rather than routing through the canonical path, for the same reason
@@ -1966,6 +1954,12 @@ function getRound2PrReviewTemplateValidationFailure(body) {
     }
 }
 
+/**
+ * @summary Returns a structured validation failure for malformed Micro-Delta review bodies.
+ *
+ * @param {String} body The candidate Micro-Delta PR review body.
+ * @returns {Object|null} Validation failure payload or `null` when valid.
+ */
 function getMicroDeltaPrReviewTemplateValidationFailure(body) {
     const missingMicroDelta = getMicroDeltaPrReviewTemplateMisses(body);
 
