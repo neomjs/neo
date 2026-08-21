@@ -942,12 +942,10 @@ class TextEmbeddingService extends Base {
                     const result = await this.#postOpenAiCompatible(task.inputData, task.options);
 
                     this.#openAiCompatibleInFlightTasks -= weight;
-                    this.#drainOpenAiCompatiblePostQueue();
                     task.lifecycle.onSettled({completedAt: Date.now(), success: true});
                     task.resolve(result);
                 } catch (err) {
                     this.#openAiCompatibleInFlightTasks -= weight;
-                    this.#drainOpenAiCompatiblePostQueue();
                     task.lifecycle.onSettled({completedAt: Date.now(), success: false});
 
                     // The queue task — not each transport attempt — owns final failure, so by the
@@ -967,6 +965,17 @@ class TextEmbeddingService extends Base {
             }
         } finally {
             this.#openAiCompatiblePostQueueWorkers--;
+
+            // Wake capacity once, on retirement, rather than after every settle. This worker's own
+            // loop already re-checks admission and picks up freed capacity itself, so a per-settle
+            // drain only ever spawned EXTRA workers — and doing that on every completed task kept
+            // creating async work during container teardown, which surfaced as a native
+            // `RemoveEnvironmentCleanupHook` assertion in the parity stack rather than as anything
+            // visible from the unit suite. Retirement is the only moment another worker is genuinely
+            // needed, and by then this one has awaited, so the count is live and cannot spin.
+            if (this.#openAiCompatiblePostQueue.length > 0) {
+                this.#drainOpenAiCompatiblePostQueue()
+            }
         }
     }
 
