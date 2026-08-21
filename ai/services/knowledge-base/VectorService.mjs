@@ -168,9 +168,9 @@ function resolveFailedRequestChunks({error, batchToEmbed, persistedCount = 0}) {
 }
 
 
-const TENANT_GUARDED_FIELDS             = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
-const STALE_STRATEGIES                  = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
-const STALE_STRATEGY_SKIP               = 'skip';
+const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
+const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
+const STALE_STRATEGY_SKIP   = 'skip';
 /**
  * Family prefix for the embedding input-strategy coordinate.
  *
@@ -694,7 +694,7 @@ class VectorService extends Base {
             return [chunk];
         }
 
-        const maxInputBytes   = Math.max(1, estimateBandTokens * 3),
+        const maxInputBytes = Math.max(1, estimateBandTokens * 3),
               // MEASURED from the header the provider will receive, never a restatement of its format.
               // A planner that carries its own copy budgets against a string that may not be the one
               // sent, and the two cannot be kept in step by review.
@@ -852,8 +852,8 @@ class VectorService extends Base {
      * @returns {{skip: Boolean, measured: Boolean, inputBytes: Number, inputTokensEstimate: Number, estimateBandTokens: Number|null, admissionCeilingTokens: Number|null}}
      */
     measureEmbeddingInput({text, guardrail}) {
-        const inputBytes          = Buffer.byteLength(text || '', 'utf8'),
-              inputTokensEstimate = bytesToTokens(inputBytes),
+        const inputBytes                                             = Buffer.byteLength(text || '', 'utf8'),
+              inputTokensEstimate                                    = bytesToTokens(inputBytes),
               {resolved, admissionCeilingTokens, estimateBandTokens} = resolveEmbeddingAdmissionBand(guardrail);
 
         if (!resolved) {
@@ -912,8 +912,8 @@ class VectorService extends Base {
             // has to re-derive the drift factor to understand why.
             admissionCeilingTokens,
             estimateBandTokens,
-            serviceDomain            : 'other',
-            note                     : unmeasurable
+            serviceDomain: 'other',
+            note         : unmeasurable
                 ? 'Embedding safe-processing band is unresolvable; refusing to send an unmeasured input.'
                 : 'KB embedding input exceeds safe processing band; split or reduce the source chunk before embedding.'
         });
@@ -1224,7 +1224,12 @@ class VectorService extends Base {
      *     through so one sweep's strikes, suspicions, and durable dispositions share one generation;
      *     absent, it is resolved once at entry from the same leaves.
      * @param {Function} [options.now] Clock seam for bounded poison receipts.
-     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[], poisonedChunks: Object[], deathGraduations: Object[], deathStrikeProgress: Object[]}>}
+     * @returns {Promise<{embedded: Number, settled: Number, remaining: Number, skipped: Number, yielded: Boolean, failedBatches: Object[], poisonedChunks: Object[], deathGraduations: Object[], deathStrikeProgress: Object[]}>}
+     *     `embedded` is newly landed work from THIS invocation. `settled` / `remaining` form the
+     *     cumulative partition of the unique accepted ids offered here: durable vectors, durable
+     *     poison fences and terminal guardrail skips are settled; failed, yielded and undispatched
+     *     ids remain. Keeping the two axes separate is what lets a resumed slice report prior
+     *     progress without inflating newly generated embeddings.
      *     `poisonedChunks` reports what was already fenced when the sweep started; `deathGraduations`
      *     reports what THIS sweep fenced on death-class evidence and why; `deathStrikeProgress` reports
      *     unfinished death evidence, with `pending` separating a recorded-but-unproven observation from
@@ -1250,13 +1255,20 @@ class VectorService extends Base {
         poisonGenerationId,
         now = Date.now
     }) {
+        const acceptedIds = new Set([
+            ...chunksToProcess.map(chunk => chunk.id),
+            ...knownPoisonEntries.map(entry => entry.chunkId)
+        ]);
+
         if (chunksToProcess.length === 0) {
             if (knownPoisonEntries.length === 0) {
-                return {embedded: 0, skipped: 0, yielded: false}
+                return {embedded: 0, settled: 0, remaining: 0, skipped: 0, yielded: false}
             }
 
             return {
                 embedded      : 0,
+                settled       : acceptedIds.size,
+                remaining     : 0,
                 skipped       : 0,
                 yielded       : false,
                 failedBatches : [],
@@ -1275,12 +1287,14 @@ class VectorService extends Base {
         // what this sweep fenced and on what evidence, so convergence is visible in the summary instead
         // of only as a repo-level failure count climbing with no stated reason.
         const deathGraduations = [];
-        const poisonedChunks                                                                  = knownPoisonEntries.map(entry => ({...entry}));
-        const poisonIds                                                                       = new Set(poisonedChunks.map(entry => entry.chunkId));
-        const preEmbeddedIds                                                                  = new Set();
-        let   embeddedCount                                                                   = 0;
-        let   skippedCount                                                                    = 0;
-        let   yielded                                                                         = false;
+        const poisonedChunks   = knownPoisonEntries.map(entry => ({...entry}));
+        const poisonIds        = new Set(poisonedChunks.map(entry => entry.chunkId));
+        const preEmbeddedIds   = new Set();
+        const landedIds        = new Set();
+        const skippedIds       = new Set();
+        let   embeddedCount    = 0;
+        let   skippedCount     = 0;
+        let   yielded          = false;
 
         // The undeliverable automaton's coordinates, resolved ONCE per sweep. Transient strike and
         // suspicion evidence must live under the same generation as the durable disposition it can
@@ -1387,6 +1401,7 @@ class VectorService extends Base {
 
                 if (result.skip) {
                     skippedCount++;
+                    skippedIds.add(input.chunk.id);
                 } else {
                     embeddable.push(input);
                 }
@@ -1474,6 +1489,7 @@ class VectorService extends Base {
                 }
 
                 embeddedCount += partialChunks.length;
+                partialChunks.forEach(chunk => landedIds.add(chunk.id));
 
                 return partialChunks.length
             };
@@ -1552,6 +1568,7 @@ class VectorService extends Base {
                     });
 
                     embeddedCount += batchToEmbed.length;
+                    batchToEmbed.forEach(chunk => landedIds.add(chunk.id));
                     logger.log(`Processed and embedded batch ${batchNumber} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${guardrailSkipped} skipped).`);
                     success = true;
                 } catch (err) {
@@ -1981,7 +1998,27 @@ class VectorService extends Base {
             pending: entry.pendingSeq !== null
         }));
 
-        return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches, poisonedChunks, deathGraduations, deathStrikeProgress};
+        const
+            settledIds  = new Set([
+                ...landedIds,
+                ...preEmbeddedIds,
+                ...poisonIds,
+                ...skippedIds
+            ]),
+            settled     = [...acceptedIds].reduce((count, id) => count + Number(settledIds.has(id)), 0),
+            remaining   = acceptedIds.size - settled;
+
+        return {
+            embedded: embeddedCount,
+            settled,
+            remaining,
+            skipped : skippedCount,
+            yielded,
+            failedBatches,
+            poisonedChunks,
+            deathGraduations,
+            deathStrikeProgress
+        };
     }
 
     /**
@@ -2027,6 +2064,7 @@ class VectorService extends Base {
         onPoisonEntries,
         poisonGenerationId
     }) {
+        const acceptedIds = new Set(knowledgeBase.map(chunk => chunk.id));
         const stateDir    = this.getResumeStateDir();
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
         const resumeState = await readResumeState({dir: stateDir});
@@ -2119,10 +2157,14 @@ class VectorService extends Base {
                 // (preserved-not-promoted), so githubWorkflowSync can write resources/content/ freely while we
                 // are yielded; the resumed run re-reads the updated corpus. Torn-read-free by the same shadow
                 // isolation that protects a normal run.
-                logger.log(`Yielded embedding work mid shadow-swap; preserving shadow '${shadowName}' for resume (${embedResult.embedded + alreadyEmbedded} embedded so far).`);
+                const settled = acceptedIds.size - embedResult.remaining;
+
+                logger.log(`Yielded embedding work mid shadow-swap; preserving shadow '${shadowName}' for resume (${settled} settled, ${embedResult.remaining} remaining).`);
                 return {
-                    message         : `KB embedding yielded at a cooperative boundary after ${embedResult.embedded + alreadyEmbedded} chunk(s); the next sweep resumes from the preserved shadow.`,
-                    embedded        : embedResult.embedded + alreadyEmbedded,
+                    message         : `KB embedding yielded at a cooperative boundary after ${settled} chunk(s) settled; the next sweep resumes ${embedResult.remaining} remaining chunk(s) from the preserved shadow.`,
+                    embedded        : embedResult.embedded,
+                    settled,
+                    remaining       : embedResult.remaining,
                     deleted         : idsToDeleteCount,
                     staleStrategy   : 'shadow-swap',
                     yielded         : true,
@@ -2157,7 +2199,9 @@ class VectorService extends Base {
                 logger.warn(`[VectorService] ${message}`);
                 return {
                     message,
-                    embedded        : embedResult.embedded + alreadyEmbedded,
+                    embedded        : embedResult.embedded,
+                    settled         : acceptedIds.size - embedResult.remaining,
+                    remaining       : embedResult.remaining,
                     deleted         : idsToDeleteCount,
                     staleStrategy   : 'shadow-swap',
                     shadowCollection: shadowName,
@@ -2199,7 +2243,9 @@ class VectorService extends Base {
 
             return {
                 message,
-                embedded           : embedResult.embedded + alreadyEmbedded,
+                embedded           : embedResult.embedded,
+                settled            : acceptedIds.size,
+                remaining          : 0,
                 deleted            : idsToDeleteCount,
                 staleStrategy      : 'shadow-swap',
                 shadowCollection   : shadowName,
@@ -2557,7 +2603,10 @@ class VectorService extends Base {
             return {
                 message,
                 embedded      : 0,
+                settled       : allIds.size,
+                remaining     : 0,
                 deleted       : 0,
+                yielded       : false,
                 poisonedChunks: knownPoisonEntries.map(entry => ({...entry}))
             };
         }
@@ -2612,8 +2661,13 @@ class VectorService extends Base {
         // that cannot see it reports a clean sync over a corpus with a hole in it.
         return {
             message,
-            embedded: embedResult.embedded,
-            deleted : idsToDelete.length,
+            embedded : embedResult.embedded,
+            // `embedded` is this call's newly landed delta. These two are the cumulative corpus
+            // partition: rows already in Chroma and durable poison fences were removed from
+            // `chunksToProcess` before the provider call, but still count as settled here.
+            settled  : allIds.size - embedResult.remaining,
+            remaining: embedResult.remaining,
+            deleted  : idsToDelete.length,
             failedBatches,
             poisonedChunks,
             // The discriminator between "this corpus is done" and "this slice stopped early". Dropping

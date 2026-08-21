@@ -136,7 +136,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
         expect(providerCalls, 'nothing to embed must reach the provider zero times').toBe(0);
         expect(spy.upsertedIds, 'and nothing may be written').toEqual([]);
-        expect(result).toEqual({embedded: 0, skipped: 0, yielded: false});
+        expect(result).toEqual({embedded: 0, settled: 0, remaining: 0, skipped: 0, yielded: false});
     });
 
     test('a poisoned batch is skipped and every LATER batch still embeds', async () => {
@@ -158,6 +158,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
         // The remainder is the whole point: batch 3 must not be collateral damage from batch 2.
         expect(result.embedded).toBe(100);
+        expect(result).toMatchObject({settled: 100, remaining: 50});
         expect(spy.upsertedIds).toContain('chunk-0');
         expect(spy.upsertedIds).toContain('chunk-149');
         expect(spy.upsertedIds).not.toContain('chunk-50');
@@ -195,6 +196,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
         expect(providerCalls).toBe(7);
         expect(result.embedded).toBe(3);
+        expect(result).toMatchObject({settled: 4, remaining: 0});
         expect(spy.upsertedIds.sort()).toEqual(['chunk-1', 'chunk-2', 'chunk-3']);
         expect(result.failedBatches).toEqual([]);
         expect(result.poisonedChunks).toEqual([{
@@ -254,6 +256,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
         expect(providerCalls).toBe(3);
         expect(result.embedded).toBe(2);
+        expect(result).toMatchObject({settled: 2, remaining: 0});
         expect(result.poisonedChunks).toEqual([]);
         expect(poisonWrites).toBe(0);
         expect(spy.upsertedIds.sort()).toEqual(['chunk-0', 'chunk-1']);
@@ -388,6 +391,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         const result = await KB_VectorService.embedChunks({collection: spy, chunksToProcess: chunks});
 
         expect(result.embedded).toBe(150);
+        expect(result).toMatchObject({settled: 150, remaining: 0});
         expect(result.failedBatches).toHaveLength(0);
         expect(spy.calls.upsert).toBe(3);
     });
@@ -590,6 +594,8 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
             const poisonResult = await runWith({
                 embedded      : 2,
+                settled       : 3,
+                remaining     : 0,
                 skipped       : 0,
                 yielded       : false,
                 failedBatches : [],
@@ -601,6 +607,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
             });
 
             expect(poisonResult.poisonedChunks).toHaveLength(1);
+            expect(poisonResult).toMatchObject({embedded: 2, settled: 3, remaining: 0});
             expect(poisonResult.message).toContain('preserved without promotion');
             expect(renames, 'poison-bearing shadow remains preserved and never promotes').toEqual([]);
 
@@ -611,8 +618,10 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
             };
             shadow.get = async () => ({ids: [restoredPoison.chunkId]});
 
-            await runWith({
+            const restoredResult = await runWith({
                 embedded      : 2,
+                settled       : 2,
+                remaining     : 0,
                 skipped       : 0,
                 yielded       : false,
                 failedBatches : [],
@@ -622,6 +631,9 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
             expect(observedKnownPoisonEntries,
                 'a vector already restored in the resumable shadow is not an unresolved poison hole')
                 .toEqual([]);
+            expect(restoredResult,
+                'the existing shadow row is cumulative settlement, never newly embedded work')
+                .toMatchObject({embedded: 2, settled: 3, remaining: 0});
         } finally {
             KB_VectorService.embedChunks                        = originalEmbedChunks;
             ChromaManager.client                                = originalClient;

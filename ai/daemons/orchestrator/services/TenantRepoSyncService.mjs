@@ -5,12 +5,11 @@ import Base                      from '../../../../src/core/Base.mjs';
 import AiConfig                  from '../../../config.mjs';
 import GitMirror                 from '../../../services/knowledge-base/helpers/gitMirror.mjs';
 import TextEmbeddingService      from '../../../services/memory-core/TextEmbeddingService.mjs';
-// The outstanding-chunk observable is derived from the run's OWN totals rather than recomputed here.
-// A second implementation of "which chunks are missing" can disagree with the embedder that produced
-// them, and a backlog figure that disagrees with the embedder is worse than none.
+// Settlement comes from the Vector result chain. Reconstructing it from current-call embeddings
+// forgets durable ids landed by prior slices — the exact resumed-slice defect this consumer reports.
 import {
-    deriveOutstanding,
-    describeCorpusOutstanding
+    describeCorpusOutstanding,
+    normalizeSettlementCounts
 }                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
 import {writeFileAtomic}          from '../../../services/shared/atomicFileWrite.mjs';
@@ -482,18 +481,9 @@ function createProviderTimeoutCircuitError() {
 /**
  * @summary Builds one repo's corpus-outstanding observation from the run's own ingestion summary.
  *
- * ## Why the mapping is not one-to-one with the summary's field names
- *
- * The summary carries primitives, not the derived pair: `ingested` (chunks accepted into the run),
- * `skippedOversized` (guardrail rejections that will never embed), and `embeddingsGenerated` (chunks
- * that actually landed). The progress projection derives `totalChunks` / `embeddedChunks` from those,
- * but that projection is a KB-server-process surface and cannot answer for this lane — so the mapping
- * happens here, from the primitives, once.
- *
- * `skippedOversized` appears on BOTH sides — inside the total and as the skip — so it cancels, and the
- * remainder is exactly "accepted minus embedded". Passing it explicitly rather than pre-subtracting it
- * keeps the intent legible: an oversized chunk is declined work, not outstanding work, and a backlog
- * that silently counted it could never reach zero.
+ * `remaining` is already derived from durable collection ids, closed fences, terminal skips, and
+ * current-call landings. Recomputing it as `ingested - embeddingsGenerated` is wrong on every resumed
+ * slice because the second term is intentionally per-call while the first is the full accepted corpus.
  *
  * @param {Object}      options
  * @param {Object}      options.summary   Ingestion summary returned by the run.
@@ -502,19 +492,17 @@ function createProviderTimeoutCircuitError() {
  * @returns {Object} The `describeCorpusOutstanding` observation.
  */
 function buildCorpusOutstandingObservation({summary, priorState, observedAt}) {
-    const
-        accepted = summary?.ingested,
-        skipped  = summary?.skippedOversized ?? 0,
-        embedded = summary?.embeddingsGenerated,
-        // Number.isFinite guards rather than `?? 0`: a summary missing these fields is UNMEASURED, and
-        // defaulting it to zero would publish "nothing outstanding" for a run nobody observed — the
-        // empty-is-not-success defect this observable exists to close.
-        total    = Number.isFinite(accepted) && Number.isFinite(skipped) ? accepted + skipped : undefined;
+    const counts = normalizeSettlementCounts({
+        accepted : summary?.ingested,
+        settled  : summary?.settled,
+        remaining: summary?.remaining
+    });
 
     return describeCorpusOutstanding({
-        outstanding: deriveOutstanding({total, embedded, skipped}),
+        settled  : counts?.settled ?? null,
+        remaining: counts?.remaining ?? null,
         observedAt,
-        previous   : priorState?.corpusOutstanding ?? null
+        previous : priorState?.corpusOutstanding ?? null
     })
 }
 

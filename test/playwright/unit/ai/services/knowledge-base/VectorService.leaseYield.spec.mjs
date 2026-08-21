@@ -135,6 +135,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         // Only the i=0 batch embedded before the i>0 checkpoint yielded — never zero (no livelock).
         expect(result.yielded).toBe(true);
         expect(result.embedded).toBe(50);
+        expect(result).toMatchObject({settled: 50, remaining: 100});
         expect(spy.calls.upsert).toBe(1);
         expect(spy.upsertedIds).toHaveLength(50);
     });
@@ -153,6 +154,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
 
         expect(result.yielded).toBe(true);
         expect(result.embedded).toBe(100); // the i=0 and i=50 batches landed
+        expect(result).toMatchObject({settled: 100, remaining: 100});
         expect(spy.calls.upsert).toBe(2);
     });
 
@@ -180,6 +182,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
 
             expect(result.yielded).toBe(true);
             expect(result.embedded, 'the delay completed before batch 2, so only batch 1 may land').toBe(2);
+            expect(result).toMatchObject({settled: 2, remaining: 4});
             expect(spy.calls.upsert).toBe(1);
         } finally {
             KB_VectorService.timeout = originalTimeout
@@ -194,6 +197,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
 
         expect(result.yielded).toBe(false);
         expect(result.embedded).toBe(150);
+        expect(result).toMatchObject({settled: 150, remaining: 0});
         expect(spy.calls.upsert).toBe(3);
     });
 
@@ -245,6 +249,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         // Progress made before the yield is durable and is what `selectResumableChunks` skips next sweep:
         // batch 1 in full, plus the 5 inputs batch 2 completed before releasing.
         expect(result.embedded).toBe(55);
+        expect(result).toMatchObject({settled: 55, remaining: 95});
         expect(spy.calls.upsert).toBe(2);
         expect(spy.upsertedIds).toHaveLength(55);
     });
@@ -281,6 +286,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(embedCalls, 'batches 3 and 4 must not run').toBe(2);
         expect(result.yielded).toBe(true);
         expect(result.embedded, 'batch 1 in full, plus the 5 inputs batch 2 completed before releasing').toBe(55);
+        expect(result).toMatchObject({settled: 55, remaining: 145});
         expect(spy.calls.upsert).toBe(2);
     });
 
@@ -309,6 +315,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(embedCalls).toBe(3);
         expect(result.yielded).toBe(false);
         expect(result.embedded).toBe(50);
+        expect(result).toMatchObject({settled: 50, remaining: 0});
     });
 
     test('an inner yield PERSISTS the chunks it already paid for (#16822)', async () => {
@@ -336,6 +343,7 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         // worse than the livelock.
         expect(result.yielded).toBe(true);
         expect(result.embedded, 'completed provider work must count as embedded').toBe(10);
+        expect(result).toMatchObject({settled: 10, remaining: 40});
         expect(spy.upsertedIds).toEqual(chunks.slice(0, 10).map(chunk => chunk.id));
 
         // Each id must carry ITS OWN vector. With an all-zero embedder the assertion above passes under a

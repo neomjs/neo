@@ -1,7 +1,7 @@
 /**
  * @module ai/services/knowledge-base/helpers/corpusOutstanding
- * @summary Pure decision for the corpus-outstanding observable — how many chunks of a corpus are known
- * but not yet embedded, plus the movement stamp a consumer needs to judge whether that backlog is moving.
+ * @summary Pure decisions for cumulative corpus settlement — how many accepted chunks are settled,
+ * how many remain, and the movement stamp a consumer needs to judge whether that remainder is moving.
  * It reports a state, never a trend. The number this answers with
  * already exists inside every ingest run (`VectorService` derives `chunksToProcess` from the parsed corpus
  * against the ids present in Chroma, and the lease-yield path logs the remainder) and is then discarded
@@ -26,10 +26,9 @@
  *
  * ## The unknown/zero distinction is the whole safety property
  *
- * An unmeasurable backlog MUST NOT render as `0`. A zero means "every known chunk is embedded"; an unknown
- * means "nobody asked". Collapsing them recreates the empty-is-not-success defect one layer up — a caller
- * trusting a number that actually means nothing was observed. `observable: false` carries null counts and
- * its own state rather than a reassuring number.
+ * An unmeasurable backlog MUST NOT render as `0`. A zero means "every accepted chunk is settled"; an
+ * unknown means "nobody established the tuple". Collapsing them recreates the empty-is-not-success defect
+ * one layer up. `observable: false` carries null counts and its own state rather than a reassuring number.
  */
 
 /**
@@ -46,11 +45,11 @@
  *
  * Each state has exactly one coherent tuple, enforced at both trust boundaries:
  *
- * | state          | outstanding | observable |
- * |----------------|-------------|------------|
- * | `complete`     | `0`         | `true`     |
- * | `outstanding`  | `> 0`       | `true`     |
- * | `unobservable` | `null`      | `false`    |
+ * | state          | settled | remaining / outstanding | observable |
+ * |----------------|---------|-------------------------|------------|
+ * | `complete`     | `>= 0`  | `0`                     | `true`     |
+ * | `outstanding`  | `>= 0`  | `> 0`                   | `true`     |
+ * | `unobservable` | `null`  | `null`                  | `false`    |
  *
  * @type {Object}
  */
@@ -61,44 +60,25 @@ export const OUTSTANDING_STATE = Object.freeze({
 });
 
 /**
- * @summary Derives the outstanding-chunk count for a completed ingest run from the delta the run already had.
+ * @summary Validates one exact partition of an accepted corpus into settled and remaining chunks.
  *
- * Deliberately takes the run's own numbers rather than recomputing a delta: a second implementation of
- * "which chunks are missing" can disagree with the one that did the embedding, and a backlog figure that
- * disagrees with the embedder is worse than none. `total` is the post-delta work volume the run started with
- * (`chunksToProcess.length`), not the corpus size.
+ * This is the consumed boundary between Vector and Ingestion. Safe integers are required because these
+ * values persist into operator state; exact equality is required because either under- or over-crediting
+ * changes whether a repo is retried. Missing legacy fields and malformed present fields are distinguished
+ * by the caller — this helper answers only whether a present tuple is coherent.
  *
- * A run that yields its lease mid-way leaves a real remainder; a run that completes leaves zero, because the
- * next sweep's delta is recomputed from scratch against Chroma.
- *
- * @param {Object}  options
- * @param {Number}  options.total     Chunks this run set out to embed (the post-delta work volume).
- * @param {Number}  options.embedded  Chunks this run durably embedded.
- * @param {Number} [options.skipped=0] Chunks the run deliberately declined (guardrail rejections) — these are
- *     NOT outstanding: nothing further will embed them, and counting them as backlog produces a figure that
- *     never reaches zero.
- * @returns {Number|null} Remaining chunks, or null when the inputs cannot support a count.
+ * @param {Object} options
+ * @param {Number} options.accepted Accepted unique embeddable chunks in this group.
+ * @param {Number} options.settled Chunks requiring no provider work on an identical next sweep.
+ * @param {Number} options.remaining Chunks still requiring provider work on an identical next sweep.
+ * @returns {{settled: Number, remaining: Number}|null}
  */
-export function deriveOutstanding({total, embedded, skipped = 0} = {}) {
-    if (!Number.isFinite(total) || !Number.isFinite(embedded) || !Number.isFinite(skipped)) {
-        return null;
+export function normalizeSettlementCounts({accepted, settled, remaining} = {}) {
+    if (![accepted, settled, remaining].every(value => Number.isSafeInteger(value) && value >= 0)) {
+        return null
     }
 
-    if (total < 0 || embedded < 0 || skipped < 0) {
-        return null;
-    }
-
-    // INCOHERENT INPUTS ARE UNMEASURABLE, NOT COMPLETE. An earlier revision clamped this with
-    // `Math.max(0, …)` and justified it as "degrading toward the claim the numbers are closest to
-    // supporting". That was wrong, and it built the exact defect this module exists to prevent: a run
-    // reporting more embedded-plus-skipped than it ever accepted is a run whose numbers disagree with
-    // themselves, and `0` would publish that as a FINISHED corpus. There is no reading of contradictory
-    // arithmetic that supports "nothing left to do" — only "this cannot be trusted".
-    if (embedded + skipped > total) {
-        return null;
-    }
-
-    return total - embedded - skipped;
+    return settled + remaining === accepted ? {settled, remaining} : null
 }
 
 /**
@@ -114,19 +94,22 @@ export function deriveOutstanding({total, embedded, skipped = 0} = {}) {
  * that here would require a threshold no producer on this path can own.
  *
  * @param {Object}      options
- * @param {Number|null} options.outstanding Current outstanding count (from `deriveOutstanding`).
+ * @param {Number|null} options.settled Cumulative settled count.
+ * @param {Number|null} options.remaining Authoritative remaining count.
  * @param {Number}      options.observedAt  Epoch ms for this observation — passed in, never read from a
  *     clock here, so the decision stays pure and testable.
  * @param {Object|null} [options.previous]  The previously persisted observation, if any.
- * @returns {{state: String, outstanding: Number|null, observable: Boolean, lastDecreasedAt: Number|null,
- *     observedAt: Number|null}}
+ * @returns {{state: String, settled: Number|null, remaining: Number|null, outstanding: Number|null,
+ *     observable: Boolean, lastDecreasedAt: Number|null, observedAt: Number|null}}
  */
-export function describeCorpusOutstanding({outstanding, observedAt, previous = null} = {}) {
+export function describeCorpusOutstanding({settled, remaining, observedAt, previous = null} = {}) {
     if (!Number.isFinite(observedAt)) {
         // Without a timestamp there is no movement axis at all, so the observation cannot be composed even
         // if the count itself is sound. Reported as unobservable rather than dated with a substitute clock.
         return {
             state          : OUTSTANDING_STATE.unobservable,
+            settled        : null,
+            remaining      : null,
             outstanding    : null,
             observable     : false,
             lastDecreasedAt: null,
@@ -134,9 +117,12 @@ export function describeCorpusOutstanding({outstanding, observedAt, previous = n
         };
     }
 
-    if (!Number.isFinite(outstanding) || outstanding < 0) {
+    if (!Number.isSafeInteger(settled) || settled < 0
+        || !Number.isSafeInteger(remaining) || remaining < 0) {
         return {
             state      : OUTSTANDING_STATE.unobservable,
+            settled    : null,
+            remaining  : null,
             outstanding: null,
             observable : false,
             // The previous movement stamp survives an unobservable reading. Losing it would let a single
@@ -146,16 +132,23 @@ export function describeCorpusOutstanding({outstanding, observedAt, previous = n
         };
     }
 
-    const previousOutstanding = Number.isFinite(previous?.outstanding) ? previous.outstanding : null,
-          decreased           = previousOutstanding === null || outstanding < previousOutstanding,
-          lastDecreasedAt     = decreased
-              ? observedAt
-              : (Number.isFinite(previous?.lastDecreasedAt) ? previous.lastDecreasedAt : observedAt);
+    const
+        previousRemaining = Number.isSafeInteger(previous?.remaining)
+            ? previous.remaining
+            : (Number.isSafeInteger(previous?.outstanding) ? previous.outstanding : null),
+        decreased       = previousRemaining === null || remaining < previousRemaining,
+        lastDecreasedAt = decreased
+            ? observedAt
+            : (Number.isFinite(previous?.lastDecreasedAt) ? previous.lastDecreasedAt : observedAt);
 
     return {
-        state     : outstanding === 0 ? OUTSTANDING_STATE.complete : OUTSTANDING_STATE.outstanding,
-        outstanding,
-        observable: true,
+        state     : remaining === 0 ? OUTSTANDING_STATE.complete : OUTSTANDING_STATE.outstanding,
+        settled,
+        remaining,
+        // Backward-compatible operator field. New writers keep it byte-equal to the authoritative
+        // remaining count; old persisted observations are rejected by the checkpoint normalizer.
+        outstanding: remaining,
+        observable : true,
         lastDecreasedAt,
         observedAt
     };
