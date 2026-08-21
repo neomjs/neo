@@ -1076,35 +1076,44 @@ class FleetCockpit extends Container {
             })
         }
 
-        let toggle = me.getReference('detail-window-toggle');
+        // the window verbs live in their panes' chrome now — a windowed/torn pane sits OUTSIDE
+        // this cockpit's getReference reach, so the sync routes through the phase-blind accessors
+        let toggle = me.getAgentDetailPane()?.getReference('detail-window-toggle'),
+            state  = me.detailVesselState,
+            out    = state === 'opening' || state === 'connected' || state === 'windowed',
+            // convergence-by-guard: while a GESTURE tear-out owns the detail pane, the click
+            // toggle is inert — one vessel pathway at a time (G4 owns richer convergence)
+            torn        = Boolean(me.tearOutPanes?.detail || me.tearOutPaneHandles?.detail);
 
-        if (toggle) {
-            let state = me.detailVesselState,
-                out   = state === 'opening' || state === 'connected' || state === 'windowed',
-                // convergence-by-guard: while a GESTURE tear-out owns the detail pane, the click
-                // toggle is inert — one vessel pathway at a time (G4 owns richer convergence)
-                torn  = Boolean(me.tearOutPanes?.detail || me.tearOutPaneHandles?.detail);
+        toggle?.set({
+            disabled: state === 'reattaching' || torn,
+            text    : torn ? 'Detail torn out' : (out ? 'Reattach detail' : 'Pop out detail')
+        });
 
-            toggle.set({
-                disabled: state === 'reattaching' || torn,
-                text    : torn ? 'Detail torn out' : (out ? 'Reattach detail' : 'Pop out detail')
-            })
-        }
+        // the exception-only recall verb: visible ONLY while the pane is away — the main view
+        // must always hold a way home, and the traveling pane-side toggle cannot provide it here
+        me.getReference('detail-recall-chrome')?.set({
+            disabled: state === 'reattaching',
+            hidden  : !(out || torn),
+            text    : torn ? 'Recall detail' : 'Reattach detail'
+        });
 
-        let memoriesToggle = me.getReference('memories-window-toggle');
-
-        if (memoriesToggle) {
+        let memoriesToggle = me.getMemoriesPane()?.getReference('memories-window-toggle'),
             // click pop-out and gesture tear-out are ONE pathway for this pane, so an adopted
             // vessel honestly offers the return action either way; only the mid-gesture window
             // (captured handle, no adopted vessel yet) disables instead of racing the gesture
-            let adopted    = Boolean(me.tearOutPanes?.memories),
-                midGesture = !adopted && Boolean(me.tearOutPaneHandles?.memories);
+            adopted    = Boolean(me.tearOutPanes?.memories),
+            midGesture = !adopted && Boolean(me.tearOutPaneHandles?.memories);
 
-            memoriesToggle.set({
-                disabled: midGesture,
-                text    : adopted ? 'Return memories' : 'Pop out memories'
-            })
-        }
+        memoriesToggle?.set({
+            disabled: midGesture,
+            text    : adopted ? 'Return memories' : 'Pop out memories'
+        });
+
+        me.getReference('memories-recall-chrome')?.set({
+            disabled: midGesture,
+            hidden  : !(adopted || midGesture)
+        })
     }
 
     /**
@@ -1185,25 +1194,28 @@ class FleetCockpit extends Container {
                     hidden   : true,
                     reference: 'fleet-start-summary'
                 }, {
-                    // SHELL-owned pop-out affordance for the Memories pane — the detail
-                    // toggle's grammar on the tear-out pathway. Provisional bar placement pending
-                    // the shell navigation-model redesign (per-pane chrome is that pass's scope).
+                    // exception-only chrome (the banner's class): each recall verb renders ONLY
+                    // while its pane is away in a vessel — the pane carries its own toggle, but a
+                    // windowed pane leaves the main view with no way home without this. Nominal
+                    // state costs zero pixels; `removeDom` keeps the class-based selectors honest
+                    // (exactly one .fm-*-window-toggle exists per phase).
                     module   : Button,
                     cls      : ['fm-memories-window-toggle'],
                     handler  : me.onMemoriesWindowToggle.bind(me),
-                    iconCls  : 'fa-solid fa-arrow-up-right-from-square',
-                    reference: 'memories-window-toggle',
-                    text     : 'Pop out memories'
+                    hidden   : true,
+                    hideMode : 'removeDom',
+                    iconCls  : 'fa-solid fa-arrow-down-left',
+                    reference: 'memories-recall-chrome',
+                    text     : 'Return memories'
                 }, {
-                    // SHELL-owned pop-out affordance — panes are layout-blind and the shell owns
-                    // docking behavior. Routes by the vessel state machine; the label is synced
-                    // by syncControlBar so it always names the action it will take.
                     module   : Button,
                     cls      : ['fm-detail-window-toggle'],
                     handler  : me.onDetailWindowToggle.bind(me),
-                    iconCls  : 'fa-solid fa-arrow-up-right-from-square',
-                    reference: 'detail-window-toggle',
-                    text     : 'Pop out detail'
+                    hidden   : true,
+                    hideMode : 'removeDom',
+                    iconCls  : 'fa-solid fa-arrow-down-left',
+                    reference: 'detail-recall-chrome',
+                    text     : 'Reattach detail'
                 }, {
                     module : Button,
                     cls    : ['fm-fleet-start'],
@@ -1238,6 +1250,44 @@ class FleetCockpit extends Container {
             resolveRevealComponentRef   : me.resolveDockComponentRef.bind(me),
             ...me.tearOutHandlers
         })
+    }
+
+    /**
+     * @summary SHELL-owned pop-out affordance config for the Memories pane — the detail toggle's
+     * grammar on the tear-out pathway. Lives in the PANE's chrome per the navigation model (pane
+     * verbs are pane-scoped, the bar seats instance-wide tenants only); ownership, handler and
+     * label sync stay here — the pane merely places it through its layout-blind `shellTools` slot,
+     * so a vesseled pane carries its own return verb with it.
+     * @returns {Object}
+     */
+    buildMemoriesWindowToggle() {
+        return {
+            module   : Button,
+            cls      : ['fm-memories-window-toggle'],
+            handler  : this.onMemoriesWindowToggle.bind(this),
+            iconCls  : 'fa-solid fa-arrow-up-right-from-square',
+            reference: 'memories-window-toggle',
+            text     : 'Pop out memories'
+        }
+    }
+
+    /**
+     * @summary SHELL-owned pop-out affordance config for the inspector — routes by the vessel
+     * state machine; {@link #syncControlBar} keeps the label naming the action it will take.
+     * Same pane-chrome placement contract as {@link #buildMemoriesWindowToggle}.
+     * @returns {Object}
+     */
+    buildDetailWindowToggle() {
+        return {
+            module   : Button,
+            cls      : ['fm-detail-window-toggle'],
+            flex     : 'none',
+            handler  : this.onDetailWindowToggle.bind(this),
+            iconCls  : 'fa-solid fa-arrow-up-right-from-square',
+            reference: 'detail-window-toggle',
+            style    : {marginLeft: 'auto'},
+            text     : 'Pop out detail'
+        }
     }
 
     /**
@@ -1376,8 +1426,9 @@ class FleetCockpit extends Container {
 
                 // the drill-in inspector; its selected resident is OWNER-held so a pane returning
                 // from true absence never drops the selection — null renders the view's honest
-                // "select an agent" empty state. The pane stays layout-blind: the pop-out
-                // affordance lives in SHELL chrome, never on the pane.
+                // "select an agent" empty state. The pane stays layout-blind: the pop-out verb is
+                // SHELL-owned config placed through the pane's `shellTools` slot (pane verbs are
+                // pane-scoped per the navigation model; a windowed pane carries its return verb).
                 return {
                     module   : AgentDetail,
                     // the configuration tab's data surface, resolved imperatively at composition
@@ -1388,7 +1439,8 @@ class FleetCockpit extends Container {
                     fleetTenants    : me.resolveFleetTenantsStore(),
                     cls             : [marker],
                     record          : me.detailRecord,
-                    reference       : 'agent-detail'
+                    reference       : 'agent-detail',
+                    shellTools      : [me.buildDetailWindowToggle()]
                 };
             case 'define-agent':
                 // the S5 add-agent flow (rail tool, invoked-not-ambient per the design ruling).
@@ -1451,6 +1503,7 @@ class FleetCockpit extends Container {
                     drillSession : me.memoriesDrillSession,
                     drillSnapshot: me.memoriesDrillSnapshot,
                     agentOptions : me.buildMemoriesAgentOptions(),
+                    shellTools   : [me.buildMemoriesWindowToggle()],
                     listeners    : {
                         memoriesRequest     : 'onMemoriesRequest',
                         sessionDetailRequest: 'onSessionDetailRequest',
@@ -3668,6 +3721,11 @@ class FleetCockpit extends Container {
             // is how a reason becomes a script tag. `text` routes to `textContent`: data, not code,
             // which is the boundary the whole VDom pipeline is built on. The banner renders one
             // sentence and needs no markup, so `html` bought nothing and risked everything.
+            // the drill-free detail: the honesty line may ellipsis under bar pressure, so the
+            // FULL cause-and-remedy sentence rides the title (an attribute, not an HTML sink);
+            // the set() below flushes the same update pass
+            banner.vdom.title = text || null;
+
             banner.set({
                 cls : ['fm-spine-banner', `fm-spine-banner-${kind}`],
                 hidden,

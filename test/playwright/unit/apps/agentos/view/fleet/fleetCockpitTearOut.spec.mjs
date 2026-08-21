@@ -282,7 +282,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
         await cockpit.refreshPromise;
 
         // the click affordance is inert while the gesture vessel owns the pane
-        const toggle = cockpit.getReference('detail-window-toggle');
+        const toggle = cockpit.getAgentDetailPane().getReference('detail-window-toggle');
 
         expect(toggle.disabled).toBe(true);
         expect(toggle.text).toBe('Detail torn out');

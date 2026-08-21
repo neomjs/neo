@@ -23,7 +23,9 @@
        below before it ever forces layout width — `flex: none` forbade the shrink, so its nowrap
        min-content (~536px) became the whole cockpit's width floor in narrow vessel windows. */
     flex         : 0 1 auto;
-    min-width    : 0;
+    /* the shrink floor: the honesty line may truncate through its ellipsis, but bar crowding can
+       never squeeze the cause/remedy text below a readable stub (the de-crowding contract) */
+    min-width    : 18ch;
     max-width    : 100%;
     padding      : var(--fm-chip-pad-y) var(--fm-chip-pad-x);
     border-left  : var(--fm-chip-mark-w) solid var(--fm-spine-mark);

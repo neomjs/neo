@@ -106,7 +106,12 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
 
         const popup = await popupPromise;
 
+        // assert the URL only after the vessel's content proves navigation happened: right after
+        // the popup event, `domcontentloaded` can belong to the initial about:blank document and
+        // url() reads '' — the pre-existing race the sibling journeys never hit because they wait
+        // on a selector first
         await popup.waitForLoadState('domcontentloaded');
+        await expect(popup.locator('.fm-agent-detail')).toBeVisible({timeout: 30000});
         expect(popup.url()).toContain('childapps/widget/index.html');
         expect(popup.url()).toContain('cockpitId=');
 

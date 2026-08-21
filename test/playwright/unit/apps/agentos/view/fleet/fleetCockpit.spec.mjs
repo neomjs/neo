@@ -1352,7 +1352,9 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
     const makeBanner = () => {
         const calls = [];
 
-        return {calls, set(config) { calls.push(config) }}
+        // `vdom` mirrors the real component: the sync writes the full-text `title` there
+        // (the drill-free detail) before flushing the same pass through set()
+        return {calls, vdom: {}, set(config) { calls.push(config) }}
     };
 
     // A cockpit with no provider in its chain is the DEFAULT fixture: the banner speaks its verdict
