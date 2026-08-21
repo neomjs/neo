@@ -471,8 +471,10 @@ test.describe('validatePrBody — Residual-Owner STATE gate (#17314)', () => {
     });
 
     test('RED-PROOF: the PR #17308 incident fails now and passed silently before', () => {
-        // The specimen. `Residual-Owner: #17271` was set at 18:04 on 2026-08-17; #17271 had closed at
-        // 17:55:42Z — eight minutes earlier — and `lint-pr-body` passed the line.
+        // The specimen, and the number IS the fixture: an owner set at 18:04 on 2026-08-17 against a
+        // ticket that had closed at 17:55:42Z, eight minutes earlier, which `lint-pr-body` passed.
+        // ticket-ref-ok: the arm reproduces one dated incident; an anonymised number would make it a
+        // generic closed-owner case and lose the only evidence that this gate ever let one through.
         const body = owned(17271);
 
         // Pre-fix behaviour is still reachable, and is exactly what shipped: no resolver, shape only.
