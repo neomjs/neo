@@ -15,8 +15,13 @@
  *
  *     npm run ai:post-release-sync
  *
- * Ordering contract, preserved from the original stages:
+ * Ordering contract — a fail-closed preflight, then the original stages:
  *
+ * 0. Preflight (`postReleasePreflight.mjs`): current branch is `dev`; the version derives from
+ *    `package.json` only (no CLI override — an interpolated flag is an injection surface) and is
+ *    strict semver; the working tree holds nothing beyond the staging note's deletion. The split
+ *    turned publish.mjs's inherited preconditions into protocol fields; this step asserts them
+ *    before the first irreversible mutation.
  * 1. Upload the Knowledge Base (the release's own artifacts are what it serves).
  * 2. Wait for GitHub release propagation, then `GH_SyncService.runFullSync()` — which archives the
  *    release's closed tickets and re-materializes the published release note under
@@ -36,6 +41,11 @@ import path                            from 'path';
 import {fileURLToPath}                 from 'url';
 import {GH_SyncService}                from '../../services.host.mjs';
 import {findLogicalIdentityCollisions} from '../../../buildScripts/util/check-content-logical-identity.mjs';
+import {
+    assertAdmissibleStartingState,
+    assertOnDevBranch,
+    resolveReleaseVersion
+} from './postReleasePreflight.mjs';
 
 const root = path.resolve();
 
@@ -105,22 +115,25 @@ function runCommandWithOutput(command) {
     }
 }
 
-/**
- * @summary Resolves the release version: an explicit `--version X.Y.Z` argument, else package.json.
- * @returns {String} The version string, without a leading `v`.
- */
-function getVersion() {
-    const flagIndex = process.argv.indexOf('--version');
-
-    if (flagIndex > -1 && process.argv[flagIndex + 1]) {
-        return process.argv[flagIndex + 1].replace(/^v/, '');
-    }
-
-    return fs.readJsonSync(path.join(root, 'package.json')).version;
-}
-
 async function main() {
-    const version = getVersion();
+    // --- 0. Fail-closed preflight, before ANY mutation (KB upload is irreversible) ---
+    //
+    // These were publish.mjs's inherited preconditions while both halves shared one process;
+    // as an independently runnable command they are protocol fields, asserted here. The version
+    // is derived from package.json ONLY — a CLI flag would be an injection surface into the
+    // shell commit command and a version-mismatch class; both die by removal.
+    const version = resolveReleaseVersion({
+        readPackageJson: () => fs.readJsonSync(path.join(root, 'package.json'))
+    });
+
+    assertOnDevBranch({
+        getCurrentBranch: () => runCommandWithOutput('git rev-parse --abbrev-ref HEAD')
+    });
+
+    assertAdmissibleStartingState({
+        getPorcelainStatus: () => runCommandWithOutput('git status --porcelain'),
+        version
+    });
 
     console.log(`\n🧠 Post-release content sync for v${version}...\n`);
 

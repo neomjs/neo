@@ -98,42 +98,154 @@ function getRepoIdentity() {
 }
 
 /**
- * Fetches every label in the repository through the paginated GraphQL loop.
- * Throws on HTTP or GraphQL failure with the real status and message, so CI logs surface the
- * actual error rather than a generic wrapper.
+ * Transient-failure contract, mirrored from the Brain's `GraphqlService` so dissolving the import
+ * did not narrow the behavior: up to {@link MAX_RETRY_ATTEMPTS} retries after the first attempt,
+ * exponential backoff with jitter capped at {@link RETRY_MAX_DELAY_MS}, `Retry-After` honored in
+ * both seconds and HTTP-date forms, retryable statuses `[429, 502, 503, 504]`, and classified
+ * transient network errors. Anything else fails immediately with the real status/message.
+ */
+const
+    MAX_RETRY_ATTEMPTS      = 3,
+    RETRY_BASE_DELAY_MS     = 1000,
+    RETRY_MAX_DELAY_MS      = 10000,
+    RETRY_JITTER_RATIO      = 0.2,
+    RETRYABLE_HTTP_STATUSES = [429, 502, 503, 504],
+    TRANSIENT_ERROR_MARKERS = [
+        'fetch failed', 'network', 'terminated', 'timeout',
+        'econnreset', 'etimedout', 'enotfound', 'eai_again', 'socket hang up'
+    ];
+
+/**
+ * Determines whether a thrown transport error is likely transient (mirrors the Brain classifier).
+ * @param {Error|*} error The thrown fetch error.
+ * @returns {Boolean}
+ */
+function isRetryableNetworkError(error) {
+    const message = [
+        error?.message,
+        error?.cause?.message,
+        error?.cause?.code,
+        error?.code,
+        String(error)
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return TRANSIENT_ERROR_MARKERS.some(pattern => message.includes(pattern));
+}
+
+/**
+ * Calculates the retry delay: `Retry-After` (seconds or HTTP-date) wins; otherwise capped
+ * exponential backoff with jitter.
+ * @param {Number} attempt The 1-based retry attempt.
+ * @param {Response|null} response The failed response, if one exists.
+ * @returns {Number} Delay in milliseconds.
+ */
+function getRetryDelay(attempt, response=null) {
+    const retryAfter = response?.headers?.get?.('retry-after');
+
+    if (retryAfter) {
+        const seconds = Number(retryAfter);
+
+        if (Number.isFinite(seconds)) {
+            return Math.max(0, seconds * 1000);
+        }
+
+        const retryAt = Date.parse(retryAfter);
+
+        if (Number.isFinite(retryAt)) {
+            return Math.max(0, retryAt - Date.now());
+        }
+    }
+
+    const baseDelay = Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+    const jitter    = baseDelay * RETRY_JITTER_RATIO * Math.random();
+
+    return Math.round(baseDelay + jitter);
+}
+
+/**
+ * Performs one GraphQL request with the full transient-retry envelope.
+ * @param {Object} config
+ * @param {Function} config.fetchFn Injected fetch (test seam; defaults to global fetch).
+ * @param {Function} config.sleepFn Injected delay fn (test seam).
+ * @param {Object}   config.headers Request headers.
+ * @param {Object}   config.variables GraphQL variables for this page.
+ * @returns {Promise<Object>} The parsed GraphQL payload.
+ */
+async function requestWithRetry({fetchFn, sleepFn, headers, variables}) {
+    let response;
+
+    for (let attempt = 0; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+        try {
+            response = await fetchFn('https://api.github.com/graphql', {
+                method: 'POST',
+                headers,
+                body  : JSON.stringify({query: FETCH_LABELS, variables})
+            });
+        } catch (e) {
+            if (attempt < MAX_RETRY_ATTEMPTS && isRetryableNetworkError(e)) {
+                await sleepFn(getRetryDelay(attempt + 1));
+                continue;
+            }
+
+            throw e;
+        }
+
+        if (response.ok) {
+            break;
+        }
+
+        const errorMessage = `GitHub GraphQL request failed: ${response.status} ${response.statusText}`;
+
+        if (attempt < MAX_RETRY_ATTEMPTS && RETRYABLE_HTTP_STATUSES.includes(response.status)) {
+            await sleepFn(getRetryDelay(attempt + 1, response));
+            continue;
+        }
+
+        throw new Error(errorMessage);
+    }
+
+    const payload = await response.json();
+
+    if (payload.errors?.length) {
+        throw new Error(`GitHub GraphQL errors: ${payload.errors.map(e => e.message).join('; ')}`);
+    }
+
+    return payload;
+}
+
+/**
+ * Fetches every label in the repository through the paginated GraphQL loop, with the mirrored
+ * transient-retry envelope. Non-transient failures throw with the real status and message, so CI
+ * logs surface the actual error rather than a generic wrapper.
+ * @param {Object} [deps] Test seams; production callers pass nothing.
+ * @param {Function} [deps.fetchFn] Fetch implementation.
+ * @param {Function} [deps.sleepFn] Delay implementation (receives ms).
+ * @param {Function} [deps.getAuthTokenFn] Token resolver.
+ * @param {Function} [deps.getRepoIdentityFn] Owner/repo resolver.
  * @returns {Promise<Object[]>} All label nodes (`{name, color, description}`).
  */
-async function fetchAllLabels() {
+export async function fetchAllLabels({
+    fetchFn           = fetch,
+    sleepFn           = ms => new Promise(resolve => setTimeout(resolve, ms)),
+    getAuthTokenFn    = getAuthToken,
+    getRepoIdentityFn = getRepoIdentity
+} = {}) {
     const
-        token         = getAuthToken(),
-        {owner, repo} = getRepoIdentity(),
-        allLabels     = [];
+        token         = getAuthTokenFn(),
+        {owner, repo} = getRepoIdentityFn(),
+        allLabels     = [],
+        headers       = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type' : 'application/json',
+            'User-Agent'   : 'neo.mjs-build'
+        };
 
     let hasNextPage = true,
         cursor      = null;
 
     while (hasNextPage) {
-        const response = await fetch('https://api.github.com/graphql', {
-            method : 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type' : 'application/json',
-                'User-Agent'   : 'neo.mjs-build'
-            },
-            body: JSON.stringify({query: FETCH_LABELS, variables: {owner, repo, limit: 100, cursor}})
-        });
-
-        if (!response.ok) {
-            throw new Error(`GitHub GraphQL request failed: ${response.status} ${response.statusText}`);
-        }
-
-        const payload = await response.json();
-
-        if (payload.errors?.length) {
-            throw new Error(`GitHub GraphQL errors: ${payload.errors.map(e => e.message).join('; ')}`);
-        }
-
-        const labels = payload.data.repository.labels;
+        const payload = await requestWithRetry({fetchFn, sleepFn, headers, variables: {owner, repo, limit: 100, cursor}});
+        const labels  = payload.data.repository.labels;
 
         allLabels.push(...labels.nodes);
         hasNextPage = labels.pageInfo.hasNextPage;
