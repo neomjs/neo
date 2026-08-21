@@ -2602,6 +2602,29 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(probe, 'the interposed field survived the archivedAt write').toBe('interposed')
     });
 
+    test('#17486 readAt survives an interposed storage field — DELIVERED_TO carrier', async () => {
+        // The AC's point: both carriers must demonstrably share ONE mechanism. Without an edge arm,
+        // "they share a writer" is an assertion about the source rather than about behaviour.
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: 'AGENT:*', subject: 'edge receipt', body: 'narrow write'}));
+
+        const edgeId = GraphService.db.storage.db.prepare(
+            `SELECT id FROM Edges WHERE type = 'DELIVERED_TO' AND target = ? LIMIT 1`
+        ).get('@bob')?.id;
+
+        expect(edgeId, 'precondition: the broadcast produced a delivery edge for @bob').toBeTruthy();
+
+        const {interposed, probe} = await survivesInterposition({
+            table : 'Edges',
+            id    : edgeId,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({all: true, includeUnseen: true}))
+        });
+
+        expect(interposed, 'precondition: the write seam was reached').toBe(true);
+        expect(probe, 'the interposed field survived the edge readAt write').toBe('interposed')
+    });
+
     test('#17486 readAt is NOT write-once — a second write still lands', async () => {
         // Guards the variant choice. `seenAt` takes the absence predicate because it means FIRST
         // shown; routing readAt through the same helper would silently drop every write after the
