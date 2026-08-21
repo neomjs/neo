@@ -2387,10 +2387,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
     test('#17321 a FAILED seen write leaves cache and storage coherent, and the next listing RETRIES', async () => {
         // The defect this arm exists for is one the boundary correction introduced, not a
-        // pre-existing one: the write-once guard reads the CACHED `seenAt`, so a cache-first write
+        // pre-existing one: the write-once guard reads the CACHED `seenAt`, so a cache-FIRST write
         // that then fails to persist marks the row seen for the life of the process while storage
         // still says null — and every later listing skips it, because the guard sees the value its
-        // own failed attempt left behind. Rolling the cache back is what makes the retry possible.
+        // own failed attempt left behind. Writing cache only AFTER a confirmed durable write is what
+        // keeps the retry possible: there is no state to undo, because none was published.
         const
             {callTool}  = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
             [directed]  = await seedFor(['the persist fails the first time']),
@@ -2414,10 +2415,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 callTool('list_messages', {box: 'inbox', status: 'unread'}));
 
             // Coherent, not merely unset: cache must not claim a durability storage does not have.
-            expect(seenAtOf(directed), 'the cache is rolled back when the persist throws').toBeNull();
+            expect(seenAtOf(directed), 'cache is not published when the write fails').toBeNull();
             expect(storedSeenAtOf(directed), 'and storage never got it either').toBeNull();
 
-            // The retry — the half that a rollback-free implementation fails.
+            // The retry — the half a cache-first implementation fails.
             await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
                 callTool('list_messages', {box: 'inbox', status: 'unread'}));
 
@@ -2520,8 +2521,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('#17321 first-seen is write-once — a second listing does not restamp', async () => {
-        // Without this, the rollback above could be "correct" by simply rewriting `seenAt` on every
-        // listing, which would make the timestamp mean "last listed" instead of "first shown".
+        // Without this, the cache-last ordering above could be "correct" by simply rewriting `seenAt`
+        // on every listing, which would make the timestamp mean "last listed" instead of "first shown".
         const
             {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'),
             [directed] = await seedFor(['stamped exactly once']);

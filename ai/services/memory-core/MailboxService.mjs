@@ -2160,19 +2160,12 @@ async function setMessageNodeReadAt(node, readAt) {
  * `seenAt` is the state between *arrived* and *explicitly marked read* — the distinction a bulk
  * drain needs, because without it `all: true` can only mean "every unread message that exists".
  *
- * Persisted through `persistReceiptNode`, the same path `readAt` and `archivedAt` already use.
- *
- * **The cache is rolled back when the write fails, and that is not symmetric with `readAt`.** The
- * caller's write-once guard reads the cached `seenAt`, so a cache-first write that then fails to
- * persist would mark the row seen for the rest of the process without ever storing it — and every
- * later listing would skip it, because the guard sees the value its own failed attempt left behind.
- * `readAt` tolerates the same shape only because it is user-driven and can simply be re-issued;
- * `seenAt` is automatic and write-once, so a poisoned cache is permanent. Restoring the prior value
- * is what makes the next listing retry.
+ * Direct DMs carry receipts on the node. Durability, write-once and cache ordering all belong to
+ * {@link setReceiptSeenAt}; this wrapper only chooses the carrier.
  *
  * @param {Object} node Direct-DM `MESSAGE` node.
  * @param {String} seenAt ISO timestamp.
- * @returns {Promise<Boolean>}
+ * @returns {Promise<Boolean>} Whether THIS call performed the durable write.
  */
 async function setMessageNodeSeenAt(node, seenAt) {
     return setReceiptSeenAt(node, 'Nodes', seenAt)
@@ -2232,12 +2225,12 @@ async function setReceiptSeenAt(record, table, seenAt) {
  * same carrier. On the node instead, one recipient's listing would mark the broadcast seen for the
  * entire audience.
  *
- * Rolls the cache back on failure for the same reason as `setMessageNodeSeenAt` — the write-once
- * guard reads the cached value, so a failed persist must not leave the row looking already-seen.
+ * Durability, write-once and cache ordering all belong to {@link setReceiptSeenAt}; this wrapper
+ * only chooses the carrier.
  *
  * @param {Object} edge Per-recipient `DELIVERED_TO` edge.
  * @param {String} seenAt ISO timestamp.
- * @returns {Promise<Boolean>}
+ * @returns {Promise<Boolean>} Whether THIS call performed the durable write.
  */
 async function setDeliveryEdgeSeenAt(edge, seenAt) {
     return setReceiptSeenAt(edge, 'Edges', seenAt)
