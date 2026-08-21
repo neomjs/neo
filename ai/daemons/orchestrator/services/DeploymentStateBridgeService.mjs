@@ -2901,7 +2901,19 @@ function summarizeEmbeddingRecoveryProbe(candidate) {
         terminal: status === 'terminal' && candidate?.terminal === true,
         stopReason,
         errorClassification,
-        errorCode
+        errorCode,
+        // The size the verdict was reached AT, carried onto the public surface for the same reason
+        // the verdict is: a consumer deciding re-dispatch eligibility needs "healthy at 25% of the
+        // admitted band", not "healthy". `probeSized: false` reports that the probe ran unsized — a
+        // reading about coverage, never a claim that the lane can serve admitted work.
+        probeEstimateTokens: Number.isSafeInteger(candidate?.probeEstimateTokens) && candidate.probeEstimateTokens > 0
+            ? candidate.probeEstimateTokens
+            : null,
+        probeBandFraction: Number.isFinite(candidate?.probeBandFraction)
+            && candidate.probeBandFraction > 0 && candidate.probeBandFraction <= 1
+            ? candidate.probeBandFraction
+            : null,
+        probeSized: candidate?.probeSized === true
     };
 }
 

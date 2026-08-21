@@ -13,7 +13,8 @@ import {
 }                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
 import {writeFileAtomic}          from '../../../services/shared/atomicFileWrite.mjs';
-import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.mjs';
+import {buildEmbeddingProbeBlock, buildEmbeddingProbeInput} from '../../../services/shared/embeddingProbe.mjs';
+import {resolveEmbeddingAdmissionBand}                     from '../../../embeddingSafeBand.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
 // look right — the producer widening a code the filter still rejects is exactly this ticket's defect.
@@ -1050,15 +1051,33 @@ class TenantRepoSyncService extends Base {
         if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) return null;
 
         this.embeddingRecoveryClock = clock;
-        this.embeddingRecoveryProbeFn = runProbe || (() => buildEmbeddingProbeBlock({
-            cfg      : AiConfig,
-            embedText: (text, explicitProvider, options) =>
-                TextEmbeddingService.embedText(text, explicitProvider, options),
-            input         : 'neo-tenant-repo-sync-embedding-recovery-canary',
-            operationLabel: 'Tenant repo sync embedding recovery probe',
-            now           : this.embeddingRecoveryClock,
-            timeoutMs
-        }));
+        // The band is read HERE, at the use site that owns the decision, and injected into the pure
+        // builder — the sanctioned shape for an `ai/` consumer, and the reason `embeddingProbe.mjs`
+        // stays Neo-free. Resolved per probe rather than cached, so a deployment that narrows its
+        // slot mid-run is probed against the ceiling it actually has.
+        this.embeddingRecoveryProbeFn = runProbe || (() => {
+            // A 44-byte canary certified a property nobody needed. Peak memory for one non-causal
+            // embedding request scales with the SQUARE of its token count, so a probe three orders
+            // of magnitude under the workload cannot fail the way the lane fails — and its `healthy`
+            // was the green light that re-dispatched the batch that killed the engine, 36 times.
+            const probeSize = buildEmbeddingProbeInput({
+                estimateBandTokens: resolveEmbeddingAdmissionBand({
+                    contextLimitTokens       : AiConfig.localModels.embedding.contextLimitTokens,
+                    safeProcessingLimitTokens: AiConfig.localModels.embedding.safeProcessingLimitTokens
+                }).estimateBandTokens
+            });
+
+            return buildEmbeddingProbeBlock({
+                cfg      : AiConfig,
+                embedText: (text, explicitProvider, options) =>
+                    TextEmbeddingService.embedText(text, explicitProvider, options),
+                input         : probeSize.input,
+                operationLabel: 'Tenant repo sync embedding recovery probe',
+                now           : this.embeddingRecoveryClock,
+                probeSize,
+                timeoutMs
+            })
+        });
 
         if (!this.embeddingRecoveryGate) {
             this.embeddingRecoveryGate = createBoundedRetryGate({
