@@ -72,8 +72,7 @@ export const ALLOWLIST = Object.freeze({
     A5: new Set(),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
-        'ai/mcp/server/shared/logger.mjs',
-        'ai/scripts/runners/roadmapPlanner.mjs'
+        'ai/mcp/server/shared/logger.mjs'
     ])
 });
 

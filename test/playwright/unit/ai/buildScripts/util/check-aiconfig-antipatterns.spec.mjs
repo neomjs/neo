@@ -97,9 +97,22 @@ test.describe('check-aiconfig-antipatterns guard', () => {
     test('the grandfather allowlist is rule-scoped: B3 carries the census, A5 stays zero-baseline', () => {
         expect(ALLOWLIST.B3.size).toBeGreaterThan(0);
         expect(ALLOWLIST.B3.has('ai/mcp/server/BaseServer.mjs')).toBe(true);
-        expect(ALLOWLIST.B3.has('ai/scripts/runners/roadmapPlanner.mjs')).toBe(true);
         // A5 has zero live occurrences — an entry ever appearing here is a regression, not a grandfather
         expect(ALLOWLIST.A5.size).toBe(0)
+    });
+
+    test('a repaired file is REMOVED from the grandfather, so the exception cannot outlive its hit', () => {
+        // `roadmapPlanner.mjs` was grandfathered for a `Memory_Config?.data?.…` cascade that no longer
+        // exists — the file now reads the resolved leaves directly. A grandfather entry whose hit is
+        // gone is not inert: it silently re-admits the exact regression it was recording, with CI green.
+        expect(ALLOWLIST.B3.has('ai/scripts/runners/roadmapPlanner.mjs')).toBe(false);
+
+        // Census assertion rather than a name list, so a future repair that forgets to shrink the set
+        // fails here instead of quietly widening the exemption surface.
+        expect([...ALLOWLIST.B3].sort()).toEqual([
+            'ai/mcp/server/BaseServer.mjs',
+            'ai/mcp/server/shared/logger.mjs'
+        ])
     })
 });
 
