@@ -88,7 +88,11 @@ test.describe('Release-note orphan prevention', () => {
         const
             src        = fs.readFileSync(path.join(root, 'buildScripts/release/publish.mjs'), 'utf8'),
             pkg        = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')),
-            handoffIdx = src.indexOf('npm run ai:post-release-sync'),
+            // LAST occurrence, deliberately: the module docblock also names the command (first hit
+            // ~byte 1200), and matching documentation instead of the runtime print is how this arm
+            // shipped green while asserting nothing — CI caught it. If a refactor deletes the print,
+            // lastIndexOf falls back to the docblock mention and the order assertions below fail.
+            handoffIdx = src.lastIndexOf('npm run ai:post-release-sync'),
             releaseIdx = src.indexOf('gh release create'),
             cleanupIdx = src.indexOf('fs.removeSync(releaseNotePath)'),
             script     = pkg.scripts['ai:post-release-sync'];
