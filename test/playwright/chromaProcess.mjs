@@ -6,6 +6,45 @@ import path                  from 'node:path';
 const temporaryPrefix = 'neo-chroma-unit-test-';
 
 /**
+ * @summary Locates a package directory the way Node's resolver does — first `node_modules/<pkg>`
+ * found walking up from `fromDir`, or `null`.
+ *
+ * `path.join(fromDir, 'node_modules', pkg)` is not that algorithm, and the gap is a linked git
+ * worktree: `npm install` runs in the main clone, so a worktree has no `node_modules` of its own
+ * while every import from it resolves fine against the clone's. A joined path therefore reports
+ * absent for packages that demonstrably load, and spawns a CLI path that does not exist.
+ *
+ * FIRST match wins, with no fallback to a further ancestor — also Node's behaviour, and load-bearing
+ * for the Brain-tier probe: a pruned husk at depth 0 must stay a husk rather than being papered over
+ * by a good copy higher up.
+ *
+ * It lives here rather than in the config because this module already owns *where the chromadb
+ * package is*; the config imports it so one answer serves both the probe and the spawn.
+ * @param {String} fromDir Directory to start the upward walk at.
+ * @param {String} pkg Package name, scoped names included.
+ * @returns {String|null}
+ */
+export function resolvePackageDir(fromDir, pkg) {
+    let current = path.resolve(fromDir);
+
+    for (;;) {
+        const candidate = path.join(current, 'node_modules', pkg);
+
+        if (fs.existsSync(candidate)) {
+            return candidate
+        }
+
+        const parent = path.dirname(current);
+
+        if (parent === current) {
+            return null
+        }
+
+        current = parent
+    }
+}
+
+/**
  * @summary Resolves after the bounded polling delay used by readiness and teardown loops.
  * @param {Number} milliseconds
  * @returns {Promise<void>}
@@ -138,11 +177,21 @@ export async function startChromaProcess({
     spawnFn   = spawn,
     probeFn   = probeChromaHeartbeat
 }) {
-    const cliPath = path.join(repoRoot, 'node_modules', 'chromadb', 'dist', 'cli.mjs');
-
     if (await probeFn({host, port})) {
         throw new Error(`Refusing to reuse a Chroma server already listening at ${host}:${port}`)
     }
+
+    // Resolved, not joined, and AFTER the reuse guard: that guard is a safety refusal and must keep
+    // winning. From a linked worktree `repoRoot/node_modules` does not exist, so a joined path spawns
+    // a CLI that is not there — the child dies immediately and the failure reports "Chroma exited
+    // before its heartbeat became ready", naming the symptom two layers from the missing file.
+    const packageDir = resolvePackageDir(repoRoot, 'chromadb');
+
+    if (packageDir === null) {
+        throw new Error(`Cannot locate the chromadb package from ${repoRoot} — is the Brain tier installed?`)
+    }
+
+    const cliPath = path.join(packageDir, 'dist', 'cli.mjs');
 
     fs.mkdirSync(dataDir, {recursive: true});
     fs.mkdirSync(path.dirname(logPath), {recursive: true});

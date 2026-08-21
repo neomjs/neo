@@ -6,6 +6,7 @@ import {
     cleanupChromaArtifacts,
     isDetachedProcessAlive,
     ownsChromaDataDir,
+    resolvePackageDir,
     startChromaProcess,
     stopDetachedProcess
 } from '../../chromaProcess.mjs';
@@ -124,6 +125,78 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
             fs.rmSync(root, {force: true, recursive: true})
         }
     });
+
+    test('the tier resolves from a directory holding no node_modules of its own', () => {
+        // The linked-worktree shape: `npm install` ran one level up, so imports from here resolve
+        // against the parent while a joined `here/node_modules/...` does not exist at all.
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-parent-')),
+              nested = path.join(parent, 'worktree'),
+              mk     = (root, pkg, ...files) => files.forEach(file => {
+                  const full = path.join(root, 'node_modules', pkg, file);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, '{}')
+              });
+
+        try {
+            fs.mkdirSync(nested);
+            mk(parent, 'better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node');
+            mk(parent, 'chromadb', 'dist/chromadb.mjs');
+            mk(parent, '@chroma-core/default-embed', 'dist/default-embed.mjs');
+
+            expect(fs.existsSync(path.join(nested, 'node_modules'))).toBe(false);
+            expect(hasBrainTier(nested)).toBe(true);
+            expect(resolvePackageDir(nested, 'chromadb')).toBe(path.join(parent, 'node_modules', 'chromadb'));
+            // Scoped names are a separate path-join shape and worth pinning once.
+            expect(resolvePackageDir(nested, '@chroma-core/default-embed'))
+                .toBe(path.join(parent, 'node_modules', '@chroma-core/default-embed'));
+        } finally {
+            fs.rmSync(parent, {force: true, recursive: true})
+        }
+    });
+
+    test('CONTROL: the nearest node_modules wins, so a husk is never papered over from above', () => {
+        // The half that keeps the husk probe meaningful. Resolving upward must not become
+        // "search until something works" — a pruned install beside you is still a pruned install,
+        // and falling through to an intact copy in an ancestor would report the tier armed on the
+        // exact broken state the entrypoint checks exist to catch.
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-shadow-')),
+              nested = path.join(parent, 'worktree'),
+              mk     = (root, pkg, ...files) => files.forEach(file => {
+                  const full = path.join(root, 'node_modules', pkg, file);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, '{}')
+              });
+
+        try {
+            fs.mkdirSync(nested);
+            // Intact one level up …
+            mk(parent, 'better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node');
+            mk(parent, 'chromadb', 'dist/chromadb.mjs');
+            mk(parent, '@chroma-core/default-embed', 'dist/default-embed.mjs');
+            // … husked right here. The nearer one is what Node would load, so it is what decides.
+            mk(nested, 'better-sqlite3', 'lib/index.js');
+            mk(nested, 'chromadb', 'dist/chromadb.mjs');
+            mk(nested, '@chroma-core/default-embed', 'dist/default-embed.mjs');
+
+            expect(hasBrainTier(nested)).toBe(false);
+            expect(resolvePackageDir(nested, 'chromadb')).toBe(path.join(nested, 'node_modules', 'chromadb'));
+            // The ancestor is genuinely armed — so this arm fails if the walk ever falls through.
+            expect(hasBrainTier(parent)).toBe(true);
+        } finally {
+            fs.rmSync(parent, {force: true, recursive: true})
+        }
+    });
+
+    test('resolvePackageDir gives up at the filesystem root rather than looping', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-absent-'));
+
+        try {
+            expect(resolvePackageDir(root, 'a-package-that-is-not-installed-17477')).toBeNull();
+            expect(hasBrainTier(path.parse(root).root)).toBe(false);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
 });
 
 test.describe('test/playwright/chromaProcess — run-scoped Chroma lifecycle', () => {
@@ -150,6 +223,63 @@ test.describe('test/playwright/chromaProcess — run-scoped Chroma lifecycle', (
         })).rejects.toThrow(/Refusing to reuse a Chroma server already listening/);
 
         expect(spawnCalled).toBe(false);
+    });
+
+    test('the CLI path is RESOLVED from repoRoot, so a worktree spawns the real binary', async () => {
+        // The second half of the same defect. Fixing only the tier probe arms the projects and then
+        // fails at `chroma-setup` with "Chroma exited before its heartbeat became ready" — a
+        // symptom two layers away from `node …/never-existed/dist/cli.mjs`.
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'chroma-cli-resolve-')),
+              nested = path.join(parent, 'worktree'),
+              cliDir = path.join(parent, 'node_modules', 'chromadb', 'dist');
+
+        let spawnedArgs = null;
+
+        try {
+            fs.mkdirSync(nested);
+            fs.mkdirSync(cliDir, {recursive: true});
+            fs.writeFileSync(path.join(cliDir, 'cli.mjs'), '');
+
+            await expect(startChromaProcess({
+                dataDir : path.join(parent, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(parent, 'chroma.log'),
+                port    : 18191,
+                probeFn : async () => false,
+                repoRoot: nested,
+                spawnFn : (_command, args) => {
+                    spawnedArgs = args;
+                    throw new Error('stop here — the spawn argument is the whole assertion')
+                }
+            })).rejects.toThrow(/stop here/);
+
+            // Asserted BEFORE the comparisons below, because `not.toBe(...)` against an unset
+            // capture passes vacuously — a control that cannot fail proves nothing.
+            expect(spawnedArgs).not.toBeNull();
+            expect(spawnedArgs[0]).toBe(path.join(cliDir, 'cli.mjs'));
+            // CONTROL: a joined path would have produced this instead, and it does not exist.
+            expect(spawnedArgs[0]).not.toBe(path.join(nested, 'node_modules', 'chromadb', 'dist', 'cli.mjs'));
+        } finally {
+            fs.rmSync(parent, {force: true, recursive: true})
+        }
+    });
+
+    test('an unlocatable chromadb names itself rather than dying at the heartbeat', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chroma-cli-absent-'));
+
+        try {
+            await expect(startChromaProcess({
+                dataDir : path.join(root, 'data'),
+                host    : '127.0.0.1',
+                logPath : path.join(root, 'chroma.log'),
+                port    : 18192,
+                probeFn : async () => false,
+                repoRoot: path.parse(root).root,
+                spawnFn : () => { throw new Error('must not reach spawn') }
+            })).rejects.toThrow(/Cannot locate the chromadb package/);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
     });
 
     test('SIGINT settles a detached POSIX process group without escalation', async () => {
