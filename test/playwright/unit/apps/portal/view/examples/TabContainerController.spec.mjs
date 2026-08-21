@@ -12,6 +12,7 @@ import path                   from 'node:path';
 import {fileURLToPath}        from 'node:url';
 import Neo                    from '../../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../../src/core/_export.mjs';
+import ExamplesStore          from '../../../../../../../apps/portal/store/Examples.mjs';
 import ExamplesTabContainer   from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
 import TabContainerController from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
 
@@ -90,6 +91,56 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         expect(controller.component.activeIndex).toBe(3);
 
         controller.destroy()
+    });
+
+    test('keeps real example-registry ids unique without aligning environment-local numbering', () => {
+        // These four tracked files are the build authority. `dist/**` copies are ignored generated
+        // output and do not exist in a fresh checkout, so they are verified through the owning build
+        // receipt rather than a conditional unit arm that would pass vacuously when they are absent.
+        const registryFiles = [
+            'examples_devmode.json',
+            'examples_dist_dev.json',
+            'examples_dist_esm.json',
+            'examples_dist_prod.json'
+        ];
+        const registries = Object.fromEntries(registryFiles.map(file => [
+            file,
+            JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8'))
+        ]));
+
+        Object.entries(registries).forEach(([file, records]) => {
+            const ids = records.map(record => record.id);
+
+            expect(new Set(ids).size, `${file}: every record id is unique`).toBe(ids.length)
+        });
+
+        // Cross-file id equality is deliberately NOT an invariant. Pin the three clean siblings so
+        // this one-file repair cannot drift into "aligning" their environment-local ids.
+        expect(Object.fromEntries(Object.entries(registries).map(([file, records]) => [
+            file,
+            records.find(record => record.name === 'Calendar')?.id
+        ]))).toEqual({
+            'examples_devmode.json'  : 22,
+            'examples_dist_dev.json' : 22,
+            'examples_dist_esm.json' : 21,
+            'examples_dist_prod.json': 26
+        });
+
+        const productionIds = registries['examples_dist_prod.json']
+            .map(record => record.id)
+            .sort((a, b) => a - b);
+
+        expect(productionIds, 'dist/prod keeps the shift-created 1–28 sequence contiguous')
+            .toEqual(Array.from({length: 28}, (unused, index) => index + 1));
+
+        const productionStore = Neo.create(ExamplesStore, {
+            data: registries['examples_dist_prod.json']
+        });
+
+        expect(productionStore.count, 'all 28 shipped rows survive the keyed Store load').toBe(28);
+        expect(productionStore.get(26)?.name, 'Calendar remains reachable by its repaired id').toBe('Calendar');
+
+        productionStore.destroy()
     });
 
     test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {

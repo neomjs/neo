@@ -43,7 +43,7 @@
     "sourceUrl"   : "examples/grid/bigData",
     "url"         : "dist/production/examples/grid/bigData/index.html"
 }, {
-    "id"       : 22,
+    "id"       : 26,
     "image"    : "devmode/calendar-preview.png",
     "name"     : "Calendar",
     "sourceUrl": "src/calendar",
