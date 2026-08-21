@@ -66,7 +66,7 @@ test.describe('AgentOS FM motion vocabulary — reduced-motion collapse witness 
     });
 
     /**
-     * #17265 AC-3 rendered witness: the FM panel alias (`--fm-motion-panel`) drives REAL reveal
+     * The panel-tier rendered witness: the FM panel alias (`--fm-motion-panel`) drives REAL reveal
      * motion on the two production reveal surfaces that consume it — the instance-switcher menu
      * (`fm-instance-menu-reveal`) and the manage-instances drawer (`fm-im-reveal`) — and collapses
      * under `prefers-reduced-motion`: the alias inherits the vocabulary-layer 0ms AND each surface's
