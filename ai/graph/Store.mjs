@@ -1,4 +1,4 @@
-import DataStore from '../../src/data/Store.mjs';
+import DataStore                 from '../../src/data/Store.mjs';
 import DestructiveOperationGuard from '../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
@@ -104,26 +104,37 @@ class Store extends DataStore {
     }
 
     /**
+     * @summary Asserts that every named secondary index is configured and initialized.
+     * @param {String[]} properties
+     * @throws {Error} When one or more required secondary indexes are unavailable.
+     */
+    assertIndices(properties) {
+        let me      = this,
+            missing = properties.filter(property => !me.indexMaps?.has(property));
+
+        if (missing.length > 0) {
+            throw new Error(`${me.className}: secondary index unavailable: ${missing.join(', ')}`)
+        }
+    }
+
+    /**
      * Extracts exact matching items synchronously from the GraphStore topography in O(1) mapping operations.
-     * Assumes `property` exists dynamically within `indices_`.
+     * A configured index with no matching value returns an empty array. An unavailable index fails
+     * explicitly so consumers cannot mistake a broken lookup precondition for an honest absence.
      * @param {String} property
      * @param {*} value
      * @returns {Object[]}
+     * @throws {Error} When the requested secondary index is unavailable.
      */
     getByIndex(property, value) {
-        let me = this;
+        let me = this,
+            matchSet;
 
-        if (me.indexMaps) {
-            let propertyMap = me.indexMaps.get(property);
-            if (propertyMap) {
-                let matchSet = propertyMap.get(value);
-                if (matchSet) {
-                    return Array.from(matchSet);
-                }
-            }
-        }
+        me.assertIndices([property]);
 
-        return [];
+        matchSet = me.indexMaps.get(property).get(value);
+
+        return matchSet ? Array.from(matchSet) : []
     }
 
     /**
@@ -140,8 +151,8 @@ class Store extends DataStore {
                 DestructiveOperationGuard.assertDestructiveTargetAllowedSync({
                     operation: 'clear',
                     subsystem: 'Neo.ai.graph.Store',
-                    mode: 'clear',
-                    target: { path }
+                    mode     : 'clear',
+                    target   : { path }
                 });
             } catch (e) {
                 throw new Error(`FATAL: Attempted to clear() a Store bound to a non-temporary SQLite database natively! Path: ${path}`);
@@ -174,14 +185,14 @@ class Store extends DataStore {
      * @protected
      */
     updateIndexMaps(addedItems, removedItems) {
-        let me       = this,
-            indices  = me.indices,
-            i        = 0,
+        let me      = this,
+            indices = me.indices,
+            i       = 0,
             len, item, isRecord, val, propertyMap, itemSet;
 
         if (removedItems && (len = removedItems.length) > 0) {
             indices.forEach(indexConfig => {
-                let prop    = indexConfig.property;
+                let prop = indexConfig.property;
                 propertyMap = me.indexMaps.get(prop);
 
                 for (i = 0; i < len; i++) {
@@ -204,7 +215,7 @@ class Store extends DataStore {
 
         if (addedItems && (len = addedItems.length) > 0) {
             indices.forEach(indexConfig => {
-                let prop    = indexConfig.property;
+                let prop = indexConfig.property;
                 propertyMap = me.indexMaps.get(prop);
 
                 for (i = 0; i < len; i++) {

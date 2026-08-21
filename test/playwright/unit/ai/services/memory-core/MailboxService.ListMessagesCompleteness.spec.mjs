@@ -197,4 +197,27 @@ test.describe('MailboxService.listMessages — a page must declare its own compl
         expect(seen, 'every seeded row reached, none repeated').toHaveLength(SEEDED);
         expect(new Set(seen).size, 'and each exactly once').toBe(SEEDED);
     });
+
+    test('the production edge Store exposes both mailbox routing indexes', () => {
+        expect(() => GraphService.db.edges.assertIndices(['source', 'target'])).not.toThrow()
+    });
+
+    for (const property of ['source', 'target']) {
+        test(`a missing ${property} index cannot manufacture an empty inbox`, async () => {
+            const
+                edges       = GraphService.db.edges,
+                propertyMap = edges.indexMaps.get(property);
+
+            expect(propertyMap, `the ${property} index must exist before the mutation`).toBeInstanceOf(Map);
+
+            edges.indexMaps.delete(property);
+
+            try {
+                await expect(asRecipient(() => MailboxService.listMessages({box: 'inbox'})))
+                    .rejects.toThrow(new RegExp(`secondary index unavailable.*${property}`, 'i'))
+            } finally {
+                edges.indexMaps.set(property, propertyMap)
+            }
+        })
+    }
 });

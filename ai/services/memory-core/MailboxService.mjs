@@ -876,10 +876,13 @@ function appendTaskStateChangeEvent(storage, snapshot) {
  * Returns `{}` for a missing edge, so a genuinely-recreated delivery honestly starts unread.
  * @param {String} messageId Message graph node id.
  * @param {String} recipient Recipient identity node id.
- * @returns {Object} `{readAt?, archivedAt?}` — only the fields with committed non-null values.
+ * @param {Object} [options]
+ * @param {Boolean} [options.includeNull=false] Include explicit nulls when a stored row exists.
+ * @returns {Object} `{readAt?, archivedAt?}` — committed non-null fields by default; explicit
+ *   nulls when `includeNull` is enabled and a stored row exists.
  * @private
  */
-function getStorageDeliveryMutableState(messageId, recipient) {
+function getStorageDeliveryMutableState(messageId, recipient, {includeNull=false} = {}) {
     const sqlite = GraphService.db?.storage?.db;
     if (!sqlite) return {};
 
@@ -895,42 +898,56 @@ function getStorageDeliveryMutableState(messageId, recipient) {
         if (state.readAt == null && row.readAt != null)         state.readAt     = row.readAt;
         if (state.archivedAt == null && row.archivedAt != null) state.archivedAt = row.archivedAt;
     }
+
+    if (includeNull) {
+        state.readAt     ??= null;
+        state.archivedAt ??= null
+    }
+
     return state;
 }
 
-function hasGraphEdgeOfType(source, type) {
-    return (GraphService.db?.edges?.items || []).some(edge =>
-        getRecordField(edge, 'source') === source &&
-        getRecordField(edge, 'type') === type
-    );
+/**
+ * @summary Checks one reconciled source-edge snapshot for a relationship type.
+ * @param {String} source
+ * @param {String} type
+ * @param {Object[]} [sourceEdges]
+ * @returns {Boolean}
+ * @private
+ */
+function hasGraphEdgeOfType(source, type, sourceEdges=getMessageSourceEdges(source)) {
+    return sourceEdges
+        .some(edge => getRecordField(edge, 'type') === type)
 }
 
 /**
- * @summary Returns missing graph pieces visible from the currently loaded cache for one message id.
+ * @summary Returns one message's indexed source projection and any missing graph pieces.
  * @param {String} messageId Message graph node id.
- * @returns {String[]}
+ * @returns {{issues:String[],sourceEdges:Object[]}}
  * @private
  */
-function getCachedMessageProjectionIssues(messageId) {
-    const db = GraphService.requireDb('MailboxService.getCachedMessageProjectionIssues');
+function getCachedMessageProjection(messageId) {
+    const db = GraphService.requireDb('MailboxService.getCachedMessageProjection');
 
     if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
-        return ['invalid-message-id'];
+        return {issues: ['invalid-message-id'], sourceEdges: []}
     }
 
     db.getAdjacentNodes(messageId, 'outbound');
 
-    const messageNode = db.nodes.get(messageId);
-    const issues      = [];
+    const
+        messageNode = db.nodes.get(messageId),
+        sourceEdges = getMessageSourceEdges(messageId),
+        issues      = [];
 
     if (!messageNode || getRecordField(messageNode, 'label') !== 'MESSAGE') {
         issues.push('missing-message-node');
     }
 
-    if (!hasGraphEdgeOfType(messageId, 'SENT_BY')) issues.push('missing-sent-by');
-    if (!hasGraphEdgeOfType(messageId, 'SENT_TO')) issues.push('missing-sent-to');
+    if (!hasGraphEdgeOfType(messageId, 'SENT_BY', sourceEdges)) issues.push('missing-sent-by');
+    if (!hasGraphEdgeOfType(messageId, 'SENT_TO', sourceEdges)) issues.push('missing-sent-to');
 
-    return issues;
+    return {issues, sourceEdges}
 }
 
 /**
@@ -1748,15 +1765,84 @@ function getBroadcastAudience(sentBy) {
         .sort();
 }
 
-function getBroadcastDeliveryEdges(messageId) {
-    return (GraphService.db?.edges?.items || []).filter(edge =>
-        getRecordField(edge, 'source') === messageId &&
-        getRecordField(edge, 'type') === 'DELIVERED_TO'
-    );
+/**
+ * @summary Projects every cached outgoing edge for one message through the source index.
+ * @param {String} messageId
+ * @returns {Object[]}
+ * @throws {Error} When the graph database or its source index is unavailable.
+ * @private
+ */
+function getMessageSourceEdges(messageId) {
+    const
+        db         = GraphService.requireDb('MailboxService.getMessageSourceEdges'),
+        {edges}    = db,
+        indexed    = edges.getByIndex('source', messageId),
+        resolved   = new Map(),
+        unresolved = [];
+
+    indexed.forEach(edge => {
+        const
+            id        = getRecordField(edge, 'id'),
+            canonical = id ? edges.get(id) : null;
+
+        if (canonical && getRecordField(canonical, 'source') === messageId) {
+            resolved.set(id, canonical)
+        } else if (id) {
+            unresolved.push(edge)
+        }
+    });
+
+    // A long-lived Store can retain an old object only in an index Set, while WAL repair can
+    // produce the inverse: a durable edge visible only from that Set. Canonical Store objects are
+    // the zero-I/O path. Only index-only ids pay one source-bounded SQLite reconciliation, which
+    // keeps a removed stale recipient from authorizing while preserving a repaired receipt.
+    const sqlite = db.storage?.db;
+    if (unresolved.length > 0 && sqlite) {
+        const storedById = new Map(sqlite.prepare(
+            'SELECT id, source, target, type FROM Edges WHERE source = ?'
+        ).all(messageId).map(row => [row.id, row]));
+
+        unresolved.forEach(edge => {
+            const
+                id     = getRecordField(edge, 'id'),
+                stored = storedById.get(id);
+
+            if (!resolved.has(id) &&
+                stored &&
+                stored.source === getRecordField(edge, 'source') &&
+                stored.target === getRecordField(edge, 'target') &&
+                stored.type   === getRecordField(edge, 'type')) {
+                resolved.set(id, edge)
+            }
+        })
+    }
+
+    return [...resolved.values()]
 }
 
-function getBroadcastDeliveryEdge(messageId, target) {
-    return getBroadcastDeliveryEdges(messageId)
+/**
+ * @summary Projects one broadcast's delivery receipts through its indexed outgoing edges.
+ * @param {String} messageId
+ * @param {Object[]} [sourceEdges]
+ * @returns {Object[]}
+ * @throws {Error} When the graph database or its source index is unavailable.
+ * @private
+ */
+function getBroadcastDeliveryEdges(messageId, sourceEdges=getMessageSourceEdges(messageId)) {
+    return sourceEdges
+        .filter(edge => getRecordField(edge, 'type') === 'DELIVERED_TO')
+}
+
+/**
+ * @summary Resolves the first equivalent delivery receipt for one recipient.
+ * @param {String} messageId
+ * @param {String} target
+ * @param {Object[]} [sourceEdges]
+ * @returns {Object|null}
+ * @private
+ */
+function getBroadcastDeliveryEdge(messageId, target, sourceEdges) {
+    return getBroadcastDeliveryEdges(messageId, sourceEdges)
         .find(edge => sameMailboxIdentity(getRecordField(edge, 'target'), target)) || null;
 }
 
@@ -1807,8 +1893,15 @@ function linkRequiredMailboxEdgeOrThrow(source, target, type, weight, properties
     }
 }
 
-function hasBroadcastDeliveryEdges(messageId) {
-    return getBroadcastDeliveryEdges(messageId).length > 0;
+/**
+ * @summary Reports whether one source-edge snapshot carries any delivery receipt.
+ * @param {String} messageId
+ * @param {Object[]} [sourceEdges]
+ * @returns {Boolean}
+ * @private
+ */
+function hasBroadcastDeliveryEdges(messageId, sourceEdges) {
+    return getBroadcastDeliveryEdges(messageId, sourceEdges).length > 0;
 }
 
 
@@ -2008,6 +2101,23 @@ function normalizeMarkReadMessageIdInput(messageId) {
 }
 
 /**
+ * @summary Reconciles mutable receipt fields from storage before a whole-edge persistence write.
+ * @param {Object} edge `DELIVERED_TO` edge record from the Store map or a secondary-index Set.
+ * @returns {Object} Cached properties overlaid with storage-owned `readAt` / `archivedAt` state.
+ * @private
+ */
+function getDeliveryEdgePropertiesForWrite(edge) {
+    return {
+        ...getRecordProperties(edge),
+        ...getStorageDeliveryMutableState(
+            getRecordField(edge, 'source'),
+            getRecordField(edge, 'target'),
+            {includeNull: true}
+        )
+    }
+}
+
+/**
  * Sets the read timestamp on a per-recipient `DELIVERED_TO` edge for broadcast messages and
  * reports whether that mutation reached durable storage.
  *
@@ -2021,7 +2131,7 @@ function normalizeMarkReadMessageIdInput(messageId) {
  */
 async function setDeliveryEdgeReadAt(edge, readAt) {
     setRecordProperties(edge, {
-        ...getRecordProperties(edge),
+        ...getDeliveryEdgePropertiesForWrite(edge),
         readAt
     });
 
@@ -2058,7 +2168,7 @@ async function setMessageNodeReadAt(node, readAt) {
  */
 async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
     setRecordProperties(edge, {
-        ...getRecordProperties(edge),
+        ...getDeliveryEdgePropertiesForWrite(edge),
         archivedAt
     });
 
@@ -2966,8 +3076,8 @@ class MailboxService extends Base {
      *   that looks correct.
      * @param {Number} [args.offset=0] Pagination offset. Must be a non-negative integer; pass the
      *   previous response's `nextOffset` to continue.
-     * @throws {Error} When `limit` is not a positive integer or `offset` is not a non-negative
-     *   integer.
+     * @throws {Error} When `limit` is not a positive integer, `offset` is not a non-negative
+     *   integer, or the required source/target edge indexes are unavailable.
      * @param {Boolean} [args.includeArchived=false] Surface archived messages. Default excludes
      *   any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR on the
      *   per-recipient DELIVERED_TO edge for broadcasts) — archived ≠ deleted; the message persists
@@ -3017,6 +3127,11 @@ class MailboxService extends Base {
         if (!Number.isInteger(numericOffset) || numericOffset < 0) {
             throw new Error(`MailboxService.listMessages: offset must be a non-negative integer, received ${JSON.stringify(offset)}`);
         }
+
+        // Candidate discovery and per-message projection form one routing contract. Assert both
+        // indexes before either can publish an empty result, including an honestly empty mailbox
+        // where no later source-index lookup would otherwise execute.
+        db.edges.assertIndices(['source', 'target']);
 
         const repairScanLimit = Math.max(MESSAGE_GRAPH_REPAIR_LIMIT, numericLimit + numericOffset);
 
@@ -3244,15 +3359,14 @@ class MailboxService extends Base {
 
         const db = GraphService.requireDb('MailboxService.getMessage');
 
-        // Trigger syncCache + lazy-reload vicinity for this message node.
-        // Ensures peer-process writes to this message's edges (e.g. late PART_OF_THREAD
-        // additions, read-receipt annotations) are visible. See listMessages for the
-        // full rationale on why bare `syncCache()` is insufficient for edge-type scans.
-        db.getAdjacentNodes(messageId, 'both');
+        // The projection helper triggers syncCache + lazy vicinity hydration, then returns the
+        // same reconciled source-edge snapshot used for integrity checks and authorization.
+        let {issues, sourceEdges} = getCachedMessageProjection(messageId);
 
-        if (getCachedMessageProjectionIssues(messageId).length > 0) {
+        if (issues.length > 0) {
             await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
             db.getAdjacentNodes(messageId, 'both');
+            sourceEdges = getMessageSourceEdges(messageId)
         }
 
         const messageNode = db.nodes.get(messageId);
@@ -3264,30 +3378,28 @@ class MailboxService extends Base {
             sentTo            = null,
             isDirectRecipient = false;
 
-        for (const edge of db.edges.items) {
-            if (getRecordField(edge, 'source') === messageId) {
-                const edgeType = getRecordField(edge, 'type'),
-                    edgeTarget = getRecordField(edge, 'target');
+        for (const edge of sourceEdges) {
+            const edgeType = getRecordField(edge, 'type'),
+                edgeTarget = getRecordField(edge, 'target');
 
-                if (edgeType === 'SENT_TO') {
-                    sentTo = edgeTarget;
-                    if (sameMailboxIdentity(edgeTarget, me)) {
-                        isDirectRecipient = true;
-                    }
+            if (edgeType === 'SENT_TO') {
+                sentTo = edgeTarget;
+                if (sameMailboxIdentity(edgeTarget, me)) {
+                    isDirectRecipient = true;
                 }
-                if (edgeType === 'SENT_BY') {
-                    sentBy = edgeTarget;
-                }
+            }
+            if (edgeType === 'SENT_BY') {
+                sentBy = edgeTarget;
             }
         }
 
-        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me, sourceEdges);
         let   isAuthorized = sameMailboxIdentity(sentBy, me) || isDirectRecipient;
 
         if (!isAuthorized && sentTo === 'AGENT:*') {
             // Legacy broadcasts without per-recipient receipts retain their historical
             // read-path semantics. Receipt-backed broadcasts authorize only snapshotted recipients.
-            isAuthorized = deliveryEdge || !hasBroadcastDeliveryEdges(messageId);
+            isAuthorized = deliveryEdge || !hasBroadcastDeliveryEdges(messageId, sourceEdges);
         } else if (!isAuthorized && sentTo && !sameMailboxIdentity(sentTo, me) && sentTo !== 'AGENT:*') {
             // Check if me has permission to read sentTo's inbox
             if (PermissionService.hasPermission(me, sentTo, 'CAN_READ_INBOX_OF')) {
@@ -3533,10 +3645,6 @@ class MailboxService extends Base {
 
         const db = GraphService.requireDb('MailboxService.markRead');
 
-        // Trigger syncCache + lazy-reload vicinity. Ensures the SENT_TO edge
-        // iteration sees peer-process writes. See listMessages for the full rationale.
-        db.getAdjacentNodes(messageId, 'both');
-
         // The read path repairs a degraded projection before serving; this path did not, so a mark
         // resolved and authorized from a cache the reader had already healed past. That divergence is
         // the defect: `get_message` served messages whose node or SENT_TO edge was absent here, while
@@ -3546,9 +3654,12 @@ class MailboxService extends Base {
         //
         // Repair is surgical (`onlyIssues`) and falls back to storage truth per flagged piece, so
         // triggering it here cannot resurrect the WAL's send-time `readAt: null` over a committed read.
-        if (getCachedMessageProjectionIssues(messageId).length > 0) {
+        let {issues, sourceEdges} = getCachedMessageProjection(messageId);
+
+        if (issues.length > 0) {
             await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
             db.getAdjacentNodes(messageId, 'both');
+            sourceEdges = getMessageSourceEdges(messageId)
         }
 
         const messageNode = db.nodes.get(messageId);
@@ -3559,8 +3670,8 @@ class MailboxService extends Base {
         let isDirectRecipient    = false,
             isBroadcastRecipient = false;
 
-        for (const edge of db.edges.items) {
-            if (getRecordField(edge, 'source') === messageId && getRecordField(edge, 'type') === 'SENT_TO') {
+        for (const edge of sourceEdges) {
+            if (getRecordField(edge, 'type') === 'SENT_TO') {
                 const edgeTarget = getRecordField(edge, 'target');
 
                 if (sameMailboxIdentity(edgeTarget, me)) {
@@ -3573,7 +3684,7 @@ class MailboxService extends Base {
             }
         }
 
-        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me, sourceEdges);
 
         if (deliveryEdge) {
             const readAt = new Date().toISOString();
@@ -3584,7 +3695,7 @@ class MailboxService extends Base {
         }
 
         // A broadcast recipient with no visible delivery edge is the one state where the projection is
-        // least likely to be telling the truth. The cheap check above (`getCachedMessageProjectionIssues`)
+        // least likely to be telling the truth. The cheap check above (`getCachedMessageProjection`)
         // has no DELIVERED_TO term, so a damaged per-recipient edge never triggered a repair — and
         // denying here purely because OTHER recipients' edges survive would refuse a legitimate audience
         // member: their own missing edge plus a peer's surviving edge reads as "not a recipient", and the
@@ -3597,8 +3708,9 @@ class MailboxService extends Base {
         if (isBroadcastRecipient) {
             await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
             db.getAdjacentNodes(messageId, 'both');
+            sourceEdges = getMessageSourceEdges(messageId);
 
-            const repairedEdge = getBroadcastDeliveryEdge(messageId, me);
+            const repairedEdge = getBroadcastDeliveryEdge(messageId, me, sourceEdges);
 
             if (repairedEdge) {
                 const readAt = new Date().toISOString();
@@ -3609,7 +3721,7 @@ class MailboxService extends Base {
             }
         }
 
-        if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId)) {
+        if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId, sourceEdges)) {
             throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
         }
 
@@ -3761,6 +3873,8 @@ class MailboxService extends Base {
         // Trigger syncCache + lazy-reload vicinity — same pattern as markRead.
         db.getAdjacentNodes(messageId, 'both');
 
+        const sourceEdges = getMessageSourceEdges(messageId);
+
         const messageNode = db.nodes.get(messageId);
         if (!messageNode || messageNode.label !== 'MESSAGE') {
             throw new Error(`Message not found: ${messageId}`);
@@ -3769,8 +3883,8 @@ class MailboxService extends Base {
         let isDirectRecipient    = false,
             isBroadcastRecipient = false;
 
-        for (const edge of db.edges.items) {
-            if (getRecordField(edge, 'source') === messageId && getRecordField(edge, 'type') === 'SENT_TO') {
+        for (const edge of sourceEdges) {
+            if (getRecordField(edge, 'type') === 'SENT_TO') {
                 const edgeTarget = getRecordField(edge, 'target');
 
                 if (sameMailboxIdentity(edgeTarget, me)) {
@@ -3783,7 +3897,7 @@ class MailboxService extends Base {
             }
         }
 
-        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me, sourceEdges);
 
         if (deliveryEdge) {
             const archivedAt = new Date().toISOString();
@@ -3793,7 +3907,7 @@ class MailboxService extends Base {
             return receiptWithDurability({ messageId, archivedAt, status: 'archived' }, durable, 'archive_message');
         }
 
-        if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId)) {
+        if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId, sourceEdges)) {
             throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
         }
 

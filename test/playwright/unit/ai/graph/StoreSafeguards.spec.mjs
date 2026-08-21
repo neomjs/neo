@@ -15,6 +15,7 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 import Store          from '../../../../../ai/graph/Store.mjs';
 import NodeModel      from '../../../../../ai/graph/NodeModel.mjs';
 
@@ -142,5 +143,41 @@ test.describe('Neo.ai.graph.Store Safeguards', () => {
         }
         expect(errorThrown).toBe(true);
         store.destroy();
+    });
+
+    test('distinguishes an unavailable index from a configured index with no matching value', () => {
+        const store = Neo.create(Store, {
+            autoInitRecords: false,
+            indices        : [{property: 'source'}],
+            model          : NodeModel
+        });
+
+        store.add({id: 'edge-1', source: 'message-1', target: 'recipient-1'}, false);
+
+        expect(store.getByIndex('source', 'message-1')).toHaveLength(1);
+        expect(store.getByIndex('source', 'missing-message')).toEqual([]);
+        expect(() => store.getByIndex('target', 'recipient-1'))
+            .toThrow(/secondary index unavailable.*target/i);
+
+        store.destroy()
+    });
+
+    test('fails explicitly when a configured index map disappears after construction', () => {
+        const store = Neo.create(Store, {
+            autoInitRecords: false,
+            indices        : [{property: 'source'}, {property: 'target'}],
+            model          : NodeModel
+        });
+
+        expect(() => store.assertIndices(['source', 'target'])).not.toThrow();
+
+        store.indexMaps.delete('target');
+
+        expect(() => store.assertIndices(['source', 'target']))
+            .toThrow(/secondary index unavailable.*target/i);
+        expect(() => store.getByIndex('target', 'recipient-1'))
+            .toThrow(/secondary index unavailable.*target/i);
+
+        store.destroy()
     });
 });
