@@ -79,11 +79,20 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
           '--fm-kind-pr', '--fm-kind-a2a', '--fm-kind-review', '--fm-kind-alert', '--fm-kind-neutral',
           '--fm-font-mono', '--fm-font-sans'
       ]),
+      // The closed STRUCTURAL vocabulary — the chip-family geometry/motion contract is mode-invariant
+      // by design and therefore lives exactly once at the shell root, never in the skins. Check 2's
+      // component-local-alias exemption deliberately ignores these declarations, so without this census
+      // a deletion of a contracted-but-unconsumed member would false-green every other check.
+      STRUCTURAL_FM_TOKENS = new Set([
+          '--fm-chip-mark-w', '--fm-chip-pad-y', '--fm-chip-pad-x', '--fm-chip-radius', '--fm-chip-gap',
+          '--fm-motion-pulse'
+      ]),
       // Real-tree paths; the exported collector takes overrides so the guard is testable in isolation.
       DEFAULT_PATHS = {
-          darkPath : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss'),
-          lightPath: path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss'),
-          viewDir  : path.join(repoRoot, 'resources/scss/src/apps/agentos')
+          darkPath      : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss'),
+          lightPath     : path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss'),
+          structuralPath: path.join(repoRoot, 'resources/scss/src/apps/agentos/Viewport.scss'),
+          viewDir       : path.join(repoRoot, 'resources/scss/src/apps/agentos')
       },
       // check 5 — the drawer shell/pane frame seam. Frame properties are the reveal SLOT's to own; a
       // pane skin ROOT re-declaring one re-creates the every-author-must-remember defect the shell
@@ -246,8 +255,12 @@ function stripVarCalls(text) {
 export function collectThemeSurfaceFailures({
     darkPath         = DEFAULT_PATHS.darkPath,
     lightPath        = DEFAULT_PATHS.lightPath,
+    structuralPath   = DEFAULT_PATHS.structuralPath,
     viewDir          = DEFAULT_PATHS.viewDir,
     contractedTokens = CONTRACTED_FM_TOKENS,
+    // opt-in per surface (the registry sets it): a surface without a structural contract must not
+    // inherit another surface's vocabulary — the workstation false-failed on the FM set otherwise.
+    structuralTokens = new Set(),
     modeInvariant    = MODE_INVARIANT,
     tokenPattern     = FM_TOKEN_RE
 } = {}) {
@@ -299,6 +312,15 @@ export function collectThemeSurfaceFailures({
     for (const token of contractedTokens) {
         if (!dark.has(token))  failures.push(`[contract] ${token} is a contracted --fm-* token but undefined in the dark skin`);
         if (!light.has(token)) failures.push(`[contract] ${token} is a contracted --fm-* token but undefined in the light skin`);
+    }
+
+    // check 1c — closed structural vocabulary: the mode-invariant geometry/motion contract lives ONCE
+    // at the shell root. Same census rule as 1b — every member stays DEFINED even while momentarily
+    // unconsumed — because check 2 exempts shell-root declarations as component-local aliases, and the
+    // completeness check therefore never notices a structural member disappearing.
+    const structural = structuralTokens.size ? extractFmTokens(structuralPath, tokenPattern) : new Map();
+    for (const token of structuralTokens) {
+        if (!structural.has(token)) failures.push(`[structural-contract] ${token} is contracted to the shell root (mode-invariant geometry/motion) but undefined in ${path.relative(repoRoot, structuralPath)}`);
     }
 
     // check 2 — token-only consumption; also collects the consumed + component-local token sets
@@ -661,10 +683,14 @@ const SURFACES = [
         name            : 'agentos',
         darkPath        : DEFAULT_PATHS.darkPath,
         lightPath       : DEFAULT_PATHS.lightPath,
+        structuralPath  : DEFAULT_PATHS.structuralPath,
         viewDir         : DEFAULT_PATHS.viewDir,
         tokenPattern    : FM_TOKEN_RE,
         modeInvariant   : MODE_INVARIANT,
         contractedTokens: CONTRACTED_FM_TOKENS,
+        // the chip-family geometry/motion census (check 1c) is agentos's contract, like 1b above —
+        // a surface opts in by naming its own structural vocabulary, never by inheriting this one
+        structuralTokens: STRUCTURAL_FM_TOKENS,
         // check 5 applies to agentos only: the drawer shell/pane seam is the FM cockpit's contract
         shellSeam       : AGENTOS_SHELL_SEAM
     },

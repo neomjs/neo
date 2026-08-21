@@ -24,7 +24,7 @@
 
     @media (prefers-reduced-motion: no-preference) {
         &.fm-live {
-            animation: fm-state-pulse var(--fm-motion-pulse, 2400ms) ease-in-out infinite;
+            animation: fm-state-pulse var(--fm-motion-pulse) ease-in-out infinite;
         }
     }
 }

@@ -44,7 +44,7 @@ The SSOT's live pulse (`@keyframes pulse`, 2.4s) is **decoration, not informatio
 
 ## The §04 token contract (type · spacing · chip geometry · FM motion aliases)
 
-The token appendix the design-bar section (SSOT §06) points at: four new groups, values included, binding rules stated. Values land in the theme twins (`theme-neo-{dark,light}/apps/agentos/Viewport.scss`) per the standing extraction rule; the light twin derives the same roles against its surfaces and is re-measured on landing. Semantics already landed elsewhere (state/kind color, ink tiers) are **consumed**, never re-minted here.
+The token appendix the design-bar section (SSOT §06) points at: four new groups, values included, binding rules stated. COLOR values land in the theme twins (`theme-neo-{dark,light}/apps/agentos/Viewport.scss`) per the standing extraction rule; the light twin derives the same roles against its surfaces and is re-measured on landing. Mode-INVARIANT values — the chip geometry set and the FM motion aliases — land exactly once at the shell root (`resources/scss/src/apps/agentos/Viewport.scss`): duplicating identical numbers into two skins buys no theme distinction and doubles the drift surface. Both homes carry a closed census in `check-theme-surfaces` (skin members in `CONTRACTED_FM_TOKENS`, shell-root members in `STRUCTURAL_FM_TOKENS`), so deleting a contracted member fails mechanically even while unconsumed. Semantics already landed elsewhere (state/kind color, ink tiers) are **consumed**, never re-minted here.
 
 | Token group | Tokens + values | Binding rule |
 |---|---|---|
