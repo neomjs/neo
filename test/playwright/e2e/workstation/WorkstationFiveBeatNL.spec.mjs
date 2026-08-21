@@ -1844,15 +1844,21 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(restoredOpacity, 'the staged clear must leave no residue on the host').toBe('1');
 
             // The untargeted-surface discipline: the restore is proven by the SAME instrument that
-            // proved the clear, never by reading back the one property the fixture itself wrote. A
-            // plausible-but-wrong restore — a pane re-rendered broken, content lost, while the
-            // host's own opacity reads '1' — must red HERE. The cross-capture guard is load-bearing:
-            // the second capture's OWN baseline must measure baseline-class against the first, or a
-            // degraded-but-stable restore would normalise itself away inside its own capture.
+            // proved the clear, never by reading back the one property the fixture itself wrote.
+            // Scope honestly held: grayscale visual-density entropy proves the workspace still
+            // RENDERS a baseline-class dense room — pane identity/content semantics belong to the
+            // semantic witnesses, not this fixture. The cross-capture guard alone is NOT enough:
+            // the helper floors the second capture's minimum against its OWN baseline, so two 0.65s
+            // would compose to 0.4225x of the original (5.30 → 3.445 → 2.239 passes both) — the
+            // direct bind below pins the post-restore minimum to the ORIGINAL baseline's floor.
             const restored = await captureWorkspaceContinuity(page, () => page.waitForTimeout(600));
 
             expect(restored.baselineEntropy,
                 'the post-restore workspace measures baseline-class against the pre-clear room')
+                .toBeGreaterThanOrEqual(continuity.baselineEntropy * 0.65);
+
+            expect(restored.minEntropy,
+                'the post-restore minimum holds the ORIGINAL baseline-class floor — composed 0.65s must not pass')
                 .toBeGreaterThanOrEqual(continuity.baselineEntropy * 0.65);
 
             await assertWorkspaceContinuity({
