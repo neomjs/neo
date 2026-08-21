@@ -25,6 +25,34 @@ const program = new Command();
 export const HIGHLIGHT_JS_REPOSITORY = 'https://github.com/highlightjs/highlight.js.git';
 
 /**
+ * Windows shim extensions. A `.cmd` / `.bat` file is a script interpreted by the command processor,
+ * not an executable image, so it has no entry point for `execFile` to launch.
+ * @type {Set<String>}
+ */
+const SHIM_EXTENSIONS = new Set(['.cmd', '.bat']);
+
+/**
+ * @summary Whether a command must be dispatched through a shell to be launchable at all.
+ *
+ * Node cannot start a `.cmd` or `.bat` with `execFile`/`spawn` unless a shell is requested — they are
+ * scripts for the command processor rather than executable images. On this build only `npm` selects a
+ * shim (`npm.cmd`); `git.exe` and `node.exe` are real executables and stay shell-free.
+ *
+ * Encoded as a rule over the command's extension rather than as a check for "npm", so a future
+ * Windows shim gets the right dispatch without anyone remembering this constraint.
+ *
+ * A shell here is safe because the arguments are literals — the rule this module enforces is that no
+ * INTERPOLATED value reaches a shell, not that no shell exists.
+ * @param {String} command Executable name as selected for the current platform.
+ * @returns {Boolean}
+ */
+export function requiresShell(command) {
+    const extension = command.slice(command.lastIndexOf('.')).toLowerCase();
+
+    return SHIM_EXTENSIONS.has(extension)
+}
+
+/**
  * @summary Builds the git-clone argument vector, so the target path is one argument by construction.
  *
  * Exported for coverage: the property that matters is that `targetDir` arrives as a SINGLE argv
@@ -71,15 +99,15 @@ async function main() {
         console.log(`Cloning highlight.js into ${tempDir}`);
         // argv, not a shell string: no quoting question, no metacharacter question. The command needs
         // no shell feature — no pipe, redirection or glob — so reaching for one only added a parser.
-        execFileSync(gitCmd, buildCloneArgs(tempDir), { stdio: 'inherit' });
+        execFileSync(gitCmd, buildCloneArgs(tempDir), { shell: requiresShell(gitCmd), stdio: 'inherit' });
 
         // 3. Install dependencies
         console.log(`Installing dependencies in ${tempDir}`);
-        execFileSync(npmCmd, ['install'], { cwd: tempDir, stdio: 'inherit' });
+        execFileSync(npmCmd, ['install'], { cwd: tempDir, shell: requiresShell(npmCmd), stdio: 'inherit' });
 
         // 4. Run the build script
         console.log('Running build script...');
-        execFileSync(nodeCmd, ['tools/build.js', '-n', ...languages], { cwd: tempDir, stdio: 'inherit' });
+        execFileSync(nodeCmd, ['tools/build.js', '-n', ...languages], { cwd: tempDir, shell: requiresShell(nodeCmd), stdio: 'inherit' });
 
         // 5. Copy and minify the generated bundle
         const generatedFile = path.join(tempDir, 'build/highlight.js');

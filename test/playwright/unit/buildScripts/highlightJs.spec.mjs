@@ -10,13 +10,13 @@ import {readFileSync} from 'node:fs';
  * @see https://github.com/neomjs/neo/issues/17492
  */
 test.describe('highlightJs — the clone target is one argument, not a shell string', () => {
-    let buildCloneArgs, HIGHLIGHT_JS_REPOSITORY;
+    let buildCloneArgs, HIGHLIGHT_JS_REPOSITORY, requiresShell;
 
     test.beforeAll(async () => {
         // Importing this module used to run a build. The direct-run guard is what makes the argv
         // builder reachable from a test at all, so a regression there fails these arms loudly
         // rather than by cloning a repository during the suite.
-        ({buildCloneArgs, HIGHLIGHT_JS_REPOSITORY} =
+        ({buildCloneArgs, HIGHLIGHT_JS_REPOSITORY, requiresShell} =
             await import('../../../../buildScripts/build/highlightJs.mjs'));
     });
 
@@ -55,6 +55,39 @@ test.describe('highlightJs — the clone target is one argument, not a shell str
         expect(HIGHLIGHT_JS_REPOSITORY).toMatch(/^https:\/\/github\.com\/highlightjs\/highlight\.js\.git$/)
     });
 
+    test('a Windows .cmd shim is dispatched through a shell; real executables are not', () => {
+        // Regression from widening this PR's scope to all three subprocess sites. `npm.cmd` is a
+        // script for the command processor, not an executable image, so `execFile` cannot launch it
+        // at all on Windows — the argv conversion that fixed the clone site broke npm there.
+        //
+        // Asserted as a RULE over the extension rather than a check for "npm", and evaluated on this
+        // platform, so the Windows behaviour is provable without a Windows runner.
+        expect(requiresShell('npm.cmd'), '.cmd is a shim').toBe(true);
+        expect(requiresShell('npm.CMD'), 'and the check is case-insensitive').toBe(true);
+        expect(requiresShell('setup.bat'), '.bat likewise').toBe(true);
+
+        expect(requiresShell('git.exe'), 'a real executable needs no shell').toBe(false);
+        expect(requiresShell('node.exe'), 'likewise').toBe(false);
+        expect(requiresShell('npm'), 'and the POSIX selector stays shell-free').toBe(false);
+    });
+
+    test('every subprocess site derives its shell flag from the rule, never hardcodes it', () => {
+        // Without this, a future site could pass `shell: true` unconditionally — which would put a
+        // shell back on the POSIX path where the whole fix was to remove one.
+        const
+            source = readFileSync('buildScripts/build/highlightJs.mjs', 'utf8'),
+            calls  = [...source.matchAll(/execFileSync\([^;]*?\)\s*;/gs)].map(m => m[0]);
+
+        expect(calls.length, 'all three sites are present').toBe(3);
+
+        for (const call of calls) {
+            expect(call, `shell flag must come from requiresShell(): ${call.slice(0, 60)}`)
+                .toMatch(/shell:\s*requiresShell\(/)
+        }
+
+        expect(source, 'no unconditional shell anywhere in the module').not.toMatch(/shell:\s*true/)
+    });
+
     test('no interpolated string reaches execSync — including via an intermediate variable', () => {
         // The original defect was TWO-STEP:
         //
@@ -66,8 +99,9 @@ test.describe('highlightJs — the clone target is one argument, not a shell str
         // it used the inline form — i.e. the shape the detector could already see. Binding the
         // identifier-mediated path is the whole point, because that is the path the defect took.
         //
-        // `:58` and `:69` build commands with no interpolation and pass `cwd` as an option; they were
-        // never the defect and this permits them.
+        // All three sites are argv now, so `execSync` should not appear at all — but the guard is
+        // written against `execSync` usage rather than its absence, because the way this returns is
+        // someone adding a new path-bearing command, not someone editing the three that exist.
         const
             source = readFileSync('buildScripts/build/highlightJs.mjs', 'utf8'),
             // Identifiers bound to a template literal that interpolates something.
