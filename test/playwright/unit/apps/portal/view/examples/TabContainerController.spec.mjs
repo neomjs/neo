@@ -12,13 +12,31 @@ import path                   from 'node:path';
 import {fileURLToPath}        from 'node:url';
 import Neo                    from '../../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../../src/core/_export.mjs';
+import ExamplesStore          from '../../../../../../../apps/portal/store/Examples.mjs';
 import ExamplesTabContainer   from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
 import TabContainerController from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
 
 const
-    directory = path.dirname(fileURLToPath(import.meta.url)),
-    repoRoot  = path.resolve(directory, '../../../../../../../'),
-    dataRoot  = path.join(repoRoot, 'apps/portal/resources/data');
+    directory       = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot        = path.resolve(directory, '../../../../../../../'),
+    dataRoot        = path.join(repoRoot, 'apps/portal/resources/data'),
+    registryConfigs = [{
+        file       : 'examples_devmode.json',
+        devIndexUrl: 'apps/devindex/index.html',
+        dockDemoUrl: 'apps/agentos/childapps/dockdemo/index.html'
+    }, {
+        file       : 'examples_dist_dev.json',
+        devIndexUrl: 'dist/development/apps/devindex/index.html',
+        dockDemoUrl: 'dist/development/apps/agentos/childapps/dockdemo/index.html'
+    }, {
+        file       : 'examples_dist_esm.json',
+        devIndexUrl: 'dist/esm/apps/devindex/index.html',
+        dockDemoUrl: 'dist/esm/apps/agentos/childapps/dockdemo/index.html'
+    }, {
+        file       : 'examples_dist_prod.json',
+        devIndexUrl: 'dist/production/apps/devindex/index.html',
+        dockDemoUrl: 'dist/production/apps/agentos/childapps/dockdemo/index.html'
+    }];
 
 /**
  * The examples tab routes resolve `activeIndex` through the controller's `tabItems` array.
@@ -92,26 +110,52 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         controller.destroy()
     });
 
-    test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {
-        const registries = [{
-            file       : 'examples_devmode.json',
-            devIndexUrl: 'apps/devindex/index.html',
-            dockDemoUrl: 'apps/agentos/childapps/dockdemo/index.html'
-        }, {
-            file       : 'examples_dist_dev.json',
-            devIndexUrl: 'dist/development/apps/devindex/index.html',
-            dockDemoUrl: 'dist/development/apps/agentos/childapps/dockdemo/index.html'
-        }, {
-            file       : 'examples_dist_esm.json',
-            devIndexUrl: 'dist/esm/apps/devindex/index.html',
-            dockDemoUrl: 'dist/esm/apps/agentos/childapps/dockdemo/index.html'
-        }, {
-            file       : 'examples_dist_prod.json',
-            devIndexUrl: 'dist/production/apps/devindex/index.html',
-            dockDemoUrl: 'dist/production/apps/agentos/childapps/dockdemo/index.html'
-        }];
+    test('keeps real example-registry ids unique without aligning environment-local numbering', () => {
+        // These four tracked files are the build authority. `dist/**` copies are ignored generated
+        // output and do not exist in a fresh checkout, so they are verified through the owning build
+        // receipt rather than a conditional unit arm that would pass vacuously when they are absent.
+        const registries = Object.fromEntries(registryConfigs.map(({file}) => [
+            file,
+            JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8'))
+        ]));
 
-        registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
+        Object.entries(registries).forEach(([file, records]) => {
+            const ids = records.map(record => record.id);
+
+            expect(new Set(ids).size, `${file}: every record id is unique`).toBe(ids.length)
+        });
+
+        // Cross-file id equality is deliberately NOT an invariant. Pin the three clean siblings so
+        // this one-file repair cannot drift into "aligning" their environment-local ids.
+        expect(Object.fromEntries(Object.entries(registries).map(([file, records]) => [
+            file,
+            records.find(record => record.name === 'Calendar')?.id
+        ]))).toEqual({
+            'examples_devmode.json'  : 22,
+            'examples_dist_dev.json' : 22,
+            'examples_dist_esm.json' : 21,
+            'examples_dist_prod.json': 26
+        });
+
+        const productionIds = registries['examples_dist_prod.json']
+            .map(record => record.id)
+            .sort((a, b) => a - b);
+
+        expect(productionIds, 'dist/prod keeps the shift-created 1–28 sequence contiguous')
+            .toEqual(Array.from({length: 28}, (unused, index) => index + 1));
+
+        const productionStore = Neo.create(ExamplesStore, {
+            data: registries['examples_dist_prod.json']
+        });
+
+        expect(productionStore.count, 'all 28 shipped rows survive the keyed Store load').toBe(28);
+        expect(productionStore.get(26)?.name, 'Calendar remains reachable by its repaired id').toBe('Calendar');
+
+        productionStore.destroy()
+    });
+
+    test('release-gates DockDemo while retaining the visible DevIndex flagship card', () => {
+        registryConfigs.forEach(({file, devIndexUrl, dockDemoUrl}) => {
             const
                 records   = JSON.parse(fs.readFileSync(path.join(dataRoot, file), 'utf8')),
                 dockDemo  = records.find(record => record.name === 'Dock Layouts'),
