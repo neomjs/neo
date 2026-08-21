@@ -10,8 +10,12 @@ import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
                               from '../../embeddingProviders.mjs';
 import {resolveEmbeddingAdmissionBand}
                               from '../../embeddingSafeBand.mjs';
-import {buildEmbeddingInputHeader, buildEmbeddingInputText}
-                              from './helpers/embeddingInputFormat.mjs';
+import {
+    buildEmbeddingInputHeader,
+    buildEmbeddingInputText
+}                             from './helpers/embeddingInputFormat.mjs';
+import {buildChunkRowMetadata}
+                              from './helpers/chunkRowMetadata.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -163,24 +167,6 @@ function resolveFailedRequestChunks({error, batchToEmbed, persistedCount = 0}) {
     return []
 }
 
-/**
- * @summary Flattens one chunk into Chroma-storable scalar metadata.
- *
- * The single producer for both the full-batch upsert and the partial upsert a cooperative lease yield
- * performs. Two sites deriving this independently could drift, and drift here means a stored vector
- * whose metadata disagrees with the vector beside it.
- * @param {Object} chunk Tenant-stamped chunk.
- * @returns {Object}
- */
-function buildChunkMetadata(chunk) {
-    const metadata = {};
-
-    for (const [key, value] of Object.entries(chunk)) {
-        metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
-    }
-
-    return metadata
-}
 
 const TENANT_GUARDED_FIELDS             = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES                  = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
@@ -1037,7 +1023,7 @@ class VectorService extends Base {
         await collection.upsert({
             ids      : inputs.map(input => input.chunk.id),
             embeddings,
-            metadatas: inputs.map(input => buildChunkMetadata(input.chunk))
+            metadatas: inputs.map(input => buildChunkRowMetadata(input.chunk))
         })
     }
 
@@ -1472,7 +1458,7 @@ class VectorService extends Base {
                         await collection.upsert({
                             ids       : partialChunks.map(chunk => chunk.id),
                             embeddings: carried,
-                            metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
+                            metadatas : partialChunks.map(chunk => buildChunkRowMetadata(chunk))
                         });
                         break;
                     } catch (writeError) {
@@ -1557,7 +1543,7 @@ class VectorService extends Base {
                         await graduateDeathSuspect(suspectId, deathEntry, recoveredTokenEstimate);
                     }
 
-                    const metadatas = batchToEmbed.map(buildChunkMetadata);
+                    const metadatas = batchToEmbed.map(buildChunkRowMetadata);
 
                     await collection.upsert({
                         ids: batchToEmbed.map(chunk => chunk.id),

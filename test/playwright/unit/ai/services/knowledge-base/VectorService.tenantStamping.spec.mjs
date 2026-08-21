@@ -18,6 +18,8 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
+import {EMBEDDING_INPUT_FORMAT_ID, EMBEDDING_INPUT_FORMAT_METADATA_KEY}
+                       from '../../../../../../ai/services/knowledge-base/helpers/embeddingInputFormat.mjs';
 import fs              from 'fs';
 import path            from 'path';
 import os              from 'os';
@@ -415,6 +417,41 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         expect(Number.isFinite(ingestedAt)).toBe(true);
         expect(ingestedAt).toBeGreaterThanOrEqual(before);
         expect(ingestedAt).toBeLessThanOrEqual(after);
+        expect(warnCalls).toHaveLength(0);
+    });
+
+
+    test('stamps the provider-input format id onto chunk metadata through the real upsert path', async () => {
+        // INTEGRATION arm, and the reason it lives here rather than beside the helper's unit arms:
+        // those call the writer directly, so replacing every VectorService call site with a plain
+        // field copy leaves them green. This asserts the marker on metadata the SERVICE actually
+        // upserted, which is the only assertion that fails when the service stops calling the writer.
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, [{
+            hash       : 'raw-hash-format-marker',
+            type       : 'guide',
+            name       : 'FormatMarkerDoc',
+            className  : '',
+            description: 'format marker stamping',
+            content    : 'body'
+        }]);
+
+        await KB_VectorService.embed(fixturePath);
+
+        const {metadata} = getOnlyRow(spy);
+
+        expect(
+            metadata[EMBEDDING_INPUT_FORMAT_METADATA_KEY],
+            'the upserted row must carry the current provider-input format id; without this arm the ' +
+            'service could stop stamping and only the helper-level arms would notice — and they cannot'
+        ).toBe(EMBEDDING_INPUT_FORMAT_ID);
+
+        // Non-vacuity: the fixture chunk never carried the key, so the value came from the write path.
+        expect(Object.hasOwn({
+            hash: 'raw-hash-format-marker', type: 'guide', name: 'FormatMarkerDoc'
+        }, EMBEDDING_INPUT_FORMAT_METADATA_KEY)).toBe(false);
         expect(warnCalls).toHaveLength(0);
     });
 
