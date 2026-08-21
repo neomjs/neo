@@ -4110,10 +4110,8 @@ components:
               nullable: true
               maxLength: 240
               description: >-
-                Sanitized reason a `deferred` or `failed` presence terminal did not complete, absent
-                on `completed`. Whitespace-collapsed, credential-redacted and then bounded, in that
-                order. Exists because the outcome alone is not diagnosable: a constant `failed`
-                beside a server-only log cost multiple seats days of blind sampling.
+                Sanitized, bounded reason for a `deferred` or `failed` presence terminal; absent on
+                `completed`.
             visibilityMs:
               type: integer
               minimum: 0
