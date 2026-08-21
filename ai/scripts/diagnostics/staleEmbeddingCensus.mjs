@@ -2,7 +2,8 @@
 /**
  * @module ai/scripts/diagnostics/staleEmbeddingCensus
  * @summary Counts knowledge-base rows whose vectors were built from a superseded provider-input
- * format, per tenant, with the cause split out. Read-only: it never writes, embeds, or deletes.
+ * format, per tenant, with the cause split out. It never writes to the corpus — no embed, no upsert,
+ * no delete — and the only file it touches is the `--json` report path when one is supplied.
  *
  * ## Why this script exists rather than a query
  *
@@ -73,6 +74,14 @@ const PAGE_SIZE = 2000;
  * @param {String[]} argv Raw arguments.
  * @returns {{tenant: String|null, idLimit: Number, json: String|null, help: Boolean}}
  */
+function requireValue(flag, value) {
+    if (typeof value !== 'string' || value.trim() === '') {
+        throw new Error(`${flag} expects a non-empty value`);
+    }
+
+    return value
+}
+
 export function parseArgs(argv) {
     const options = {tenant: null, idLimit: 20, json: null, help: false};
 
@@ -82,7 +91,10 @@ export function parseArgs(argv) {
         if (arg === '--help' || arg === '-h') {
             options.help = true
         } else if (arg === '--tenant') {
-            options.tenant = argv[++i] ?? null
+            // A missing value here is the dangerous one: `?? null` used to mean "all tenants", so a
+            // typo silently WIDENED the scope of the measurement instead of refusing it. `--ids`
+            // already fails loud one branch down; this matches it.
+            options.tenant = requireValue(arg, argv[++i])
         } else if (arg === '--ids') {
             options.idLimit = Number(argv[++i]);
 
@@ -90,7 +102,9 @@ export function parseArgs(argv) {
                 throw new Error('--ids expects a non-negative integer');
             }
         } else if (arg === '--json') {
-            options.json = argv[++i] ?? null
+            // A missing value used to mean "no report", so `--json` with a fat-fingered path wrote
+            // nothing and still exited 0 — a silent no-op where the caller asked for a file.
+            options.json = requireValue(arg, argv[++i])
         } else {
             throw new Error(`unknown argument: ${arg}`);
         }
@@ -190,8 +204,12 @@ async function main() {
 
     const collection = await ChromaManager.getKnowledgeBaseCollection();
 
-    // An unreachable daemon must report "nothing was measured" rather than an empty census, which
+    // A missing collection must report "nothing was measured" rather than an empty census, which
     // would read as a clean corpus — the exact false-clean this whole lane keeps producing.
+    //
+    // Bounded deliberately: this detects an ABSENT collection handle. A daemon that is reachable but
+    // erroring, or one whose page read throws mid-walk, is not covered here — those surface as a
+    // thrown error from the walk rather than as this line.
     if (!collection) {
         console.error('knowledge-base collection unavailable — nothing was measured');
         process.exitCode = 1;

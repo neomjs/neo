@@ -11,6 +11,8 @@ import {
 }                              from '../../../../../../ai/services/knowledge-base/helpers/embeddingInputFormat.mjs';
 import {censusCollection, parseArgs}
                                from '../../../../../../ai/scripts/diagnostics/staleEmbeddingCensus.mjs';
+import {buildChunkRowMetadata}
+                               from '../../../../../../ai/services/knowledge-base/helpers/chunkRowMetadata.mjs';
 import {
     classifyRowFormat,
     emptyStaleEmbeddingCensus,
@@ -297,5 +299,98 @@ test.describe('the census flags refuse what they do not understand (#17428)', ()
         expect(parseArgs([])).toEqual({tenant: null, idLimit: 20, json: null, help: false});
         expect(parseArgs(['--tenant', 't1', '--ids', '0'])).toMatchObject({tenant: 't1', idLimit: 0});
         expect(parseArgs(['--help'])).toMatchObject({help: true});
+    });
+});
+
+test.describe('the PRODUCTION writer stamps the format, and the stamp is not the caller\'s to make', () => {
+    // Every other arm in this file builds `{[KEY]: ID}` by hand and feeds it to the READER. That
+    // proves the reader classifies, and proves nothing about the writer: deleting the producer's
+    // stamp left the whole suite green. These arms call the production writer and assert on what IT
+    // emits, so the producer cannot go silent behind a suite that supplies its own answer.
+
+    test('RA-1 PRODUCTION PATH: a chunk that carries no format field still yields a stamped row', () => {
+        // The chunk deliberately omits the key — this is the real upsert input shape, where the
+        // format claim has to come from the module that owns the format.
+        const chunk    = {id: 'c1', kind: 'method', tenantId: 't1', text: 'x'},
+              metadata = buildChunkRowMetadata(chunk);
+
+        expect(
+            metadata[EMBEDDING_INPUT_FORMAT_METADATA_KEY],
+            'the writer must stamp the current format id; deleting the producer line must redden HERE ' +
+            'rather than leaving a reader-only suite green'
+        ).toBe(EMBEDDING_INPUT_FORMAT_ID);
+
+        // Non-vacuity: the input genuinely lacked the key, so the assertion above cannot be
+        // satisfied by the fixture handing the writer its own answer.
+        expect(
+            Object.hasOwn(chunk, EMBEDDING_INPUT_FORMAT_METADATA_KEY),
+            'the fixture must NOT supply the key, or this arm re-tests the caller instead of the writer'
+        ).toBe(false);
+    });
+
+    test('RA-1 PRODUCTION PATH: a chunk claiming a format CANNOT override the writer', () => {
+        // The stamp sits after the copy loop, and the docblock calls that order load-bearing. Nothing
+        // asserted it. A chunk is parsed content: it must not be able to declare which format built
+        // its vector, or a poisoned row could mark itself fresh and escape the census forever.
+        const forged   = 'kb-embed-input-v1-000000000000',
+              metadata = buildChunkRowMetadata({
+                  id: 'c2', kind: 'method', [EMBEDDING_INPUT_FORMAT_METADATA_KEY]: forged
+              });
+
+        expect(forged, 'the control value must differ from the real id, or the arm cannot fail')
+            .not.toBe(EMBEDDING_INPUT_FORMAT_ID);
+        expect(
+            metadata[EMBEDDING_INPUT_FORMAT_METADATA_KEY],
+            'the row\'s format claim comes from the format module, never from parsed content — ' +
+            'moving the stamp above the copy loop must redden this arm'
+        ).toBe(EMBEDDING_INPUT_FORMAT_ID);
+    });
+
+    test('RA-1 the writer still flattens every chunk field to a Chroma-storable scalar', () => {
+        // Guards the lift itself: the stamp is the new behaviour, the flattening is pre-existing and
+        // must survive the move out of VectorService unchanged.
+        const metadata = buildChunkRowMetadata({
+            id: 'c3', nested: {a: 1}, empty: null, count: 7, flag: true, list: [1, 2]
+        });
+
+        expect(metadata.nested).toBe('{"a":1}');
+        expect(metadata.empty).toBe('null');
+        expect(metadata.list).toBe('[1,2]');
+        expect(metadata.count).toBe(7);
+        expect(metadata.flag).toBe(true);
+    });
+});
+
+test.describe('RA-3 the census flags refuse a MISSING value instead of meaning something else', () => {
+    // `--ids` already failed loud; `--tenant` and `--json` used `?? null`, and for both of them
+    // `null` is a legitimate, meaningful setting — so a typo did not error, it silently selected a
+    // DIFFERENT measurement.
+
+    test('--tenant with no value REFUSES, because `null` there silently means every tenant', () => {
+        // The dangerous one: the old behaviour widened a single-tenant census to the whole corpus.
+        expect(() => parseArgs(['--tenant'])).toThrow(/--tenant expects a non-empty value/);
+        expect(() => parseArgs(['--tenant', '   '])).toThrow(/--tenant expects a non-empty value/);
+
+        // CONTROL — a real value still parses, so the guard is not a blanket reject.
+        expect(parseArgs(['--tenant', 't1']).tenant).toBe('t1');
+    });
+
+    test('--json with no value REFUSES, because `null` there silently means no report at all', () => {
+        expect(() => parseArgs(['--json'])).toThrow(/--json expects a non-empty value/);
+        expect(() => parseArgs(['--json', ''])).toThrow(/--json expects a non-empty value/);
+
+        // CONTROL — a real path still parses.
+        expect(parseArgs(['--json', '/tmp/x.json']).json).toBe('/tmp/x.json');
+    });
+
+    test('the defaults are unchanged when a flag is ABSENT, which is not the same as empty', () => {
+        // The distinction the fix rests on: omitting `--tenant` still means "all tenants", and only
+        // SUPPLYING it without a value is refused. Without this arm the fix could have been a
+        // blanket "tenant is required" and this suite would not have noticed.
+        const options = parseArgs([]);
+
+        expect(options.tenant).toBeNull();
+        expect(options.json).toBeNull();
+        expect(options.idLimit).toBe(20);
     });
 });

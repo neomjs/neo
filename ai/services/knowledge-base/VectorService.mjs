@@ -11,11 +11,11 @@ import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
 import {resolveEmbeddingAdmissionBand}
                               from '../../embeddingSafeBand.mjs';
 import {
-    EMBEDDING_INPUT_FORMAT_ID,
-    EMBEDDING_INPUT_FORMAT_METADATA_KEY,
     buildEmbeddingInputHeader,
     buildEmbeddingInputText
 }                             from './helpers/embeddingInputFormat.mjs';
+import {buildChunkRowMetadata}
+                              from './helpers/chunkRowMetadata.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -167,33 +167,6 @@ function resolveFailedRequestChunks({error, batchToEmbed, persistedCount = 0}) {
     return []
 }
 
-/**
- * @summary Flattens one chunk into Chroma-storable scalar metadata.
- *
- * The single producer for both the full-batch upsert and the partial upsert a cooperative lease yield
- * performs. Two sites deriving this independently could drift, and drift here means a stored vector
- * whose metadata disagrees with the vector beside it.
- * @param {Object} chunk Tenant-stamped chunk.
- * @returns {Object}
- */
-function buildChunkMetadata(chunk) {
-    const metadata = {};
-
-    for (const [key, value] of Object.entries(chunk)) {
-        metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
-    }
-
-    // Stamped here rather than onto the chunk, because three upsert sites call this function and a
-    // chunk-side stamp is three places to forget. This is already the single authority for row
-    // metadata — the same reason its own summary gives for existing.
-    //
-    // AFTER the copy loop, and that order is load-bearing: a chunk carrying a field of this name
-    // must not be able to declare which format its vector was built from. The row's claim comes from
-    // the module that owns the format, never from parsed content.
-    metadata[EMBEDDING_INPUT_FORMAT_METADATA_KEY] = EMBEDDING_INPUT_FORMAT_ID;
-
-    return metadata
-}
 
 const TENANT_GUARDED_FIELDS             = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES                  = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
@@ -1050,7 +1023,7 @@ class VectorService extends Base {
         await collection.upsert({
             ids      : inputs.map(input => input.chunk.id),
             embeddings,
-            metadatas: inputs.map(input => buildChunkMetadata(input.chunk))
+            metadatas: inputs.map(input => buildChunkRowMetadata(input.chunk))
         })
     }
 
@@ -1479,7 +1452,7 @@ class VectorService extends Base {
                         await collection.upsert({
                             ids       : partialChunks.map(chunk => chunk.id),
                             embeddings: carried,
-                            metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
+                            metadatas : partialChunks.map(chunk => buildChunkRowMetadata(chunk))
                         });
                         break;
                     } catch (writeError) {
@@ -1564,7 +1537,7 @@ class VectorService extends Base {
                         await graduateDeathSuspect(suspectId, deathEntry, recoveredTokenEstimate);
                     }
 
-                    const metadatas = batchToEmbed.map(buildChunkMetadata);
+                    const metadatas = batchToEmbed.map(buildChunkRowMetadata);
 
                     await collection.upsert({
                         ids: batchToEmbed.map(chunk => chunk.id),
