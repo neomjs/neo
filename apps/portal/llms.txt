@@ -432,7 +432,7 @@ Here you find the full history of Neo.mjs updates.
 - [Provision Your Own Agent Team](https://neomjs.com/raw/learn/agentos/OwnAgentTeam.md)
 - [Deployment Cookbook](https://neomjs.com/raw/learn/agentos/DeploymentCookbook.md)
 - [The aiConfig Configuration Model](https://neomjs.com/raw/learn/agentos/AiConfigModel.md)
-- [Agent Harness Dock-Zone Model](https://neomjs.com/raw/learn/agentos/HarnessDockZoneModel.md)
+- [Dock-Zone Model](https://neomjs.com/raw/learn/agentos/DockZoneModel.md)
 - [Why Deploy the Agent OS](https://neomjs.com/raw/learn/agentos/cloud-deployment/WhyDeploy.md)
 - [Day-0 Tutorial](https://neomjs.com/raw/learn/agentos/cloud-deployment/Day0Tutorial.md)
 - [Tenant Ingestion Model](https://neomjs.com/raw/learn/agentos/cloud-deployment/TenantIngestionModel.md)
@@ -472,7 +472,7 @@ Here you find the full history of Neo.mjs updates.
 - [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
 - [0020 — Agent Harness Concept Anchor](https://neomjs.com/raw/learn/agentos/decisions/0020-agent-harness-concept.md)
 - [0022 — Heavy-Maintenance Scheduling Fairness](https://neomjs.com/raw/learn/agentos/decisions/0022-heavy-maintenance-scheduling-fairness.md)
-- [0029 — Harness Docking Design](https://neomjs.com/raw/learn/agentos/decisions/0029-harness-docking-design.md)
+- [0029 — Docking Design](https://neomjs.com/raw/learn/agentos/decisions/0029-docking-design.md)
 
 ## Guides
 
@@ -560,6 +560,9 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17516](https://neomjs.com/raw/news/tickets/17516.md)
+- [Ticket #17514](https://neomjs.com/raw/news/tickets/17514.md)
+- [Ticket #17512](https://neomjs.com/raw/news/tickets/17512.md)
 - [Ticket #17504](https://neomjs.com/raw/news/tickets/17504.md)
 - [Ticket #17503](https://neomjs.com/raw/news/tickets/17503.md)
 - [Ticket #17502](https://neomjs.com/raw/news/tickets/17502.md)
@@ -12078,6 +12081,11 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17517](https://neomjs.com/raw/news/pulls/17517.md)
+- [Pull Request #17515](https://neomjs.com/raw/news/pulls/17515.md)
+- [Pull Request #17513](https://neomjs.com/raw/news/pulls/17513.md)
+- [Pull Request #17511](https://neomjs.com/raw/news/pulls/17511.md)
+- [Pull Request #17510](https://neomjs.com/raw/news/pulls/17510.md)
 - [Pull Request #17509](https://neomjs.com/raw/news/pulls/17509.md)
 - [Pull Request #17508](https://neomjs.com/raw/news/pulls/17508.md)
 - [Pull Request #17507](https://neomjs.com/raw/news/pulls/17507.md)
