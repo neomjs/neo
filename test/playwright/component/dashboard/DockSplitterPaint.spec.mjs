@@ -191,6 +191,163 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
             .not.toBe(withToken.handle)
     });
 
+    /**
+     * The two real consuming apps, loaded as the COMPILED stylesheets they ship as.
+     *
+     * The synthetic-token arm above proves the engine consumes the token. It cannot prove that
+     * either app's own rule reaches it, because a rule written in the spec is a rule nobody ships.
+     * These link `dist/**\/css/**` — the same artifacts Neo itself loads at runtime — and wear the
+     * app's real root class, so what is measured is the shipped cascade.
+     */
+    const APP_IDENTITIES = [{
+        name   : 'workstation',
+        rootCls: 'workstation-workspace',
+        rule   : '/dist/development/css/src/apps/workstation/Workspace.css',
+        // The palette the rule's values REFERENCE, and it is theme-scoped: `--workstation-signal`
+        // is declared under `:root .neo-theme-neo-*`, not in the app rule. Without it every
+        // `color-mix(… var(--workstation-signal) …)` is an invalid substitution and the band
+        // computes to transparent — which is how the first version of this arm failed, and why
+        // loading the rule alone would have measured a document the app never ships.
+        tokens   : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/workstation/Viewport.css`
+    }, {
+        name   : 'FM',
+        rootCls: 'fm-fleet-cockpit',
+        rule   : '/dist/development/css/src/apps/agentos/fleet/FleetCockpit.css',
+        tokens : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/agentos/Viewport.css`
+    }];
+
+    /** Resting, hover and active readings of the band and its handle, under one app identity. */
+    const measureStates = async (page, {rootCls, hrefs}) => {
+        await page.evaluate(async ({rootCls, hrefs}) => {
+            const freeze = document.createElement('style');
+
+            freeze.textContent = '*, *::after, *::before { transition: none !important }';
+            document.head.appendChild(freeze);
+
+            for (const href of hrefs) {
+                const link = document.createElement('link');
+
+                link.rel  = 'stylesheet';
+                link.href = href;
+
+                // A missing artifact must be a loud red here. Silently skipping it would leave the
+                // app's tokens undefined and the arm would then measure the ENGINE floor while
+                // reporting on the app.
+                await new Promise((resolve, reject) => {
+                    link.onload  = resolve;
+                    link.onerror = () => reject(new Error(`stylesheet did not load: ${href}`));
+                    document.head.appendChild(link)
+                })
+            }
+
+            document.querySelector('.neo-dashboard').classList.add(rootCls)
+        }, {rootCls, hrefs});
+
+        const read = () => page.evaluate(() => {
+            const el = document.querySelector('.neo-dashboard-dock-splitter');
+
+            return {
+                band       : getComputedStyle(el).backgroundColor,
+                handle     : getComputedStyle(el, '::after').backgroundColor,
+                handleSize : getComputedStyle(el, '::after').height,
+                isActive   : el.matches(':active'),
+                isHover    : el.matches(':hover'),
+                signalToken: resolveColor(getComputedStyle(el).getPropertyValue('--workstation-signal').trim())
+            };
+
+            /**
+             * The browser's own serialisation of a colour, so a comparison is apples-to-apples.
+             *
+             * A custom property's value comes back verbatim — `#0f766e` — while `backgroundColor`
+             * comes back as `rgb(15, 118, 110)`. String-comparing those two reports a parity
+             * FAILURE on identical colours, which is a false red as misleading as a false green.
+             */
+            function resolveColor(value) {
+                if (!value) return '';
+
+                const probe = document.createElement('div');
+
+                probe.style.color = value;
+                document.body.appendChild(probe);
+
+                const resolved = getComputedStyle(probe).color;
+
+                probe.remove();
+
+                return resolved
+            }
+        });
+
+        const box = await page.locator('.neo-dashboard-dock-splitter').boundingBox();
+
+        // Derived from the box, never a fixed corner. The splitter renders at (0, 0) at 6x720, so
+        // parking the pointer at the origin leaves it INSIDE the element — the first version of
+        // this arm read `resting` while hovering, and only FM's identical hover/active values made
+        // that visible. `isHover` is asserted below so the same mistake cannot return silently.
+        await page.mouse.move(box.x + box.width + 100, box.y + box.height / 2);
+
+        const resting = await read();
+
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+        const hover = await read();
+
+        await page.mouse.down();
+
+        const active = await read();
+
+        await page.mouse.up();
+
+        return {active, hover, resting}
+    };
+
+    for (const identity of APP_IDENTITIES) {
+        for (const theme of THEMES) {
+            test(`${identity.name} identity reaches all three states through tokens — ${theme}`, async ({page}) => {
+                await applyTheme(page, theme);
+
+                const {resting, hover, active} = await measureStates(page, {
+                    hrefs  : [identity.tokens(theme), identity.rule],
+                    rootCls: identity.rootCls
+                });
+
+                // Non-vacuity first, and all three states, because each comparison below is a
+                // comparison of one reading with itself if the pointer state was not what the name
+                // says. Reading `resting` while hovering is not hypothetical — it happened here.
+                expect(resting.isHover, 'precondition: resting must be measured OUTSIDE the element').toBe(false);
+                expect(hover.isHover, 'precondition: the pointer must actually be over the splitter').toBe(true);
+                expect(active.isActive, 'precondition: the pointer press must put it in :active').toBe(true);
+
+                // The state ladder is live at the boundary both apps agree on. Only workstation
+                // declares three DISTINCT band values; FM deliberately gives hover and active the
+                // same `--fm-signal 45%`, so asserting a three-step ladder for it would be
+                // asserting a design it does not have.
+                expect(resting.band, 'the app identity separates resting from hover').not.toBe(hover.band);
+
+                identity.name === 'workstation'
+                    // PARITY, on the one value this PR moved. Before the promotion Workspace.scss
+                    // painted `&:active::after { background: var(--workstation-signal) }` directly.
+                    // The active handle must still compute to exactly that colour — now arriving
+                    // through `--dock-splitter-handle-color-active` instead of an app paint rule.
+                    ? (
+                        expect(active.handle, 'the active handle still resolves to --workstation-signal')
+                            .toBe(resting.signalToken),
+                        expect(hover.band, 'and workstation does declare a distinct active band')
+                            .not.toBe(active.band)
+                    )
+                    // FM's opt-out, from its real shipped rule rather than a spec-authored one.
+                    : expect(active.handleSize, 'FM ships flat — the handle is collapsed by token')
+                        .toBe('0px');
+
+                // And the affordance survives either identity: a band a user can see, in every state.
+                for (const [state, reading] of Object.entries({resting, hover, active})) {
+                    expect(reading.band, `the ${state} band stays visible under ${identity.name}`)
+                        .not.toBe('rgba(0, 0, 0, 0)')
+                }
+            })
+        }
+    }
+
     test('the flat opt-out collapses the handle and keeps the band', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-light');
 
