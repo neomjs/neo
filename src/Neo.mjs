@@ -549,7 +549,21 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
     },
 
     /**
-     * Deep-merges a source object into a target object
+     * Deep-merges a source object into a target object.
+     *
+     * **`__proto__`, `constructor` and `prototype` are skipped.** All three are silently dropped
+     * from `source`: they never appear as own properties of the returned target, and they never
+     * modify what the target inherits. The skip is unconditional — it does not depend on the
+     * value's type, on nesting depth, or on whether the key arrived as an own or inherited one —
+     * because a `JSON.parse`d payload carries `__proto__` as an OWN enumerable key and this method
+     * is part of the public default export, so its own boundary is the security boundary.
+     *
+     * A caller that legitimately needs to transport one of those three names must assign it
+     * directly rather than merge it; there is no opt-out, deliberately.
+     *
+     * Branch decisions use `Object.hasOwn(target, key)`, so an INHERITED property on the target is
+     * not mistaken for an existing branch to recurse into.
+     *
      * @memberOf module:Neo
      * @param {Object} target
      * @param {Object} source
