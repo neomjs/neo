@@ -2,13 +2,20 @@
    top chrome, the left-rail keeper-view nav, the agent-button hierarchy, and the Home/Chat surfaces.
    The instance menu is a framework-floating document.body child, so it joins this scope to inherit
    the SAME structural FM role/spacing/motion tokens without duplicating their definitions. Its
-   feature sheet consumes only the relevant vars; the shell selectors below remain descendant-bound. */
+   feature sheet consumes only the relevant vars; the shell selectors below remain descendant-bound.
+   §04 rhythm record (#17265): the 2px tab indicator (the tab-family block) is a recorded exception —
+   an indicator's own measure, not spacing. */
 .agent-os-viewport.neo-viewport,
 .fm-instance-menu {
-    /* The keeper-view nav's active tab indicator reads as FM signal — the stock theme's
-       neutral-contrast white strip is a foreign accent inside the FM tonal stack (shell-scope
-       only; the framework token itself is untouched). */
-    --tab-indicator-background-color-active: var(--fm-signal);
+    /* The shell paints the designed ground itself. The viewport is not a container, and its stock
+       surface is the theme's neutral default — a foreign tone under every FM pane; the token
+       layer owns the ground exactly like it owns the panels on it. */
+    background: var(--fm-ground);
+
+    /* Token rebinds for the indicator do NOT live here: the theme declares the very same tokens
+       on `:root .neo-theme-neo-dark`, and the theme class rides THIS element — an equal-specificity
+       tie on one element that load order hands to the theme. The family re-declares them on the
+       indicator's nearest ancestors instead (the tab-family block below). */
 
     /* The chip-family geometry contract (TOKENS.md §04): ONE anatomy for every status/kind
        idiom — telltale, spine banner, viewer-wake, event chips, state dots. The family owns
@@ -123,6 +130,10 @@
     }
 
     .agent-top-toolbar {
+        /* the top chrome band speaks the keeper rail's voice — one quiet rail surface around the
+           ground on two edges; without it the stock toolbar neutral sat as a foreign band above
+           every FM pane */
+        background: var(--fm-rail);
         min-height: 50px;
         padding   : 0 20px;
 
@@ -237,6 +248,37 @@
         --tab-button-glyph-color-pressed   : var(--fm-ink);
         --tab-button-background-color      : transparent;
         --tab-button-background-color-hover: var(--fm-panel);
+    }
+
+    /* The active place is structural: signal indicator, full ink, weight — never hue-alone
+       (§04). The indicator tokens land on the TOOLBAR (the per-button indicator) and the STRIP
+       (the strip-level one), the indicators' nearest ancestors: declared on the shell root they
+       tie with the theme's own declaration and lose on load order (see the root block). 2px is the
+       indicator's own measure — a hairline of signal, not a slab of stock white (recorded §04
+       exception, file header). One declaration serves both orientations: the engine reads the same
+       token as height on a horizontal strip and as width on the vertical keeper rail. */
+    .neo-tab-header-toolbar,
+    .neo-tab-strip {
+        --tab-indicator-background-color-active: var(--fm-signal);
+        --tab-strip-height                     : 2px;
+    }
+
+    /* The keeper rail's active indicator spans its button's full height by engine geometry
+       (inline top/height) and met the fleet zone's horizontal indicator at the shared corner —
+       two independent tab containers, one accidental bracket. The clip keeps the engine's
+       geometry and trims both ends on the rhythm, so the strokes never touch. */
+    .neo-dock-left .neo-tab-button-indicator,
+    .neo-dock-left .neo-active-tab-indicator {
+        clip-path: inset(var(--fm-space-2) 0);
+    }
+
+    /* The FM tonal stack paints only what its token sheets declare. A container inside the shell
+       carries no stock surface of its own: the theme's neutral default was painting every pane's
+       head and rows over the pane's declared tone (the Activity stream's `--fm-rail` with
+       rgb(14,15,13) boxes inside it — read as a box grid, it was a leak). Declared on the
+       container, nearest to itself, so the theme-root declaration cannot tie. */
+    .neo-container {
+        --container-background-color: transparent;
     }
 
     /* The keeper-view nav shell — the PRIMARY tier: same family voice, quiet rail surface. */
