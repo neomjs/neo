@@ -1863,7 +1863,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '',
         '**Verdict:** APPROVED',
         '',
-        '**Glance:** Premise + correctness: the change is the right shape (fixes the stale wording) and is correct + safe; no behavior touched.'
+        '**Glance:** Premise + correctness: the change is the right shape (fixes the stale wording) and is correct + safe; no behavior touched.',
+        '',
+        `- **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`
     ].join('\n');
 
     test.beforeAll(async () => {
@@ -4421,9 +4423,27 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         });
 
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
-        expect(result.missing_micro_review).toContain('Class: micro | contained (the blast-class assertion)');
+        expect(result.missing_micro_review).toContain('Class: micro | contained | mechanical (the blast-class assertion)');
         expect(result.message).toContain('no architectural concept to teach'); // the graph-ingestion gate keeps the concept-graph fed
         expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#17527: a valid Micro-Review selects the micro template path — the wired asset, not the canonical fallback', () => {
+        const result = PullRequestService.validatePrReviewBody({body: VALID_MICRO_REVIEW_BODY});
+
+        expect(result.valid).toBe(true);
+        expect(result.template).toBe('.agents/skills/pr-review/assets/pr-review-micro-review-template.md');
+    });
+
+    test('#17527: a full review that merely DISCUSSES the light form is not routed to the micro floor', () => {
+        // the header quoted inside a fenced example must not reclassify the body — the
+        // misclassification would silently waive every canonical anchor the full review owes
+        const discussing = `${VALID_REVIEW_BODY}\n\n\`\`\`markdown\n# PR Micro-Review\n**Class:** micro\n\`\`\`\n`;
+
+        const result = PullRequestService.validatePrReviewBody({body: discussing});
+
+        expect(result.valid).toBe(true);
+        expect(result.template).toBe('.agents/skills/pr-review/assets/pr-review-template.md');
     });
 
     test('#13547: rejects old plain-heading follow-up review skeleton', async () => {
