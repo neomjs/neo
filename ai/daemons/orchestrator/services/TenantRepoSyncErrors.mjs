@@ -29,6 +29,18 @@ export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC
 // this budget exists to remove, spelled as though it were an off switch. Effectively-unbounded is
 // expressed as a large number, visibly, and there is no value that turns the bound off.
 export const KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET = 'KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET';
+// A resolved `tenantRepoSync.concurrencyLimit` that is not a positive integer. `0` is rejected
+// rather than read as "unlimited": it would size a semaphore no acquirer can ever enter, so the
+// sweep would hang on its first repo — the never-acquirable-semaphore case. Fractional values are
+// rejected because `active < limit` semantics become ambiguous (1.5 admits two slots). Refusal over
+// substitution: the value resolves from an AiConfig leaf with no construction-time hook, and a
+// consumption-site fallback would be a hidden default (the SSOT ADR's antipattern catalog) — an
+// operator who mistyped the knob must see the refusal, not a silently different concurrency.
+export const KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT = 'KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT';
+// A resolved `tenantRepoSync.concurrencyGateTimeoutMs` that is not a finite number >= 0. Unlike the
+// two codes above, `0` is VALID here — it is the FIFO-wait sentinel (queued acquirers wait until a
+// slot frees), not a disable-the-bound footgun. Only negatives and non-finite values are refused.
+export const KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT';
 export const KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION = 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION';
 // The OTHER half of what `EMPTY_MATERIALIZATION` used to carry, and the opposite instruction.
 // A full materialization DID take effect — rows were ingested or deleted — but no receipt proves
