@@ -114,6 +114,37 @@ test.describe('fleetSessionCustody — the deliberate instance switch (#17328)',
         expect('bearerToken' in target.AgentOS.fleet).toBe(false)
     });
 
+    test('a verified detached candidate cannot overwrite a bridge published while verification was in flight', async () => {
+        let releaseVerify;
+
+        const
+            existing             = {profileId: 'fleet-profile:v1:http://old/fleet'},
+            operatorChoice       = {profileId: 'fleet-profile:v1:http://operator-choice/fleet'},
+            target               = {AgentOS: {fleet: {registryBridge: existing}}},
+            verifyGate           = new Promise(resolve => { releaseVerify = resolve }),
+            {calls, installImpl} = makeInstall(verifyGate);
+
+        const outcome = establishFleetSessionCustody({
+            fleetUrl: url,
+            installImpl,
+            redeemed: {bearerToken: 'd'.repeat(43)},
+            target
+        });
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0].target).toEqual({});
+        expect(target.AgentOS.fleet.registryBridge).toBe(existing);
+
+        target.AgentOS.fleet.registryBridge = operatorChoice;
+        releaseVerify({});
+
+        await expect(outcome.verified, 'the stale candidate really authenticated').resolves.toBe(true);
+        await expect(outcome.promoted, 'authentication no longer implies publication authority').resolves.toBe(false);
+        await expect(outcome.custodySettled).resolves.toBe(false);
+        expect(calls, 'the CAS blocks the second, publishing install').toHaveLength(1);
+        expect(target.AgentOS.fleet.registryBridge).toBe(operatorChoice)
+    });
+
     test('resolveFleetUrl: the ?fleetUrl override wins, the pinned default otherwise', () => {
         const neoConfig = globalThis.Neo?.config;
         const priorUrl  = neoConfig?.url;

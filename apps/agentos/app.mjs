@@ -1,7 +1,7 @@
 import Viewport                                           from './view/Viewport.mjs';
 import {establishFleetSessionCustody, resolveFleetUrl}    from './fleet/fleetSessionCustody.mjs';
 import {FLEET_LOCAL_TRANSPORT_ERRORS, installFleetBridge} from './fleet/installFleetBridge.mjs';
-import {redeemFleetBearerHandshake}                       from './fleet/redeemFleetBearerHandshake.mjs';
+import {redeemFleetBearerHandshakeUntilAvailable}         from './fleet/redeemFleetBearerHandshake.mjs';
 import WindowManager                                      from '../../src/manager/Window.mjs';
 
 // The custody machine + endpoint authority moved VERBATIM to ./fleet/fleetSessionCustody.mjs —
@@ -42,26 +42,61 @@ export function resolveFleetTransportMode({href}) {
     return new URL(href).protocol === 'app:' ? 'shell' : 'browser'
 }
 
-// The one-command hand-off, page half: in direct-browser mode with the launcher slot still empty,
-// redeem the bearer from the transport's armed handshake BEFORE the app boots — this module-level
-// await completes inside `importApp`'s dynamic import, ahead of every `onStart` call. The redeemed
-// value stays MODULE-PRIVATE: unlike the launcher pre-boot slot it never touches Body-readable
-// state (the custody discipline in ./fleet/connectionProfiles.mjs). Fail-closed: an unarmed or
-// absent transport resolves null and the existing bearer-less boot proceeds unchanged. The
-// URL-envelope guard keeps the module importable OUTSIDE the worker boot (unit specs import this
-// module for its pure exports; there is no serialized boot URL there, so there is nothing to dial).
-const bootUrl = globalThis.Neo?.config?.url;
+let browserFleetHealPromise = null;
 
-let redeemed = null;
+/**
+ * @summary Runs one bounded browser-handshake heal against the bridge that owned the disconnected
+ * boot moment. The expected-bridge guard cancels when an operator switch, manual re-wire, or newer
+ * successful owner publishes a replacement. Session custody performs the second CAS after the
+ * authenticated proof, closing the verification-window race too.
+ *
+ * Never throws: exhaustion or lost authority leaves the already-rendered shell on its honest
+ * fail-closed bridge, where the instance switcher and Reconnect control remain operable.
+ *
+ * @param {Object} opts
+ * @param {Object} opts.expectedBridge Published bridge this heal is allowed to replace.
+ * @param {String} opts.fleetUrl Fleet endpoint authority.
+ * @param {Object} [opts.target=globalThis]
+ * @param {Function} [opts.redeemImpl=redeemFleetBearerHandshakeUntilAvailable]
+ * @param {Function} [opts.establishImpl=establishFleetSessionCustody]
+ * @param {Object} [opts.redemptionOptions]
+ * @returns {Promise<Boolean>} true only when the authenticated candidate retained promotion authority.
+ */
+export async function healBrowserFleetSession({
+    expectedBridge,
+    fleetUrl,
+    target = globalThis,
+    redeemImpl = redeemFleetBearerHandshakeUntilAvailable,
+    establishImpl = establishFleetSessionCustody,
+    redemptionOptions = {}
+} = {}) {
+    const stillExpected = () => target.AgentOS?.fleet?.registryBridge === expectedBridge;
 
-if (bootUrl?.href && resolveFleetTransportMode(bootUrl) === 'browser' && !globalThis.AgentOS?.fleet?.bearerToken) {
-    redeemed = await redeemFleetBearerHandshake({url: resolveFleetUrl()})
+    try {
+        const redeemed = await redeemImpl({
+            ...redemptionOptions,
+            shouldContinue: stillExpected,
+            url           : fleetUrl
+        });
+
+        if (!redeemed || !stillExpected()) {
+            return false
+        }
+
+        const {promoted} = establishImpl({fleetUrl, redeemed, target});
+
+        return await promoted
+    } catch {
+        return false
+    }
 }
 
 export const onStart = () => {
     const
         fallbackWindowId = Neo.bootingWindowId,
         fleetUrl         = resolveFleetUrl();
+
+    let browserHeal = null;
 
     if (resolveFleetTransportMode(Neo.config.url) === 'shell') {
         const route = () => resolveFleetWindowId({fallbackWindowId});
@@ -80,37 +115,30 @@ export const onStart = () => {
             }
         })
     } else {
-        // Direct-browser dev mode is the session-only custodian shape. Both mints are IN-MEMORY
-        // hand-offs: the module-private handshake redemption above, or the launcher pre-boot
-        // slots (Electron main, the Neural Link, a test init-script places `bearerToken` and,
-        // when arming, `mcAuthorization` BEFORE app start) — read inside the establish call (the
-        // read-old phase), moved into transport closures (establish), and both ingress copies
-        // CAS-retired only after the bridge's authenticated whoami round-trip proves the session
-        // (verify → retire). Deliberately never read from URL params — a secret in a URL persists
-        // in history, logs, and referrers, so installFleetBridge refuses credential-shaped query
-        // params outright. Without a bearer the bridge installs fail-closed (every call rejects
-        // locally, named) — or, on a SharedWorker re-join, an existing bridge is PRESERVED rather
-        // than downgraded — and the slots stay as they were, which is the rollback truth.
-        const hadBearer = redeemed !== null || (globalThis.AgentOS?.fleet?.bearerToken ?? null) !== null;
+        // Direct-browser dev mode renders FIRST with whatever custody truth exists now: launcher
+        // slots establish synchronously; absence publishes/preserves a fail-closed bridge. The top
+        // chrome instance switcher is the recovery path, so no network wait may gate Neo.app().
+        const
+            hadBearer = (globalThis.AgentOS?.fleet?.bearerToken ?? null) !== null,
+            {bridge}  = establishFleetSessionCustody({fleetUrl});
 
-        establishFleetSessionCustody({fleetUrl, redeemed});
-        redeemed = null;
-
-        // Late-transport healing: the module-level redemption races the fleet child's boot (plane
-        // admission alone can take seconds), and on a SharedWorker topology a reload re-enters
-        // here without re-running module scope. One lazy retry per joining window upgrades the
-        // fail-closed bridge in place — installFleetBridge is documented additive + idempotent,
-        // and the pane resolves the slot per call, so the next poll goes live. Still-no-bearer
-        // stays the honest fail-closed state.
         if (!hadBearer) {
-            redeemFleetBearerHandshake({url: fleetUrl}).then(pair => {
-                pair && establishFleetSessionCustody({fleetUrl, redeemed: pair})
-            })
+            browserHeal = {expectedBridge: bridge, fleetUrl}
         }
     }
 
     Neo.app({
         mainView: Viewport,
         name    : 'AgentOS'
-    })
+    });
+
+    // Start only AFTER shell creation and keep one SharedWorker-wide window in flight. A later
+    // joining window may start a fresh bounded window after exhaustion; no permanent poller lives.
+    if (browserHeal && browserFleetHealPromise === null) {
+        const current = browserFleetHealPromise = healBrowserFleetSession(browserHeal);
+
+        current.finally(() => {
+            browserFleetHealPromise === current && (browserFleetHealPromise = null)
+        })
+    }
 };

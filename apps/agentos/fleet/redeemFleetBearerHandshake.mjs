@@ -84,3 +84,63 @@ export async function redeemFleetBearerHandshake({url, fetchImpl = globalThis.fe
         return null
     }
 }
+
+/**
+ * @summary Repeats the existing fail-closed handshake within one bounded healing window.
+ *
+ * This is App-Worker custody healing, not application readiness: callers start it only after the
+ * cockpit shell has been created. Each attempt remains the exact single-request contract above;
+ * the deadline bounds the whole window, and `shouldContinue` lets a newer operator-selected bridge
+ * cancel an old default-endpoint heal before it can acquire or publish stale custody.
+ *
+ * @param {Object} opts
+ * @param {String} opts.url Fleet endpoint authority.
+ * @param {Function} [opts.fetchImpl=globalThis.fetch] Injectable fetch for tests.
+ * @param {Number} [opts.attemptTimeoutMs=1500] Maximum patience for one hung listener.
+ * @param {Number} [opts.deadlineMs=15000] Maximum lifetime of the complete healing window.
+ * @param {Number} [opts.retryDelayMs=300] Delay between refused attempts.
+ * @param {Function} [opts.shouldContinue=()=>true] False cancels before acquisition.
+ * @param {Function} [opts.now=Date.now] Injectable monotonic-enough clock for tests.
+ * @param {Function} [opts.wait] Injectable bounded delay for tests.
+ * @returns {Promise<{bearerToken: String, mcAuthorization: String|null}|null>}
+ */
+export async function redeemFleetBearerHandshakeUntilAvailable({
+    url,
+    fetchImpl = globalThis.fetch,
+    attemptTimeoutMs = 1500,
+    deadlineMs = 15000,
+    retryDelayMs = 300,
+    shouldContinue = () => true,
+    now = Date.now,
+    wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+} = {}) {
+    const startedAt = now();
+
+    while (shouldContinue()) {
+        let remaining = deadlineMs - (now() - startedAt);
+
+        if (remaining <= 0) {
+            return null
+        }
+
+        const redeemed = await redeemFleetBearerHandshake({
+            url,
+            fetchImpl,
+            timeoutMs: Math.max(1, Math.min(attemptTimeoutMs, remaining))
+        });
+
+        if (redeemed) {
+            return shouldContinue() ? redeemed : null
+        }
+
+        remaining = deadlineMs - (now() - startedAt);
+
+        if (remaining <= 0 || !shouldContinue()) {
+            return null
+        }
+
+        await wait(Math.min(retryDelayMs, remaining))
+    }
+
+    return null
+}
