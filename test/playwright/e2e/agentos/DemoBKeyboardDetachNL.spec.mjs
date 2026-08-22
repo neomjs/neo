@@ -130,7 +130,7 @@ test.describe('AgentOS Demo B — keyboard detach + cycle grammar (Neural Link)'
 
         // stage the second active workspace window — a host affordance, not a keyboard step:
         // the journey under witness is the transfer + return, not window creation
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 

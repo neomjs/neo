@@ -57,7 +57,7 @@ test.describe('AgentOS Demo B — NL perspective tools: capture → list → res
         await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-tour-play', {timeout: 30000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 

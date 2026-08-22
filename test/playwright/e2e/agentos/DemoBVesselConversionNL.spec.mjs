@@ -135,7 +135,7 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
         await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
-        const app       = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app       = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspace = await findOne(app, {
                   className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
               }, ['id']),

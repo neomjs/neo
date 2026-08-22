@@ -1,6 +1,6 @@
-import DemoAWorkspace from './DemoAWorkspace.mjs';
+import Viewport from './Viewport.mjs';
 
 export const onStart = () => Neo.app({
-    mainView: DemoAWorkspace,
+    mainView: Viewport,
     name    : 'Neo.examples.dashboard.choreography'
 });

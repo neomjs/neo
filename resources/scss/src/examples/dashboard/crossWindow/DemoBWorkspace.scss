@@ -1,0 +1,99 @@
+// Demo-B perspectives + pop-out showcase — the hooks Demo A's skin does not carry.
+// Same discipline: fleet-manager module tokens only, theme variance rides the token layer.
+
+.agentos-dockdemo-switcher {
+    background   : var(--fm-panel);
+    border-bottom: 1px solid var(--fm-line);
+    flex   : 0 0 auto;
+    height : 44px;
+    padding: 6px 12px;
+
+    .agentos-dockdemo-switcher-label {
+        color         : var(--fm-ink-dim);
+        font-family   : var(--fm-font-mono);
+        font-size     : 11px;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .agentos-dockdemo-switcher-btn {
+        background   : var(--fm-panel-2);
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        color        : var(--fm-ink);
+        font-family  : var(--fm-font-mono);
+        margin-left  : 6px;
+
+        .neo-button-text {
+            color: var(--fm-ink);
+        }
+    }
+}
+
+.agentos-dockdemo-restore-report {
+    background : color-mix(in srgb, var(--fm-signal) 10%, var(--fm-panel));
+    border-bottom: 1px solid var(--fm-line);
+    color      : var(--fm-ink);
+    flex       : 0 0 auto;
+    font-family: var(--fm-font-mono);
+    font-size  : 11px;
+    line-height: 1.45;
+    padding    : 7px 12px;
+
+    strong {
+        color: var(--fm-signal);
+    }
+}
+
+.agentos-dockdemo-counter-pane {
+    align-items    : center;
+    background     : var(--fm-panel);
+    border         : 1px solid var(--fm-line-soft);
+    border-radius  : 8px;
+    display        : flex;
+    flex-direction : column;
+    gap            : 6px;
+    justify-content: center;
+
+    .agentos-dockdemo-counter-label {
+        color         : var(--fm-ink-dim);
+        font-family   : var(--fm-font-mono);
+        font-size     : 12px;
+        letter-spacing: .12em;
+    }
+
+    .agentos-dockdemo-counter-value {
+        color      : var(--fm-signal);
+        font-family: var(--fm-font-mono);
+        font-size  : 34px;
+        font-weight: 700;
+    }
+
+    .agentos-dockdemo-counter-note {
+        color      : var(--fm-ink-dim);
+        font-size  : 11px;
+        font-style : italic;
+    }
+}
+
+// the pop-out window: a bare stage for the reparented pane — full-bleed, token ground
+.agentos-dockdemo-popout-host {
+    background: var(--fm-ground);
+    padding   : 10px;
+
+    > * {
+        flex: 1;
+    }
+}
+
+// the keyboard cycle's current-candidate highlight: hue PAIRED with a non-color carrier (the
+// dashed outline geometry) — WCAG 1.4.1 requires the state to survive a colorless rendering
+// the keyboard announcement region: visually unobtrusive, never removed from the a11y tree
+// (display:none / visibility:hidden would silence the live region — this deliberately is
+// a one-line, low-emphasis strip instead of a visually-hidden clip)
+.agentos-dockdemo-kbd-live {
+    color     : var(--fm-ink-dim);
+    font-size : 11px;
+    min-height: 14px;
+    padding   : 0 12px;
+}

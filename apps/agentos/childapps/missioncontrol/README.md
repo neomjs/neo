@@ -1,13 +1,19 @@
-# Dock Demos A/B — Choreography and Perspectives
+# Mission Control — the Fleet Manager under its own tour host
 
-Layouts that rebuild themselves: a themed dock workspace where every transition is a real,
-committed `dockZone.v1` operation — split, resize, tab-fold, auto-hide — played as a scripted,
-deterministic tour. The ticking clock in the editor pane is the continuity witness: wall-time
-truth a viewer verifies with their own eyes while the layout reorganizes around it.
+This is **not** a dock demo, which is why it stayed in the product app when the demos left for
+`examples/dashboard/`. `MissionControlWorkspace` **composes the production `FleetCockpit`
+unchanged** — the literal product class, self-booting its own `dockService` and `dockModel` — and
+owns only the tour orchestration around it: the `TourRunner`, the play control, the caption feed
+and the settled-cue chain.
 
-The default route runs Demo A's choreography. Add `?demo=b` for Demo B's named perspectives
-and shared-heap pop-out journey. The dense living-data Workstation is a standalone application at
-`apps/workstation/`; it is not an AgentOS dockdemo mode.
+The cockpit manages a real fleet; this host proves and presents it. Relocating it beside the demos
+would have made an `examples/` app import the application, which is the dependency this relocation
+exists to remove — pointed the other way.
+
+**Composition, never a fork.** The host drives the cockpit exactly as an external agent would over
+the Neural Link: through that live instance's own PUBLIC verbs. No demo-only code is added to the
+product and no new product API is invented, so every screenplay, replay and beat-log falsifier is
+preserved — addressed to this host rather than to the cockpit.
 
 ## Run it
 
@@ -15,43 +21,25 @@ and shared-heap pop-out journey. The dense living-data Workstation is a standalo
 npm install
 npm run build-themes -- -n -e dev -t all
 npm run server-start
-# → http://localhost:8080/apps/agentos/childapps/dockdemo/index.html
+# → http://localhost:8080/apps/agentos/childapps/missioncontrol/index.html
 ```
 
-The non-interactive theme build creates the ignored development CSS and `theme-map.json`
-artifacts a fresh checkout does not contain.
+There is one route. The `?demo=` switch is gone: the demo modes it selected now live at
+`examples/dashboard/choreography/` and `examples/dashboard/crossWindow/`.
 
-## The tour
+## The two tours
 
-Press **▶ Tour**. Three scenes play as one deterministic operation sequence (18 beats):
+Both screenplays are data — validated fail-closed and replayed byte-identically by their unit specs.
 
-1. **Split choreography** — the terminal enters low and settles to the golden ratio.
-2. **Tab dance** — panes fold into a shared tab group; emptied nodes prune themselves;
-   no state is lost, the one committed document just gets denser.
-3. **Auto-hide wave** — the residents tuck to labeled right-edge rail tabs, the editor
-   floods the stage, and the wave rolls back — a layout remembering itself.
+| screenplay | driven by |
+|---|---|
+| [`fusionFlagship.mjs`](../../tour/fusionFlagship.mjs) | the **▶ Tour** play button |
+| [`missionControlWalkthrough.mjs`](../../tour/missionControlWalkthrough.mjs) | programmatically, via `playWalkthroughTour()` — its e2e leg and the recording pipeline |
 
-The caption bar narrates each beat in operation vocabulary (the tour teaches the API by
-speaking it), and the pip strip tracks progress. A second click mid-tour is a strict no-op;
-after completion it resets the stage and replays — identically, every time.
+**The single-flight take contract** mirrors the cockpit's former one exactly: `tourRunner` is
+claimed synchronously before any await, so a concurrent play refuses at the guard; the report
+publishes CURRENT-attempt truth, so a prior take's success can never leak into a failed run; the
+runner never awaits host cues, so the settled cue chain must drain before a report exists; and the
+`finally` releases ownership and restores any activity-stream state a burst displaced.
 
-Every beat dispatches through the same executor seam an agent uses via the Neural Link
-`execute_dock_operation` tool: the tour and a live agent are indistinguishable at the
-document layer. The screenplay itself lives in
-[`apps/agentos/tour/demoADockChoreography.mjs`](../../tour/demoADockChoreography.mjs) —
-data only, validated fail-closed, replayed byte-identically by the unit specs.
-
-## Recording a take
-
-The tour runner's `record` mode exists so two takes of the same script are the same video:
-
-- pacing is pinned to the script's authored durations (no multiplier),
-- the operation order is provably identical to `demo`/`spec` runs (timestamp-free logs),
-- and the runner **refuses to start** unless the hosting surface probed
-  `prefers-reduced-motion` and passed `reducedMotion: false` — a capture with motion
-  disabled would record a lie about the product.
-
-The play button runs `demo` mode; for a capture, drive the runner in `record` mode (e.g.
-via the Neural Link or a `mode: 'record'` runner config) with the reduced-motion probe
-wired, start the screen capture, then trigger the run. Public-safe content only — the
-screenplay contains no client names and no performance claims.
+Public-safe content only — the screenplays carry no client names and no performance claims.

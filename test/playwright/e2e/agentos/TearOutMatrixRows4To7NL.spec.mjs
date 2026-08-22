@@ -107,7 +107,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
         const
-            app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+            app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
             workspaces = await app.findInstances({
                 className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
             }, ['id']),
@@ -252,7 +252,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         expect(denial.request).toEqual({errorName: 'NotAllowedError', outcome: 'rejected'});
 
         const
-            app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+            app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
             workspaces = await app.findInstances({
                 className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
             }, ['id']),

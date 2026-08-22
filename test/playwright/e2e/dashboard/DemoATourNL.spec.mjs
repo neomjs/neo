@@ -29,7 +29,7 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
 
         await page.waitForSelector('.agentos-dockdemo-tour-play', {timeout: 20000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo');
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.choreography');
         const workspaces = await app.findInstances({className: 'Neo.examples.dashboard.choreography.DemoAWorkspace'}, ['id']);
         const wsId       = Array.isArray(workspaces) ? workspaces[0]?.id : workspaces?.id;
 

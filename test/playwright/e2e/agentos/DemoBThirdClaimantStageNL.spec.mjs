@@ -24,7 +24,7 @@ test.describe('AgentOS Demo B — three registered claim targets', () => {
         await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
                   {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']

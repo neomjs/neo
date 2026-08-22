@@ -54,7 +54,7 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 20000});
         await page.evaluate(() => document.fonts.ready);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo');
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.choreography');
         const workspaces = await app.findInstances({className: 'Neo.examples.dashboard.choreography.DemoAWorkspace'}, ['id']);
         const host       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 

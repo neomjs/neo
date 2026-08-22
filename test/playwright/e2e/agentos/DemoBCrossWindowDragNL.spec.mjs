@@ -280,7 +280,7 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
         await widenAutomationWindowMoveObservation(page);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
                   {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
@@ -489,7 +489,7 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
         await widenAutomationWindowMoveObservation(page);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
                   {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
@@ -734,7 +734,7 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
         await widenAutomationWindowMoveObservation(page);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
                   {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
