@@ -28,57 +28,28 @@
 
     // DockLayoutAdapter already projects one real DockSplitter per split boundary. Paint that
     // exact six-pixel interaction target instead of adding a disconnected decorative handle.
+    /* Values only. Ring and glow are workstation SIGNAL language — they were born reading
+       `--workstation-signal` — so they live here rather than in the engine's affordance floor.
+       The band, the 36x2 handle and the hover/active behaviour are engine capability.
+
+       The `opacity: 1 !important` this block used to carry is gone rather than moved: it was
+       fighting a competing rule, and the engine now owns the active state at its own
+       specificity, so there is nothing left to fight. */
     .neo-dashboard-dock-splitter {
-        background-color: color-mix(in srgb, var(--workstation-signal) 9%, transparent);
-        border-radius   : 999px;
-        box-shadow      : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
-        position  : relative;
-        transition: background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
-                          box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
-        z-index         : 1;
+        --dock-splitter-background        : color-mix(in srgb, var(--workstation-signal) 9%, transparent);
+        --dock-splitter-background-hover  : color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        --dock-splitter-background-active : color-mix(in srgb, var(--workstation-signal) 30%, transparent);
+        --dock-splitter-handle-color      : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+        --dock-splitter-handle-color-hover: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+        --dock-splitter-handle-glow-hover : 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
+        --dock-splitter-ring              : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        --dock-splitter-ring-hover        : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
+        --dock-splitter-ring-active       : inset 0 0 0 1px var(--workstation-signal),
+                                            0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent);
 
-        &::after {
-            background   : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
-            border-radius: 999px;
-            content   : '';
-            left      : 50%;
-            position  : absolute;
-            top       : 50%;
-            transform : translate(-50%, -50%);
-            transition: background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
-                           box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+        &:active::after {
+            background: var(--workstation-signal);
         }
-
-        &:hover {
-            background-color: color-mix(in srgb, var(--workstation-signal) 18%, transparent);
-            box-shadow      : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
-
-            &::after {
-                background: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
-                box-shadow: 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
-            }
-        }
-
-        &:active {
-            background-color: color-mix(in srgb, var(--workstation-signal) 30%, transparent);
-            box-shadow      : inset 0 0 0 1px var(--workstation-signal),
-                              0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent);
-            opacity         : 1 !important;
-
-            &::after {
-                background: var(--workstation-signal);
-            }
-        }
-    }
-
-    .neo-dashboard-dock-splitter-horizontal::after {
-        height: 36px;
-        width : 2px;
-    }
-
-    .neo-dashboard-dock-splitter-vertical::after {
-        height: 2px;
-        width : 36px;
     }
 
     // The band is dock chrome and stays; `.neo-tab-container` was grouped with it and is pane

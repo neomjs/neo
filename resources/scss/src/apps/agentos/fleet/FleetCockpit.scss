@@ -224,14 +224,17 @@
 
     /* the zone splitter gains a visible affordance (the operator-reported invisible splitter):
        a soft nut at rest, the signal under the pointer — the drag hit-zone keeps its full width */
+    /* Values only. FM's splitter is deliberately FLAT: `handle-size: 0` is a design statement,
+       not an omission — it greps, and it survives the engine gaining a real handle. Whether flat
+       remains right now that a discoverable handle exists is an FM design-language question, not
+       an engine one. */
     .neo-dashboard-dock-splitter {
-        background: color-mix(in srgb, var(--fm-line-soft) 55%, transparent);
-        transition: background var(--fm-motion-fast) var(--ease-out-soft);
-
-        &:hover,
-        &:active {
-            background: color-mix(in srgb, var(--fm-signal) 45%, transparent);
-        }
+        --dock-splitter-background       : color-mix(in srgb, var(--fm-line-soft) 55%, transparent);
+        --dock-splitter-background-hover : color-mix(in srgb, var(--fm-signal) 45%, transparent);
+        --dock-splitter-background-active: color-mix(in srgb, var(--fm-signal) 45%, transparent);
+        --dock-splitter-handle-size      : 0;
+        --dock-splitter-radius           : 0;
+        --dock-transition-duration-fast  : var(--fm-motion-fast);
     }
 
     /* Vessel-narrow mode: below the width where two zones can sit beside each other honestly
