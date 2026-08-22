@@ -382,6 +382,174 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
         expect(workspace.decorateFlipMarker({ntype: 'component'}, 'editor').cls).toEqual(['dock-flip-item-editor'])
     });
 
+    test('a commit-scoped preserveItemIds merges with the standing owner-held set', async () => {
+        workspace = Neo.create(ChromeWorkspace, {dockModel: createDocument()});
+
+        let preservedSeen = null;
+
+        const reconcile = DockProjectionReconciler.reconcileProjection;
+
+        DockProjectionReconciler.reconcileProjection = options => {
+            preservedSeen = [...options.preserveItemIds];
+            return reconcile.call(DockProjectionReconciler, options)
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'preview', targetNodeId: 'editor-tabs', index: 0});
+
+            workspace.getRefreshOptions = () => ({preserveItemIds: ['editor', 'terminal']});
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'moveItem'});
+            await workspace.refreshPromise
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+
+        // the standing hook holds 'terminal'; the commit adds 'editor' and repeats 'terminal' —
+        // the merge deduplicates, standing set first
+        expect(preservedSeen).toEqual(['terminal', 'editor'])
+    });
+
+    test('the reconciler\'s ACTUAL path reaches the FLIP play, never the requested one', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            playArgs  = [],
+            hadMain   = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs    = Neo.main = Neo.main || {},
+            hadAddon  = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs   = mainNs.addon = mainNs.addon || {},
+            previous  = addonNs.DockFlip,
+            reconcile = DockProjectionReconciler.reconcileProjection;
+
+        addonNs.DockFlip = {
+            captureFirst: () => {},
+            play        : config => {playArgs.push(config)}
+        };
+
+        let landInPlace = true;
+
+        DockProjectionReconciler.reconcileProjection = () => ({landedInPlace: landInPlace});
+
+        try {
+            const first = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.5, 0.5]});
+
+            workspace.onDockZoneDocumentChange(first.document, {operation: 'resizeSplit'});
+            await workspace.refreshPromise;
+
+            landInPlace = false;
+
+            const second = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.6, 0.4]});
+
+            workspace.onDockZoneDocumentChange(second.document, {operation: 'resizeSplit'});
+            await workspace.refreshPromise
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile;
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+
+        expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
+    });
+
+    test('a host\'s reconcile options merge after the class\'s own, identity keys intact', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        let captured = null;
+
+        const
+            staged    = () => {},
+            reconcile = DockProjectionReconciler.reconcileProjection;
+
+        workspace.getReconcileOptions = () => ({
+            onProjectionStaged       : staged,
+            retainTopology           : true,
+            waitForOverflowProjection: () => {}
+        });
+
+        DockProjectionReconciler.reconcileProjection = options => {
+            captured = options;
+            return reconcile.call(DockProjectionReconciler, options)
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'moveItem'});
+            await workspace.refreshPromise
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+
+        expect(captured.onProjectionStaged).toBe(staged);
+        expect(captured.retainTopology).toBe(true);
+        expect(typeof captured.waitForOverflowProjection).toBe('function');
+        expect(captured.host).toBe(workspace);
+        expect(captured.shellIndex).toBe(0)
+    });
+
+    test('the post-refresh hook is awaited and receives the outcome and the play promise', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            sequence = [],
+            hadMain  = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs   = Neo.main = Neo.main || {},
+            hadAddon = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs  = mainNs.addon = mainNs.addon || {},
+            previous = addonNs.DockFlip;
+
+        let received = null;
+
+        addonNs.DockFlip = {
+            captureFirst: () => {},
+            play        : () => Promise.resolve('motion-done')
+        };
+
+        workspace.afterRefreshDockWorkspace = async data => {
+            received = data;
+            sequence.push(['played', await data.played]);
+            await workspace.timeout(5);
+            sequence.push(['hook-done'])
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document, {operation: 'moveItem'});
+            await workspace.refreshPromise;
+            sequence.push(['refresh-settled'])
+        } finally {
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+
+        // the refresh AWAITED the hook: it finished before the public promise settled
+        expect(sequence).toEqual([['played', 'motion-done'], ['hook-done'], ['refresh-settled']]);
+        expect(received.document).toBe(workspace.getDockZoneDocument());
+        expect(received.refreshOptions).toEqual({});
+        expect(received.result).toBeTruthy();
+
+        // without a dispatched play the hook still runs, with `played` null
+        workspace.afterRefreshDockWorkspace = data => {received = data};
+
+        const next = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'side-tabs', index: 0});
+
+        workspace.onDockZoneDocumentChange(next.document, {operation: 'moveItem'});
+        await workspace.refreshPromise;
+
+        expect(received.played).toBeNull()
+    });
+
     test('the add-tab correlation is minted only for a globally absent header', () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
