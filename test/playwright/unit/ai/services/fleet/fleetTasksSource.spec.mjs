@@ -149,19 +149,54 @@ test.describe('fleetTasksSource — extractDeploymentRows', () => {
 
     test('an unusable payload is the typed unavailable axis — with the producer reason when it gave one', () => {
         expect(extractDeploymentRows(null)).toEqual({rows: [], state: 'unavailable', reason: 'deployment-snapshot-unavailable', observedAt: null});
-        expect(extractDeploymentRows({ok: false, reason: 'bridge-file-missing'})).toMatchObject({rows: [], state: 'unavailable', reason: 'bridge-file-missing'});
-        expect(extractDeploymentRows({ok: true, status: 'available'}), 'ok without a snapshot is still nothing').toMatchObject({state: 'unavailable'})
+        // the reader's own unavailable envelope: ok:false, snapshot:null, a named reason
+        expect(extractDeploymentRows({ok: false, status: 'unavailable', snapshot: null, reason: 'snapshot-missing'})).toEqual({rows: [], state: 'unavailable', reason: 'snapshot-missing', observedAt: null});
+        expect(extractDeploymentRows({ok: true, status: 'available'}), 'ok without a snapshot is still nothing').toMatchObject({state: 'unavailable'});
+        expect(extractDeploymentRows({ok: false, status: 'mystery', snapshot: deploymentPayload().snapshot, reason: 'x'}), 'ok:false with a snapshot under an unknown status fails closed').toMatchObject({state: 'unavailable', reason: 'x'})
     });
 
-    test('a stale snapshot keeps its rows under the stale word', () => {
-        const payload = deploymentPayload();
-
-        payload.status = 'stale';
-
-        const result = extractDeploymentRows(payload);
+    test('the reader\'s REAL stale envelope — ok:false with the snapshot retained — keeps its rows under the stale word', () => {
+        const payload = {...deploymentPayload(), ok: false, status: 'stale', reason: 'snapshot-stale', ageMs: 400000};
+        const result  = extractDeploymentRows(payload);
 
         expect(result.state).toBe('stale');
-        expect(result.rows.length).toBeGreaterThan(0)
+        expect(result.reason).toBeNull();
+        expect(result.rows).toHaveLength(7);
+        expect(result.observedAt).toBe('2026-08-22T12:29:30.000Z')
+    });
+
+    test('the reader\'s degraded envelope (schema diagnostics, snapshot retained) keeps its rows under the degraded word', () => {
+        const payload = {...deploymentPayload(), ok: false, status: 'degraded', reason: 'missing-sections'};
+
+        expect(extractDeploymentRows(payload)).toMatchObject({state: 'degraded', reason: null});
+        expect(extractDeploymentRows(payload).rows.length).toBeGreaterThan(0)
+    });
+
+    test('a FAILED completion is stamped by the current attempt\'s error time, never by the preserved older success', () => {
+        const payload = deploymentPayload(),
+              {task}  = payload.snapshot.tenantRepoSync;
+
+        task.lastRunAt      = '2026-08-22T12:20:00.000Z';
+        task.lastErrorAt    = '2026-08-22T12:20:03.000Z';
+        task.lastSuccessAt  = '2026-08-22T12:11:42.269Z';
+        task.lastCompletion = {status: 'failed', reason: 'periodic-sweep:60000', repoCount: 3, completedCount: 0, failedCount: 1, notDueCount: 2};
+
+        const row = byId(extractDeploymentRows(payload).rows)['orchestrator:tenant-sync:last'];
+
+        expect(row).toMatchObject({section: 'recent', state: 'failed', at: '2026-08-22T12:20:03.000Z', detail: '0 synced · 2 not due · 1 failed'})
+    });
+
+    test('a SKIPPED sweep is stamped by the attempt itself', () => {
+        const payload = deploymentPayload(),
+              {task}  = payload.snapshot.tenantRepoSync;
+
+        task.lastRunAt      = '2026-08-22T12:21:00.000Z';
+        task.lastSuccessAt  = '2026-08-22T12:11:42.269Z';
+        task.lastCompletion = {status: 'skipped', reason: 'access-not-ready'};
+
+        const row = byId(extractDeploymentRows(payload).rows)['orchestrator:tenant-sync:last'];
+
+        expect(row).toMatchObject({state: 'skipped', at: '2026-08-22T12:21:00.000Z', detail: 'access-not-ready'})
     });
 
     test('an empty-but-valid snapshot yields zero rows, not a failure', () => {
@@ -170,38 +205,64 @@ test.describe('fleetTasksSource — extractDeploymentRows', () => {
 });
 
 test.describe('fleetTasksSource — extractRemRows', () => {
-    test('without a fresh cycle the digest backlog is a QUEUE fact under the backlog word', () => {
-        expect(extractRemRows({undigested: 960, digested: 1040, sessionNodes: 4166, recentCycles: []}, NOW_MS)).toEqual({
+    /**
+     * @summary The producer's shape verbatim (`HealthService.buildRemPipelineState`): completed-cycle
+     * summaries with a duration and an outcome — no instant, no active flag.
+     * @returns {Object}
+     */
+    const remState = () => ({
+        undigested: 960, digested: 1040, sessionNodes: 4166, topologyConflicts: 0,
+        recentCycles: [
+            {runId: 'rem-2026-08-22T12-00-00', wallClockMs: 48210, cycleOverflowSignal: false, cycleOverflowRatio: 0.31, outcome: 'completed'},
+            {runId: 'rem-2026-08-22T11-30-00', wallClockMs: 51002, cycleOverflowSignal: true,  cycleOverflowRatio: 1.08, outcome: 'overflow'}
+        ]
+    });
+
+    test('the digest backlog is ONE queue fact under the backlog word — never a running claim, never a time, the latest outcome as detail', () => {
+        expect(extractRemRows(remState())).toEqual({
             rows: [{
                 id: 'mc:rem:digest', section: 'queued', name: 'REM digest', source: 'mc', state: 'backlog', at: null,
-                progress: {kind: 'backlog', done: 1040, total: 2000}, detail: '960 undigested · 1040 digested'
+                progress: {kind: 'backlog', done: 1040, total: 2000}, detail: '960 undigested · 1040 digested · last cycle completed'
             }],
             state : 'wired',
             reason: null
         })
     });
 
-    test('a cycle younger than ten minutes makes it a RUNNING row at that cycle\'s instant', () => {
-        const [row] = extractRemRows({undigested: 5, digested: 10, recentCycles: [{completedAt: '2026-08-22T12:28:00.000Z'}]}, NOW_MS).rows;
+    test('no cycles → the gauge alone', () => {
+        const [row] = extractRemRows({undigested: 5, digested: 10, recentCycles: []}).rows;
 
-        expect(row).toMatchObject({section: 'running', state: 'in progress', at: '2026-08-22T12:28:00.000Z', progress: {kind: 'backlog', done: 10, total: 15}})
+        expect(row).toMatchObject({section: 'queued', state: 'backlog', at: null, detail: '5 undigested · 10 digested'})
     });
 
-    test('an old cycle is a queue fact again', () => {
-        const [row] = extractRemRows({undigested: 5, digested: 10, recentCycles: [{completedAt: '2026-08-22T12:00:00.000Z'}]}, NOW_MS).rows;
+    test('axisErrors red control: a failed count axis falls back to 0 upstream — here it is the typed unavailable axis, never a wired "0 undigested"', () => {
+        const state  = {...remState(), undigested: 0, axisErrors: {undigested: new Error('graph read timed out Authorization: Bearer sk-live-AAAABBBB1234')}},
+              result = extractRemRows(state);
 
-        expect(row).toMatchObject({section: 'queued', state: 'backlog', at: '2026-08-22T12:00:00.000Z'})
+        expect(result.rows).toEqual([]);
+        expect(result.state).toBe('unavailable');
+        expect(result.reason).toBe('rem-axis-error');
+        expect(result.detail).toContain('undigested:');
+        expect(result.detail).toContain('[redacted]');
+        expect(result.detail).not.toContain('sk-live-AAAABBBB1234')
+    });
+
+    test('an axisError on a non-count axis (recentCycles) does not veto the gauge', () => {
+        const state = {...remState(), recentCycles: [], axisErrors: {recentCycles: new Error('run-state dir unreadable')}};
+
+        expect(extractRemRows(state)).toMatchObject({state: 'wired'});
+        expect(extractRemRows(state).rows[0]).toMatchObject({detail: '960 undigested · 1040 digested'})
     });
 
     test('a fully digested corpus renders no gauge (a zero total is not a fraction)', () => {
-        const [row] = extractRemRows({undigested: 0, digested: 0, recentCycles: []}, NOW_MS).rows;
+        const [row] = extractRemRows({undigested: 0, digested: 0, recentCycles: []}).rows;
 
         expect(row.progress).toBeNull()
     });
 
     test('an unrecognized payload is the typed unavailable axis', () => {
-        expect(extractRemRows({}, NOW_MS)).toEqual({rows: [], state: 'unavailable', reason: 'rem-payload-unrecognized'});
-        expect(extractRemRows(null, NOW_MS).state).toBe('unavailable')
+        expect(extractRemRows({})).toEqual({rows: [], state: 'unavailable', reason: 'rem-payload-unrecognized'});
+        expect(extractRemRows(null).state).toBe('unavailable')
     })
 });
 

@@ -33,6 +33,7 @@ const SOURCE_LABELS = Object.freeze({
 const SOURCE_STATE_WORDS = Object.freeze({
     wired      : 'live',
     stale      : 'stale',
+    degraded   : 'degraded',
     unavailable: 'unavailable',
     unwired    : 'not reachable'
 });

@@ -21,8 +21,14 @@ const
     CANONICAL_IDENTITY = /^@[A-Za-z0-9][A-Za-z0-9._-]*$/,
     /** @summary Rows per section; a section beyond it is a search problem, not a glance. */
     MAX_ROWS           = 12,
-    /** @summary A REM cycle younger than this counts as "running", older ones are a queue fact. */
-    REM_FRESH_MS       = 10 * 60 * 1000;
+    /**
+     * @summary The deployment reader's envelope statuses under which a retained snapshot is still a
+     * measurement: `available` (ok) is wired; `stale` and `degraded` are `ok:false` envelopes that
+     * KEEP the snapshot (the reader's own contract), so their rows render under their own word.
+     */
+    SNAPSHOT_STATES    = Object.freeze({available: 'wired', stale: 'stale', degraded: 'degraded'}),
+    /** @summary Axis states that count as "the source answered" in the envelope fold. */
+    ANSWERED_STATES    = new Set(['wired', 'stale', 'degraded']);
 
 /**
  * @summary Coerce one supported time value to finite epoch milliseconds, or `null`.
@@ -108,11 +114,24 @@ function makeProgress(kind, done, total) {
  * - `selfHeal.summary.currentlyFrozen[]` — a frozen collection is a task the deployment is
  *   holding open, so it renders as running under the word "frozen".
  *
- * @param {Object|null} payload The verb's parsed result `{ok, status, snapshot}`.
+ * The reader (`ai/services/memory-core/helpers/deploymentStateBridgeStore.mjs`) answers four
+ * envelopes: `{ok:true, status:'available', snapshot}`; `{ok:false, status:'stale', snapshot,
+ * reason:'snapshot-stale'}` and `{ok:false, status:'degraded', snapshot, reason}` — both RETAIN the
+ * snapshot, so their rows are still measurements and render under their own word; and
+ * `{ok:false, status:'unavailable', snapshot:null, reason}` (missing / too large / unreadable).
+ * An `ok:false` envelope carrying a snapshot under any other status fails closed as unavailable.
+ *
+ * @param {Object|null} payload The verb's parsed result.
  * @returns {{rows: Object[], state: String, reason: String|null, observedAt: String|null}}
  */
 export function extractDeploymentRows(payload) {
-    if (!payload || typeof payload !== 'object' || payload.ok !== true || !payload.snapshot || typeof payload.snapshot !== 'object') {
+    const
+        snapshot = payload && typeof payload === 'object' && payload.snapshot && typeof payload.snapshot === 'object' ? payload.snapshot : null,
+        state    = snapshot
+            ? (payload.ok === true ? 'wired' : SNAPSHOT_STATES[payload.status] ?? null)
+            : null;
+
+    if (state === null || state === 'wired' && payload.ok !== true) {
         return {
             rows      : [],
             state     : 'unavailable',
@@ -122,8 +141,6 @@ export function extractDeploymentRows(payload) {
     }
 
     const
-        {snapshot}  = payload,
-        state       = payload.status === 'stale' ? 'stale' : 'wired',
         observedAt  = toIso(snapshot.generatedAt),
         sync        = snapshot.tenantRepoSync && typeof snapshot.tenantRepoSync === 'object' ? snapshot.tenantRepoSync : null,
         task        = sync?.task && typeof sync.task === 'object' ? sync.task : null,
@@ -147,19 +164,29 @@ export function extractDeploymentRows(payload) {
         } else if (task.lastCompletion && typeof task.lastCompletion === 'object') {
             const
                 done   = task.lastCompletion,
+                status = typeof done.status === 'string' && done.status ? done.status : 'completed',
                 counts = [
                     toCount(done.completedCount) !== null ? `${done.completedCount} synced` : null,
                     toCount(done.notDueCount)    !== null ? `${done.notDueCount} not due`   : null,
                     toCount(done.failedCount)    !== null ? `${done.failedCount} failed`    : null
-                ].filter(Boolean);
+                ].filter(Boolean),
+                // The completion's instant is the CURRENT attempt's: a completed run is stamped by
+                // its success time, a failed run by its error time, a skipped sweep by the attempt
+                // itself. The producer preserves `lastSuccessAt` across later failures, so it can
+                // only stamp the run it belongs to.
+                at     = status === 'completed'
+                    ? toIso(task.lastSuccessAt ?? task.lastRunAt)
+                    : status === 'failed'
+                        ? toIso(task.lastErrorAt ?? task.lastRunAt)
+                        : toIso(task.lastRunAt);
 
             rows.push(makeRow({
                 id     : 'orchestrator:tenant-sync:last',
                 section: 'recent',
                 name   : 'Tenant repo sync',
                 source : 'orchestrator',
-                state  : typeof done.status === 'string' ? done.status : 'completed',
-                at     : toIso(task.lastSuccessAt ?? task.lastRunAt),
+                state  : status,
+                at,
                 detail : counts.length > 0 ? counts.join(' · ') : (typeof done.reason === 'string' ? done.reason : null)
             }))
         }
@@ -244,41 +271,47 @@ export function extractDeploymentRows(payload) {
 
 /**
  * @summary Reduce the REM pipeline state (`get_rem_pipeline_state`) to its one row: the digest
- * backlog. It is a RUNNING row only while a recent cycle is younger than {@link REM_FRESH_MS};
- * otherwise it is a queue fact, labeled "backlog" — a queue is not a task. Pure; exported for
- * the witness.
- * @param {Object|null} state The verb's parsed result `{undigested, digested, recentCycles}`.
- * @param {Number} nowMs
- * @returns {{rows: Object[], state: String, reason: String|null}}
+ * backlog, a QUEUE fact labeled "backlog" — a queue is not a task, and the producer
+ * (`HealthService.buildRemPipelineState`) exposes no running fact at all: `recentCycles[]` are
+ * completed-cycle summaries (`runId`, `wallClockMs` — a duration — overflow facts, `outcome`)
+ * carrying no instant and no active flag, so this row never claims "in progress" and never
+ * carries a time. The producer's `axisErrors` map is honored: a count whose read failed falls
+ * back to 0 upstream, and a fallback zero must never become a wired measurement here. Pure;
+ * exported for the witness.
+ * @param {Object|null} state The verb's parsed result `{undigested, digested, recentCycles, axisErrors?}`.
+ * @returns {{rows: Object[], state: String, reason: String|null, detail?: String}}
  */
-export function extractRemRows(state, nowMs) {
-    const undigested = toCount(state?.undigested),
-          digested   = toCount(state?.digested);
+export function extractRemRows(state) {
+    const
+        undigested = toCount(state?.undigested),
+        digested   = toCount(state?.digested),
+        axisErrors = state?.axisErrors && typeof state.axisErrors === 'object' ? state.axisErrors : null,
+        failedAxis = axisErrors ? ['undigested', 'digested'].find(axis => axisErrors[axis]) : null;
+
+    if (failedAxis) {
+        const detail = redactReadFailure(axisErrors[failedAxis]);
+
+        return {rows: [], state: 'unavailable', reason: 'rem-axis-error', ...(detail ? {detail: `${failedAxis}: ${detail}`} : {})}
+    }
 
     if (undigested === null || digested === null) {
         return {rows: [], state: 'unavailable', reason: 'rem-payload-unrecognized'}
     }
 
     const
-        cycles   = Array.isArray(state.recentCycles) ? state.recentCycles : [],
-        latestMs = cycles.reduce((latest, cycle) => {
-            const ms = toMsOrNull(cycle?.completedAt ?? cycle?.finishedAt ?? cycle?.at ?? cycle?.timestamp ?? cycle?.startedAt);
-
-            return ms !== null && ms > latest ? ms : latest
-        }, null),
-        fresh    = latestMs !== null && nowMs - latestMs <= REM_FRESH_MS,
-        total    = digested + undigested;
+        cycles  = Array.isArray(state.recentCycles) ? state.recentCycles : [],
+        outcome = typeof cycles[0]?.outcome === 'string' && cycles[0].outcome ? cycles[0].outcome : null,
+        bits    = [`${undigested} undigested · ${digested} digested`, outcome ? `last cycle ${outcome}` : null].filter(Boolean);
 
     return {
         rows: [makeRow({
             id      : 'mc:rem:digest',
-            section : fresh ? 'running' : 'queued',
+            section : 'queued',
             name    : 'REM digest',
             source  : 'mc',
-            state   : fresh ? 'in progress' : 'backlog',
-            at      : latestMs === null ? null : new Date(latestMs).toISOString(),
-            progress: makeProgress('backlog', digested, total),
-            detail  : `${undigested} undigested · ${digested} digested`
+            state   : 'backlog',
+            progress: makeProgress('backlog', digested, digested + undigested),
+            detail  : bits.join(' · ')
         })],
         state : 'wired',
         reason: null
@@ -435,8 +468,10 @@ export function createFleetTasksSource({
         /**
          * @summary Read the deployment's task picture: every wired axis is read, each reduces to
          * its rows and its own typed state, and the envelope's `capability` is the honest fold —
-         * `wired` when every wired axis answered, `partial` when some did, `unavailable` when
-         * none. Sections are ordered and capped here so the wire carries a glance, not a dump.
+         * `wired` when every wired axis answered (`wired`, `stale` or `degraded` — the snapshot
+         * reader's retained-snapshot statuses still measure), `partial` when some did,
+         * `unavailable` when none. Sections are ordered and capped here so the wire carries a
+         * glance, not a dump.
          * @param {Object} [params] Reserved; the verb takes no caller input today.
          * @returns {Promise<Object>}
          */
@@ -452,7 +487,7 @@ export function createFleetTasksSource({
 
             const [deployment, rem, ingestion] = await Promise.all([
                 readAxis('deployment', getDeploymentStateSnapshot, extractDeploymentRows),
-                readAxis('rem',        getRemPipelineState,        state => extractRemRows(state, nowMs)),
+                readAxis('rem',        getRemPipelineState,        extractRemRows),
                 getIngestionProgress
                     ? readAxis('ingestion', getIngestionProgress, extractIngestionRows)
                     : {rows: [], state: 'unwired', reason: 'ingestion-verb-unreachable-from-this-process', scope: null}
@@ -460,7 +495,7 @@ export function createFleetTasksSource({
 
             const
                 axes     = [deployment, rem, ingestion],
-                answered = axes.filter(axis => axis.state === 'wired' || axis.state === 'stale').length,
+                answered = axes.filter(axis => ANSWERED_STATES.has(axis.state)).length,
                 wiredAxes= axes.filter(axis => axis.state !== 'unwired').length,
                 state    = answered === 0 ? 'unavailable' : answered === wiredAxes ? 'wired' : 'partial',
                 rows     = [...deployment.rows, ...rem.rows, ...ingestion.rows],
