@@ -1,5 +1,6 @@
 import Component                   from '../../../src/component/Base.mjs';
 import Container                   from '../../../src/container/Base.mjs';
+import DockWorkspace               from '../../../src/dashboard/DockWorkspace.mjs';
 import Feed                        from '../store/Feed.mjs';
 import FeedPane                    from './FeedPane.mjs';
 import Scale                       from '../store/Scale.mjs';
@@ -7,7 +8,6 @@ import ScalePane                   from './ScalePane.mjs';
 import DockDragAffordances         from '../../../src/dashboard/DockDragAffordances.mjs';
 import DockDropIndicators          from '../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter           from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal            from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockPerspectiveStore        from '../../../src/dashboard/DockPerspectiveStore.mjs';
 import DockPreview                 from '../../../src/dashboard/DockPreview.mjs';
 import DockProjectionReconciler    from '../../../src/dashboard/DockProjectionReconciler.mjs';
@@ -67,7 +67,7 @@ const paneStories = Object.freeze({
  * @class Workstation.view.Workspace
  * @extends Neo.container.Base
  */
-class Workspace extends Container {
+class Workspace extends DockWorkspace {
     /**
      * Five records every 500ms: the declared 10-records/sec producer contract.
      * @member {Number} FEED_BATCH_SIZE=5
@@ -132,6 +132,16 @@ class Workspace extends Container {
          */
         cls: ['workstation-workspace'],
         /**
+         * The projection mounts into the dock-host child built in `construct` — the preview
+         * renderer and drop indicators live beside the projected shell as persistent siblings.
+         * @member {String|null} dockHostReference='dock-host'
+         */
+        dockHostReference: 'dock-host',
+        /**
+         * @member {String} flipMarkerPrefix='workstation-pane-'
+         */
+        flipMarkerPrefix: 'workstation-pane-',
+        /**
          * @member {Object} layout
          */
         layout: {ntype: 'vbox', align: 'stretch'},
@@ -158,9 +168,14 @@ class Workspace extends Container {
     }
 
     /**
-     * @member {Object|null} dockModel=null
+     * Retained tab bars whose CSS entry animation is suppressed for the current re-projection —
+     * written by {@link #getReconcileOptions}'s staging seam, restored and cleared by
+     * {@link #afterRefreshDockWorkspace}. Refreshes serialize on the class's chain, so the field
+     * never sees two transactions at once.
+     * @member {Neo.toolbar.Base[]} animationSuppressedBars=[]
+     * @protected
      */
-    dockModel = null
+    animationSuppressedBars = []
     /**
      * @member {Neo.ai.client.DockService|null} dockService=null
      */
@@ -329,11 +344,6 @@ class Workspace extends Container {
      * @protected
      */
     vesselOwnerGrantGeneration = 0
-    /**
-     * @member {Promise|null} refreshPromise=null
-     * @protected
-     */
-    refreshPromise = null
     /**
      * Number of coalesced producer batches appended over this workspace lifetime.
      * @member {Number} feedBatchCount=0
@@ -576,14 +586,6 @@ class Workspace extends Container {
     }
 
     /**
-     * @param {Object} descriptor
-     * @returns {{document:Object, errors:String[]}}
-     */
-    applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
-    }
-
-    /**
      * Adds one coalesced feed batch, then trims the capped tail in one splice.
      * @param {Number} amount
      * @returns {Number} Current feed count.
@@ -711,13 +713,6 @@ class Workspace extends Container {
     }
 
     /**
-     * @returns {Object} Live committed dock document.
-     */
-    getDockZoneDocument() {
-        return this.dockModel
-    }
-
-    /**
      * The current projection shell's instance id — the discriminator between the reconciler's
      * stable-topology fast path (shell retained) and the staged full path (shell replaced).
      * Pane instances AND their DOM survive either path; only the shell identity flips.
@@ -791,29 +786,6 @@ class Workspace extends Container {
         control.menuList && (control.menuList.hidden = true);
 
         return item ? {activatedItemId: itemId, menuItemCount: menuItems.length} : false
-    }
-
-    /**
-     * Defers the instance-preserving re-projection after a successful reducer commit.
-     * @param {Object} document
-     * @param {Object} [options={}]
-     * @param {Boolean} [options.geometryOnly] Explicit stable-topology projection admission.
-     * @param {String} [options.operation] Committed reducer operation.
-     * @param {String[]} [options.preserveItemIds] Owner-held panes the reconciler must park.
-     */
-    onDockZoneDocumentChange(document, options={}) {
-        let me = this;
-
-        me.dockModel = document;
-        // Every projection is an atomic ownership transaction across the old shell, the staged shell,
-        // and their closest common parent. Preserve that atomicity across rapid reducer commits too:
-        // replacing this promise would allow a later commit to start a second transaction before the
-        // first removed its source shell, exposing duplicate projections and racing Canvas registration.
-        me.refreshPromise = (me.refreshPromise || Promise.resolve())
-            .then(() => me.timeout(0))
-            .then(() => {
-                if (!me.isDestroyed) return me.refreshDockWorkspace(options)
-            })
     }
 
     /**
@@ -954,15 +926,17 @@ class Workspace extends Container {
     }
 
     /**
-     * Projects the committed document with instance-bound reducer/view callbacks.
-     * @param {Function|null} [resolveComponentRef=null] Optional staging resolver.
+     * The workstation's full multi-window projection surface: cross-window participation, the
+     * tear-out and vessel-conversion opt-ins with their handler seams, the drag-affordance
+     * layer's cross-zone seams, and the stable workspace identity. The class threads the reducer,
+     * the view-sync and the resolvers onto every projection; this hook contributes everything
+     * that is genuinely this host's.
      * @returns {Object}
      */
-    projectDockModel(resolveComponentRef=null) {
+    getDockProjectionOptions() {
         let me = this;
 
-        return DockLayoutAdapter.project(me.dockModel, {
-            applyDockZoneOperation: me.applyDockZoneOperation.bind(me),
+        return {
             // Cross-window participation (§2.3): every projected tab zone registers as a
             // coordinator-visible drag source under one sort group; the workspace id rides the
             // payload for the receiving window's `transferItem` resolution.
@@ -1015,15 +989,11 @@ class Workspace extends Container {
                     rect: data.logicalRect ?? data.record?.sourceRect ?? null
                 })
             },
-            onDockVesselConversionTerminal: data => me.vesselParkHandlers.onGestureTerminal(data),
-            onDockVesselConversionRetired : data => me.vesselParkHandlers.onVesselRetired(data),
-            onDockZoneDocumentChange      : me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef           : resolveComponentRef
-                || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
-            resolveRevealComponentRef        : (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            onDockVesselConversionTerminal   : data => me.vesselParkHandlers.onGestureTerminal(data),
+            onDockVesselConversionRetired    : data => me.vesselParkHandlers.onVesselRetired(data),
             resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),
             workspaceId                      : Workspace.MAIN_WORKSPACE_ID
-        })
+        }
     }
 
     /**
@@ -1769,13 +1739,13 @@ class Workspace extends Container {
                     }
                     receipt.phases.push('target-projected');
 
-                    await me.refreshDockWorkspace({
+                    await me.refreshDockWorkspace(null, me.dockModel, {
                         preserveItemIds: Object.keys(targetState.document?.items || {})
                     });
                     receipt.phases.push('main-projected');
                     targetState.reconciling = false
                 } else {
-                    await me.refreshDockWorkspace({operation: descriptor?.operation});
+                    await me.refreshDockWorkspace(null, me.dockModel, me.getRefreshOptions({operation: descriptor?.operation}));
                     receipt.phases.push('main-projected');
 
                     if (me.vesselWorkspaces.get(sourceWorkspaceId) === sourceState) {
@@ -2087,86 +2057,96 @@ class Workspace extends Container {
     }
 
     /**
-     * Atomically hands cached panes from the current projection to a staged next projection.
-     *
-     * {@link Neo.dashboard.DockProjectionReconciler} owns the renderer-safe staged ownership
-     * transaction shared with other docking workspaces. Workstation supplies its cached-pane resolver,
-     * header text, FLIP motion, retained-indicator suppression, and the heavy Overflow menu witness.
-     * @param {Object} [options={}]
-     * @param {Boolean} [options.geometryOnly=false] Admission REQUEST for the in-place projection
-     *     path — never a claim that the topology is stable. The reconciler validates it and falls
-     *     back to the staged transaction on any structural delta, and `DockFlip` is told the
-     *     resulting `landedInPlace`, not this request.
-     * @param {String|null} [options.operation=null] Committed reducer operation. `'detachItem'` and
-     *     `'transferNode'` admit the stable-topology fast path (in-place item reconciliation on the
-     *     retained shell) when the reconciler's structural validator proves the shell unchanged.
-     * @param {String[]} [options.preserveItemIds=[]] Owner-held panes the reconciler must park
-     *     instead of destroy (a terminal-first tear-out vessel owns its pane before it connects).
-     * @returns {Promise<void>}
+     * Chrome that must retire before every re-projection: the active gesture session's geometry
+     * and the drag-affordance overlays — a stale geometry promise must never survive a topology
+     * change (the controller's generation guards depend on it). Both are absolute overlay
+     * bookkeeping, so running after the FLIP first-snapshot cannot alter the captured pane rects.
+     * @param {Object} document The committed document this refresh projects.
+     * @param {Object} refreshOptions The options {@link #getRefreshOptions} produced for it.
      */
-    async refreshDockWorkspace({geometryOnly=false, operation=null, preserveItemIds=[]}={}) {
-        const
-            me           = this,
-            host         = me.getReference('dock-host'),
-            flip         = Neo.main?.addon?.DockFlip,
-            placeholders = new Map();
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        let me = this;
 
-        if (!host) return;
-
-        geometryOnly = geometryOnly || operation === 'resizeSplit';
-
-        // Every re-projection retires the active gesture session — a stale geometry promise
-        // must never survive a topology change (the controller's generation guards depend on it).
         me.crossWindowPreviewGeometries.delete(Workspace.MAIN_WORKSPACE_ID);
-        me.dragAffordances?.clear();
+        me.dragAffordances?.clear()
+    }
 
-        try {
-            await flip?.captureFirst({hostId: host.id, markerPrefix: 'workstation-pane-'})
-        } catch (error) {/* instant landing */}
+    /**
+     * The reconciler seams this host owns: retained tab bars suppress their CSS entry animation
+     * across native reparenting (restored in {@link #afterRefreshDockWorkspace} once the chrome
+     * window elapsed), and overflow projections are awaited through the app's four-fact readiness
+     * check. Refreshes serialize on the class's settled-tail chain, so the suppressed-bars field
+     * never sees two transactions at once.
+     * @param {Object|null} document The committed document this refresh projects.
+     * @param {Object} refreshOptions The options {@link #getRefreshOptions} produced for it.
+     * @returns {Object}
+     */
+    getReconcileOptions(document, refreshOptions) {
+        let me = this;
 
-        const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
-            const placeholder = Neo.create({
-                module: Component,
-                header: {text: me.getPaneHeaderText(itemId, item)},
-                hidden: true
-            });
+        me.animationSuppressedBars = [];
 
-            placeholders.set(itemId, placeholder);
-
-            return placeholder
-        });
-
-        let animationSuppressedBars = [];
-
-        const {landedInPlace, nextShell} = await DockProjectionReconciler.reconcileProjection({
-            geometryOnly,
-            host,
-            nextConfig,
-            placeholders,
-            preserveItemIds,
-            // A transferNode adoption keeps the structural shell (one tabs node's items grow);
-            // the reconciler's stable-topology validator still rejects any transfer that does
-            // mutate structure, so non-stable placements keep the staged full path.
-            retainTopology: operation === 'detachItem' || operation === 'transferNode',
-            resolveItem   : itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
-            onProjectionStaged({plans}) {
+        return {
+            onProjectionStaged: ({plans}) => {
                 const retainedTabBars = [...plans.values()]
                     .filter(plan => plan.tab)
                     .map(plan => plan.tab.getTabBar());
 
-                animationSuppressedBars = retainedTabBars
+                me.animationSuppressedBars = retainedTabBars
                     .filter(bar => !bar.cls.includes('neo-no-animation'));
 
                 // Native reparenting keeps each toolbar DOM node, but CSS animations restart when it
                 // re-enters the document. Retained indicators settle immediately; new chrome still enters.
-                animationSuppressedBars.forEach(bar => {
+                me.animationSuppressedBars.forEach(bar => {
                     bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
                 })
             },
             waitForOverflowProjection: plugin => me.waitForOverflowProjection(plugin)
-        });
+        }
+    }
 
-        const heavyOverflow = nextShell.down({dockNodeId: 'heavy-tabs'})
+    /**
+     * Maps both commit shapes onto the reconciler's fast paths — engine surfaces pass the semantic
+     * descriptor, this host's own paths pass their options object. `resizeSplit` (or an explicit
+     * `geometryOnly`) is an admission REQUEST for the in-place projection path, never a claim that
+     * the topology is stable: the reconciler validates it, falls back to the staged transaction on
+     * any structural delta, and `DockFlip` is told the resulting `landedInPlace`, not this
+     * request. `detachItem` / `transferNode` admit the stable-topology fast path (a transferNode
+     * adoption keeps the structural shell — one tabs node's items grow — and the validator still
+     * rejects any transfer that does mutate structure). A commit-scoped `preserveItemIds` parks
+     * owner-held panes instead of destroying them (a terminal-first tear-out vessel owns its pane
+     * before it connects).
+     * @param {Object|null} descriptor The committing surface's identification — a semantic
+     *     descriptor or this host's options object.
+     * @param {Object|null} source The committing surface, when it identifies itself.
+     * @returns {Object}
+     */
+    getRefreshOptions(descriptor, source) {
+        let {geometryOnly = false, operation = null, preserveItemIds} = descriptor || {};
+
+        return {
+            geometryOnly  : geometryOnly === true || operation === 'resizeSplit',
+            retainTopology: operation === 'detachItem' || operation === 'transferNode',
+            ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
+        }
+    }
+
+    /**
+     * The post-projection sequence this host orders behind the motion: the heavy tab bar's
+     * overflow-menu readiness, the awaited FLIP play, the chrome-animation window, the suppressed
+     * bars' restore, one host update, and the cross-window participation refresh.
+     * @param {Object} data
+     * @param {Object|null} data.result The reconciler's outcome; `nextShell` carries the live
+     *     projection shell on both paths.
+     * @param {Promise|null} data.played Settles when the FLIP motion finishes; awaited here
+     *     because retained-indicator restore and the participation refresh must trail the motion.
+     * @returns {Promise<void>}
+     */
+    async afterRefreshDockWorkspace({result, played}) {
+        let me   = this,
+            host = me.getDockHost();
+
+        const heavyOverflow = result?.nextShell?.down({dockNodeId: 'heavy-tabs'})
             ?.getTabBar()?.getPlugin('tab-overflow');
 
         await me.waitForOverflowMenu(heavyOverflow);
@@ -2175,27 +2155,14 @@ class Workspace extends Container {
         // theme's 260ms window before restoring it prevents a delayed replay on retained indicators.
         const chromeAnimationSettle = me.timeout(300);
 
-        if (flip) {
-            DockMotionSignal.enter(me);
-
-            try {
-                // `landedInPlace` is what the reconciler DID, not what this call requested.
-                // `DockFlip.play`'s contract reads "no topology swap can be pending", which only
-                // the outcome can satisfy: `geometryOnly` merely admits an in-place ATTEMPT, and
-                // that attempt falls back to the staged shell swap on any structural delta. Passing
-                // the request here is how a reset across a diverged layout used to declare
-                // stable topology over a swap that had already happened.
-                await flip.play({geometryOnly: landedInPlace, hostId: host.id, markerPrefix: 'workstation-pane-'})
-            } catch (error) {/* instant landing */}
-            finally {
-                DockMotionSignal.leave(me)
-            }
-        }
-
+        await played;
         await chromeAnimationSettle;
-        animationSuppressedBars.forEach(bar => {
+
+        (me.animationSuppressedBars || []).forEach(bar => {
             bar.setSilent({cls: bar.cls.filter(cls => cls !== 'neo-no-animation')})
         });
+        me.animationSuppressedBars = [];
+
         host.updateDepth = -1;
         host.update();
         await host.promiseUpdate();
@@ -2374,7 +2341,7 @@ class Workspace extends Container {
 
         try {
             me.dockModel = DockZoneModel.clone(initialDocument);
-            await me.refreshDockWorkspace({geometryOnly: true});
+            await me.refreshDockWorkspace(null, me.dockModel, {geometryOnly: true});
 
             // The entry projection is finished and the replay has not begun. Published because a
             // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
@@ -2548,7 +2515,7 @@ class Workspace extends Container {
         me.dockModel       = DockZoneModel.clone(initialDocument);
         await me.setPipProgress(0);
 
-        await me.refreshDockWorkspace({geometryOnly: true});
+        await me.refreshDockWorkspace(null, me.dockModel, {geometryOnly: true});
 
         const
             feedStore      = me.getStateProvider().getStore('feed'),
