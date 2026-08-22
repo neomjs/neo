@@ -1,5 +1,6 @@
 import {
     createFleetCockpitEvent,
+    createFleetCockpitEventId,
     FLEET_COCKPIT_SOURCES
 } from './fleetCockpitStatus.mjs'
 import {
@@ -34,7 +35,7 @@ const LANE_CLAIM_PATTERN = /\[(?:lane-claim|claiming)\]|\blane-state:\s*next-lan
  * @param {Error|String|null} options.error Source-read failure; returns degraded capability.
  * @param {Date|String} options.capturedAt Capture timestamp.
  * @param {Number} options.limit Maximum events to return.
- * @returns {{capability: Object, events: Object[]}}
+ * @returns {{capability: Object, counts: Object[], events: Object[]}}
  */
 export function createFleetPrLaneActivitySnapshot({
     prs = [],
@@ -54,7 +55,9 @@ export function createFleetPrLaneActivitySnapshot({
                 reason    : normalizeError(error),
                 state     : 'degraded'
             }),
+            counts: [],
             events: [createFleetCockpitEvent({
+                eventId   : createFleetCockpitEventId('pr-lane', 'source-degraded'),
                 type      : 'source-degraded',
                 source    : FLEET_COCKPIT_SOURCES.activity,
                 confidence: 'none',
@@ -81,6 +84,9 @@ export function createFleetPrLaneActivitySnapshot({
             confidence: 'observed',
             state     : 'wired'
         }),
+        // This reader cannot prove a complete PR/lane population without parsing the whole synced
+        // corpus on every poll. Honest absence beats a partial number presented as a fleet total.
+        counts: [],
         events
     }
 }
@@ -100,9 +106,14 @@ export function createPrActivityEvents(prs = [], {capturedAt = new Date()} = {})
                   author         = getLogin(pr.author),
                   relatedTickets = extractRefs(`${pr.title || ''} ${pr.body || ''}`)
 
+            if (number === null) {
+                return null
+            }
+
             const humanGateState = getPrHumanGateState(pr)
 
             return createFleetCockpitEvent({
+                eventId   : createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.githubPr, number),
                 type      : 'pr-activity',
                 source    : FLEET_COCKPIT_SOURCES.githubPr,
                 agentId   : author,
@@ -127,6 +138,7 @@ export function createPrActivityEvents(prs = [], {capturedAt = new Date()} = {})
                 }
             })
         })
+        .filter(Boolean)
 }
 
 /**
@@ -142,28 +154,32 @@ export function createIssueActivityEvents(issues = [], {capturedAt = new Date()}
     for (const issue of asArray(issues).filter(Boolean)) {
         const normalized = normalizeIssue(issue, capturedAt)
 
-        events.push(createFleetCockpitEvent({
-            type      : 'issue-activity',
-            source    : FLEET_COCKPIT_SOURCES.githubIssue,
-            agentId   : normalized.assignees[0] || null,
-            confidence: 'observed',
-            occurredAt: normalized.updatedAt || normalized.createdAt,
-            payload   : {
-                kind          : 'issue',
-                number        : normalized.number,
-                title         : normalized.title,
-                url           : normalized.url,
-                state         : normalized.state,
-                assignees     : normalized.assignees,
-                labels        : normalized.labels,
-                relatedTickets: normalized.relatedTickets
-            }
-        }))
+        if (normalized.number !== null) {
+            events.push(createFleetCockpitEvent({
+                eventId   : createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.githubIssue, normalized.number),
+                type      : 'issue-activity',
+                source    : FLEET_COCKPIT_SOURCES.githubIssue,
+                agentId   : normalized.assignees[0] || null,
+                confidence: 'observed',
+                occurredAt: normalized.updatedAt || normalized.createdAt,
+                payload   : {
+                    kind          : 'issue',
+                    number        : normalized.number,
+                    title         : normalized.title,
+                    url           : normalized.url,
+                    state         : normalized.state,
+                    assignees     : normalized.assignees,
+                    labels        : normalized.labels,
+                    relatedTickets: normalized.relatedTickets
+                }
+            }))
+        }
 
         for (const comment of normalized.comments) {
-            if (!LANE_CLAIM_PATTERN.test(comment.body || '')) continue;
+            if (!comment.id || !LANE_CLAIM_PATTERN.test(comment.body || '')) continue;
 
             events.push(createFleetCockpitEvent({
+                eventId   : createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.commentLane, comment.id),
                 type      : 'lane-claim',
                 source    : FLEET_COCKPIT_SOURCES.commentLane,
                 agentId   : comment.author || null,
@@ -211,9 +227,19 @@ export function createStallActivityEvents(stallFindings = [], {capturedAt = new 
     return asArray(stallFindings)
         .filter(Boolean)
         .map(finding => {
-            const anchoredAt = finding.waitingSince || finding.observedAt || finding.lastVerifiedAt || null
+            const
+                anchoredAt = finding.waitingSince || finding.observedAt || finding.lastVerifiedAt || null,
+                subjectKey = finding.subject?.number ?? finding.subject?.id ?? null,
+                identity   = subjectKey !== null && finding.findingClass
+                    ? `${finding.findingClass}:${subjectKey}`
+                    : null;
+
+            if (!identity) {
+                return null
+            }
 
             return createFleetCockpitEvent({
+                eventId   : createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.graphStall, identity),
                 type      : 'work-stall',
                 source    : FLEET_COCKPIT_SOURCES.graphStall,
                 agentId   : finding.subject?.owner || null,
@@ -234,6 +260,7 @@ export function createStallActivityEvents(stallFindings = [], {capturedAt = new 
                 }
             })
         })
+        .filter(Boolean)
 }
 
 function createActivityCapability({capturedAt, confidence, reason = null, state}) {

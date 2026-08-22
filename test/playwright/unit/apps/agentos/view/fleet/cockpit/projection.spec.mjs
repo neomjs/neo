@@ -243,8 +243,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
                     })[name]
                 }),
                 gridAdapterState  : 'live',
-                streamAdapterState: 'stale',
-                streamEvents      : [{type: 'pr-activity', payload: {text: 'held'}}]
+                streamAdapterState: 'stale'
             });
 
         const grid = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'fleet-grid', {title: 'Fleet'}, 'fleet');
@@ -258,7 +257,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
         expect(stream.module).toBe(ActivityStream);
         expect(stream.adapterState).toBe('stale');
-        expect(stream.events).toEqual(host.streamEvents);
+        expect(stream.bind).toEqual({counts: 'activityCounts', store: 'stores.fleetActivityEvents'});
         expect(stream.cls).toContain('dock-flip-item-stream');
 
         // agent-detail now renders the real drill-in view from OWNER-held fallback state

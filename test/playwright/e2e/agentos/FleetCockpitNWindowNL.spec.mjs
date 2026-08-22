@@ -75,6 +75,7 @@ async function startNWindowFleet() {
                           return fleetE2ESuccess({
                                   capability: {state: 'wired'},
                                   events    : [{
+                                      eventId   : 'e2e:a2a:fleet-cockpit-n-window',
                                       type      : 'a2a-activity',
                                       agentId   : 'neo-fable',
                                       occurredAt: refreshed ? '2026-08-02T00:00:02.000Z' : '2026-08-02T00:00:01.000Z',
@@ -449,8 +450,12 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             // window applies a production data refresh while retaining its component identity.
             const streamBefore = first(await app.queryComponent(
                 {className: 'AgentOS.view.fleet.activity.Container'},
-                ['id', 'events', 'windowId']
-            ));
+                ['id', 'windowId']
+            )),
+                  streamProvider = await app.callMethod(streamBefore.id, 'getStateProvider'),
+                  streamStoreId  = streamProvider?.stores?.fleetActivityEvents?.id;
+
+            expect(streamStoreId, 'the activity pane must expose its provider-owned Store').toBeTruthy();
 
             fleet.advance();
             await app.callMethod(cockpitId, 'loadRoster');
@@ -469,8 +474,9 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
                     )),
                     stream  = first(await app.queryComponent(
                         {className: 'AgentOS.view.fleet.activity.Container'},
-                        ['id', 'events', 'windowId']
-                    ));
+                        ['id', 'windowId']
+                    )),
+                    streamStore = await app.inspectStore(streamStoreId, 1);
 
                 return {
                     detail : {
@@ -485,7 +491,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
                     },
                     stream: {
                         id      : stream?.id,
-                        text    : stream?.properties?.events?.[0]?.payload?.text,
+                        text    : streamStore?.items?.[0]?.payload?.text,
                         windowId: stream?.properties?.windowId
                     }
                 }

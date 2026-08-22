@@ -1,372 +1,290 @@
 import {setup} from '../../../../../../setup.mjs';
 
-const appName = 'FleetActivityStreamTest';
+const appName = 'FleetActivityBufferedStreamTest';
 
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
+        unitTestMode           : true,
         useDomApiRenderer      : true
     },
     appConfig: {
-        name: appName
+        name             : appName,
+        isMounted        : () => true,
+        vnodeInitialising: false
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../../src/core/_export.mjs';
-import Instance       from '../../../../../../../../src/manager/Instance.mjs';
+import {test, expect}                           from '@playwright/test';
+import Neo                                      from '../../../../../../../../src/Neo.mjs';
+import * as core                                from '../../../../../../../../src/core/_export.mjs';
+import DomApiVnodeCreator                       from '../../../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import Instance                                 from '../../../../../../../../src/manager/Instance.mjs';
+import VdomHelper                               from '../../../../../../../../src/vdom/Helper.mjs';
+import ActivityStream, {describeActivityCounts} from '../../../../../../../../apps/agentos/view/fleet/activity/Container.mjs';
+import {getActivityObjectText}                  from '../../../../../../../../apps/agentos/view/fleet/activity/RowContainer.mjs';
+import FleetActivityEvents                      from '../../../../../../../../apps/agentos/store/FleetActivityEvents.mjs';
 
-test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed (#14606)', () => {
-    let ActivityStream, boundActivity, coalesceActivity;
+test.describe('Fleet activity — Store-backed list.Buffered history (#17550)', () => {
+    let sequence = 0,
+        store,
+        stream;
 
-    const makeEvents = n => Array.from({length: n}, (_, i) => ({
+    const event = (id, minute=id, overrides={}) => ({
+        eventId   : `a2a:MESSAGE:${id}`,
         type      : 'a2a-activity',
         source    : 'memory-core:mailbox',
-        agentId   : `agent-${i}`,
-        occurredAt: `2026-07-04T1${i % 10}:${String(i % 60).padStart(2, '0')}:00.000Z`,
-        payload   : {text: `event ${i}`}
-    }));
-
-    const rows = stream => stream.items.filter(item => item.cls.includes('fm-ev-row'));
-    const fold = stream => stream.items.find(item => item.cls.includes('fm-stream-fold'));
-    const head = stream => stream.items.find(item => item.cls.includes('fm-stream-head'));
-
-    test.beforeAll(async () => {
-        const mod = await import('../../../../../../../../apps/agentos/view/fleet/activity/Container.mjs');
-        ActivityStream   = mod.default;
-        boundActivity    = mod.boundActivity;
-        coalesceActivity = mod.coalesceActivity
+        agentId   : `agent-${id}`,
+        occurredAt: new Date(Date.UTC(2026, 7, 22, 12, minute)).toISOString(),
+        payload   : {subject: `event ${id}`, to: '@neo-gpt', recipientClass: 'agent'},
+        ...overrides
     });
 
-    test('boundActivity is the pure backpressure core — bound holds, overflow counted, newest-first', () => {
-        // the load-bearing requirement: a 100-event burst yields a bounded window + an honest overflow count
-        const {visible, overflowCount} = boundActivity(makeEvents(100), 15);
-        expect(visible.length).toBe(15);
-        expect(overflowCount).toBe(85);
-        // newest-first: the most-recent event heads the window
-        expect(visible[0].agentId).toBe('agent-99');
-        expect(visible[14].agentId).toBe('agent-85');
+    const makeEvents = count => Array.from({length: count}, (_, index) => event(index, index));
 
-        // edges: under-bound (no fold), exact-bound, empty, non-array, non-positive bound
-        expect(boundActivity(makeEvents(3), 15)).toMatchObject({overflowCount: 0});
-        expect(boundActivity(makeEvents(3), 15).visible.length).toBe(3);
-        expect(boundActivity(makeEvents(15), 15).overflowCount).toBe(0);
-        expect(boundActivity([], 15)).toEqual({visible: [], overflowCount: 0});
-        expect(boundActivity(null, 15)).toEqual({visible: [], overflowCount: 0});
-        expect(boundActivity(makeEvents(5), 0)).toEqual({visible: [], overflowCount: 5})
+    const createStream = async ({count=500, counts=[], maxRecords=1000, viewportHeight=156}={}) => {
+        store = Neo.create(FleetActivityEvents, {
+            data: makeEvents(count),
+            id  : `fleet-activity-events-test-${++sequence}`,
+            maxRecords
+        });
+        stream = Neo.create(ActivityStream, {
+            actorDirectory: {'agent-499': {displayName: 'Newest Agent'}},
+            appName,
+            counts,
+            id            : `fleet-activity-stream-test-${sequence}`,
+            store
+        });
+
+        await stream.initVnode();
+        stream.mounted = true;
+
+        const list = stream.getReference('list');
+
+        list.onResize({rect: {height: viewportHeight}});
+        list.createItems(true);
+
+        return {list, store, stream}
+    };
+
+    test.afterEach(() => {
+        stream?.destroy();
+        store?.destroy();
+        stream = null;
+        store  = null
     });
 
-    test('the component bounds the rendered DOM under a 100-event burst + renders the "N earlier events" fold', () => {
-        const stream = Neo.create(ActivityStream, {appName, maxVisible: 15, events: makeEvents(100)});
+    test('500 records mount only viewport + buffer rows; fold and row rebuild are gone', async () => {
+        const {list} = await createStream();
 
-        // bounded: the rendered event rows never exceed the window regardless of event volume
-        expect(rows(stream).length).toBe(15);
-        // honest overflow: the fold surfaces the folded EVENT count — never a silent drop
-        expect(fold(stream)).toBeTruthy();
-        expect(fold(stream).text).toBe('85 earlier events');
-
-        stream.destroy()
-    });
-
-    test('a11y: the live feed is an aria-live log region so screen readers hear new rows (#14619)', () => {
-        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(3)});
-
-        // a live-updating feed with no aria-live is silent to assistive tech — this makes it a named,
-        // polite log region (announces new rows without interrupting)
-        expect(stream.vdom['aria-live']).toBe('polite');
+        expect(store.count).toBe(500);
+        expect(list.availableRows).toBe(3);
+        expect(list.items.filter(Boolean)).toHaveLength(11);
+        expect(list.vdom.cn.slice(1, -1)).toHaveLength(11);
+        expect(stream.down({cls: 'fm-stream-fold'})).toBeNull();
         expect(stream.vdom.role).toBe('log');
-        expect(stream.vdom['aria-label']).toBe('Live fleet activity');
-
-        // The region must PERSIST across feed updates — that is the whole point of a live region.
-        // refreshFeed swaps CHILD items (removeAll + add), never the vdom root, so a returning event
-        // must not silently drop the aria-live root (which would re-silence the "live" feed to screen
-        // readers after the very first update — the exact failure mode the region exists to prevent).
-        stream.events = makeEvents(5);
-        expect(stream.vdom['aria-live']).toBe('polite');
-        expect(stream.vdom.role).toBe('log');
-        expect(stream.vdom['aria-label']).toBe('Live fleet activity');
-
-        stream.destroy()
+        expect(list.vdom['aria-live']).toBe('off');
+        expect(stream.getReference('announcer').vdom.role).toBe('status')
     });
 
-    test('density re-freeze: coalesceActivity groups only PROVEN same-actor runs — the pure rule', () => {
-        const at = seconds => `2026-07-04T10:00:${String(seconds).padStart(2, '0')}.000Z`;
+    test('scroll recycling preserves each pooled row and its fixed five child identities', async () => {
+        const {list} = await createStream({count: 100});
 
-        // a >2/min same-actor run (10s gaps) groups into ONE row carrying the count + newest event
-        const run = coalesceActivity([
-            {type: 'a2a-activity', agentId: 'vega', occurredAt: at(0),  payload: {text: 'one'}},
-            {type: 'a2a-activity', agentId: 'vega', occurredAt: at(10), payload: {text: 'two'}},
-            {type: 'pr-activity',  agentId: 'vega', occurredAt: at(20), payload: {text: 'three'}}
-        ], 30000);
-        expect(run.length).toBe(1);
-        expect(run[0]).toMatchObject({agentId: 'vega', count: 3});
-        expect(run[0].newest.payload.text).toBe('three');
+        const
+            slot        = list.recordSlotMap.get(store.first().eventId),
+            row         = list.items[slot],
+            rowId       = row.id,
+            childIds    = row.items.map(item => item.id),
+            physicalIds = new Set(list.items.filter(Boolean).map(item => item.id));
 
-        // a gap AT the threshold (30s = exactly 2/min) splits — coalescing is strictly-above-rate
-        expect(coalesceActivity([
-            {agentId: 'vega', occurredAt: at(0)},
-            {agentId: 'vega', occurredAt: at(30)}
-        ], 30000).length).toBe(2);
+        expect(row.items).toHaveLength(5);
 
-        // distinct actors never group, however tight the timestamps
-        expect(coalesceActivity([
-            {agentId: 'vega', occurredAt: at(0)},
-            {agentId: 'ada',  occurredAt: at(1)}
-        ], 30000).length).toBe(2);
+        list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 208});
 
-        // unprovable membership never groups: a missing timestamp breaks the run on BOTH sides,
-        // and anonymous events (no agentId) each stand alone
-        expect(coalesceActivity([
-            {agentId: 'vega', occurredAt: at(0)},
-            {agentId: 'vega'},
-            {agentId: 'vega', occurredAt: at(2)}
-        ], 30000).length).toBe(3);
-        expect(coalesceActivity([
-            {occurredAt: at(0)},
-            {occurredAt: at(1)}
-        ], 30000).length).toBe(2);
-
-        // non-array input degrades to an empty row set
-        expect(coalesceActivity(null, 30000)).toEqual([])
+        expect(new Set(list.items.filter(Boolean).map(item => item.id))).toEqual(physicalIds);
+        expect(row.id).toBe(rowId);
+        expect(row.items.map(item => item.id)).toEqual(childIds)
     });
 
-    test('density re-freeze: a same-actor burst renders as ONE grouped ×N row — one busy actor cannot flood the window', () => {
-        const burst = Array.from({length: 5}, (_, i) => ({
-            type      : 'a2a-activity',
-            agentId   : 'neo-opus-vega',
-            occurredAt: `2026-07-04T10:00:${String(i * 10).padStart(2, '0')}.000Z`,
-            payload   : {text: `vega burst ${i}`}
-        }));
+    test('one recycle batch converges record, child VDOM, VNode and fixed optional cell roots', async () => {
+        const {list} = await createStream({count: 20});
+        const row    = list.items[0];
 
-        const stream = Neo.create(ActivityStream, {appName, events: [
-            ...burst,
-            {type: 'review-activity', agentId: 'neo-gpt', occurredAt: '2026-07-04T10:05:00.000Z', payload: {text: 'euclid single'}}
-        ]});
+        store.ingestSnapshot([event('newest', 200, {
+            eventId: 'a2a:MESSAGE:newest',
+            payload: {subject: 'newest object', to: null, recipientClass: 'unknown'},
+            agentId: null
+        })], {replace: true});
 
-        // 6 events → 2 rows: the run coalesced + the single (newest-first: the single leads)
-        expect(rows(stream).length).toBe(2);
+        await row.promiseUpdate();
 
-        const [single, grouped] = rows(stream);
-        expect(single.cls).not.toContain('fm-ev-coalesced');
-        expect(single.items.find(item => item.cls.includes('fm-ev-text')).text).toBe('euclid single');
-
-        // the grouped row: ×N carries the run count, the NEWEST event carries text + chip kind
-        expect(grouped.cls).toContain('fm-ev-coalesced');
-        expect(grouped.items.find(item => item.cls.includes('fm-ev-text')).text).toBe('×5 · vega burst 4');
-
-        stream.destroy()
+        expect(row.record.eventId).toBe('a2a:MESSAGE:newest');
+        expect(row.getReference('object').text).toBe('newest object');
+        expect(row.getReference('object').vnode.textContent).toBe('newest object');
+        expect(row.getReference('actor').hidden).toBe(false);
+        expect(row.getReference('actor').cls).toContain('is-empty');
+        expect(row.getReference('recipient').hidden).toBe(false);
+        expect(row.getReference('recipient').cls).toContain('is-empty');
+        expect(row.vnode.childNodes.map(node => node.id)).toEqual(row.items.map(item => item.id))
     });
 
-    test('density re-freeze: the 200-event ring drops oldest COUNTED, and the default window is 12 rows', () => {
-        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(500)});
+    test('prepend while reading history preserves record + pixel offset and surfaces new ids', async () => {
+        const {list} = await createStream({count: 100});
 
-        // the ring: the held events are capped at bufferSize (200) — memory bounded by construction
-        expect(stream.events.length).toBe(200);
-        // the window: density-frozen 12 rows by default
-        expect(rows(stream).length).toBe(12);
-        // the fold counts EVENTS beyond the glass: 188 folded rows (distinct actors → 1 event each)
-        // + 300 ring-dropped = 488 — a drop is surfaced, never silent
-        expect(fold(stream).text).toBe('488 earlier events');
+        list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 265});
 
-        stream.destroy()
+        const
+            anchorId     = list.anchorRecordId,
+            anchorOffset = list.anchorOffset,
+            anchorBefore = store.get(anchorId),
+            result       = store.ingestSnapshot([
+                event('new-1', 200, {eventId: 'a2a:MESSAGE:new-1'}),
+                event('new-2', 201, {eventId: 'a2a:MESSAGE:new-2'})
+            ]);
+
+        expect(result.newEventIds).toEqual(['a2a:MESSAGE:new-1', 'a2a:MESSAGE:new-2']);
+        expect(list.anchorRecordId).toBe(anchorId);
+        expect(list.anchorOffset).toBe(anchorOffset);
+        expect(store.get(anchorId)).toBe(anchorBefore);
+        expect(store.getAt(Math.floor(list.scrollTop / list.itemHeight)).eventId).toBe(anchorId);
+        expect(stream.pendingNewEventCount).toBe(2);
+        expect(stream.getReference('new-events').text).toBe('2 new events ↑');
+        expect(stream.getReference('announcer').text).toContain('2 new fleet activity events');
+
+        stream.onNewEventsClick();
+        expect(list.scrollTop).toBe(0);
+        expect(stream.pendingNewEventCount).toBe(0);
+        expect(stream.getReference('new-events').hidden).toBe(true)
     });
 
-    test('reactive ring: a runtime SHRINK re-bounds the HELD events with cumulative honest drop accounting; an invalid bound is refused', () => {
-        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(250)});
+    test('Store upserts by producer id, sorts deterministically, and counts local eviction', () => {
+        store = Neo.create(FleetActivityEvents, {id: `fleet-activity-events-test-${++sequence}`, maxRecords: 3});
 
-        // intake: 250 → 200 held / 50 dropped / 12 rows / 238 folded+dropped events
-        expect(stream.events.length).toBe(200);
-        expect(stream.droppedCount).toBe(50);
-        expect(rows(stream).length).toBe(12);
-        expect(fold(stream).text).toBe('238 earlier events');
+        store.ingestSnapshot([event(1, 1), event(2, 2), event(3, 3)]);
+        const retained = store.get('a2a:MESSAGE:2');
 
-        // the falsifier: shrinking the bound must re-bound the ALREADY-HELD payload — the ring is
-        // reactive for real, not a render-only claim
-        stream.bufferSize = 10;
-        expect(stream.events.length).toBe(10);
-        // drop accounting is cumulative within the payload: 50 intake + 190 shrink = 240 of the
-        // original 250 are gone, and the fold says so (10 held ≤ 12-row window → nothing folded)
-        expect(stream.droppedCount).toBe(240);
-        expect(rows(stream).length).toBe(10);
-        expect(fold(stream).text).toBe('240 earlier events');
-
-        // zero/negative/non-finite bounds would DISABLE the ring (slice(-0) keeps everything) —
-        // refused: the previous bound and the held events stay exactly as they were
-        for (const bad of [0, -5, NaN, Infinity, 2.5]) {
-            stream.bufferSize = bad;
-            expect(stream.bufferSize).toBe(10);
-            expect(stream.events.length).toBe(10)
-        }
-
-        // a fresh payload RESETS the accounting (replace semantics) against the shrunk bound
-        stream.events = makeEvents(25);
-        expect(stream.events.length).toBe(10);
-        expect(stream.droppedCount).toBe(15);
-
-        stream.destroy()
-    });
-
-    test('kind rendering delegates entirely to EventChip — unknown types still render a chip (neutral path)', () => {
-        const stream = Neo.create(ActivityStream, {
-            appName,
-            events: [
-                {type: 'pr-activity',           occurredAt: '2026-07-04T10:00:00.000Z', payload: {text: 'a'}},
-                {type: 'totally-unknown-kind',  occurredAt: '2026-07-04T10:01:00.000Z', payload: {text: 'b'}}
-            ]
-        });
-
-        // every row composes an EventChip (the chip is the only kind surface — zero local kind logic here)
-        expect(stream.down({ntype: 'fm-event-chip'})).toBeTruthy();
-        // the unknown-kind row still renders (EventChip's neutral fallback), never dropped
-        expect(rows(stream).length).toBe(2);
-
-        stream.destroy()
-    });
-
-    test('degrades honestly on adapter loss — a stale header, never a blanked feed', () => {
-        const stream = Neo.create(ActivityStream, {appName, adapterState: 'stale', events: makeEvents(3)});
-
-        expect(head(stream).cls).toContain('is-stale');
-        // the rows still render — degrade surfaces the state, it does not blank the feed
-        expect(rows(stream).length).toBe(3);
-
-        stream.destroy()
-    });
-
-    test('event text reads the live-adapter payload subject, not just the fixture text field', () => {
-        // the live A2A/PR/lane adapters carry the row text in payload.subject (fixtures use payload.text);
-        // both must render meaningfully rather than falling to the "agentId · type" fallback
-        const stream = Neo.create(ActivityStream, {
-            appName,
-            events: [{type: 'a2a-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-04T10:00:00.000Z', payload: {subject: '[lane-claim] #14606 activity live-binding'}}]
-        });
-
-        const textItem = rows(stream)[0].items.find(item => item.cls.includes('fm-ev-text'));
-        expect(textItem.text).toBe('[lane-claim] #14606 activity live-binding');
-
-        stream.destroy()
-    });
-
-    test('sample state labels a representative (source-not-wired) feed honestly — never "streaming"', () => {
-        const stream = Neo.create(ActivityStream, {appName, adapterState: 'sample', events: makeEvents(3)});
-
-        expect(head(stream).cls).toContain('is-sample');
-        const stateItem = head(stream).items.find(item => item.cls.includes('fm-stream-state'));
-        expect(stateItem.text).toBe('sample · live feed pending');
-        expect(stateItem.text).not.toContain('streaming');   // a sample must never pose as live
-        // the sample is shown, not blanked
-        expect(rows(stream).length).toBe(3);
-
-        stream.destroy()
-    });
-});
-
-
-test.describe('ActivityStream — the actor chip and the recipient piece (row identity rendering)', () => {
-    let ActivityStream, proto;
-
-    test.beforeAll(async () => {
-        ActivityStream = (await import('../../../../../../../../apps/agentos/view/fleet/activity/Container.mjs')).default;
-        proto          = ActivityStream.prototype
-    });
-
-    const host = directory => ({
-              actorDirectory : directory,
-              actorChipConfig: proto.actorChipConfig,
-              recipientConfig: proto.recipientConfig,
-              timeVdom       : proto.timeVdom,
-              eventText      : proto.eventText,
-              stallText      : proto.stallText
-          });
-
-    const a2aEvent = (over = {}) => ({
-        type      : 'a2a-activity',
-        agentId   : '@neo-fable-clio',
-        occurredAt: '2026-08-18T10:00:00.000Z',
-        payload   : {subject: 'ping', from: '@neo-fable-clio', to: '@neo-opus-ada', recipientClass: 'agent', ...over}
-    });
-
-    test('the actor chip renders the coalescing key: roster facts when known, handle-only when not, NOTHING when anonymous', () => {
-        const h = host({'@neo-fable-clio': {avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', displayName: 'Clio'}});
-
-        const known = proto.actorChipConfig.call(h, {agentId: '@neo-fable-clio'});
-        expect(known).toMatchObject({agentId: '@neo-fable-clio', avatarUrl: 'https://github.com/neo-fable-clio.png?size=80', label: 'Clio'});
-
-        const unknown = proto.actorChipConfig.call(h, {agentId: '@neo-gpt'});
-        expect(unknown).toMatchObject({agentId: '@neo-gpt', avatarUrl: null, label: null});
-
-        // honest absence: an anonymous event composes NO chip, never a blank identity
-        expect(proto.actorChipConfig.call(h, {agentId: null})).toBeNull()
-    });
-
-    test('the recipient piece: directed renders → @to, broadcast renders the distinct ⇒ fleet, non-A2A renders nothing', () => {
-        const h = host({});
-
-        const direct = proto.recipientConfig.call(h, a2aEvent());
-        expect(direct.text).toBe('→ @neo-opus-ada');
-        expect(direct.cls).toContain('is-direct');
-        expect(direct.vdom.title).toBe('@neo-opus-ada');
-
-        const broadcast = proto.recipientConfig.call(h, a2aEvent({to: 'AGENT:*', recipientClass: 'broadcast'}));
-        expect(broadcast.text).toBe('⇒ fleet');
-        expect(broadcast.cls).toContain('is-broadcast');
-
-        expect(proto.recipientConfig.call(h, {type: 'pr-activity', payload: {}})).toBeNull();
-        expect(proto.recipientConfig.call(h, a2aEvent({to: null, recipientClass: 'unknown'}))).toBeNull()
-    });
-
-    test('a lane-claim row is A2A enough for the recipient piece — the claim broadcast reads as one', () => {
-        const claim = proto.recipientConfig.call(host({}), {type: 'lane-claim', payload: {to: 'AGENT:*', recipientClass: 'broadcast'}});
-
-        expect(claim.text).toBe('⇒ fleet')
-    });
-
-    test('the row composes ONE line: time · kind · actor · recipient · text — the actor once per coalesced run', () => {
-        const h   = host({'@neo-fable-clio': {displayName: 'Clio'}}),
-              row = {agentId: '@neo-fable-clio', count: 3, newest: a2aEvent(), events: []},
-              cfg = proto.rowConfig.call(h, row);
-
-        // structural density bound: every cell is an inline hbox child; only the text flexes
-        expect(cfg.layout.ntype).toBe('hbox');
-        expect(cfg.items).toHaveLength(5);
-        expect(cfg.items.filter(item => item.flex === 1)).toHaveLength(1);
-
-        // the actor renders once beside the ×N count, the run key visible instead of implied
-        expect(cfg.items[2]).toMatchObject({agentId: '@neo-fable-clio', label: 'Clio'});
-        expect(cfg.items[4].text).toContain('×3');
-
-        // an anonymous single event: no actor cell, the row shrinks by exactly that cell
-        const anon = proto.rowConfig.call(h, {agentId: null, count: 1, newest: {type: 'pr-activity', payload: {text: 'x'}}, events: []});
-        expect(anon.items).toHaveLength(3)
-    });
-
-    test('constructed, not borrowed: the recipient cell sets BOTH text and vdom — after real creation, both survive', () => {
-        const stream = Neo.create(ActivityStream, {
-            appName,
-            actorDirectory: {'@neo-fable-clio': {displayName: 'Clio'}},
-            events        : [a2aEvent()]
-        });
-
-        const row = stream.items.find(item => item.cls.includes('fm-ev-row'));
-
-        // the five cells compose in order as REAL instances — a config literal cannot green this
-        expect(row.items.map(item => item.className)).toEqual([
-            'Neo.component.Base',           // time
-            'AgentOS.view.fleet.activity.EventChipComponent', // kind
-            'AgentOS.view.fleet.activity.ActorChipComponent', // actor — the coalescing key
-            'Neo.component.Base',           // recipient
-            'Neo.component.Base'            // text
+        const result = store.ingestSnapshot([
+            event(2, 2, {payload: {subject: 'updated'}}),
+            event(4, 4)
         ]);
 
-        // the merge the config assertions cannot see: recipientConfig is the one cell setting BOTH
-        // `text` and `vdom` on one config while `set vdom` replaces wholesale — the citable hover
-        // title and the arrow text must coexist on the constructed component, not just in the literal
-        const recipient = row.items[3];
-        expect(recipient.vdom.title).toBe('@neo-opus-ada');
-        expect(recipient.text).toBe('→ @neo-opus-ada');
-        expect(recipient.cls).toContain('is-direct');
+        expect(store.count).toBe(3);
+        expect(store.items.map(record => record.eventId)).toEqual([
+            'a2a:MESSAGE:4',
+            'a2a:MESSAGE:3',
+            'a2a:MESSAGE:2'
+        ]);
+        expect(store.get('a2a:MESSAGE:2')).toBe(retained);
+        expect(retained.payload.subject).toBe('updated');
+        expect(result).toMatchObject({added: 1, dropped: 1, retained: 3});
+        expect(store.droppedCount).toBe(1)
+    });
 
-        stream.destroy()
+    test('Store refuses missing or duplicate producer identity before mutating retained truth', () => {
+        store = Neo.create(FleetActivityEvents, {id: `fleet-activity-events-test-${++sequence}`});
+        store.ingestSnapshot([event(1)]);
+
+        expect(() => store.ingestSnapshot([{type: 'a2a-activity'}])).toThrow('producer-owned eventId');
+        expect(() => store.ingestSnapshot([event(2), event(2)])).toThrow('duplicate eventId');
+        expect(store.items.map(record => record.eventId)).toEqual(['a2a:MESSAGE:1'])
+    });
+
+    test('row keeps actor once, named object, local time + exact ISO title in stable children', async () => {
+        const pr = event('pr-17550', 10, {
+            eventId: 'github-workflow:pull-requests:17550',
+            type   : 'pr-activity',
+            agentId: 'neo-gpt-emmy',
+            payload: {number: 17550, title: 'Activity stream buffered list'}
+        });
+
+        store = Neo.create(FleetActivityEvents, {data: [pr], id: `fleet-activity-events-test-${++sequence}`});
+        stream = Neo.create(ActivityStream, {
+            actorDirectory: {'neo-gpt-emmy': {displayName: 'Emmy'}},
+            appName,
+            id            : `fleet-activity-stream-test-${sequence}`,
+            store
+        });
+        await stream.initVnode();
+
+        const row = stream.getReference('list').items[0];
+
+        expect(row.items).toHaveLength(5);
+        expect(row.getReference('actor').label).toBe('Emmy');
+        expect(row.getReference('object').text).toBe('#17550 · Activity stream buffered list');
+        expect(row.getReference('object').text).not.toContain('neo-gpt-emmy');
+        expect(row.getReference('time').vdom.title).toBe(pr.occurredAt);
+        expect(row.vdom['aria-label']).toContain('#17550 · Activity stream buffered list')
+    });
+
+    test('object grammar handles A2A, issue, stall and malformed subjects without duplication', () => {
+        expect(getActivityObjectText({type: 'a2a-activity', payload: {subject: 'Review requested'}})).toBe('Review requested');
+        expect(getActivityObjectText({type: 'issue-activity', payload: {number: 17550, title: 'Buffered history'}})).toBe('#17550 · Buffered history');
+        expect(getActivityObjectText({type: 'work-stall', payload: {findingClass: 'ownership-gap', subject: {id: 'LANE:x'}}})).toBe('stalled · LANE:x');
+        expect(getActivityObjectText({type: 'a2a-activity', payload: {subject: {unexpected: true}}})).toBe('a2a-activity')
+    });
+
+    test('count header labels producer truth and ignores incomplete rows', () => {
+        const view = describeActivityCounts([{
+            source    : 'memory-core:mailbox',
+            scope     : 'last24h',
+            value     : 36,
+            complete  : true,
+            capturedAt: '2026-08-22T21:00:00.000Z'
+        }, {
+            source    : 'memory-core:mailbox',
+            scope     : 'total',
+            value     : 412,
+            complete  : true,
+            capturedAt: '2026-08-22T21:00:00.000Z'
+        }, {
+            source    : 'github-workflow:pull-requests',
+            scope     : 'total',
+            value     : 99,
+            complete  : false,
+            capturedAt: '2026-08-22T21:00:00.000Z'
+        }]);
+
+        expect(view.text).toBe('mailbox · 36 / 24h · 412 total');
+        expect(view.title).toContain('memory-core:mailbox total=412');
+        expect(describeActivityCounts([{scope: 'total', value: 1, complete: true}])).toBeNull()
+    });
+
+    test('count chrome stays mounted while complete producer truth appears and disappears', async () => {
+        await createStream({count: 1});
+
+        const countCell = stream.getReference('counts');
+
+        expect(countCell.hidden).toBe(false);
+        expect(countCell.cls).toContain('is-empty');
+
+        stream.counts = [{
+            source    : 'memory-core:mailbox',
+            scope     : 'total',
+            value     : 412,
+            complete  : true,
+            capturedAt: '2026-08-22T21:00:00.000Z'
+        }];
+        await stream.timeout(20);
+
+        expect(countCell.text).toBe('mailbox · 412 total');
+        expect(countCell.cls).not.toContain('is-empty');
+        expect(countCell.vnode.textContent).toBe('mailbox · 412 total');
+
+        stream.counts = [];
+        await stream.timeout(20);
+
+        expect(countCell.text).toBe('');
+        expect(countCell.cls).toContain('is-empty')
+    });
+
+    test('stale state keeps retained rows and names the degrade', async () => {
+        const {list}  = await createStream({count: 20});
+        const mounted = list.items.filter(Boolean).length;
+
+        stream.adapterState = 'stale';
+
+        expect(stream.getReference('header').cls).toContain('is-stale');
+        expect(stream.getReference('state').text).toBe('stale — reconnecting');
+        expect(list.items.filter(Boolean)).toHaveLength(mounted)
     })
 });

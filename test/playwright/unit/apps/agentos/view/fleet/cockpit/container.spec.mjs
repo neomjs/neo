@@ -34,6 +34,34 @@ const wiredSources = () => ({
 });
 
 /**
+ * Provider-owned activity collaborators for prototype-host tests. The Store records every admitted
+ * bounded page; the provider records count truth. Keeping them separate pins the production boundary.
+ */
+const makeActivityStoreHarness = () => {
+    const activityStore = {
+              pages: [],
+              ingestSnapshot(events, options) {
+                  this.pages.push({events, options});
+                  return {added: events.length, dropped: 0, retained: events.length, newEventIds: events.map(event => event.eventId)}
+              }
+          },
+          activityProvider = {
+              data: {},
+              getData(key) { return this.data[key] },
+              getStore() { return null },
+              setData(key, value) { this.data[key] = value }
+          };
+
+    return {
+        activityProvider,
+        activityStore,
+        activityWired                  : false,
+        getStateProvider               : () => activityProvider,
+        resolveFleetActivityEventsStore: () => activityStore
+    }
+};
+
+/**
  * Covers the fail-closed matrix for `FleetCockpit.loadActivity()` — the app-side consumption of the
  * read-observe `fleetActivity` bridge verb.
  *
@@ -53,7 +81,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 
     // a spy stream: `loadActivity` either assigns `adapterState` directly (stale) or calls `set({...})`
     // (live); both land on the same object so the resulting state is assertable.
-    const makeStream = () => ({adapterState: 'sample', events: null, set(config) { Object.assign(this, config) }});
+    const makeStream = () => ({adapterState: 'sample', set(config) { Object.assign(this, config) }});
 
     /**
      * @param {Object|null} bridge The stubbed `registryBridge` (or null for "no bridge").
@@ -76,18 +104,20 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
               // guard reads it: a fake missing it would let a pre-wired throw claim last-known
               // data that never existed.
               cockpit = {
+                  ...makeActivityStoreHarness(),
                   clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
                   degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
                   getReference        : reference => reference === 'activity-stream' ? stream : null,
                   streamAdapterState  : 'sample',
                   streamDegradedReason: null,
+                  streamReadInFlight  : 0,
                   streamReadGeneration: 0,
                   syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
               };
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
 
-        return {stream, cockpit}
+        return {stream, cockpit, store: cockpit.activityStore, provider: cockpit.activityProvider}
     };
 
     test.beforeAll(async () => {
@@ -149,23 +179,31 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
         expect(stream.adapterState).toBe('sample')
     });
 
-    test('wired + events → live, reversing the newest-first feed to chronological for the stream', async () => {
-        const {stream} = await routeLoadActivity({fleetActivity: async () => ({
+    test('wired + events → live, admitting producer order into the provider Store', async () => {
+        const {stream, store, provider} = await routeLoadActivity({fleetActivity: async () => ({
             capability: {state: 'wired'},
+            counts    : [{source: 'memory-core:mailbox', scope: 'total', value: 2, complete: true, capturedAt: '2026-07-04T12:00:00.000Z'}],
             events    : [ // newest-first, as the adapter sorts
-                {type: 'a2a-activity', occurredAt: '2026-07-04T12:00:00.000Z', payload: {subject: 'newest'}},
-                {type: 'a2a-activity', occurredAt: '2026-07-04T11:00:00.000Z', payload: {subject: 'older'}}
+                {eventId: 'a2a:newest', type: 'a2a-activity', occurredAt: '2026-07-04T12:00:00.000Z', payload: {subject: 'newest'}},
+                {eventId: 'a2a:older',  type: 'a2a-activity', occurredAt: '2026-07-04T11:00:00.000Z', payload: {subject: 'older'}}
             ]
         })});
         expect(stream.adapterState).toBe('live');
-        expect(stream.events.map(event => event.payload.subject)).toEqual(['older', 'newest'])
+        expect(store.pages).toEqual([{
+            events: [
+                {eventId: 'a2a:newest', type: 'a2a-activity', occurredAt: '2026-07-04T12:00:00.000Z', payload: {subject: 'newest'}},
+                {eventId: 'a2a:older',  type: 'a2a-activity', occurredAt: '2026-07-04T11:00:00.000Z', payload: {subject: 'older'}}
+            ],
+            options: {replace: true}
+        }]);
+        expect(provider.data.activityCounts).toHaveLength(1)
     });
 
     test('wired + empty → live (streaming but quiet), never the sample — a wired source is live', async () => {
-        const {stream, cockpit} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'wired'}, events: []})});
+        const {stream, cockpit, store} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'wired'}, events: []})});
 
         expect(stream.adapterState).toBe('live');
-        expect(stream.events).toEqual([]);
+        expect(store.pages).toEqual([{events: [], options: {replace: true}}]);
         // recovery clears the retained cause — a stale reason on a live feed would outlive its truth
         expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
@@ -1697,19 +1735,18 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         const stream = {adapterState: 'live', set() {}};
 
         return {
+            ...makeActivityStoreHarness(),
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
             getReference       : reference =>
                 reference === 'fleet-spine-banner' ? banner :
                 reference === 'activity-stream'    ? stream : null,
-            getStateProvider    : () => null,
             gridAdapterState    : 'live',
             gridDegradedReason  : null,
             loadActivity        : FleetCockpit.prototype.loadActivity,
             streamAdapterState  : 'live',
             streamDegradedReason: null,
             streamReadGeneration: 0,
-            streamEvents        : [],
             syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
         }
     };
@@ -2113,6 +2150,7 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         const stream = {adapterState: 'live', set() {}},
               host   = {
                   ...makeTimerHost(),
+                  ...makeActivityStoreHarness(),
                   clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
                   degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
                   getReference        : reference => reference === 'activity-stream' ? stream : null,
@@ -2168,6 +2206,7 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         const stream = {adapterState: 'live', set() {}},
               host   = {
                   ...makeTimerHost(),
+                  ...makeActivityStoreHarness(),
                   clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
                   degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
                   getReference        : reference => reference === 'activity-stream' ? stream : null,
@@ -2228,6 +2267,7 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         const stream = {adapterState: 'live', set() {}},
               host   = {
                   ...makeTimerHost(),
+                  ...makeActivityStoreHarness(),
                   clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
                   degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
                   getReference        : reference => reference === 'activity-stream' ? stream : null,

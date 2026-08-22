@@ -12,6 +12,7 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
 import '../../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import Container     from '../../../../../../../../src/container/Base.mjs';
 import DockZoneModel from '../../../../../../../../src/dashboard/DockZoneModel.mjs';
+import FleetActivityEvents from '../../../../../../../../apps/agentos/store/FleetActivityEvents.mjs';
 import FleetCockpit  from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
 import FleetRoster   from '../../../../../../../../apps/agentos/store/FleetRoster.mjs';
 import StateProvider from '../../../../../../../../src/state/Provider.mjs';
@@ -113,7 +114,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         cockpit = Neo.create(FleetCockpit, {
             stateProvider: {
                 module: StateProvider,
-                stores: {fleetRoster: {module: FleetRoster, autoLoad: false}}
+                stores: {
+                    fleetActivityEvents: {module: FleetActivityEvents},
+                    fleetRoster        : {module: FleetRoster, autoLoad: false}
+                }
             }
         })
     });

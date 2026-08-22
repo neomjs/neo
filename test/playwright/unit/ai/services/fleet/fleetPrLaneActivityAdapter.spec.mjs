@@ -41,6 +41,7 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         }])
 
         expect(event).toMatchObject({
+            eventId   : `${FLEET_COCKPIT_SOURCES.githubPr}:14625`,
             type      : 'pr-activity',
             source    : FLEET_COCKPIT_SOURCES.githubPr,
             agentId   : 'neo-fable-clio',
@@ -88,6 +89,7 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
 
         expect(events).toHaveLength(2)
         expect(events[0]).toMatchObject({
+            eventId: `${FLEET_COCKPIT_SOURCES.githubIssue}:14573`,
             type   : 'issue-activity',
             source : FLEET_COCKPIT_SOURCES.githubIssue,
             agentId: 'neo-gpt',
@@ -100,6 +102,7 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
             }
         })
         expect(events[1]).toMatchObject({
+            eventId: `${FLEET_COCKPIT_SOURCES.commentLane}:IC_lane`,
             type   : 'lane-claim',
             source : FLEET_COCKPIT_SOURCES.commentLane,
             agentId: 'neo-gpt',
@@ -131,6 +134,7 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         }])
 
         expect(event).toMatchObject({
+            eventId   : `${FLEET_COCKPIT_SOURCES.graphStall}:DECISION_STARVED:14585`,
             type      : 'work-stall',
             source    : FLEET_COCKPIT_SOURCES.graphStall,
             agentId   : 'human-merge-gate',
@@ -159,11 +163,13 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         })
         expect(snapshot.events).toHaveLength(1)
         expect(snapshot.events[0]).toMatchObject({
+            eventId   : 'pr-lane:source-degraded',
             type      : 'source-degraded',
             source    : FLEET_COCKPIT_SOURCES.activity,
             confidence: 'none'
         })
         expect(JSON.stringify(snapshot)).not.toContain('token=secret')
+        expect(snapshot.counts).toEqual([])
     })
 
     test('sorts newest first and bounds event count', () => {
@@ -188,7 +194,14 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
             confidence: 'observed'
         })
         expect(snapshot.events.map(event => event.payload.number || event.payload.issueNumber)).toEqual([2, 3])
+        expect(snapshot.counts).toEqual([])
     })
+
+    test('omits PR, issue, lane and stall rows whose producer cannot name stable identity', () => {
+        expect(createPrActivityEvents([{title: 'numberless'}])).toEqual([]);
+        expect(createIssueActivityEvents([{title: 'numberless', comments: {nodes: [{body: '[lane-claim]', id: null}]}}])).toEqual([]);
+        expect(createStallActivityEvents([{findingClass: 'x', subject: {title: 'no stable id'}}])).toEqual([])
+    });
 
     // ---- human-gate truth at the consumer boundary (Cycle-2 RA3: draft + formal-disposition) ----
 
@@ -271,14 +284,18 @@ test.describe('createStallActivityEvents — stable rank time', () => {
     })
 
     test('a fresh real event outranks a stale stall under the composer sort key', () => {
-        const [stall] = createStallActivityEvents([{waitingSince, subject: {owner: '@grace'}}], {capturedAt: '2026-08-02T17:00:00.000Z'})
+        const [stall] = createStallActivityEvents([{
+            findingClass: 'ownership-gap',
+            waitingSince,
+            subject     : {owner: '@grace', number: 16310}
+        }], {capturedAt: '2026-08-02T17:00:00.000Z'})
 
         expect('2026-08-02T16:59:00.000Z'.localeCompare(stall.occurredAt)).toBeGreaterThan(0)
     })
 
     test('a finding with no temporal fact degrades to capture time WITH the named marker — never silently', () => {
         const capturedAt = '2026-08-02T17:00:00.000Z',
-              [event]    = createStallActivityEvents([{findingClass: 'x', subject: {owner: '@a'}}], {capturedAt})
+              [event]    = createStallActivityEvents([{findingClass: 'x', subject: {owner: '@a', id: 'stall-x'}}], {capturedAt})
 
         expect(event.occurredAt).toBe(capturedAt)
         expect(event.payload.rankAnchor).toBe('capture-time-degraded')
