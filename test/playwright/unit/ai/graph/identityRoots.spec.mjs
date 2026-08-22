@@ -360,6 +360,7 @@ test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
             '@neo-gpt-emmy'   : '2026-07-11T17:42:14.374Z',
             '@neo-kimi-phoebe': '2026-07-18T00:00:00.000Z',
             '@neo-kimi-iris'  : '2026-07-19T09:40:49Z',
+            '@neo-preview'    : '2026-08-22T19:53:10.918Z',
             'AGENT:*'         : '2026-04-23T13:03:46.000Z'
         });
     });
@@ -423,6 +424,44 @@ test.describe('ai/graph/identityRoots — @neo-kimi-iris roster pin', () => {
 
     test('@neo-kimi-iris commits no static wake template and no engine facts (observation-owned)', () => {
         const entry = findIdentity('@neo-kimi-iris');
+
+        expect(entry.properties).not.toHaveProperty('subscriptionTemplate');
+        expect(entry.properties).not.toHaveProperty('modelAssignment');
+        expect(entry.properties).not.toHaveProperty('contextWindowInput');
+        expect(entry.properties).not.toHaveProperty('pricingInput');
+        expect(entry.properties).not.toHaveProperty('pricingOutput');
+    });
+});
+
+/**
+ * @summary Roster pin for the onboarded resident @neo-preview: Layer-1 identity invariants only.
+ *
+ * Lifecycle state (participationStatus) is deliberately unpinned — status flips are their own
+ * PRs. The engine-fact absence assertions hold until the activation flip lands source-cited
+ * capability fields; that PR updates this pin alongside the roster entry.
+ */
+test.describe('ai/graph/identityRoots — @neo-preview roster pin', () => {
+    const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
+
+    test('@neo-preview is a registered AgentIdentity root with Layer-1 operational fields', () => {
+        const entry = findIdentity('@neo-preview');
+
+        expect(entry, '@neo-preview must be a registered AgentIdentity root').toBeTruthy();
+        expect(entry).toMatchObject({
+            id        : '@neo-preview',
+            type      : 'AgentIdentity',
+            properties: {
+                githubLogin: '@neo-preview',
+                displayName: 'Neo Preview',
+                modelFamily: 'unknown',
+                accountType: 'agent',
+                trustTier  : 'peer-trusted'
+            }
+        });
+    });
+
+    test('@neo-preview commits no static wake template and no engine facts (observation-owned)', () => {
+        const entry = findIdentity('@neo-preview');
 
         expect(entry.properties).not.toHaveProperty('subscriptionTemplate');
         expect(entry.properties).not.toHaveProperty('modelAssignment');
