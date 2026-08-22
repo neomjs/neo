@@ -13,7 +13,7 @@ import {fileURLToPath} from 'url';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../src/manager/Instance.mjs';
-import Accounts        from '../../../../../apps/agentos/view/AccountsPanel.mjs';
+import Accounts        from '../../../../../apps/agentos/view/accounts/Panel.mjs';
 
 import {runConfigIntentRoundTrip} from '../../../../../apps/agentos/util/configIntentRoundTrip.mjs';
 
@@ -21,9 +21,9 @@ const
     __filename = fileURLToPath(import.meta.url),
     __dirname  = path.dirname(__filename),
     repoRoot   = path.resolve(__dirname, '../../../../..'),
-    viewPath   = path.join(repoRoot, 'apps/agentos/view/AccountsPanel.mjs');
+    viewPath   = path.join(repoRoot, 'apps/agentos/view/accounts/Panel.mjs');
 
-test.describe('AgentOS.view.AccountsPanel credential boundary', () => {
+test.describe('AgentOS.view.accounts.Panel credential boundary', () => {
     test('accepted creation applies the canonical Brain response, emits the owner intent, and clears the PAT', async () => {
         const
             canonical = {
@@ -346,7 +346,7 @@ test.describe('AgentOS.view.AccountsPanel credential boundary', () => {
     })
 });
 
-test.describe('AgentOS.view.AccountsPanel NL-MCP connect entry (#13548)', () => {
+test.describe('AgentOS.view.accounts.Panel NL-MCP connect entry (#13548)', () => {
     let savedAgentOS;
 
     test.beforeEach(() => { savedAgentOS = globalThis.AgentOS });
@@ -414,7 +414,7 @@ test.describe('AgentOS.view.AccountsPanel NL-MCP connect entry (#13548)', () => 
     })
 });
 
-test.describe('AgentOS.view.AccountsPanel — agent-scoped configuration (multiple agents)', () => {
+test.describe('AgentOS.view.accounts.Panel — agent-scoped configuration (multiple agents)', () => {
     let AgentDefinition, Store;
 
     test.beforeAll(async () => {

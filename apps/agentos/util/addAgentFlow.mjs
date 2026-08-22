@@ -17,7 +17,7 @@
  * exclusively.
  *
  * @see apps/agentos/view/fleet/instances/AddAgentForm.mjs — the rendering consumer
- * @see apps/agentos/view/AccountsPanel.mjs — the keeper-view ancestor this logic is lifted from
+ * @see apps/agentos/view/accounts/Panel.mjs — the keeper-view ancestor this logic is lifted from
  */
 
 /**

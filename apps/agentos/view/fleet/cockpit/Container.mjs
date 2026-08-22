@@ -196,9 +196,9 @@ class FleetCockpit extends Container {
          * requests their namespaces, so without these entries the stylesheets are built and never
          * loaded, and the chrome renders unstyled. Any future class-less slot with its own SCSS
          * needs the same registration.
-         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','AgentOS.view.fleet.SpineBanner','AgentOS.view.fleet.ViewerWakeTelltale']
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','AgentOS.view.fleet.cockpit.SpineBanner','AgentOS.view.fleet.cockpit.ViewerWakeTelltale']
          */
-        additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.SpineBanner', 'AgentOS.view.fleet.ViewerWakeTelltale'],
+        additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.cockpit.SpineBanner', 'AgentOS.view.fleet.cockpit.ViewerWakeTelltale'],
         /**
          * @member {String[]} baseCls=['fm-fleet-cockpit']
          */

@@ -1,4 +1,4 @@
-import Accounts           from './AccountsPanel.mjs';
+import Accounts           from './accounts/Panel.mjs';
 import AgentDefinitions   from '../store/AgentDefinitions.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';

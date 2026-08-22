@@ -50,20 +50,21 @@ function* walk(dir) {
  * @returns {String|null} repo-relative src path, or null when no class/extends exists
  */
 function resolveBase(file, depth = 0) {
-    if (depth > 6) return null;
+    if (depth > 6) return {error: 'chain deeper than 6 hops'};
+
+    if (!fs.existsSync(file)) return {error: `base import resolves to a missing file: ${path.relative(ROOT, file)}`};
 
     const src = fs.readFileSync(file, 'utf8');
     const cls = src.match(/^class \w+ extends (\w+)/m);
-    if (!cls) return null;
+    if (!cls) return {error: 'no `class X extends Y` found'};
 
-    const imp = src.match(new RegExp(`import ${cls[1]}\\s+from '([^']+)'`)) ||
-                src.match(new RegExp(`import ${cls[1]},`)) && null;
-    if (!imp) return null;
+    const imp = src.match(new RegExp(`import ${cls[1]}(?:\\s*,\\s*\\{[^}]*\\})?\\s+from '([^']+)'`));
+    if (!imp) return {error: `unsupported import shape for base "${cls[1]}"`};
 
     const target = path.resolve(path.dirname(file), imp[1]);
     const rel    = path.relative(ROOT, target);
 
-    return rel.startsWith('src/') ? rel : resolveBase(target, depth + 1)
+    return rel.startsWith('src/') ? {base: rel} : resolveBase(target, depth + 1)
 }
 
 test.describe('AgentOS view topology conformance (#17559 laws 1 + 3)', () => {
@@ -75,34 +76,87 @@ test.describe('AgentOS view topology conformance (#17559 laws 1 + 3)', () => {
         expect(offenders.map(f => path.relative(ROOT, f))).toEqual([])
     });
 
-    test('every class suffix names its base family', () => {
+    test('every class suffix names its base family — unresolved chains fail closed', () => {
         const offenders = [];
 
         for (const file of files) {
-            const base = resolveBase(file);
-            if (!base) continue; // no class/extends (should not happen; camelCase test owns modules)
+            const resolved = resolveBase(file);
 
-            const family = FAMILIES.find(([p]) => base === p)?.[1];
-            if (!family) { offenders.push(`${path.relative(ROOT, file)} — unmapped base ${base} (extend FAMILIES)`); continue }
+            if (resolved.error) {
+                // FAIL CLOSED: a view file whose base chain the guard cannot resolve is an
+                // offender, never a skip — a silent `continue` here is a false-green seam.
+                offenders.push(`${path.relative(ROOT, file)} — base chain unresolved: ${resolved.error}`);
+                continue
+            }
+
+            const family = FAMILIES.find(([p]) => resolved.base === p)?.[1];
+            if (!family) { offenders.push(`${path.relative(ROOT, file)} — unmapped base ${resolved.base} (extend FAMILIES)`); continue }
 
             const name = path.basename(file, '.mjs');
-            name.endsWith(family) || offenders.push(`${path.relative(ROOT, file)} — extends ${base}, suffix must end with "${family}"`)
+            name.endsWith(family) || offenders.push(`${path.relative(ROOT, file)} — extends ${resolved.base}, suffix must end with "${family}"`)
         }
 
         expect(offenders).toEqual([])
     });
 
-    test('every className mirrors its file path', () => {
+    test('every className exists and mirrors its file path', () => {
         const offenders = [];
 
         for (const file of files) {
             const src = fs.readFileSync(file, 'utf8');
             const cn  = src.match(/className: '([^']+)'/)?.[1];
-            if (!cn) continue;
+
+            if (!cn) {
+                // FAIL CLOSED: a view class without a className cannot be compared — offender.
+                offenders.push(`${path.relative(ROOT, file)} — no className config found`);
+                continue
+            }
 
             const expected = 'AgentOS.' + path.relative(path.join(ROOT, 'apps/agentos'), file).replace(/\.mjs$/, '').split(path.sep).join('.');
             cn === expected || offenders.push(`${path.relative(ROOT, file)} — className '${cn}' ≠ '${expected}'`)
         }
+
+        expect(offenders).toEqual([])
+    });
+
+    test('every additionalThemeFiles entry resolves to a real SCSS chunk', () => {
+        // The worker maps an app namespace to its SCSS path by dropping the `view` segment
+        // (src/worker/App.mjs insertThemeFiles): `AgentOS.view.fleet.cockpit.SpineBanner` →
+        // resources/scss/src/apps/agentos/fleet/cockpit/SpineBanner.scss. A moved chunk whose
+        // consumers still request the old namespace is built and never loaded — the runtime
+        // styling regression this witness exists to catch.
+        const offenders = [];
+
+        for (const file of walk(path.join(ROOT, 'apps/agentos'))) {
+            const src = fs.readFileSync(file, 'utf8');
+
+            for (const match of src.matchAll(/additionalThemeFiles\s*:\s*\[([^\]]+)\]/g)) {
+                for (const nsMatch of match[1].matchAll(/'([^']+)'/g)) {
+                    const ns = nsMatch[1];
+
+                    if (ns.startsWith('Neo.')) continue; // engine themes resolve in src/ scope
+
+                    const segments = ns.split('.'),
+                          root     = segments.shift().toLowerCase();
+
+                    segments[0] === 'view' && segments.shift();
+
+                    const scssPath = path.join(ROOT, 'resources/scss/src/apps', root, ...segments) + '.scss';
+
+                    fs.existsSync(scssPath) ||
+                        offenders.push(`${path.relative(ROOT, file)} — '${ns}' → missing ${path.relative(ROOT, scssPath)}`)
+                }
+            }
+        }
+
+        expect(offenders).toEqual([])
+    });
+
+    test('the fleet SCSS tree carries no root-level chunks — every skin lives in its surface folder', () => {
+        const fleetScss = path.join(ROOT, 'resources/scss/src/apps/agentos/fleet');
+        const offenders = fs.readdirSync(fleetScss, {withFileTypes: true})
+            .filter(entry => entry.isFile())
+            .map(entry => `resources/scss/src/apps/agentos/fleet/${entry.name}`);
 
         expect(offenders).toEqual([])
     })

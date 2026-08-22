@@ -1,22 +1,22 @@
-import AgentConfigCard                                           from './fleet/detail/AgentConfigComponent.mjs';
+import AgentConfigCard                                           from '../fleet/detail/AgentConfigComponent.mjs';
 import {
     createDefineAgentIntent,
     isShellCredentialIngress,
     resolveRegistryBridge,
     validateDefinePayload
-}                                                                from '../util/addAgentFlow.mjs';
-import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from '../util/configIntentRoundTrip.mjs';
-import Button                                                    from '../../../src/button/Base.mjs';
-import DashboardPanel                                            from '../../../src/dashboard/Panel.mjs';
-import FormContainer                                             from '../../../src/form/Container.mjs';
-import {listHarnessTypes}                                        from '../config/harnessTypes.mjs';
-import PasswordField                                             from '../../../src/form/field/Password.mjs';
-import Radio                                                     from '../../../src/form/field/Radio.mjs';
-import TextField                                                 from '../../../src/form/field/Text.mjs';
-import Toolbar                                                   from '../../../src/toolbar/Base.mjs';
+}                                                                from '../../util/addAgentFlow.mjs';
+import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from '../../util/configIntentRoundTrip.mjs';
+import Button                                                    from '../../../../src/button/Base.mjs';
+import DashboardPanel                                            from '../../../../src/dashboard/Panel.mjs';
+import FormContainer                                             from '../../../../src/form/Container.mjs';
+import {listHarnessTypes}                                        from '../../config/harnessTypes.mjs';
+import PasswordField                                             from '../../../../src/form/field/Password.mjs';
+import Radio                                                     from '../../../../src/form/field/Radio.mjs';
+import TextField                                                 from '../../../../src/form/field/Text.mjs';
+import Toolbar                                                   from '../../../../src/toolbar/Base.mjs';
 
 /**
- * @class AgentOS.view.AccountsPanel
+ * @class AgentOS.view.accounts.Panel
  * @extends Neo.dashboard.Panel
  *
  * @summary The **Accounts keeper-view** — set up the cross-family fleet's agent identities (GitHub
@@ -38,10 +38,10 @@ import Toolbar                                                   from '../../../
 class Accounts extends DashboardPanel {
     static config = {
         /**
-         * @member {String} className='AgentOS.view.AccountsPanel'
+         * @member {String} className='AgentOS.view.accounts.Panel'
          * @protected
          */
-        className: 'AgentOS.view.AccountsPanel',
+        className: 'AgentOS.view.accounts.Panel',
         /**
          * The shared roster store, bound from the Viewport provider's `stores.agentDefinitions`
          * (see the `bind` config) — declarative and resolved once at construct. Pop-outs swap the

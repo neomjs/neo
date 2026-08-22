@@ -50,12 +50,12 @@ class AddAgentForm extends FormContainer {
          */
         baseCls: ['fm-add-agent-form'],
         /**
-         * The selector-chip primitive's skin (fleet/Chips.scss) has no view class of its own —
-         * the harness chips this form renders load it via the shared-partial mechanism, the same
-         * way the dockdemo workspaces pull 'Neo.dashboard.Container'.
-         * @member {String[]} additionalThemeFiles=['AgentOS.view.fleet.Chips']
+         * The selector-chip primitive's skin (fleet/mailbox/Chips.scss) has no view class of its
+         * own — the harness chips this form renders load it via the shared-partial mechanism, the
+         * same way the dockdemo workspaces pull 'Neo.dashboard.Container'.
+         * @member {String[]} additionalThemeFiles=['AgentOS.view.fleet.mailbox.Chips']
          */
-        additionalThemeFiles: ['AgentOS.view.fleet.Chips'],
+        additionalThemeFiles: ['AgentOS.view.fleet.mailbox.Chips'],
         /**
          * Optional injected Fleet-Registry-bridge resolver — the DI seam (the injected-reader
          * discipline): owners and specs pass a function returning a bridge; null falls back to the
