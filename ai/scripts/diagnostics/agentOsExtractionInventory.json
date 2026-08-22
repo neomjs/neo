@@ -540,6 +540,25 @@
             "disposition": "cloud",
             "source": "AST subprocess census at origin/dev 2e67c4d8ec",
             "rationale": "Edge orchestration invokes a Cloud-owned command and must preserve that explicit crossing"
+        },
+        {
+            "surface": "subprocess-launch",
+            "identities": [
+                "test/playwright/unit/ai/scripts/fleet/onboardPeer.spec.mjs::spawnSync::ai/scripts/fleet/onboardPeer.mjs::1"
+            ],
+            "disposition": "edge",
+            "source": "#17525 tracked test-launch census",
+            "rationale": "the unit witness follows the Host-Edge custody of its onboarding target"
+        },
+        {
+            "surface": "subprocess-launch",
+            "identities": [
+                "test/playwright/unit/ai/scripts/maintenance/compactGraphLog.spec.mjs::spawnSync::ai/scripts/maintenance/compactGraphLog.mjs::1",
+                "test/playwright/unit/ai/scripts/migrations/canonicalizeStoredAgentIdentities.spec.mjs::spawnSync::ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs::1"
+            ],
+            "disposition": "cloud",
+            "source": "#17525 tracked test-launch census",
+            "rationale": "the unit witnesses follow the Cloud custody of their durable-state targets"
         }
     ],
     "custody": [

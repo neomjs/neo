@@ -14,6 +14,7 @@ import {
 import {
     FINDING,
     resolveEntrypointPlane,
+    resolveRelative,
     walkCapabilityClosure
 }                                    from '../lint/scriptPlaneClosure.mjs';
 import {censusPlaneOpeners}           from './planePlacementCensus.mjs';
@@ -58,7 +59,7 @@ const
     LAUNCH_CALLEES        = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
-    SUBPROCESS_SCAN_ROOTS = ['.agents', '.claude', '.codex', 'ai', 'buildScripts'];
+    SUBPROCESS_SCAN_ROOTS = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
 
 /**
  * Stable surface names in the machine receipt.
@@ -80,6 +81,8 @@ export const SURFACE = Object.freeze({
  * `shared-primitive` is NOT C′'s conditional pure `shared/` package: the declared task-authority
  * matrix assigns that class to the Container profile, while Host Edge owns only `host-edge`. It therefore
  * maps to Cloud. A module enters `shared/` only through an explicit, purity-backed registry row.
+ * This mapping is valid only while the task-authority matrix has the current Host-Edge and
+ * Container-Cloud owner roles; a third role must first extend that source authority and then this map.
  * @type {Object}
  */
 export const PLANE_DISPOSITIONS = Object.freeze({
@@ -149,6 +152,29 @@ export function sourceBindingError(status, allowDirty = false) {
         key  : status.split('\n').map(line => line.slice(3)).sort().join(', '),
         error: 'a commit SHA cannot bind staged, modified, or untracked source'
     }
+}
+
+/**
+ * @summary Resolves operator-overlay imports through their tracked template sibling before the
+ * filesystem fallback, so closure reachability is a pure function of the committed tree whether
+ * or not the install-time `prepare` hook rendered `config.mjs`.
+ * @param {String} specifier Relative import specifier.
+ * @param {String} fromFile Absolute importing module path.
+ * @param {Function} [resolve=resolveRelative] Fallback resolver for non-overlay imports.
+ * @returns {String|null}
+ */
+export function resolveTrackedConfigSpecifier(specifier, fromFile, resolve = resolveRelative) {
+    const requested = path.resolve(path.dirname(fromFile), specifier);
+
+    if (requested.endsWith(`${path.sep}config.mjs`)) {
+        const template = requested.slice(0, -'config.mjs'.length) + 'config.template.mjs';
+
+        if (fs.existsSync(template) && fs.statSync(template).isFile()) {
+            return template
+        }
+    }
+
+    return resolve(specifier, fromFile)
 }
 
 /**
@@ -294,9 +320,14 @@ export function discoverWorkflowReferences(source, file) {
  * comes from an explicit registry row: present-day reach cannot silently rewrite the migration plan.
  * @param {Object} [options]
  * @param {String} [options.projectRoot=PROJECT_ROOT]
+ * @param {Function} [options.resolveFallback=resolveRelative] Filesystem resolver wrapped by the
+ * tracked-config resolver.
  * @returns {{rows: Object[], closureRows: Object[], launchRoots: Object[]}}
  */
-export function collectScriptModules({projectRoot = PROJECT_ROOT} = {}) {
+export function collectScriptModules({
+    projectRoot = PROJECT_ROOT,
+    resolveFallback = resolveRelative
+} = {}) {
     const
         scripts           = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).scripts ?? {},
         authorityByScript = buildAuthorityByScript({projectRoot}),
@@ -309,7 +340,11 @@ export function collectScriptModules({projectRoot = PROJECT_ROOT} = {}) {
     launchRoots.forEach(entry => {
         const
             absolute = path.join(projectRoot, entry.rel),
-            closure  = walkCapabilityClosure({entrypoint: absolute}),
+            closure  = walkCapabilityClosure({
+                entrypoint: absolute,
+                resolve   : (specifier, fromFile) =>
+                    resolveTrackedConfigSpecifier(specifier, fromFile, resolveFallback)
+            }),
             resolved = resolveEntrypointPlane({
                 closure,
                 authorityClass: authorityByScript[entry.rel]?.authorityClass ?? null,
@@ -665,17 +700,23 @@ export function compareRows(a, b) {
  * @param {Object} [options]
  * @param {String} [options.projectRoot=PROJECT_ROOT]
  * @param {String} [options.registryPath]
+ * @param {Function} [options.closureResolve=resolveRelative] Injectable non-overlay resolver used
+ * by the tracked-tree closure wrapper.
  * @param {Boolean} [options.allowDirty=false] Development/test-only opt-in. The CLI never enables it.
  * @returns {Object}
  */
 export function buildInventory({
     allowDirty = false,
+    closureResolve = resolveRelative,
     projectRoot = PROJECT_ROOT,
     registryPath = process.env.NEO_AGENTOS_EXTRACTION_INVENTORY_REGISTRY || DEFAULT_REGISTRY_PATH
 } = {}) {
     const
         registry                                     = readRegistry(registryPath),
-        {rows: scriptRows, closureRows, launchRoots} = collectScriptModules({projectRoot}),
+        {rows: scriptRows, closureRows, launchRoots} = collectScriptModules({
+            projectRoot,
+            resolveFallback: closureResolve
+        }),
         preliminary                                  = reconcileInventory(scriptRows, registry),
         scriptRowsByIdentity                         = new Map(preliminary.rows
             .filter(row => row.surface === SURFACE.scriptModule)

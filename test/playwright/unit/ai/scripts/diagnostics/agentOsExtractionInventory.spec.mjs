@@ -9,10 +9,12 @@ import {
     discoverWorkflowReferences,
     listTrackedFiles,
     reconcileInventory,
+    resolveTrackedConfigSpecifier,
     rowKey,
     sourceBindingError,
     SURFACE
 }                       from '../../../../../../ai/scripts/diagnostics/agentOsExtractionInventory.mjs';
+import {resolveRelative}    from '../../../../../../ai/scripts/lint/scriptPlaneClosure.mjs';
 import {censusPlaneOpeners} from '../../../../../../ai/scripts/diagnostics/planePlacementCensus.mjs';
 
 const
@@ -206,9 +208,21 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         })
     });
 
-    test('the committed current-tree receipt is zero-residue, exhaustive, and deterministic', () => {
-        const first       = buildInventory({allowDirty: true, projectRoot: REPO_ROOT}),
-              second      = buildInventory({allowDirty: true, projectRoot: REPO_ROOT}),
+    test('the committed receipt is zero-residue, exhaustive, and independent of rendered overlays', () => {
+        const overlayHiddenResolve = (specifier, fromFile) => {
+                  const requested = path.resolve(path.dirname(fromFile), specifier),
+                        template  = requested.endsWith(`${path.sep}config.mjs`)
+                            ? requested.slice(0, -'config.mjs'.length) + 'config.template.mjs'
+                            : null;
+
+                  return template && fs.existsSync(template) ? null : resolveRelative(specifier, fromFile)
+              },
+              first       = buildInventory({allowDirty: true, projectRoot: REPO_ROOT}),
+              second      = buildInventory({
+                  allowDirty    : true,
+                  closureResolve: overlayHiddenResolve,
+                  projectRoot   : REPO_ROOT
+              }),
               scriptFiles = listTrackedFiles({projectRoot: REPO_ROOT, pathspecs: ['ai/scripts']})
                   .filter(file => file.endsWith('.mjs')),
               packageScripts = Object.keys(JSON.parse(
@@ -221,6 +235,11 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
                   ));
 
         expect(first).toEqual(second);
+        expect(resolveTrackedConfigSpecifier(
+            './config.mjs',
+            path.join(REPO_ROOT, 'ai/fixture.mjs'),
+            overlayHiddenResolve
+        )).toBe(path.join(REPO_ROOT, 'ai/config.template.mjs'));
         expect(first.ok).toBe(true);
         expect(first.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
         expect(first.errors).toEqual([]);
@@ -256,6 +275,23 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             surface    : SURFACE.subprocessLaunch,
             identity   : 'ai/scripts/lifecycle/postReleaseSync.mjs::runCommand::ai/scripts/maintenance/uploadKnowledgeBase.mjs::1',
             disposition: 'cloud'
-        }))
+        }));
+        expect(first.rows).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                surface    : SURFACE.subprocessLaunch,
+                identity   : 'test/playwright/unit/ai/scripts/fleet/onboardPeer.spec.mjs::spawnSync::ai/scripts/fleet/onboardPeer.mjs::1',
+                disposition: 'edge'
+            }),
+            expect.objectContaining({
+                surface    : SURFACE.subprocessLaunch,
+                identity   : 'test/playwright/unit/ai/scripts/maintenance/compactGraphLog.spec.mjs::spawnSync::ai/scripts/maintenance/compactGraphLog.mjs::1',
+                disposition: 'cloud'
+            }),
+            expect.objectContaining({
+                surface    : SURFACE.subprocessLaunch,
+                identity   : 'test/playwright/unit/ai/scripts/migrations/canonicalizeStoredAgentIdentities.spec.mjs::spawnSync::ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs::1',
+                disposition: 'cloud'
+            })
+        ]))
     })
 });
