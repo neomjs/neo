@@ -372,4 +372,62 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const structureChanges = deltas.filter(d => ['moveNode', 'insertNode', 'removeNode'].includes(d.action));
         expect(structureChanges.length).toBe(0);
     });
+
+    test('#17536: a cleared pool row stops CLAIMING the record it no longer holds', async () => {
+        // WORKER-SIDE truth, and the distinction is the whole ticket. The clear path leaves
+        // `vdom.data` untouched, so a slot whose `record` is null still names that record in its
+        // staged VDOM — one object answering the same question two contradictory ways.
+        //
+        // This arm does NOT assert anything about painted DOM, and an earlier version of it implied
+        // otherwise. `display: none` is staged in the same object under the same `silent: true`, so
+        // if the caller's trailing update is lost, neither mutation reaches the browser. Staged
+        // truth and painted truth are separate problems, and this covers only the first.
+        const body = grid.body;
+
+        store.filters = [{property: 'id', operator: '<', value: 2}];
+        await grid.timeout(50);
+
+        const cleared = body.items.filter(row => !row.record);
+
+        // Non-vacuity. Filtering 1000 records down to 2 must leave most of the pool unused; without
+        // this the assertion below passes on an empty array and proves nothing.
+        expect(cleared.length, 'the filter must actually strand pool slots').toBeGreaterThan(0);
+
+        const stillClaiming = cleared
+            .filter(row => row.vdom?.data?.recordId !== undefined && row.vdom?.data?.recordId !== null)
+            .map(row => ({id: row.id, recordId: row.vdom.data.recordId}));
+
+        expect(stillClaiming, 'a row holding no record must not carry a recordId').toEqual([]);
+
+        // The other half, and the reason this deletes a KEY rather than the object: `rowId`
+        // identifies the pool SLOT, which the row still is after its record is gone. A fix that
+        // dropped `data` wholesale would satisfy the assertion above while erasing the slot identity
+        // every pooled update depends on — and would cost an extra delta on a guarded path.
+        const lostSlotIdentity = cleared
+            .filter(row => row.vdom?.data?.rowId === undefined)
+            .map(row => row.id);
+
+        expect(lostSlotIdentity, 'a cleared row keeps its pool-slot identity').toEqual([]);
+        expect(cleared.every(row => row.vdom?.data && typeof row.vdom.data === 'object'),
+            'the data object survives; only the record claim is removed').toBe(true);
+    });
+
+    test('#17536: CONTROL — a row that still holds a record keeps claiming it', async () => {
+        // The half that keeps the assertion above honest. A fix that cleared `vdom.data`
+        // unconditionally would satisfy it while erasing the identity every live row depends on,
+        // and every DOM-reading consumer downstream reads exactly this attribute.
+        const body = grid.body;
+
+        store.filters = [{property: 'id', operator: '<', value: 2}];
+        await grid.timeout(50);
+
+        const live = body.items.filter(row => row.record);
+
+        expect(live.length, 'two records survive the filter').toBeGreaterThan(0);
+
+        for (const row of live) {
+            expect(row.vdom?.data?.recordId, `live row ${row.id} keeps its identity`)
+                .toBe(body.getRecordId(row.record))
+        }
+    });
 });
