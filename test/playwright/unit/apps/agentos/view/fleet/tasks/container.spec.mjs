@@ -74,6 +74,21 @@ const
 
 test.describe('AgentOS tasks surface — the WHAT view as a store-driven list', () => {
 
+    test('the list keeps the flat ul/li contract — the base dl/dt/dd switch is not applied', () => {
+        const {pane} = createPane(),
+              list   = pane.getReference('tasks-list');
+
+        expect(list.vdom.tag, 'the root stays ul').toBe('ul');
+        expect(list.itemTagName, 'the base useHeaders hook must not flip li to dd').toBe('li');
+
+        const nodes = nodesOf(pane);
+
+        expect(nodes.length).toBeGreaterThan(0);
+        nodes.forEach(node => expect(node.tag, `${node.id} must be an li`).toBe('li'));
+
+        pane.destroy()
+    });
+
     test('the cold spine renders one sample-labeled row per section — shape, never a claim', () => {
         const {pane}  = createPane(),
               headers = headersOf(pane);
@@ -247,14 +262,24 @@ test.describe('AgentOS tasks surface — the WHAT view as a store-driven list', 
         pane.destroy()
     });
 
-    test('destroy releases the pane-local Store', () => {
+    test('destroy releases the pane-local Store through exactly ONE owner', () => {
         const {pane} = createPane(),
-              store  = pane.taskStore;
+              store  = pane.taskStore,
+              orig   = store.destroy.bind(store);
+
+        let destroys = 0;
+
+        store.destroy = (...args) => {
+            destroys++;
+            return orig(...args)
+        };
 
         pane.destroy();
 
-        // the instance's own keys are released by core destroy; the contract is that the Store is
-        // gone from the pane AND destroyed itself — no process-lifetime record survives the view
+        // the Container is the single destruction owner: the list carries autoDestroyStore: false,
+        // so an injected store is never double-destroyed — one invocation, terminally destroyed,
+        // gone from the pane (core destroy releases the instance's own keys)
+        expect(destroys).toBe(1);
         expect(pane.taskStore).toBeFalsy();
         expect(store.isDestroyed).toBe(true)
     })

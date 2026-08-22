@@ -57,6 +57,12 @@ class List extends BaseList {
          */
         baseCls: ['fm-tasks-list', 'neo-list'],
         /**
+         * The projection Store is created, seated and destroyed by the owning Container — this
+         * list must never destroy an injected store it does not own.
+         * @member {Boolean} autoDestroyStore=false
+         */
+        autoDestroyStore: false,
+        /**
          * Task rows are a glance surface, not a selection surface.
          * @member {Boolean} disableSelection=true
          * @reactive
@@ -71,8 +77,22 @@ class List extends BaseList {
     }
 
     /**
-     * @summary One list item per projection record, styled by its record kind. The base `useHeaders`
-     * branch emits `dt` nodes (the definition-list shape); inside this `ul` every row stays a real
+     * @summary The base `useHeaders` hook switches the whole list to the definition-list shape
+     * (`dl` root, `dd` items, `dt` headers). This surface's declared contract is the FLAT `ul/li`
+     * list — headers are ordinary `li` rows too — so the base switch is deliberately not applied:
+     * the root stays `ul` and `itemTagName` stays `li`; only the header-record semantics of
+     * `useHeaders` (the `isHeader` branch in `createItem`) are consumed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseHeaders(value, oldValue) {
+        // intentionally empty — see summary
+    }
+
+    /**
+     * @summary One list item per projection record, styled by its record kind. The base `isHeader`
+     * branch emits `dt` nodes; inside this flat `ul` every row — header, task, empty — is a real
      * `li`, so the tag is normalized here and the header keeps its `neo-list-header` marker class.
      * @param {Object} record
      * @param {Number} index
@@ -85,7 +105,7 @@ class List extends BaseList {
             return item
         }
 
-        item.tag = this.itemTagName;
+        item.tag = 'li';
 
         NeoArray.add(item.cls, record.isHeader
             ? ['fm-tasks-section-head', `is-${record.section ?? 'unknown'}`]

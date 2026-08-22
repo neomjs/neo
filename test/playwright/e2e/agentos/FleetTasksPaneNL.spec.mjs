@@ -114,7 +114,13 @@ test.describe('AgentOS Tasks pane — the WHAT surface through the authenticated
             // the meta line names every source axis by its own state word
             await expect(pane.locator('.fm-tasks-meta')).toContainText('orchestrator live · memory core live · knowledge base not reachable');
 
-            // the flat store-driven list: section headers and rows are li siblings
+            // the flat store-driven list: a real ul whose header/task/empty rows are li SIBLINGS —
+            // asserted at the DOM tag level (child selectors), never from class names alone
+            await expect(pane.locator('ul.fm-tasks-list')).toHaveCount(1);
+            await expect(pane.locator('ul.fm-tasks-list > li.fm-tasks-section-head')).toHaveCount(3);
+            await expect(pane.locator('ul.fm-tasks-list > li.fm-task-row')).toHaveCount(4);
+            await expect(pane.locator('ul.fm-tasks-list dd, ul.fm-tasks-list dt')).toHaveCount(0);
+
             const heads = pane.locator('.fm-tasks-section-head');
             await expect(heads).toHaveCount(3);
             await expect(heads.nth(0).locator('.fm-tasks-section-label')).toHaveText('Running');
