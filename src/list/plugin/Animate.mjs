@@ -14,6 +14,14 @@ class Animate extends Base {
      */
     static transitionEasings = ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear']
 
+    /**
+     * True when the owner declared a fixed itemWidth at plugin construction — fluid geometry
+     * passes must never mistake the width they wrote themselves for a fixed one.
+     * @member {Boolean} hasFixedItemWidth=false
+     * @protected
+     */
+    hasFixedItemWidth = false
+
     static config = {
         /**
          * @member {String} className='Neo.list.plugin.Animate'
@@ -35,6 +43,16 @@ class Animate extends Base {
          * @member {Number} itemMargin=10
          */
         itemMargin: 10,
+        /**
+         * Opt-in fluid-width mode: a minimum item width in px. When set while the owner's
+         * `itemWidth` is null, the plugin derives the column count from the owner's measured
+         * width and writes the fluid per-item width back onto the owner — re-derived on every
+         * owner resize delivery. Leave null (with a fixed owner `itemWidth`) for the shipped
+         * fixed-grid behavior.
+         * @member {Number|null} minItemWidth_=null
+         * @reactive
+         */
+        minItemWidth_: null,
         /**
          * @member {DOMRect|null} ownerRect=null
          */
@@ -73,8 +91,12 @@ class Animate extends Base {
         let me      = this,
             {owner} = me;
 
-        if (!owner.itemHeight || !owner.itemWidth) {
-            console.error('list.plugin.Animate requires fixed itemHeight and itemWidth values', owner)
+        // fluid mode writes the derived width onto owner.itemWidth — remember the mode BEFORE
+        // the first write lands
+        me.hasFixedItemWidth = !!owner.itemWidth;
+
+        if (!owner.itemHeight || (!owner.itemWidth && !me.minItemWidth)) {
+            console.error('list.plugin.Animate requires a fixed itemHeight and either a fixed itemWidth or the plugin-level minItemWidth', owner)
         }
 
         me.adjustCreateItem();
@@ -82,7 +104,122 @@ class Animate extends Base {
         owner.onStoreFilter = me.onStoreFilter.bind(me);
         owner.onStoreSort   = me.onStoreSort  .bind(me);
 
+        // the absolute items anchor to the owner root: mark it and guarantee the containing block
+        // (the #id {position:relative} rule rides getOwnerRules())
+        owner.addCls('neo-animated-list');
+
+        owner.addDomListeners({resize: me.onOwnerResize, scope: me, local: true});
+
         this.updateTransitionDetails()
+    }
+
+    /**
+     * Register or unregister the owner with the main-thread ResizeObserver addon (the
+     * `Neo.component.Helix#addResizeObserver` pattern). Guarded: an environment without the
+     * addon keeps mount-time geometry — today's shipped behavior.
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let {id, windowId} = this.owner,
+            ResizeObserver;
+
+        try {
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId)
+        } catch (e) {
+            return
+        }
+
+        ResizeObserver?.[mounted ? 'register' : 'unregister']({id, windowId})
+    }
+
+    /**
+     * Derive the grid geometry from an owner rect. Fixed mode divides the width by the owner's
+     * `itemWidth`; fluid mode (`minItemWidth` set while the owner declared no fixed width)
+     * derives the column count and writes the fluid per-item width back onto the owner, so every
+     * existing width consumer (`createItem`, `getItemPosition`) keeps reading one source.
+     * @param {DOMRect|Object} rect The owner's measured content rect.
+     * @protected
+     */
+    applyGeometry(rect) {
+        let me                                = this,
+            {itemMargin, minItemWidth, owner} = me,
+            {width}                           = rect;
+
+        me.ownerRect = rect;
+
+        if (minItemWidth && !me.hasFixedItemWidth) {
+            me.columns      = Math.max(1, Math.floor((width - itemMargin) / (minItemWidth + itemMargin)));
+            owner.itemWidth = Math.floor((width - (me.columns + 1) * itemMargin) / me.columns)
+        } else {
+            me.columns = Math.floor(width / owner.itemWidth)
+        }
+
+        me.rows = Math.floor(rect.height / owner.itemHeight)
+    }
+
+    /**
+     * The owner resized: re-derive the geometry and move every rendered item to the position its
+     * current store index dictates — an animated reflow (translate + fluid width), never a rebuild.
+     * @param {Object} data The delivered resize event; `data.rect` carries the content rect.
+     * @protected
+     */
+    onOwnerResize(data) {
+        let me     = this,
+            {rect} = data || {};
+
+        if (!rect?.width) {
+            return
+        }
+
+        me.applyGeometry(rect);
+        me.repositionItems()
+    }
+
+    /**
+     * One translate + width pass over the existing item nodes, mapped by item id so it stays
+     * correct for base and component lists alike — the reflow twin of `sortComponentList`.
+     * @param {Boolean} silent=false True skips the owner update (batching callers).
+     * @protected
+     */
+    repositionItems(silent=false) {
+        let me      = this,
+            {owner} = me,
+            map     = new Map(owner.getVdomRoot().cn.map(node => [node?.id, node])),
+            node, position;
+
+        owner.store.items.forEach((record, index) => {
+            // the record itself resolves through every id scheme (base internal-id / key ids,
+            // component index-coupled ids) — the exact id createItem stamped
+            node = map.get(owner.getItemId(record));
+
+            if (node) {
+                position = me.getItemPosition(record, index);
+
+                Object.assign(node.style, {
+                    transform: `translate(${position.x}px, ${position.y}px)`,
+                    width    : `${owner.itemWidth}px`
+                })
+            }
+        });
+
+        !silent && owner.update()
+    }
+
+    /**
+     * Triggered after the minItemWidth config got changed — re-derives the geometry from the
+     * last measured rect and reflows. No-op before the first measurement (mount owns that pass).
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetMinItemWidth(value, oldValue) {
+        let me = this;
+
+        if (oldValue !== undefined && me.ownerRect) {
+            me.applyGeometry(me.ownerRect);
+            me.repositionItems()
+        }
     }
 
     /**
@@ -158,7 +295,12 @@ class Animate extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        CssUtil.deleteRules(this.windowId, `#${this.owner.id} .neo-list-item`);
+        let me      = this,
+            ownerId = me.owner?.id;
+
+        me.addResizeObserver(false);
+        ownerId && CssUtil.deleteRules(me.windowId, [`#${ownerId}`, `#${ownerId} .neo-list-item`]);
+
         super.destroy(...args)
     }
 
@@ -203,12 +345,10 @@ class Animate extends Base {
         let me    = this,
             owner = me.owner;
 
+        me.addResizeObserver(true);
+
         owner.getDomRect().then(rect => {
-            Object.assign(me, {
-                columns  : Math.floor(rect.width / owner.itemWidth),
-                ownerRect: rect,
-                rows     : Math.floor(rect.height / owner.itemHeight)
-            });
+            me.applyGeometry(rect);
 
             // if the store got loaded before this plugin is ready, create the items now
             owner.store.getCount() > 0 && owner.createItems()
@@ -345,13 +485,13 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     sortBaseList(data) {
-        let me            = this,
-            hasChange     = false,
-            owner         = me.owner,
-            key           = owner.getKeyProperty(),
-            newVdomCn     = [],
-            previousKeys  = data.previousItems.map(e => e[key]),
-            vdom          = owner.vdom,
+        let me           = this,
+            hasChange    = false,
+            owner        = me.owner,
+            key          = owner.getKeyProperty(),
+            newVdomCn    = [],
+            previousKeys = data.previousItems.map(e => e[key]),
+            vdom         = owner.vdom,
             fromIndex;
 
         if (vdom.cn.length > 0) {
@@ -384,27 +524,37 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     sortComponentList(data) {
-        let me           = this,
-            owner        = me.owner,
-            key          = owner.getKeyProperty(),
+        let me    = this,
+            owner = me.owner,
+            key   = owner.getKeyProperty(),
+            // the vdom children still sit in the PREVIOUS store order — mapping each record's new
+            // index back through the previous record keys finds its node positionally, without
+            // touching component item ids (sortItems() nulls those; the earlier implementation
+            // re-read them here and crashed on any real component list)
             previousKeys = data.previousItems.map(e => e[key]),
-            vdom         = owner.vdom,
-            fromIndex, item, position;
+            vdom         = owner.getVdomRoot(),
+            fromIndex, node, position;
 
         owner.sortItems(data);
-
-        previousKeys = owner.items.map(e => owner.getItemRecordId(e[key]));
 
         if (vdom.cn.length > 0) {
             data.items.forEach((record, index) => {
                 fromIndex = previousKeys.indexOf(record[key]);
-                item      = vdom.cn[fromIndex];
-                position  = me.getItemPosition(record, index);
+                node      = vdom.cn[fromIndex];
 
-                item.style.transform = `translate(${position.x}px, ${position.y}px)`
+                if (node) {
+                    position = me.getItemPosition(record, index);
+
+                    node.style.transform = `translate(${position.x}px, ${position.y}px)`
+                }
             });
 
-            owner.update()
+            owner.update();
+
+            // settle like the base-list path: after the transition, re-create the items so the
+            // vdom order and the index-coupled component item ids re-normalize to the new store
+            // order (without this, a later reposition pass maps against stale ids)
+            me.triggerTransitionCallback()
         }
     }
 
@@ -427,20 +577,34 @@ class Animate extends Base {
      * @protected
      */
     async updateTransitionDetails(deleteRule=false) {
+        let me   = this,
+            {id} = me.owner;
+
+        if (deleteRule) {
+            await CssUtil.deleteRules(me.windowId, [`#${id}`, `#${id} .neo-list-item`])
+        }
+
+        CssUtil.insertRules(me.windowId, me.getOwnerRules())
+    }
+
+    /**
+     * The per-owner dynamic rules: the containing-block guarantee on the root and the item
+     * transition — pure, so specs can witness the exact inserted payload. The reduced-motion
+     * override is intentionally NOT here: it lives as ONE static rule in the list stylesheet
+     * (`resources/scss/src/list/Base.scss`), because `@media` rules cannot be deleted by
+     * selectorText and a per-owner copy would leak on every destroy.
+     * @returns {String[]}
+     */
+    getOwnerRules() {
         let me       = this,
             duration = me.transitionDuration,
             easing   = me.transitionEasing,
             {id}     = me.owner;
 
-        if (deleteRule) {
-            await CssUtil.deleteRules(me.windowId, `#${id} .neo-list-item`)
-        }
-
-        CssUtil.insertRules(me.windowId, [
-            `#${id} .neo-list-item {`,
-                `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
-            '}'
-        ].join(''))
+        return [
+            `#${id} {position:relative}`,
+            `#${id} .neo-list-item {transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}}`
+        ]
     }
 }
 
