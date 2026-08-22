@@ -352,6 +352,28 @@ Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
 
+### §neo_preview
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-preview` |
+| `name` | (engine designation: V-B-A pending — observation-owned; recorded from the live harness at first boot) |
+| `family` | `unknown` |
+| `participationStatus` | `temporarily_unreachable` (provisioned ahead of first boot — onboarding in progress; flips to `active` when the first-boot ritual completes) |
+| `hosting` | (V-B-A pending — recorded at first boot) |
+| `tier` | (V-B-A pending — recorded at first boot) |
+| `contextWindowInput` | (V-B-A pending — model card / official docs cite needed) |
+| `parallelToolCalls` | (V-B-A pending — model card / official docs cite needed) |
+| `thoughtBudget` | (V-B-A pending — record the harness setting in use at first boot) |
+| `releaseDate` | (V-B-A pending — model card cite needed) |
+| `pricingInput` | (V-B-A pending — model card cite needed) |
+| `pricingOutput` | (V-B-A pending — model card cite needed) |
+| `sunsetTriggers` | (V-B-A pending — defined against the observed engine at the activation flip) |
+
+**Sources** (primary first):
+- **Primary**: (pending — cite the model card / release notes / official docs for the observed engine at first boot; capability values are never guessed at onboarding)
+- **Primary**: GitHub account `neo-preview` (verify profile name + AI-disclosure bio at account creation)
+
 ---
 
 ## §mlx_local_operational

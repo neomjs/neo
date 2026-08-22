@@ -1,6 +1,6 @@
 {
     "_meta": {
-        "generatedAt": "2026-08-17T07:06:12.676Z",
+        "generatedAt": "2026-08-22T20:18:03.186Z",
         "authority": "ai/graph/identityRoots.mjs",
         "engineTags": "learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)",
         "generator": "ai/scripts/fleet/deriveFleetRoster.mjs",
@@ -197,6 +197,26 @@
             "avatarUrl": "https://github.com/neo-kimi-iris.png?size=80",
             "laneLine": null,
             "participationStatus": "active",
+            "openLaneCount": null,
+            "sources": {
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
+            }
+        },
+        {
+            "agentId": "neo-preview",
+            "githubUsername": "neo-preview",
+            "displayName": "Neo Preview",
+            "engineTag": null,
+            "family": "unknown",
+            "state": "off",
+            "avatarUrl": "https://github.com/neo-preview.png?size=80",
+            "laneLine": "First boot pending",
+            "participationStatus": "temporarily_unreachable",
             "openLaneCount": null,
             "sources": {
                 "roster": {

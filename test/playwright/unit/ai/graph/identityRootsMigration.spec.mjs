@@ -50,6 +50,10 @@ test.describe('identityRootsMigration — the flat registry expressed through th
             id         : '@neo-kimi-iris',
             accountType: 'agent',
             reason     : 'post-epoch-resident-no-seed-era'
+        }, {
+            id         : '@neo-preview',
+            accountType: 'agent',
+            reason     : 'post-epoch-resident-no-seed-era'
         }]);
         expect(migration.isPostEpochResident(roots.IDENTITIES.find(entry => entry.id === '@neo-gpt-emmy'))).toBe(true);
         expect(migration.isPostEpochResident(roots.IDENTITIES.find(entry => entry.id === '@neo-gpt'))).toBe(false);

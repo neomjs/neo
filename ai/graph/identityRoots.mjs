@@ -466,6 +466,33 @@ export const IDENTITIES = [
         }
     },
     {
+        id         : '@neo-preview',
+        type       : 'AgentIdentity',
+        name       : 'Neo Preview', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
+        description: 'unknown Agent Identity with version-free handle; engine designation pending first-boot observation.',
+        properties : {
+            githubLogin: '@neo-preview',
+            displayName: 'Neo Preview',
+            modelFamily: 'unknown',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            // No static subscriptionTemplate — the wake route self-registers in Memory Core
+            // from the real first-boot envelope; committing harness metadata here would
+            // fabricate boot facts.
+            // No capability fields — engine facts are observation-owned and land through the
+            // source-cited ModelStats.md discipline once the first boot is observed.
+            family: 'unknown',
+            // Pending first boot: excluded from active routing, quorum, and review-approval
+            // semantics until the first-boot ritual completes and this flips to 'active'.
+            participationStatus: 'temporarily_unreachable',
+            statusReason       : 'First boot pending',
+            authority          : '@tobiu',
+            since              : '2026-08-22T19:53:10.918Z',
+            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            createdAt          : '2026-08-22T19:53:10.918Z'
+        }
+    },
+    {
         id         : 'AGENT:*',
         type       : 'BroadcastSentinel',
         name       : 'Broadcast',
