@@ -1989,9 +1989,17 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(result.results[2]).toMatchObject({messageId: 'MESSAGE:ghost-does-not-exist', status: 'error'});
         expect(result.results[2].error).toMatch(/Message not found/);
 
-        // every valid id really read
+        // Every valid id really read — asserted against STORAGE rather than the cache map.
+        //
+        // Storage, not the cache map: a durability claim should not be witnessed by a cache that is
+        // designed to be invalidated and lazy-reloaded. The stored row is the thing the claim is
+        // about, and it survives regardless of what the coherence layer does to the cache entry.
         for (const id of ids) {
-            expect(GraphService.db.nodes.get(id).properties.readAt).toBeTruthy();
+            const stored = JSON.parse(
+                GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id).data
+            );
+
+            expect(stored.properties.readAt, `${id} is durably read`).toBeTruthy();
         }
     });
 
@@ -2116,8 +2124,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
         expect(receipt.snapshotAt).toBeTruthy();
         expect(GraphService.db.nodes.get(directId).properties.readAt).toBeTruthy();
-        expect(getBroadcastDeliveryEdgeForTest(broadcastId, '@bob').properties.readAt).toBeTruthy();
-        expect(getBroadcastDeliveryEdgeForTest(broadcastId, '@charlie').properties.readAt).toBeNull();
+        // Storage, not the cache index: a narrow receipt write acknowledges only its own GraphLog
+        // row, so an edge whose row was not the immediate next one is invalidated pending lazy
+        // reload. The durable carrier is the claim here, and it is the one that survives either way.
+        const edgeReadAt = target => {
+            const row = GraphService.db.storage.db.prepare(
+                `SELECT data FROM Edges WHERE type = 'DELIVERED_TO' AND source = ? AND target = ? LIMIT 1`
+            ).get(broadcastId, target);
+
+            return row ? (JSON.parse(row.data).properties?.readAt ?? null) : null
+        };
+
+        expect(edgeReadAt('@bob'), 'the recipient who drained carries the receipt').toBeTruthy();
+        expect(edgeReadAt('@charlie'), 'and no other recipient does').toBeNull();
         expect(GraphService.db.nodes.get(archivedId).properties.readAt).toBeNull();
 
         const bobUnread = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
@@ -2518,6 +2537,242 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         } finally {
             storage.setRecordPropertyIfAbsent = originalSet
         }
+    });
+
+    /**
+     * Interposes a storage-only field at the write seam, then runs `mutate` and reports whether the
+     * interposed field survived. The interposition must land AFTER this process last read the row and
+     * BEFORE it writes — interposing up front proves nothing, because the read that precedes the
+     * write refreshes cache from storage and carries the field back in.
+     */
+    const survivesInterposition = async ({table, id, mutate}) => {
+        const
+            storage = GraphService.db.storage,
+            sqlite  = storage.db,
+            // Interpose on BOTH write paths, so the arm tests the PROPERTY (does the field survive)
+            // rather than the implementation (is the narrow writer used). Hooking only the narrow
+            // path makes a whole-record regression fail the precondition instead of the probe —
+            // still red, but red for the wrong reason and far less diagnosable.
+            originals = {
+                setRecordProperty: storage.setRecordProperty.bind(storage),
+                addNodes         : storage.addNodes.bind(storage),
+                addEdges         : storage.addEdges.bind(storage)
+            };
+
+        let interposed = false;
+
+        const interpose = () => {
+            if (interposed) return;
+            interposed = true;
+            sqlite.prepare(
+                `UPDATE ${table} SET data = json_set(data, '$.properties.concurrentProbe', 'interposed') WHERE id = ?`
+            ).run(id)
+        };
+
+        for (const name of Object.keys(originals)) {
+            storage[name] = (...args) => { interpose(); return originals[name](...args) }
+        }
+
+        try {
+            await mutate()
+        } finally {
+            for (const [name, fn] of Object.entries(originals)) storage[name] = fn
+        }
+
+        const row = sqlite.prepare(`SELECT data FROM ${table} WHERE id = ?`).get(id);
+
+        return {
+            interposed,
+            probe: row ? (JSON.parse(row.data).properties?.concurrentProbe ?? null) : null
+        }
+    };
+
+    test('#17486 readAt survives an interposed storage field — NODE carrier', async () => {
+        // The whole-record clobber, on the carrier that never had the edge overlay. Before the
+        // migration this wrote the entire node from a cached copy, so a field committed inside the
+        // write window was erased.
+        const [directed] = await seedFor(['read receipt must not clobber']);
+
+        const {interposed, probe} = await survivesInterposition({
+            table : 'Nodes',
+            id    : directed,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId: directed}))
+        });
+
+        expect(interposed, 'precondition: the write seam was reached').toBe(true);
+        expect(probe, 'the interposed field survived the readAt write').toBe('interposed');
+        expect(GraphService.db.nodes.get(directed).properties.readAt, 'and readAt landed').toBeTruthy()
+    });
+
+    test('#17486 archivedAt survives an interposed storage field — NODE carrier', async () => {
+        // Same carrier, different receipt. A fix applied to readAt alone would leave this red, which
+        // is the asymmetry the whole ticket exists to end.
+        const [directed] = await seedFor(['archive must not clobber either']);
+
+        const {interposed, probe} = await survivesInterposition({
+            table : 'Nodes',
+            id    : directed,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.archiveMessage({messageId: directed}))
+        });
+
+        expect(interposed, 'precondition: the write seam was reached').toBe(true);
+        expect(probe, 'the interposed field survived the archivedAt write').toBe('interposed')
+    });
+
+    test('#17486 readAt survives an interposed storage field — DELIVERED_TO carrier', async () => {
+        // The AC's point: both carriers must demonstrably share ONE mechanism. Without an edge arm,
+        // "they share a writer" is an assertion about the source rather than about behaviour.
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: 'AGENT:*', subject: 'edge receipt', body: 'narrow write'}));
+
+        const edgeId = GraphService.db.storage.db.prepare(
+            `SELECT id FROM Edges WHERE type = 'DELIVERED_TO' AND target = ? LIMIT 1`
+        ).get('@bob')?.id;
+
+        expect(edgeId, 'precondition: the broadcast produced a delivery edge for @bob').toBeTruthy();
+
+        const {interposed, probe} = await survivesInterposition({
+            table : 'Edges',
+            id    : edgeId,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({all: true, includeUnseen: true}))
+        });
+
+        expect(interposed, 'precondition: the write seam was reached').toBe(true);
+        expect(probe, 'the interposed field survived the edge readAt write').toBe('interposed')
+    });
+
+    test('#17486 readAt is NOT write-once — a second write still lands', async () => {
+        // Guards the variant choice. `seenAt` takes the absence predicate because it means FIRST
+        // shown; routing readAt through the same helper would silently drop every write after the
+        // first, and every arm above would still pass.
+        const
+            [directed] = await seedFor(['read twice']),
+            storage    = GraphService.db.storage,
+            readAtOf   = () => JSON.parse(
+                storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(directed).data
+            ).properties?.readAt ?? null;
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({messageId: directed}));
+
+        const first = readAtOf();
+
+        expect(first).toBeTruthy();
+
+        // A direct second write through the same narrow path must overwrite, not be refused.
+        // The writers return the GraphLog id they produced (0 = no row matched), so a caller can
+        // acknowledge its OWN log position instead of the global maximum. Truthiness is unchanged.
+        expect(storage.setRecordProperty('Nodes', directed, 'readAt', '2099-01-01T00:00:00.000Z'),
+            'the unconditional writer reports the log id it wrote').toBeGreaterThan(0);
+        expect(readAtOf(), 'and the value actually changed').toBe('2099-01-01T00:00:00.000Z');
+
+        // The paired control: the write-once variant refuses, which is why the two are separate.
+        expect(storage.setRecordPropertyIfAbsent('Nodes', directed, 'readAt', '2100-01-01T00:00:00.000Z'),
+            'the write-once variant refuses an already-set field').toBe(0)
+    });
+
+    /**
+     * Deletes the record's storage row AT the write seam — after this process last read the row, and
+     * immediately before the narrow UPDATE runs — then returns the receipt `mutate` produced.
+     *
+     * The timing carries the whole arm. Deleting up front never reaches the writer at all: the
+     * authorization read ahead of it fails and the operation takes a not-found path, so the probe
+     * would pass while `writeReceiptField` stayed untested. Deleting inside the writer reproduces
+     * the exact state the outcome vocabulary exists for — an authorized, cached record whose row is
+     * gone from storage — and it is the only way to reach `RECEIPT_WRITE.missingRow`.
+     */
+    const removeRowAtWriteSeam = async ({table, id, mutate}) => {
+        const
+            storage  = GraphService.db.storage,
+            sqlite   = storage.db,
+            original = storage.setRecordProperty.bind(storage);
+
+        let removed = false;
+
+        storage.setRecordProperty = (...args) => {
+            if (!removed) {
+                removed = true;
+                sqlite.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id)
+            }
+
+            return original(...args)
+        };
+
+        try {
+            // Sequenced, not inlined into the object literal: property values evaluate in source
+            // order, so `{removed, receipt: await mutate()}` would capture `removed` as false.
+            const receipt = await mutate();
+
+            return {receipt, removed, survivingRows: sqlite.prepare(
+                `SELECT COUNT(*) AS total FROM ${table} WHERE id = ?`
+            ).get(id).total}
+        } finally {
+            storage.setRecordProperty = original
+        }
+    };
+
+    test('#17486 a vanished NODE row yields an honest failure receipt, not a false read', async () => {
+        // RA-2's node control. Before the outcome split, a narrow UPDATE that matched no row was
+        // indistinguishable from a durable one at the boolean, so this returned status:'read' with
+        // the no-storage warning — telling an operator their receipt lives in memory when the
+        // helper had deliberately not touched cache and the value existed nowhere at all.
+        const [directed] = await seedFor(['the row vanishes under the write']);
+
+        const {receipt, removed, survivingRows} = await removeRowAtWriteSeam({
+            table : 'Nodes',
+            id    : directed,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId: directed}))
+        });
+
+        expect(removed,       'precondition: the write seam was reached and the row deleted there').toBe(true);
+        expect(survivingRows, 'precondition: the UPDATE therefore had no row to match').toBe(0);
+
+        expect(receipt.status,    'the receipt does not claim the message was read').toBe('not_applied');
+        expect(receipt.durable,   'and does not claim durability').toBe(false);
+        expect(receipt.retryable, 'and tells the caller the state is worth retrying').toBe(true);
+        expect(receipt.warning, 'the wording must not be the no-storage one, which asserts an in-memory apply that did not happen')
+            .not.toContain('applied in memory');
+
+        // Cache is the other half of the honesty. `writeReceiptField` returns before mutating it, so
+        // a subsequent read must not surface a readAt that reached neither storage nor RAM.
+        expect(GraphService.db.nodes.get(directed)?.properties?.readAt ?? null,
+            'and the in-memory copy was left unchanged rather than made to disagree with storage').toBeNull()
+    });
+
+    test('#17486 a vanished EDGE row fails the same way — one mechanism, both carriers', async () => {
+        // RA-2's edge control. The node arm alone would leave "both carriers share one writer" as a
+        // claim about the source; a broadcast receipt travels the DELIVERED_TO edge, and a fix that
+        // only reached the node path would keep lying here.
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: 'AGENT:*', subject: 'edge row vanishes', body: 'narrow write'}));
+
+        const edge = GraphService.db.edges.items.find(candidate =>
+            candidate.type === 'DELIVERED_TO' && candidate.source === messageId && candidate.target === '@bob');
+
+        expect(edge, 'precondition: the broadcast produced a delivery edge for @bob').toBeTruthy();
+
+        const {receipt, removed, survivingRows} = await removeRowAtWriteSeam({
+            table : 'Edges',
+            id    : edge.id,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId}))
+        });
+
+        expect(removed,       'precondition: the write seam was reached and the edge row deleted there').toBe(true);
+        expect(survivingRows, 'precondition: the UPDATE therefore had no row to match').toBe(0);
+
+        expect(receipt.status,    'the broadcast receipt does not claim the message was read').toBe('not_applied');
+        expect(receipt.durable,   'and does not claim durability').toBe(false);
+        expect(receipt.retryable, 'and tells the caller the state is worth retrying').toBe(true);
+        expect(receipt.warning, 'with the same honest wording the node carrier uses')
+            .not.toContain('applied in memory');
+
+        expect(GraphService.db.edges.get(edge.id)?.properties?.readAt ?? null,
+            'and the cached edge was left unchanged').toBeNull()
     });
 
     test('#17321 first-seen is write-once — a second listing does not restamp', async () => {

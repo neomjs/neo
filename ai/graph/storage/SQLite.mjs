@@ -7,6 +7,23 @@ const GRAPH_SCHEMA_VERSION_ID = 'graph';
 const GRAPH_SCHEMA_WIPE_ENV   = 'NEO_ALLOW_SCHEMA_WIPE';
 
 /**
+ * @summary Maps a narrow UPDATE's result to the `GraphLog` id it produced, or `0` when nothing matched.
+ *
+ * The `node_update` / `edge_update` triggers insert a `GraphLog` row inside the statement, so
+ * `lastInsertRowid` names exactly this write's log position. Returning it lets a caller acknowledge
+ * **its own** row instead of the global maximum — the difference between skipping the replay of a
+ * write you just made and skipping a concurrent peer's write you have never seen.
+ *
+ * `0` rather than `false` on no-match keeps every existing truthiness check working while making the
+ * id available to callers that need it.
+ * @param {Object} result better-sqlite3 `RunResult`.
+ * @returns {Number} `GraphLog` id, or `0`.
+ */
+function narrowWriteResult(result) {
+    return result.changes > 0 ? Number(result.lastInsertRowid) : 0
+}
+
+/**
  * Native Write-Ahead Logging (WAL) SQLite engine proxy driving memory graph persistence logic.
  * Bounded uniquely inside backend Node.js domains, this integration leverages dynamic imports natively,
  * bypassing generic browser module restraints while translating instantaneous $O(1)$ memory mapping directly to physical data rows.
@@ -433,27 +450,70 @@ class SQLite extends Base {
      * @param {*} value Value to set.
      * @returns {Boolean} `true` only when this statement wrote.
      */
-    setRecordPropertyIfAbsent(table, id, property, value) {
-        if (!this.db) return false;
+    /**
+     * @summary Shared preflight for the narrow property writers. Returns the JSON path, or `null`
+     * when there is no database to write to.
+     *
+     * `table` and `property` are interpolated into the statement — neither a table name nor a JSON
+     * path can be a bound parameter — so both are validated against strict shapes here rather than at
+     * each call site, where one of the two would eventually be forgotten.
+     * @param {String} caller Method name, for the error message.
+     * @param {String} table
+     * @param {String} property
+     * @returns {String|null}
+     * @private
+     */
+    assertNarrowWrite(caller, table, property) {
+        if (!this.db) return null;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         this.assertTestWriteIsolated();
 
         if (table !== 'Nodes' && table !== 'Edges') {
-            throw new Error(`setRecordPropertyIfAbsent supports 'Nodes' and 'Edges'. Received: ${String(table)}`);
+            throw new Error(`${caller} supports 'Nodes' and 'Edges'. Received: ${String(table)}`);
         }
 
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(property)) {
-            throw new Error(`setRecordPropertyIfAbsent property must be a plain identifier. Received: ${String(property)}`);
+            throw new Error(`${caller} property must be a plain identifier. Received: ${String(property)}`);
         }
 
-        const path = `$.properties.${property}`;
+        return `$.properties.${property}`
+    }
 
-        return this.db.prepare(`
+    setRecordPropertyIfAbsent(table, id, property, value) {
+        const path = this.assertNarrowWrite('setRecordPropertyIfAbsent', table, property);
+
+        if (!path) return false;
+
+        return narrowWriteResult(this.db.prepare(`
             UPDATE ${table}
             SET   data = json_set(data, '${path}', ?)
             WHERE id = ?
               AND json_extract(data, '${path}') IS NULL
-        `).run(value, id).changes > 0;
+        `).run(value, id));
+    }
+
+    /**
+     * @summary Sets one property under `$.properties` in SQL, whatever its current value.
+     *
+     * Same single-path `json_set` as the write-once variant, without the `IS NULL` predicate: a read
+     * receipt or an archive flag legitimately changes more than once, so guarding on absence would
+     * silently drop the second write. Narrowness is the shared property; write-once is not.
+     * @param {String} table `'Nodes'` or `'Edges'`.
+     * @param {String} id Record id.
+     * @param {String} property Property name under `$.properties`; identifier characters only.
+     * @param {*} value Value to set; `null` sets JSON null rather than removing the key.
+     * @returns {Boolean} `true` when a row matched and was updated.
+     */
+    setRecordProperty(table, id, property, value) {
+        const path = this.assertNarrowWrite('setRecordProperty', table, property);
+
+        if (!path) return false;
+
+        return narrowWriteResult(this.db.prepare(`
+            UPDATE ${table}
+            SET   data = json_set(data, '${path}', ?)
+            WHERE id = ?
+        `).run(value, id));
     }
 
     /**

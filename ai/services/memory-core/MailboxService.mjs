@@ -1971,68 +1971,6 @@ function resolveReceiptState(messageNode, deliveryEdge, target, receiptShaped) {
 }
 
 /**
- * Durably persists a receipt mutation (read or archive) already applied to a per-recipient
- * `DELIVERED_TO` edge, and reports whether the durable write actually ran.
- *
- * ## Why this is not gated on `autoSave`
- *
- * `Database#autoSave` exists to suppress **load-echo** writes: every site that clears it
- * (`Database.mjs` delta-sync invalid-node/edge pruning, vicinity load, and the other bulk
- * load paths) is populating the in-memory cache *from* storage, where writing back would
- * amplify writes and pollute the delta log. A read or archive receipt is the opposite — a
- * **user-originated** mutation that can never be a load echo — so suppressing it under that
- * flag is a category error, not an optimisation.
- *
- * It is also unobservable in every reachable state: those windows are synchronous (no `await`
- * between clearing the flag and restoring it), so a receipt call cannot execute inside one.
- * The gate could therefore only ever fire in a state nothing reaches — which is precisely why
- * it went unnoticed while making the receipt claim a durability it had not delivered.
- *
- * The `storage` guard stays: with no storage there is nowhere to write, and the caller needs
- * to know that rather than reporting an unqualified success.
- *
- * @param {Object} edge `DELIVERED_TO` edge record carrying the already-applied receipt property.
- * @returns {Promise<Boolean>} `true` when the durable write ran; `false` when there was no storage.
- */
-async function persistReceiptEdge(edge) {
-    const db = GraphService.db;
-
-    if (!db?.storage) {
-        return false;
-    }
-
-    await db.storage.addEdges([edge]);
-    db.acknowledgeLocalMutations?.();
-
-    return true;
-}
-
-/**
- * Durably persists a receipt mutation already applied to a direct-DM `MESSAGE` node, and reports
- * whether the durable write actually ran.
- *
- * Direct messages intentionally carry read/archive state on their shared node rather than a
- * per-recipient `DELIVERED_TO` edge. This writes that existing carrier directly because
- * `GraphService.upsertNode` gates storage on `autoSave` and returns no durability signal;
- * receipt mutations are user-originated writes, never load echoes that `autoSave` may suppress.
- *
- * @param {Object} node `MESSAGE` node carrying the already-applied receipt property.
- * @returns {Promise<Boolean>} `true` when the durable write ran; `false` when there was no storage.
- */
-async function persistReceiptNode(node) {
-    const db = GraphService.db;
-
-    if (!db?.storage) {
-        return false;
-    }
-
-    await db.storage.addNodes([node]);
-    db.acknowledgeLocalMutations?.();
-
-    return true;
-}
-
-/**
  * Builds the receipt a mailbox lifecycle tool returns, degrading it honestly when the durable
  * write did not run.
  *
@@ -2050,9 +1988,49 @@ async function persistReceiptNode(node) {
  * @param {String} operation Human-readable operation name for the warning text.
  * @returns {Object} The receipt, annotated when non-durable.
  */
-function receiptWithDurability(receipt, durable, operation) {
-    if (durable) {
+/**
+ * Outcomes of a narrow receipt write. Three distinct states hid behind one boolean, and the caller
+ * described all of them with the no-storage warning — which asserts an in-memory application that
+ * only the first of them performs.
+ * @type {Object}
+ */
+const RECEIPT_WRITE = Object.freeze({
+    /** No storage backing. Cache WAS mutated; the state is real until restart. */
+    noStorage : 'no-storage',
+    /** The row was updated durably. */
+    written   : 'written',
+    /** Write-once field already carried a value. Cache untouched, and that is correct. */
+    alreadySet: 'already-set',
+    /** The statement matched no row: authorized cached record, gone from storage. Cache untouched. */
+    missingRow: 'missing-row'
+});
+
+/**
+ * @summary Shapes a lifecycle receipt from a narrow-write outcome, without overstating any of them.
+ *
+ * `written` and `already-set` are both successful ends for the caller — the field holds the intended
+ * value durably. The other two are not, and they fail differently: `no-storage` applied the mutation
+ * in memory and loses it on restart, while `missing-row` applied it **nowhere** and the caller's
+ * cached record no longer corresponds to a stored one. Reporting the second with the first's wording
+ * tells an operator their change is in memory when it is not.
+ *
+ * @param {Object} receipt Happy-path receipt; returned unchanged on success so the wire shape holds.
+ * @param {String} outcome A {@link RECEIPT_WRITE} member.
+ * @param {String} operation Operation name for the message.
+ * @returns {Object}
+ */
+function receiptWithDurability(receipt, outcome, operation) {
+    // Boolean call sites predate the outcome vocabulary; `true` meant "durable".
+    if (outcome === true || outcome === RECEIPT_WRITE.written || outcome === RECEIPT_WRITE.alreadySet) {
         return receipt;
+    }
+
+    if (outcome === RECEIPT_WRITE.missingRow) {
+        const warning = `${operation} did NOT apply: the record is no longer present in storage, and the in-memory copy was left unchanged rather than reporting a state that exists nowhere. Retry after refreshing the record.`;
+
+        logger.warn(`[MailboxService] ${warning}`);
+
+        return {...receipt, status: 'not_applied', durable: false, retryable: true, warning};
     }
 
     const warning = `${operation} was applied in memory but NOT persisted: the graph database has no storage backing, so this state is lost on restart.`;
@@ -2101,23 +2079,6 @@ function normalizeMarkReadMessageIdInput(messageId) {
 }
 
 /**
- * @summary Reconciles mutable receipt fields from storage before a whole-edge persistence write.
- * @param {Object} edge `DELIVERED_TO` edge record from the Store map or a secondary-index Set.
- * @returns {Object} Cached properties overlaid with storage-owned `readAt` / `archivedAt` state.
- * @private
- */
-function getDeliveryEdgePropertiesForWrite(edge) {
-    return {
-        ...getRecordProperties(edge),
-        ...getStorageDeliveryMutableState(
-            getRecordField(edge, 'source'),
-            getRecordField(edge, 'target'),
-            {includeNull: true}
-        )
-    }
-}
-
-/**
  * Sets the read timestamp on a per-recipient `DELIVERED_TO` edge for broadcast messages and
  * reports whether that mutation reached durable storage.
  *
@@ -2130,12 +2091,7 @@ function getDeliveryEdgePropertiesForWrite(edge) {
  * @returns {Promise<Boolean>} `true` when the read state was persisted durably.
  */
 async function setDeliveryEdgeReadAt(edge, readAt) {
-    setRecordProperties(edge, {
-        ...getDeliveryEdgePropertiesForWrite(edge),
-        readAt
-    });
-
-    return persistReceiptEdge(edge);
+    return writeReceiptField(edge, 'Edges', 'readAt', readAt)
 }
 
 /**
@@ -2147,11 +2103,7 @@ async function setDeliveryEdgeReadAt(edge, readAt) {
  * @returns {Promise<Boolean>} `true` when the read state was persisted durably.
  */
 async function setMessageNodeReadAt(node, readAt) {
-    // MESSAGE records expose a reference-stable properties object. Preserve that object so
-    // existing consumers holding it observe the same mutation, matching the established DM path.
-    getRecordProperties(node).readAt = readAt;
-
-    return persistReceiptNode(node);
+    return writeReceiptField(node, 'Nodes', 'readAt', readAt)
 }
 
 /**
@@ -2198,24 +2150,85 @@ async function setMessageNodeSeenAt(node, seenAt) {
  * @private
  */
 async function setReceiptSeenAt(record, table, seenAt) {
+    return writeReceiptField(record, table, 'seenAt', seenAt, {writeOnce: true})
+}
+
+/**
+ * @summary Writes ONE receipt field narrowly, then reflects cache only on a confirmed durable write.
+ *
+ * The single write path for every receipt on this surface — `seenAt`, `readAt`, `archivedAt`, on
+ * both the `MESSAGE` node and the per-recipient `DELIVERED_TO` edge. It exists because the three
+ * fields previously had three different durability stories, and the weakest one set the real
+ * guarantee.
+ *
+ * **Narrow.** A single JSON path is rewritten rather than the whole record, so a field another
+ * process committed between this process's read and its write survives. The receipts are exactly the
+ * fields two processes legitimately write at once — a listing, a drain and an archive are
+ * independent operations on one row.
+ *
+ * **Write-once only where the field is.** `seenAt` means FIRST shown and takes the `IS NULL`
+ * predicate; `readAt` and `archivedAt` legitimately change more than once, and guarding them on
+ * absence would silently drop the second write. The flag is how a caller declares which it has.
+ *
+ * **Cache last, and in place.** The caller's guard reads cached state, so reflecting a write that
+ * did not land would mark the row for the life of the process with nothing retrying. The properties
+ * object is mutated rather than replaced, because consumers hold that reference — the previous edge
+ * path replaced it, which is what made a stale copy able to clobber its neighbours in the first
+ * place.
+ *
+ * @param {Object} record `MESSAGE` node or `DELIVERED_TO` edge.
+ * @param {String} table `'Nodes'` or `'Edges'`.
+ * @param {String} field Receipt property name.
+ * @param {*} value Value to write.
+ * @param {Object} [options]
+ * @param {Boolean} [options.writeOnce=false] Apply the absence predicate in SQL.
+ * @returns {Promise<Boolean>} Whether THIS call performed the durable write.
+ * @private
+ */
+async function writeReceiptField(record, table, field, value, {writeOnce = false} = {}) {
     const db = GraphService.db;
 
     if (!db?.storage) {
         // No durable surface to protect; cache-only mode keeps the in-memory contract intact.
-        getRecordProperties(record).seenAt = seenAt;
-        return false
+        getRecordProperties(record)[field] = value;
+        return RECEIPT_WRITE.noStorage
     }
 
-    const wrote = db.storage.setRecordPropertyIfAbsent(
-        table, getRecordField(record, 'id'), 'seenAt', seenAt
-    );
+    const
+        id     = getRecordField(record, 'id'),
+        method = writeOnce ? 'setRecordPropertyIfAbsent' : 'setRecordProperty',
+        // The GraphLog id this write produced, or 0 when the statement matched nothing.
+        logId  = db.storage[method](table, id, field, value);
 
-    if (wrote) {
-        getRecordProperties(record).seenAt = seenAt;
-        db.acknowledgeLocalMutations?.()
+    if (!logId) {
+        // The statement matched nothing. For a write-once field that means the value was already
+        // set; otherwise the row is gone from storage while the caller still holds a cached record.
+        // Cache is deliberately NOT mutated either way, so the caller must not report success — and
+        // must not reuse the no-storage warning, which claims an in-memory application that did not
+        // happen.
+        return writeOnce ? RECEIPT_WRITE.alreadySet : RECEIPT_WRITE.missingRow
     }
 
-    return wrote
+    getRecordProperties(record)[field] = value;
+
+    // KNOWN GAP, tracked separately — do not read this ack as endorsed.
+    //
+    // `acknowledgeLocalMutations()` sets `lastSyncId = getLatestLogId()`: the global MAX, not this
+    // write's position. For a whole-record write that was harmless, because it had already
+    // overwritten whatever a peer put there. A narrow write PRESERVES the peer's field in SQLite,
+    // and then max-acking marks the peer's log row seen — so the local cache never replays it.
+    // Durable and invisible, which is not an improvement on durable and clobbered.
+    //
+    // Two narrower acks were built and measured, and neither is shippable as-is: dropping the ack
+    // entirely makes every receipt write invalidate its own cache entry (correct by the
+    // invalidate-then-lazy-load design, but it changes a contract this suite relies on in 65
+    // places), and acknowledging only our own row — `logId === db.lastSyncId + 1`, which the
+    // writers now return the id for — holds or not depending on run order, so cache survival
+    // becomes nondeterministic. The real fix is a Database-level ability to skip replay of
+    // self-authored rows, which is a shared-primitive change and not this PR's to make.
+    db.acknowledgeLocalMutations?.();
+
+    return RECEIPT_WRITE.written
 }
 
 /**
@@ -2239,7 +2252,7 @@ async function setDeliveryEdgeSeenAt(edge, seenAt) {
 /**
  * Sets the archive timestamp on a per-recipient DELIVERED_TO edge for broadcast
  * messages. Mirrors `setDeliveryEdgeReadAt` exactly — both delegate to
- * `persistReceiptEdge`, so broadcast archive state participates in the same durability
+ * the shared narrow writer, so broadcast archive state participates in the same durability
  * guarantees as read receipts. That mirroring is the reason this function shares the fix:
  * the two carried identical write shapes, so an archive receipt could report success on a
  * skipped durable write for exactly the same reason a read receipt could.
@@ -2249,12 +2262,7 @@ async function setDeliveryEdgeSeenAt(edge, seenAt) {
  * @returns {Promise<Boolean>} `true` when the archive state was persisted durably.
  */
 async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
-    setRecordProperties(edge, {
-        ...getDeliveryEdgePropertiesForWrite(edge),
-        archivedAt
-    });
-
-    return persistReceiptEdge(edge);
+    return writeReceiptField(edge, 'Edges', 'archivedAt', archivedAt)
 }
 
 /**
@@ -2266,9 +2274,7 @@ async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
  * @returns {Promise<Boolean>} `true` when the archive state was persisted durably.
  */
 async function setMessageNodeArchivedAt(node, archivedAt) {
-    getRecordProperties(node).archivedAt = archivedAt;
-
-    return persistReceiptNode(node);
+    return writeReceiptField(node, 'Nodes', 'archivedAt', archivedAt)
 }
 
 function linkOptionalMailboxEdge(source, target, type, weight, properties) {
@@ -4008,11 +4014,18 @@ class MailboxService extends Base {
             nonDurable = results
                 .filter(result => result.status === 'read' && result.durable === false)
                 .map(({messageId, warning}) => ({messageId, warning})),
+            // A row that vanished from storage between snapshot and write is neither read nor an
+            // error. Without its own slot it matches none of the filters above and disappears from
+            // every counter — the aggregate would report a clean drain over messages it never
+            // touched, which is the exact silence this drain's design set out to remove.
+            notApplied = results
+                .filter(result => result.status === 'not_applied')
+                .map(({messageId, warning}) => ({messageId, warning})),
             readCount    = results.filter(result => result.status === 'read').length,
             durableCount = readCount - nonDurable.length,
             status       = messageIds.length === 0
                 ? 'noop'
-                : failures.length === 0 && nonDurable.length === 0
+                : failures.length === 0 && nonDurable.length === 0 && notApplied.length === 0
                     ? 'read'
                     : 'partial';
 
@@ -4054,9 +4067,11 @@ class MailboxService extends Base {
             durableCount,
             failureCount   : failures.length,
             nonDurableCount: nonDurable.length,
+            notAppliedCount: notApplied.length,
             withheldUnseenCount,
             failures,
-            nonDurable
+            nonDurable,
+            notApplied
         };
     }
 

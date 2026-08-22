@@ -62,6 +62,27 @@ class Base extends NeoBase {
     }
 
     /**
+     * @summary Sets ONE property on an existing record, whatever its current value.
+     *
+     * The unconditional sibling of {@link setRecordPropertyIfAbsent}, for receipts that legitimately
+     * change more than once — a message can be marked read, and archive state is not write-once the
+     * way first-seen is. Same narrowness, same reason: a whole-record write erases whatever another
+     * process committed between this one's read and its write.
+     *
+     * Write-once belongs in the SQL when the field is write-once, and nowhere when it is not.
+     * Choosing between these two is how a caller declares which it has.
+     *
+     * @param {String} table `'Nodes'` or `'Edges'`.
+     * @param {String} id Record id.
+     * @param {String} property Property name under `$.properties`.
+     * @param {*} value Value to set; `null` is a legitimate value, not a no-op.
+     * @returns {Boolean} `true` when a row was updated; `false` when no such row exists.
+     */
+    setRecordProperty(table, id, property, value) {
+        return false
+    }
+
+    /**
      * Purges specific Nodes array data natively resolving cascade anomalies internally at the driver stratum.
      * @param {Object[]} nodes
      */
