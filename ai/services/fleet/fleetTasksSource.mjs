@@ -278,8 +278,10 @@ export function extractDeploymentRows(payload) {
  * carries a time. The producer's `axisErrors` map is honored: a count whose read failed falls
  * back to 0 upstream, and a fallback zero must never become a wired measurement here. Pure;
  * exported for the witness.
- * @param {Object|null} state The verb's parsed result `{undigested, digested, recentCycles, axisErrors?}`.
- * @returns {{rows: Object[], state: String, reason: String|null, detail?: String}}
+ * @param {Object|null} state The verb's parsed result (`undigested`, `digested`, `recentCycles`,
+ *     optional `axisErrors`).
+ * @returns {{rows: Object[], state: String, reason: String|null}} plus a `detail` member only when
+ *     a failed axis left a legible, redacted message.
  */
 export function extractRemRows(state) {
     const
