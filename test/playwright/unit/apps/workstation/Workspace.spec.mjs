@@ -2248,7 +2248,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 id            : 'fake-workspace',
                 isDestroyed   : false,
                 refreshPromise: Promise.resolve(),
-                refreshDockWorkspace(options) {
+                refreshDockWorkspace(tabInsertDescriptor, document, options) {
                     refreshCalls.push(options ?? {});
 
                     return refreshCalls.length === 1
@@ -2275,7 +2275,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 id            : 'fake-workspace',
                 isDestroyed   : false,
                 refreshPromise: Promise.resolve(),
-                refreshDockWorkspace(options) {
+                refreshDockWorkspace(tabInsertDescriptor, document, options) {
                     refreshCalls.push(options ?? {});
 
                     // entry projection succeeds; the restore projection rejects
@@ -2309,7 +2309,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 id            : 'fake-workspace-unregistered',
                 isDestroyed   : false,
                 refreshPromise: Promise.resolve(),
-                refreshDockWorkspace(options) {
+                refreshDockWorkspace(tabInsertDescriptor, document, options) {
                     refreshCalls.push(options ?? {});
 
                     return refreshCalls.length === 1
@@ -2359,7 +2359,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 id            : 'fake-workspace',
                 isDestroyed   : false,
                 refreshPromise: Promise.resolve(),
-                refreshDockWorkspace(options) {
+                refreshDockWorkspace(tabInsertDescriptor, document, options) {
                     refreshCalls.push(options ?? {});
 
                     return Promise.resolve()
@@ -2396,7 +2396,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
                 id            : 'fake-workspace',
                 isDestroyed   : false,
                 refreshPromise: Promise.resolve(),
-                refreshDockWorkspace(options) {
+                refreshDockWorkspace(tabInsertDescriptor, document, options) {
                     refreshCalls.push(options ?? {});
 
                     return Promise.reject(new Error('entry projection rejected'))

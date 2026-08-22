@@ -170,6 +170,26 @@ class DockWorkspace extends Container {
     }
 
     /**
+     * Hook: the post-projection moment — runs after the staged transaction landed and the FLIP
+     * play (when any) was dispatched, and is AWAITED by the refresh, so a host that must sequence
+     * chrome behind the motion (an overflow-menu settle, a bar-animation restore, a cross-window
+     * participation refresh) can do so without owning the loop. `played` is the play's
+     * settled-safe promise — motion failures resolve it to `null`, motion never fails truth — or
+     * `null` when no play was dispatched; awaiting it is the HOST's choice. The default does
+     * nothing, so every other host keeps fire-and-forget semantics, and the motion signal's
+     * `leave` stays class-owned, firing when the play settles independent of this hook.
+     * @param {Object} data
+     * @param {Object|null} data.document The committed document this refresh projected.
+     * @param {Object} data.refreshOptions The options the scheduling commit produced.
+     * @param {Object|null} data.result The reconciler's outcome; `landedInPlace` reports the path
+     *     it ACTUALLY took, never the requested one.
+     * @param {Promise|null} data.played Settles when the FLIP motion finishes (`null` on motion
+     *     failure or without a dispatched play).
+     * @returns {Promise<void>|void}
+     */
+    afterRefreshDockWorkspace(data) {}
+
+    /**
      * Hook: app chrome that must sync on every re-projection (a perspective toolbar, a control
      * bar, a drag-affordance session to invalidate). Runs AFTER the FLIP snapshot of the outgoing
      * geometry and before the staged projection, so chrome mutation can never alter the captured
@@ -292,9 +312,31 @@ class DockWorkspace extends Container {
     }
 
     /**
+     * Hook: extra options for the reconciler's staged transaction. Exactly three keys are
+     * SANCTIONED and consumed — `onProjectionStaged` (a tab-bar animation-suppression seam),
+     * `waitForOverflowProjection` (an overflow-readiness wait), and `retainTopology` (a
+     * host-forced stable-topology admission, winning over the commit's own value when present).
+     * Every other returned key is DISCARDED: the projection identity — `host`, `nextConfig`,
+     * `placeholders`, the merged `preserveItemIds`, `resolveItem`, `shellIndex`, `geometryOnly` —
+     * is class-owned and mechanically unreachable from this hook. The default contributes
+     * nothing.
+     * @param {Object|null} document The committed document this refresh projects.
+     * @param {Object} refreshOptions The options {@link #getRefreshOptions} produced for it.
+     * @returns {Object}
+     */
+    getReconcileOptions(document, refreshOptions) {
+        return {}
+    }
+
+    /**
      * Hook: the reconciler's fast-path options for the refresh a commit schedules —
      * `{geometryOnly}` for a pure `resizeSplit`, `{retainTopology}` for item-only deltas on a
-     * proven-identical shell. The default takes the full staged transaction every time.
+     * proven-identical shell, `{preserveItemIds}` for owner-held ids known only at THIS commit (a
+     * pane parked by the operation itself), merged with the standing {@link #getPreservedItemIds}
+     * set. The default takes the full staged transaction every time. The committing surface passes
+     * `descriptor` as it identifies the operation — engine surfaces pass the semantic descriptor;
+     * a host's own paths may pass their options object — and the override maps whatever shapes its
+     * commit sites produce.
      * @param {Object|null} descriptor The semantic operation that produced the document, when known.
      * @param {Object|null} source The committing surface, when it identifies itself.
      * @returns {Object}
@@ -470,6 +512,10 @@ class DockWorkspace extends Container {
      * A `null` document reconciles toward the EMPTY projection: every pane retires, the shell
      * survives. A configured {@link #dockHostReference} that resolves to no live host throws —
      * the committed document is not rendered, and that must fail loudly, never settle silently.
+     * The reconciler's outcome is captured and its `landedInPlace` — the path it ACTUALLY took,
+     * never the requested one — rides the FLIP play as `geometryOnly`; after the play is
+     * dispatched, {@link #afterRefreshDockWorkspace} is awaited with the outcome and the play's
+     * settled-safe promise.
      * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
      *     captured by the commit that scheduled this refresh.
      * @param {Object|null} [document=this.dockModel] Committed document snapshot owned by this
@@ -477,6 +523,8 @@ class DockWorkspace extends Container {
      * @param {Object} [refreshOptions={}]
      * @param {Boolean} [refreshOptions.geometryOnly=false] Admit the reconciler's strict in-place
      *     geometry path.
+     * @param {String[]} [refreshOptions.preserveItemIds] Per-commit owner-held ids, merged with
+     *     the standing {@link #getPreservedItemIds} set.
      * @param {Boolean} [refreshOptions.retainTopology=false] Admit in-place item reconciliation on
      *     a proven-identical structural shell.
      * @returns {Promise<void>}
@@ -513,12 +561,19 @@ class DockWorkspace extends Container {
             return placeholder
         }, document);
 
-        await DockProjectionReconciler.reconcileProjection({
+        // The hook extends the reconciler's SEAMS, never its identity: only the three sanctioned
+        // keys are read off its result — a hostile or accidental override cannot displace the
+        // class-owned projection identity below.
+        const {onProjectionStaged, retainTopology: forcedRetainTopology, waitForOverflowProjection} =
+            me.getReconcileOptions(document, refreshOptions) || {};
+
+        const result = await DockProjectionReconciler.reconcileProjection({
             geometryOnly,
             host,
             nextConfig,
+            onProjectionStaged,
             placeholders,
-            preserveItemIds: me.getPreservedItemIds(),
+            preserveItemIds: [...new Set([...me.getPreservedItemIds(), ...(refreshOptions.preserveItemIds || [])])],
             resolveItem    : itemId => {
                 const item = document?.items?.[itemId];
 
@@ -532,28 +587,35 @@ class DockWorkspace extends Container {
                     }
                 )
             },
-            retainTopology,
-            shellIndex: me.dockShellIndex
+            retainTopology: forcedRetainTopology ?? retainTopology,
+            shellIndex    : me.dockShellIndex,
+            waitForOverflowProjection
         });
 
-        // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts and plays; the
-        // counted motion signal brackets the awaited animation window. Gate on the CAPABILITY, not
-        // on the addon's presence: a partial addon (a test double, a degraded main thread) must land
-        // the layout instantly rather than throw after the document already committed.
+        // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and
+        // plays; the counted motion signal brackets the awaited animation window. Gate on the
+        // CAPABILITY, not on the addon's presence: a partial addon (a test double, a degraded main
+        // thread) must land the layout instantly rather than throw after the document already
+        // committed. `geometryOnly` rides the reconciler's ACTUAL path, never the requested one.
+        let played = null;
+
         if (typeof flip?.play === 'function' && !me.isDestroyed) {
-            let played;
+            let rawPlayed;
 
             DockMotionSignal.enter(me);
 
             try {
-                played = flip.play({hostId: host.id, markerPrefix: flipMarkerPrefix})
+                rawPlayed = flip.play({hostId: host.id, markerPrefix: flipMarkerPrefix, geometryOnly: result?.landedInPlace === true})
             } catch (error) {
-                played = Promise.reject(error)
+                rawPlayed = Promise.reject(error)
             }
 
-            Promise.resolve(played)
-                .catch(() => {})
-                .finally(() => DockMotionSignal.leave(me))
+            played = Promise.resolve(rawPlayed).catch(() => null);
+            played.finally(() => DockMotionSignal.leave(me))
+        }
+
+        if (!me.isDestroyed) {
+            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played})
         }
     }
 
