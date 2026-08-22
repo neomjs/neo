@@ -7,12 +7,12 @@
    an indicator's own measure, not spacing. */
 .agent-os-viewport.neo-viewport,
 .fm-instance-menu {
-    /* The shell paints the designed ground itself. The viewport is not a container, and its stock
-       surface is the theme's neutral default — a foreign tone under every FM pane; the token
-       layer owns the ground exactly like it owns the panels on it. */
-    background: var(--fm-ground);
+    /* Direct paint does NOT live in this comma group: it carries structural FM tokens to the
+       floating instance menu too, so every direct declaration here would be emitted for the menu
+       root as well. The ground paint + container-surface rule live in the viewport-only
+       direct-paint block at the end of this file. */
 
-    /* Token rebinds for the indicator do NOT live here: the theme declares the very same tokens
+    /* Token rebinds for the indicator do NOT live here either: the theme declares the very same tokens
        on `:root .neo-theme-neo-dark`, and the theme class rides THIS element — an equal-specificity
        tie on one element that load order hands to the theme. The family re-declares them on the
        indicator's nearest ancestors instead (the tab-family block below). */
@@ -272,15 +272,6 @@
         clip-path: inset(var(--fm-space-2) 0);
     }
 
-    /* The FM tonal stack paints only what its token sheets declare. A container inside the shell
-       carries no stock surface of its own: the theme's neutral default was painting every pane's
-       head and rows over the pane's declared tone (the Activity stream's `--fm-rail` with
-       rgb(14,15,13) boxes inside it — read as a box grid, it was a leak). Declared on the
-       container, nearest to itself, so the theme-root declaration cannot tie. */
-    .neo-container {
-        --container-background-color: transparent;
-    }
-
     /* The keeper-view nav shell — the PRIMARY tier: same family voice, quiet rail surface. */
     .agent-shell > .neo-tab-header-toolbar {
         --tab-button-text-color            : var(--fm-ink-dim);
@@ -348,5 +339,26 @@
             line-height: 1.6;
             color      : var(--fm-ink-dim);
         }
+    }
+}
+
+/* The direct-paint owner — deliberately OUTSIDE the shared token group above (RA-1, PR #17544
+   round 1): that comma group exists to carry structural FM tokens to the floating instance menu,
+   and Sass emits every direct declaration in it for the menu root too — the menu's surface is its
+   own `--fm-panel-2` story (InstanceSwitcher.scss). Only the shell viewport paints the ground, and
+   only its containers give up the stock surface. */
+.agent-os-viewport.neo-viewport {
+    /* The shell paints the designed ground itself. The viewport is not a container, and its stock
+       surface is the theme's neutral default — a foreign tone under every FM pane; the token
+       layer owns the ground exactly like it owns the panels on it. */
+    background: var(--fm-ground);
+
+    /* The FM tonal stack paints only what its token sheets declare. A container inside the shell
+       carries no stock surface of its own: the theme's neutral default was painting every pane's
+       head and rows over the pane's declared tone (the Activity stream's `--fm-rail` with
+       rgb(14,15,13) boxes inside it — read as a box grid, it was a leak). Declared on the
+       container, nearest to itself, so the theme-root declaration cannot tie. */
+    .neo-container {
+        --container-background-color: transparent;
     }
 }
