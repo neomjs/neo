@@ -56,6 +56,17 @@
     --dock-splitter-ring-hover       : none;
     --dock-splitter-ring-active      : none;
     --dock-splitter-handle-glow-hover: none;
+
+    // Rail-tab paint. Neutral by design: a consumer skins the affordance by overriding these,
+    // never by re-declaring the rule — the discipline the Body-side dock guide states for every
+    // engine surface. `inherit` rather than a palette value is what keeps the default legible in
+    // a host whose ink the engine cannot know; `transparent` is the resting state because a rail
+    // tab is navigation, not an action, and must not arrive wearing the generic button's slab.
+    --dock-rail-tab-background      : transparent;
+    --dock-rail-tab-background-hover: transparent;
+    --dock-rail-tab-color           : inherit;
+    --dock-rail-tab-color-hover     : inherit;
+    --dock-rail-tab-font-family     : inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -280,9 +291,10 @@
     }
 }
 
-// Scoped to 0,3,0 (tab) and 0,4,0 (label) on purpose: the neo themes pin `.neo-button` to a fixed
-// physical `height: var(--button-height)` (= 48px) and `min-width: var(--cmp-button-height)`
-// (0,2,0), which clamps a vertical rail tab to a 48px hit box (68-99px labels overflow and
+// Scoped to 0,4,0 (tab) and 0,5,0 (label) on purpose: the neo themes pin `.neo-button` to a fixed
+// physical `height: var(--button-height)` (= 48px, at 0,1,0) and to
+// `min-width: var(--cmp-button-height)` through `:root .neo-theme-* .neo-button` — a 0,3,0
+// selector. That floor clamps a vertical rail tab to a 48px hit box (68-99px labels overflow and
 // overlap their neighbors) and defeats the 14px cross-axis stretch on every edge; the generic
 // button margin and padding (0,1,0 source-order tie the rail always lost) shrink or inflate the
 // strip anatomy, and the label span carries its own token'd font-size/line-height — consumer
@@ -291,11 +303,45 @@
 // padding) and fill the strip edge-to-edge on the cross axis — the generic button token contract
 // and the consumer's inherited text metrics do not own this anatomy.
 // Equal-specificity load-order ties are not a contract.
-.neo-dashboard .neo-button.neo-dashboard-dock-rail-tab {
-    height   : auto;
-    margin   : 0;
-    min-width: 0;
-    padding  : 4px 1px;
+// The paint below arrived here from two app stylesheets that had each discovered the same fix
+// independently: stopping the generic `.neo-button` skin from painting a navigation rail as an
+// action. That is engine capability work, not app identity, so it reads tokens for the values
+// that genuinely differ per consumer.
+//
+// The leading `:root` is load-bearing, not decoration. Without it this rule sits at 0,3,0 —
+// exactly tied with the theme's `min-width` floor — and the winner is whichever stylesheet
+// loads last, which Neo emits per source file and does not pin. Both apps had independently
+// found that tie and each carried its own higher-specificity `min-width: 0` to escape it, so
+// promoting the paint here WITHOUT also outranking the theme would have deleted two working
+// escape hatches and handed every consumer the empty-pill regression those rules existed to
+// prevent. `:root` is the theme's own idiom for a baseline layer; the engine states the same
+// thing one level up — dock anatomy outranks the generic button skin for a component the dock
+// owns. `dockRailTabLayering.spec.mjs` compiles this file and fails if the margin is ever lost.
+:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab {
+    background : var(--dock-rail-tab-background);
+    border     : 0;
+    box-shadow : none;
+    color      : var(--dock-rail-tab-color);
+    font-family: var(--dock-rail-tab-font-family);
+    height     : auto;
+    margin     : 0;
+    min-width  : 0;
+    padding    : 4px 1px;
+    transition : background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                 color var(--dock-transition-duration-fast) var(--dock-transition-easing);
+
+    &:hover {
+        background: var(--dock-rail-tab-background-hover);
+        color     : var(--dock-rail-tab-color-hover);
+    }
+
+    // The generic button skin re-colors these descendants through its own token layer, which
+    // resolves anti-theme against a consumer palette — black on a dark rail, white on a light one,
+    // inverted contrast in both. Inheriting pins them to the rail-tab ink above.
+    .neo-button-glyph,
+    .neo-button-text {
+        color: inherit;
+    }
 
     .neo-button-text {
         font-size  : 11px;

@@ -31,34 +31,27 @@
        §04 chrome tier (#17269 cut 2, AC-3): the rotated tabs speak the same chrome voice as the
        keeper rail — the engine owns the 11px/1 metric floor (src/dashboard), the app speaks the
        role on top: mono, tracking, case. One navigation family across both edges. */
+    /* Values, not paint. The structural declarations that used to sit here — transparent ground,
+       no border, no shadow, min-width release, and the glyph/text inherit fix — are engine
+       capability and now live in `src/dashboard/Container.scss` (#17522). Two ties died there,
+       and for different reasons: the app-vs-engine one because setting token VALUES leaves no
+       competing selector, and the engine-vs-theme `min-width` one because the engine rule now
+       carries a leading `:root` and outranks the generic button skin outright. Only the second
+       kept this rail off the empty-pill regression, so it is the one worth remembering.
+       The quiet rail keeps its navigation read — a hover affordance in the same idiom as the bar
+       buttons (panel lift + ink), never a primary slab. */
     .neo-dashboard-dock-rail-tab.neo-button {
-        background: transparent;
-        border    : 0;
-        box-shadow: none;
-        color     : var(--fm-ink-dim);
-        min-width : 0;
-        transition: background var(--fm-motion-fast) var(--ease-out-soft), color var(--fm-motion-fast) var(--ease-out-soft);
+        --dock-rail-tab-background-hover: var(--fm-panel);
+        --dock-rail-tab-color           : var(--fm-ink-dim);
+        --dock-rail-tab-color-hover     : var(--fm-ink);
+        --dock-transition-duration-fast : var(--fm-motion-fast);
 
-        /* voice only — the engine floor (src/dashboard, equal specificity) already owns the
-           11px/1 metrics AT the chrome role's values; re-declaring size here would be a
-           load-order tie, and "equal-specificity load-order ties are not a contract". The
-           full role consumption moves engine-side with #17241's rail-anatomy lift. */
+        /* Voice stays app-side: mono, tracking and case are the FM chrome role, not dock
+           capability. The engine owns the 11px/1 metric floor; this speaks the role on top. */
         .neo-button-text {
             font-family   : var(--fm-font-mono);
             letter-spacing: var(--fm-text-chrome-tracking);
             text-transform: uppercase;
-        }
-
-        /* the quiet rail keeps its navigation read — a hover affordance in the same idiom as the
-           bar buttons (panel lift + ink), never the primary blue slab */
-        &:hover {
-            background: var(--fm-panel);
-            color     : var(--fm-ink);
-        }
-
-        .neo-button-glyph,
-        .neo-button-text {
-            color: inherit;
         }
     }
 
