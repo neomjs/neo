@@ -382,21 +382,21 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
     test('a surviving home node gets the EXACT stored position back — not append order', async () => {
         vessel = installWindowVessel();
 
-        // the south strip ships 'stream' at index 0 AHEAD of three reading-surface
+        // the south strip ships 'stream' at index 0 AHEAD of four reading-surface
         // siblings — the surviving-node pre-state where an append-shaped return cannot hide
-        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['stream', 'memories', 'operator', 'catchUp']);
+        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['stream', 'tasks', 'memories', 'operator', 'catchUp']);
 
         const zone = await tearOutExit('stream');
 
         cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
         expect(cockpit.tearOutPlacements.stream).toEqual({tabsNodeId: 'stream-tabs', index: 0});
-        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['memories', 'operator', 'catchUp']);
+        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['tasks', 'memories', 'operator', 'catchUp']);
 
         cockpit.tearOutPanes.stream = {windowName: `fm-tearout-stream-${cockpit.id}`, windowId: 'tearout-win-5'};
         cockpit.onWindowDisconnect({windowId: 'tearout-win-5'});
         await cockpit.refreshPromise;
 
-        expect(cockpit.dockModel.nodes['stream-tabs'].items, 'identical order, not append order').toEqual(['stream', 'memories', 'operator', 'catchUp'])
+        expect(cockpit.dockModel.nodes['stream-tabs'].items, 'identical order, not append order').toEqual(['stream', 'tasks', 'memories', 'operator', 'catchUp'])
     });
 
     test('the no-home terminal still settles ownership: a closed-out item\'s pane is destroyed, never orphaned', async () => {

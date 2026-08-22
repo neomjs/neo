@@ -37,6 +37,8 @@ export function cockpitDockDocument() {
             // mailbox + compose surface, and the historical Bird-View complement to the
             // bounded Activity stream — resident tabs beside it, never rail-squeezed
             memories    : {componentRef: 'memories',          title: 'Memories',     kind: 'panel'},
+            // the WHAT axis of mission control: running / queued / recent work, beside the WHO grid
+            tasks       : {componentRef: 'tasks',             title: 'Tasks',        kind: 'panel'},
             operator    : {componentRef: 'operator-mailbox',  title: 'Mailbox',      kind: 'panel'},
             catchUp     : {componentRef: 'catch-up',          title: 'Catch up',     kind: 'panel'},
             detail      : {componentRef: 'agent-detail',      title: 'Agent detail', kind: 'inspector', autoHidden: true},
@@ -52,8 +54,8 @@ export function cockpitDockDocument() {
             // SSOT §01: fleet zone (~1.55fr) on top, the reading-surface tabs (1fr) docked at the bottom — vertical split, normalized to sum 1.
             'primary-split': {type: 'split', orientation: 'vertical', children: ['fleet-tabs', 'stream-tabs'], sizes: [0.6078, 0.3922]},
             'fleet-tabs'   : {type: 'tabs', items: ['fleet'], activeItemId: 'fleet'},
-            // the south reading-surface family: Activity active by default; the Tasks surface joins here.
-            'stream-tabs'  : {type: 'tabs', items: ['stream', 'memories', 'operator', 'catchUp'], activeItemId: 'stream'},
+            // the south reading-surface family: Activity active by default, Tasks directly beside it.
+            'stream-tabs'  : {type: 'tabs', items: ['stream', 'tasks', 'memories', 'operator', 'catchUp'], activeItemId: 'stream'},
             // Secondary panes collapse to this edge's rail (§2.7): inspector + invoked tools only; their item records carry `autoHidden`.
             'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives', 'defineAgent', 'wakeRoutes'], activeItemId: 'detail'}
         }

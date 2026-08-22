@@ -14,11 +14,12 @@
  * request cannot reach a non-operation.
  *
  * `getBootIdentity`, `fleetActivity`, `fleetHistory`, `fleetMemories`, `fleetRoster`, `fleetMailboxMirror`,
- * and `fleetWakeRoutes` are **read-observe** verbs — the advisory boot-identity fact, the bounded
+ * `fleetWakeRoutes`, and `fleetTasks` are **read-observe** verbs — the advisory boot-identity fact, the bounded
  * fleet activity snapshot, one viewer-bound catch-up window, one page of an agent's session
  * summaries (the team-visible corpus; the wire carries the canonical target and paging only), the
- * assembled roster cockpit DTO, one agent's mailbox mirror, and the decomposed per-seat wake-route
- * envelope: they carry NO lifecycle-write / restart authority. The
+ * assembled roster cockpit DTO, one agent's mailbox mirror, the decomposed per-seat wake-route
+ * envelope, and the deployment's task picture (running / queued / recent rows reduced server-side
+ * from the existing truth verbs): they carry NO lifecycle-write / restart authority. The
  * R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this
  * client wire — only advisory reads ride it.
  *
@@ -58,7 +59,7 @@ export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
     'getBootIdentity', 'fleetActivity', 'fleetHistory', 'fleetMemories', 'fleetSessionMemories', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
-    'composeOperatorMessage', 'markFleetCaughtUp', 'resolveViewerIdentity', 'fleetWakeRoutes'
+    'composeOperatorMessage', 'markFleetCaughtUp', 'resolveViewerIdentity', 'fleetWakeRoutes', 'fleetTasks'
 ]);
 
 /**

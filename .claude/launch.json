@@ -13,6 +13,12 @@
             "runtimeExecutable": "npm",
             "runtimeArgs": ["run", "cockpit"],
             "port": 8080
+        },
+        {
+            "name": "cockpit-live",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "cockpit:live"],
+            "port": 8080
         }
     ]
 }
