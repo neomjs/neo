@@ -48,6 +48,12 @@ test.describe('AgentOS Demo B — keyboard detach + cycle grammar (Neural Link)'
 
         // the admission machine opened a REAL vessel window
         const popup = await popupPromise;
+        // `domcontentloaded` resolves on the vessel's INITIAL blank document — `windowOpen` creates
+        // the window before the tear-out navigates it — so reading `url()` there returns `''` and the
+        // assertion fails on a vessel that is about to be perfectly correct. Waiting for the URL
+        // asserts the same invariant with the right synchronization: a vessel that never reaches its
+        // popout URL still fails here, loudly, and with the final URL in the message.
+        await popup.waitForURL(/popout/, {timeout: 15000});
         await popup.waitForLoadState('domcontentloaded');
         expect(popup.url()).toContain('popout');
 
