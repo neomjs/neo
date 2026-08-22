@@ -43,11 +43,11 @@
 
 #### The reducer-container pattern (landed, normative — amended 2026-08-22, `#17541`)
 
-The normative host is the engine class **`Neo.dashboard.DockWorkspace`** (`src/dashboard/DockWorkspace.mjs`); `examples/dashboard/dock/MainContainer.mjs` is its minimal consumer, and every docking workspace extends it:
+The normative host is the engine class **`Neo.dashboard.DockWorkspace`** (`src/dashboard/DockWorkspace.mjs`); `examples/dashboard/dock/MainContainer.mjs` is its minimal consumer. New docking workspaces extend it; the three flagship hosts (workstation, dockdemo Demo B, fleet cockpit) still carry the hand-rolled loop and migrate as leaves of epic `#17539` (`#17546` first) — until each lands, its copy is consumer-owned, not normative. The class contract:
 
 - **The workspace container** owns the committed dock-zone document (`dockModel`) and its saved-layout collection. It lives in the App Worker heap.
 - **`applyDockZoneOperation(descriptor)`** is a pure reducer: `DockZoneModel.applyOperation` over the current document. No pointer handler, splitter, or drag surface mutates the document directly.
-- **`onDockZoneDocumentChange(document)`** is the view-sync: it stores the committed document and re-projects it through `DockLayoutAdapter.project()` — one atomic, promise-chained ownership transaction per commit, reconciled by `DockProjectionReconciler` so surviving panes keep their identity.
+- **`onDockZoneDocumentChange(document)`** is the view-sync: it stores the committed document and re-projects it through `DockLayoutAdapter.project()` — one atomic ownership transaction per commit, scheduled off the settled tail of the refresh chain and reconciled by `DockProjectionReconciler` so surviving panes keep their identity. A failed transaction stays observable on its own commit's promise and never suppresses a later one; a configured dock-host reference that resolves to no live host fails loudly.
 
 Interaction surfaces (splitters, drag previews, rail tabs, pin controls) emit **operation descriptors**; the reducer commits them; the view-sync re-projects. This is the only sanctioned mutation path.
 
