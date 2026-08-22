@@ -66,6 +66,12 @@ import {
 } from '../../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import TextEmbeddingService from '../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
 import {snapshotAiConfig}   from '../../../services/memory-core/util.mjs';
+// The CANONICAL template (C3: tests never import the overlay). The joined leaf-wiring witnesses
+// drive `setEnvOverride` here — the provider's own sanctioned env-layer API, capture/restore in
+// finally, never a raw data mutation — and the override reaches the service's reads through the
+// provider hierarchy: reads resolve override-else-inherit, and the overlay carries no delta for
+// these leaves.
+import AiConfig             from '../../../../../../../ai/config.template.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -229,10 +235,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
     test.afterEach(async () => {
         await fs.remove(tmpDir);
-        // Restore the singleton's reactive config to default values so
-        // concurrency tests cannot leak opt-in timeouts / serial-limit to siblings.
-        TenantRepoSyncService.concurrencyLimit         = 2;
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 0;
+        // The concurrency knobs resolve from AiConfig leaves per call since their class-config
+        // retirement — no singleton config state exists to leak between tests; non-default widths
+        // are injected per call.
         TenantRepoSyncService.clearTenantRepoAccessReadiness();
         TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
     });
@@ -3260,7 +3265,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const bothEntered = new Promise(resolve => signalBothEntered = resolve);
 
         MemoryCoreConfig.ollama.maxInFlightEmbeddings = 1;
-        TenantRepoSyncService.concurrencyLimit        = 2;
 
         TextEmbeddingService.ollamaProvider = {
             embed(inputs) {
@@ -3450,8 +3454,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             id           : embeddingConfig.openAiCompatible.embeddingModel,
             contextLength: embeddingConfig.localModels.embedding.contextLimitTokens
         }];
-        TenantRepoSyncService.concurrencyLimit = 2;
-
         ingestionService.ingestSourceFilesForTenantSync = async (payload, controls) => {
             const embeddingPromise = TextEmbeddingService.embedTexts([payload.repoSlug], 'openAiCompatible', {
                 ...controls,
@@ -3882,8 +3884,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             currentSlug      = 'org/current',
             envelopeCalls    = [];
 
-        TenantRepoSyncService.concurrencyLimit = 2;
-
         await fs.writeJson(revisionsFile, {
             revisions: {
                 't1/org/legacy-a': {lastIngestedRev: 'sha-a', lastRunAttemptAt: 0, consecutiveFailures: 0},
@@ -3927,7 +3927,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             revisionsFilePath            : revisionsFile,
             globalCadenceMs              : 0,
             jitterRatio                  : 0,
-            seedBootstrap                : false
+            seedBootstrap                : false,
+            // The cohort width this test's assertions are built around (was a class-config set).
+            concurrencyLimit             : 2
         };
 
         const firstSweep = await TenantRepoSyncService.runTask(options);
@@ -3972,9 +3974,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             legacySlug       = 'org/legacy-starvation',
             mirrorCalls      = [],
             envelopeCalls    = [];
-
-        TenantRepoSyncService.concurrencyLimit         = 1;
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 15;
 
         await fs.writeJson(revisionsFile, {
             revisions: {
@@ -4063,9 +4062,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             legacySlug       = 'org/legacy-slow',
             envelopeCalls    = [];
 
-        TenantRepoSyncService.concurrencyLimit         = 1;
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 15;
-
         await fs.writeJson(revisionsFile, {
             revisions: {
                 [`t1/${currentSlug}`]: {
@@ -4118,7 +4114,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             revisionsFilePath            : revisionsFile,
             globalCadenceMs              : 0,
             jitterRatio                  : 0,
-            seedBootstrap                : false
+            seedBootstrap                : false,
+            concurrencyLimit             : 1,
+            concurrencyGateTimeoutMs     : 15
         });
 
         expect(result).toMatchObject({
@@ -4796,8 +4794,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 vectorService                 : IngestionService.vectorService
             };
 
-        TenantRepoSyncService.concurrencyLimit = 2;
-
         const matchesWhere = (metadata, where) => {
             if (!where) return true;
             if (Array.isArray(where.$and)) {
@@ -5087,8 +5083,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
 
     test('concurrency-gate: concurrencyLimit=1 serializes per-repo work (#11942 AC2)', async () => {
-        TenantRepoSyncService.concurrencyLimit = 1;
-
         const inFlightLog = [];
         let   inFlight    = 0;
 
@@ -5119,7 +5113,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile,
-            seedBootstrap                : false
+            seedBootstrap                : false,
+            concurrencyLimit             : 1
         });
 
         expect(result.status).toBe('completed');
@@ -5130,8 +5125,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     });
 
     test('concurrency-gate: concurrencyLimit=2 caps in-flight work at 2 with 4 repos (#11942 AC2)', async () => {
-        TenantRepoSyncService.concurrencyLimit = 2;
-
         const inFlightLog = [];
         let   inFlight    = 0;
 
@@ -5162,7 +5155,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile,
-            seedBootstrap                : false
+            seedBootstrap                : false,
+            concurrencyLimit             : 2
         });
 
         expect(result.status).toBe('completed');
@@ -5173,36 +5167,216 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(inFlightLog.every(n => n <= 2)).toBe(true);
     });
 
-    test('concurrency-gate: beforeSetConcurrencyLimit rejects invalid values (0/negative/fractional/non-integer) (#11942 AC2)', () => {
-        // Baseline: set to a known valid value.
-        TenantRepoSyncService.concurrencyLimit = 2;
-        expect(TenantRepoSyncService.concurrencyLimit).toBe(2);
+    // The retired class-config hooks substituted invalid values back to the previous valid one.
+    // Both knobs now resolve from AiConfig leaves and are validated at the consumption
+    // boundary, which THROWS: a consumption-site substitute would be a hidden default (the SSOT
+    // ADR's antipattern catalog), leaving an operator believing a mistyped knob took effect.
+    // `undefined` is deliberately NOT in
+    // the invalid lists — an absent argument now means "resolve the leaf", which is the default path
+    // every other test in this file exercises. Pure-function bounds coverage for both asserts lives
+    // in scheduling/tenantRepoSync.concurrencyAsserts.spec.mjs; these arms prove the WIRING.
+    test('concurrency-gate: an invalid concurrencyLimit refuses the sweep before any repo work (#17158)', async () => {
+        for (const invalid of [0, -1, 1.5, NaN, Infinity, '3', null, {}, []]) {
+            let thrown        = null,
+                mirrorTouched = false;
 
-        // Invalid values fall back to the previous valid value (2).
-        for (const invalid of [0, -1, 1.5, NaN, Infinity, '3', null, undefined, {}, []]) {
-            TenantRepoSyncService.concurrencyLimit = invalid;
-            expect(TenantRepoSyncService.concurrencyLimit).toBe(2);
+            try {
+                await TenantRepoSyncService.syncTenantRepos({
+                    taskStateService : createInMemoryTaskStateService(),
+                    leaseGuard       : async () => {},
+                    tenantReposConfig: {tenantRepos: [{
+                        tenantId: 't1', repoSlug: 'org/r1', mirrorRoot, cloneUrl: 'https://github.com/neomjs/r1.git'
+                    }]},
+                    gitMirror                    : {async cloneIfMissing() { mirrorTouched = true }},
+                    envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                    knowledgeBaseIngestionService: makeFakeIngestionService(),
+                    revisionsFilePath            : revisionsFile,
+                    seedBootstrap                : false,
+                    concurrencyLimit             : invalid
+                });
+            } catch (error) { thrown = error }
+
+            expect(thrown?.code, `${JSON.stringify(invalid)} must refuse with the typed code`)
+                .toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT');
+            expect(mirrorTouched, 'the refusal must precede any repo work').toBe(false);
         }
-
-        // Valid integer values are accepted.
-        TenantRepoSyncService.concurrencyLimit = 1;
-        expect(TenantRepoSyncService.concurrencyLimit).toBe(1);
-        TenantRepoSyncService.concurrencyLimit = 10;
-        expect(TenantRepoSyncService.concurrencyLimit).toBe(10);
     });
 
-    test('concurrency-gate: beforeSetConcurrencyGateTimeoutMs defaults to FIFO waiting and accepts an opt-in timeout (#11942 AC2)', () => {
-        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
+    test('concurrency-gate: an invalid concurrencyGateTimeoutMs refuses the sweep with its typed code (#17158)', async () => {
+        for (const invalid of [-1, -100, NaN, Infinity, -Infinity, '5000', null]) {
+            let thrown = null;
 
-        // Invalid values fall back to the previous valid value.
-        for (const invalid of [-1, -100, NaN, Infinity, -Infinity, '5000', null, undefined]) {
-            TenantRepoSyncService.concurrencyGateTimeoutMs = invalid;
-            expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
+            try {
+                await TenantRepoSyncService.syncTenantRepos({
+                    taskStateService             : createInMemoryTaskStateService(),
+                    leaseGuard                   : async () => {},
+                    tenantReposConfig            : {tenantRepos: []},
+                    gitMirror                    : makeFakeGitMirror(),
+                    envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                    knowledgeBaseIngestionService: makeFakeIngestionService(),
+                    revisionsFilePath            : revisionsFile,
+                    seedBootstrap                : false,
+                    concurrencyGateTimeoutMs     : invalid
+                });
+            } catch (error) { thrown = error }
+
+            expect(thrown?.code, `${JSON.stringify(invalid)} must refuse with the typed code`)
+                .toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT');
+        }
+        // `0` stays the valid FIFO-wait sentinel — every default-path sweep in this file runs with
+        // it, and the queued-repos-wait FIFO test below proves what it means at the semaphore.
+    });
+
+    test('concurrency-gate: refreshTenantRepoAccessReadiness validates its own limit before touching the readiness cache (#17158 second-call-site arm)', async () => {
+        let thrown = null;
+
+        try {
+            await TenantRepoSyncService.refreshTenantRepoAccessReadiness({
+                repos           : [{tenantId: 't1', repoSlug: 'org/r1', mirrorRoot, cloneUrl: 'https://github.com/neomjs/r1.git'}],
+                concurrencyLimit: 0
+            });
+        } catch (error) { thrown = error }
+
+        expect(thrown?.code).toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT');
+    });
+
+    test('concurrency-gate: runTask preserves both typed config-refusal codes through the public boundary (#17158 RA-2)', async () => {
+        const baseOptions = () => ({
+            reason           : 'periodic',
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug: 'org/r1', mirrorRoot, cloneUrl: 'https://github.com/neomjs/r1.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        // Without taxonomy membership, runTask's catch wraps these as the unspecific
+        // KB_TENANT_REPO_SYNC_SYNC_FAILED and the operator loses the actionable reason.
+        const limitResult = await TenantRepoSyncService.runTask({...baseOptions(), concurrencyLimit: 0});
+
+        expect(limitResult.status).toBe('failed');
+        expect(limitResult.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT');
+
+        const timeoutResult = await TenantRepoSyncService.runTask({...baseOptions(), concurrencyGateTimeoutMs: -1});
+
+        expect(timeoutResult.status).toBe('failed');
+        expect(timeoutResult.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT');
+    });
+
+    test('concurrency-gate: the resolved concurrencyLimit leaf drives standalone refreshTenantRepoAccessReadiness — no injection (#17158 RA-1)', async () => {
+        const
+            envName       = 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_LIMIT',
+            originalValue = AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit,
+            inFlightLog   = [];
+        let inFlight = 0;
+
+        // `inspectCredentialReadiness` is the instrumented slot the per-repo semaphore wraps;
+        // `probeRemoteAccess` exists only to pass the entry's probe-shape check. Returning null
+        // degrades each repo gracefully AFTER the tracked window — readiness outcomes are
+        // irrelevant here, only concurrency is.
+        const trackingMirror = {
+            async inspectCredentialReadiness() {
+                inFlight++;
+                inFlightLog.push(inFlight);
+                await new Promise(resolve => setTimeout(resolve, 15));
+                inFlight--;
+                return null;
+            },
+            async probeRemoteAccess() { return null; }
+        };
+
+        // `credentialRef` is required: without it `hashTenantRepoAccessConfig` throws and every repo
+        // degrades BEFORE the probe — the semaphore would wrap zero tracked calls.
+        const repos = ['org/r1', 'org/r2', 'org/r3'].map(repoSlug => ({
+            tenantId     : 't1', repoSlug, mirrorRoot,
+            cloneUrl     : `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`,
+            credentialRef: 'env:TENANT_REPO_TOKEN'
+        }));
+
+        try {
+            // The provider's own sanctioned env-layer API (capture/restore in finally — never a raw
+            // data mutation). This witness crosses override → resolved leaf → default parameter →
+            // semaphore with NO explicit concurrency argument anywhere: replacing the use-site
+            // default with a literal turns it red (the reviewer's round-1 mutation falsifier).
+            AiConfig.setEnvOverride(envName, 1);
+
+            await TenantRepoSyncService.refreshTenantRepoAccessReadiness({repos, gitMirror: trackingMirror});
+
+            expect(inFlightLog.length).toBe(3);
+            expect(Math.max(...inFlightLog)).toBe(1);
+        } finally {
+            AiConfig.setEnvOverride(envName, originalValue);
+            TenantRepoSyncService.clearTenantRepoAccessReadiness();
+        }
+    });
+
+    test('concurrency-gate: env-resolved limit + gate timeout drive the sweep — a queued repo times out typed with no injection (#17158 RA-1)', async () => {
+        const
+            limitEnv    = 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_LIMIT',
+            timeoutEnv  = 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT_MS',
+            origLimit   = AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit,
+            origTimeout = AiConfig.data.orchestrator.tenantRepoSync.concurrencyGateTimeoutMs;
+        let releaseFirstRepo;
+        const firstRepoGate  = new Promise(resolve => { releaseFirstRepo = resolve; });
+        let   cloneCallCount = 0;
+
+        const slowMirror = {
+            async cloneIfMissing() {
+                cloneCallCount++;
+                if (cloneCallCount === 1) {
+                    // First repo holds the only slot until the test releases it.
+                    await firstRepoGate;
+                }
+            },
+            async fetch()            {},
+            async resolveHead({ref}) { return `sha-for-${ref}`; },
+            async isAncestor()       { return true; },
+            async diffRevisions()    { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        for (const slug of ['org/slow', 'org/queued']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
         }
 
-        // Positive finite values are accepted.
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 60000;
-        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(60000);
+        try {
+            AiConfig.setEnvOverride(limitEnv, 1);
+            AiConfig.setEnvOverride(timeoutEnv, 50);
+
+            const resultPromise = TenantRepoSyncService.runTask({
+                reason           : 'periodic',
+                taskStateService : createInMemoryTaskStateService(),
+                tenantReposConfig: {tenantRepos: [
+                    {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/slow.git'},
+                    {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://github.com/neomjs/queued.git'}
+                ]},
+                gitMirror                    : slowMirror,
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                seedBootstrap                : false
+            });
+
+            // Wait past the 50ms env-resolved slot timeout, then release the holder.
+            await new Promise(resolve => setTimeout(resolve, 150));
+            releaseFirstRepo();
+            const result = await resultPromise;
+
+            // Both env-resolved values are load-bearing: at the literal defaults (2/0) nothing
+            // queues and nothing times out — the reviewer's mutation falsifier goes red here.
+            const queuedState = result.details.repos.find(r => r.repoSlug === 'org/queued');
+
+            expect(queuedState).toBeDefined();
+            expect(queuedState.status).toBe('degraded');
+            expect(queuedState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT');
+        } finally {
+            releaseFirstRepo?.();
+            AiConfig.setEnvOverride(limitEnv, origLimit);
+            AiConfig.setEnvOverride(timeoutEnv, origTimeout);
+        }
     });
 
     test('jitter+backoff: skips not-due repo with prior recent lastRunAttemptAt (#11942 AC1)', async () => {
@@ -5634,8 +5808,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     });
 
     test('concurrency-gate: queued repos wait for the default FIFO slot instead of acquiring failure backoff (#16780 O3)', async () => {
-        TenantRepoSyncService.concurrencyLimit = 1;
-
         const
             nativeSetTimeout = globalThis.setTimeout,
             ingestOrder      = [];
@@ -5669,6 +5841,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 ]},
                 gitMirror                    : makeFakeGitMirror(),
                 envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                concurrencyLimit             : 1,
                 knowledgeBaseIngestionService: makeFakeIngestionService({
                     summaryFactory: async payload => {
                         ingestOrder.push(payload.repoSlug);
@@ -5728,9 +5901,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     });
 
     test('concurrency-gate: explicit queued slot timeout surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
-        TenantRepoSyncService.concurrencyLimit         = 1;
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
-
         let releaseFirstRepo;
         const firstRepoGate  = new Promise(resolve => { releaseFirstRepo = resolve; });
         let   cloneCallCount = 0;
@@ -5763,7 +5933,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile,
-            seedBootstrap                : false
+            seedBootstrap                : false,
+            concurrencyLimit             : 1,
+            concurrencyGateTimeoutMs     : 50
         });
 
         // Wait long enough for the queued repo's slot acquisition to time out (~50ms).
@@ -7589,7 +7761,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
      * The slice-budget witness, driven through `syncTenantRepos` rather than `syncRepo`.
      *
      * A fixture calling one repo directly proves the branch and not the FAIRNESS, which only exists
-     * as a property of the sweep: four due repos at the live `concurrencyLimit = 2`, where the head
+     * as a property of the sweep: four due repos at the injected `concurrencyLimit = 2`, where the head
      * repo yields on its budget. What must be observable is that repos beyond the first two admitted
      * are ingested IN THE SAME SWEEP — the tail no longer waits for a head repo to complete.
      *
@@ -7699,9 +7871,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         let signalSliceObserved;
         const sliceObserved = new Promise(resolve => { signalSliceObserved = resolve });
 
-        TenantRepoSyncService.concurrencyLimit = 2;
-
         const sliceResult = await TenantRepoSyncService.syncTenantRepos({
+            concurrencyLimit             : 2,
             taskStateService             : createInMemoryTaskStateService(),
             revisionsFilePath            : revisionsFile,
             leaseGuard                   : async () => {},
@@ -7901,8 +8072,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             tailStarted     = new Promise(resolve => { signalTailEntered = resolve }),
             firstVoteOnly   = {cause: YIELD_CAUSE_LEASE, vote: () => ++voteCalls === 1};
 
-        TenantRepoSyncService.concurrencyLimit = 2;
-
         for (const repoSlug of repoSlugs) {
             await provisionMirrorDir({tenantId: 't1', repoSlug});
         }
@@ -7946,7 +8115,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         };
 
         const run = TenantRepoSyncService.runTask({
-            reason       : 'periodic-sweep:60000',
+            reason          : 'periodic-sweep:60000',
+            concurrencyLimit: 2,
             taskStateService,
             healthService: {
                 recordTaskOutcome(taskName, status, details) {
@@ -7984,10 +8154,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             .filter(call => call.op === 'ingestSourceFiles')
             .map(call => call.payload.repoSlug);
 
-        expect(
-            TenantRepoSyncService.concurrencyLimit,
-            'the fixture needs a repo beyond the active cohort'
-        ).toBeLessThan(repoSlugs.length);
+        // 2 = the concurrencyLimit injected into this sweep (the class knob is retired).
+        expect(2, 'the fixture needs a repo beyond the active cohort').toBeLessThan(repoSlugs.length);
 
         expect(tailEnteredBeforeObserverSettled, 'the shared latch must publish before any active sibling releases').toBe(false);
         expect([...ingested].sort()).toEqual(repoSlugs.slice(0, 2).sort());
@@ -8028,9 +8196,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
             }]));
 
-        TenantRepoSyncService.concurrencyLimit         = 1;
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 500;
-
         for (const repoSlug of repoSlugs) {
             await provisionMirrorDir({tenantId: 't1', repoSlug});
         }
@@ -8058,9 +8223,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         };
 
         const result = await TenantRepoSyncService.syncTenantRepos({
-            taskName         : 'tenant-repo-sync',
-            taskStateService : createInMemoryTaskStateService(),
-            leaseGuard       : async () => {},
+            taskName                : 'tenant-repo-sync',
+            concurrencyLimit        : 1,
+            concurrencyGateTimeoutMs: 500,
+            taskStateService        : createInMemoryTaskStateService(),
+            leaseGuard              : async () => {},
             tenantReposConfig: {tenantRepos: repoSlugs.map(repoSlug => ({
                 tenantId: 't1', repoSlug, mirrorRoot,
                 cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
@@ -8109,8 +8276,6 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         let activeEntered = 0,
             releaseActive;
         const activeReady = new Promise(resolve => { releaseActive = resolve });
-
-        TenantRepoSyncService.concurrencyLimit = 3;
 
         for (const repoSlug of repoSlugs) {
             await provisionMirrorDir({tenantId: 't1', repoSlug});
@@ -8162,6 +8327,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             globalCadenceMs              : 0,
             jitterRatio                  : 0,
             seedBootstrap                : false,
+            concurrencyLimit             : 3,
             leaseYieldVoter              : {cause: YIELD_CAUSE_LEASE, vote: () => true}
         });
 

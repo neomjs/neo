@@ -467,6 +467,8 @@
         "orchestrator.tenantRepoMirrorRoot",
         "orchestrator.tenantRepoSync",
         "orchestrator.tenantRepoSync.backoffCapMs",
+        "orchestrator.tenantRepoSync.concurrencyGateTimeoutMs",
+        "orchestrator.tenantRepoSync.concurrencyLimit",
         "orchestrator.tenantRepoSync.jitterRatio",
         "orchestrator.tenantRepoSync.leaseStaleAfterMs",
         "orchestrator.tenantRepoSync.sliceBudgetMs",

@@ -2193,13 +2193,34 @@ class ConfigBase extends ConfigProvider {
                  *
                  * @type {Object}
                  */
+                /**
+                 * Tenant-repo sync scheduling + concurrency knobs. Operators tune via gitignored
+                 * `ai/config.mjs` or the env vars named on each leaf.
+                 *
+                 * - `concurrencyLimit`: cap on simultaneous tenant-repo git/ingest work within one
+                 *   sweep — it sizes the per-sweep semaphore and the legacy-checkpoint revalidation
+                 *   cohort. Default `2` is conservative for multi-tenant cloud deployments. Set `1`
+                 *   to serialize all work when deployment capacity is constrained; set higher when
+                 *   network/CPU headroom permits. Positive integer only: `0` would create a
+                 *   never-acquirable semaphore, so consumption asserts reject it rather than
+                 *   reading it as "unlimited".
+                 * - `concurrencyGateTimeoutMs`: maximum time a per-repo task waits to acquire a
+                 *   concurrency slot before `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT`.
+                 *   Default `0` keeps ordinary work in the FIFO until a slot is released — timing
+                 *   out a waiter cannot bound the sweep while the active holder is still pending,
+                 *   and recording that waiter as failed creates backoff without an attempt. A
+                 *   positive value remains an explicit fail-fast override.
+                 * @type {Object}
+                 */
                 tenantRepoSync: {
-                    backoffCapMs     : leaf(2 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_BACKOFF_CAP_MS', 'number'),
-                    jitterRatio      : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
-                    leaseStaleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS', 'number'),
-                    sliceBudgetMs    : leaf(5 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SLICE_BUDGET_MS', 'number'),
-                    starvedAfterMs   : leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_STARVED_AFTER_MS', 'number'),
-                    sweepCadenceMs   : leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
+                    backoffCapMs            : leaf(2 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_BACKOFF_CAP_MS', 'number'),
+                    concurrencyGateTimeoutMs: leaf(0, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT_MS', 'number'),
+                    concurrencyLimit        : leaf(2, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_LIMIT', 'number'),
+                    jitterRatio             : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
+                    leaseStaleAfterMs       : leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS', 'number'),
+                    sliceBudgetMs           : leaf(5 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SLICE_BUDGET_MS', 'number'),
+                    starvedAfterMs          : leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_STARVED_AFTER_MS', 'number'),
+                    sweepCadenceMs          : leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
                 },
                 /**
                  * Orchestrator-owned MLX inference server config. Operators tune via gitignored

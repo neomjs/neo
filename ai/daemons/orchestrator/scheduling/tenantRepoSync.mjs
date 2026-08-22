@@ -1,4 +1,6 @@
 import {
+    KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT,
+    KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT,
     KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     TenantRepoSyncError
@@ -54,13 +56,14 @@ export function resolveUnknownRepoSelectorFailure({onlyRepoSlugs, knownSlugs = [
 /**
  * @summary Rejects a `tenantRepoSync.sliceBudgetMs` that cannot bound anything.
  *
- * Mirrors the gate shape `beforeSetConcurrencyLimit` uses — positive integer, nothing else — but
- * THROWS where that one substitutes. The asymmetry is deliberate and is about what each value can
- * do when wrong: a bad concurrency limit degrades throughput and the sweep still finishes, while a
- * bad slice budget removes the only bound on how long one repo may hold a slot. Substituting a
- * working number there would leave an operator believing they had tuned fairness while the shipped
- * guarantee was something else, and the symptom — a starved tail — is indistinguishable from the
- * defect this budget exists to remove.
+ * Positive integer, nothing else. Historically this THREW where the concurrency knobs' class-config
+ * hooks substituted a working value — a deliberate asymmetry while those hooks existed, because a
+ * bad slice budget removes the only bound on how long one repo may hold a slot. Since the
+ * concurrency knobs' own move onto AiConfig leaves the asymmetry is gone: all three resolve with no
+ * construction-time hook, and every consumption assert in this family throws, because a
+ * consumption-site substitute is a hidden default (the SSOT ADR's antipattern catalog) — an
+ * operator who mistuned a knob would believe it took effect while the shipped guarantee was
+ * something else.
  *
  * `0` is rejected like any other invalid value rather than read as a disable. A disable sentinel
  * would mean "unlimited slot hold", spelled as though it were an off switch.
@@ -78,6 +81,60 @@ export function assertSliceBudgetMs(value) {
         throw new TenantRepoSyncError(
             KB_TENANT_REPO_SYNC_INVALID_SLICE_BUDGET,
             `tenantRepoSync.sliceBudgetMs must be a positive integer in ms; received ${JSON.stringify(value)}. There is no disable value — express effectively-unbounded as a large number.`,
+            {phase: 'config-validation', received: value}
+        )
+    }
+
+    return value
+}
+
+/**
+ * @summary Rejects a `tenantRepoSync.concurrencyLimit` that cannot admit work correctly.
+ *
+ * Positive integer, nothing else — the same bounds the retired `beforeSetConcurrencyLimit`
+ * class-config hook enforced, relocated here because the value now resolves from an
+ * AiConfig leaf and the consumption site is the only gate every layer passes through: env, operator
+ * overlay, and per-call injection alike. `0` is rejected rather than read as "unlimited" — it would
+ * size a semaphore no acquirer can enter, hanging the sweep on its first repo. Fractional values
+ * produce ambiguous `active < limit` semantics (1.5 admits two slots).
+ *
+ * Lives beside {@link assertSliceBudgetMs} for the same reason it does: a validator that cannot be
+ * exercised without booting the class system is a validator whose own contract goes untested. The
+ * service reads the leaf at its use site and passes the resolved value in.
+ * @param {*} value Resolved `AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit` or an explicit per-call override.
+ * @returns {Number} The validated limit.
+ * @throws {TenantRepoSyncError} `KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT` when not a positive integer.
+ */
+export function assertConcurrencyLimit(value) {
+    if (!Number.isInteger(value) || value < 1) {
+        throw new TenantRepoSyncError(
+            KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT,
+            `tenantRepoSync.concurrencyLimit must be a positive integer; received ${JSON.stringify(value)}. 0 is not "unlimited" — it sizes a semaphore no acquirer can enter. Express effectively-unbounded as a large number.`,
+            {phase: 'config-validation', received: value}
+        )
+    }
+
+    return value
+}
+
+/**
+ * @summary Rejects a `tenantRepoSync.concurrencyGateTimeoutMs` outside `[0, finite)`.
+ *
+ * Unlike its two siblings above, `0` is VALID here — the FIFO-wait sentinel: queued acquirers wait
+ * until a slot is released instead of failing fast. Timing out a waiter cannot bound the sweep
+ * while the active holder is still pending, and recording that waiter as failed creates backoff
+ * without an attempt — so indefinite waiting is the safe default and a positive value is an
+ * explicit fail-fast override. Only negatives and non-finite values are refused; the same bounds
+ * the retired `beforeSetConcurrencyGateTimeoutMs` class-config hook enforced.
+ * @param {*} value Resolved `AiConfig.data.orchestrator.tenantRepoSync.concurrencyGateTimeoutMs` or an explicit per-call override.
+ * @returns {Number} The validated timeout in ms (`0` = wait in FIFO indefinitely).
+ * @throws {TenantRepoSyncError} `KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT` when negative or non-finite.
+ */
+export function assertConcurrencyGateTimeoutMs(value) {
+    if (!Number.isFinite(value) || value < 0) {
+        throw new TenantRepoSyncError(
+            KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT,
+            `tenantRepoSync.concurrencyGateTimeoutMs must be a finite number >= 0 in ms; received ${JSON.stringify(value)}. 0 waits in FIFO indefinitely; a positive value is an explicit fail-fast override.`,
             {phase: 'config-validation', received: value}
         )
     }

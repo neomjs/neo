@@ -39,6 +39,8 @@ import {
     TenantRepoAccessStatus
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
+    assertConcurrencyGateTimeoutMs,
+    assertConcurrencyLimit,
     assertSliceBudgetMs,
     createSliceBudgetPredicate,
     createYieldCauseResolver,
@@ -118,9 +120,9 @@ const
  * acquirers reject with `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` after the
  * configured duration.
  *
- * Lifecycle is bounded to a single `runTask` invocation — a fresh semaphore is
- * created per call from the current reactive `concurrencyLimit` /
- * `concurrencyGateTimeoutMs` config values, so live config edits take effect
+ * Lifecycle is bounded to a single sweep — a fresh semaphore is created per call
+ * from the resolved `tenantRepoSync.concurrencyLimit` / `concurrencyGateTimeoutMs`
+ * AiConfig leaves (or explicit per-call overrides), so a config edit takes effect
  * on the next cycle.
  *
  * @param {Object} options
@@ -860,27 +862,7 @@ class TenantRepoSyncService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Concurrency cap on simultaneous tenant-repo git/ingest work within one
-         * `runTask` invocation. Default `2` is conservative for multi-tenant
-         * cloud deployments. Set to `1` to serialize all work when deployment
-         * capacity is constrained. Set higher when network/CPU headroom permits.
-         * @member {Number} concurrencyLimit_=2
-         * @reactive
-         */
-        concurrencyLimit_: 2,
-        /**
-         * Maximum time a per-repo task waits to acquire a concurrency slot before
-         * surfacing `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT`. Default `0`
-         * keeps ordinary work in the FIFO until a slot is released: timing out a
-         * waiter cannot bound `runTask` while the active holder is still pending,
-         * and recording that waiter as failed creates backoff without an attempt.
-         * A positive value remains an explicit fail-fast override.
-         * @member {Number} concurrencyGateTimeoutMs_=0
-         * @reactive
-         */
-        concurrencyGateTimeoutMs_: 0
+        singleton: true
     }
 
     /**
@@ -921,34 +903,6 @@ class TenantRepoSyncService extends Base {
      * @protected
      */
     embeddingRecoveryClock = Date.now
-
-    /**
-     * Rejects non-positive-integer `concurrencyLimit` values. `0` would create a
-     * never-acquirable semaphore; negatives and fractional values produce ambiguous
-     * `active < limit` semantics (1.5 admits two slots, etc.). Invalid values fall
-     * back to the previous valid value, or the template default if no prior value.
-     *
-     * @param {*} value
-     * @param {Number} oldValue
-     * @returns {Number}
-     */
-    beforeSetConcurrencyLimit(value, oldValue) {
-        if (!Number.isInteger(value) || value < 1) return oldValue ?? 2;
-        return value;
-    }
-
-    /**
-     * Rejects non-finite or negative `concurrencyGateTimeoutMs` values. `0` is a
-     * valid sentinel meaning "no timeout — slots wait indefinitely until release".
-     *
-     * @param {*} value
-     * @param {Number} oldValue
-     * @returns {Number}
-     */
-    beforeSetConcurrencyGateTimeoutMs(value, oldValue) {
-        if (!Number.isFinite(value) || value < 0) return oldValue ?? 0;
-        return value;
-    }
 
     /**
      * @summary Returns a bounded readiness result for one effective repository.
@@ -1203,14 +1157,20 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.gitMirror=GitMirror] GitMirror-compatible primitive.
      * @param {Function} [options.writeLog] Optional orchestrator logger.
      * @param {Number} [options.globalCadenceMs] Global per-repo cadence fallback.
+     * @param {Number} [options.concurrencyLimit] Probe-concurrency cap; defaults to the resolved `tenantRepoSync.concurrencyLimit` leaf.
      * @returns {Promise<void>}
      */
     async refreshTenantRepoAccessReadiness({
         repos = [],
         gitMirror = GitMirror,
         writeLog,
-        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs
+        globalCadenceMs  = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        concurrencyLimit = AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit
     } = {}) {
+        // Validated before the readiness cache is touched: an invalid limit must refuse the whole
+        // refresh, not evict cache entries first and then fail at the semaphore.
+        assertConcurrencyLimit(concurrencyLimit);
+
         const enabledRepos = repos.filter(repo => !isTenantRepoDisabled(repo));
         const activeKeys   = new Set(enabledRepos.map(createTenantRepoAccessKey));
 
@@ -1221,7 +1181,7 @@ class TenantRepoSyncService extends Base {
         }
 
         const semaphore = createConcurrencySemaphore({
-            limit: this.concurrencyLimit
+            limit: concurrencyLimit
         });
 
         await Promise.all(enabledRepos.map(async repo => {
@@ -1475,6 +1435,12 @@ class TenantRepoSyncService extends Base {
         leaseStaleAfterMs = AiConfig.data.orchestrator.tenantRepoSync.leaseStaleAfterMs,
         backoffCapMs      = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
         starvedAfterMs    = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
+        // Deliberately NO leaf-read defaults on these two: `runTask` never consumes them itself,
+        // so it relays only an explicit per-call override (undefined otherwise) and the consuming
+        // method (`syncTenantRepos`) resolves the leaves at its own use site — exactly one SSOT
+        // read per consumption site, no pass-along of a resolved value.
+        concurrencyLimit,
+        concurrencyGateTimeoutMs,
         leaseRenewalIntervalMs,
         seedBootstrap     = true,
         embeddingRecoveryProbe,
@@ -1637,6 +1603,7 @@ class TenantRepoSyncService extends Base {
                 leasePath        : resolvedLeasePath,
                 revisionsFilePath: resolvedRevisionsPath,
                 globalCadenceMs, jitterRatio, backoffCapMs, starvedAfterMs, seedBootstrap,
+                concurrencyLimit, concurrencyGateTimeoutMs,
                 embeddingRecoveryProbe,
                 embeddingRecoveryClock,
                 embeddingRecoveryProbeTimeoutMs,
@@ -1716,6 +1683,8 @@ class TenantRepoSyncService extends Base {
         backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
         sliceBudgetMs      = AiConfig.data.orchestrator.tenantRepoSync.sliceBudgetMs,
         starvedAfterMs     = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
+        concurrencyLimit         = AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit,
+        concurrencyGateTimeoutMs = AiConfig.data.orchestrator.tenantRepoSync.concurrencyGateTimeoutMs,
         healEventLedgerDir = revisionsFilePath ? path.join(path.dirname(revisionsFilePath), 'heal-events') : null,
         seedBootstrap      = true,
         embeddingRecoveryProbe,
@@ -1735,8 +1704,12 @@ class TenantRepoSyncService extends Base {
         // Validated BEFORE any repo is admitted, not at the first yield check. A budget that only
         // fails once a slice is already running would refuse the sweep midway through a repo that
         // had already acquired a slot — the operator sees a partial sweep and a config error at the
-        // same time and has to work out which caused which.
+        // same time and has to work out which caused which. The concurrency pair is gated at the
+        // same boundary for the same reason: these three resolved values jointly shape the sweep,
+        // and a sweep must be refused whole or admitted whole.
         assertSliceBudgetMs(sliceBudgetMs);
+        assertConcurrencyLimit(concurrencyLimit);
+        assertConcurrencyGateTimeoutMs(concurrencyGateTimeoutMs);
 
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({ingestionService: knowledgeBaseIngestionService});
         const allRepos       = resolvedConfig.tenantRepos || [];
@@ -1827,11 +1800,15 @@ class TenantRepoSyncService extends Base {
             return {status: 'skipped', details};
         }
 
+        // Passes the sweep's resolved limit explicitly so one sweep's phases share one concurrency
+        // posture — a per-call override on this method governs the probes too. Standalone callers
+        // of `refreshTenantRepoAccessReadiness` still get its own leaf-read default.
         await this.refreshTenantRepoAccessReadiness({
             repos: allRepos,
             gitMirror,
             writeLog,
-            globalCadenceMs
+            globalCadenceMs,
+            concurrencyLimit
         });
 
         const resolvedRevisionsPath          = revisionsFilePath || this.defaultRevisionsFilePath();
@@ -2149,13 +2126,14 @@ class TenantRepoSyncService extends Base {
             })
         };
 
-        // Per-runTask concurrency gate caps simultaneous git/ingest work.
-        // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
-        // config edits take effect on the next cycle. JS is single-threaded so the shared
-        // mutable counters (`completedCount` / `failedCount`) and `repoStates` array are safe.
+        // Per-sweep concurrency gate caps simultaneous git/ingest work.
+        // Fresh instance per call from the resolved `tenantRepoSync.concurrencyLimit` /
+        // `concurrencyGateTimeoutMs` leaves (or explicit per-call overrides), so a config edit
+        // takes effect on the next cycle. JS is single-threaded so the shared mutable counters
+        // (`completedCount` / `failedCount`) and `repoStates` array are safe.
         const semaphore = createConcurrencySemaphore({
-            limit    : this.concurrencyLimit,
-            timeoutMs: this.concurrencyGateTimeoutMs
+            limit    : concurrencyLimit,
+            timeoutMs: concurrencyGateTimeoutMs
         });
 
         let notDueCount               = 0;
@@ -2228,7 +2206,7 @@ class TenantRepoSyncService extends Base {
                     (a.priorState?.lastRunAttemptAt ?? 0) - (b.priorState?.lastRunAttemptAt ?? 0)
                     || a.repoLabel.localeCompare(b.repoLabel)
                 )
-                .slice(0, this.concurrencyLimit);
+                .slice(0, concurrencyLimit);
 
             for (const {repoLabel} of dueLegacyRepos) {
                 revalidationAdmissionLabels.add(repoLabel);
