@@ -372,4 +372,51 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const structureChanges = deltas.filter(d => ['moveNode', 'insertNode', 'removeNode'].includes(d.action));
         expect(structureChanges.length).toBe(0);
     });
+
+    test('#17536: a cleared pool row stops CLAIMING the record it no longer holds', async () => {
+        // Staged worker VDOM only. Nothing here asserts painted DOM, and this arm must not be
+        // reused as if it did: the clear path stages under `silent: true` and never flushes.
+        const body = grid.body;
+
+        store.filters = [{property: 'id', operator: '<', value: 2}];
+        await grid.timeout(50);
+
+        const cleared = body.items.filter(row => !row.record);
+
+        // Non-vacuity: without this, every assertion below passes on an empty array.
+        expect(cleared.length, 'the filter must actually strand pool slots').toBeGreaterThan(0);
+
+        const stillClaiming = cleared
+            .filter(row => row.vdom?.data?.recordId !== undefined && row.vdom?.data?.recordId !== null)
+            .map(row => ({id: row.id, recordId: row.vdom.data.recordId}));
+
+        expect(stillClaiming, 'a row holding no record must not carry a recordId').toEqual([]);
+
+        // Catches the wrong fix that still satisfies the assertion above: dropping `data` wholesale
+        // erases the pool-slot identity, which survives the record.
+        const lostSlotIdentity = cleared
+            .filter(row => row.vdom?.data?.rowId === undefined)
+            .map(row => row.id);
+
+        expect(lostSlotIdentity, 'a cleared row keeps its pool-slot identity').toEqual([]);
+        expect(cleared.every(row => row.vdom?.data && typeof row.vdom.data === 'object'),
+            'the data object survives; only the record claim is removed').toBe(true);
+    });
+
+    test('#17536: CONTROL — a row that still holds a record keeps claiming it', async () => {
+        // Catches a fix that cleared identity unconditionally: live rows keep the claim.
+        const body = grid.body;
+
+        store.filters = [{property: 'id', operator: '<', value: 2}];
+        await grid.timeout(50);
+
+        const live = body.items.filter(row => row.record);
+
+        expect(live.length, 'two records survive the filter').toBeGreaterThan(0);
+
+        for (const row of live) {
+            expect(row.vdom?.data?.recordId, `live row ${row.id} keeps its identity`)
+                .toBe(body.getRecordId(row.record))
+        }
+    });
 });

@@ -319,6 +319,11 @@ class Row extends Component {
             cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
 
         if (!record) {
+            // Only the record claim goes, never the `data` object: `rowId` identifies the pool
+            // SLOT, which the row still is once its record is gone, and pooled updates need it.
+            // Staged either way — under `silent`, nothing below reaches the browser from here.
+            delete vdom.data?.recordId;
+
             vdom.style = {display: 'none'};
             !silent && me.update();
             return
