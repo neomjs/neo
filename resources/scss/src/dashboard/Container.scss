@@ -18,6 +18,44 @@
     // affordance hover) that must read faster than panel movement. Same governance: call sites
     // read the token, the motion-standards vocabulary owns the value through the indirection.
     --dock-transition-duration-fast: var(--motion-fast, 120ms);
+
+    // ── Splitter affordance floor ────────────────────────────────────────────────────────
+    // The engine's duty here is DISCOVERABILITY; aesthetics are the consumer's. A host that
+    // sets nothing must still get a findable drag target — an invisible splitter is the
+    // reported defect this floor exists to answer, not a neutral starting point.
+    //
+    // Values resolve through `currentColor` on purpose: the engine cannot know a host's
+    // palette, and a literal grey would be a guess that reads wrong on half of them. Mixing
+    // against inherited ink gives a modest band on any ground.
+    //
+    // What is deliberately NOT here: the pill ring and the outer glow. Those are consumer
+    // SIGNAL language — they were born reading an app's accent token — so they ship as
+    // `none` and an app re-adds them by value. Putting them in the floor would push one
+    // app's identity onto every other consumer, which is this promotion's own defect
+    // pointed the other way.
+    --dock-splitter-background       : color-mix(in srgb, currentColor 9%, transparent);
+    --dock-splitter-background-hover : color-mix(in srgb, currentColor 16%, transparent);
+    --dock-splitter-background-active: color-mix(in srgb, currentColor 26%, transparent);
+    --dock-splitter-radius           : 999px;
+
+    // The grab handle. `size` is the long axis, `thickness` the short one; the axis classes
+    // map them so one pair of tokens serves both orientations. A consumer opts OUT of the
+    // handle with `--dock-splitter-handle-size: 0` — an explicit design statement that greps,
+    // rather than an absence that reads as an oversight.
+    --dock-splitter-handle-size      : 36px;
+    --dock-splitter-handle-thickness : 2px;
+    --dock-splitter-handle-color     : color-mix(in srgb, currentColor 45%, transparent);
+    --dock-splitter-handle-color-hover: currentColor;
+    // Dragging must never read as LESS engaged than hovering, so the floor inherits the hover
+    // value rather than re-deriving one. An app that sets only the hover colour still gets a
+    // coherent active state; one with its own accent overrides this slot alone.
+    --dock-splitter-handle-color-active: var(--dock-splitter-handle-color-hover);
+
+    // Identity slots, empty by default. An app fills them; the engine never does.
+    --dock-splitter-ring             : none;
+    --dock-splitter-ring-hover       : none;
+    --dock-splitter-ring-active      : none;
+    --dock-splitter-handle-glow-hover: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -111,10 +149,21 @@
 }
 
 .neo-dashboard-dock-splitter {
-    flex-shrink: 0;
-    position     : relative;
-    touch-action : none;
-    z-index      : 2;
+    // Structure, then the affordance floor. Declarations stay ABOVE the nested rules: Sass
+    // emits trailing declarations as a second same-selector block, which is valid, invisible
+    // in behaviour and confusing to read in the built output.
+    flex-shrink     : 0;
+    position        : relative;
+    touch-action    : none;
+    z-index         : 2;
+
+    // Every value reads a token, so a consumer skins by overriding and never by re-declaring —
+    // and a consumer that overrides nothing still gets something it can see and aim at.
+    background-color: var(--dock-splitter-background);
+    border-radius   : var(--dock-splitter-radius);
+    box-shadow      : var(--dock-splitter-ring);
+    transition      : background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                      box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
 
     // The visible handle stays `size`-thin while its hit target expands past the rail:
     // a near-handle miss used to fall through into a text-selection sweep across the
@@ -132,6 +181,59 @@
 
     &.neo-dashboard-dock-splitter-vertical::before {
         margin: -4px 0;
+    }
+
+
+    // The grab handle: a centred bar on the long axis. Sized entirely from tokens so
+    // `--dock-splitter-handle-size: 0` collapses it without the consumer touching this rule.
+    &::after {
+        background   : var(--dock-splitter-handle-color);
+        border-radius: var(--dock-splitter-radius);
+        content      : '';
+        left         : 50%;
+        position     : absolute;
+        top          : 50%;
+        transform    : translate(-50%, -50%);
+        transition   : background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                       box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+    }
+
+    &.neo-dashboard-dock-splitter-horizontal::after {
+        height: var(--dock-splitter-handle-size);
+        width : var(--dock-splitter-handle-thickness);
+    }
+
+    &.neo-dashboard-dock-splitter-vertical::after {
+        height: var(--dock-splitter-handle-thickness);
+        width : var(--dock-splitter-handle-size);
+    }
+
+    &:hover {
+        background-color: var(--dock-splitter-background-hover);
+        box-shadow      : var(--dock-splitter-ring-hover);
+
+        &::after {
+            background: var(--dock-splitter-handle-color-hover);
+            box-shadow: var(--dock-splitter-handle-glow-hover);
+        }
+    }
+
+    // No `!important` here, and that is deliberate. The workstation layer carried
+    // `opacity: 1 !important` on this state, which means a competing rule was being fought
+    // rather than resolved. The engine owns this selector at its own specificity, so the
+    // conflict does not exist at this layer — carrying the escape hatch across would have
+    // laundered a specificity defect into the engine under a no-visual-change banner.
+    &:active {
+        background-color: var(--dock-splitter-background-active);
+        box-shadow      : var(--dock-splitter-ring-active);
+
+        // The handle takes the active slot HERE, in the engine. Without this rule the token has no
+        // consumer, and an app that wants a distinct drag colour has nowhere to put it except a
+        // direct `&:active::after { background: … }` in its own stylesheet — which is exactly the
+        // app-layer paint this promotion exists to end.
+        &::after {
+            background: var(--dock-splitter-handle-color-active);
+        }
     }
 }
 
