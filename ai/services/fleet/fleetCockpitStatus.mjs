@@ -287,7 +287,7 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
  * @param {Object} event
  * @returns {Object}
  */
-export function createFleetCockpitEvent({type, source, agentId = null, confidence = 'observed', payload = null, occurredAt = null} = {}) {
+export function createFleetCockpitEvent({eventId = null, type, source, agentId = null, confidence = 'observed', payload = null, occurredAt = null} = {}) {
     if (!FLEET_COCKPIT_EVENT_TYPES.includes(type)) {
         throw new Error(`createFleetCockpitEvent: unsupported event type '${type}'`)
     }
@@ -296,6 +296,7 @@ export function createFleetCockpitEvent({type, source, agentId = null, confidenc
     }
 
     return {
+        eventId,
         type,
         source,
         agentId,
@@ -303,6 +304,26 @@ export function createFleetCockpitEvent({type, source, agentId = null, confidenc
         occurredAt,
         payload: sanitizePayload(payload)
     }
+}
+
+/**
+ * @summary Builds the producer-owned identity used by the Fleet activity Store.
+ *
+ * The source prefix is load-bearing: PR 7 and issue 7 are different durable facts, and a view
+ * that keys both as `7` silently aliases them. Producers pass their own native identity here;
+ * an absent identity returns `null` so the adapter can omit the event instead of letting the
+ * consumer invent a presentation-derived key.
+ * @param {String} source Stable producer namespace.
+ * @param {String|Number|null} nativeId Stable identity inside that producer.
+ * @returns {String|null}
+ */
+export function createFleetCockpitEventId(source, nativeId) {
+    const sourceKey = typeof source === 'string' ? source.trim() : '',
+          identity  = typeof nativeId === 'string' || typeof nativeId === 'number'
+              ? String(nativeId).trim()
+              : '';
+
+    return sourceKey && identity ? `${sourceKey}:${identity}` : null
 }
 
 /**

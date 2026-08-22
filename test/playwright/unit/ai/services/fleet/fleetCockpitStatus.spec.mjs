@@ -19,6 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs'
 
 import {
     createFleetCockpitEvent,
+    createFleetCockpitEventId,
     createFleetCockpitStatus,
     FLEET_COCKPIT_EVENT_TYPES,
     FLEET_COCKPIT_SOURCES
@@ -338,6 +339,14 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
 
         expect(events.map(event => event.type)).toEqual([...FLEET_COCKPIT_EVENT_TYPES])
     })
+
+    test('source-qualifies event identity so same-number PR and issue facts never alias', () => {
+        expect(createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.githubPr, 17575))
+            .toBe(`${FLEET_COCKPIT_SOURCES.githubPr}:17575`);
+        expect(createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.githubIssue, 17575))
+            .toBe(`${FLEET_COCKPIT_SOURCES.githubIssue}:17575`);
+        expect(createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.githubPr, null)).toBeNull()
+    });
 
     test('rejects source-less or unsupported events', () => {
         expect(() => createFleetCockpitEvent({type: 'lifecycle-request'})).toThrow('source is required')

@@ -144,6 +144,7 @@ async function readSlot(read, slot, params, capturedAt) {
     // the prefix it adds itself. The two return paths of one function disagreed about the contract.
     const degraded = reason => ({
         capability: {source: FLEET_COCKPIT_SOURCES.activity, state: 'degraded', confidence: 'none', capturedAt, slot, reason: redactReason(reason)},
+        counts    : [],
         events    : []
     });
 
@@ -163,6 +164,7 @@ async function readSlot(read, slot, params, capturedAt) {
         // The slot owns the attribution: an adapter's own `source` is its claim about itself, and a
         // composite reason built from it lets a broken contributor name a healthy slot.
         capability: {...snapshot.capability, slot},
+        counts    : Array.isArray(snapshot.counts) ? snapshot.counts : [],
         events    : Array.isArray(snapshot.events) ? snapshot.events : []
     }
 }
@@ -176,10 +178,61 @@ async function readSlot(read, slot, params, capturedAt) {
  * @private
  */
 function boundEvents(events, limit) {
+    const seen = new Set();
+
     return events
-        .filter(Boolean)
+        // Stable identity is an ingress contract, not something the view may synthesize. Missing
+        // ids are omitted; repeated ids name one producer fact and collapse newest-first.
+        .filter(event => typeof event?.eventId === 'string' && event.eventId.trim())
         .sort((left, right) => String(right?.occurredAt ?? '').localeCompare(String(left?.occurredAt ?? '')))
+        .filter(event => {
+            if (seen.has(event.eventId)) {
+                return false
+            }
+
+            seen.add(event.eventId);
+            return true
+        })
         .slice(0, limit)
+}
+
+/**
+ * @summary Keeps only source-qualified count rows whose producer proves completeness.
+ *
+ * The composer does not aggregate across slots: a complete mailbox total beside an uncounted
+ * PR/lane corpus is a complete mailbox total, never a fleet total. Duplicate source/scope rows
+ * collapse to the newest capture.
+ * @param {Object[]} contributions Slot snapshots.
+ * @returns {Object[]}
+ * @private
+ */
+function composeCounts(contributions) {
+    const rows = new Map();
+
+    contributions.flatMap(contribution => contribution.counts || []).forEach(row => {
+        const valid = typeof row?.source === 'string' && row.source
+            && (row.scope === 'last24h' || row.scope === 'total')
+            && row.complete === true
+            && Number.isInteger(row.value) && row.value >= 0
+            && !Number.isNaN(Date.parse(row.capturedAt));
+
+        if (!valid) {
+            return
+        }
+
+        const key      = `${row.source}:${row.scope}`,
+              previous = rows.get(key);
+
+        if (!previous || Date.parse(row.capturedAt) >= Date.parse(previous.capturedAt)) {
+            rows.set(key, {...row})
+        }
+    });
+
+    return [...rows.values()].sort((left, right) => {
+        const sourceOrder = left.source.localeCompare(right.source);
+
+        return sourceOrder || (left.scope === 'last24h' ? -1 : 1)
+    })
 }
 
 /**
@@ -285,6 +338,7 @@ export function createFleetActivityReadSource({readA2ASnapshot, readPrLaneSnapsh
 
             return {
                 capability: composeCapability(contributions.map(contribution => contribution.capability), capturedAt),
+                counts    : composeCounts(contributions),
                 events    : boundEvents(contributions.flatMap(contribution => contribution.events), bound)
             }
         }

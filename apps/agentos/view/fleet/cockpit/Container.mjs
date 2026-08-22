@@ -14,6 +14,7 @@ import DockService                              from '../../../../../src/ai/clie
 import DockZoneModel                            from '../../../../../src/dashboard/DockZoneModel.mjs';
 import FleetCockpitController                   from './Controller.mjs';
 import FleetGrid                                from '../roster/Container.mjs';
+import FleetActivityEvents                      from '../../../store/FleetActivityEvents.mjs';
 import FleetRoster                              from '../../../store/FleetRoster.mjs';
 import MemoriesPane                             from '../memories/Container.mjs';
 import OperatorMailbox                          from '../mailbox/OperatorContainer.mjs';
@@ -130,12 +131,12 @@ function boundedRead(read, timeout, onWireSettled) {
  * @type {Object[]}
  */
 const FIXTURE_ACTIVITY = [
-    {type: 'lane-activity',   agentId: 'neo-fable-clio',occurredAt: '2026-07-05T07:15:00.000Z', payload: {text: 'Clio → CrossWindowDragTarget docking, awaiting cross-family'}},
-    {type: 'a2a-activity',    agentId: 'neo-opus-ada',  occurredAt: '2026-07-05T08:30:00.000Z', payload: {text: 'Ada → control-plane restart actuator merged'}},
-    {type: 'pr-activity',     agentId: 'neo-opus-vega', occurredAt: '2026-07-05T09:40:00.000Z', payload: {text: 'Vega merged — FM fleet grid + health bar'}},
-    {type: 'pr-activity',     agentId: 'neo-gpt',       occurredAt: '2026-07-05T10:11:00.000Z', payload: {text: 'Euclid opened a PR — roadmap cornerstone-4 hygiene'}},
-    {type: 'review-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:26:00.000Z', payload: {text: 'Vega → APPROVED — transaction archive Architectural Pillar'}},
-    {type: 'a2a-activity',    agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:52:00.000Z', payload: {text: 'Vega → AGENT:* [lane-claim] harness-UI shell + nav'}}
+    {eventId: 'fixture:lane-activity:1',   type: 'lane-activity',   agentId: 'neo-fable-clio',occurredAt: '2026-07-05T07:15:00.000Z', payload: {text: 'Clio → CrossWindowDragTarget docking, awaiting cross-family'}},
+    {eventId: 'fixture:a2a-activity:1',    type: 'a2a-activity',    agentId: 'neo-opus-ada',  occurredAt: '2026-07-05T08:30:00.000Z', payload: {text: 'Ada → control-plane restart actuator merged'}},
+    {eventId: 'fixture:pr-activity:1',     type: 'pr-activity',     agentId: 'neo-opus-vega', occurredAt: '2026-07-05T09:40:00.000Z', payload: {text: 'Vega merged — FM fleet grid + health bar'}},
+    {eventId: 'fixture:pr-activity:2',     type: 'pr-activity',     agentId: 'neo-gpt',       occurredAt: '2026-07-05T10:11:00.000Z', payload: {text: 'Euclid opened a PR — roadmap cornerstone-4 hygiene'}},
+    {eventId: 'fixture:review-activity:1', type: 'review-activity', agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:26:00.000Z', payload: {text: 'Vega → APPROVED — transaction archive Architectural Pillar'}},
+    {eventId: 'fixture:a2a-activity:2',    type: 'a2a-activity',    agentId: 'neo-opus-vega', occurredAt: '2026-07-05T10:52:00.000Z', payload: {text: 'Vega → AGENT:* [lane-claim] harness-UI shell + nav'}}
 ];
 
 /**
@@ -157,8 +158,8 @@ const FIXTURE_ACTIVITY = [
  *
  * Reconciliation retains existing pane and tab-chrome identities. Runtime pane state still lives
  * on THIS owner, never only on instances: {@link #resolveDockComponentRef} materializes genuinely
- * absent panes from held state ({@link #gridAdapterState} / {@link #streamAdapterState} /
- * {@link #streamEvents}), and the panes stay layout-blind per the docking design's pane contract —
+ * absent panes from held state ({@link #gridAdapterState} / {@link #streamAdapterState}) and the
+ * provider-owned activity Store, and the panes stay layout-blind per the docking design's pane contract —
  * ordinary configs only, no dock wiring reaches them.
  *
  * The roster data layer is ONE {@link AgentOS.store.FleetRoster} Store of
@@ -256,9 +257,14 @@ class FleetCockpit extends Container {
                 viewerWake: {
                     stream : {alive: 'unknown', reason: 'wake stream not started', capturedAt: null},
                     catchUp: {state: null, at: null, pending: null}
-                }
+                },
+                activityCounts: []
             },
             stores: {
+                fleetActivityEvents: {
+                    data  : FIXTURE_ACTIVITY,
+                    module: FleetActivityEvents
+                },
                 fleetRoster: {
                     autoLoad: true,
                     module  : FleetRoster
@@ -537,12 +543,13 @@ class FleetCockpit extends Container {
      */
     streamAdapterState = 'sample'
     /**
-     * The stream's held event list (chronological). Starts as the honestly-labelled fixture;
-     * {@link #loadActivity} replaces it with the live feed — absent-item materialization reads it back.
-     * @member {Object[]} streamEvents=FIXTURE_ACTIVITY
+     * Whether the provider Store has admitted its first authoritative live page. Before this edge,
+     * that first page atomically replaces the honestly-labelled sample; later bounded pages append/
+     * reconcile without treating omission as deletion.
+     * @member {Boolean} activityWired=false
      * @protected
      */
-    streamEvents = FIXTURE_ACTIVITY
+    activityWired = false
     /**
      * The drill-in inspector's selected resident — OWNER-held so a genuinely absent
      * {@link AgentOS.view.fleet.detail.Container} pane materializes at the current selection (`null` =
@@ -1354,6 +1361,18 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the provider-hosted activity Store independently of the projected pane.
+     * @returns {AgentOS.store.FleetActivityEvents|null}
+     */
+    resolveFleetActivityEventsStore() {
+        try {
+            return this.getStateProvider()?.getStore('fleetActivityEvents') ?? null
+        } catch {
+            return null
+        }
+    }
+
+    /**
      * @summary Resolves a dock item's `componentRef` to its pane config — the cockpit's keeper
      * surfaces for the live refs, honest placeholders for panes whose views are sibling leaves.
      *
@@ -1417,8 +1436,11 @@ class FleetCockpit extends Container {
                     module        : ActivityStream,
                     adapterState  : me.streamAdapterState,
                     actorDirectory: me.buildActivityActorDirectory(),
+                    bind          : {
+                        counts: 'activityCounts',
+                        store : 'stores.fleetActivityEvents'
+                    },
                     cls           : [marker],
-                    events        : me.streamEvents,
                     reference     : 'activity-stream'
                 };
             case 'agent-detail':
@@ -2603,12 +2625,13 @@ class FleetCockpit extends Container {
      * - `degraded` → the **stale** banner.
      * - not-wired / absent bridge / a thrown source → leave the representative **sample** in place
      *   (honestly labelled by the stream header); fail closed rather than blanking the surface.
-     * The routed state also lands on the OWNER ({@link #streamAdapterState} / {@link #streamEvents})
-     * so a pane returning from true absence materializes at current truth.
+     * The routed state also lands on the OWNER and its provider Store, so a pane returning from
+     * true absence materializes at current truth.
      * @protected
      */
     async loadActivity() {
         let me     = this,
+            store  = me.resolveFleetActivityEventsStore(),
             stream = me.getReference('activity-stream'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
@@ -2617,7 +2640,7 @@ class FleetCockpit extends Container {
         // and an in-flight read from when it was present still lands and writes.
         const generation = ++me.streamReadGeneration;
 
-        if (!stream || typeof bridge?.fleetActivity !== 'function') {
+        if (!store || typeof bridge?.fleetActivity !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so. Same retraction
             // duty as the roster twin's absence exit: a never-wired surface's retained
             // producer-answered cause ("activity source not wired") must not outlive the bridge
@@ -2639,7 +2662,7 @@ class FleetCockpit extends Container {
             // never comes back. Two sync throws consume the cap and suppress this surface forever —
             // the leak, rebuilt inside the fix for the leak. Invoking INSIDE the chain turns a sync
             // throw into a rejection of the tracked promise, so the reject path owns the release.
-            const {capability, events} = await boundedRead(
+            const {capability, counts, events} = await boundedRead(
                 Promise.resolve().then(() => bridge.fleetActivity()),
                 me.livenessReadTimeout,
                 () => { me.streamReadInFlight-- }
@@ -2656,12 +2679,14 @@ class FleetCockpit extends Container {
 
             if (capability?.state === 'wired') {
                 me.streamAdapterState = 'live';
-                me.streamEvents       = Array.isArray(events) ? events.slice().reverse() : [];
-                stream.set({adapterState: me.streamAdapterState, events: me.streamEvents});
+                store.ingestSnapshot(Array.isArray(events) ? events : [], {replace: !me.activityWired});
+                me.activityWired = true;
+                me.getStateProvider()?.setData('activityCounts', Array.isArray(counts) ? counts : []);
+                stream && (stream.adapterState = me.streamAdapterState);
                 me.clearDegradedReason('stream')
             } else if (capability?.state === 'degraded') {
                 me.streamAdapterState = 'stale';
-                stream.adapterState   = 'stale';
+                stream && (stream.adapterState = 'stale');
                 // the adapter's OWN reason outranks a guess — it saw the failure, we only saw the answer
                 me.streamDegradedReason = toSafeDegradedReason(capability.reason)
             } else if (capability) {
