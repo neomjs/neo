@@ -7,13 +7,20 @@ import RowModel from '../selection/grid/RowModel.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
 /**
- * The update depth that just reaches a Row from the Body.
+ * Body's distance to a Row, plus the Row's own depth base — the first two terms of the repaint envelope
+ * {@link Neo.util.vdom.TreeBuilder#getComponentDepth} documents for ancestor callers:
+ * `distanceToComponent + getComponentDepth(component)`.
  *
- * `hasUpdateCollision` is strict — `distance < updateDepth` — so a depth of D reaches distances 1…D-1, and
- * the depth that just includes a direct child is 2. A Row IS Body's direct child (`createRowPool` builds
- * `items` with `module: Row`), so 2 is the landmark here. `grid.View` names the same quantity `ROW_DISTANCE`
- * and measures 3, because it sits one level higher (View → Body → Row); neither number is ported from the
- * other, both derive from their own owner's distance to the row.
+ * A Row is Body's DIRECT child (`createRowPool` builds `items` with `module: Row`), so `distanceToComponent`
+ * is 1, and `getComponentDepth(row)` is `1 + maxCellDepth` — the row itself, plus its deepest cell chain.
+ * That makes the full envelope `2 + maxCellDepth`, and this constant is its record-independent half. The
+ * column-derived `maxCellDepth` stands in for the live `getComponentDepth` call because this is evaluated on
+ * every scroll frame while a pooled Row may not even hold a record yet.
+ *
+ * `grid.View` resolves the same contract to 3 from one level higher (View → Body → Row). Neither number is
+ * ported from the other; both are that formula read from their own owner's distance. A literal here would be
+ * the exact failure TreeBuilder warns about — "a snapshot of whatever nesting happened to ship" — which is
+ * what `View` carried as a bare `3` before it derived the value, leaving nested cells unreachable.
  * @type {Number}
  */
 const ROW_REACH = 2;
