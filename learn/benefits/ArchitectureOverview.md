@@ -433,6 +433,7 @@ complete organism where the codebase and the agent co-evolve.
 | `src/core/` | Class system, Observable, Logger | `Base`, `Observable` | — |
 | `src/component/` | UI primitives | `Base`, `Wrapper` | — |
 | `src/container/` | Layout containers | `Base`, `Viewport` | — |
+| `src/list/` | Store-bound semantic lists, including fixed-height buffered component pools | `Base`, `Component`, `Buffered` | — |
 | `src/grid/` | Buffered data grids | `Container`, `View` | — |
 | `src/data/` | Data layer | `Store`, `Model`, `RecordFactory` | — |
 | `src/state/` | State management | `Provider` | — |

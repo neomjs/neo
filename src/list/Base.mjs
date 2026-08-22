@@ -466,16 +466,19 @@ class List extends Component {
     /**
      * Override this method for custom list items
      * @param {Object} record
-     * @param {Number} index
+     * @param {Number} index Logical index in the bound store.
+     * @param {Number} [poolIndex=index] Physical render-slot index. Ordinary lists keep this equal
+     * to `index`; buffered list subclasses pass a bounded slot so component instances can recycle
+     * without confusing their physical identity with the record's logical position.
      * @returns {Object} The list item vdom object
      */
-    createItem(record, index) {
+    createItem(record, index, poolIndex=index) {
         let me               = this,
             cls              = [me.itemCls],
             hasItemHeight    = me.itemHeight !== null,
             hasItemWidth     = me.itemWidth !== null,
             isHeader         = me.useHeaders && record.isHeader,
-            itemContent      = me.createItemContent(record, index),
+            itemContent      = me.createItemContent(record, index, poolIndex),
             itemId           = me.getItemId(me.getRecordId(record)),
             {selectionModel} = me,
             isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
@@ -496,9 +499,9 @@ class List extends Component {
         }
 
         item = {
-            id  : itemId,
-            tag : isHeader ? 'dt' : me.itemTagName,
-            'aria-selected' : isSelected,
+            id             : itemId,
+            tag            : isHeader ? 'dt' : me.itemTagName,
+            'aria-selected': isSelected,
             cls
         };
 
@@ -573,10 +576,11 @@ class List extends Component {
     /**
      * Override this method for custom renderers
      * @param {Object} record
-     * @param {Number} index
+     * @param {Number} index Logical index in the bound store.
+     * @param {Number} [poolIndex=index] Physical render-slot index for buffered subclasses.
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
-    createItemContent(record, index) {
+    createItemContent(record, index, poolIndex=index) {
         let me       = this,
             itemText = record[me.displayField],
             filter;
