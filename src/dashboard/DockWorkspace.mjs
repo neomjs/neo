@@ -47,10 +47,15 @@ import {previewToOperation}     from './dockPreviewContract.mjs';
  * renderer, drop indicators) beside the projected shell. {@link #dockShellIndex} names the shell's
  * index inside that host, so app chrome may precede it.
  *
- * Theme scope: the projected tree carries the `.neo-dashboard` scope class, and the dock motion and
- * token contract lives in the `Neo.dashboard.Container` theme file, which this class declares as an
- * additional theme dependency. A subclass that declares its own `additionalThemeFiles` replaces the
- * list and must keep that entry.
+ * Theme scope — two classes, two jobs: the projected tree carries `.neo-dashboard` on every zone
+ * (the adapter stamps it), and that projected class is the DEFAULT CARRIER — the engine re-declares
+ * its `--dock-*` defaults there so the affordance floor reaches a projected zone in a host that has
+ * adopted nothing; a value set on an outer scope is shadowed by the nested projected one. This
+ * class's own `neo-dock-workspace` baseCls appears exactly once per workspace and is the OVERRIDE
+ * ANCHOR a consumer's token values scope to. The defaults never move onto the root. The dock motion
+ * and token contract lives in the `Neo.dashboard.Container` theme file, which this class declares
+ * as an additional theme dependency; a subclass that declares its own `additionalThemeFiles`
+ * replaces the list and must keep that entry.
  *
  * @class Neo.dashboard.DockWorkspace
  * @extends Neo.container.Base
