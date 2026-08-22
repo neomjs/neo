@@ -39,9 +39,9 @@ test.describe('AgentOS operator compose — removable recipients + priority radi
 
         // inject named recipients through the worker — the roster seam, not the contract under test
         const
-            app     = await neuralLink.connectToApp('AgentOS'),
-            forms   = await app.findInstances({className: 'AgentOS.view.fleet.OperatorComposeForm'}, ['id']),
-            formId  = (Array.isArray(forms) ? forms[0] : forms)?.id;
+            app    = await neuralLink.connectToApp('AgentOS'),
+            forms  = await app.findInstances({className: 'AgentOS.view.fleet.mailbox.ComposeForm'}, ['id']),
+            formId = (Array.isArray(forms) ? forms[0] : forms)?.id;
 
         expect(formId, 'the compose form must exist in the App Worker').toBeTruthy();
 

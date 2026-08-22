@@ -17,8 +17,8 @@ import path                                                      from 'path';
  * accepted-definition composition handoff, and Neural Link inspection of the deliberately separate
  * AgentDefinitions + FleetRoster stores; this is behavioral evidence rather than a screenshot generator.
  *
- * @see apps/agentos/view/Accounts.mjs
- * @see apps/agentos/view/fleet/AgentConfigCard.mjs
+ * @see apps/agentos/view/AccountsPanel.mjs
+ * @see apps/agentos/view/fleet/detail/AgentConfigComponent.mjs
  */
 test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
     test.setTimeout(120000);
@@ -62,7 +62,7 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
             // The pane constructed at shell boot, so its cold-hydrate raced the fail-closed bridge;
             // re-run the idempotent hydrate now that the injector flipped the bridge live.
             const appHandle  = await neuralLink.connectToApp('AgentOS');
-            const [accounts] = await appHandle.queryComponent({className: 'AgentOS.view.Accounts'}, ['id']);
+            const [accounts] = await appHandle.queryComponent({className: 'AgentOS.view.AccountsPanel'}, ['id']);
 
             await appHandle.callMethod(accounts.properties.id, 'loadAgentDefinitions');
 
@@ -146,7 +146,7 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
                 configRow       = definitions.items.find(item => item.id === agentId),
                 definitionRow   = definitions.items.find(item => item.id === createdAgentId),
                 rosterRow       = roster.items.find(item => item.agentId === createdAgentId),
-                cards           = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+                cards           = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']),
                 card            = cards.find(candidate => candidate.properties?.record?.agentId === createdAgentId);
 
             expect(configRow.mcpServers).toEqual({'memory-core': false});
@@ -177,7 +177,7 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
             await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
             await expect(page.locator('.agent-panel-accounts')).toBeVisible({timeout: 30000});
 
-            const [accountsReloaded] = await appReloaded.queryComponent({className: 'AgentOS.view.Accounts'}, ['id']);
+            const [accountsReloaded] = await appReloaded.queryComponent({className: 'AgentOS.view.AccountsPanel'}, ['id']);
 
             await appReloaded.callMethod(accountsReloaded.properties.id, 'loadAgentDefinitions');
             await expect(page.locator('.agent-selector-button').filter({hasText: agentId})).toHaveCount(1);

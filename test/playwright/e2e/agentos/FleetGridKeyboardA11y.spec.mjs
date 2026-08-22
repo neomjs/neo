@@ -96,9 +96,9 @@ async function startRejectingFleetBridge() {
  * restoring the resident's EXACT semantic child (drill AND toggle) across an index-shifting rebuild.
  * Zero uncaught page errors throughout.
  *
- * @see apps/agentos/view/fleet/AgentCard.mjs
- * @see apps/agentos/view/fleet/FleetGrid.mjs
- * @see test/playwright/unit/apps/agentos/view/fleet/fleetGrid.spec.mjs
+ * @see apps/agentos/view/fleet/roster/card/Container.mjs
+ * @see apps/agentos/view/fleet/roster/Container.mjs
+ * @see test/playwright/unit/apps/agentos/view/fleet/roster/container.spec.mjs
  */
 test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + drill Button, Neural Link, #14619)', () => {
     test.setTimeout(90000);
@@ -135,8 +135,8 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         const
 
             sessionId = app.sessionId,
-            [grid]    = await app.queryComponent({className: 'AgentOS.view.fleet.FleetGrid'}, ['id']),
-            [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+            [grid]    = await app.queryComponent({className: 'AgentOS.view.fleet.roster.Container'}, ['id']),
+            [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
 
         expect(grid, 'the mounted FleetGrid should be possessable').toBeTruthy();
         expect(cockpit, 'the mounted FleetCockpit should own roster reconciliation').toBeTruthy();

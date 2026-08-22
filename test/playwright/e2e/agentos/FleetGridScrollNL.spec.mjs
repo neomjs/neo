@@ -20,7 +20,7 @@ test.describe('AgentOS FleetGrid — roster scroll ownership', () => {
 
         const app = await neuralLink.connectToApp('AgentOS');
 
-        expect(await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']))
+        expect(await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']))
             .toBeTruthy();
 
         const metrics = await page.evaluate(() => {

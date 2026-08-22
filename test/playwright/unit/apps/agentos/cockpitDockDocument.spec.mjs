@@ -15,7 +15,7 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
 
     test.beforeAll(async () => {
         DockZoneModel       = (await import('../../../../../src/dashboard/DockZoneModel.mjs')).default;
-        cockpitDockDocument = (await import('../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs')).default
+        cockpitDockDocument = (await import('../../../../../apps/agentos/util/cockpitDockDocument.mjs')).default
     });
 
     test('validates against DockZoneModel with the v1 schema (zero invariant violations)', () => {

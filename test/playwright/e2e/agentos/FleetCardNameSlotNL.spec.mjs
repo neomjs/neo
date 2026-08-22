@@ -1,10 +1,10 @@
-import {test, expect}           from '../../fixtures.mjs';
-import FleetRegistryService     from '../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {startFleetBridgeServer} from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {test, expect}                                                          from '../../fixtures.mjs';
+import FleetRegistryService                                                    from '../../../../ai/services/fleet/FleetRegistryService.mjs';
+import {startFleetBridgeServer}                                                from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
 import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
-import fs                       from 'fs';
-import os                       from 'os';
-import path                     from 'path';
+import fs                                                                      from 'fs';
+import os                                                                      from 'os';
+import path                                                                    from 'path';
 
 /**
  * Whitebox-e2e for the card name slot on LIVE roster data: a real Brain registry seeds one
@@ -60,7 +60,7 @@ test.describe('AgentOS Fleet card — name slot on live roster data (Neural Link
             // engine truth through the Neural Link: the record carries the durable id and the
             // folded display name — the same durable resident the DOM renders
             const
-                cards = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record']),
+                cards = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record']),
                 row   = (Array.isArray(cards) ? cards : [cards]).find(candidate => candidate?.properties?.record?.agentId === agentId);
 
             expect(row, 'the seeded resident reached the rendered card through the live wire').toBeTruthy();

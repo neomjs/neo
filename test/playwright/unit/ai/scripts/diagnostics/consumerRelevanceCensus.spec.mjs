@@ -46,7 +46,7 @@ test.describe('consumer-relevance census', () => {
         expect(classifyPath('src/data/Store.mjs')).toBe('app-engine');
         expect(classifyPath('ai/mcp/server/memory-core/config.template.mjs')).toBe('mcp-runtime');
         expect(classifyPath('ai/mcp/server/gitlab-workflow/mcp-server.mjs')).toBe('team-servers');
-        expect(classifyPath('resources/scss/src/apps/agentos/fleet/FleetCockpit.scss')).toBe('fleet-tooling');
+        expect(classifyPath('resources/scss/src/apps/agentos/fleet/cockpit/Container.scss')).toBe('fleet-tooling');
         expect(classifyPath('resources/scss/theme-dark/Global.scss')).toBe('app-engine');
         expect(classifyPath('.agent/skills/create-skill/SKILL.md')).toBe('skill-machinery');
         expect(classifyPath('.agents/skills/pr-review/SKILL.md')).toBe('skill-machinery');

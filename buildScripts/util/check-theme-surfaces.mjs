@@ -86,13 +86,13 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       STRUCTURAL_FM_TOKENS = new Set([
           '--fm-chip-mark-w', '--fm-chip-pad-y', '--fm-chip-pad-x', '--fm-chip-radius', '--fm-chip-gap',
           '--fm-motion-pulse',
-          // §04 type ladder (#17265): five roles as font shorthands + the chrome role's non-font
+          // §04 type ladder: five roles as font shorthands + the chrome role's non-font
           // (tracking) half — a surface picks a role, never a pixel.
           '--fm-text-display', '--fm-text-body', '--fm-text-detail', '--fm-text-micro', '--fm-text-chrome',
           '--fm-text-chrome-tracking',
-          // §04 spacing rhythm (#17265): 4/8/12/16 — off-rhythm literals are per-file recorded exceptions.
+          // §04 spacing rhythm: 4/8/12/16 — off-rhythm literals are per-file recorded exceptions.
           '--fm-space-1', '--fm-space-2', '--fm-space-3', '--fm-space-4',
-          // §04 FM motion aliases (#17265): the FM re-timing knob over the product vocabulary;
+          // §04 FM motion aliases: the FM re-timing knob over the product vocabulary;
           // the vocabulary-layer reduced-motion collapse flows through by construction.
           '--fm-motion-panel', '--fm-motion-fast'
       ]),
@@ -123,22 +123,22 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       // reveal override that neutralizes it in the transient mount. AddAgentForm is deliberately
       // absent: the card-in-the-well exception (its panel surface + padding are card identity).
       AGENTOS_SHELL_SEAM = {
-          slotFile    : 'fleet/FleetCockpit.scss',
+          slotFile    : 'fleet/cockpit/Container.scss',
           slotSelector: '.neo-dashboard-dock-reveal-pane-slot',
           paneRoots   : [
-              ['fleet/CatchUpPane.scss',     '.fm-catch-up-pane'],
-              ['fleet/MemoriesPane.scss',    '.fm-memories-pane'],
-              ['fleet/WakeRoutePane.scss',   '.fm-wakeroutes-pane'],
-              ['fleet/OperatorMailbox.scss', '.fm-operator-mailbox'],
-              ['fleet/MailboxPane.scss',     '.fm-mailbox-pane'],
-              ['fleet/AgentDetail.scss',     '.fm-agent-detail', {dualMount: true}]
+              ['fleet/catchup/Container.scss',           '.fm-catch-up-pane'],
+              ['fleet/memories/Container.scss',          '.fm-memories-pane'],
+              ['fleet/wake/Container.scss',              '.fm-wakeroutes-pane'],
+              ['fleet/mailbox/OperatorContainer.scss',   '.fm-operator-mailbox'],
+              ['fleet/mailbox/Container.scss',           '.fm-mailbox-pane'],
+              ['fleet/detail/Container.scss',            '.fm-agent-detail', {dualMount: true}]
           ],
           // The census is NOT hand-closed: every autoHidden pane the cockpit dock document declares
           // must be classified here — either mapped to its skin root above, or exempt with a reason.
           // A future pane lands in the inventory first (that is how it becomes a drawer pane at
           // all), so the guard fails on it mechanically instead of waiting for a reviewer.
           inventory: {
-              file     : 'apps/agentos/view/fleet/cockpitDockDocument.mjs',
+              file     : 'apps/agentos/util/cockpitDockDocument.mjs',
               refToRoot: {
                   'agent-detail'    : '.fm-agent-detail',
                   'catch-up'        : '.fm-catch-up-pane',

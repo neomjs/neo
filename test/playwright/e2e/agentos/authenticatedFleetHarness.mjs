@@ -127,7 +127,7 @@ export async function wireAuthenticatedFleetBridge({app, fleetUrl, bearerToken, 
  *     (specs that never mount the fleet view have nothing to re-read).
  */
 export async function reloadRoster(app) {
-    const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+    const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
 
     if (cockpit?.properties?.id) {
         await app.callMethod(cockpit.properties.id, 'loadRoster')

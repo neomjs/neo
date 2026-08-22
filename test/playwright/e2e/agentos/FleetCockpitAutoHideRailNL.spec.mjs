@@ -29,7 +29,7 @@ test.describe('AgentOS Fleet cockpit — auto-hide rail product cycle', () => {
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
 
         const app      = await neuralLink.connectToApp('AgentOS'),
-              holders  = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              holders  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId = (Array.isArray(holders) ? holders[0] : holders)?.id;
 
         expect(holderId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();

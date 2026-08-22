@@ -262,7 +262,7 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         // FM is flat by choice. `--dock-splitter-handle-size: 0` makes that a design statement that
         // greps, instead of an absence that reads as an oversight — and it survives the engine
         // gaining a handle, which is what just happened.
-        const fm = readFileSync('resources/scss/src/apps/agentos/fleet/FleetCockpit.scss', 'utf8');
+        const fm = readFileSync('resources/scss/src/apps/agentos/fleet/cockpit/Container.scss', 'utf8');
 
         expect(fm, 'FM declares flat rather than omitting the handle')
             .toMatch(/--dock-splitter-handle-size\s*:\s*0/)

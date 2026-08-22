@@ -27,7 +27,7 @@ import {test, expect} from '../../fixtures.mjs';
  *
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/AgentCardSynthesisRenderNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --update-snapshots
  *
- * @see apps/agentos/view/fleet/AgentCard.mjs (the composition under test)
+ * @see apps/agentos/view/fleet/roster/card/Container.mjs (the composition under test)
  */
 
 // a deterministic generic-profile avatar at the real slot size; distinct hue per card stands in for
@@ -113,7 +113,7 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
         await app.callMethod(storeId, 'clear');
         await app.callMethod(storeId, 'add', [PATHOLOGICAL_ROSTER]);
 
-        await expect.poll(async () => (await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['id'])).length, {
+        await expect.poll(async () => (await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['id'])).length, {
             message: 'the grid re-renders one card per pathological resident', timeout: 15000, intervals: [250]
         }).toBe(PATHOLOGICAL_ROSTER.length);
 

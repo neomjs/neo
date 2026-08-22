@@ -1,4 +1,4 @@
-import cockpitDockDocument from '../view/fleet/cockpitDockDocument.mjs';
+import cockpitDockDocument from '../util/cockpitDockDocument.mjs';
 
 /**
  * @summary The mission-control walkthrough: "watch a real AI engineering team run" — the

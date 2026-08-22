@@ -100,7 +100,7 @@ test.describe('AgentOS Tasks pane — the WHAT surface through the authenticated
             const app = await neuralLink.connectToApp('AgentOS');
             await wireAuthenticatedFleetBridge({app, fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
 
-            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
             await app.callMethod(cockpit.properties.id, 'loadTasks', [{}]);
 
             // the Tasks tab sits directly beside Activity in the south strip — a real click activates it

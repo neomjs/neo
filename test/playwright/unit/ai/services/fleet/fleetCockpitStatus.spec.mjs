@@ -34,7 +34,7 @@ import {WAKE_SOURCE_LABEL}     from '../../../../../../ai/services/fleet/fleetWa
 // chain. The never-launched-reads-benched defect was invisible to every single-layer test because each
 // layer was correct on its own terms — the producer reported what it was asked, the assembler wired
 // what it was handed, the display rendered its input faithfully. Only the composition was a lie.
-import {mapFleetSessionHealth, resolveFleetDisplayState} from '../../../../../../apps/agentos/view/fleet/sourceHealth.mjs'
+import {mapFleetSessionHealth, resolveFleetDisplayState} from '../../../../../../apps/agentos/util/sourceHealth.mjs'
 
 test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
     test('passes identity display facts through from assembler-enriched agents — nulls when un-enriched (never guessed)', () => {

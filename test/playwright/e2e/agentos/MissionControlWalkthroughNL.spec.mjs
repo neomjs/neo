@@ -52,7 +52,7 @@ test.describe('AgentOS mission control — the walkthrough trinity (demo = e2e =
 
         // the composed cockpit's owner-held stream state BEFORE any take — the burst's baseline
         const readStream = async () => {
-            const streams = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['adapterState', 'events']),
+            const streams = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['adapterState', 'events']),
                   stream  = Array.isArray(streams) ? streams[0] : streams;
 
             return {adapterState: stream?.properties?.adapterState, eventCount: stream?.properties?.events?.length ?? 0}
@@ -92,7 +92,7 @@ test.describe('AgentOS mission control — the walkthrough trinity (demo = e2e =
             logs.push(result.log);
 
             // the drill beat seated the NAME-addressed resident through the composed cockpit's seam
-            const details = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record']),
+            const details = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'}, ['record']),
                   detail  = (Array.isArray(details) ? details : [details]).filter(Boolean)[0];
 
             expect(detail?.properties?.record?.agentId, 'the drill seated the deterministic resident').toBe('neo-fable');

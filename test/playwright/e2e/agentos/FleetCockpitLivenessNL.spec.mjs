@@ -23,7 +23,7 @@ import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} f
  *
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/FleetCockpitLivenessNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  *
- * @see apps/agentos/view/fleet/FleetCockpit.mjs (startLiveness / loadRoster / loadActivity / degradeWiredSurface / syncSpineBanner)
+ * @see apps/agentos/view/fleet/cockpit/Container.mjs (startLiveness / loadRoster / loadActivity / degradeWiredSurface / syncSpineBanner)
  * @see ai/services/fleet/devFleetServer.mjs (the production composition this mirrors)
  * @see ai/services/fleet/wireFleetActivityReadSource.mjs (the real producer the dispatch traverses)
  */
@@ -110,7 +110,7 @@ test.describe('AgentOS fleet cockpit — the liveness owner journey (live → tr
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
 
         const app        = await neuralLink.connectToApp('AgentOS'),
-              [cockpit0] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              [cockpit0] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               cockpitId  = cockpit0?.properties?.id;
 
         expect(cockpitId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();
@@ -122,7 +122,7 @@ test.describe('AgentOS fleet cockpit — the liveness owner journey (live → tr
 
         const readLiveness = async () => {
             const [c] = await app.queryComponent(
-                {className: 'AgentOS.view.fleet.FleetCockpit'},
+                {className: 'AgentOS.view.fleet.cockpit.Container'},
                 ['gridAdapterState', 'streamAdapterState', 'gridDegradedReason', 'streamDegradedReason', 'id']
             );
 

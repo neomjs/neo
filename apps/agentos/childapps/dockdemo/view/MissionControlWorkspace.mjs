@@ -1,8 +1,8 @@
 import Component                  from '../../../../../src/component/Base.mjs';
 import Container                  from '../../../../../src/container/Base.mjs';
-import FleetCockpit               from '../../../view/fleet/FleetCockpit.mjs';
+import FleetCockpit               from '../../../view/fleet/cockpit/Container.mjs';
 import TourRunner                 from '../../../../../src/ai/client/TourRunner.mjs';
-import cockpitDockDocument        from '../../../view/fleet/cockpitDockDocument.mjs';
+import cockpitDockDocument        from '../../../util/cockpitDockDocument.mjs';
 import {fusionTourScript}         from '../../../tour/fusionFlagship.mjs';
 import {missionControlTourScript} from '../../../tour/missionControlWalkthrough.mjs';
 import '../../../../../src/button/Base.mjs';  // registers the `button` ntype the tour bar composes
@@ -119,7 +119,7 @@ class MissionControlWorkspace extends Container {
 
     /**
      * The live composed product cockpit this host drives.
-     * @returns {AgentOS.view.fleet.FleetCockpit}
+     * @returns {AgentOS.view.fleet.cockpit.Container}
      */
     get cockpit() {
         return this.getReference('composed-cockpit')

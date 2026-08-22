@@ -6,7 +6,7 @@ import {
     normalizeSourceFact,
     resolveFleetDisplayState,
     summarizeAnsweredAbnormal
-} from '../../../../../../apps/agentos/view/fleet/sourceHealth.mjs';
+} from '../../../../../../apps/agentos/util/sourceHealth.mjs';
 
 // Pure derivation — imported directly (the module's main-execution guard makes import side-effect-free).
 // The committed seed is also checked against a fresh derivation so hand-painting fails in CI, not in film.

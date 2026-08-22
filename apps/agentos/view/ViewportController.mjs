@@ -1,5 +1,5 @@
 import Controller                                      from '../../../src/controller/Component.mjs';
-import InstanceManager                                 from './fleet/InstanceManager.mjs';
+import InstanceManager                                 from './fleet/instances/ManagerContainer.mjs';
 import {createFleetProfile}                            from '../fleet/connectionProfiles.mjs';
 import {establishFleetSessionCustody, resolveFleetUrl} from '../fleet/fleetSessionCustody.mjs';
 import {installFleetBridge}                            from '../fleet/installFleetBridge.mjs';
@@ -397,7 +397,7 @@ class ViewportController extends Controller {
     /**
      * @summary Explicit post-mutation re-render of the two roster consumers — v1 keeps the render
      * trigger visible instead of hiding it behind store-mutation plumbing.
-     * @param {AgentOS.view.fleet.InstanceManager} [manager]
+     * @param {AgentOS.view.fleet.instances.ManagerContainer} [manager]
      */
     refreshInstanceViews(manager) {
         manager?.updateInstanceList();

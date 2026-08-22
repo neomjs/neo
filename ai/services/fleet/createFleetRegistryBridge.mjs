@@ -9,7 +9,7 @@ import {
 /**
  * @summary Build the pane-facing fleet registry bridge from a transport `send`. Given a request
  * sender, returns the exact object the agentos pane resolves at
- * `globalThis.AgentOS.fleet.registryBridge` (`apps/agentos/view/Accounts.mjs:260`) — one async method
+ * `globalThis.AgentOS.fleet.registryBridge` (`apps/agentos/view/AccountsPanel.mjs:260`) — one async method
  * per wire-allowlisted operation ({@link FLEET_WIRE_METHODS}). Each operation sends a fresh
  * version/capability offer, then accepts result data only after the response selects a contract the
  * client offered — the operable-cold contract's Node-client half.

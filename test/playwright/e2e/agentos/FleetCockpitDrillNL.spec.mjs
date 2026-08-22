@@ -9,8 +9,8 @@ import {test, expect} from '../../fixtures.mjs';
  * controller call. Whitebox: the DOM proves the render, the possessed component proves the engine
  * truth (the mounted inspector holds the activated resident's record).
  *
- * @see apps/agentos/view/fleet/AgentDetail.mjs
- * @see apps/agentos/view/fleet/FleetCockpitController.mjs (onAgentSelect)
+ * @see apps/agentos/view/fleet/detail/Container.mjs
+ * @see apps/agentos/view/fleet/cockpit/Controller.mjs (onAgentSelect)
  * @see test/playwright/e2e/agentos/FleetActivityStreamBurstNL.spec.mjs (sibling possession pattern)
  */
 test.describe('AgentOS fleet cockpit — native Button→detail live drill (#14608, #15212)', () => {
@@ -23,8 +23,8 @@ test.describe('AgentOS fleet cockpit — native Button→detail live drill (#146
 
         const
             app       = await neuralLink.connectToApp('AgentOS'),
-            cards     = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
-            [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+            cards     = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']),
+            [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
 
         expect(cards.length, 'the fleet should render cards with records').toBeGreaterThan(0);
         expect(cockpit?.properties?.id, 'the cockpit should expose its committed dock document').toBeTruthy();
@@ -78,7 +78,7 @@ test.describe('AgentOS fleet cockpit — native Button→detail live drill (#146
 
         // Engine truth: the mounted inspector holds the EXACT activated resident — equality, not
         // set-membership. The Button routed through owner-held selection to the exact durable id.
-        const [d] = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record']);
+        const [d] = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'}, ['record']);
         expect(d?.properties?.record?.agentId, 'the inspector drilled into the exact activated resident').toBe(expectedAgentId)
     })
 });

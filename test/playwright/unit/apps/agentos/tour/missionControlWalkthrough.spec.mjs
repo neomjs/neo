@@ -15,7 +15,7 @@ import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import {validateTourScript}                        from '../../../../../../src/ai/client/tourScript.mjs';
 import {missionControlTourScript, initialDocument} from '../../../../../../apps/agentos/tour/missionControlWalkthrough.mjs';
-import cockpitDockDocument                         from '../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs';
+import cockpitDockDocument                         from '../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
 
 /**
  * @summary Verifies the mission-control walkthrough screenplay as reviewed content: it

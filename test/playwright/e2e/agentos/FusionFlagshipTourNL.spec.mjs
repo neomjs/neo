@@ -49,7 +49,7 @@ test.describe('AgentOS fusion flagship — four-beat tour on the composed cockpi
         const app       = await neuralLink.connectToApp('AgentOSDockDemo'),
               hosts     = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.MissionControlWorkspace'}, ['id']),
               hostId    = (Array.isArray(hosts) ? hosts[0] : hosts)?.id,
-              cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               cockpitId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id;
 
         expect(hostId, 'the demo host must exist in the App Worker').toBeTruthy();
@@ -58,13 +58,13 @@ test.describe('AgentOS fusion flagship — four-beat tour on the composed cockpi
         const scriptedCueCount = fusionTourScript.scenes.flatMap(scene => scene.steps).filter(step => step.cue).length;
 
         const readDetail = async () => {
-            const details = await app.findInstances({className: 'AgentOS.view.fleet.AgentDetail'}, ['id', 'windowId']);
+            const details = await app.findInstances({className: 'AgentOS.view.fleet.detail.Container'}, ['id', 'windowId']);
 
             return (Array.isArray(details) ? details[0] : details)
         };
 
         const readStream = async () => {
-            const streams = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['id']);
+            const streams = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['id']);
 
             return (Array.isArray(streams) ? streams[0] : streams)
         };

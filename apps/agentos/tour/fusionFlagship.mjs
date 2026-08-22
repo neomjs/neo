@@ -1,4 +1,4 @@
-import cockpitDockDocument from '../view/fleet/cockpitDockDocument.mjs';
+import cockpitDockDocument from '../util/cockpitDockDocument.mjs';
 
 /**
  * @summary The flagship fusion screenplay: cockpit → docked panel → OS window → share — the

@@ -31,7 +31,7 @@ import {expect, test} from '../../fixtures.mjs';
  * are headless-calibrated and crash headed macOS Chrome, and CI must not run this config)
  *
  * @see learn/guides/specificfeatures/TearOutPortabilityMatrix.md (the living ledger this feeds)
- * @see apps/agentos/view/fleet/AgentDetail.mjs (record-driven inspector under test)
+ * @see apps/agentos/view/fleet/detail/Container.mjs (record-driven inspector under test)
  */
 test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster continuity (headed)', () => {
     test.setTimeout(150000);
@@ -69,7 +69,7 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
         const app      = await neuralLink.connectToApp('AgentOS'),
-              cards    = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+              cards    = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']),
               rosters  = await app.findInstances({className: 'AgentOS.store.FleetRoster'}, ['id', 'count']),
               rosterId = (Array.isArray(rosters) ? rosters[0] : rosters)?.id;
 
@@ -85,7 +85,7 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
               baselineLane = target.properties.record.laneLine;
 
         const queryDetail = async () => {
-            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id', 'windowId']),
+            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'}, ['record', 'id', 'windowId']),
                   found   = (Array.isArray(matches) ? matches : [matches]).filter(Boolean);
 
             return {count: found.length, detail: found[0]}
@@ -163,13 +163,13 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
 
         expect(recordAfter?.laneLine, 'the roster resolves the same continuous record after reintegration').toBe(mutation);
 
-        expect((await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['id'])).length,
+        expect((await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['id'])).length,
             'the grid census is unchanged by the round trip').toBe(cards.length);
 
         // ── tooth 4: universal invariants + zero residue ────────────────────────────────────
         // gesture continuity: every hop above was a native click; exact-once: one detail
         // instance throughout; idempotent cleanup: no popup residue after the vessel retired
-        const cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+        const cockpits = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id,
               topology = await app.getDockTopology(holderId),
               document = topology?.document ?? topology;

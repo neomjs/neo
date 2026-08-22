@@ -33,7 +33,7 @@ export const FLEET_LOCAL_TRANSPORT_ERRORS = Object.freeze({
  * preload/main `send` whose bearer never enters this realm. Both feed the proxy map generated here
  * over the app's wire-method twin (`../config/fleetWireMethods.mjs`) and publish it at
  * `globalThis.AgentOS.fleet.registryBridge` — the exact slot the AgentOS
- * pane resolves (`apps/agentos/view/Accounts.mjs:260`). Once this has run, the pane's fail-closed
+ * pane resolves (`apps/agentos/view/AccountsPanel.mjs:260`). Once this has run, the pane's fail-closed
  * `submitToFleetRegistryBridge` path goes live instead of throwing "Fleet Registry bridge unavailable".
  * The Node-side dual (`ai/services/fleet/createFleetRegistryBridge.mjs`, consumed by CLI tools)
  * binds the AUTHORITY list; the vocabulary-parity lint keeps the two lists identical, so the ends

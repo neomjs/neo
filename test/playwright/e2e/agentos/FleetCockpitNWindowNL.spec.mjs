@@ -194,7 +194,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
                 bearerToken: fleet.bearerToken
             });
 
-            const cockpit = first(await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id', 'windowId']));
+            const cockpit = first(await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id', 'windowId']));
 
             expect(cockpit?.id, 'the FleetCockpit must exist in the bound App Worker').toBeTruthy();
 
@@ -210,7 +210,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             await page.getByRole('tab', {name: 'Mailbox', exact: true}).click();
 
             await expect.poll(async () => first(await app.queryComponent(
-                {className: 'AgentOS.view.fleet.OperatorMailbox'},
+                {className: 'AgentOS.view.fleet.mailbox.OperatorContainer'},
                 ['id', 'mounted', 'windowId', 'snapshot']
             ))?.properties?.mounted, {
                 message  : 'the operator mailbox must materialize before its gesture',
@@ -221,7 +221,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             await app.callMethod(cockpitId, 'loadOperatorInbox', [{offset: 0}]);
 
             const mailboxBefore = first(await app.queryComponent(
-                {className: 'AgentOS.view.fleet.OperatorMailbox'},
+                {className: 'AgentOS.view.fleet.mailbox.OperatorContainer'},
                 ['id', 'mounted', 'windowId', 'snapshot']
             ));
 
@@ -237,7 +237,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
 
             await expect.poll(async () => {
                 detailBefore = first(await app.queryComponent(
-                    {className: 'AgentOS.view.fleet.AgentDetail'},
+                    {className: 'AgentOS.view.fleet.detail.Container'},
                     ['id', 'mounted', 'record', 'windowId']
                 ));
 
@@ -265,7 +265,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
 
             await expect.poll(async () => {
                 detailWindowed = first(await app.queryComponent(
-                    {className: 'AgentOS.view.fleet.AgentDetail'},
+                    {className: 'AgentOS.view.fleet.detail.Container'},
                     ['id', 'mounted', 'record', 'windowId']
                 ));
 
@@ -428,7 +428,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
 
             await expect.poll(async () => {
                 mailboxWindowed = first(await app.queryComponent(
-                    {className: 'AgentOS.view.fleet.OperatorMailbox'},
+                    {className: 'AgentOS.view.fleet.mailbox.OperatorContainer'},
                     ['id', 'mounted', 'snapshot', 'windowId']
                 ));
 
@@ -448,7 +448,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             // The hold is not a static tableau. Advance the safe fixture once, then prove each
             // window applies a production data refresh while retaining its component identity.
             const streamBefore = first(await app.queryComponent(
-                {className: 'AgentOS.view.fleet.ActivityStream'},
+                {className: 'AgentOS.view.fleet.activity.Container'},
                 ['id', 'events', 'windowId']
             ));
 
@@ -460,15 +460,15 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             await expect.poll(async () => {
                 const
                     detail  = first(await app.queryComponent(
-                        {className: 'AgentOS.view.fleet.AgentDetail'},
+                        {className: 'AgentOS.view.fleet.detail.Container'},
                         ['id', 'record', 'windowId']
                     )),
                     mailbox = first(await app.queryComponent(
-                        {className: 'AgentOS.view.fleet.OperatorMailbox'},
+                        {className: 'AgentOS.view.fleet.mailbox.OperatorContainer'},
                         ['id', 'snapshot', 'windowId']
                     )),
                     stream  = first(await app.queryComponent(
-                        {className: 'AgentOS.view.fleet.ActivityStream'},
+                        {className: 'AgentOS.view.fleet.activity.Container'},
                         ['id', 'events', 'windowId']
                     ));
 
@@ -509,7 +509,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             await expect.poll(async () => {
                 const
                     mailbox = first(await app.queryComponent(
-                        {className: 'AgentOS.view.fleet.OperatorMailbox'},
+                        {className: 'AgentOS.view.fleet.mailbox.OperatorContainer'},
                         ['id', 'mounted', 'windowId']
                     )),
                     state   = await app.getComponent(cockpitId, ['dockModel', 'tearOutPanes']);
@@ -547,7 +547,7 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             await expect.poll(async () => {
                 const
                     detail = first(await app.queryComponent(
-                        {className: 'AgentOS.view.fleet.AgentDetail'},
+                        {className: 'AgentOS.view.fleet.detail.Container'},
                         ['id', 'mounted', 'windowId']
                     )),
                     state  = await app.getComponent(cockpitId, ['detailVesselState', 'detachedDetail']);

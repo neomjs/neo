@@ -15,7 +15,7 @@ import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import {validateTourScript}                from '../../../../../../src/ai/client/tourScript.mjs';
 import {fusionTourScript, initialDocument} from '../../../../../../apps/agentos/tour/fusionFlagship.mjs';
-import cockpitDockDocument                 from '../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs';
+import cockpitDockDocument                 from '../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
 
 /**
  * @summary Verifies the flagship fusion screenplay as reviewed content: it validates

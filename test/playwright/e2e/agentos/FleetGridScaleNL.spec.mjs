@@ -10,8 +10,8 @@ import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai
  * possessed store. This is the leaf's "NL-verifiable mount bound to the live roster" — the unit
  * suite proves the ranking math; THIS proves the mounted surface obeys it at scale.
  *
- * @see apps/agentos/view/fleet/FleetGrid.mjs
- * @see test/playwright/unit/apps/agentos/view/fleet/fleetGrid.spec.mjs
+ * @see apps/agentos/view/fleet/roster/Container.mjs
+ * @see test/playwright/unit/apps/agentos/view/fleet/roster/container.spec.mjs
  */
 test.describe('AgentOS fleet grid — density-evidence scale (Neural Link)', () => {
     test.setTimeout(90000);

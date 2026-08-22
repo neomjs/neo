@@ -17,7 +17,7 @@ import {test, expect} from '@playwright/test'
 import Neo            from '../../../../../../src/Neo.mjs'
 import * as core      from '../../../../../../src/core/_export.mjs'
 
-import ActivityStream from '../../../../../../apps/agentos/view/fleet/ActivityStream.mjs'
+import ActivityStream from '../../../../../../apps/agentos/view/fleet/activity/Container.mjs'
 
 // Text-derivation logic only — exercised via prototype calls (no component lifecycle, no stores,
 // no timers): the methods read nothing off the instance beyond each other.
