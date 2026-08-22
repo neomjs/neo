@@ -24,9 +24,23 @@ import {join}                      from 'node:path';
 test.describe('dock splitter — the engine ships the affordance, apps set identity', () => {
     const
         APP_SCSS_ROOT = 'resources/scss/src/apps',
-        ENGINE_RULE   = 'resources/scss/src/dashboard/Container.scss',
-        // `padding` and per-axis geometry are absent on purpose: rail orientation is an app concern.
-        SPLITTER_PAINT = ['background', 'background-color', 'border-radius', 'box-shadow', 'opacity'];
+        ENGINE_RULE   = 'resources/scss/src/dashboard/Container.scss';
+
+    /**
+     * The only non-custom properties an application may declare on a splitter surface, each with
+     * the deviation it documents.
+     *
+     * An ALLOWLIST, not a denylist, and that inversion is the point. The first version named five
+     * paint properties — `background`, `background-color`, `border-radius`, `box-shadow`,
+     * `opacity` — so `filter`, `outline`, `color` and every property nobody had thought of yet
+     * could re-enter undetected. A guard that only catches what its author enumerated cannot
+     * catch a regression; it can only confirm a memory.
+     */
+    const STRUCTURAL_DEVIATIONS = {
+        // FleetCockpit's vessel-narrow container query stacks a horizontal split, which makes the
+        // splitter's drag axis wrong — so it leaves the flow. Layout, not paint.
+        display: 'takes the splitter out of flow when its drag axis no longer applies'
+    };
 
     const scssFiles = (dir, out = []) => {
         for (const entry of readdirSync(dir, {withFileTypes: true})) {
@@ -38,58 +52,184 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         return out
     };
 
+    const withoutComments = source => source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
     /**
-     * Declarations belonging to a splitter block itself, excluding nested descendant blocks.
+     * The `{ selector, body }` pairs at one nesting level, brace-matched rather than regex-matched.
      *
-     * A depth scan rather than a regex: `/[^{}]*\{[^{}]*\}/` looks equivalent and swallows the
-     * declarations PRECEDING a nested block, so a `background` sitting above an `&:hover { … }`
-     * disappears before inspection — a guard written that way passes its own mutation.
+     * `/[^{}]*\{[^{}]*\}/` looks equivalent and swallows the declarations PRECEDING a nested
+     * block, so a `background` sitting above an `&:hover { … }` disappears before inspection — a
+     * guard written that way passes its own mutation.
      */
-    const splitterOwnDeclarations = source => {
-        const found = [];
+    const blocksIn = source => {
+        const blocks = [];
 
-        for (const match of source.matchAll(/([^\n{}]*neo-dashboard-dock-splitter[^\n{}]*)\{/g)) {
-            let depth = 1, i = match.index + match[0].length, body = '';
+        let i = 0, selectorStart = 0;
 
-            while (i < source.length && depth > 0) {
-                const ch = source[i];
+        while (i < source.length) {
+            const ch = source[i];
 
-                if (ch === '{') depth++;
-                if (ch === '}') depth--;
-                if (depth > 0) body += ch;
-                i++
+            if (ch === '{') {
+                let depth = 1, j = i + 1;
+
+                while (j < source.length && depth > 0) {
+                    if (source[j] === '{') depth++;
+                    if (source[j] === '}') depth--;
+                    j++
+                }
+
+                blocks.push({
+                    selector: source.slice(selectorStart, i).trim(),
+                    body    : source.slice(i + 1, j - 1),
+                    start   : selectorStart,
+                    end     : j
+                });
+
+                i = selectorStart = j;
+                continue
             }
 
-            let own = '', d = 0;
+            if (ch === '}' || ch === ';') selectorStart = i + 1;
+            i++
+        }
 
-            for (const ch of body) {
-                if (ch === '{') { d++; continue }
-                if (ch === '}') { d--; continue }
-                if (d === 0) own += ch
-            }
+        return blocks
+    };
 
-            for (const line of own.split('\n').map(entry => entry.trim())) {
-                const property = line.includes(':') ? line.split(':')[0].trim() : '';
+    /**
+     * The property names declared directly in `body`, with nested blocks excised BY INDEX.
+     *
+     * Reconstructing `selector{body}` to string-replace it does not work: the source carries
+     * whitespace between the selector and its brace, the replace silently misses, and the nested
+     * block's own text is then read as declarations of the parent.
+     *
+     * Split on `;` rather than newlines — that is the declaration separator, so a value wrapped
+     * across lines stays one declaration instead of becoming a phantom second one.
+     */
+    const declarationsOf = body => {
+        let own = '', cursor = 0;
 
-                property && found.push({selector: match[1].trim(), property})
-            }
+        for (const block of blocksIn(body)) {
+            own   += body.slice(cursor, block.start);
+            cursor = block.end
+        }
+
+        return (own + body.slice(cursor))
+            .split(';')
+            .map(chunk => chunk.split(':')[0].trim())
+            .filter(property => /^(--)?[a-z][a-z\d-]*$/i.test(property))
+    };
+
+    const isSplitterSelector = selector => selector.includes('neo-dashboard-dock-splitter');
+
+    /**
+     * A nested block that is still the SAME element: `&:hover`, `&::after`, `&:active::after`.
+     *
+     * `&:active::after` is a state of the splitter itself, not a descendant, and the first version
+     * of this census discarded every nested block wholesale — so an app could paint the handle in
+     * its active state while the "no app paint" arm stayed green. That exact shape shipped in
+     * `Workspace.scss` and CI called it clean. A part carrying a descendant combinator (whitespace,
+     * `>`, `+`, `~`) addresses a different element and correctly stays out of scope.
+     */
+    const isSelfState = selector => selector.length > 0 && selector.split(',').every(part => {
+        const trimmed = part.trim();
+
+        return trimmed.startsWith('&') && !/[\s>+~]/.test(trimmed.slice(1))
+    });
+
+    /** Every property declared on the splitter's own surface, own block and self-states alike. */
+    const surfaceDeclarations = (body, selector, found = []) => {
+        for (const property of declarationsOf(body)) found.push({selector, property});
+
+        for (const nested of blocksIn(body)) {
+            isSelfState(nested.selector) &&
+                surfaceDeclarations(nested.body, `${selector} ${nested.selector}`, found)
         }
 
         return found
     };
 
+    /** Splitter surfaces at any depth, so an at-rule or ancestor block never hides one. */
+    const splitterSurfaces = (source, found = []) => {
+        for (const {selector, body} of blocksIn(source)) {
+            isSplitterSelector(selector) ? surfaceDeclarations(body, selector, found)
+                                         : splitterSurfaces(body, found);
+        }
+
+        return found
+    };
+
+    const offendersIn = source => splitterSurfaces(withoutComments(source))
+        .filter(({property}) => !property.startsWith('--') && !(property in STRUCTURAL_DEVIATIONS))
+        .map(({selector, property}) => `${property} on ${selector}`);
+
     test('no application stylesheet paints a splitter — it may only set tokens', () => {
         const offenders = [];
 
         for (const file of scssFiles(APP_SCSS_ROOT)) {
-            for (const {selector, property} of splitterOwnDeclarations(readFileSync(file, 'utf8'))) {
-                if (!property.startsWith('--') && SPLITTER_PAINT.includes(property)) {
-                    offenders.push(`${file.replace(`${APP_SCSS_ROOT}/`, '')} → ${property} on ${selector}`)
-                }
+            for (const offender of offendersIn(readFileSync(file, 'utf8'))) {
+                offenders.push(`${file.replace(`${APP_SCSS_ROOT}/`, '')} → ${offender}`)
             }
         }
 
         expect(offenders, 'the splitter affordance is engine capability; apps set values').toEqual([])
+    });
+
+    test('the census SEES nested self-state paint — the instrument proves itself', () => {
+        // The arm above means nothing unless a violation would actually redden it. This is the
+        // exact shape @neo-gpt found live at `Workspace.scss:50` while the guard passed.
+        expect(offendersIn(`
+            .neo-dashboard-dock-splitter {
+                --dock-splitter-background: red;
+
+                &:active::after {
+                    background: var(--workstation-signal);
+                }
+            }`), 'nested active paint is app-layer paint')
+            .toEqual(['background on .neo-dashboard-dock-splitter &:active::after']);
+
+        // The paired control, without which the rule above could simply be "flag everything
+        // nested": a real descendant is a different element and stays out of scope.
+        expect(offendersIn(`
+            .neo-dashboard-dock-splitter {
+                .neo-button { background: red }
+            }`), 'a descendant element is not the splitter surface').toEqual([]);
+
+        // And a declaration sitting ABOVE a nested block still survives the walk.
+        expect(offendersIn(`
+            .neo-dashboard-dock-splitter {
+                outline: 1px solid red;
+
+                &:hover { --dock-splitter-ring: none }
+            }`), 'a declaration preceding a nested block is not swallowed')
+            .toEqual(['outline on .neo-dashboard-dock-splitter']);
+    });
+
+    test('an unlisted property is an offence even when nobody enumerated it', () => {
+        expect(offendersIn('.neo-dashboard-dock-splitter { filter: blur(2px) }'), 'filter was on no denylist')
+            .toEqual(['filter on .neo-dashboard-dock-splitter']);
+        expect(offendersIn('.neo-dashboard-dock-splitter { color: red }'), 'nor was color')
+            .toEqual(['color on .neo-dashboard-dock-splitter']);
+
+        // Custom properties are the sanctioned channel, and the one documented structural
+        // deviation stays legal — an allowlist that rejected it would just be a broken guard.
+        expect(offendersIn('.neo-dashboard-dock-splitter { --dock-splitter-radius: 0 }')).toEqual([]);
+        expect(offendersIn('.neo-dashboard-dock-splitter { display: none }')).toEqual([]);
+    });
+
+    test('a splitter nested under an at-rule is still censused', () => {
+        // FleetCockpit's real shape: the only current structural deviation lives inside a
+        // `@container` query. A census that walked only top-level blocks would never reach it —
+        // and would report the file clean whatever it contained.
+        expect(offendersIn(`
+            @container fm-cockpit (max-width: 570px) {
+                .neo-dashboard-dock-split-horizontal {
+                    > .neo-dashboard-dock-splitter-horizontal { box-shadow: none }
+                }
+            }`), 'depth does not confer immunity')
+            .toEqual(['box-shadow on > .neo-dashboard-dock-splitter-horizontal']);
     });
 
     test('the engine floor is DISCOVERABLE with no app tokens set', () => {

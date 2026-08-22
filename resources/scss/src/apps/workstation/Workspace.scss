@@ -41,15 +41,12 @@
         --dock-splitter-background-active : color-mix(in srgb, var(--workstation-signal) 30%, transparent);
         --dock-splitter-handle-color      : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
         --dock-splitter-handle-color-hover: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+        --dock-splitter-handle-color-active: var(--workstation-signal);
         --dock-splitter-handle-glow-hover : 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
         --dock-splitter-ring              : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
         --dock-splitter-ring-hover        : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
         --dock-splitter-ring-active       : inset 0 0 0 1px var(--workstation-signal),
                                             0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent);
-
-        &:active::after {
-            background: var(--workstation-signal);
-        }
     }
 
     // The band is dock chrome and stays; `.neo-tab-container` was grouped with it and is pane

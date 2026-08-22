@@ -46,6 +46,10 @@
     --dock-splitter-handle-thickness : 2px;
     --dock-splitter-handle-color     : color-mix(in srgb, currentColor 45%, transparent);
     --dock-splitter-handle-color-hover: currentColor;
+    // Dragging must never read as LESS engaged than hovering, so the floor inherits the hover
+    // value rather than re-deriving one. An app that sets only the hover colour still gets a
+    // coherent active state; one with its own accent overrides this slot alone.
+    --dock-splitter-handle-color-active: var(--dock-splitter-handle-color-hover);
 
     // Identity slots, empty by default. An app fills them; the engine never does.
     --dock-splitter-ring             : none;
@@ -222,6 +226,14 @@
     &:active {
         background-color: var(--dock-splitter-background-active);
         box-shadow      : var(--dock-splitter-ring-active);
+
+        // The handle takes the active slot HERE, in the engine. Without this rule the token has no
+        // consumer, and an app that wants a distinct drag colour has nowhere to put it except a
+        // direct `&:active::after { background: … }` in its own stylesheet — which is exactly the
+        // app-layer paint this promotion exists to end.
+        &::after {
+            background: var(--dock-splitter-handle-color-active);
+        }
     }
 }
 
