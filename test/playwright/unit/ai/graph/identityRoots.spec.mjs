@@ -452,7 +452,7 @@ test.describe('ai/graph/identityRoots — @neo-preview roster pin', () => {
             type      : 'AgentIdentity',
             properties: {
                 githubLogin: '@neo-preview',
-                displayName: 'Neo Preview',
+                displayName: 'Eos',
                 modelFamily: 'unknown',
                 accountType: 'agent',
                 trustTier  : 'peer-trusted'
