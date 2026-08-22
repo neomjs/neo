@@ -316,17 +316,16 @@ Micro-review eligible: <class> — <one line why>   ← optional (pr-review-guid
 ## AC Evidence
 | AC-1 | <CI-covered: owning spec reference> |
 | AC-2 | <outside-CI: command + receipt> |
-<one row per close-target AC, count-in-order (struck-through ticket ACs don't count). CI-covered ⇒
-owning spec reference; outside-CI (e2e/visual/live/mutation) ⇒ command + receipt. No structured list
-on the ticket ⇒ the single line `No structured ACs on #N`. Empty proof slot ⇒ lint fail.>
+<one row per close-target AC, count-in-order (struck-through ACs don't count); outside-CI =
+e2e/visual/live/mutation. No structured list ⇒ `No structured ACs on #N`. Empty slot ⇒ lint fail.>
 
 ## Deltas from ticket
 <scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>
 
 ## Test Evidence
-<OUTSIDE-CI evidence only: e2e/visual/live receipts + mutation/diagonal results (the artifact a green
-suite cannot show — a real guard reddens on its named defect). All coverage in CI ⇒ the single line
-`All coverage runs in CI.` Never restate CI-covered counts (red CI already means no review).>
+<OUTSIDE-CI evidence only: e2e/visual/live receipts + mutation/diagonal results (what a green suite
+cannot show). All coverage in CI ⇒ the single line `All coverage runs in CI.` Never restate
+CI-covered counts (red CI already means no review).>
 
 ## Post-Merge Validation
 - [ ] <items verifiable only after merge>

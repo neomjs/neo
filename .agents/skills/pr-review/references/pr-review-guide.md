@@ -182,16 +182,15 @@ Depth Floor, no audits, no metrics.
 
 **When:** a MECHANICAL PR — no architectural concept to teach (test-only /
 config-leaf / behavior-preserving / docs / receipt refresh) — at ANY size, or a
-micro/contained diff. **Never** when the PR touches an ADR, a new abstraction, a
-consumed contract, security, a migration, or a fleet-critical zone (`ai/` config,
-release path, workflows, substrate, MCP contracts) — those take the full form
-regardless of size. Authors signal candidacy with the body line
-`Micro-review eligible: <class> — <why>`; the reviewer decides, and escalating to
-the full form is always free — the reverse never happens.
+micro/contained diff. **Never** for ADR / new abstraction / consumed contract /
+security / migration / fleet-critical zones (`ai/` config, release path,
+workflows, substrate, MCP contracts) — full form regardless of size. Authors
+signal with `Micro-review eligible: <class> — <why>`; the reviewer decides;
+escalating to full is always free, the reverse never happens.
 
-**Bounded-repair guard (Grace, #17527):** a repair of a named prescription stays
-micro-eligible only while it touches NO site the prescription did not name. A
-widened repair is a new change wearing a repair's eligibility — full form.
+**Bounded-repair guard (Grace, #17527):** a repair stays micro-eligible only
+while it touches NO site the prescription did not name — a widened repair is a
+new change wearing a repair's eligibility: full form.
 
 Three light paths, three axes: **Micro-Review** scales the Cycle-1 review FORM
 (this section); §6.1's **micro-change exception** scales the cross-family MERGE
