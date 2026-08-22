@@ -556,13 +556,6 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
             return source
         }
 
-        // `for…in` enumerates inherited keys, and a JSON-parsed `__proto__` arrives as an own one, so
-        // this loop can write through to shared prototype state. That is examined and accepted rather
-        // than unnoticed: config merging is deliberate framework work, and every call site takes
-        // author-controlled config — none is fed from parsed, remote or user input. The reachability
-        // is the load-bearing half; if a caller ever feeds this from `JSON.parse` or a response body,
-        // the acceptance expires. Disposition and evidence:
-        // `learn/agentos/process/code-scanning-dispositions.md`.
         for (const key in source) {
             const value = source[key];
 
