@@ -367,11 +367,27 @@ jobs:
             // Micro-Review (Cycle-1, blast-scaled) light path — KEEP IN SYNC with
             // ai/services/github-workflow/PullRequestService.mjs MICRO_REVIEW_* constants.
             // A micro/contained PR gets a premise+correctness glance, not the full gauntlet
-            // (pr-review-guide §7). Fail SAFE toward accept: the floor is the header + the Class
-            // assertion (micro|contained, so the light path is not an intense-PR backdoor) + a
-            // Verdict + the Glance. An intense/large PR uses the full template instead.
-            if (body.includes("# PR Micro-Review")) {
-              const microMisses = ["# PR Micro-Review", "**Class:**", "**Verdict:**", "**Glance:**"]
+            // (pr-review-guide §6.4). Fail SAFE toward accept: the floor is the header + the Class
+            // assertion (micro|contained|mechanical, so the light path is not an intense-PR
+            // backdoor) + a Verdict + the Glance + the canonical origin-session line. Selection is
+            // a REAL H1 outside fenced blocks — a full review that merely DISCUSSES the light form
+            // must not be routed to the micro floor.
+            const isMicroReviewBody = (() => {
+              let fence = null;
+              for (const line of body.split(/\r\n|[\n\r]/)) {
+                const fenceMatch = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
+                if (fenceMatch) {
+                  if (fence === null) fence = fenceMatch[1][0];
+                  else if (fenceMatch[1][0] === fence) fence = null;
+                  continue;
+                }
+                if (fence === null && /^#[ \t]+PR Micro-Review\b/.test(line)) return true;
+              }
+              return false;
+            })();
+
+            if (isMicroReviewBody) {
+              const microMisses = ["# PR Micro-Review", "**Class:**", "**Verdict:**", "**Glance:**", "- **Origin Session ID:**"]
                 .filter(a => !body.includes(a));
               const microClassLine = body.split("\n").find(l => l.includes("**Class:**")) || "";
               if (!/(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i.test(microClassLine)) {
@@ -381,7 +397,7 @@ jobs:
                 console.log("✅ Micro-Review body matches the blast-scaled light shape.");
                 return;
               }
-              core.setFailed(`Agent micro-review body missing the minimal shape (header + "**Class:** micro|contained|mechanical" + "**Verdict:**" + "**Glance:**"). See .agents/skills/pr-review/assets/pr-review-micro-review-template.md`);
+              core.setFailed(`Agent micro-review body missing the minimal shape (header + "**Class:** micro|contained|mechanical" + "**Verdict:**" + "**Glance:**" + "- **Origin Session ID:**"). See .agents/skills/pr-review/assets/pr-review-micro-review-template.md`);
               return;
             }
 

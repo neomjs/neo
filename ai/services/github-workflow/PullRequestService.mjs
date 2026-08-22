@@ -36,6 +36,7 @@ const PR_REVIEW_TEMPLATE_PATH             = '.agents/skills/pr-review/assets/pr-
 const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH    = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
 const PR_REVIEW_ROUND_2_TEMPLATE_PATH     = '.agents/skills/pr-review/assets/pr-review-round-2-template.md';
 const PR_REVIEW_MICRO_DELTA_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md';
+const PR_REVIEW_MICRO_TEMPLATE_PATH       = '.agents/skills/pr-review/assets/pr-review-micro-review-template.md';
 const ACKNOWLEDGED_RC_ADDRESSED_PREFIX    = 'addressed-by-';
 const ACKNOWLEDGED_RC_EVIDENCE_PREFIX     = 'superior-evidence:';
 const REVIEW_BUDGET_MANAGED_MARKER        = '[review-budget-managed]';
@@ -1118,6 +1119,8 @@ const ROUND_2_DISPOSITIONS = Object.freeze(['ADDRESSED', 'DEFENDED', 'STILL_OPEN
  * @returns {String} Repo-relative asset path.
  */
 function selectedPrReviewTemplatePath(body) {
+    // Micro-review first, mirroring `getPrReviewTemplateValidationFailure`'s dispatch exactly.
+    if (isMicroReview(body))        return PR_REVIEW_MICRO_TEMPLATE_PATH;
     if (isRound2PrReview(body))     return PR_REVIEW_ROUND_2_TEMPLATE_PATH;
     if (isMicroDeltaPrReview(body)) return PR_REVIEW_MICRO_DELTA_TEMPLATE_PATH;
 
@@ -1125,9 +1128,6 @@ function selectedPrReviewTemplatePath(body) {
         return PR_REVIEW_FOLLOWUP_TEMPLATE_PATH
     }
 
-    // Micro-review deliberately has no asset of its own — it is validated against a minimal floor and
-    // authored from the canonical structure — so the canonical path is the honest answer here rather
-    // than a file name that would 404 for whoever went looking.
     return PR_REVIEW_TEMPLATE_PATH
 }
 
@@ -1752,7 +1752,7 @@ const MICRO_DELTA_CLOSURE_PACKET_FIELDS        = [
 
 // Micro-Review (Cycle-1, blast-scaled): a MICRO / CONTAINED PR — none of the intense triggers (ADR /
 // new-subsystem / consumed-contract / security / migration) and a small diff — gets a premise+correctness
-// glance, not the full gauntlet (pr-review-guide §7 blast-scaling). The minimal shape stays opt-in via the
+// glance, not the full gauntlet (pr-review-guide §6.4). The minimal shape stays opt-in via the
 // header so full/intense reviews keep validating heavy; the `**Class:**` token-check asserts the blast-class
 // so the light path cannot be a backdoor for an intense PR. Fail SAFE toward accept: the only enforced floor
 // is the header + class-assertion + a verdict + the glance — a wrongly-accepted-light review is recoverable
@@ -1765,7 +1765,10 @@ const MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '# PR Micro-Review',
     '**Class:**',
     '**Verdict:**',
-    '**Glance:**'
+    '**Glance:**',
+    // The canonical origin-session line shape shared with every other review form, so provenance
+    // stays mechanically checkable on the light path too.
+    '- **Origin Session ID:**'
 ];
 
 const MICRO_REVIEW_CLASS_PATTERN = /(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i;
@@ -2083,13 +2086,32 @@ function getCanonicalPrReviewTemplateValidationFailure(body, {includeTemplateDia
  * @returns {Boolean} Whether the body selects the Micro-Review light path.
  */
 function isMicroReview(body) {
-    return MICRO_REVIEW_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
+    // A REAL H1 outside fenced blocks, never a substring: a full review that merely DISCUSSES the
+    // light form (quotes its header in prose or an example fence) must not be validated against the
+    // micro floor — the misclassification would silently waive every canonical anchor the body owes.
+    let fence = null;
+
+    for (const line of String(body || '').split(/\r\n|[\n\r]/)) {
+        const fenceMatch = MARKDOWN_FENCE_PATTERN.exec(line);
+
+        if (fenceMatch) {
+            if      (fence === null)             fence = fenceMatch[1][0];
+            else if (fenceMatch[1][0] === fence) fence = null;
+            continue
+        }
+
+        if (fence === null && /^#[ \t]+PR Micro-Review\b/.test(line)) {
+            return true
+        }
+    }
+
+    return false
 }
 
 /**
  * @summary Returns missing Micro-Review anchors (the minimal blast-scaled floor).
  *
- * Micro-Reviews are the Cycle-1 light path for a micro/contained PR (pr-review-guide §7 blast-scaling).
+ * Micro-Reviews are the Cycle-1 light path for a micro/contained PR (pr-review-guide §6.4).
  * The floor is intentionally minimal — header + `**Class:**` (asserting `micro`|`contained`, so the light
  * path is not a backdoor for an intense PR) + `**Verdict:**` + `**Glance:**` (the premise+correctness check).
  *
@@ -2103,7 +2125,7 @@ function getMicroReviewTemplateMisses(body) {
     const classLine = body.split('\n').find(line => line.includes('**Class:**')) || '';
 
     if (!MICRO_REVIEW_CLASS_PATTERN.test(classLine)) {
-        misses.push('Class: micro | contained (the blast-class assertion)');
+        misses.push('Class: micro | contained | mechanical (the blast-class assertion)');
     }
 
     return misses;
@@ -2127,12 +2149,13 @@ function getMicroReviewTemplateValidationFailure(body) {
     const message = [
         `Review body attempts the Micro-Review format but does not match its minimal shape.`,
         ``,
-        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §7) is for a MECHANICAL PR with`,
+        `The Micro-Review (Cycle-1, blast-scaled per pr-review-guide §6.4) is for a MECHANICAL PR with`,
         `no architectural concept to teach (test / config-leaf / behavior-preserving), ANY size — so no`,
         `\`[ARCH_ALIGNMENT]\` / \`[RETROSPECTIVE]\` graph-ingestion is lost (the gate that keeps the concept-graph`,
         `fed). It needs only: the header, **Class:** (asserting micro | contained | mechanical), **Verdict:**,`,
-        `and **Glance:** (the premise + correctness check). A concept-bearing PR — touches an ADR / new`,
-        `abstraction / consumed contract / security / migration — uses the full template instead, regardless of size.`
+        `**Glance:** (the premise + correctness check), and the canonical \`- **Origin Session ID:** <uuid>\``,
+        `line. A concept-bearing PR — touches an ADR / new abstraction / consumed contract / security /`,
+        `migration — uses the full template instead, regardless of size. Template: ${PR_REVIEW_MICRO_TEMPLATE_PATH}`
     ].join('\n');
 
     return {

@@ -69,9 +69,10 @@ const
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     // A REAL level-two heading, for the same shadowing reason as the Post-Merge pattern above.
     AC_EVIDENCE_H2                = /^##[ \t]+AC Evidence[ \t]*$/m,
-    // One certificate row: `| AC-1 | <proof> |`. The table's header (`| AC | ... |`) carries no
-    // digit and its separator row no `AC` at all, so neither can pose as a certificate.
-    AC_EVIDENCE_ROW_PATTERN       = /^\|[ \t]*(?:\*\*)?AC[- ]?(\d+)[.:]?(?:\*\*)?[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*$/,
+    // One certificate row: `| AC-1 | <proof> |`, or target-qualified `| #123 AC-1 | <proof> |`
+    // (mandatory when a body carries several close targets). The table's header (`| AC | ... |`)
+    // carries no digit and its separator row no `AC` at all, so neither can pose as a certificate.
+    AC_EVIDENCE_ROW_PATTERN       = /^\|[ \t]*(?:#(\d+)[ \t]+)?(?:\*\*)?AC[- ]?(\d+)[.:]?(?:\*\*)?[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*$/,
     // The sanctioned alternative for close targets without a structured AC list.
     NO_STRUCTURED_ACS_PATTERN     = /^[ \t]*No structured ACs on #(\d+)\b/m,
     // A proof slot that holds no proof: empty, a dash placeholder, or a promise word.
@@ -466,13 +467,14 @@ function acEvidenceSection(fenceless = '') {
 /**
  * @summary The certificate rows of an `## AC Evidence` section.
  * @param {String} section
- * @returns {Array<{id: String, proof: String}>}
+ * @returns {Array<{id: String, proof: String, target: String|null}>} `target` carries the row's
+ * `#N` qualifier, or `null` for the single-close-target shorthand.
  */
 export function parseAcEvidenceRows(section = '') {
     return String(section).split('\n')
         .map(line => line.match(AC_EVIDENCE_ROW_PATTERN))
         .filter(Boolean)
-        .map(match => ({id: match[1], proof: match[2]}))
+        .map(match => ({id: match[2], proof: match[3], target: match[1] ?? null}))
 }
 
 // The ONE signal separating "the cited ticket is not there" from "we could not look": `gh` exits 1
@@ -756,33 +758,80 @@ export function validatePrBody(body, {draft = false, resolveOwnerState = null, r
 
     if ((!draft || hasResolves) && acSection !== null) {
         const
-            acRows       = parseAcEvidenceRows(acSection),
-            noStructured = acSection.match(NO_STRUCTURED_ACS_PATTERN);
+            acRows        = parseAcEvidenceRows(acSection),
+            declarations  = [...acSection.matchAll(new RegExp(NO_STRUCTURED_ACS_PATTERN.source, 'gm'))].map(match => match[1]),
+            // EVERY close target, deduplicated — the author workflow permits several standalone
+            // `Resolves #N` lines, and a certificate that consults only the first leaves every
+            // other target's ACs unexamined.
+            acCloseTargets = [...new Set([...body.matchAll(/\bResolves:?\s+#(\d+)/gi)].map(match => match[1]))];
 
-        if (!acRows.length && !noStructured) {
-            missingVisible.push('`## AC Evidence` is empty — one `| AC-k | <proof> |` row per close-target AC (count in order), or the line `No structured ACs on #N` when the ticket carries none.')
+        if (!acRows.length && !declarations.length) {
+            missingVisible.push('`## AC Evidence` is empty — one `| AC-k | <proof> |` row per close-target AC, or the line `No structured ACs on #N` when the ticket carries none.')
         }
 
         acRows.filter(row => EMPTY_PROOF_PATTERN.test(row.proof)).forEach(row => {
             missingVisible.push(`\`AC-${row.id}\` declares no proof. A CI-covered AC names its owning spec; an outside-CI AC carries command + receipt. An empty slot certifies nothing.`)
         });
 
-        const acCloseTarget = (body.match(/\bResolves:?\s+#(\d+)/i) || [])[1] ?? null;
+        // A `No structured ACs` declaration binds to a REAL close target; a foreign number would
+        // let one ticket's emptiness discharge another ticket's criteria.
+        declarations.filter(number => !acCloseTargets.includes(number)).forEach(number => {
+            missingVisible.push(`\`No structured ACs on #${number}\` names a ticket this PR does not resolve. The declaration binds to a close target.`)
+        });
 
-        if (resolveTicketAcs && acCloseTarget) {
-            const {acs, state} = resolveTicketAcs(acCloseTarget) ?? {acs: [], state: 'unknown'};
+        // Row → target assignment. One close target owns the unqualified shorthand; several
+        // targets make the `| #N AC-k |` qualifier mandatory on every row.
+        const rowsByTarget = new Map(acCloseTargets.map(number => [number, []]));
 
-            if (state === 'ok') {
-                if (acs.length && noStructured) {
-                    missingVisible.push(`#${acCloseTarget} carries ${acs.length} structured AC(s) — the \`No structured ACs\` declaration is false. Certify each AC, or change the ticket.`)
-                } else if (acs.length && acRows.length !== acs.length) {
-                    // A draft is work in flux: the mismatch is surfaced, not enforced, until handoff.
-                    (draft ? warnings : missingVisible).push(`#${acCloseTarget} carries ${acs.length} structured AC(s); \`## AC Evidence\` certifies ${acRows.length}. One row per ticket AC, matched by count in order.`)
-                }
-            } else if (state === 'missing') {
-                warnings.push(`AC coverage was NOT verified — \`Resolves #${acCloseTarget}\` was not found. The certificate's shape is valid; whether it covers the ticket is unverified.`)
+        acRows.forEach(row => {
+            const target = row.target ?? (acCloseTargets.length === 1 ? acCloseTargets[0] : null);
+
+            if (row.target && !acCloseTargets.includes(row.target)) {
+                missingVisible.push(`\`#${row.target} AC-${row.id}\` names a ticket this PR does not resolve.`)
+            } else if (!target) {
+                acCloseTargets.length > 1 && missingVisible.push(`\`AC-${row.id}\` names no target — with ${acCloseTargets.length} close targets, every certificate row carries its \`#N\` qualifier.`)
             } else {
-                warnings.push(`AC coverage of #${acCloseTarget} was NOT verified — GitHub could not be read. The certificate's shape is valid; whether it covers every ticket AC is unverified.`)
+                rowsByTarget.get(target).push(row)
+            }
+        });
+
+        // Rows and a `No structured ACs` declaration for the SAME target contradict each other as
+        // statements, whatever the ticket holds — "it has none" beside "here are its proofs".
+        declarations.filter(number => (rowsByTarget.get(number) ?? []).length).forEach(number => {
+            missingVisible.push(`#${number} carries certificate rows AND a \`No structured ACs\` declaration — the two contradict; keep one.`)
+        });
+
+        // Certificate ids are the COUNT REGISTER: exactly 1..n per target, so a duplicated id can
+        // never let one proof discharge two criteria, and a gap never hides an uncertified one.
+        for (const [target, rows] of rowsByTarget) {
+            const ids = rows.map(row => Number(row.id));
+
+            if (rows.length && ids.some((id, index) => id !== index + 1)) {
+                missingVisible.push(`The certificate ids for #${target} must run 1..${rows.length} in order (got ${ids.join(', ')}) — ids are the count register, and duplicates or gaps break the one-row-per-AC contract.`)
+            }
+        }
+
+        if (resolveTicketAcs) {
+            for (const target of acCloseTargets) {
+                const
+                    {acs, state} = resolveTicketAcs(target) ?? {acs: [], state: 'unknown'},
+                    rows         = rowsByTarget.get(target) ?? [],
+                    declared     = declarations.includes(target);
+
+                if (state === 'ok') {
+                    if (acs.length && declared) {
+                        missingVisible.push(`#${target} carries ${acs.length} structured AC(s) — the \`No structured ACs\` declaration is false. Certify each AC, or change the ticket.`)
+                    } else if (acs.length && rows.length !== acs.length) {
+                        // A draft is work in flux: the mismatch is surfaced, not enforced, until handoff.
+                        (draft ? warnings : missingVisible).push(`#${target} carries ${acs.length} structured AC(s); \`## AC Evidence\` certifies ${rows.length} for it. One row per ticket AC.`)
+                    }
+                } else if (state === 'missing') {
+                    // A 404 is an answer about the CONTENT: this PR resolves a ticket that does not
+                    // exist. Only transport silence stays a warning.
+                    missingVisible.push(`\`Resolves #${target}\` was not found — a close target must exist. Fix the reference; the certificate cannot bind to a missing ticket.`)
+                } else {
+                    warnings.push(`AC coverage of #${target} was NOT verified — GitHub could not be read. The certificate's shape is valid; whether it covers every ticket AC is unverified.`)
+                }
             }
         }
     }

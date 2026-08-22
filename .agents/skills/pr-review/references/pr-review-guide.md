@@ -175,10 +175,10 @@ At RC2 or >24KB, load the payload. **A demand round is a `CHANGES_REQUESTED`** �
 
 ### 6.4 Micro-Review — the blast-scaled Cycle-1 light path
 
-`# PR Micro-Review` (`assets/pr-micro-review-template.md`) — anchors: `**Class:**`
-asserting `micro` | `contained` | `mechanical`, `**Verdict:**`, `**Glance:**` (the
-premise + correctness check), origin-session signature. No premise snapshot, no
-Depth Floor, no audits, no metrics.
+`# PR Micro-Review` (`assets/pr-review-micro-review-template.md`) — anchors:
+`**Class:**` asserting `micro` | `contained` | `mechanical`, `**Verdict:**`,
+`**Glance:**` (the premise + correctness check), the canonical
+`- **Origin Session ID:**` line. No premise snapshot, no Depth Floor, no audits.
 
 **When:** a MECHANICAL PR — no architectural concept to teach (test-only /
 config-leaf / behavior-preserving / docs / receipt refresh) — at ANY size, or a

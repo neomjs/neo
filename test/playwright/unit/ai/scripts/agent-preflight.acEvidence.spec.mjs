@@ -30,7 +30,7 @@ const ticketWith = acLines => [
 // gate's own wording keeps the instruments separable when several gates speak about one body.
 const acFindings = (body, options) =>
     validatePrBody(body, options).missingVisible.filter(entry =>
-        /AC Evidence|declares no proof|structured AC/.test(entry));
+        /AC Evidence|declares no proof|structured AC|names no target|count register|does not resolve|contradict|was not found/.test(entry));
 
 test.describe('validatePrBody — AC-Evidence certificate gate', () => {
     test('a certified body with non-empty proofs passes the shape check', () => {
@@ -103,15 +103,75 @@ test.describe('validatePrBody — AC-Evidence certificate gate', () => {
         expect(acFindings(bodyWith('## AC Evidence\nNo structured ACs on #100'), {resolveTicketAcs: resolver})).toHaveLength(0)
     });
 
-    test('an unreadable or missing ticket produces a WARNING, never a verdict', () => {
+    test('transport silence is a WARNING; a confirmed-missing close target is a VERDICT', () => {
         const body = bodyWith('## AC Evidence\n| AC-1 | spec a |');
 
-        for (const state of ['unknown', 'missing']) {
-            const result = validatePrBody(body, {resolveTicketAcs: () => ({acs: [], state})});
+        const unreadable = validatePrBody(body, {resolveTicketAcs: () => ({acs: [], state: 'unknown'})});
 
-            expect(result.valid).toBe(true);
-            expect(result.warnings.some(entry => /NOT verified/.test(entry))).toBe(true)
+        expect(unreadable.valid).toBe(true);
+        expect(unreadable.warnings.some(entry => /NOT verified/.test(entry))).toBe(true);
+
+        // a 404 answers about the CONTENT: this PR resolves a ticket that does not exist
+        const missing = validatePrBody(body, {resolveTicketAcs: () => ({acs: [], state: 'missing'})});
+
+        expect(missing.valid).toBe(false);
+        expect(missing.missingVisible.some(entry => /was not found/.test(entry))).toBe(true)
+    });
+
+    test('duplicate, gapped, or out-of-order certificate ids break the count register', () => {
+        const resolver = () => ({state: 'ok', acs: ['- [ ] a', '- [ ] b']});
+
+        for (const rows of [
+            '| AC-1 | p |\n| AC-1 | q |',
+            '| AC-1 | p |\n| AC-3 | q |',
+            '| AC-2 | p |\n| AC-1 | q |'
+        ]) {
+            const findings = acFindings(bodyWith(`## AC Evidence\n${rows}`), {resolveTicketAcs: resolver});
+
+            expect(findings.some(entry => /count register/.test(entry))).toBe(true)
         }
+    });
+
+    test('SEVERAL close targets: every target is certified — a short second target fails', () => {
+        const
+            acsByTarget = {100: ['- [ ] a', '- [ ] b'], 200: ['- [ ] c', '- [ ] d']},
+            resolver    = target => ({state: 'ok', acs: acsByTarget[target]}),
+            resolves    = 'Resolves #100\n\nResolves #200';
+
+        const full = bodyWith(
+            '## AC Evidence\n| #100 AC-1 | p |\n| #100 AC-2 | q |\n| #200 AC-1 | r |\n| #200 AC-2 | s |',
+            {resolves});
+
+        expect(acFindings(full, {resolveTicketAcs: resolver})).toHaveLength(0);
+
+        // the second target only half-certified — the control RA-1 demanded
+        const short = bodyWith(
+            '## AC Evidence\n| #100 AC-1 | p |\n| #100 AC-2 | q |\n| #200 AC-1 | r |',
+            {resolves});
+
+        const findings = acFindings(short, {resolveTicketAcs: resolver});
+
+        expect(findings.some(entry => /#200 carries 2 structured/.test(entry))).toBe(true)
+    });
+
+    test('SEVERAL close targets: an unqualified row names no owner and fails', () => {
+        const body = bodyWith('## AC Evidence\n| AC-1 | p |', {resolves: 'Resolves #100\n\nResolves #200'});
+
+        expect(acFindings(body).some(entry => /names no target/.test(entry))).toBe(true)
+    });
+
+    test('a row or declaration naming a ticket this PR does not resolve fails', () => {
+        expect(acFindings(bodyWith('## AC Evidence\n| #999 AC-1 | p |'))
+            .some(entry => /does not resolve/.test(entry))).toBe(true);
+
+        expect(acFindings(bodyWith('## AC Evidence\nNo structured ACs on #999'))
+            .some(entry => /does not resolve/.test(entry))).toBe(true)
+    });
+
+    test('rows AND a declaration for the same target contradict — shape-level, no resolver needed', () => {
+        const body = bodyWith('## AC Evidence\n| AC-1 | p |\nNo structured ACs on #100');
+
+        expect(acFindings(body).some(entry => /contradict/.test(entry))).toBe(true)
     });
 
     test('a DRAFT with a close target surfaces a count mismatch as a warning, not a failure', () => {
@@ -151,9 +211,13 @@ test.describe('validatePrBody — AC-Evidence certificate gate', () => {
         ]))).toHaveLength(2)
     });
 
-    test('parseAcEvidenceRows: header and separator rows are not certificates', () => {
+    test('parseAcEvidenceRows: header and separator rows are not certificates; qualifiers parse', () => {
         expect(parseAcEvidenceRows('| AC | Evidence |\n| --- | --- |\n| AC-1 | proof |')).toEqual([
-            {id: '1', proof: 'proof'}
+            {id: '1', proof: 'proof', target: null}
+        ]);
+
+        expect(parseAcEvidenceRows('| #123 AC-2 | proof |')).toEqual([
+            {id: '2', proof: 'proof', target: '123'}
         ])
     })
 });

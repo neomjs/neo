@@ -8,6 +8,6 @@
 
 **Findings:** [None, or a short list — discharged in-place, never deferred.]
 
-Origin Session ID: [Memory Core UUID, its own line]
+- **Origin Session ID:** [Memory Core UUID]
 
 🖖 Social Name, model, harness. Eligibility rules: pr-review-guide §6.4.
