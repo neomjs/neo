@@ -389,6 +389,15 @@ test.describe('fleetTasksSource — createFleetTasksSource', () => {
         expect(envelope.recent.map(row => row.id)).not.toContain('kb:ingestion:last')
     });
 
+    test('a DEGRADED deployment envelope still counts as ANSWERED at the fold: capability stays wired, the axis carries its own word, the rows survive', async () => {
+        const {source}  = harness({deployment: () => ({...deploymentPayload(), ok: false, status: 'degraded', reason: 'missing-sections'})}),
+              envelope  = await source.readTasks();
+
+        expect(envelope.capability.state, 'degraded is a retained-snapshot measurement, not a failure').toBe('wired');
+        expect(envelope.sources.deployment).toMatchObject({state: 'degraded', reason: null});
+        expect(envelope.queued.map(row => row.id)).toContain('orchestrator:tenant-sync:cbff435fe549')
+    });
+
     test('a throwing axis is partial — its reason and a redacted detail ride the envelope, its rows are absent', async () => {
         const {source}  = harness({rem: () => new Error('plane get_rem_pipeline_state failed: Authorization: Bearer sk-live-AAAABBBB1234 rejected')}),
               envelope  = await source.readTasks();
