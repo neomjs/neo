@@ -312,12 +312,14 @@ class DockWorkspace extends Container {
     }
 
     /**
-     * Hook: extra options for the reconciler's staged transaction — a tab-bar animation
-     * suppression seam (`onProjectionStaged`), an overflow-projection wait
-     * (`waitForOverflowProjection`), a host-forced `retainTopology`. Returned keys merge AFTER
-     * the class's own reconciler options; the projection identity keys the class owns (`host`,
-     * `nextConfig`, `placeholders`, `resolveItem`, `shellIndex`) are not this hook's to replace.
-     * The default contributes nothing.
+     * Hook: extra options for the reconciler's staged transaction. Exactly three keys are
+     * SANCTIONED and consumed — `onProjectionStaged` (a tab-bar animation-suppression seam),
+     * `waitForOverflowProjection` (an overflow-readiness wait), and `retainTopology` (a
+     * host-forced stable-topology admission, winning over the commit's own value when present).
+     * Every other returned key is DISCARDED: the projection identity — `host`, `nextConfig`,
+     * `placeholders`, the merged `preserveItemIds`, `resolveItem`, `shellIndex`, `geometryOnly` —
+     * is class-owned and mechanically unreachable from this hook. The default contributes
+     * nothing.
      * @param {Object|null} document The committed document this refresh projects.
      * @param {Object} refreshOptions The options {@link #getRefreshOptions} produced for it.
      * @returns {Object}
@@ -559,10 +561,17 @@ class DockWorkspace extends Container {
             return placeholder
         }, document);
 
+        // The hook extends the reconciler's SEAMS, never its identity: only the three sanctioned
+        // keys are read off its result — a hostile or accidental override cannot displace the
+        // class-owned projection identity below.
+        const {onProjectionStaged, retainTopology: forcedRetainTopology, waitForOverflowProjection} =
+            me.getReconcileOptions(document, refreshOptions) || {};
+
         const result = await DockProjectionReconciler.reconcileProjection({
             geometryOnly,
             host,
             nextConfig,
+            onProjectionStaged,
             placeholders,
             preserveItemIds: [...new Set([...me.getPreservedItemIds(), ...(refreshOptions.preserveItemIds || [])])],
             resolveItem    : itemId => {
@@ -578,9 +587,9 @@ class DockWorkspace extends Container {
                     }
                 )
             },
-            retainTopology,
-            shellIndex: me.dockShellIndex,
-            ...me.getReconcileOptions(document, refreshOptions)
+            retainTopology: forcedRetainTopology ?? retainTopology,
+            shellIndex    : me.dockShellIndex,
+            waitForOverflowProjection
         });
 
         // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and

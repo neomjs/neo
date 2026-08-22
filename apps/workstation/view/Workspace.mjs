@@ -65,7 +65,7 @@ const paneStories = Object.freeze({
  * hydration, and OffscreenCanvas registration; this class owns only composition and story.
  *
  * @class Workstation.view.Workspace
- * @extends Neo.container.Base
+ * @extends Neo.dashboard.DockWorkspace
  */
 class Workspace extends DockWorkspace {
     /**

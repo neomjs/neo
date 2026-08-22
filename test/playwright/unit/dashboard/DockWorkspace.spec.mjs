@@ -456,19 +456,29 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
         expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
     });
 
-    test('a host\'s reconcile options merge after the class\'s own, identity keys intact', async () => {
+    test('the reconcile hook passes only its sanctioned seams; a hostile override cannot displace the identity keys', async () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
         let captured = null;
 
         const
             staged    = () => {},
+            overflow  = () => {},
+            hostileFn = () => {throw new Error('hostile')},
             reconcile = DockProjectionReconciler.reconcileProjection;
 
+        // every class-owned identity key supplied hostilely, beside the three sanctioned seams
         workspace.getReconcileOptions = () => ({
+            geometryOnly             : true,
+            host                     : {id: 'hostile-host'},
+            nextConfig               : {ntype: 'container', cls: ['hostile']},
             onProjectionStaged       : staged,
+            placeholders             : new Map([['x', 'hostile']]),
+            preserveItemIds          : ['hostile-item'],
+            resolveItem              : hostileFn,
             retainTopology           : true,
-            waitForOverflowProjection: () => {}
+            shellIndex               : 99,
+            waitForOverflowProjection: overflow
         });
 
         DockProjectionReconciler.reconcileProjection = options => {
@@ -485,11 +495,19 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
             DockProjectionReconciler.reconcileProjection = reconcile
         }
 
+        // the sanctioned seams arrive …
         expect(captured.onProjectionStaged).toBe(staged);
         expect(captured.retainTopology).toBe(true);
-        expect(typeof captured.waitForOverflowProjection).toBe('function');
+        expect(captured.waitForOverflowProjection).toBe(overflow);
+
+        // … and every identity key stays class-owned
         expect(captured.host).toBe(workspace);
-        expect(captured.shellIndex).toBe(0)
+        expect(captured.shellIndex).toBe(0);
+        expect(captured.geometryOnly).toBe(false);
+        expect(captured.nextConfig.cls).not.toContain('hostile');
+        expect(captured.placeholders.get('x')).toBeUndefined();
+        expect(captured.preserveItemIds).not.toContain('hostile-item');
+        expect(captured.resolveItem).not.toBe(hostileFn)
     });
 
     test('the post-refresh hook is awaited and receives the outcome and the play promise', async () => {
