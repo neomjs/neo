@@ -12,7 +12,7 @@ import * as core          from '../../../../src/core/_export.mjs';
 import DockMotionSignal   from '../../../../src/dashboard/DockMotionSignal.mjs';
 import DockTabEnterButton from '../../../../src/dashboard/DockTabEnterButton.mjs';
 import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
-import MainContainer      from '../../../../examples/dashboard/dock/MainContainer.mjs';
+import DockWorkspace      from '../../../../src/dashboard/DockWorkspace.mjs';
 
 const createModel = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -166,31 +166,42 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
             detached   = DockZoneModel.applyOperation(initial, {operation: 'detachItem', itemId: 'terminal'}),
             inserted   = DockZoneModel.applyOperation(detached.document, descriptor),
             refreshes  = [],
+            // a duck-typed refresh owner borrowing the engine class's commit loop: the members the
+            // loop consults are supplied explicitly; the refresh spy records the one-use correlation
             context    = {
                 applyDockZoneOperation() {},
+                decorateFlipMarker              : DockWorkspace.prototype.decorateFlipMarker,
                 dockModel                       : detached.document,
-                getTabInsertProjectionDescriptor: MainContainer.prototype.getTabInsertProjectionDescriptor,
+                dockProjectionConfig            : null,
+                flipMarkerPrefix                : 'dock-flip-item-',
+                getDockProjectionOptions        : () => ({}),
+                getPaneHeaderText               : DockWorkspace.prototype.getPaneHeaderText,
+                getRefreshOptions               : () => ({}),
+                getTabInsertProjectionDescriptor: DockWorkspace.prototype.getTabInsertProjectionDescriptor,
                 isDestroyed                     : false,
                 onDockCrossZoneDrop() {},
-                onDockZoneDocumentChange: MainContainer.prototype.onDockZoneDocumentChange,
+                onDockZoneDocumentChange: DockWorkspace.prototype.onDockZoneDocumentChange,
                 refreshDockWorkspace    : transient => refreshes.push(transient),
+                resolvePane             : DockWorkspace.prototype.resolvePane,
+                resolveProjectedPane    : DockWorkspace.prototype.resolveProjectedPane,
+                resolveRevealPane       : DockWorkspace.prototype.resolveRevealPane,
                 timeout                 : () => Promise.resolve()
             };
 
         expect(moved.errors).toEqual([]);
-        expect(MainContainer.prototype.getTabInsertProjectionDescriptor.call(
+        expect(DockWorkspace.prototype.getTabInsertProjectionDescriptor.call(
             {dockModel: initial}, moved.document, descriptor
         )).toBeNull();
         expect(detached.errors).toEqual([]);
         expect(inserted.errors).toEqual([]);
 
-        MainContainer.prototype.onDockZoneDocumentChange.call(context, inserted.document, descriptor);
+        DockWorkspace.prototype.onDockZoneDocumentChange.call(context, inserted.document, descriptor);
         await context.refreshPromise;
 
         expect(refreshes).toEqual([{operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'}]);
         expect(JSON.stringify(context.dockModel)).not.toContain('tabInsert');
 
-        const projected = MainContainer.prototype.projectDockModel.call(context, refreshes[0]),
+        const projected = DockWorkspace.prototype.projectDockModel.call(context, refreshes[0]),
               mainTabs  = findProjectedNode(projected, 'main-tabs'),
               entered   = mainTabs.items.filter(item => item.header?.cls?.includes('neo-dashboard-dock-tab-enter'));
 
@@ -202,12 +213,12 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         let reorder   = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 0},
             reordered = DockZoneModel.applyOperation(context.dockModel, reorder);
 
-        MainContainer.prototype.onDockZoneDocumentChange.call(context, reordered.document, reorder);
+        DockWorkspace.prototype.onDockZoneDocumentChange.call(context, reordered.document, reorder);
         await context.refreshPromise;
         expect(refreshes[1]).toBeNull();
 
         // A later projection receives no captured descriptor and keeps or creates every header inert.
-        const later     = MainContainer.prototype.projectDockModel.call(context),
+        const later     = DockWorkspace.prototype.projectDockModel.call(context),
               laterTabs = findProjectedNode(later, 'main-tabs');
 
         expect(laterTabs.items.some(item => item.header?.cls?.includes('neo-dashboard-dock-tab-enter'))).toBe(false)
