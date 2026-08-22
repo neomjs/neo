@@ -98,9 +98,9 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Containers](https://neomjs.com/examples/container/base/index.html)
 - [Neo Fragment Example](https://neomjs.com/examples/container/fragment/index.html)
 - [neo.mjs config system](https://neomjs.com/examples/core/config/index.html)
+- [Neo Dashboard](https://neomjs.com/examples/dashboard/base/index.html)
 - [#15065 Cross-Window Witness](https://neomjs.com/examples/dashboard/crossWindowWitness/index.html)
 - [Neo Dashboard — Dock Layout](https://neomjs.com/examples/dashboard/dock/index.html)
-- [Neo Dashboard](https://neomjs.com/examples/dashboard/index.html)
 - [Neo Data Pipeline](https://neomjs.com/examples/data/pipeline/index.html)
 - [Neo DateSelector](https://neomjs.com/examples/date/selectorContainer/index.html)
 - [Neo Dialog](https://neomjs.com/examples/dialog/index.html)
@@ -496,6 +496,7 @@ Here you find the full history of Neo.mjs updates.
 - [Core Utilities](https://neomjs.com/raw/learn/guides/coreengine/Utilities.md)
 - [Component and Container Basics](https://neomjs.com/raw/learn/guides/uibuildingblocks/ComponentsAndContainers.md)
 - [Layouts](https://neomjs.com/raw/learn/guides/uibuildingblocks/Layouts.md)
+- [Dock Layouts](https://neomjs.com/raw/learn/guides/uibuildingblocks/DockLayouts.md)
 - [Fragments](https://neomjs.com/raw/learn/guides/uibuildingblocks/Fragments.md)
 - [Custom Components](https://neomjs.com/raw/learn/guides/uibuildingblocks/CustomComponents.md)
 - [Working with VDom](https://neomjs.com/raw/learn/guides/uibuildingblocks/WorkingWithVDom.md)
@@ -560,6 +561,15 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17536](https://neomjs.com/raw/news/tickets/17536.md)
+- [Ticket #17535](https://neomjs.com/raw/news/tickets/17535.md)
+- [Ticket #17534](https://neomjs.com/raw/news/tickets/17534.md)
+- [Ticket #17533](https://neomjs.com/raw/news/tickets/17533.md)
+- [Ticket #17529](https://neomjs.com/raw/news/tickets/17529.md)
+- [Ticket #17527](https://neomjs.com/raw/news/tickets/17527.md)
+- [Ticket #17525](https://neomjs.com/raw/news/tickets/17525.md)
+- [Ticket #17522](https://neomjs.com/raw/news/tickets/17522.md)
+- [Ticket #17518](https://neomjs.com/raw/news/tickets/17518.md)
 - [Ticket #17516](https://neomjs.com/raw/news/tickets/17516.md)
 - [Ticket #17514](https://neomjs.com/raw/news/tickets/17514.md)
 - [Ticket #17512](https://neomjs.com/raw/news/tickets/17512.md)
@@ -12081,6 +12091,16 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17537](https://neomjs.com/raw/news/pulls/17537.md)
+- [Pull Request #17532](https://neomjs.com/raw/news/pulls/17532.md)
+- [Pull Request #17531](https://neomjs.com/raw/news/pulls/17531.md)
+- [Pull Request #17530](https://neomjs.com/raw/news/pulls/17530.md)
+- [Pull Request #17528](https://neomjs.com/raw/news/pulls/17528.md)
+- [Pull Request #17526](https://neomjs.com/raw/news/pulls/17526.md)
+- [Pull Request #17524](https://neomjs.com/raw/news/pulls/17524.md)
+- [Pull Request #17523](https://neomjs.com/raw/news/pulls/17523.md)
+- [Pull Request #17520](https://neomjs.com/raw/news/pulls/17520.md)
+- [Pull Request #17519](https://neomjs.com/raw/news/pulls/17519.md)
 - [Pull Request #17517](https://neomjs.com/raw/news/pulls/17517.md)
 - [Pull Request #17515](https://neomjs.com/raw/news/pulls/17515.md)
 - [Pull Request #17513](https://neomjs.com/raw/news/pulls/17513.md)
@@ -17718,6 +17738,7 @@ Here you find problem-to-solution records from Neo.mjs pull requests.
 
 Here you find Ideation Sandbox and architectural discussion records.
 
+- [Discussion #17521](https://neomjs.com/raw/news/discussions/17521.md)
 - [Discussion #17489](https://neomjs.com/raw/news/discussions/17489.md)
 - [Discussion #17468](https://neomjs.com/raw/news/discussions/17468.md)
 - [Discussion #17454](https://neomjs.com/raw/news/discussions/17454.md)
