@@ -264,8 +264,15 @@ class HealthBar extends Container {
      * plumbed daemon/presence facts) as the nominal/attention class pair the skin colours.
      */
     applyCounts() {
-        let me     = this,
-            rows   = me.store?.items ?? [],
+        let me    = this,
+            store = me.store,
+            // the WHOLE fleet, always: the roster's view filters (hide offline / hide benched /
+            // the idle fold) shape what the card list SHOWS, never what the fleet IS. While a
+            // filter actively excludes rows, the unfiltered truth lives in `allItems`; with zero
+            // active filters, `items` IS the whole fleet (the collection materializes `allItems`
+            // as a snapshot on the first filter pass and does not route later adds into it while
+            // nothing filters — reading the stale snapshot then would undercount joiners).
+            rows   = ((store?.filters?.some(filter => !filter.disabled) ? store?.allItems?.items : null) ?? store?.items) ?? [],
             counts = healthCounts(rows),
             alert  = deriveAttention({
                 counts,

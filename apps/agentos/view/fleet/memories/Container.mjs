@@ -48,17 +48,13 @@ class MemoriesPane extends Container {
         shellTools: null,
         /**
          * Selected target agent as canonical `@identity`, or null for the explicit
-         * "pick an agent" state.
+         * "pick an agent" state. Written through by the cockpit's ONE picker — the roster
+         * selection (a card click / Enter) — so this pane renders no target chooser of its own;
+         * the null state's sentence names the card click as the path.
          * @member {String|null} activeAgent_=null
          * @reactive
          */
         activeAgent_: null,
-        /**
-         * Agent choices supplied by the cockpit from its provider-owned roster.
-         * @member {Object[]} agentOptions_=[]
-         * @reactive
-         */
-        agentOptions_: [],
         /**
          * Latest memories envelope. `null` is unobserved, never empty.
          * @member {Object|null} snapshot_=null
@@ -102,12 +98,6 @@ class MemoriesPane extends Container {
                 cls  : ['fm-memories-authority'],
                 text : 'session summaries · query-time · not authority'
             }]
-        }, {
-            ntype    : 'container',
-            cls      : ['fm-memories-agents'],
-            flex     : 'none',
-            layout   : {ntype: 'hbox', align: 'center', wrap: 'wrap'},
-            reference: 'memories-agents'
         }, {
             ntype    : 'component',
             cls      : ['fm-memories-meta'],
@@ -190,12 +180,16 @@ class MemoriesPane extends Container {
             me.activeAgent = me.snapshot.target
         }
 
-        me.refreshAgents();
         me.applySnapshot();
 
         // Drill rematerialization: an owner-passed open drill reopens at the depth the operator
         // was reading; its snapshot re-projects through the same coherence gate as a live push.
-        me.drillSession && me.applyDrillSnapshot()
+        me.drillSession && me.applyDrillSnapshot();
+
+        // A cold projection carrying a target but no snapshot (the roster selection landed before
+        // this pane materialized): request the corpus now — the create-time config write cannot
+        // fire the reactive hook, and a pane that renders "Reading X…" forever is a hung claim.
+        me.activeAgent && !me.snapshot && me.fire('memoriesRequest', {agentIdentity: me.activeAgent})
     }
 
     /** @param {...*} args */
@@ -212,14 +206,27 @@ class MemoriesPane extends Container {
         return value === null || /^@[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) ? value : oldValue ?? null
     }
 
-    /** @param {String|null} value @param {String|null} oldValue */
+    /**
+     * @summary The target switched (the roster selection's write-through, or any other writer):
+     * the selected target is part of the rendered snapshot KEY, so the old target's cards and
+     * continuation affordance are invalidated IMMEDIATELY (switch-pending state) and the new
+     * corpus is requested — no stale store depth can anchor an offset request, no old-target
+     * action survives into the new selection. The pane owns this consequence regardless of who
+     * wrote the config; the reactive hook's own equality gate keeps a same-target re-write inert.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
     afterSetActiveAgent(value, oldValue) {
-        this.isConstructed && this.refreshAgents()
-    }
+        const me = this;
 
-    /** @param {Object[]} value @param {Object[]} oldValue */
-    afterSetAgentOptions(value, oldValue) {
-        this.isConstructed && this.refreshAgents()
+        if (!me.isConstructed) {
+            return
+        }
+
+        me.summaryStore?.clear();
+        me.renderedTarget = null;
+        me.applySnapshot();
+        value && me.fire('memoriesRequest', {agentIdentity: value})
     }
 
     /** @param {Object|null} value @param {Object|null} oldValue */
@@ -235,25 +242,6 @@ class MemoriesPane extends Container {
     /** @param {Object|null} value @param {Object|null} oldValue */
     afterSetDrillSnapshot(value, oldValue) {
         this.isConstructed && this.applyDrillSnapshot()
-    }
-
-    /**
-     * @summary Switch the selected target. The selected target is part of the rendered snapshot
-     * KEY, not merely a request parameter: the old target's cards and continuation affordance are
-     * invalidated IMMEDIATELY (switch-pending state), so no stale store depth can anchor an
-     * offset request and no old-target action survives into the new selection.
-     * @param {String} agentIdentity
-     */
-    onAgentClick(agentIdentity) {
-        const me = this;
-
-        if (agentIdentity === me.activeAgent) return;
-
-        me.activeAgent = agentIdentity;
-        me.summaryStore?.clear();
-        me.renderedTarget = null;
-        me.applySnapshot();
-        me.fire('memoriesRequest', {agentIdentity})
     }
 
     /** @summary Re-read the newest page for the selected agent. */
@@ -336,27 +324,6 @@ class MemoriesPane extends Container {
     }
 
     /**
-     * @summary Rebuild the agent chips from the roster-supplied options in source order.
-     */
-    refreshAgents() {
-        const target = this.getReference('memories-agents');
-
-        if (!target) return;
-
-        const options = (this.agentOptions || [])
-            .filter((option, index, all) => option?.agentIdentity && all.findIndex(item => item.agentIdentity === option.agentIdentity) === index);
-
-        target.removeAll(true);
-        target.add(options.map(option => ({
-            module : Button,
-            cls    : option.agentIdentity === this.activeAgent ? ['fm-memories-agent', 'is-active'] : ['fm-memories-agent'],
-            text   : option.label || option.agentIdentity,
-            ui     : 'ghost',
-            handler: () => this.onAgentClick(option.agentIdentity)
-        })))
-    }
-
-    /**
      * @summary Project the latest envelope into Store cards and honest chrome under the coherence
      * contract: the selected target is part of the rendered snapshot KEY. An envelope whose target
      * mismatches a non-null selection is NOT adopted — the pane renders the switch-pending state
@@ -397,7 +364,7 @@ class MemoriesPane extends Container {
             metaEl.text = pending
                 ? `Reading ${me.activeAgent}…`
                 : !adopted
-                    ? 'Pick an agent to read their recent sessions.'
+                    ? 'Select an agent card in the roster to read their recent sessions.'
                     : wired
                         ? `${adopted.target} · ${me.summaryStore.count} of ${adopted.total ?? '?'} sessions · captured ${me.formatStamp(adopted.capability.capturedAt)}`
                         : `Memories unavailable · ${adopted.capability?.reason || 'unknown reason'}`;

@@ -5,6 +5,7 @@ const appName = 'FleetGridTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
+        unitTestMode           : true,
         useDomApiRenderer      : true
     },
     appConfig: {
@@ -17,15 +18,37 @@ import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 import Instance       from '../../../../../../../../src/manager/Instance.mjs';
 
-test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-ranked grid (#14599)', () => {
-    let FleetAgent, FleetGrid, HealthBar, Store, rankFleet, healthCounts, hasAttention, deriveAttention;
+// The setup() mock set carries no Stylesheet addon — the roster list's animate plugin writes its
+// per-owner containing-block + transition rules through it at construct/destroy. Stubbed here (the
+// animatePlugin spec's own pattern), restored in afterAll so nothing leaks past this file.
+let priorInsertCssRules, priorDeleteCssRules;
+
+test.beforeAll(() => {
+    Neo.ns('Neo.main.addon.Stylesheet', true);
+
+    priorInsertCssRules = Neo.main.addon.Stylesheet.insertCssRules;
+    priorDeleteCssRules = Neo.main.addon.Stylesheet.deleteCssRules;
+
+    Neo.main.addon.Stylesheet.insertCssRules = () => {};
+    Neo.main.addon.Stylesheet.deleteCssRules = () => {}
+});
+
+test.afterAll(() => {
+    Neo.main.addon.Stylesheet.insertCssRules = priorInsertCssRules;
+    Neo.main.addon.Stylesheet.deleteCssRules = priorDeleteCssRules
+});
+
+test.describe('Fleet roster — the animated store-driven list: sorters rank, filters hide, selection drives', () => {
+    let BaseContainer, FleetAgent, FleetGrid, HealthBar, StateProvider, Store, healthCounts, hasAttention, deriveAttention;
 
     const stores = [];
 
-    // a roster from a list of states; agentIds are shuffled-stable so the sort is provable
+    // a roster from a list of states; agentIds are shuffled-stable and displayNames alphabet-walk
+    // in ARRIVAL order, so both sort axes are provable against scrambled input
     const roster = states => states.map((state, i) => ({
-        agentId    : `agent-${String((states.length - i)).padStart(2, '0')}`,
-        displayName: `Agent ${i}`,
+        agentId       : `agent-${String((states.length - i)).padStart(2, '0')}`,
+        displayName   : `Agent ${String.fromCharCode(65 + i)}`,
+        githubUsername: `neo-agent-${String((states.length - i)).padStart(2, '0')}`,
         state
     }));
 
@@ -39,24 +62,44 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         return store
     };
 
-    const cardsBox   = grid => grid.items.find(item => item.cls.includes('fm-fleet-cards'));
-    const agentCards = grid => cardsBox(grid).items.filter(item => item.ntype === 'fm-agent-card');
-    const foldRow    = grid => cardsBox(grid).items.find(item => item.cls.includes('fm-fleet-fold'));
-    const head       = grid => grid.items.find(item => item.cls.includes('fm-fleet-head'));
-    const swatchOf   = (bar, state) => bar.items.find(sw => sw.state === state);
+    const head     = grid => grid.items.find(item => item.cls.includes('fm-fleet-head'));
+    const swatchOf = (bar, state) => bar.items.find(sw => sw.state === state);
+
+    // the animate plugin loads via a dynamic import — await it, hand it a measured rect (the
+    // mount-time geometry the headless unit lacks), and build the pooled card items
+    const readyList = async grid => {
+        const list = grid.getReference('roster-list');
+
+        let plugin = null;
+
+        for (let i = 0; i < 100 && !(plugin = list.getPlugin('list-animate')); i++) {
+            await new Promise(resolve => setTimeout(resolve, 10))
+        }
+
+        expect(plugin, 'list.plugin.Animate materialized').toBeTruthy();
+        plugin.applyGeometry({width: 935, height: 600});
+        list.createItems(true);
+
+        return list
+    };
+
+    // the pooled AgentCard instances in RENDER order (store order) — the pool is index-keyed and
+    // only ever grows, so the live window is the store's current count
+    const cards = list => (list.items ?? []).slice(0, list.store.getCount());
 
     test.beforeAll(async () => {
         const gridMod = await import('../../../../../../../../apps/agentos/view/fleet/roster/Container.mjs'),
               barMod  = await import('../../../../../../../../apps/agentos/view/fleet/health/Container.mjs');
 
-        FleetGrid    = gridMod.default;
-        rankFleet    = gridMod.rankFleet;
-        HealthBar    = barMod.default;
-        healthCounts = barMod.healthCounts;
+        FleetGrid       = gridMod.default;
+        HealthBar       = barMod.default;
+        healthCounts    = barMod.healthCounts;
         hasAttention    = barMod.hasAttention;
         deriveAttention = barMod.deriveAttention;
-        FleetAgent   = (await import('../../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
-        Store        = (await import('../../../../../../../../src/data/Store.mjs')).default
+        BaseContainer   = (await import('../../../../../../../../src/container/Base.mjs')).default;
+        FleetAgent      = (await import('../../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
+        StateProvider   = (await import('../../../../../../../../src/state/Provider.mjs')).default;
+        Store           = (await import('../../../../../../../../src/data/Store.mjs')).default
     });
 
     test.afterAll(() => {
@@ -123,7 +166,7 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
 
         // the un-managed normal: not-wired sources everywhere (the sample/FM-as-client topology)
         // must NOT trip attention — weighting expected absence would make the header permanently
-        // yellow again, the exact falsified default this ticket retires
+        // yellow again, the exact falsified default this projection retires
         const unmanagedRows = [{sources: {}}, {sources: null}, {
             sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
         }];
@@ -152,24 +195,312 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(deriveAttention()).toBe(false)
     });
 
-    test('rankFleet tiers deterministically (online → idle → benched, sorted by agentId) with the fold threshold', () => {
-        // 4 online (ok/limited/wedged) · 3 idle · 2 benched(off) + 1 unknown-guest → benched tail
-        const rank = rankFleet(roster(['ok', 'idle', 'off', 'limited', 'idle', 'wedged', 'off', 'idle', 'guest', 'ok']), {foldThreshold: 12});
+    test('tierRank is the model-calculated rank axis — one derivation site for "online first"', () => {
+        const store = makeStore(roster(['ok', 'wedged', 'limited', 'idle', 'off', 'guest']));
 
-        expect(rank.online.length).toBe(4);   // 2 ok + 1 limited + 1 wedged
-        expect(rank.idle.length).toBe(3);
-        expect(rank.benched.length).toBe(3);   // 2 off + 1 unknown-guest (tail, not dropped)
-        expect(rank.total).toBe(10);
-        expect(rank.folded).toBe(false);       // 10 < 12
+        const rankOf = state => store.items.find(record => record.state === state).tierRank;
 
-        // deterministic order: each tier sorted by agentId regardless of arrival order
-        const ids = rank.online.map(a => a.agentId);
-        expect(ids).toEqual([...ids].sort());
+        // present-and-engaged leads — a wedged or rate-limited agent is a thing the operator must
+        // SEE, never calm background
+        expect(rankOf('ok')).toBe(0);
+        expect(rankOf('wedged')).toBe(0);
+        expect(rankOf('limited')).toBe(0);
+        // the calm middle
+        expect(rankOf('idle')).toBe(1);
+        // the tail: benched / offline / unknown-guest — never dropped
+        expect(rankOf('off')).toBe(2);
+        expect(rankOf('guest')).toBe(2);
 
-        // threshold is inclusive at the boundary
-        expect(rankFleet(roster(Array(11).fill('ok')), {foldThreshold: 12}).folded).toBe(false);
-        expect(rankFleet(roster(Array(12).fill('ok')), {foldThreshold: 12}).folded).toBe(true);
-        expect(rankFleet(roster(Array(20).fill('idle')), {foldThreshold: 12}).folded).toBe(true)
+        // the derivation is live: a tier move re-computes on the SAME record
+        const record = store.items.find(r => r.state === 'ok');
+        record.set({state: 'idle'});
+        expect(record.tierRank).toBe(1)
+    });
+
+    test('the default order is a STORE sorter set — online first, then case-folded name; seating is idempotent', async () => {
+        // arrival order scrambles both axes: names walk A..F over states that interleave tiers
+        const store = makeStore(roster(['idle', 'ok', 'off', 'wedged', 'idle', 'ok'])),
+              grid  = Neo.create(FleetGrid, {appName, store});
+
+        // the controller seated the default sorters + the three view filters on the store
+        expect(store.sorters.length).toBe(2);
+        expect(store.sorters[0].property).toBe('tierRank');
+        expect(store.filters.length).toBe(3);
+        expect(store.filters.every(filter => filter.disabled)).toBe(true);
+
+        // tier leads, name breaks ties within a tier: online (B, D, F) → idle (A, E) → tail (C)
+        expect(store.items.map(record => record.displayName)).toEqual(
+            ['Agent B', 'Agent D', 'Agent F', 'Agent A', 'Agent E', 'Agent C']
+        );
+
+        // idempotent re-seat: a second grid binding the SAME provider-owned store must not stack
+        // duplicate sorters/filters or reorder anything
+        const second = Neo.create(FleetGrid, {appName, store});
+        expect(store.sorters.length).toBe(2);
+        expect(store.filters.length).toBe(3);
+
+        // the pooled card instances render in store order
+        const list = await readyList(grid);
+        expect(cards(list).map(card => card.record.displayName)).toEqual(store.items.map(record => record.displayName));
+        expect(cards(list).every(card => card.record.isRecord)).toBe(true);
+
+        second.destroy();
+        grid.destroy()
+    });
+
+    test('sort modes replace the sorter set: name A–Z case-folds; latest activity is DESC with nulls LAST', () => {
+        const rows = roster(['ok', 'idle', 'off', 'ok']);
+
+        // case-fold axis: mixed-case names that would misorder under a case-sensitive compare
+        rows[0].displayName = 'ada';
+        rows[1].displayName = 'Bo';
+        rows[2].displayName = 'ARA';
+        rows[3].displayName = 'zed';
+
+        // recency axis: two stamped instants + two never-active rows
+        rows[0].lastActivityAt = '2026-08-22T10:00:00.000Z';
+        rows[1].lastActivityAt = '2026-08-22T12:00:00.000Z';
+        rows[2].lastActivityAt = null;
+        rows[3].lastActivityAt = null;
+
+        const store      = makeStore(rows),
+              grid       = Neo.create(FleetGrid, {appName, store}),
+              controller = grid.getController();
+
+        controller.onSortModeClick({component: grid.getReference('sort-name')});
+        expect(store.items.map(record => record.displayName)).toEqual(['ada', 'ARA', 'Bo', 'zed']);
+        expect(grid.getReference('sort-name').pressed).toBe(true);
+        expect(grid.getReference('sort-online').pressed).toBe(false);
+
+        // "that would move a lot": newest stamped instant first, the never-active rows LAST —
+        // the sorter's native null handling, never a fabricated age
+        controller.onSortModeClick({component: grid.getReference('sort-activity')});
+        expect(store.items.map(record => record.lastActivityAt)).toEqual([
+            '2026-08-22T12:00:00.000Z', '2026-08-22T10:00:00.000Z', null, null
+        ]);
+        expect(grid.getReference('sort-activity').pressed).toBe(true);
+
+        // back to the default tier order
+        controller.onSortModeClick({component: grid.getReference('sort-online')});
+        expect(store.items[0].tierRank).toBe(0);
+
+        grid.destroy()
+    });
+
+    test('a session-state change re-sorts through the store — the tier move IS a store ordering event', () => {
+        const store = makeStore(roster(['ok', 'ok', 'idle'])),
+              grid  = Neo.create(FleetGrid, {appName, store});
+
+        const first = store.items[0];
+        expect(first.tierRank).toBe(0);
+
+        // bench the leading online record — the record must move to the tail of the STORE order
+        // (the plugin renders store `sort` events; order is the provable unit-level truth)
+        first.set({state: 'off'});
+
+        expect(store.items.at(-1)).toBe(first);
+        expect(store.items.map(record => record.tierRank)).toEqual([0, 1, 2]);
+
+        // the store-bound health bar re-tallied through ITS OWN record seam
+        const bar = grid.getReference('fleet-health');
+        expect(bar.store).toBe(store);
+        expect(swatchOf(bar, 'unobserved').count).toBe(2);
+        expect(swatchOf(bar, 'external').count).toBe(1);
+
+        grid.destroy()
+    });
+
+    test('filters hide without erasing: hide-offline and hide-benched shape the VIEW; the tally and title keep the whole fleet', async () => {
+        const rows = roster(['ok', 'off', 'idle', 'off']);
+
+        rows[2].participationStatus = 'operator_benched';
+
+        const store      = makeStore(rows),
+              grid       = Neo.create(FleetGrid, {appName, store}),
+              controller = grid.getController(),
+              list       = await readyList(grid);
+
+        expect(store.getCount()).toBe(4);
+
+        // hide offline: the two `off` rows leave the VIEW
+        controller.onFilterToggleClick({component: grid.getReference('filter-offline')});
+        expect(store.getCount()).toBe(2);
+        expect(store.items.every(record => record.state !== 'off')).toBe(true);
+        expect(grid.getReference('filter-offline').pressed).toBe(true);
+
+        // hide benched: the operator_benched row leaves too
+        controller.onFilterToggleClick({component: grid.getReference('filter-benched')});
+        expect(store.getCount()).toBe(1);
+
+        // the WHOLE fleet stays the counted truth: title + health tally read the unfiltered set
+        expect(grid.getReference('fleet-title').text).toBe('Fleet · 4 agents');
+        const bar = grid.getReference('fleet-health');
+        expect(swatchOf(bar, 'external').count).toBe(2);
+
+        // toggling back restores the view
+        controller.onFilterToggleClick({component: grid.getReference('filter-offline')});
+        controller.onFilterToggleClick({component: grid.getReference('filter-benched')});
+        expect(store.getCount()).toBe(4);
+        expect(cards(list).length).toBe(4);
+
+        grid.destroy()
+    });
+
+    test('the density fold is a filter preset: at threshold the idle tier hides behind the honest head count; the chip toggles it live', () => {
+        // 4 online · 6 idle · 2 benched = 12 → folded
+        const store      = makeStore(roster([
+                  'ok', 'ok', 'limited', 'wedged',
+                  'idle', 'idle', 'idle', 'idle', 'idle', 'idle',
+                  'off', 'off'
+              ])),
+              grid       = Neo.create(FleetGrid, {appName, foldThreshold: 12, store}),
+              controller = grid.getController(),
+              chip       = grid.getReference('fold-chip');
+
+        // armed at threshold: the six idle rows leave the VIEW, the chip names the honest count
+        expect(store.getCount()).toBe(6);
+        expect(store.items.every(record => record.tierRank !== 1)).toBe(true);
+        expect(chip.hidden).toBe(false);
+        expect(chip.text).toBe('+6 idle · show');
+
+        // the title still counts the whole fleet — a fold is never a silent drop
+        expect(grid.getReference('fleet-title').text).toBe('Fleet · 12 agents');
+
+        // the chip toggles the idle tier back in
+        controller.onIdleFoldClick({});
+        expect(store.getCount()).toBe(12);
+        expect(chip.text).toBe('hide idle');
+        expect(chip.pressed).toBe(true);
+
+        controller.onIdleFoldClick({});
+        expect(store.getCount()).toBe(6);
+
+        grid.destroy()
+    });
+
+    test('below the threshold the fold preset stays disarmed — every card renders, no chip', () => {
+        const store = makeStore(roster(['ok', 'idle', 'off', 'ok', 'idle', 'wedged'])),
+              grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store});
+
+        expect(store.getCount()).toBe(6);
+        expect(grid.getReference('fold-chip').hidden).toBe(true);
+        expect(grid.getReference('fleet-title').text).toBe('Fleet · 6 agents');
+
+        grid.destroy()
+    });
+
+    test('selection writes the provider truth pair and fires the detail intent; a control click never selects', async () => {
+        const
+            fired = [],
+            store = makeStore(roster(['ok', 'idle', 'off'])),
+            // in production the provider lives on the cockpit ancestor; the SEAM under test (the
+            // controller writing the truth pair) is identical with the provider seated here — the
+            // headless harness has no mounted parent chain to walk
+            grid = Neo.create(FleetGrid, {
+                appName, store,
+                stateProvider: {module: StateProvider, data: {selectedAgentId: null, selectedAgentIdentity: null}}
+            }),
+            controller = grid.getController(),
+            list       = await readyList(grid),
+            // the stateProvider config is LAZY — the first getter access materializes it
+            provider   = grid.stateProvider;
+
+        grid.on('agentSelect', data => fired.push(data));
+
+        expect(provider).toBeTruthy();
+        expect(grid.getStateProvider()).toBe(provider);
+
+        const target = store.items[0];
+
+        // the selection seam: resolve the clicked item id → record → provider pair + intent
+        controller.onRosterSelect({items: [list.getItemId(target.agentId)]});
+
+        expect(provider.getData('selectedAgentId')).toBe(target.agentId);
+        expect(provider.getData('selectedAgentIdentity')).toBe(`@${target.githubUsername}`);
+        expect(fired).toHaveLength(1);
+        expect(fired[0].agentId).toBe(target.agentId);
+
+        // an empty selection clears the pair and fires nothing
+        controller.onRosterSelect({items: []});
+        expect(provider.getData('selectedAgentId')).toBeNull();
+        expect(provider.getData('selectedAgentIdentity')).toBeNull();
+        expect(fired).toHaveLength(1);
+
+        // the lifecycle-control carve-out: a click whose path enters the control cluster BEFORE
+        // the list item belongs to the lifecycle seam — selection stays untouched
+        const model = list.selectionModel;
+
+        model.onListClick({
+            currentTarget: list.getItemId(target.agentId),
+            path: [
+                {cls: ['fm-card-action']},
+                {cls: ['fm-card-control-verbs']},
+                {cls: ['fm-agent-card']},
+                {cls: ['neo-list-item']}
+            ]
+        });
+        expect(model.getSelection()).toHaveLength(0);
+
+        // an ordinary item click selects through the base path
+        model.onListClick({
+            currentTarget: list.getItemId(target.agentId),
+            path: [
+                {cls: ['fm-card-name']},
+                {cls: ['fm-agent-card']},
+                {cls: ['neo-list-item']}
+            ]
+        });
+        expect(model.getSelection()).toHaveLength(1);
+
+        // Enter selects the Navigator-focused row (focusIndex is the base list's navigate state)
+        model.deselectAll(true);
+        list._focusIndex = 1;
+        model.onKeyDownEnter({});
+
+        const selected = model.getSelection();
+        expect(selected).toHaveLength(1);
+        expect(list.getItemRecordId(selected[0])).toBe(store.items[1].agentId);
+
+        grid.destroy()
+    });
+
+    test('a non-state record write updates the ONE pooled card in place — same instance, no rebuild', async () => {
+        const store = makeStore(roster(['ok', 'ok', 'idle'])),
+              grid  = Neo.create(FleetGrid, {appName, store}),
+              list  = await readyList(grid);
+
+        const idsBefore = cards(list).map(card => card.id),
+              record    = store.items[0];
+
+        record.set({laneLine: 'rebuilt on records', pendingAction: 'start'});
+
+        // the pool was NOT rebuilt — the same instances survived (instance identity is the
+        // animated-move substrate: the plugin translates these, it never recreates them)
+        expect(cards(list).map(card => card.id)).toEqual(idsBefore);
+
+        // ...and the one affected card re-rendered its record: lane line + the B4 pending render
+        const card = cards(list).find(c => c.record === record);
+        expect(card.down({reference: 'card-lane'}).vdom.cn[0].text).toBe('rebuilt on records');
+        expect(card.down({reference: 'control-verbs'}).items.every(button => button.disabled)).toBe(true);
+        expect(card.down({reference: 'control-status'}).text).toBe('start…');
+
+        grid.destroy()
+    });
+
+    test('a store load re-derives the surface — adding a resident extends the roster and the title', async () => {
+        const store = makeStore(roster(['ok', 'idle'])),
+              grid  = Neo.create(FleetGrid, {appName, store}),
+              list  = await readyList(grid);
+
+        expect(cards(list).length).toBe(2);
+
+        store.add({agentId: 'agent-99', displayName: 'Joiner', state: 'ok'});
+
+        list.createItems(true);
+        expect(cards(list).length).toBe(3);
+        expect(grid.getReference('fleet-title').text).toBe('Fleet · 3 agents');
+
+        grid.destroy()
     });
 
     test('the presence-capability chip NAMES a degraded producer — and only a degraded one', () => {
@@ -241,134 +572,19 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         eager.destroy()
     });
 
-    test('a11y: named landmark region owning a role=list card container (#14619)', () => {
+    test('a11y: named landmark region over a REAL list — ul root, li items, no bolted-on roles', () => {
         const grid = Neo.create(FleetGrid, {appName, store: makeStore(roster(['ok', 'idle']))});
 
         // the roster is a named landmark region so screen-reader users can navigate to it as a
-        // distinct cockpit surface; refreshGrid mutates the child cards container (not the root),
-        // so the region label persists across store-driven re-renders
+        // distinct cockpit surface; the header/controls mutate in place, so the label persists
         expect(grid.vdom.role).toBe('region');
         expect(grid.vdom['aria-label']).toBe('Fleet roster');
 
-        // the card container is the role=list OWNER of the role=listitem AgentCards — a listitem needs a
-        // list owner to form a valid mounted topology (the mounted witness is FleetGridKeyboardA11y.spec)
-        expect(grid.getReference('fleet-cards').vdom.role).toBe('list');
-
-        grid.destroy()
-    });
-
-    test('keyboard model (gate-1): drill-only jump handlers exist + no-op off a drill Button; cards are non-interactive listitems, no roving tab stop (#14619)', () => {
-        const grid = Neo.create(FleetGrid, {appName, foldThreshold: 20, store: makeStore(roster(['ok', 'ok', 'ok']))});
-
-        // no roving tab stop: every card is a NON-interactive listitem (keyboard operability lives on the
-        // native child Buttons in ordinary Tab order), so no card carries a tabIndex.
-        expect(agentCards(grid).every(card => (card.vdom.tabIndex ?? null) === null)).toBe(true);
-
-        // the roving handlers are gone, replaced by the OPTIONAL Up/Down drill-to-drill jump. With no drill
-        // focused (a headless unit — containsFocus is a mounted signal), moveDrillFocus is a safe no-op and
-        // never throws; the mounted focus-move + the gate-3 semantic-child restoration across a rebuild are
-        // proven in the whitebox-e2e (the mount authority the unit layer cannot exercise).
-        expect(typeof grid.onDrillNext).toBe('function');
-        expect(typeof grid.onDrillPrev).toBe('function');
-        expect(grid.onRoveNext ?? null).toBeNull();
-        expect(() => grid.moveDrillFocus(1)).not.toThrow();
-        expect(() => grid.moveDrillFocus(-1)).not.toThrow();
-
-        grid.destroy()
-    });
-
-    test('below threshold the grid renders every record as a card in ranked order — no fold', () => {
-        const grid = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster(['ok', 'idle', 'off', 'ok', 'idle', 'wedged']))});
-
-        expect(agentCards(grid).length).toBe(6);   // all six render
-        expect(foldRow(grid)).toBeFalsy();          // nothing collapsed
-        expect(head(grid).items.find(i => i.cls.includes('fm-fleet-title')).text).toBe('Fleet · 6 agents');
-        // each card renders from a live store record, not a mapped copy
-        expect(agentCards(grid).every(card => card.record.isRecord)).toBe(true);
-
-        grid.destroy()
-    });
-
-    test('at/over threshold the idle tier collapses to an honest count — online + benched stay as cards', () => {
-        // 4 online · 6 idle · 2 benched = 12 → folded
-        const grid = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster([
-            'ok', 'ok', 'limited', 'wedged',
-            'idle', 'idle', 'idle', 'idle', 'idle', 'idle',
-            'off', 'off'
-        ]))});
-
-        // online (4) + benched (2) render as cards; the six idle do NOT
-        expect(agentCards(grid).length).toBe(6);
-        // the fold surfaces the folded idle count — never a silent drop
-        expect(foldRow(grid)).toBeTruthy();
-        expect(foldRow(grid).text).toBe('6 idle');
-
-        grid.destroy()
-    });
-
-    test('a record `state` change re-ranks the grid — the store recordChange IS the reactive layer, no manual diffing', () => {
-        const store = makeStore(roster(['ok', 'ok', 'idle'])),
-              grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store});
-
-        const lastId = () => agentCards(grid).at(-1).record.agentId;
-
-        // pick the first online record and bench it — the card must move to the benched tail
-        const first = rankFleet(store.items).online[0];
-        expect(lastId()).not.toBe(first.agentId);
-
-        // the grid seats its store onto the header health bar — counts derive from the same records
-        // (roster-only rows tally as `unobserved`, exactly as the cards display them)
-        const bar = grid.getReference('fleet-health');
-        expect(bar.store).toBe(store);
-        expect(swatchOf(bar, 'unobserved').count).toBe(3);
-
-        first.set({state: 'off'});
-
-        expect(agentCards(grid).length).toBe(3);           // still every card — a tier move, not a drop
-        expect(lastId()).toBe(first.agentId);              // now the benched tail (the grid tiers on RAW state)
-        // the display state partitions: an un-wired `off` renders external, never a benched verdict
-        expect(agentCards(grid).at(-1).down({ntype: 'fm-state-dot'}).state).toBe('external');
-
-        // ...and the store-bound health bar re-tallied through ITS OWN record seam (no array push)
-        expect(swatchOf(bar, 'unobserved').count).toBe(2);
-        expect(swatchOf(bar, 'external').count).toBe(1);
-        expect(swatchOf(bar, 'off').count).toBe(0);
-
-        grid.destroy()
-    });
-
-    test('a non-state record write updates the ONE affected card in place — same card instances, no rebuild', () => {
-        const store = makeStore(roster(['ok', 'ok', 'idle'])),
-              grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store});
-
-        const idsBefore = agentCards(grid).map(card => card.id),
-              record    = store.items[0];
-
-        record.set({laneLine: 'rebuilt on records', pendingAction: 'start'});
-
-        // the card set was NOT rebuilt — the same instances survived (the in-place seam)
-        expect(agentCards(grid).map(card => card.id)).toEqual(idsBefore);
-
-        // ...and the one affected card re-rendered its record: lane line + the B4 pending render
-        const card = agentCards(grid).find(c => c.record === record);
-        // the lane renders as an inert text node under `vdom.cn` (a whole short lane), not root `.text`
-        expect(card.down({reference: 'card-lane'}).vdom.cn[0].text).toBe('rebuilt on records');
-        expect(card.down({reference: 'control-verbs'}).items.every(button => button.disabled)).toBe(true);
-        expect(card.down({reference: 'control-status'}).text).toBe('start…');
-
-        grid.destroy()
-    });
-
-    test('a store load re-derives the surface — adding a resident extends the grid and the title', () => {
-        const store = makeStore(roster(['ok', 'idle'])),
-              grid  = Neo.create(FleetGrid, {appName, store});
-
-        expect(agentCards(grid).length).toBe(2);
-
-        store.add({agentId: 'agent-99', displayName: 'Joiner', state: 'ok'});
-
-        expect(agentCards(grid).length).toBe(3);
-        expect(head(grid).items.find(i => i.cls.includes('fm-fleet-title')).text).toBe('Fleet · 3 agents');
+        // the list is semantic HTML: a real ul whose items are real li — implicit list/listitem
+        // roles, so no explicit role attributes remain anywhere on the card path
+        const list = grid.getReference('roster-list');
+        expect(list.vdom.tag).toBe('ul');
+        expect(list.itemTagName).toBe('li');
 
         grid.destroy()
     });
@@ -433,7 +649,23 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         bar.destroy()
     });
 
-    test('HealthBar animateCounts enforces one class membership without disturbing caller or base classes (#15201)', () => {
+    test('HealthBar tallies the WHOLE fleet under view filters — hiding a tier never shrinks its count', () => {
+        const store = makeStore(roster(['ok', 'off', 'off', 'idle'])),
+              grid  = Neo.create(FleetGrid, {appName, store}),
+              bar   = grid.getReference('fleet-health');
+
+        expect(swatchOf(bar, 'external').count).toBe(2);
+
+        // hide the offline tier — the VIEW loses the rows, the tally must not
+        grid.getController().onFilterToggleClick({component: grid.getReference('filter-offline')});
+
+        expect(store.getCount()).toBe(2);
+        expect(swatchOf(bar, 'external').count).toBe(2);
+
+        grid.destroy()
+    });
+
+    test('HealthBar animateCounts enforces one class membership without disturbing caller or base classes', () => {
         const
             bar      = Neo.create(HealthBar, {animateCounts: false, appName}),
             observed = [];
@@ -462,13 +694,13 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         bar.destroy()
     });
 
-    test('degrades honestly on adapter loss — a stale header, never a blanked grid', () => {
+    test('degrades honestly on adapter loss — a stale header, never a blanked roster', () => {
         const grid = Neo.create(FleetGrid, {appName, adapterState: 'stale', store: makeStore(roster(['ok', 'idle', 'off']))});
 
         expect(head(grid).cls).toContain('is-stale');
         expect(head(grid).items.find(i => i.cls.includes('fm-fleet-stale')).text).toBe('stale — reconnecting');
-        // the cards still render — degrade surfaces the state, it does not blank the grid
-        expect(agentCards(grid).length).toBe(3);
+        // the store still holds every record — degrade surfaces the state, it does not blank
+        expect(grid.store.getCount()).toBe(3);
 
         grid.destroy()
     });
@@ -481,35 +713,31 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         // spine banner owns the why; a badge asserting "offline" against a replying server would
         // repeat the lie the banner used to tell
         expect(head(grid).items.find(i => i.cls.includes('fm-fleet-stale')).text).toBe('static roster');
-        expect(agentCards(grid).length).toBe(1);
 
         grid.destroy()
     });
 
-    test('the bootstrap CTA renders ONLY at roster count 0, fires addAgentRequest, and vanishes with the first agent (#15242)', () => {
+    test('the bootstrap CTA renders ONLY at roster count 0, fires addAgentRequest, and vanishes with the first agent', () => {
         const
             fired = [],
             store = makeStore([]),
-            grid  = Neo.create(FleetGrid, {appName, store});
+            grid  = Neo.create(FleetGrid, {appName, store}),
+            cta   = grid.getReference('empty-cta');
 
         grid.on('addAgentRequest', data => fired.push(data));
 
-        const cta = () => cardsBox(grid).items.find(item => item.cls?.includes('fm-fleet-empty-cta'));
-
         // empty fleet: the one findable path to the first agent — a native Button, real Tab order
-        expect(cta()).toBeTruthy();
-        expect(cta().text).toBe('Add your first agent');
-        expect(agentCards(grid).length).toBe(0);
+        expect(cta.hidden).toBe(false);
+        expect(cta.text).toBe('Add your first agent');
 
-        cta().handler();
+        grid.getController().onEmptyCtaClick({});
         expect(fired).toHaveLength(1);
 
         // the first agent retires the CTA — it is a bootstrap affordance, never ambient chrome
         store.add({agentId: 'first', displayName: 'First', state: 'ok'});
-        grid.refreshGrid();
 
-        expect(cta()).toBeUndefined();
-        expect(agentCards(grid).length).toBe(1);
+        expect(cta.hidden).toBe(true);
+        expect(grid.getReference('fleet-title').text).toBe('Fleet · 1 agents');
 
         grid.destroy()
     });

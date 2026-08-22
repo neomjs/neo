@@ -98,6 +98,24 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
         presenceStatus.map(entry => [entry.agentId || entry.id, sanitizePayload(entry)])
     )
 
+    // The newest ATTRIBUTABLE activity instant per agent, folded from the supplied normalized
+    // events (their `occurredAt`) — one pass, so the per-row stamp below is a lookup. Only events
+    // carrying both an `agentId` and a parseable instant participate; the fold keeps the
+    // producer's original ISO string (never re-formats), because the stamp is a passthrough fact.
+    const lastActivityByAgentId = new Map()
+
+    for (const event of events) {
+        const {agentId, occurredAt} = event || {}
+
+        if (agentId && typeof occurredAt === 'string' && !Number.isNaN(Date.parse(occurredAt))) {
+            const known = lastActivityByAgentId.get(agentId)
+
+            if (!known || Date.parse(occurredAt) > Date.parse(known)) {
+                lastActivityByAgentId.set(agentId, occurredAt)
+            }
+        }
+    }
+
     return {
         sources     : FLEET_COCKPIT_SOURCES,
         capabilities: {
@@ -148,6 +166,25 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                 // card badge). Same tri-state honesty as `launchable`: null = no enricher has
                 // stamped a count, and the card renders NO badge then — never a fabricated zero.
                 openLaneCount: publicAgent.openLaneCount ?? null,
+                // The newest attributable per-agent activity instant, stamped HERE from what this
+                // assembler already holds: the activity-event fold above merged with the presence
+                // producer's own `lastSeenAt` recency. Tri-state honest like its siblings — null =
+                // no attributable instant exists, and a recency sort places such a row LAST rather
+                // than inventing an age. Never view-derived: a client folding the activity feed
+                // would create a second truth the producer cannot correct.
+                lastActivityAt: (() => {
+                    const
+                        fromEvents   = lastActivityByAgentId.get(agentId) ?? null,
+                        fromPresence = typeof presence?.lastSeenAt === 'string' && !Number.isNaN(Date.parse(presence.lastSeenAt))
+                            ? presence.lastSeenAt
+                            : null
+
+                    if (fromEvents && fromPresence) {
+                        return Date.parse(fromEvents) >= Date.parse(fromPresence) ? fromEvents : fromPresence
+                    }
+
+                    return fromEvents ?? fromPresence
+                })(),
                 displayName  : publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
                 avatarUrl    : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
                 family       : publicAgent.family ?? null,

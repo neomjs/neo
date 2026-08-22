@@ -53,23 +53,6 @@ class AgentCardController extends Controller {
 
         me.component.fire('lifecycleIntent', {action, agentId})
     }
-
-    /**
-     * @summary Fires the card's drill-in select — the dedicated native drill Button opens this resident.
-     *
-     * Reads the durable `agentId` from the card's record and fires ONE `agentSelect` event
-     * `{agentId}` on the card. Like `lifecycleIntent`, this controller does NOT act on it — the
-     * cockpit (which owns the detail pane + the roster store) resolves the record and reveals the
-     * inspector via {@link AgentOS.view.fleet.cockpit.Controller#onAgentSelect}.
-     * @param {Object} data The drill Button click event.
-     */
-    onCardSelect(data) {
-        // The dedicated native drill Button IS the drill target — native Enter/Space
-        // activate it, and lifecycle toggle/restart are separate sibling Buttons, so the old data.key
-        // filter + control-cluster path carve-out are no longer needed (a control click never reaches
-        // this handler). Fires ONE agentSelect; the cockpit resolves the detail pane.
-        this.component.fire('agentSelect', {agentId: this.component.record?.agentId ?? null})
-    }
 }
 
 export default Neo.setupClass(AgentCardController);

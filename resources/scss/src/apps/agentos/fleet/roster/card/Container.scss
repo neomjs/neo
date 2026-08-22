@@ -64,57 +64,22 @@
         min-width: 0;
     }
 
-    /* the drill Button (gate-1): the resident NAME reads as the card title (a text-link drill), not a
-       chip — reset the neo-button chrome; hover + focus-visible signal interactivity. */
+    /* the resident NAME — plain identity text reading as the card title. The card's host list
+       item is the selection/drill target now, so the name carries no interactive chrome of its
+       own (no cursor, no hover affordance — the row signals selection, not the word). */
     .fm-card-name {
-        flex        : 0 1 auto;
-        min-width   : 0;
-        min-height  : 0;
-        margin      : 0;
-        padding     : 0;
-        border      : none;
-        background  : none;
-        box-shadow  : none;
-        font        : var(--fm-text-display);
-        color       : var(--fm-ink);
-        text-align  : start;
-        cursor      : pointer;
-        overflow    : hidden;
-
-        .neo-button-glyph {
-            display: none;
-        }
-
-        .neo-button-text {
-            display      : block;
-            overflow     : hidden;
-            white-space  : nowrap;
-            text-overflow: ellipsis;
-            /* bind the child explicitly — the neo-button chrome sets its own text color that
-               overrides the Button-root `color`, so the name renders near-black on the dark panel
-               without this (the effective-selector contrast fix, not just root color) */
-            color        : var(--fm-ink);
-            /* §04 measured record (#17265): the ROOT consumes the display role (14/1.3·600, FM
-               sans), but the framework button theme re-sizes THIS child span (16px, theme face) —
-               so the visible name renders the framework's values, before and after the token
-               pass alike. The 16px-at-AgentCard oversize is the ergonomics slice's deliberate
-               move slot per the spec disposition (#17211) — resolving the child override belongs
-               there, never to a migration pass. */
-        }
-
-        &:hover .neo-button-text {
-            text-decoration: underline;
-        }
-
-        &:focus-visible {
-            outline       : 2px solid var(--fm-ink);
-            outline-offset: 2px;
-            border-radius : 3px;
-        }
+        flex         : 0 1 auto;
+        min-width    : 0;
+        overflow     : hidden;
+        white-space  : nowrap;
+        text-overflow: ellipsis;
+        font         : var(--fm-text-display);
+        color        : var(--fm-ink);
+        text-align   : start;
     }
 
-    /* the durable-id fallback register: the id renders as the drill target in mono */
-    .fm-card-name-id .neo-button-text {
+    /* the durable-id fallback register: the id renders in mono */
+    .fm-card-name-id {
         font       : var(--fm-text-body);
         font-family: var(--fm-font-mono);   /* the durable-id register: body metrics, mono voice */
         font-weight: 500;
