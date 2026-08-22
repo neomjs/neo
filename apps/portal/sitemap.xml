@@ -838,7 +838,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-22T23:03:55Z</lastmod>
+    <lastmod>2026-08-22T23:43:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2194,6 +2194,14 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/17587</loc>
+    <lastmod>2026-08-22T23:42:14Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17586</loc>
+    <lastmod>2026-08-22T23:42:14Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/17583</loc>
     <lastmod>2026-08-22T23:02:17Z</lastmod>
   </url>
@@ -2227,7 +2235,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17573</loc>
-    <lastmod>2026-08-22T20:45:18Z</lastmod>
+    <lastmod>2026-08-22T23:42:14Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17570</loc>
@@ -2247,7 +2255,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17563</loc>
-    <lastmod>2026-08-22T17:42:08Z</lastmod>
+    <lastmod>2026-08-22T23:42:14Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17561</loc>
@@ -2507,7 +2515,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17427</loc>
-    <lastmod>2026-08-22T23:02:17Z</lastmod>
+    <lastmod>2026-08-22T23:42:14Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17425</loc>
@@ -48415,12 +48423,12 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17585</loc>
-    <lastmod>2026-08-22T23:02:27Z</lastmod>
+    <lastmod>2026-08-22T23:42:18Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17584</loc>
-    <lastmod>2026-08-22T23:02:27Z</lastmod>
+    <lastmod>2026-08-22T23:42:18Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -48435,7 +48443,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17572</loc>
-    <lastmod>2026-08-22T21:43:11Z</lastmod>
+    <lastmod>2026-08-22T23:42:18Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
