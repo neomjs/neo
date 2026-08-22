@@ -911,6 +911,7 @@ test.describe('Fleet S1 wire policy', () => {
             fleetHistory          : 'awaiting-s3',
             fleetRoster           : 'awaiting-s3',
             fleetWakeRoutes       : 'awaiting-s3',
+            fleetTasks            : 'awaiting-s3',
             defineAgent           : 'awaiting-s4',
             configureAgent        : 'awaiting-s4',
             setRepo               : 'awaiting-s4',

@@ -17,6 +17,7 @@ import FleetGrid                                from './FleetGrid.mjs';
 import FleetRoster                              from '../../store/FleetRoster.mjs';
 import MemoriesPane                             from './MemoriesPane.mjs';
 import OperatorMailbox                          from './OperatorMailbox.mjs';
+import TasksPane                                from './TasksPane.mjs';
 import ViewerWakeFeed                           from '../../store/ViewerWakeFeed.mjs';
 import WakeRoutePane                            from './WakeRoutePane.mjs';
 import StateProvider                            from '../../../../src/state/Provider.mjs';
@@ -649,6 +650,23 @@ class FleetCockpit extends Container {
      */
     wakeRoutesReadGeneration = 0
     /**
+     * Latest tasks envelope (running / queued / recent), owner-held so a re-projected or vesseled
+     * Tasks pane rematerializes from the last ACCEPTED truth, never a blank claim.
+     * @member {Object|null} tasksSnapshot=null
+     */
+    tasksSnapshot = null
+    /**
+     * Read-generation fence for {@link #loadTasks} — a slow older read never overwrites a newer one.
+     * @member {Number} tasksReadGeneration=0
+     */
+    tasksReadGeneration = 0
+    /**
+     * In-flight count for {@link #loadTasks} — the liveness tick's overlap suppression, so a slow
+     * snapshot read is never stacked by the next tick.
+     * @member {Number} tasksReadInFlight=0
+     */
+    tasksReadInFlight = 0
+    /**
      * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
      * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
      * index the reattach restores (`addTab` APPENDS by default — the stored index is the only
@@ -935,6 +953,7 @@ class FleetCockpit extends Container {
 
         me.loadActivity();
         me.loadRoster();
+        me.loadTasks();
         me.loadOperatorIdentity();
         me.startLiveness();
         me.ensureViewerWakeStream()
@@ -1530,6 +1549,20 @@ class FleetCockpit extends Container {
                     },
                     reference: 'wakeRoutes'
                 };
+            case 'tasks':
+                // the resident WHAT surface beside the WHO grid: the pane renders the owner-held
+                // envelope (running / queued / recent) and fires intent; this cockpit owns the
+                // authenticated bridge and drives the read at boot and on every liveness tick.
+                return {
+                    module   : TasksPane,
+                    cls      : [marker],
+                    snapshot : me.tasksSnapshot,
+                    listeners: {
+                        tasksRequest: 'onTasksRequest',
+                        scope       : me.getController()
+                    },
+                    reference: 'tasks'
+                };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a
                 // blank pane masquerading as a finished surface
@@ -1671,6 +1704,17 @@ class FleetCockpit extends Container {
      */
     getWakeRoutesPane() {
         return this.tearOutPaneHandles?.wakeRoutes || this.returningTearOutPanes?.wakeRoutes || this.getReference('wakeRoutes')
+    }
+
+    /**
+     * @summary Resolve the live {@link AgentOS.view.fleet.TasksPane} instance whether it is docked,
+     * gesture-torn into a vessel, or parked in the vessel-death returning window — the
+     * {@link #getMemoriesPane} contract for the tasks surface, so the liveness tick's snapshot
+     * writes reach the pane in every phase.
+     * @returns {Neo.container.Base|null} The tasks pane, or `null` before materialization.
+     */
+    getTasksPane() {
+        return this.tearOutPaneHandles?.tasks || this.returningTearOutPanes?.tasks || this.getReference('tasks')
     }
 
     /**
@@ -3129,6 +3173,58 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Read the deployment's task picture through the cockpit-owned authenticated bridge —
+     * the wake-routes loader's three laws (typed unavailable envelope for an unwired or throwing
+     * bridge, generation fence, write-time pane resolution) plus the liveness tick's in-flight
+     * accounting: the tick launches this read only while fewer than {@link #maxReadsInFlight} are
+     * unsettled, and the count is released on the read's OWN settle, never on a newer read's.
+     * @param {Object} [params] Reserved; the verb takes no caller input today.
+     * @returns {Promise<Object>}
+     */
+    async loadTasks(params = {}) {
+        const me         = this,
+              bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+              generation = ++me.tasksReadGeneration,
+              fallback   = reason => ({
+                  capability: {state: 'unavailable', reason},
+                  viewer    : null,
+                  sources   : {},
+                  running   : [],
+                  queued    : [],
+                  recent    : [],
+                  counts    : {running: 0, queued: 0, recent: 0}
+              });
+
+        let snapshot;
+
+        me.tasksReadInFlight++;
+
+        try {
+            if (typeof bridge?.fleetTasks !== 'function') {
+                snapshot = fallback('fleet tasks verb not wired')
+            } else {
+                try {
+                    snapshot = await bridge.fleetTasks(params)
+                } catch (error) {
+                    snapshot = fallback('fleet tasks read failed')
+                }
+            }
+        } finally {
+            me.tasksReadInFlight--
+        }
+
+        if (generation === me.tasksReadGeneration && !me.isDestroyed) {
+            me.tasksSnapshot = snapshot;
+
+            const livePane = me.getTasksPane();
+
+            livePane && (livePane.snapshot = snapshot)
+        }
+
+        return snapshot
+    }
+
+    /**
      * @summary Focus the existing bounded live Activity surface as adjacency. No history citation is
      * injected into it and no alternate historical authority is implied.
      *
@@ -3366,6 +3462,7 @@ class FleetCockpit extends Container {
             if (me.streamReadInFlight      < me.maxReadsInFlight) me.loadActivity();
             if (me.gridReadInFlight        < me.maxReadsInFlight) me.loadRoster();
             if (me.brainHealthReadInFlight < me.maxReadsInFlight) me.loadBrainHealth();
+            if (me.tasksReadInFlight       < me.maxReadsInFlight) me.loadTasks();
 
             // no in-flight cap: this launches no wire read — it compares bridge identity (the
             // custody-heal rebuild trigger) and copies the consumer's local observations
@@ -3588,7 +3685,11 @@ class FleetCockpit extends Container {
         // guards (active agent / partition), so re-driving through it is exactly the button's path.
         me.getMemoriesPane()?.onRefreshClick();
         me.getCatchUpPane()?.onRefreshClick();
-        me.getWakeRoutesPane()?.onRefreshClick()
+        me.getWakeRoutesPane()?.onRefreshClick();
+
+        // fleet-wide and owner-held: re-driven directly, so a not-yet-materialized Tasks tab still
+        // reopens on post-reconnect truth
+        me.loadTasks()
     }
 
     /**

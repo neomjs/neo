@@ -41,7 +41,8 @@ export const FLEET_S1_METHOD_POLICY = Object.freeze({
     composeOperatorMessage: 'awaiting-s4',
     markFleetCaughtUp     : 'awaiting-s4',
     resolveViewerIdentity : 'awaiting-s4',
-    fleetWakeRoutes       : 'awaiting-s3'
+    fleetWakeRoutes       : 'awaiting-s3',
+    fleetTasks            : 'awaiting-s3'
 });
 
 /**
@@ -84,7 +85,8 @@ export const FLEET_METHOD_SCOPE_CLASSES = Object.freeze({
     composeOperatorMessage: 'lifecycle-write',
     markFleetCaughtUp     : 'lifecycle-write',
     resolveViewerIdentity : 'read-observe',
-    fleetWakeRoutes       : 'read-observe'
+    fleetWakeRoutes       : 'read-observe',
+    fleetTasks            : 'read-observe'
 });
 
 const SLICE_LABELS = Object.freeze({

@@ -321,6 +321,17 @@ class FleetCockpitController extends Controller {
     }
 
     /**
+     * @summary Relay a TasksPane read intent to the cockpit-owned authenticated bridge.
+     * @param {Object} data
+     * @returns {Promise<Object>}
+     */
+    onTasksRequest(data) {
+        const {source, ...params} = data;
+
+        return this.component.loadTasks(params)
+    }
+
+    /**
      * @summary Re-poll the roster once a lifecycle intent has genuinely changed runtime state.
      *
      * `loadRoster` is the ONLY path that maps live runtime truth onto the roster records, and the

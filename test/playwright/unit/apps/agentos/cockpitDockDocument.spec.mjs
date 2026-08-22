@@ -71,11 +71,13 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
     test('carries the south reading-surface family: resident tabs beside Activity, Activity active', () => {
         const doc = cockpitDockDocument();
 
+        expect(doc.items.tasks).toEqual({componentRef: 'tasks',               title: 'Tasks',    kind: 'panel'});
         expect(doc.items.memories).toEqual({componentRef: 'memories',         title: 'Memories', kind: 'panel'});
         expect(doc.items.operator).toEqual({componentRef: 'operator-mailbox', title: 'Mailbox',  kind: 'panel'});
         expect(doc.items.catchUp).toEqual({componentRef: 'catch-up',          title: 'Catch up', kind: 'panel'});
 
-        expect(doc.nodes['stream-tabs'].items).toEqual(['stream', 'memories', 'operator', 'catchUp']);
+        // the WHAT surface sits directly beside Activity — mission control's two halves adjacent
+        expect(doc.nodes['stream-tabs'].items).toEqual(['stream', 'tasks', 'memories', 'operator', 'catchUp']);
         expect(doc.nodes['stream-tabs'].activeItemId).toBe('stream');
 
         // the rail is inspector + invoked tools only — reading surfaces never squeeze onto it

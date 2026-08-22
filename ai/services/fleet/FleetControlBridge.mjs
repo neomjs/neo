@@ -126,6 +126,15 @@ class FleetControlBridge extends Base {
      */
     wakeRoutesSource = null
     /**
+     * Viewer-bound tasks source — an injected collaborator exposing `readTasks(params)`: WHAT the
+     * deployment is doing as three sections of provenance-labeled rows (running, queued / next,
+     * recently completed), reduced server-side from the existing truth verbs — the deployment-state
+     * snapshot, the REM pipeline state, and the Knowledge Base ingestion progress where this
+     * process can reach it. Every axis answers as itself; nothing is scheduled or progressed here.
+     * @member {Object|null} tasksSource=null
+     */
+    tasksSource = null
+    /**
      * Per-agent mailbox-mirror **read-observe** source — an injected collaborator exposing
      * `readMailboxMirror({subjectAgentId, limit, offset})` that returns the S1 mirror snapshot
      * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the
@@ -561,6 +570,28 @@ class FleetControlBridge extends Base {
                 viewer    : null,
                 count     : 0,
                 seats     : []
+            };
+    }
+
+    /**
+     * @summary READ-OBSERVE: read the deployment's task picture for the authenticated viewer —
+     * running, queued / next, and recently completed rows, each provenance-labeled, every source
+     * axis answering as itself. The source envelope passes through untouched; an unwired source is
+     * named as unavailable rather than fabricated as an idle deployment.
+     * @param {Object} [params]
+     * @returns {Promise<Object>|Object}
+     */
+    fleetTasks(params = {}) {
+        return typeof this.tasksSource?.readTasks === 'function'
+            ? this.tasksSource.readTasks(params)
+            : {
+                capability: {state: 'unavailable', reason: 'fleet tasks source not wired'},
+                viewer    : null,
+                sources   : {},
+                running   : [],
+                queued    : [],
+                recent    : [],
+                counts    : {running: 0, queued: 0, recent: 0}
             };
     }
 

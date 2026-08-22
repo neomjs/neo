@@ -69,6 +69,7 @@ import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from '.
 import {wireBootIdentityReadSource}                                      from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}                                     from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}                                          from './wireFleetCatchUpSource.mjs';
+import {wireFleetTasksSource}                                            from './wireFleetTasksSource.mjs';
 import {wireFleetMemoriesSource}                                         from './wireFleetMemoriesSource.mjs';
 import {wireFleetSessionMemoriesSource}                                  from './wireFleetSessionMemoriesSource.mjs';
 import {wireFleetWakeRoutesSource}                                       from './wireFleetWakeRoutesSource.mjs';
@@ -343,6 +344,30 @@ async function boot() {
     wireFleetMemoriesSource({
         getAllSummaries      : args => callHistoryOperation('get_all_summaries', args),
         resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
+    });
+
+    // The Tasks view reads the existing truth verbs only: the deployment-state snapshot and the
+    // REM pipeline state ride the same Memory Core operation boundary as the sources above. The
+    // Knowledge Base's own ingestion progress is reachable ONLY in in-process mode — the plane
+    // client proves its identity against the Memory Core plane and holds no Knowledge Base
+    // session — so plane mode leaves that operation out and the source answers the axis as
+    // `unwired` (the snapshot carries the deployment's real ingestion lane in both modes).
+    wireFleetTasksSource({
+        getDeploymentStateSnapshot: args => callHistoryOperation('get_deployment_state_snapshot', args),
+        getRemPipelineState       : args => callHistoryOperation('get_rem_pipeline_state', args),
+        resolveViewerIdentity     : () => RequestContextService.getAgentIdentityNodeId(),
+        ...(planeClient ? {} : {
+            getIngestionProgress: async args => {
+                const
+                    {callTool} = await import('../../mcp/server/knowledge-base/toolService.mjs'),
+                    result     = await callTool('get_ingestion_progress', args),
+                    text       = result?.content?.find?.(item => item?.type === 'text')?.text;
+
+                // the in-process tool service may answer the transport envelope; the source reads
+                // the payload, so unwrap exactly as the plane client does for its own results
+                return typeof text === 'string' ? JSON.parse(text) : result
+            }
+        })
     });
 
     // The memories DRILL-IN rides the same operation boundary one level deeper: the single

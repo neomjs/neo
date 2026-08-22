@@ -507,7 +507,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 test.describe.serial('AgentOS.view.fleet.FleetCockpit — memories click pop-out (#17315)', () => {
     let cockpit, vessel;
 
-    const SOUTH_HOME = ['stream', 'memories', 'operator', 'catchUp'];
+    const SOUTH_HOME = ['stream', 'tasks', 'memories', 'operator', 'catchUp'];
 
     /**
      * A minimal wired memories envelope for owner-held state and push assertions.
