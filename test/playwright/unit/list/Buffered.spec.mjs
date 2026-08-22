@@ -24,6 +24,7 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import Buffered           from '../../../../src/list/Buffered.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
@@ -38,6 +39,38 @@ class PooledRow extends Component {
 }
 
 PooledRow = Neo.setupClass(PooledRow);
+
+class NestedPooledRow extends Container {
+    static config = {
+        className: 'Test.Unit.List.Buffered.NestedPooledRow',
+        record_  : null,
+        items    : [{
+            module   : Component,
+            reference: 'label'
+        }]
+    }
+
+    afterSetRecord(value, oldValue) {
+        this.isConstructed && this.updateLabel()
+    }
+
+    onConstructed(...args) {
+        super.onConstructed(...args);
+        this.updateLabel()
+    }
+
+    updateLabel() {
+        const label = this.getReference('label');
+
+        if (label) {
+            label.setSilent({text: this.record?.name || ''});
+            this.updateDepth = 2;
+            this.update()
+        }
+    }
+}
+
+NestedPooledRow = Neo.setupClass(NestedPooledRow);
 
 test.describe('Neo.list.Buffered — fixed-height component row windowing (#17554)', () => {
     let list,
@@ -183,6 +216,33 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         expect(renderedRows(list)).toHaveLength(9)
     });
 
+    test('recycled nested item components repaint in the owning list update', async () => {
+        await createList({
+            bufferRowRange: 0,
+            count         : 20,
+            height        : 40,
+            itemConfig    : {module: NestedPooledRow},
+            itemHeight    : 20
+        });
+        await list.timeout(20);
+
+        const
+            row   = list.items[0],
+            label = row.getReference('label');
+
+        expect(row.record.id).toBe(0);
+        expect(label.vnode.textContent).toBe('Record 0');
+
+        list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 40});
+        await list.timeout(30);
+
+        expect(list.items[0]).toBe(row);
+        expect(row.record.id).toBe(2);
+        expect(label.text).toBe('Record 2');
+        expect(label.vdom.text).toBe('Record 2');
+        expect(label.vnode.textContent).toBe('Record 2')
+    });
+
     test('resize grows and shrinks the pool, destroying only excess component slots', async () => {
         await createList();
 
@@ -216,39 +276,63 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         }
 
         expect(calls).toEqual([
-            ['register',   {id: list.id, windowId: list.windowId}],
-            ['unregister', {id: list.id, windowId: list.windowId}]
+            ['register',   {componentId: list.id, id: list.id, windowId: list.windowId}],
+            ['unregister', {componentId: list.id, id: list.id, windowId: list.windowId}]
         ])
     });
 
     test('prepend and filter preserve the first visible logical record plus pixel offset', async () => {
         const {store} = await createList({count: 500});
 
-        list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 205});
-
         const
-            anchorSlot      = list.recordSlotMap.get('10'),
-            anchorComponent = list.items[anchorSlot];
+            calls    = [],
+            scrollTo = Neo.main.DomAccess.scrollTo;
 
-        expect(list.anchorRecordId).toBe(10);
-        expect(list.anchorOffset).toBe(5);
+        Neo.main.DomAccess.scrollTo = data => calls.push(data);
 
-        store.insert(0, [
-            {id: -2, name: 'Prepended -2'},
-            {id: -1, name: 'Prepended -1'}
-        ]);
+        try {
+            list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 205});
 
-        expect(list.scrollTop).toBe(245);
-        expect(store.getAt(Math.floor(list.scrollTop / 20)).id).toBe(10);
-        expect(list.anchorRecordId).toBe(10);
-        expect(list.anchorOffset).toBe(5);
-        expect(list.items[list.recordSlotMap.get('10')]).toBe(anchorComponent);
+            const
+                anchorSlot      = list.recordSlotMap.get('10'),
+                anchorComponent = list.items[anchorSlot];
 
-        store.filters = [{property: 'id', operator: '>=', value: 0}];
+            expect(list.anchorRecordId).toBe(10);
+            expect(list.anchorOffset).toBe(5);
 
-        expect(list.scrollTop).toBe(205);
-        expect(store.getAt(Math.floor(list.scrollTop / 20)).id).toBe(10);
-        expect(list.anchorRecordId).toBe(10)
+            store.insert(0, [
+                {id: -2, name: 'Prepended -2'},
+                {id: -1, name: 'Prepended -1'}
+            ]);
+
+            await expect.poll(() => calls.at(-1)).toEqual({
+                direction: 'top',
+                id       : list.id,
+                value    : 245,
+                windowId : list.windowId
+            });
+
+            expect(list.scrollTop).toBe(245);
+            expect(store.getAt(Math.floor(list.scrollTop / 20)).id).toBe(10);
+            expect(list.anchorRecordId).toBe(10);
+            expect(list.anchorOffset).toBe(5);
+            expect(list.items[list.recordSlotMap.get('10')]).toBe(anchorComponent);
+
+            store.filters = [{property: 'id', operator: '>=', value: 0}];
+
+            await expect.poll(() => calls.at(-1)).toEqual({
+                direction: 'top',
+                id       : list.id,
+                value    : 205,
+                windowId : list.windowId
+            });
+
+            expect(list.scrollTop).toBe(205);
+            expect(store.getAt(Math.floor(list.scrollTop / 20)).id).toBe(10);
+            expect(list.anchorRecordId).toBe(10)
+        } finally {
+            Neo.main.DomAccess.scrollTo = scrollTo
+        }
     });
 
     test('record changes, selection, and focus resolve logical records across recycling', async () => {

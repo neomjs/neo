@@ -157,7 +157,9 @@ class Buffered extends ComponentList {
         let {id, windowId} = this,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
 
-        ResizeObserver[mounted ? 'register' : 'unregister']({id, windowId})
+        // Main-thread ResizeObserver routes each delivery back through `componentIds`; the DOM
+        // target and App-Worker recipient happen to be this list, but both identities are required.
+        ResizeObserver[mounted ? 'register' : 'unregister']({componentId: id, id, windowId})
     }
 
     /**
@@ -349,13 +351,14 @@ class Buffered extends ComponentList {
      * stable slot ids hold pooled rows; vdom order follows the Store. Pool cardinality depends only
      * on viewport + buffer, never Store history length.
      * @param {Boolean} silent=false
+     * @returns {Promise<*>} Settles after the bounded VDOM delivery, or immediately when silent.
      */
     createItems(silent=false) {
         let me    = this,
             store = me.store;
 
         if (!store || !Number.isFinite(me.itemHeight) || me.itemHeight <= 0) {
-            return
+            return Promise.resolve()
         }
 
         const
@@ -391,8 +394,14 @@ class Buffered extends ComponentList {
         me.captureScrollAnchor();
         me.selectionModel?.restoreSelection(true);
 
-        !silent && me.promiseUpdate().then(() => {
+        if (silent) {
+            return Promise.resolve()
+        }
+
+        return me.promiseUpdate().then(data => {
             me.fire('createItems')
+
+            return data
         })
     }
 
@@ -604,7 +613,10 @@ class Buffered extends ComponentList {
             component.lastRecordVersion = record.version
         }
 
-        me.updateDepth = Math.max(me.updateDepth, TreeBuilder.getComponentDepth(component));
+        // The list is one component boundary above the pooled item. Include that distance before
+        // adding the item's own nested depth, otherwise mounted child components stop at
+        // `neoIgnore` and keep the record that first occupied their physical slot.
+        me.updateDepth = Math.max(me.updateDepth, 1 + TreeBuilder.getComponentDepth(component));
 
         return component
     }
@@ -647,13 +659,7 @@ class Buffered extends ComponentList {
             me.scrollTop     = Math.min(Math.max(0, nextTop), me.getMaxScrollTop(count));
             me.vdom.scrollTop = me.scrollTop;
             me.createItems();
-
-            me.mounted && Neo.main.DomAccess.scrollTo({
-                direction: 'top',
-                id       : me.id,
-                value    : me.scrollTop,
-                windowId : me.windowId
-            })
+            me.syncDomScrollTop()
         }
 
         return true
@@ -711,8 +717,11 @@ class Buffered extends ComponentList {
      * Restores the pre-mutation first-visible record when possible, then rebuilds the bounded range.
      */
     onStoreFilter() {
-        this.restoreScrollAnchor();
-        this.createItems()
+        const restored = this.restoreScrollAnchor();
+
+        return this.createItems().then(() => {
+            restored && this.syncDomScrollTop()
+        })
     }
 
     /**
@@ -720,8 +729,11 @@ class Buffered extends ComponentList {
      * fine-grained sort event. One bounded refresh here is therefore the sort refresh too.
      */
     onStoreLoad() {
-        this.restoreScrollAnchor();
-        this.createItems()
+        const restored = this.restoreScrollAnchor();
+
+        return this.createItems().then(() => {
+            restored && this.syncDomScrollTop()
+        })
     }
 
     /**
@@ -760,14 +772,16 @@ class Buffered extends ComponentList {
 
     /**
      * Repositions the scroll model by logical anchor after Store membership/order changed.
+     * @returns {Boolean} Whether the physical scroll position must follow a restored value.
      * @protected
      */
     restoreScrollAnchor() {
-        let me = this;
+        let me     = this,
+            oldTop = me.scrollTop;
 
         if (me.scrollTop <= 0) {
             me.scrollTop = 0;
-            return
+            return oldTop !== me.scrollTop
         }
 
         const record = me.anchorRecordId === null ? null : me.store?.get(me.anchorRecordId),
@@ -776,7 +790,28 @@ class Buffered extends ComponentList {
         me.scrollTop = index > -1
             ? index * me.itemHeight + me.anchorOffset
             : Math.min(me.scrollTop, me.getMaxScrollTop());
-        me.vdom.scrollTop = me.scrollTop
+        me.vdom.scrollTop = me.scrollTop;
+
+        return oldTop !== me.scrollTop
+    }
+
+    /**
+     * @summary Delivers the App-Worker scroll model to this mounted main-thread list.
+     *
+     * Native scroll capture remains physical authority; programmatic index jumps and Store anchor
+     * restoration use this one effect so the next capture observes, rather than overwrites, the
+     * semantic position.
+     * @protected
+     */
+    syncDomScrollTop() {
+        let me = this;
+
+        me.mounted && Neo.main.DomAccess.scrollTo({
+            direction: 'top',
+            id       : me.id,
+            value    : me.scrollTop,
+            windowId : me.windowId
+        })
     }
 
     /**
