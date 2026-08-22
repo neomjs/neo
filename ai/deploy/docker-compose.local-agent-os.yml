@@ -32,6 +32,10 @@ services:
     restart: unless-stopped
     environment:
       <<: [*local-auth, *local-provider]
+      # Orchestrator direct probes dial the service by Compose DNS name. The outbound client
+      # already vouches for the network hop; this is the receiver-side DNS-rebinding boundary.
+      # Keep the admission exact and local — never broaden it to a wildcard.
+      NEO_MCP_ALLOWED_HOSTS: kb-server
     secrets:
       - mcp-auth-token
     # N=1 tenant bootstrap: query-time tenant-config resolution reads
@@ -46,6 +50,10 @@ services:
     restart: unless-stopped
     environment:
       <<: [*local-auth, *local-provider]
+      # Two local callers reach MC under Compose-owned Host names: Orchestrator dials the service
+      # directly as `mc-server`, while Fleet uses the authenticated `ingress` route. Both names
+      # need receiver-side admission; Fleet's outbound internal-host allowance is a separate gate.
+      NEO_MCP_ALLOWED_HOSTS: mc-server,ingress
     secrets:
       - mcp-auth-token
     # `healthcheck.test` is a LIST, so this override REPLACES the base command rather than extending
