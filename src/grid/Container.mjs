@@ -262,6 +262,32 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * How far an update has to reach PAST a row to repaint the cell CONTENTS: the deepest chain of nested
+     * components any column's cells have reached, counting the cell itself as 1.
+     *
+     * Owned here because it is a property of the COLUMN SET, not of whichever component happens to be
+     * measuring. Both {@link Neo.grid.View} and {@link Neo.grid.Body} bound their update depth against it
+     * from different distances, and a second copy would let the two drift apart silently.
+     *
+     * Read from the columns rather than measured on demand, because `grid.column.Component` measures a cell
+     * once when it creates it, while this is read on every scroll frame. Defaults to 1, which is the flat
+     * cell every built-in module is today.
+     * @member {Number} maxCellDepth=1
+     * @readonly
+     */
+    get maxCellDepth() {
+        let max = 1;
+
+        for (const column of this.columns?.items || []) {
+            if (column.cellDepth > max) {
+                max = column.cellDepth
+            }
+        }
+
+        return max
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {

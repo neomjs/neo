@@ -7,6 +7,18 @@ import RowModel from '../selection/grid/RowModel.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
 /**
+ * The update depth that just reaches a Row from the Body.
+ *
+ * `hasUpdateCollision` is strict — `distance < updateDepth` — so a depth of D reaches distances 1…D-1, and
+ * the depth that just includes a direct child is 2. A Row IS Body's direct child (`createRowPool` builds
+ * `items` with `module: Row`), so 2 is the landmark here. `grid.View` names the same quantity `ROW_DISTANCE`
+ * and measures 3, because it sits one level higher (View → Body → Row); neither number is ported from the
+ * other, both derive from their own owner's distance to the row.
+ * @type {Number}
+ */
+const ROW_REACH = 2;
+
+/**
  * @summary Manages the scrollable viewport and row rendering for the Grid.
  *
  * `Neo.grid.Body` is the engine behind the Grid's virtual scrolling. It extends {@link Neo.component.Base} rather than
@@ -829,7 +841,14 @@ class GridBody extends Component {
         }
 
         if (!silent) {
-            me.updateDepth = -1;
+            // Every row above was written with `silent: true` — both the populated pass and the
+            // `record: null` hide pass — so no Row queued an update of its own. This flush is therefore the
+            // SOLE committer of the row and cell changes just made, and has to reach Body → Row → cells.
+            //
+            // It also has to stay FINITE. `hasUpdateCollision` treats -1 as colliding with EVERY distance,
+            // which drags unrelated pending child updates into this cycle and destabilises the TreeGrid —
+            // the same failure `grid.View` documents and fixed with a derived bound.
+            me.updateDepth = ROW_REACH + (me.gridContainer?.maxCellDepth ?? 1);
             me.update()
         }
     }
