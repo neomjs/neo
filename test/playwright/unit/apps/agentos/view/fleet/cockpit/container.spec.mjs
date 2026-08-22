@@ -264,10 +264,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(FleetRoster.config.singleton).toBeFalsy();
         expect(FleetRoster.config.url).toBe('../../apps/agentos/resources/data/fleetRoster.json');
 
-        // the JSON sample seed: the ten REAL maintainer identities, registry-derived — no invented agents
+        // the JSON sample seed: the eleven REAL maintainer identities, registry-derived — no invented agents
         const seed = JSON.parse(readFileSync(seedPath, 'utf8')).data;
-        expect(seed).toHaveLength(10);
-        const knownHandles = ['neo-fable', 'neo-fable-clio', 'neo-gemini-pro', 'neo-gpt', 'neo-gpt-emmy', 'neo-kimi-iris', 'neo-kimi-phoebe', 'neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega'];
+        expect(seed).toHaveLength(11);
+        const knownHandles = ['neo-fable', 'neo-fable-clio', 'neo-gemini-pro', 'neo-gpt', 'neo-gpt-emmy', 'neo-kimi-iris', 'neo-kimi-phoebe', 'neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega', 'neo-preview'];
         expect(seed.map(row => row.agentId).sort()).toEqual(knownHandles);
 
         // engine tags pinned to the registry designations at seed time — this front-door surface
@@ -284,7 +284,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             'neo-opus-ada'   : 'opus-5',
             'neo-opus-grace' : 'opus-5',
             // rotating seat (weekly Fable/Opus) -> honest absence, never a half-week-stale literal
-            'neo-opus-vega'  : null
+            'neo-opus-vega'  : null,
+            // guest seat, provisioned ahead of first boot -> engine facts are observation-owned and
+            // land from the live harness, so a designation here would be a prediction
+            'neo-preview'    : null
         });
 
         // seed rows hydrate as records exposing the model fields — incl the B4/C2 control seam defaults
