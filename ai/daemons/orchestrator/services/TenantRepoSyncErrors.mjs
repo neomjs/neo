@@ -110,6 +110,14 @@ export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+    // Membership here is the PRESERVATION mechanism, not bookkeeping: `runTask()` keeps a thrown
+    // code only when `isTenantRepoSyncErrorCode` says it is a member and wraps everything else as
+    // the unspecific SYNC_FAILED — so a typed config refusal that is not listed dies at the public
+    // boundary and the operator reads a generic failure. (The sibling INVALID_SLICE_BUDGET is NOT
+    // a member and shares that wrap today; changing its public behavior is follow-up territory,
+    // deliberately not smuggled into this concurrency lane.)
+    KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT,
+    KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT,
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN,
     KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,

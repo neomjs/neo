@@ -66,6 +66,11 @@ import {
 } from '../../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import TextEmbeddingService from '../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
 import {snapshotAiConfig}   from '../../../services/memory-core/util.mjs';
+// The SAME singleton instance the service imports (module cache): required by the joined
+// leaf-wiring witnesses, which drive resolution through `setEnvOverride` (the provider's own
+// sanctioned env-layer API, capture/restore in finally — never a raw data mutation) and observe
+// the semaphore.
+import AiConfig             from '../../../../../../../ai/config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -5232,6 +5237,145 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         } catch (error) { thrown = error }
 
         expect(thrown?.code).toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT');
+    });
+
+    test('concurrency-gate: runTask preserves both typed config-refusal codes through the public boundary (#17158 RA-2)', async () => {
+        const baseOptions = () => ({
+            reason           : 'periodic',
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug: 'org/r1', mirrorRoot, cloneUrl: 'https://github.com/neomjs/r1.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        // Without taxonomy membership, runTask's catch wraps these as the unspecific
+        // KB_TENANT_REPO_SYNC_SYNC_FAILED and the operator loses the actionable reason.
+        const limitResult = await TenantRepoSyncService.runTask({...baseOptions(), concurrencyLimit: 0});
+
+        expect(limitResult.status).toBe('failed');
+        expect(limitResult.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_LIMIT');
+
+        const timeoutResult = await TenantRepoSyncService.runTask({...baseOptions(), concurrencyGateTimeoutMs: -1});
+
+        expect(timeoutResult.status).toBe('failed');
+        expect(timeoutResult.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_INVALID_CONCURRENCY_GATE_TIMEOUT');
+    });
+
+    test('concurrency-gate: the resolved concurrencyLimit leaf drives standalone refreshTenantRepoAccessReadiness — no injection (#17158 RA-1)', async () => {
+        const
+            envName       = 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_LIMIT',
+            originalValue = AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit,
+            inFlightLog   = [];
+        let inFlight = 0;
+
+        // `inspectCredentialReadiness` is the instrumented slot the per-repo semaphore wraps;
+        // `probeRemoteAccess` exists only to pass the entry's probe-shape check. Returning null
+        // degrades each repo gracefully AFTER the tracked window — readiness outcomes are
+        // irrelevant here, only concurrency is.
+        const trackingMirror = {
+            async inspectCredentialReadiness() {
+                inFlight++;
+                inFlightLog.push(inFlight);
+                await new Promise(resolve => setTimeout(resolve, 15));
+                inFlight--;
+                return null;
+            },
+            async probeRemoteAccess() { return null; }
+        };
+
+        // `credentialRef` is required: without it `hashTenantRepoAccessConfig` throws and every repo
+        // degrades BEFORE the probe — the semaphore would wrap zero tracked calls.
+        const repos = ['org/r1', 'org/r2', 'org/r3'].map(repoSlug => ({
+            tenantId     : 't1', repoSlug, mirrorRoot,
+            cloneUrl     : `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`,
+            credentialRef: 'env:TENANT_REPO_TOKEN'
+        }));
+
+        try {
+            // The provider's own sanctioned env-layer API (capture/restore in finally — never a raw
+            // data mutation). This witness crosses override → resolved leaf → default parameter →
+            // semaphore with NO explicit concurrency argument anywhere: replacing the use-site
+            // default with a literal turns it red (the reviewer's round-1 mutation falsifier).
+            AiConfig.setEnvOverride(envName, 1);
+
+            await TenantRepoSyncService.refreshTenantRepoAccessReadiness({repos, gitMirror: trackingMirror});
+
+            expect(inFlightLog.length).toBe(3);
+            expect(Math.max(...inFlightLog)).toBe(1);
+        } finally {
+            AiConfig.setEnvOverride(envName, originalValue);
+            TenantRepoSyncService.clearTenantRepoAccessReadiness();
+        }
+    });
+
+    test('concurrency-gate: env-resolved limit + gate timeout drive the sweep — a queued repo times out typed with no injection (#17158 RA-1)', async () => {
+        const
+            limitEnv    = 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_LIMIT',
+            timeoutEnv  = 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT_MS',
+            origLimit   = AiConfig.data.orchestrator.tenantRepoSync.concurrencyLimit,
+            origTimeout = AiConfig.data.orchestrator.tenantRepoSync.concurrencyGateTimeoutMs;
+        let releaseFirstRepo;
+        const firstRepoGate  = new Promise(resolve => { releaseFirstRepo = resolve; });
+        let   cloneCallCount = 0;
+
+        const slowMirror = {
+            async cloneIfMissing() {
+                cloneCallCount++;
+                if (cloneCallCount === 1) {
+                    // First repo holds the only slot until the test releases it.
+                    await firstRepoGate;
+                }
+            },
+            async fetch()            {},
+            async resolveHead({ref}) { return `sha-for-${ref}`; },
+            async isAncestor()       { return true; },
+            async diffRevisions()    { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        for (const slug of ['org/slow', 'org/queued']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+        }
+
+        try {
+            AiConfig.setEnvOverride(limitEnv, 1);
+            AiConfig.setEnvOverride(timeoutEnv, 50);
+
+            const resultPromise = TenantRepoSyncService.runTask({
+                reason           : 'periodic',
+                taskStateService : createInMemoryTaskStateService(),
+                tenantReposConfig: {tenantRepos: [
+                    {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/slow.git'},
+                    {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://github.com/neomjs/queued.git'}
+                ]},
+                gitMirror                    : slowMirror,
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                seedBootstrap                : false
+            });
+
+            // Wait past the 50ms env-resolved slot timeout, then release the holder.
+            await new Promise(resolve => setTimeout(resolve, 150));
+            releaseFirstRepo();
+            const result = await resultPromise;
+
+            // Both env-resolved values are load-bearing: at the literal defaults (2/0) nothing
+            // queues and nothing times out — the reviewer's mutation falsifier goes red here.
+            const queuedState = result.details.repos.find(r => r.repoSlug === 'org/queued');
+
+            expect(queuedState).toBeDefined();
+            expect(queuedState.status).toBe('degraded');
+            expect(queuedState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT');
+        } finally {
+            releaseFirstRepo?.();
+            AiConfig.setEnvOverride(limitEnv, origLimit);
+            AiConfig.setEnvOverride(timeoutEnv, origTimeout);
+        }
     });
 
     test('jitter+backoff: skips not-due repo with prior recent lastRunAttemptAt (#11942 AC1)', async () => {
