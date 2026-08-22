@@ -12,9 +12,12 @@ import { test, expect } from '../../fixtures.mjs';
  * Structural half of the op-suite ticket only — animation assertions land once the motion-contract
  * disposition settles, and the tour-replay spec waits on the Demo-A tour surface.
  *
- * Seeded workspace (examples/dashboard/dock): root edge-zone {center: root-split, right: inspector-tabs};
- * root-split = horizontal [main-tabs{strategy,swarm}, side-split]; side-split = vertical
- * [terminal-tabs{terminal}, logs-tabs{logs}]; inspector-tabs{inspector}.
+ * Seeded workspace (examples/dashboard/dock — `initialDockModel` in the example is the live authority):
+ * root edge-zone {center: root-split, right: inspector-tabs}; root-split = horizontal [main-tabs, side-split];
+ * side-split = vertical [terminal-tabs{terminal}, logs-tabs{logs}]; inspector-tabs{inspector}. `main-tabs`
+ * carries the demo's grown tab catalog (strategy, swarm, metrics, …) and may keep growing — a spec that
+ * asserts a post-operation remainder DERIVES it from a pre-operation topology read; a pinned remainder
+ * literal goes stale the day the demo gains a pane, while the operations under test stay correct.
  *
  * Run: NEO_E2E_PORT=8093 npx playwright test dashboard/DockOperationsNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -65,14 +68,24 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
     test('tab-move class: moveItem relocates across tabs nodes; delta and independent read agree', async ({ page, neuralLink }) => {
         const { app, holderId } = await connect(page, neuralLink);
 
+        // derive the expected remainders from the seeded document itself — exact, and growth-proof
+        const before         = await readTopology(app, holderId);
+        const mainBefore     = before.nodes['main-tabs'].items;
+        const terminalBefore = before.nodes['terminal-tabs'].items;
+
+        expect(mainBefore, 'seed: swarm must start in main-tabs').toContain('swarm');
+
         const result = await app.executeDockOperation(holderId, {
             operation: 'moveItem', itemId: 'swarm', targetNodeId: 'terminal-tabs', index: 1
         });
 
+        const expectedTerminal = [...terminalBefore];
+        expectedTerminal.splice(1, 0, 'swarm');
+
         expect(result.errors).toEqual([]);
         expect(result.applied).toBe(true);
-        expect(result.document.nodes['terminal-tabs'].items).toEqual(['terminal', 'swarm']);
-        expect(result.document.nodes['main-tabs'].items).toEqual(['strategy']);
+        expect(result.document.nodes['terminal-tabs'].items).toEqual(expectedTerminal);
+        expect(result.document.nodes['main-tabs'].items).toEqual(mainBefore.filter(id => id !== 'swarm'));
 
         const topo = await readTopology(app, holderId);
         expect(JSON.stringify(topo), 'independent read must agree with the returned delta').toBe(JSON.stringify(result.document));
@@ -81,6 +94,12 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
 
     test('split class: splitNode wraps the item and splits the target; delta and independent read agree', async ({ page, neuralLink }) => {
         const { app, holderId } = await connect(page, neuralLink);
+
+        // derive the expected remainder from the seeded document itself — exact, and growth-proof
+        const before     = await readTopology(app, holderId);
+        const mainBefore = before.nodes['main-tabs'].items;
+
+        expect(mainBefore, 'seed: swarm must start in main-tabs').toContain('swarm');
 
         const result = await app.executeDockOperation(holderId, {
             operation: 'splitNode', itemId: 'swarm', targetNodeId: 'terminal-tabs', orientation: 'horizontal', edge: 'right'
@@ -94,7 +113,7 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
 
         // swarm left main-tabs and lives in a NEW single-tab node inside a NEW horizontal split
         // whose children are [terminal-tabs, newTabs] (edge 'right' trails)
-        expect(topo.nodes['main-tabs'].items).toEqual(['strategy']);
+        expect(topo.nodes['main-tabs'].items).toEqual(mainBefore.filter(id => id !== 'swarm'));
 
         const swarmTabs = tabsNodeHolding(topo, 'swarm');
         expect(swarmTabs).not.toBe('main-tabs');
