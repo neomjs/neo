@@ -133,6 +133,7 @@
             {"name": "Component and Container Basics",                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/ComponentsAndContainers"},
             {"name": "Layouts",                                        "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Layouts"},
             {"name": "Dock Layouts",                                   "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayouts"},
+            {"name": "Dock Layouts: Adopting in Your App",             "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsAdoption"},
             {"name": "Fragments",                                      "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Fragments"},
             {"name": "Custom Components",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/CustomComponents"},
             {"name": "Working with VDom",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/WorkingWithVDom"},

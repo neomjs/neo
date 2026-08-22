@@ -161,11 +161,12 @@ window. State that wants to live in two rows is two pieces of state — the revi
 
 ## Adopting docking in your application
 
-The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) is the dense
-twenty-pane cockpit built on it, and — honest measurement — it, the fleet cockpit, and the dock demos each still carry
-a hand-rolled copy of that loop (four to five thousand lines apiece at the time of writing) that migrates to the engine
-class under epic `#17539`; measure your own adoption against `examples/dashboard/dock/`, not against those. Once you
-extend the class, the adoption surface is:
+The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) — the dense
+twenty-pane cockpit — migrated onto the engine class in `#17546`, so two live consumers now prove the shape: measure
+your own adoption against `examples/dashboard/dock/` (minimal) or the workstation (richest). The fleet cockpit and
+the dock demos still carry hand-rolled copies that migrate under epic `#17539`. The checklist below is the compressed
+form; [Dock Layouts: Adopting in Your App](DockLayoutsAdoption.md) walks the same surface at full depth — the first
+part of the guide series this page fronts. Once you extend the class, the adoption surface is:
 
 1. **Extend `Neo.dashboard.DockWorkspace`.** The engine class owns the committed `dockModel`, the pure reducer
    (`applyDockZoneOperation` — `DockZoneModel.applyOperation` over the current document), the deferred, promise-chained
