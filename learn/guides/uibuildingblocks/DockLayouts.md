@@ -184,9 +184,11 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    class that would load it — the example shows both); and the FLIP motion rides the `DockFlip` main-thread addon,
    degrading to instant landing when it is absent.
 3. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
-   serializable `blueprint` for creation-from-saved-state). Policy hints (`closable`, `pinnable`, `movable`) are
-   enforced at the operation layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI
-   code.
+   serializable `blueprint` for creation-from-saved-state). `pinnable` and `movable` are enforced at the operation
+   layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI code. `closable` is a
+   declared forward contract whose close-routing enforcement has not landed yet; the
+   [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) keeps that split
+   explicit.
 4. **Give vessels a render target.** Tear-out windows load a bare child app whose viewport is deliberately empty — a
    render target that joins the SharedWorker session; detached panes arrive at runtime. The agentos app's
    `childapps/widget` viewport is the canonical example — a bare viewport class whose own JSDoc says it all:

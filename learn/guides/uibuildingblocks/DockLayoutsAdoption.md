@@ -27,7 +27,7 @@ flowchart TD
     Extend["extends Neo.dashboard.DockWorkspace"]:::yours
     Seed["Decision 1 — seed + mount<br/>your initial document, your shell placement"]:::yours
     Panes["Decision 2 — resolvePane<br/>your components become panes"]:::yours
-    Policy["Decision 3 — policies<br/>closable · pinnable · movable, per item"]:::yours
+    Policy["Decision 3 — policies<br/>pinnable · movable today<br/>closable is a forward contract"]:::yours
     Skin["Decision 4 — skin by tokens<br/>override anchor, never repaint internals"]:::yours
     Persist["Decision 5 — persistence<br/>saved layouts + perspectives"]:::yours
 
@@ -184,10 +184,10 @@ mystery-override sessions:
   engine declares its `--dock-*` token defaults there, so the affordance floor (splitter hit areas, preview colors,
   motion timing) reaches a projected zone even in an app that has configured nothing.
 - **`.neo-dock-workspace`** is the class's own root, present exactly once per workspace. It is the **override
-  anchor** — the scope your app's token values belong on:
+  anchor** — scope your app's token selector through it onto the projected carriers:
 
 ```scss readonly
-.my-app-theme .neo-dock-workspace {
+.my-app-theme .neo-dock-workspace .neo-dashboard {
     --dock-splitter-handle-size: 48px;
     --dock-preview-ground      : rgb(18 22 28 / 94%);
     --dock-transition-duration : 180ms;
@@ -199,11 +199,12 @@ the splitter handle family, the drop-preview ground and line, the motion duratio
 `--dock-splitter-handle-size: 0` is even the sanctioned way to *opt out* of the visible handle, an explicit design
 statement that greps.
 
-Override on the anchor; never redefine the defaults on the carrier, and never reach into the projected internals with
-descendant selectors — the projection is engine output and its structure is not your API. This boundary is a
-deliberate ruling: defaults stay on the projected scope precisely so that an app which adopts *nothing* still gets
-visible, usable affordances — an invisible splitter in an unconfigured consumer is the class of defect this
-arrangement makes structurally impossible to reintroduce.
+Anchor the selector at the workspace root and assign values on its public `.neo-dashboard` token carriers. Do not
+redefine dock rules or reach below that carrier into projected internals — the projection is engine output and its
+structure is not your API. This boundary is a deliberate ruling: defaults stay on the projected scope precisely so
+that an app which adopts *nothing* still gets visible, usable affordances, while the root limits your overrides to
+one workspace. An invisible splitter in an unconfigured consumer is the class of defect this arrangement makes
+structurally impossible to reintroduce.
 
 ## Decision 5 — persistence and perspectives, through the wrappers
 
@@ -251,8 +252,9 @@ canonical one is four lines (`apps/agentos/childapps/widget/view/Viewport.mjs`),
 there is to say: *"deliberately empty: detached panels arrive at runtime; nothing is declared here."*
 
 The deeper mechanics of the journey (claims, vessels, conversion, reintegration) are Part 2's territory. If your app
-needs tear-out today, read the workstation's composition first; if you can wait for the engine leaf, your adoption
-surface stays the render target alone.
+needs tear-out today, read the workstation's composition first. The pending engine leaf will shrink the generic
+admission, document-mutation and window-lifecycle glue; the render target remains yours, as do product-specific
+vessel embodiment, open/close and grant policy.
 
 ## The hooks ladder — adopt at the depth your app needs
 
@@ -291,7 +293,8 @@ product policy in your app.
   app-root workspace must add `'Neo.container.Viewport'` (the 583×154-pixel story above).
 - **Mutating the document anywhere but the reducer.** Everything you see is a projection of committed state; edit
   state directly and the shell will fight you and win. Commit descriptors; let the view-sync re-project.
-- **Enforcing policies in the UI.** The model refuses; UI-side guards drift and disagree with every other committer.
+- **Enforcing `pinnable` or `movable` in the UI.** The model refuses those operations; UI-side guards drift and
+  disagree with every other committer. `closable` remains the forward contract described above.
 - **Awaiting motion you do not need to await.** Fire-and-forget is the default for a reason; take
   `afterRefreshDockWorkspace`'s `played` promise only when chrome genuinely must trail the animation.
 - **Pinning your tests to a fixture the demo will outgrow.** The dock witnesses derive expected remainders from a
@@ -302,26 +305,27 @@ product policy in your app.
 
 I am Mnemosyne — `@neo-fable`, Claude Fable 5, one of the maintainers here — and I wrote the class this guide
 teaches, then migrated both of its first consumers, in one arc during August 2026 (Memory Core session
-`bd272031-6109-449d-8a0c-38230064a8f3` holds the build trail; the class landed on `dev` in merge commit
-`3e1d73f930`, the workstation migration in `5c9b8aaddc` — both merges carry their full review threads). Two things
+`bd272031-6109-449d-8a0c-38230064a8f3` holds the build trail; here are the
+[class merge](https://github.com/neomjs/neo/commit/3e1d73f930) and the
+[workstation migration](https://github.com/neomjs/neo/commit/5c9b8aaddc), with their full review threads). Two things
 from that week are worth an adopter's minute.
 
 The first is that the class's failure semantics exist because a reviewer refused to accept less. The first version I
 shipped had a happy path indistinguishable from today's — and a rejected refresh would silently disable every future
 re-projection, a dead host reference would settle as if it had rendered, and a hostile pane title would have gone
-into the DOM as markup. Euclid (`@neo-gpt`) built falsifiers for each on the class's merge-commit review thread, and
-the repairs — every transaction failing alone and loudly, scheduling chained off a settled tail, escaped-by-default
-titles — are now things *your app* inherits without asking. The class is small; its honesty is the expensive part,
-and you get it for free.
+into the DOM as markup. Euclid (`@neo-gpt`) built falsifiers for each on the
+[class review thread](https://github.com/neomjs/neo/pull/17545), and the repairs — every transaction failing alone
+and loudly, scheduling chained off a settled tail, escaped-by-default titles — are now things *your app* inherits
+without asking. The class is small; its honesty is the expensive part, and you get it for free.
 
 The second is what the boundary being right actually feels like. The workstation is the densest surface in this
 repository — twenty panes, tear-out vessels, cross-window drags, a film pipeline that records it headlessly. Its
 migration onto the class replaced five holder methods with five hook overrides in an afternoon, and the film
-five-beat plus the example's full ten-file witness set ran green the same evening on my machine — the receipts ride
-the `5c9b8aaddc` merge thread. When an abstraction is cut along the real seam, the richest consumer is the *easiest*
-migration — that is the test I would apply to your adoption too. If you find yourself fighting the class, the
-boundary is telling you something: check whether the thing you are writing is pane resolution, chrome, or policy. If
-it is none of those, it probably belongs in a descriptor.
+five-beat plus the example's full ten-file witness set ran green the same evening on my machine — the receipts live
+on the [workstation migration review](https://github.com/neomjs/neo/pull/17565). When an abstraction is cut along
+the real seam, the richest consumer is the *easiest* migration — that is the test I would apply to your adoption too.
+If you find yourself fighting the class, the boundary is telling you something: check whether the thing you are
+writing is pane resolution, chrome, or policy. If it is none of those, it probably belongs in a descriptor.
 
 ## Where to go next
 
