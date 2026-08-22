@@ -217,7 +217,8 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
     }];
 
     /** Resting, hover and active readings of the band and its handle, under one app identity. */
-    const measureStates = async (page, {rootCls, hrefs}) => {
+    /** Freezes transitions, links the given stylesheets, and wears the app's root class. */
+    const loadStylesheets = async (page, {rootCls, hrefs}) => {
         await page.evaluate(async ({rootCls, hrefs}) => {
             const freeze = document.createElement('style');
 
@@ -241,7 +242,11 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
             }
 
             document.querySelector('.neo-dashboard').classList.add(rootCls)
-        }, {rootCls, hrefs});
+        }, {rootCls, hrefs})
+    };
+
+    const measureStates = async (page, identity) => {
+        await loadStylesheets(page, identity);
 
         const read = () => page.evaluate(() => {
             const el = document.querySelector('.neo-dashboard-dock-splitter');
@@ -348,6 +353,125 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
         }
     }
 
+    /**
+     * The workstation's paint as `Workspace.scss` declared it BEFORE the promotion, verbatim from
+     * `git show origin/dev:resources/scss/src/apps/workstation/Workspace.scss`.
+     *
+     * This is what "values meant to stay unchanged" means concretely. Every entry was a direct
+     * declaration on an app-owned rule; each is now a token value the engine consumes. Comparing
+     * the rendered result against these EXPRESSIONS — resolved in the same document, so
+     * `--workstation-signal` means the same thing on both sides — is a real before/after test,
+     * not a restatement of the current stylesheet.
+     */
+    const PRE_PROMOTION_WORKSTATION = {
+        active: {
+            band  : 'color-mix(in srgb, var(--workstation-signal) 30%, transparent)',
+            handle: 'var(--workstation-signal)',
+            ring  : 'inset 0 0 0 1px var(--workstation-signal), 0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent)'
+        },
+        hover: {
+            band  : 'color-mix(in srgb, var(--workstation-signal) 18%, transparent)',
+            handle: 'color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink))',
+            ring  : 'inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent)'
+        },
+        resting: {
+            band  : 'color-mix(in srgb, var(--workstation-signal) 9%, transparent)',
+            handle: 'color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line))',
+            ring  : 'inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent)'
+        }
+    };
+
+    for (const theme of THEMES) {
+        test(`workstation paint is UNCHANGED against its pre-promotion declarations — ${theme}`, async ({page}) => {
+            await applyTheme(page, theme);
+            await loadStylesheets(page, {
+                hrefs  : [APP_IDENTITIES[0].tokens(theme), APP_IDENTITIES[0].rule],
+                rootCls: APP_IDENTITIES[0].rootCls
+            });
+
+            const box = await page.locator('.neo-dashboard-dock-splitter').boundingBox();
+
+            /**
+             * Reads the splitter's paint, and — in the SAME document and scope — resolves the
+             * pre-promotion expressions through a probe element.
+             *
+             * Resolving them here rather than hard-coding hex is what makes this a comparison
+             * rather than a transcription: the probe evaluates the old expression against the live
+             * palette, so a theme whose `--workstation-signal` changed would move BOTH sides and the
+             * arm would keep testing the relationship instead of a frozen colour.
+             */
+            const read = state => page.evaluate(expected => {
+                const el    = document.querySelector('.neo-dashboard-dock-splitter'),
+                      probe = document.createElement('div');
+
+                // Inside the scoped subtree, or `--workstation-signal` is undefined and every
+                // expression collapses to the same invalid value on both sides — which would make
+                // the arm pass by matching nothing against nothing.
+                el.parentElement.appendChild(probe);
+
+                // camelCase assignment, not `setProperty`, which expects the kebab-case name and
+                // silently ignores `backgroundColor` — a no-op there would leave the probe reading
+                // its inherited value and the comparison would be against the wrong thing entirely.
+                const resolve = (property, value) => {
+                    probe.style[property] = value;
+
+                    const resolved = getComputedStyle(probe)[property];
+
+                    probe.style[property] = '';
+
+                    return resolved
+                };
+
+                const result = {
+                    actual: {
+                        band  : getComputedStyle(el).backgroundColor,
+                        handle: getComputedStyle(el, '::after').backgroundColor,
+                        ring  : getComputedStyle(el).boxShadow
+                    },
+                    expected: {
+                        band  : resolve('backgroundColor', expected.band),
+                        handle: resolve('backgroundColor', expected.handle),
+                        ring  : resolve('boxShadow', expected.ring)
+                    },
+                    isActive: el.matches(':active'),
+                    isHover : el.matches(':hover')
+                };
+
+                probe.remove();
+
+                return result
+            }, PRE_PROMOTION_WORKSTATION[state]);
+
+            await page.mouse.move(box.x + box.width + 100, box.y + box.height / 2);
+
+            const resting = await read('resting');
+
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+            const hover = await read('hover');
+
+            await page.mouse.down();
+
+            const active = await read('active');
+
+            await page.mouse.up();
+
+            expect(resting.isHover, 'precondition: resting is measured outside the element').toBe(false);
+            expect(hover.isHover, 'precondition: the pointer is over the splitter').toBe(true);
+            expect(active.isActive, 'precondition: the pointer press registers').toBe(true);
+
+            for (const [state, reading] of Object.entries({resting, hover, active})) {
+                expect(reading.actual, `${state} paint matches what Workspace.scss used to declare`)
+                    .toEqual(reading.expected);
+
+                // Non-vacuity: an unresolvable expression computes to the same empty-ish value on
+                // both sides, so equality alone could be two nothings matching.
+                expect(reading.expected.band, `${state} expectation actually resolved to a colour`)
+                    .toMatch(/^(rgb|color)/)
+            }
+        })
+    }
+
     test('the flat opt-out collapses the handle and keeps the band', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-light');
 
@@ -381,5 +505,78 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
         expect(measured.after.handle, 'the opt-out collapses the handle').toBe('0px');
         expect(measured.after.band, 'and the band survives it — flat is not invisible')
             .toBe(measured.before.band)
+    })
+});
+
+/**
+ * The NAMED consumer, driven as a page rather than as classes.
+ *
+ * The suite above mounts `Neo.dashboard.Container` + `DockSplitter` directly, which is the right
+ * instrument for token mechanics but leaves one question open: the close target names
+ * `examples/dashboard/dock` specifically, because that is the app the invisible-splitter defect was
+ * reported against. A witness that assembles its own consumer cannot answer whether THAT page got
+ * fixed — it can only show the parts work when someone wires them correctly.
+ *
+ * The example needs no interaction: its initial dock document commits two splits, so both splitter
+ * orientations render on load. And it sets no `themes` in its config, so it boots under the LEGACY
+ * `neo-theme-light` — which makes this the strongest available statement of the floor. A consumer
+ * that opted into nothing, not even a neo theme, still gets a findable drag target.
+ */
+test.describe('examples/dashboard/dock — the consumer the defect was reported against', () => {
+    test('gets a visible splitter with no app tokens at all', async ({page}) => {
+        await page.goto('examples/dashboard/dock/index.html');
+        await page.waitForSelector('.neo-dashboard-dock-splitter', {state: 'attached'});
+
+        const measured = await page.evaluate(() => {
+            const splitters = [...document.querySelectorAll('.neo-dashboard-dock-splitter')],
+                  control   = document.createElement('div');
+
+            document.body.appendChild(control);
+
+            const read = el => ({
+                band       : getComputedStyle(el).backgroundColor,
+                handleBg   : getComputedStyle(el, '::after').backgroundColor,
+                handleShort: getComputedStyle(el, '::after').width,
+                handleLong : getComputedStyle(el, '::after').height,
+                horizontal : el.classList.contains('neo-dashboard-dock-splitter-horizontal')
+            });
+
+            const result = {
+                controlBackground: getComputedStyle(control).backgroundColor,
+                splitters        : splitters.map(read),
+                theme            : document.body.className,
+                // The app declares no splitter token anywhere; if it ever did, this arm would be
+                // measuring an app override while claiming to measure the engine floor.
+                appSetsTokens    : splitters.some(el =>
+                    ['--dock-splitter-background', '--dock-splitter-handle-color']
+                        .some(name => getComputedStyle(el).getPropertyValue(name).includes('workstation')))
+            };
+
+            control.remove();
+
+            return result
+        });
+
+        expect(measured.splitters.length, 'the example commits two splits, so both orientations render')
+            .toBe(2);
+        expect(measured.theme, 'and it boots under the legacy theme it never opted out of')
+            .toContain('neo-theme-light');
+        expect(measured.appSetsTokens, 'precondition: no app override is in play').toBe(false);
+
+        for (const splitter of measured.splitters) {
+            expect(splitter.band, 'the band is painted, not transparent')
+                .not.toBe(measured.controlBackground);
+            expect(splitter.handleBg, 'and so is the handle').not.toBe('rgba(0, 0, 0, 0)');
+
+            // Exact token-derived geometry, per orientation. "Non-zero" would also pass on a
+            // stylesheet that failed to load and left the pseudo-element at its `auto` default —
+            // which is exactly what this page rendered before the promotion.
+            const [long, short] = splitter.horizontal
+                ? [splitter.handleLong, splitter.handleShort]
+                : [splitter.handleShort, splitter.handleLong];
+
+            expect(long, 'the handle long axis is --dock-splitter-handle-size').toBe('36px');
+            expect(short, 'the short axis is --dock-splitter-handle-thickness').toBe('2px')
+        }
     })
 });
