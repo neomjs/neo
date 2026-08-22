@@ -82,9 +82,10 @@ const seededPerspectives = [{
  * main-thread `LocalStorage` addon, so App-Worker code never reaches for `window.localStorage` directly.
  * The toolbar re-syncs on every re-projection through the {@link #beforeRefreshDockWorkspace} hook.
  *
- * The example is also the app root: single inheritance puts the dock host on this class, so the one
- * `Neo.container.Viewport` behavior the standalone page relies on — the flex-centered,
- * overflow-hidden body class — is applied explicitly in {@link #onConstructed}.
+ * The example is also the app root: single inheritance puts the dock host on this class, so the
+ * `Neo.container.Viewport` traits the standalone page relies on — self-mounting, the `neo-viewport`
+ * sizing class, and the flex-centered, overflow-hidden body class — are declared explicitly (see the
+ * `autoMount` config and {@link #onConstructed}).
  *
  * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
  * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
@@ -99,10 +100,18 @@ class MainContainer extends DockWorkspace {
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
         /**
-         * The app root mounts itself, as a viewport would.
+         * The app root keeps the viewport contract — single inheritance puts the dock host on this
+         * class, so the three `Neo.container.Viewport` traits the standalone page relies on are
+         * declared here: it mounts itself, it carries the `neo-viewport` sizing class
+         * (`body > .neo-viewport` is what gives an app root its full height and width), and it
+         * applies the body class in {@link #onConstructed}.
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
+        /**
+         * @member {String[]} cls=['neo-viewport']
+         */
+        cls: ['neo-viewport'],
         /**
          * The projected shell shares the root vbox with the perspective toolbar above it.
          * @member {Object} dockProjectionConfig={flex:1}

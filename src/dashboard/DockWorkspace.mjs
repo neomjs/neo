@@ -503,9 +503,17 @@ class DockWorkspace extends Container {
         // on the addon's presence: a partial addon (a test double, a degraded main thread) must land
         // the layout instantly rather than throw after the document already committed.
         if (typeof flip?.play === 'function' && !me.isDestroyed) {
+            let played;
+
             DockMotionSignal.enter(me);
-            Promise.resolve()
-                .then(() => flip.play({hostId: host.id, markerPrefix: flipMarkerPrefix}))
+
+            try {
+                played = flip.play({hostId: host.id, markerPrefix: flipMarkerPrefix})
+            } catch (error) {
+                played = Promise.reject(error)
+            }
+
+            Promise.resolve(played)
                 .catch(() => {})
                 .finally(() => DockMotionSignal.leave(me))
         }
