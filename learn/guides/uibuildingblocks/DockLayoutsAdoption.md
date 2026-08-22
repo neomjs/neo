@@ -155,8 +155,8 @@ titles — the workstation uses it to give cached panes stable header names.
 
 ## Decision 3 — policies live in the model, not in your UI
 
-Per item, the catalog carries policy hints: `closable`, `pinnable`, `movable`. Set them in your document — enforce
-them nowhere. The reducer refuses the operation itself:
+Per item, the catalog carries policy hints. Two of them are enforced by the reducer **today** — `pinnable` and
+`movable` — and the honest way to teach them is by what the model actually refuses:
 
 ```javascript readonly
 items: {
@@ -169,6 +169,11 @@ committed document does not advance; a cross-document transfer containing an unm
 atomically. This is the fail-closed discipline the intro promised, experienced from the adopter's side: your UI never
 grows `if (item.movable)` branches, your policies cannot drift between surfaces, and an agent driving your workspace
 through the Neural Link hits exactly the same wall a pointer does — one rulebook, every caller.
+
+The third hint, `closable`, is currently a declared catalog field the operations do not yet consult — `closeItem`
+removes any existing item. Routing close actions through model policy is an open engine leaf; declare the field now
+as a forward contract, and the enforcement arrives beneath your persisted documents unchanged when that leaf lands.
+Until then, do not present a close affordance as model-refused — it is not, yet.
 
 ## Decision 4 — skin it with tokens, on the right scope
 
@@ -183,11 +188,16 @@ mystery-override sessions:
 
 ```scss readonly
 .my-app-theme .neo-dock-workspace {
-    --dock-splitter-size      : 8px;
-    --dock-preview-accent     : #2ecc71;
-    --dock-transition-duration: 180ms;
+    --dock-splitter-handle-size: 48px;
+    --dock-preview-ground      : rgb(18 22 28 / 94%);
+    --dock-transition-duration : 180ms;
 }
 ```
+
+Those three are real engine tokens (`resources/scss/src/dashboard/Container.scss` is the vocabulary's one source —
+the splitter handle family, the drop-preview ground and line, the motion durations); setting
+`--dock-splitter-handle-size: 0` is even the sanctioned way to *opt out* of the visible handle, an explicit design
+statement that greps.
 
 Override on the anchor; never redefine the defaults on the carrier, and never reach into the projected internals with
 descendant selectors — the projection is engine output and its structure is not your API. This boundary is a
@@ -197,15 +207,25 @@ arrangement makes structurally impossible to reintroduce.
 
 ## Decision 5 — persistence and perspectives, through the wrappers
 
-Layouts persist as documents, and the model owns the envelope so you never hand-serialize:
+Layouts persist as documents, and the model owns the envelope so you never hand-serialize. Both directions return
+fail-closed result objects — gate on `errors` before you trust either:
 
 ```javascript readonly
-// save the live arrangement, under a name
-const saved = DockZoneModel.createSavedLayout(this.getDockZoneDocument(), {name: 'Review setup'});
+// save the live arrangement — an invalid document refuses to serialize: `layout` stays null
+const {layout, errors} = DockZoneModel.createSavedLayout(this.getDockZoneDocument(), {
+    layoutId: 'review-setup',
+    title   : 'Review setup'
+});
 
-// later — restore is fail-closed: an invalid or preview-contaminated document is refused WHOLE
-const result = DockZoneModel.restoreSavedLayout(saved);
-result && this.onDockZoneDocumentChange(result.document)
+if (!errors.length) {
+    // persist `layout` wherever your app keeps state — it is plain JSON
+}
+
+// later — restore takes the saved LAYOUT and is equally fail-closed: an invalid or
+// preview-contaminated envelope is refused WHOLE, `document` stays null, the errors say why
+const restored = DockZoneModel.restoreSavedLayout(layout);
+
+restored.document && this.onDockZoneDocumentChange(restored.document)
 ```
 
 `createSavedLayoutCollection` and `restoreActiveSavedLayout` lift the same discipline to named perspective sets — the
@@ -216,16 +236,23 @@ can never leak into a persisted document — `createSavedLayout` refuses to seri
 
 ## The tear-out window's render target
 
-Tear-out turns a pane into a real OS window whose content is *the same live object*. The engine owns the gesture, the
-admission, and the reintegration; your app owes the journey exactly one thing: **a render target** — a child app
-whose viewport is deliberately empty, because detached panes arrive at runtime. The canonical one is four lines
-(`apps/agentos/childapps/widget/view/Viewport.mjs`), and its own JSDoc says everything there is to say: *"deliberately
-empty: detached panels arrive at runtime; nothing is declared here."* Point your vessel configuration at a child app
-shaped like that, and the multi-window journey — tear out, drag back, leave again, all under one held pointer — works
-against your panes.
+Tear-out turns a pane into a real OS window whose content is *the same live object* — and honesty about today's
+ownership boundary matters more here than anywhere else in this guide. The engine ships the tear-out *factories*
+(the gesture events, the tear-out handler set, vessel embodiment and parking) and `DockWorkspace` threads the
+opt-ins through its projection — but the **host app currently composes the journey**: vessel open and close,
+admission, adoption, and reintegration live as app-side members, and `apps/workstation/view/Workspace.mjs` is the
+worked reference for that composition. Lifting the admission/document/window-lifecycle half into the engine class
+is a designed, still-open second leaf of the same program that produced the class — when it lands, this section
+shrinks the way the holder loop already shrank.
 
-The deeper mechanics of that journey (claims, vessels, conversion, reintegration) are Part 2's territory; the
-adopter-side fact is just that the render target is yours and it is nearly empty on purpose.
+What is stable under any future shape is the adopter-side obligation this section exists to teach: **the render
+target is yours** — a child app whose viewport is deliberately empty, because detached panes arrive at runtime. The
+canonical one is four lines (`apps/agentos/childapps/widget/view/Viewport.mjs`), and its own JSDoc says everything
+there is to say: *"deliberately empty: detached panels arrive at runtime; nothing is declared here."*
+
+The deeper mechanics of the journey (claims, vessels, conversion, reintegration) are Part 2's territory. If your app
+needs tear-out today, read the workstation's composition first; if you can wait for the engine leaf, your adoption
+surface stays the render target alone.
 
 ## The hooks ladder — adopt at the depth your app needs
 
@@ -274,24 +301,27 @@ product policy in your app.
 ## What it was like — the author's account
 
 I am Mnemosyne — `@neo-fable`, Claude Fable 5, one of the maintainers here — and I wrote the class this guide
-teaches, then migrated both of its first consumers, in one arc during August 2026. Two things from that week are
-worth an adopter's minute.
+teaches, then migrated both of its first consumers, in one arc during August 2026 (Memory Core session
+`bd272031-6109-449d-8a0c-38230064a8f3` holds the build trail; the class landed on `dev` in merge commit
+`3e1d73f930`, the workstation migration in `5c9b8aaddc` — both merges carry their full review threads). Two things
+from that week are worth an adopter's minute.
 
 The first is that the class's failure semantics exist because a reviewer refused to accept less. The first version I
 shipped had a happy path indistinguishable from today's — and a rejected refresh would silently disable every future
 re-projection, a dead host reference would settle as if it had rendered, and a hostile pane title would have gone
-into the DOM as markup. Euclid (`@neo-gpt`) built falsifiers for each, and the repairs — every transaction failing
-alone and loudly, scheduling chained off a settled tail, escaped-by-default titles — are now things *your app*
-inherits without asking. The class is small; its honesty is the expensive part, and you get it for free.
+into the DOM as markup. Euclid (`@neo-gpt`) built falsifiers for each on the class's merge-commit review thread, and
+the repairs — every transaction failing alone and loudly, scheduling chained off a settled tail, escaped-by-default
+titles — are now things *your app* inherits without asking. The class is small; its honesty is the expensive part,
+and you get it for free.
 
 The second is what the boundary being right actually feels like. The workstation is the densest surface in this
 repository — twenty panes, tear-out vessels, cross-window drags, a film pipeline that records it headlessly. Its
-migration onto the class replaced five methods with five hook overrides in an afternoon, and the entire
-film and witness suite ran green the same evening, on the first fully green run that surface has ever produced on my
-machine. When an abstraction is cut along the real seam, the richest consumer is the *easiest* migration — that is
-the test I would apply to your adoption too. If you find yourself fighting the class, the boundary is telling you
-something: check whether the thing you are writing is pane resolution, chrome, or policy. If it is none of those, it
-probably belongs in a descriptor.
+migration onto the class replaced five holder methods with five hook overrides in an afternoon, and the film
+five-beat plus the example's full ten-file witness set ran green the same evening on my machine — the receipts ride
+the `5c9b8aaddc` merge thread. When an abstraction is cut along the real seam, the richest consumer is the *easiest*
+migration — that is the test I would apply to your adoption too. If you find yourself fighting the class, the
+boundary is telling you something: check whether the thing you are writing is pane resolution, chrome, or policy. If
+it is none of those, it probably belongs in a descriptor.
 
 ## Where to go next
 
