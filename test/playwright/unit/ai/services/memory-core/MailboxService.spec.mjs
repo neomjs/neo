@@ -2674,6 +2674,107 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             'the write-once variant refuses an already-set field').toBe(0)
     });
 
+    /**
+     * Deletes the record's storage row AT the write seam — after this process last read the row, and
+     * immediately before the narrow UPDATE runs — then returns the receipt `mutate` produced.
+     *
+     * The timing carries the whole arm. Deleting up front never reaches the writer at all: the
+     * authorization read ahead of it fails and the operation takes a not-found path, so the probe
+     * would pass while `writeReceiptField` stayed untested. Deleting inside the writer reproduces
+     * the exact state the outcome vocabulary exists for — an authorized, cached record whose row is
+     * gone from storage — and it is the only way to reach `RECEIPT_WRITE.missingRow`.
+     */
+    const removeRowAtWriteSeam = async ({table, id, mutate}) => {
+        const
+            storage  = GraphService.db.storage,
+            sqlite   = storage.db,
+            original = storage.setRecordProperty.bind(storage);
+
+        let removed = false;
+
+        storage.setRecordProperty = (...args) => {
+            if (!removed) {
+                removed = true;
+                sqlite.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id)
+            }
+
+            return original(...args)
+        };
+
+        try {
+            // Sequenced, not inlined into the object literal: property values evaluate in source
+            // order, so `{removed, receipt: await mutate()}` would capture `removed` as false.
+            const receipt = await mutate();
+
+            return {receipt, removed, survivingRows: sqlite.prepare(
+                `SELECT COUNT(*) AS total FROM ${table} WHERE id = ?`
+            ).get(id).total}
+        } finally {
+            storage.setRecordProperty = original
+        }
+    };
+
+    test('#17486 a vanished NODE row yields an honest failure receipt, not a false read', async () => {
+        // RA-2's node control. Before the outcome split, a narrow UPDATE that matched no row was
+        // indistinguishable from a durable one at the boolean, so this returned status:'read' with
+        // the no-storage warning — telling an operator their receipt lives in memory when the
+        // helper had deliberately not touched cache and the value existed nowhere at all.
+        const [directed] = await seedFor(['the row vanishes under the write']);
+
+        const {receipt, removed, survivingRows} = await removeRowAtWriteSeam({
+            table : 'Nodes',
+            id    : directed,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId: directed}))
+        });
+
+        expect(removed,       'precondition: the write seam was reached and the row deleted there').toBe(true);
+        expect(survivingRows, 'precondition: the UPDATE therefore had no row to match').toBe(0);
+
+        expect(receipt.status,    'the receipt does not claim the message was read').toBe('not_applied');
+        expect(receipt.durable,   'and does not claim durability').toBe(false);
+        expect(receipt.retryable, 'and tells the caller the state is worth retrying').toBe(true);
+        expect(receipt.warning, 'the wording must not be the no-storage one, which asserts an in-memory apply that did not happen')
+            .not.toContain('applied in memory');
+
+        // Cache is the other half of the honesty. `writeReceiptField` returns before mutating it, so
+        // a subsequent read must not surface a readAt that reached neither storage nor RAM.
+        expect(GraphService.db.nodes.get(directed)?.properties?.readAt ?? null,
+            'and the in-memory copy was left unchanged rather than made to disagree with storage').toBeNull()
+    });
+
+    test('#17486 a vanished EDGE row fails the same way — one mechanism, both carriers', async () => {
+        // RA-2's edge control. The node arm alone would leave "both carriers share one writer" as a
+        // claim about the source; a broadcast receipt travels the DELIVERED_TO edge, and a fix that
+        // only reached the node path would keep lying here.
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: 'AGENT:*', subject: 'edge row vanishes', body: 'narrow write'}));
+
+        const edge = GraphService.db.edges.items.find(candidate =>
+            candidate.type === 'DELIVERED_TO' && candidate.source === messageId && candidate.target === '@bob');
+
+        expect(edge, 'precondition: the broadcast produced a delivery edge for @bob').toBeTruthy();
+
+        const {receipt, removed, survivingRows} = await removeRowAtWriteSeam({
+            table : 'Edges',
+            id    : edge.id,
+            mutate: () => RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId}))
+        });
+
+        expect(removed,       'precondition: the write seam was reached and the edge row deleted there').toBe(true);
+        expect(survivingRows, 'precondition: the UPDATE therefore had no row to match').toBe(0);
+
+        expect(receipt.status,    'the broadcast receipt does not claim the message was read').toBe('not_applied');
+        expect(receipt.durable,   'and does not claim durability').toBe(false);
+        expect(receipt.retryable, 'and tells the caller the state is worth retrying').toBe(true);
+        expect(receipt.warning, 'with the same honest wording the node carrier uses')
+            .not.toContain('applied in memory');
+
+        expect(GraphService.db.edges.get(edge.id)?.properties?.readAt ?? null,
+            'and the cached edge was left unchanged').toBeNull()
+    });
+
     test('#17321 first-seen is write-once — a second listing does not restamp', async () => {
         // Without this, the cache-last ordering above could be "correct" by simply rewriting `seenAt`
         // on every listing, which would make the timestamp mean "last listed" instead of "first shown".
