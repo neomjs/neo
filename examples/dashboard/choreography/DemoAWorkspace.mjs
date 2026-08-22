@@ -53,16 +53,15 @@ class DemoAWorkspace extends Container {
          */
         className: 'Neo.examples.dashboard.choreography.DemoAWorkspace',
         /**
-         * The `--fm-*` design tokens this skin consumes are defined in the main app
-         * Viewport's theme layer; per-class CSS loading would never fetch it from a
-         * childapp, so it is declared as an additional theme dependency here. The
+         * `Neo.examples.dashboard.Palette` carries the example-owned surface vocabulary;
+         * the demo never imports a product app's palette to render. The
          * `Neo.dashboard.Container` entry carries the dock motion/token contract
          * (`--dock-transition-*`, reveal keyframes) — the projected dock tree is plain
          * containers, so nothing loads it per-class; the projection root carries the
          * matching `.neo-dashboard` scope class.
-         * @member {String[]} additionalThemeFiles=['AgentOS.view.Viewport','Neo.dashboard.Container']
+         * @member {String[]} additionalThemeFiles=['Neo.examples.dashboard.Palette','Neo.dashboard.Container']
          */
-        additionalThemeFiles: ['AgentOS.view.Viewport', 'Neo.dashboard.Container'],
+        additionalThemeFiles: ['Neo.examples.dashboard.Palette', 'Neo.dashboard.Container'],
         /**
          * @member {String[]} cls=['agentos-dockdemo-workspace']
          */
