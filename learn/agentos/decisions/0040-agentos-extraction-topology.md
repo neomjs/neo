@@ -1,0 +1,198 @@
+# ADR 0040: The AgentOS Extraction Topology — One Repository Whose Root Is the Host Edge
+
+> The Agent OS leaves `neomjs/neo` as ONE new repository whose root manifest IS the Host-Edge
+> package: root scripts are Edge-only, `cloud/` is an independent nested package that installs
+> alone, npm workspaces are forbidden because hoisting is the falsifier of the isolation this
+> topology exists to prove, and a pure `shared/` package exists only if the inventory proves a
+> population for it. AgentOS depends on the published Engine; the Engine never depends back.
+> Nothing relocates until two receipts exist — the zero-residue inventory and the paired isolation
+> exercise — and no historical `neomjs/neo` SHA changes, ever.
+
+| Attribute | Value |
+|---|---|
+| **Status** | Proposed — 2026-08-22 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
+| **Author** | Vega (@neo-opus-vega), recording the D#17489 convergence; topology authored by the swarm — Emmy's C′ fold + STEP_BACK, the operator's root-invariant challenge, Grace's severance rows, Clio's staged-split falsifiers |
+| **Resolves** | #17502 — the `Required: ADR` gate on Epic #17500's topology authority |
+| **Graduated from** | Discussion #17489 — family-keyed quorum: GPT author signal + Claude `[GRADUATION_APPROVED]`, re-issued and REVALIDATED at the root-invariant correction `DC_kwDODSospM4BFFq_` |
+| **Depends on** | ADR 0039 — this ADR realizes its Brain-internal host-edge ↔ container-plane boundary as *repository and package* topology; 0039's proof semantics (two instruments, neither sufficient alone) are inherited, not replaced. ADR 0019 — realm disposition may move config files but may not create a second config authority. |
+| **Aligns with** | ADR 0018 — the extracted repository is the Brain's new home; the Body (`/src/`) stays in `neomjs/neo`, and this ADR moves nothing across that seam |
+| **Anti-anchor for** | npm workspaces anywhere in the new repository; package-omission presented as isolation; `process.cwd()` as target-repo authority; an orchestration-only root manifest; extracting Core or `src/ai/**`; a second Engine history rewrite; treating first-wave custody as permanent global topology |
+
+---
+
+## 1. Context
+
+The Brain (`ai/`) and the Body (`src/`) stopped being one deployable long before they stopped being
+one repository. The engine→Brain boundary reads zero crossings (#17239); the engine provably
+releases with `ai/` deleted; and the root `package.json` mixes three realms of scripts while
+`ai/scripts` holds ~157 `.mjs` files across nine realm-blind folders. The operator direction of
+2026-08-21 set a one-week extraction wave; D#17489 converged the shape; Epic #17500 coordinates it.
+
+The converged decisions were load-bearing but distributed — a long Discussion, a Stage-2.5
+STEP_BACK, an author correction, and an Epic body. A later migration PR could pick a locally
+convenient workspace, root script, or cwd fallback and still look consistent with one fragment of
+that conversation. This record exists so it cannot.
+
+## 2. Decision
+
+### §2.1 One repository; the root manifest IS the Host-Edge package
+
+The first wave extracts the Agent OS into one new repository:
+**`neomjs/<REPO_NAME — pending the #17502 naming-convergence close>`**. "Agent OS" remains the
+subsystem term regardless of the repository's concrete name (§2.10).
+
+- **Repository root = the Host-Edge package surface.** Root scripts are Edge-only. There is no
+  orchestration-only root manifest, and no Cloud operation is runnable from the local root. The
+  operator challenge that produced this inversion is the hoist falsifier stated positively: a root
+  that owns no packages cannot hoist Cloud dependencies into Edge reach.
+- **`cloud/` = an independent nested package.** It installs alone, runs alone in containers, and its
+  entrypoints additionally fail loud when started outside their plane.
+- **npm workspaces are forbidden.** Workspace hoisting can resolve a Cloud dependency from the Edge
+  root, which silently restores exactly the reachability the split removes. Nested packages install
+  independently; hoisting is the falsifier, not an inconvenience.
+
+### §2.2 `shared/` is conditional on inventory proof — otherwise it does not exist
+
+The inventory (#17525) may establish a plane-neutral `shared/` package **only** for modules proven
+pure and genuinely consumed by both planes. It contains no drivers, no durable-store packages, no
+host capabilities, and no ambient config authority; both planes depend on it explicitly. If the
+inventory finds no such population, the package is not created. An empty-but-present `shared/` is a
+future dumping ground wearing a contract's name.
+
+### §2.3 Dependency direction: AgentOS → published Engine, never back
+
+The extracted repository consumes the Engine as a **published package**. The Engine never imports
+from the extracted repository, and `src/ai/**` (the Body-side AI surfaces) stays Engine-owned. The
+release seam already exists as the two-command protocol: `publish.mjs` owns the Engine half;
+`ai:post-release-sync` owns the Brain half with a fail-closed preflight (#17239).
+
+### §2.4 Isolation is a proof-set, not a package-omission claim
+
+"The Edge cannot reach a durable store" is established by the full set, inherited from ADR 0039 and
+extended to the new topology:
+
+1. **reconciled membership** — every executable/command/workflow/config surface dispositioned by the
+   inventory, with membership authority reconciled against disk reality;
+2. **isolated Edge install** — `npm ci` at the Edge root on a machine without the Cloud packages;
+3. **static closure** — the module-graph walk (`scriptPlaneClosure.mjs` lineage);
+4. **runtime denial** — the spawned-process denial witness (the only instrument that sees
+   eager-lifecycle reach; a green static walk is never the whole property);
+5. **Cloud positive control** — the same denial harness proving the Cloud plane genuinely needs what
+   the Edge is denied;
+6. **computed-import disposition** — dynamic/`await import()` sites individually dispositioned.
+
+### §2.5 Two root authorities, never one
+
+- **`agentosRuntimeRoot`** — where the Agent OS itself is installed and runs.
+- **`targetRepoRoot`** — the checkout the Agent OS operates ON (a tenant codebase, or `neomjs/neo`
+  itself).
+
+Fleet's existing provisioning already separates installed `mainCheckout` from target `repoPath`;
+C′ promotes that separation to named authorities. **`process.cwd()` is never a fallback for the
+target root**: the binding is explicit and fails loud when absent. The negative-fallback proof is
+part of the paired exercise, because a cwd default is the kind of convenience that survives every
+review until an operator runs a command from the wrong directory.
+
+### §2.6 The two blocking receipts precede every relocation leaf (criteria 2/3, amended timing)
+
+Per the author correction `DC_kwDODSospM4BFFq_` — which explicitly amended "before Epic filing" to
+"before the first relocation leaf" as the smallest honest repair under the one-week window:
+
+1. the **zero-residue inventory + membership-authority reconciliation** (#17525) and
+2. the **temporary-layout paired exercise** of membership + isolated Edge resolution +
+   static/runtime denial + Cloud positive control (#17533)
+
+are the Epic's first two blocking proofs. **No relocation leaf starts until both receipts are linked
+from Epic #17500.** Undispositioned population and unexercised isolation block every move; the
+timing amendment relaxed *when* the receipts exist, never *whether*.
+
+### §2.7 Wave-one custody — what stays Engine, explicitly
+
+Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own decision), published
+`learn/agentos` content and every Portal/SEO/tree input derived from it, `resources/content`
+mirrors, `src/ai/**`, and the minimal Engine contributor surface. The extracted repository takes the
+Brain's executables and services per the inventory's disposition — custody follows the dispositioned
+population, not directory intuition.
+
+### §2.8 Conversion, canary, cut window
+
+- **Label provisioning + a one-ticket transfer canary** precede any bulk ticket conversion.
+- Converted items re-qualify under the legacy-alias shape (D#17247 OQ8); the "Agent OS extraction
+  wave" holding milestone in `neomjs/neo` stages them (Phase 1 executed 2026-08-22, 26 items).
+- The cut lands in a **named window** with an **in-flight-lane ledger**: every open PR/lane crossing
+  the cut is enumerated with its disposition before relocation begins.
+
+### §2.9 Migration provenance without history rewrite
+
+No historical `neomjs/neo` SHA changes — the repository's commit history, cited by tickets, Memory
+Core sessions, and ADRs, is load-bearing substrate. Provenance for moved code lives in the wave's
+ledger and the new repository's import commits, not in a rewritten past. (The v13.0 4.83GiB
+pack-size problem is real and is NOT solved by this wave; solving it by rewrite is permanently out
+of scope here.)
+
+### §2.10 Vocabulary and scope boundaries
+
+- **Repository name ≠ subsystem term.** "Agent OS" names the subsystem in docs and speech regardless
+  of the repository's concrete name; the name itself is the #17502 naming disposition's output.
+- **ADR 0039 is realized, not replaced.** Its two-plane executable boundary becomes package topology
+  here; its proof semantics and its §2.4 debt ledger are untouched.
+- **D#17247 remains the long-term topology authority.** This ADR decides wave one. A future physical
+  Edge split, FM repository, or Core extraction re-opens there, not here.
+
+### §2.11 Rejected alternatives and their falsifiers
+
+| Rejected | Falsifier |
+|---|---|
+| Two repositories now (Cloud + Edge as separate repos) | Doubles the cut surface inside a one-week window; every seam the paired exercise must prove would exist twice; D#17489 matrix option B carried no champion after the fold |
+| npm workspaces with per-plane packages | Workspace hoisting resolves Cloud dependencies from the Edge root — the ancestor-hoist falsifier; "installed independently" stops being checkable |
+| Orchestration-only root manifest (packages both nested) | Inverted by the operator challenge: a root that owns the Edge surface cannot be hoist-poisoned, and an orchestration root re-creates the three-realm root-script mix the extraction exists to end |
+| Package omission presented as isolation | ADR 0039's central lesson: reachability survives omission via eager lifecycles and computed imports; only the §2.4 proof-set decides |
+| `process.cwd()` as target-root fallback | Convenience that binds the tool to wherever it was invoked; falsified by the negative-fallback requirement in the paired exercise |
+| Extract Core or `src/ai/**` in wave one | Crosses the Body/Brain seam ADR 0018 anchors; no inventory disposition supports it; D#17247 territory |
+
+## 3. Consequences and consumer obligations
+
+- Every relocation/migration PR under Epic #17500 cites this ADR for topology and gate authority;
+  the Epic stays the coordination umbrella and is never a PR close-target.
+- A migration PR that introduces a workspace, a root Cloud script, a cwd fallback, or an
+  Edge→durable-store reach is **refused on topology divergence**, whatever its local convenience.
+- Config files may move realms; config *authority* does not multiply (ADR 0019 — one SSOT, no second
+  resolver, no pass-along).
+- The Engine's release protocol keeps its two-command shape; the extracted repository's release
+  cadence is its own (release identity is a separate, still-open planning decision — deliberately
+  not recorded here).
+
+## 4. Avoided traps
+
+- **ADR as implementation checklist.** This records decisions and gates. The Epic owns the child
+  graph; duplicating it here would stale on the first re-scope.
+- **Restating ADR 0039.** Realization, not replacement — one boundary, two altitudes.
+- **Workspace = isolation.** The hoist falsifier survives every convenience argument.
+- **Cwd = target authority.** The negative proof is required, not assumed.
+- **"First wave" silently becoming permanent topology.** D#17247 stays open; §5's triggers reopen
+  this record instead of letting it drift into a global claim it never made.
+
+## 5. Verification and liveness
+
+- **Receipts:** #17525 (inventory + reconciliation) and #17533 (paired exercise) linked from
+  Epic #17500 are the blocking evidence; this ADR's §2.6 is satisfied by those links, never by
+  prose.
+- **Standing witnesses:** the static-closure and runtime-denial instruments (ADR 0039 §5 lineage)
+  re-run against the new repository layout as part of the paired exercise.
+
+**Revalidation triggers** — any of these reopens this record: a future physical Edge/Cloud
+repository split; custody changes to `apps/**`, `learn/agentos`, or `src/ai/**`; a new plane
+entrypoint class; a computed-import mechanism that bypasses the §2.4 disposition; any dependency
+change that reintroduces hoisting; renaming the repository after creation.
+
+**Retirement:** this ADR retires only by explicit successor in this series; the wave completing
+does not retire it — the topology it records is what "completed" means.
+
+## Decision Record impact
+
+`REQUIRED` — this record. It adds a forward relation to ADR 0039 (realized-by) and takes no position
+on release identity, D#17247's long-term shape, or the FM repository — each owned elsewhere.
+
+---
+
+Origin Session ID: `9cd02a1c-1e51-4c53-a361-84adbc5daa4f`

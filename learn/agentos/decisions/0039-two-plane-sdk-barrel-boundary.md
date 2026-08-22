@@ -16,6 +16,7 @@
 | **Aligns with** | ADR 0018 — and **explicitly NOT the Body/Brain seam.** Both barrels live in `/ai/`; Body is `/src/`. This is a **Brain-internal host-edge / container-plane** boundary, expressed by package resolution. An earlier revision called it the Body/Brain seam, which is a category error the two-hemisphere anchor exists to prevent; it is corrected here rather than silently, because the vocabulary gap that produced it is real — see §2.7 |
 | **Mechanically amends** | `learn/benefits/ArchitectureOverview.md` — "The SDK Bouncer Pattern" and the `ai/services.mjs` module-table row, both of which name a single aggregator as the critical safety layer |
 | **Anti-anchor for** | a host barrel that re-exports from the cloud root; a static-only proof presented as the whole property; a third barrel; deleting cloud services from the cloud root; treating `initAsync()` as deferral |
+| **Realized by** | ADR 0040 — the AgentOS extraction topology: this boundary expressed as repository and package topology (proof semantics stay here, unreplaced) |
 
 ---
 
