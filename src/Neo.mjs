@@ -12,9 +12,9 @@ const
      * that enumerates untrusted input has to refuse them explicitly — the object model will not.
      * @type {Set<String>}
      */
-    PROTO_CHAIN_KEYS = new Set(['__proto__', 'constructor', 'prototype']),
-    getSetCache  = Symbol('getSetCache'),
-    cloneMap     = {
+    protoChainKeys = new Set(['__proto__', 'constructor', 'prototype']),
+    getSetCache    = Symbol('getSetCache'),
+    cloneMap       = {
         Array(obj, deep, ignoreNeoInstances) {
             return !deep ? obj.slice() : obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))
         },
@@ -575,7 +575,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
             // hypothetical even inside this repository — `ai/mcp/client/config.mjs` passes a
             // `JSON.parse`d file chosen by an `mcp-cli --config` flag straight in, and
             // `src/worker/Base.mjs` merges worker-message payloads into `Neo.config`.
-            if (PROTO_CHAIN_KEYS.has(key)) {
+            if (protoChainKeys.has(key)) {
                 continue
             }
 
