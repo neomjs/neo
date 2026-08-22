@@ -319,21 +319,9 @@ class Row extends Component {
             cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
 
         if (!record) {
-            // The RECORD claim is dropped, not the whole `data` object. A pool slot holding no
-            // record must not keep CLAIMING one: worker-side inspection would otherwise observe
-            // `row.record === null` while `row.vdom.data.recordId` still names a record, which is
-            // two contradictory answers to the same question from one object.
-            //
-            // `rowId` stays: it identifies the POOL SLOT, which the row still is and which stays
-            // valid after the record is gone. Dropping the whole object also drops that, and costs
-            // an extra delta on a path whose delta count is a guarded contract.
-            //
-            // SCOPE, because the neighbouring line invites the wrong reading: this is a worker-side
-            // VDOM correction and it is NOT a repair for a painted duplicate. The `display: none`
-            // below is staged in this same object, so under `silent: true` both mutations reach the
-            // browser only through the caller's single trailing update — lose that, and neither one
-            // changes what is painted. Staged truth and painted truth are separate problems; this
-            // fixes the first.
+            // Only the record claim goes, never the `data` object: `rowId` identifies the pool
+            // SLOT, which the row still is once its record is gone, and pooled updates need it.
+            // Staged either way — under `silent`, nothing below reaches the browser from here.
             delete vdom.data?.recordId;
 
             vdom.style = {display: 'none'};
