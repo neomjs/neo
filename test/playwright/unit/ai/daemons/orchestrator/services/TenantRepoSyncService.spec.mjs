@@ -66,11 +66,12 @@ import {
 } from '../../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import TextEmbeddingService from '../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
 import {snapshotAiConfig}   from '../../../services/memory-core/util.mjs';
-// The SAME singleton instance the service imports (module cache): required by the joined
-// leaf-wiring witnesses, which drive resolution through `setEnvOverride` (the provider's own
-// sanctioned env-layer API, capture/restore in finally — never a raw data mutation) and observe
-// the semaphore.
-import AiConfig             from '../../../../../../../ai/config.mjs';
+// The CANONICAL template (C3: tests never import the overlay). The joined leaf-wiring witnesses
+// drive `setEnvOverride` here — the provider's own sanctioned env-layer API, capture/restore in
+// finally, never a raw data mutation — and the override reaches the service's reads through the
+// provider hierarchy: reads resolve override-else-inherit, and the overlay carries no delta for
+// these leaves.
+import AiConfig             from '../../../../../../../ai/config.template.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
