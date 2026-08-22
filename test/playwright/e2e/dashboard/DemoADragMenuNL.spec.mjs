@@ -31,14 +31,14 @@ import {test, expect} from '../../fixtures.mjs';
  * @returns {Promise<Object>}
  */
 async function bootDemo(page, neuralLink) {
-    await page.goto('/apps/agentos/childapps/dockdemo/index.html');
+    await page.goto('/examples/dashboard/choreography/index.html');
     page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
 
     await page.waitForSelector('.agentos-dockdemo-tour-play',          {timeout: 20000});
     await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 20000});
 
-    const app        = await neuralLink.connectToApp('AgentOSDockDemo');
-    const workspaces = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoAWorkspace'}, ['id']);
+    const app        = await neuralLink.connectToApp('Neo.examples.dashboard.choreography');
+    const workspaces = await app.findInstances({className: 'Neo.examples.dashboard.choreography.DemoAWorkspace'}, ['id']);
     const wsId       = Array.isArray(workspaces) ? workspaces[0]?.id : workspaces?.id;
 
     expect(wsId, 'the DemoAWorkspace must exist in the App Worker').toBeTruthy();

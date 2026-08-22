@@ -48,14 +48,14 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
      * @returns {Promise<Object>}
      */
     async function bootDemo(page, neuralLink) {
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html');
+        await page.goto('/examples/dashboard/choreography/index.html');
 
         await page.waitForSelector('.agentos-dockdemo-tour-play',          {timeout: 20000});
         await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 20000});
         await page.evaluate(() => document.fonts.ready);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo');
-        const workspaces = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoAWorkspace'}, ['id']);
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.choreography');
+        const workspaces = await app.findInstances({className: 'Neo.examples.dashboard.choreography.DemoAWorkspace'}, ['id']);
         const host       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(host, 'the DemoAWorkspace must exist in the App Worker').toBeTruthy();
@@ -64,7 +64,7 @@ test.describe('Preview design language — the same-scripted-drag capture set (N
         // (`frozenTime` config, plain JSON over the link — no masking, no hot patching). The
         // pane sits at the editor-zone park point INSIDE the certified affordance cluster —
         // it must stay fully visible in the goldens, so its churn dies at the source.
-        const clocks  = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.ClockPane'}, ['id']);
+        const clocks  = await app.findInstances({className: 'Neo.examples.dashboard.choreography.ClockPane'}, ['id']);
         const clockId = (Array.isArray(clocks) ? clocks[0] : clocks)?.id;
 
         expect(clockId, 'the ClockPane must exist in the App Worker').toBeTruthy();

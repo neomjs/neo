@@ -1,5 +1,5 @@
 import {test, expect}    from '../../fixtures.mjs';
-import {demoBTourScript} from '../../../../apps/agentos/tour/demoBPerspectives.mjs';
+import {demoBTourScript} from '../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
 /**
  * @summary Moves only the real headless-Chrome popup vessel outside the source viewport.
@@ -77,11 +77,11 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
             let value = error == null ? '' : String(error.stack || error.message || error);
             value && value !== 'undefined' && pageErrors.push(value)
         });
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-tour-play', {timeout: 30000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
-              workspaces = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'}, ['id']),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
+              workspaces = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id,
               totalBeats = demoBTourScript.scenes.flatMap(scene => scene.steps).length;
 
@@ -93,7 +93,7 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
 
         const readCounter = async () => {
             const counters = await app.findInstances(
-                {className: 'AgentOS.childapps.dockdemo.view.CounterPane'},
+                {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                 ['frames', 'id', 'mountCount', 'windowId']
             );
 

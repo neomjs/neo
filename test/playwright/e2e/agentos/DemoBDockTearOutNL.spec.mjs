@@ -2,7 +2,7 @@ import {test, expect} from '../../fixtures.mjs';
 
 /**
  * @summary The G1 dock tear-out e2e witness leg. Neural Link invokes the app's semantic
- * tear-out executor {@link AgentOS.childapps.dockdemo.view.DemoBWorkspace#executeTearOutStep}, which
+ * tear-out executor {@link Neo.examples.dashboard.crossWindow.DemoBWorkspace#executeTearOutStep}, which
  * resolves the live tab header + geometry immediately before dispatching an arming mousedown ->
  * threshold moves -> a deep outward fling -> (gated on the vessel's real birth) post-birth survival
  * moves -> either a detached mouseup (terminal) or an Escape (cancel) through the existing
@@ -57,11 +57,11 @@ test.describe('AgentOS Demo B — real dock tear-out gesture', () => {
             value && value !== 'undefined' && pageErrors.push(value)
         });
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
-              workspaces = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'}, ['id']),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
+              workspaces = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(wsId, 'the App Worker must own one DemoBWorkspace').toBeTruthy();
@@ -97,7 +97,7 @@ test.describe('AgentOS Demo B — real dock tear-out gesture', () => {
      */
     async function getCounter(app) {
         const found = await app.findInstances({
-            className: 'AgentOS.childapps.dockdemo.view.CounterPane'
+            className: 'Neo.examples.dashboard.crossWindow.CounterPane'
         }, ['id', 'isDestroyed', 'mounted', 'windowId']);
 
         const counters = (Array.isArray(found) ? found : found ? [found] : [])

@@ -276,13 +276,13 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
             value && value !== 'undefined' && pageErrors.push(value)
         });
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
         await widenAutomationWindowMoveObservation(page);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'},
+                  {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
               ),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
@@ -291,7 +291,7 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
 
         const readCounter = async () => {
             const counters = await app.findInstances(
-                {className: 'AgentOS.childapps.dockdemo.view.CounterPane'},
+                {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                 ['frames', 'id', 'mounted', 'mountCount', 'windowId']
             );
 
@@ -485,18 +485,18 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
             value && value !== 'undefined' && pageErrors.push(value)
         });
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
         await widenAutomationWindowMoveObservation(page);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'},
+                  {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
               ),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id,
               counters   = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.CounterPane'},
+                  {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                   ['id', 'mountCount', 'windowId']
               ),
               counterList = Array.isArray(counters) ? counters : counters ? [counters] : [],
@@ -667,7 +667,7 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
                   'crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts', 'tearOutPanes'
               ]),
               finalCounters = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.CounterPane'},
+                  {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                   ['id', 'mountCount', 'windowId']
               ),
               finalCounterList = Array.isArray(finalCounters) ? finalCounters : finalCounters ? [finalCounters] : [],
@@ -730,18 +730,18 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
             value && value !== 'undefined' && pageErrors.push(value)
         });
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
         await widenAutomationWindowMoveObservation(page);
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'},
+                  {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
               ),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id,
               counters   = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.CounterPane'},
+                  {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                   ['frames', 'id', 'mountCount', 'windowId']
               ),
               baseline   = Array.isArray(counters) ? counters[0] : counters,
@@ -774,7 +774,7 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
         const result        = await resultPromise,
               after         = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument']),
               finalCounters = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.CounterPane'},
+                  {className: 'Neo.examples.dashboard.crossWindow.CounterPane'},
                   ['frames', 'id', 'mountCount', 'windowId']
               ),
               finalCounter = Array.isArray(finalCounters) ? finalCounters[0] : finalCounters,

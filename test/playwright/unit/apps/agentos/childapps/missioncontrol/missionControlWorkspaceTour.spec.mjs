@@ -9,7 +9,7 @@ setup({
 import {test, expect}          from '@playwright/test';
 import Neo                     from '../../../../../../../src/Neo.mjs';
 import * as core               from '../../../../../../../src/core/_export.mjs';
-import MissionControlWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/MissionControlWorkspace.mjs';
+import MissionControlWorkspace from '../../../../../../../apps/agentos/childapps/missioncontrol/view/MissionControlWorkspace.mjs';
 import cockpitDockDocument     from '../../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
 import {fusionTourScript}      from '../../../../../../../apps/agentos/tour/fusionFlagship.mjs';
 

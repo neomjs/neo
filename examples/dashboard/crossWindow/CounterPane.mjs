@@ -1,4 +1,4 @@
-import Component from '../../../../../src/component/Base.mjs';
+import Component from '../../../src/component/Base.mjs';
 
 /**
  * @summary The Demo-B state-continuity witness: a frame counter that lives on the INSTANCE.
@@ -8,16 +8,16 @@ import Component from '../../../../../src/component/Base.mjs';
  * component is destroyed and recreated. Cross-window movement does run the target document's
  * normal mount lifecycle; the separate mount count makes that truth visible while the unbroken
  * seconds value proves the worker-owned instance and state were never remade.
- * @class AgentOS.childapps.dockdemo.view.CounterPane
+ * @class Neo.examples.dashboard.crossWindow.CounterPane
  * @extends Neo.component.Base
  */
 class CounterPane extends Component {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.CounterPane'
+         * @member {String} className='Neo.examples.dashboard.crossWindow.CounterPane'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.CounterPane',
+        className: 'Neo.examples.dashboard.crossWindow.CounterPane',
         /**
          * @member {String[]} cls=['agentos-dockdemo-counter-pane']
          */

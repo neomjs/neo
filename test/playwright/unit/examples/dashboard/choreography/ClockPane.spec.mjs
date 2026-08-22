@@ -1,4 +1,4 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 setup({
     appConfig: {
@@ -7,9 +7,9 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import ClockPane      from '../../../../../../../apps/agentos/childapps/dockdemo/view/ClockPane.mjs';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import ClockPane      from '../../../../../../examples/dashboard/choreography/ClockPane.mjs';
 
 const LIVE_TIME = /^\d{2}:\d{2}:\d{2}$/;
 
@@ -22,7 +22,7 @@ const LIVE_TIME = /^\d{2}:\d{2}:\d{2}$/;
  * (2) the value domain is exact — ANY string freezes to itself (the empty string
  * included), ONLY `null` thaws back to live wall time.
  */
-test.describe('AgentOS.childapps.dockdemo.view.ClockPane — the freeze/thaw seam', () => {
+test.describe('Neo.examples.dashboard.choreography.ClockPane — the freeze/thaw seam', () => {
     let pane;
 
     test.afterEach(() => {

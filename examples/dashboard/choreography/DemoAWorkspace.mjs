@@ -1,20 +1,20 @@
 import ClockPane                          from './ClockPane.mjs';
-import Component                          from '../../../../../src/component/Base.mjs';
-import Container                          from '../../../../../src/container/Base.mjs';
-import DockDropIndicators                 from '../../../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockDragAffordances                from '../../../../../src/dashboard/DockDragAffordances.mjs';
-import DockPreview                        from '../../../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                        from '../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
-import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
-import {previewToOperation}               from '../../../../../src/dashboard/dockPreviewContract.mjs';
-import {demoATourScript, initialDocument} from '../../../tour/demoADockChoreography.mjs';
-import '../../../../../src/button/Base.mjs';   // registers the `button` ntype the tour bar composes
-import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
-import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the tour bar uses
+import Component                          from '../../../src/component/Base.mjs';
+import Container                          from '../../../src/container/Base.mjs';
+import DockDropIndicators                 from '../../../src/dashboard/DockDropIndicators.mjs';
+import DockLayoutAdapter                  from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                   from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockDragAffordances                from '../../../src/dashboard/DockDragAffordances.mjs';
+import DockPreview                        from '../../../src/dashboard/DockPreview.mjs';
+import DockProjectionReconciler           from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                        from '../../../src/ai/client/DockService.mjs';
+import DockZoneModel                      from '../../../src/dashboard/DockZoneModel.mjs';
+import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
+import {previewToOperation}               from '../../../src/dashboard/dockPreviewContract.mjs';
+import {demoATourScript, initialDocument} from './demoADockChoreography.mjs';
+import '../../../src/button/Base.mjs';   // registers the `button` ntype the tour bar composes
+import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
+import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the tour bar uses
 
 /**
  * @summary The Demo-A showcase workspace: the reducer-container that hosts the dock
@@ -42,16 +42,16 @@ import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype 
  * move into the next projected shell while the preview and indicator overlays remain persistent
  * siblings. The `workspace` advisory block of the screenplay (hover-reveal opt-in) is threaded
  * into the projection options — inert until the rail interaction layer lands, correct afterwards.
- * @class AgentOS.childapps.dockdemo.view.DemoAWorkspace
+ * @class Neo.examples.dashboard.choreography.DemoAWorkspace
  * @extends Neo.container.Base
  */
 class DemoAWorkspace extends Container {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.DemoAWorkspace'
+         * @member {String} className='Neo.examples.dashboard.choreography.DemoAWorkspace'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.DemoAWorkspace',
+        className: 'Neo.examples.dashboard.choreography.DemoAWorkspace',
         /**
          * The `--fm-*` design tokens this skin consumes are defined in the main app
          * Viewport's theme layer; per-class CSS loading would never fetch it from a
@@ -407,7 +407,11 @@ class DemoAWorkspace extends Container {
             // inverts the survivors onto their old geometry and releases the transition
             // the counted motion signal brackets the awaited animation window — ownership
             // lives in DockMotionSignal (fail-safe backstopped), never in the addon
-            if (flip) {
+            // Guard on the CAPABILITY, not on truthiness. `Neo.main.addon.DockFlip` holds the
+            // registered CLASS until an instance replaces it, and a class is truthy with no
+            // `play` — so `if (flip)` admits it and the call below throws. This matches the
+            // optional-chained `flip?.captureFirst` two calls up, which never had the problem.
+            if (flip?.play) {
                 DockMotionSignal.enter(me);
                 flip.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
                     .catch(() => {})

@@ -5,8 +5,8 @@
     "image"        : "devmode/dockDemo.png",
     "name"         : "Dock Layouts",
     "sharedWorkers": true,
-    "sourceUrl"    : "apps/agentos/childapps/dockdemo",
-    "url"          : "dist/esm/apps/agentos/childapps/dockdemo/index.html"
+    "sourceUrl"    : "examples/dashboard/choreography",
+    "url"          : "dist/esm/examples/dashboard/choreography/index.html"
 }, {
     "id"          : 25,
     "environments": ["Desktop", "Mobile"],

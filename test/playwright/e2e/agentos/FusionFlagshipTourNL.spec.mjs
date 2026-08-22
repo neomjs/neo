@@ -42,12 +42,12 @@ test.describe('AgentOS fusion flagship — four-beat tour on the composed cockpi
 
         // the tour lives on the demo host, which composes the real cockpit; the fusion Play button
         // is the host's chrome, driving `playFusionTour` on the host against the composed cockpit
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=mission');
+        await page.goto('/apps/agentos/childapps/missioncontrol/index.html');
         await expect(page.locator('.fm-fleet-cockpit'), 'the demo host composes the real cockpit').toBeVisible({timeout: 60000});
         await expect(page.locator('.agentos-dockdemo-tour-play')).toBeVisible({timeout: 30000});
 
-        const app       = await neuralLink.connectToApp('AgentOSDockDemo'),
-              hosts     = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.MissionControlWorkspace'}, ['id']),
+        const app       = await neuralLink.connectToApp('AgentOSMissionControl'),
+              hosts     = await app.findInstances({className: 'AgentOS.childapps.missioncontrol.view.MissionControlWorkspace'}, ['id']),
               hostId    = (Array.isArray(hosts) ? hosts[0] : hosts)?.id,
               cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               cockpitId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id;

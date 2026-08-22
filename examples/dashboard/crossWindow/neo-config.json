@@ -1,0 +1,10 @@
+{
+    "appPath"         : "examples/dashboard/crossWindow/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "Stylesheet", "WindowPosition"],
+    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+    "useAiClient"     : true,
+    "useSharedWorkers": true
+}

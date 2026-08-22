@@ -1,4 +1,4 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 setup({
     appConfig: {
@@ -7,17 +7,17 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import Component                from '../../../../../../../src/component/Base.mjs';
-import Container                from '../../../../../../../src/container/Base.mjs';
-import DemoBWorkspace           from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoBWorkspace.mjs';
-import DockPreview              from '../../../../../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler from '../../../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockZoneModel            from '../../../../../../../src/dashboard/DockZoneModel.mjs';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
+import Component                from '../../../../../../src/component/Base.mjs';
+import Container                from '../../../../../../src/container/Base.mjs';
+import DemoBWorkspace           from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
+import DockPreview              from '../../../../../../src/dashboard/DockPreview.mjs';
+import DockProjectionReconciler from '../../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockZoneModel            from '../../../../../../src/dashboard/DockZoneModel.mjs';
 
-import {demoBTourScript, initialDocument} from '../../../../../../../apps/agentos/tour/demoBPerspectives.mjs';
+import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
 /**
  * @summary Installs deterministic popup-vessel seams for the worker-side workspace specs.
@@ -213,7 +213,7 @@ function installWindowConnectHarness(workspace) {
  * side of pop-out (real popup + reparent) is live-surface behavior; the e2e sibling leaf
  * owns it post-merge — these specs pin every seam the workspace itself decides.
  */
-test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
+test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
     let workspace;
 
     test.beforeEach(() => {

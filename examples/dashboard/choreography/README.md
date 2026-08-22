@@ -1,13 +1,15 @@
-# Dock Demos A/B — Choreography and Perspectives
+# Dock Choreography — the layout that rebuilds itself
 
 Layouts that rebuild themselves: a themed dock workspace where every transition is a real,
 committed `dockZone.v1` operation — split, resize, tab-fold, auto-hide — played as a scripted,
 deterministic tour. The ticking clock in the editor pane is the continuity witness: wall-time
 truth a viewer verifies with their own eyes while the layout reorganizes around it.
 
-The default route runs Demo A's choreography. Add `?demo=b` for Demo B's named perspectives
-and shared-heap pop-out journey. The dense living-data Workstation is a standalone application at
-`apps/workstation/`; it is not an AgentOS dockdemo mode.
+This example is the choreography half of the dock showcase. Its sibling
+[`../crossWindow/`](../crossWindow/) carries the named perspectives and the shared-heap pop-out
+journey. The dense living-data Workstation is a standalone application at `apps/workstation/`,
+and the Fleet Manager's own guided walkthrough lives with the product at
+`apps/agentos/childapps/missioncontrol/`.
 
 ## Run it
 
@@ -15,7 +17,7 @@ and shared-heap pop-out journey. The dense living-data Workstation is a standalo
 npm install
 npm run build-themes -- -n -e dev -t all
 npm run server-start
-# → http://localhost:8080/apps/agentos/childapps/dockdemo/index.html
+# → http://localhost:8080/examples/dashboard/choreography/index.html
 ```
 
 The non-interactive theme build creates the ignored development CSS and `theme-map.json`
@@ -38,7 +40,7 @@ after completion it resets the stage and replays — identically, every time.
 Every beat dispatches through the same executor seam an agent uses via the Neural Link
 `execute_dock_operation` tool: the tour and a live agent are indistinguishable at the
 document layer. The screenplay itself lives in
-[`apps/agentos/tour/demoADockChoreography.mjs`](../../tour/demoADockChoreography.mjs) —
+[`demoADockChoreography.mjs`](./demoADockChoreography.mjs) —
 data only, validated fail-closed, replayed byte-identically by the unit specs.
 
 ## Recording a take

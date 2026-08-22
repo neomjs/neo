@@ -21,12 +21,12 @@ test.describe('AgentOS Demo B — three registered claim targets', () => {
     });
 
     test('both popup workspaces stage through the same seams and expose measurable claim geometry', async ({page, neuralLink}) => {
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 30000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
               workspaces = await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'},
+                  {className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'},
                   ['id']
               ),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;

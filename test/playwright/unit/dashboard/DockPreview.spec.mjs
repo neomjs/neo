@@ -60,13 +60,13 @@ test.describe('Neo.dashboard.DockPreview', () => {
         test('every agentos app anchor projects the full alias set in both modes', () => {
             // Post-lift loading model: the renderer is app-neutral (Neo.dashboard.DockPreview);
             // each APP SURFACE carries its own projection copy on its always-mounted viewport
-            // anchor — the FM app AND the dockdemo childapp (whose viewport extends
+            // anchor — the FM app AND the Mission Control childapp (whose viewport extends
             // Neo.container.Viewport directly, so the app-level file never loads there).
             const anchors = [
                 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss',
                 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss',
-                'resources/scss/theme-neo-dark/apps/agentos/childapps/dockdemo/Viewport.scss',
-                'resources/scss/theme-neo-light/apps/agentos/childapps/dockdemo/Viewport.scss'
+                'resources/scss/theme-neo-dark/apps/agentos/childapps/missioncontrol/Viewport.scss',
+                'resources/scss/theme-neo-light/apps/agentos/childapps/missioncontrol/Viewport.scss'
             ];
 
             anchors.forEach(anchor => {
