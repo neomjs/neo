@@ -18,11 +18,13 @@
    Recorded affordance-class distinctions (deliberate, not drift): 6px radius, its own 3px/9px
    padding, and — §04 (#17265) — detail-role METRICS with the family kept `inherit`: a pressable
    control speaks the surrounding surface's voice, not the observation tier's mono. */
-/* the doubled selector out-cascades the stock .neo-button skin, which loads after this file on
-   button-composed chips (same-specificity order would let the slab win — the .neo-button.fm-*
-   discipline every fleet surface uses) */
+/* the doubled selectors out-cascade the stock .neo-button / .neo-chip skins, which load after this
+   file on button- and chip-composed members (same-specificity order would let the slab win — the
+   .neo-button.fm-* discipline every fleet surface uses; .neo-chip joins for the compose recipient
+   chips, #17311) */
 .fm-chip,
-.neo-button.fm-chip {
+.neo-button.fm-chip,
+.neo-chip.fm-chip {
     border        : 1px solid var(--fm-line);
     border-radius : 6px;
     background    : none;
