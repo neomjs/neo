@@ -99,6 +99,8 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Fragment Example](https://neomjs.com/examples/container/fragment/index.html)
 - [neo.mjs config system](https://neomjs.com/examples/core/config/index.html)
 - [Neo Dashboard](https://neomjs.com/examples/dashboard/base/index.html)
+- [Dock Choreography](https://neomjs.com/examples/dashboard/choreography/index.html)
+- [Cross-Window Dock](https://neomjs.com/examples/dashboard/crossWindow/index.html)
 - [#15065 Cross-Window Witness](https://neomjs.com/examples/dashboard/crossWindowWitness/index.html)
 - [Neo Dashboard — Dock Layout](https://neomjs.com/examples/dashboard/dock/index.html)
 - [Neo Data Pipeline](https://neomjs.com/examples/data/pipeline/index.html)
@@ -561,6 +563,11 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17583](https://neomjs.com/raw/news/tickets/17583.md)
+- [Ticket #17582](https://neomjs.com/raw/news/tickets/17582.md)
+- [Ticket #17581](https://neomjs.com/raw/news/tickets/17581.md)
+- [Ticket #17579](https://neomjs.com/raw/news/tickets/17579.md)
+- [Ticket #17578](https://neomjs.com/raw/news/tickets/17578.md)
 - [Ticket #17577](https://neomjs.com/raw/news/tickets/17577.md)
 - [Ticket #17576](https://neomjs.com/raw/news/tickets/17576.md)
 - [Ticket #17574](https://neomjs.com/raw/news/tickets/17574.md)
@@ -12116,6 +12123,9 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17585](https://neomjs.com/raw/news/pulls/17585.md)
+- [Pull Request #17584](https://neomjs.com/raw/news/pulls/17584.md)
+- [Pull Request #17580](https://neomjs.com/raw/news/pulls/17580.md)
 - [Pull Request #17575](https://neomjs.com/raw/news/pulls/17575.md)
 - [Pull Request #17572](https://neomjs.com/raw/news/pulls/17572.md)
 - [Pull Request #17571](https://neomjs.com/raw/news/pulls/17571.md)
