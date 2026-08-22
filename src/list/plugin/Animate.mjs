@@ -148,14 +148,38 @@ class Animate extends Base {
 
         me.ownerRect = rect;
 
+        // Both modes clamp to ONE column and a 1px width floor: a pane narrower than an item (or
+        // than its own outer margins) must degrade to a single squeezed column — never to
+        // `columns: 0`, whose position math (`index % 0`) is NaN, and never to a non-positive
+        // width style.
         if (minItemWidth && !me.hasFixedItemWidth) {
             me.columns      = Math.max(1, Math.floor((width - itemMargin) / (minItemWidth + itemMargin)));
-            owner.itemWidth = Math.floor((width - (me.columns + 1) * itemMargin) / me.columns)
+            owner.itemWidth = Math.max(1, Math.floor((width - (me.columns + 1) * itemMargin) / me.columns))
         } else {
-            me.columns = Math.floor(width / owner.itemWidth)
+            me.columns = Math.max(1, Math.floor(width / owner.itemWidth))
         }
 
         me.rows = Math.floor(rect.height / owner.itemHeight)
+    }
+
+    /**
+     * Triggered before the minItemWidth config gets changed — the fluid-mode domain gate:
+     * `null` (fixed mode) or a positive finite number of px. Anything else is refused with a
+     * console error and the previous value survives, so invalid input can never poison the
+     * geometry derivation.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @returns {Number|null}
+     * @protected
+     */
+    beforeSetMinItemWidth(value, oldValue) {
+        if (value === null || (Number.isFinite(value) && value > 0)) {
+            return value
+        }
+
+        console.error('list.plugin.Animate: minItemWidth must be null or a positive finite px number', value, this.owner);
+
+        return oldValue ?? null
     }
 
     /**
@@ -189,9 +213,10 @@ class Animate extends Base {
             node, position;
 
         owner.store.items.forEach((record, index) => {
-            // the record itself resolves through every id scheme (base internal-id / key ids,
-            // component index-coupled ids) — the exact id createItem stamped
-            node = map.get(owner.getItemId(record));
+            // resolve through the SAME two-step path createItem stamps ids with
+            // (getRecordId → getItemId): getRecordId handles raw/Turbo rows (no isRecord flag)
+            // exactly like real records, so a reflow can never silently skip the whole set
+            node = map.get(owner.getItemId(owner.getRecordId(record)));
 
             if (node) {
                 position = me.getItemPosition(record, index);

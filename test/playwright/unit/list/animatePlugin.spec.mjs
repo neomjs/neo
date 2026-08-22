@@ -30,13 +30,29 @@ import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 // The setup() mock set carries no Stylesheet addon — recording it here makes the plugin's
 // inserted/deleted rule payloads the witness surface for the containing-block + transition rules.
+// Installed in beforeAll and restored in afterAll, so nothing leaks past this file.
 const
     insertedRules = [],
     deletedRules  = [];
 
-Neo.ns('Neo.main.addon.Stylesheet', true);
-Neo.main.addon.Stylesheet.insertCssRules = ({rules}) => insertedRules.push(...rules);
-Neo.main.addon.Stylesheet.deleteCssRules = ({rules}) => deletedRules.push(...rules);
+let priorInsertCssRules, priorDeleteCssRules, priorGetAddon;
+
+test.beforeAll(() => {
+    Neo.ns('Neo.main.addon.Stylesheet', true);
+
+    priorInsertCssRules = Neo.main.addon.Stylesheet.insertCssRules;
+    priorDeleteCssRules = Neo.main.addon.Stylesheet.deleteCssRules;
+    priorGetAddon       = Neo.currentWorker.getAddon;
+
+    Neo.main.addon.Stylesheet.insertCssRules = ({rules}) => insertedRules.push(...rules);
+    Neo.main.addon.Stylesheet.deleteCssRules = ({rules}) => deletedRules.push(...rules)
+});
+
+test.afterAll(() => {
+    Neo.main.addon.Stylesheet.insertCssRules = priorInsertCssRules;
+    Neo.main.addon.Stylesheet.deleteCssRules = priorDeleteCssRules;
+    Neo.currentWorker.getAddon               = priorGetAddon
+});
 
 class RosterModel extends Model {
     static config = {
@@ -121,12 +137,13 @@ class CardList extends ComponentList {
 }
 CardList = Neo.setupClass(CardList);
 
+// neutral fixture identities — never real maintainer names or statuses
 const rosterData = () => [
-    {id: 1, name: 'Ada',   online: true},
-    {id: 2, name: 'Clio',  online: true},
-    {id: 3, name: 'Emmy',  online: false},
-    {id: 4, name: 'Grace', online: true},
-    {id: 5, name: 'Vega',  online: false}
+    {id: 1, name: 'alpha',   online: true},
+    {id: 2, name: 'bravo',   online: true},
+    {id: 3, name: 'charlie', online: false},
+    {id: 4, name: 'delta',   online: true},
+    {id: 5, name: 'echo',    online: false}
 ];
 
 let runId = 0;
@@ -135,11 +152,12 @@ let runId = 0;
  * One constructed fixture: a store-fed list carrying the Animate plugin with deterministic
  * geometry (applyGeometry replaces the mount-time getDomRect pass — mount never runs here).
  */
-async function createFixture({listClass = PlainList, listConfig = {}, pluginConfig = {}, rect = {width: 935, height: 400}}) {
+async function createFixture({listClass = PlainList, listConfig = {}, pluginConfig = {}, storeConfig = {}, rect = {width: 935, height: 400}}) {
     runId++;
 
     const store = Neo.create(RosterStore, {
         autoInitRecords: true,
+        ...storeConfig,
         data           : rosterData()
     });
 
@@ -347,36 +365,132 @@ test.describe('Neo.list.plugin.Animate', () => {
     });
 
     test('mount registers the owner with the ResizeObserver addon, destroy unregisters', async () => {
-        const calls = [];
+        const
+            calls = [],
+            prior = Neo.currentWorker.getAddon;
 
-        Neo.currentWorker.getAddon = async () => ({
-            register  : data => calls.push({op: 'register',   ...data}),
-            unregister: data => calls.push({op: 'unregister', ...data})
-        });
+        try {
+            Neo.currentWorker.getAddon = async () => ({
+                register  : data => calls.push({op: 'register',   ...data}),
+                unregister: data => calls.push({op: 'unregister', ...data})
+            });
 
-        const {list} = await createFixture({listConfig: {itemWidth: 300}});
+            const {list} = await createFixture({listConfig: {itemWidth: 300}});
 
-        list.mounted = true;
-        await list.timeout(20);
+            list.mounted = true;
+            await list.timeout(20);
 
-        expect(calls.some(call => call.op === 'register' && call.id === list.id)).toBe(true);
+            expect(calls.some(call => call.op === 'register' && call.id === list.id)).toBe(true);
 
-        const {id} = list;
-        list.destroy();
-        await list.timeout(20);
+            const {id} = list;
+            list.destroy();
+            await list.timeout(20);
 
-        expect(calls.some(call => call.op === 'unregister' && call.id === id)).toBe(true)
+            expect(calls.some(call => call.op === 'unregister' && call.id === id)).toBe(true)
+        } finally {
+            Neo.currentWorker.getAddon = prior
+        }
     });
 
     test('a missing ResizeObserver addon degrades to mount-time geometry without throwing', async () => {
-        Neo.currentWorker.getAddon = async () => {
-            throw new Error('addon unavailable')
-        };
+        const prior = Neo.currentWorker.getAddon;
 
-        const {list, plugin} = await createFixture({listConfig: {itemWidth: 300}});
+        try {
+            Neo.currentWorker.getAddon = async () => {
+                throw new Error('addon unavailable')
+            };
 
-        await expect(plugin.addResizeObserver(true)).resolves.toBeUndefined();
-        expect(plugin.columns).toBe(3);
+            const {list, plugin} = await createFixture({listConfig: {itemWidth: 300}});
+
+            await expect(plugin.addResizeObserver(true)).resolves.toBeUndefined();
+            expect(plugin.columns).toBe(3);
+
+            list.destroy()
+        } finally {
+            Neo.currentWorker.getAddon = prior
+        }
+    });
+
+    test('a narrow fixed rect floors at one column — positions stay finite', async () => {
+        const {list, plugin} = await createFixture({
+            listConfig: {itemWidth: 300},
+            rect      : {width: 200, height: 400}
+        });
+
+        expect(plugin.columns).toBe(1);                       // never floor(200/300) = 0
+        expect(transformOf(list, 1)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(10px, 146px)');
+        itemNodes(list).forEach(node => expect(node.style.transform).not.toContain('NaN'));
+
+        list.destroy()
+    });
+
+    test('a tiny fluid rect floors both the column count and the item width', async () => {
+        const {list, plugin} = await createFixture({
+            pluginConfig: {itemMargin: 9, minItemWidth: 420},
+            rect        : {width: 10, height: 400}
+        });
+
+        expect(plugin.columns).toBe(1);
+        expect(list.itemWidth).toBe(1);                       // floor((10 - 18) / 1) would be negative
+        itemNodes(list).forEach(node => {
+            expect(node.style.width).toBe('1px');
+            expect(node.style.transform).not.toContain('NaN')
+        });
+
+        list.destroy()
+    });
+
+    test('invalid minItemWidth values are refused and the previous value survives', async () => {
+        const {list, plugin} = await createFixture({
+            pluginConfig: {minItemWidth: 300},
+            rect        : {width: 935, height: 400}
+        });
+
+        for (const bad of [-5, 0, NaN, Infinity, 'wide']) {
+            plugin.minItemWidth = bad;
+            expect(plugin.minItemWidth).toBe(300)
+        }
+
+        plugin.minItemWidth = null;                           // fixed-mode opt-out stays legal
+        expect(plugin.minItemWidth).toBeNull();
+
+        list.destroy()
+    });
+
+    test('raw-record stores (autoInitRecords: false) reflow exactly like records', async () => {
+        const {list, plugin} = await createFixture({
+            listConfig : {itemWidth: 300},
+            storeConfig: {autoInitRecords: false}
+        });
+
+        expect(itemNodes(list)).toHaveLength(5);
+
+        plugin.onOwnerResize({rect: {width: 620, height: 400}});
+
+        expect(plugin.columns).toBe(2);
+        // every node was re-addressed through getRecordId → getItemId — none silently skipped
+        const transforms = itemNodes(list).map(node => node.style.transform);
+        expect(transforms[2]).toBe('translate(10px, 146px)'); // index 2 wrapped to row 1
+        transforms.forEach(t => expect(t).toMatch(/^translate\(\d+px, \d+px\)$/));
+
+        list.destroy()
+    });
+
+    test('component-list filtering settles the component rows against the correct records', async () => {
+        const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}});
+
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        await list.timeout(200);                              // fade + settle (transitionDuration 50)
+
+        expect(itemNodes(list)).toHaveLength(3);
+        expect(list.items.slice(0, 3).map(item => item.text)).toEqual(['alpha', 'bravo', 'delta']);
+
+        store.getFilter('online').disabled = true;
+        await list.timeout(250);
+
+        expect(itemNodes(list)).toHaveLength(5);
+        expect(list.items.map(item => item.text)).toEqual(['alpha', 'bravo', 'charlie', 'delta', 'echo']);
 
         list.destroy()
     })
