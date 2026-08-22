@@ -11,10 +11,10 @@ import TreeBuilder   from '../util/vdom/TreeBuilder.mjs';
  * {@link #bufferRowRange} rows on either side is mounted between two stable spacers.
  *
  * Physical pool slots and logical records are different identities. Slot ids never encode a record;
- * `data.recordId` does. Surviving records retain their slot across scroll, prepend, sort, and filter
- * whenever possible, while the vdom orders those slots by logical Store position so assistive
- * technology reads the same order the operator sees. Moving a range edge therefore rotates/rebinds
- * bounded slots; it never creates one component per Store record.
+ * `data.recordId` does. A slot belongs to one mounted-range offset, keeping `[slot-0 … slot-N]` in
+ * invariant DOM order while records rebind through Store position. Assistive technology therefore
+ * reads the same order the operator sees without structural VDOM moves. Moving a range edge updates
+ * bounded slot contents; it never creates one component per Store record.
  *
  * Consumers that need component rows provide {@link #itemConfig}: an object or function returning a
  * component config. The component is created once per physical slot and receives the current record
@@ -246,9 +246,9 @@ class Buffered extends ComponentList {
     }
 
     /**
-     * Assigns current-range records to a bounded pool. A surviving record keeps its old physical
-     * slot; only entrants consume freed slots. The returned descriptors remain in logical order so
-     * DOM reading order matches visual/Store order even when slot ids rotate.
+     * Assigns current-range records to fixed physical slots by mounted-range offset. The physical
+     * slot order is invariant while Store records rebind, so logical/DOM reading order stays aligned
+     * without `moveNode`, `insertNode`, or `removeNode` deltas during steady-state range movement.
      * @param {Object[]} records
      * @param {Number} start Logical start index.
      * @param {Number} poolSize
@@ -257,28 +257,11 @@ class Buffered extends ComponentList {
      */
     assignPoolSlots(records, start, poolSize) {
         let me          = this,
-            assignments = records.map((record, offset) => ({
-                logicalIndex: start + offset,
-                poolIndex   : null,
+            assignments = records.slice(0, poolSize).map((record, poolIndex) => ({
+                logicalIndex: start + poolIndex,
+                poolIndex,
                 record
-            })),
-            used        = new Set(),
-            freeSlots;
-
-        assignments.forEach(item => {
-            const slot = me.recordSlotMap.get(me.toRecordMapKey(me.getRecordId(item.record)));
-
-            if (slot !== undefined && slot < poolSize && !used.has(slot)) {
-                item.poolIndex = slot;
-                used.add(slot)
-            }
-        });
-
-        freeSlots = Array.from({length: poolSize}, (_, index) => index).filter(index => !used.has(index));
-
-        assignments.forEach(item => {
-            item.poolIndex ??= freeSlots.shift()
-        });
+            }));
 
         me.recordSlotMap = new Map();
         me.slotRecordIds = Array(poolSize).fill(null);

@@ -1,6 +1,6 @@
 /**
  * @file test/playwright/unit/list/Buffered.spec.mjs
- * @summary Contract tests for `Neo.list.Buffered`: bounded semantic component rows over a full Store.
+ * @summary Contract tests for bounded, fixed-DOM-order semantic component rows over a full Store.
  */
 
 import {setup} from '../../setup.mjs';
@@ -72,7 +72,7 @@ class NestedPooledRow extends Container {
 
 NestedPooledRow = Neo.setupClass(NestedPooledRow);
 
-test.describe('Neo.list.Buffered — fixed-height component row windowing (#17554)', () => {
+test.describe('Neo.list.Buffered — fixed-height component row windowing (#17554, #17563)', () => {
     let list,
         sequence = 0;
 
@@ -165,11 +165,12 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         expect(list.items).toBeNull()
     });
 
-    test('scrolling rotates bounded slots while surviving records keep component identity', async () => {
+    test('scrolling rebinds fixed physical slots while keeping component identity', async () => {
         await createList();
 
         const
-            initialSlotIds = new Set(renderedRows(list).map(row => row.id)),
+            initialSlotIds = renderedRows(list).map(row => row.id),
+            components     = [...list.items],
             slotForFive    = list.recordSlotMap.get('5'),
             componentFive  = list.items[slotForFive];
 
@@ -179,41 +180,70 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
 
         expect(list.mountedRange).toEqual([2, 11]);
         expect(renderedRows(list).map(row => row.data.recordId)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        expect(new Set(renderedRows(list).map(row => row.id))).toEqual(initialSlotIds);
+        expect(renderedRows(list).map(row => row.id)).toEqual(initialSlotIds);
+        expect(list.items).toEqual(components);
         expect(list.items).toHaveLength(9);
-        expect(list.items[list.recordSlotMap.get('5')]).toBe(componentFive);
-        expect(componentFive.record.id).toBe(5);
+        expect(list.recordSlotMap.get('5')).toBe(3);
+        expect(list.items[3].record.id).toBe(5);
+        expect(componentFive.record.id).toBe(7);
         expect(list.vdom.cn[0].style.height).toBe('40px');
         expect(list.vdom.cn.at(-1).style.height).toBe(`${(5000 - 11) * 20}px`)
     });
 
-    test('range movement produces bounded updates without row insertion or removal', async () => {
+    test('range movement keeps physical rows fixed without structural deltas', async () => {
         await createList();
         await list.timeout(20);
 
+        // RED baseline at the fixed-order branch point: forward range movement emitted 7 moveNode deltas;
+        // reverse emitted 2. Both directions already emitted zero insertNode and removeNode deltas.
         const
-            captured    = [],
-            updateBatch = VdomHelper.updateBatch;
+            componentSet = new Set(list.items),
+            initialIds   = renderedRows(list).map(row => row.id),
+            captureMove  = async scrollTop => {
+                const
+                    captured    = [],
+                    updateBatch = VdomHelper.updateBatch;
 
-        VdomHelper.updateBatch = function(data) {
-            const result = updateBatch.call(this, data);
+                VdomHelper.updateBatch = function(data) {
+                    const result = updateBatch.call(this, data);
 
-            result.deltas?.length > 0 && captured.push(...result.deltas);
+                    result.deltas?.length > 0 && captured.push(...result.deltas);
 
-            return result
-        };
+                    return result
+                };
 
-        try {
-            list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 80});
-            await list.timeout(30)
-        } finally {
-            VdomHelper.updateBatch = updateBatch
-        }
+                try {
+                    list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop});
+                    await list.timeout(30)
+                } finally {
+                    VdomHelper.updateBatch = updateBatch
+                }
 
-        expect(captured.length).toBeGreaterThan(0);
-        expect(captured.filter(delta => delta.action === 'insertNode')).toEqual([]);
-        expect(captured.filter(delta => delta.action === 'removeNode')).toEqual([]);
-        expect(renderedRows(list)).toHaveLength(9)
+                return {
+                    actions: Object.fromEntries(['insertNode', 'moveNode', 'removeNode'].map(action => [
+                        action,
+                        captured.filter(delta => delta.action === action).length
+                    ])),
+                    captured
+                }
+            };
+
+        const forward = await captureMove(80);
+
+        expect(list.mountedRange).toEqual([2, 11]);
+        expect(forward.captured.length).toBeGreaterThan(0);
+        expect(new Set(list.items)).toEqual(componentSet);
+
+        const reverse = await captureMove(0);
+
+        expect(list.mountedRange).toEqual([0, 9]);
+        expect(reverse.captured.length).toBeGreaterThan(0);
+        expect({forward: forward.actions, reverse: reverse.actions}).toEqual({
+            forward: {insertNode: 0, moveNode: 0, removeNode: 0},
+            reverse: {insertNode: 0, moveNode: 0, removeNode: 0}
+        });
+        expect(renderedRows(list).map(row => row.id)).toEqual(initialIds);
+        expect(new Set(list.items)).toEqual(componentSet)
     });
 
     test('recycled nested item components repaint in the owning list update', async () => {
