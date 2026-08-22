@@ -132,12 +132,12 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
     test.use({viewport: null});
 
     test('publishes live size-pair rects and calibrates the source-owned .55/.35 binding', async ({page, neuralLink}) => {
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
         const app       = await neuralLink.connectToApp('AgentOSDockDemo'),
               workspace = await findOne(app, {
-                  className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'
+                  className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
               }, ['id']),
               wsId       = workspace.id,
               sourceZone = await findOne(app, {

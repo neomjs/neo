@@ -1,4 +1,4 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 setup({
     appConfig: {
@@ -7,14 +7,14 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import Button                   from '../../../../../../../src/button/Base.mjs';
-import DemoAWorkspace           from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoAWorkspace.mjs';
-import DockProjectionReconciler from '../../../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
+import Button                   from '../../../../../../src/button/Base.mjs';
+import DemoAWorkspace           from '../../../../../../examples/dashboard/choreography/DemoAWorkspace.mjs';
+import DockProjectionReconciler from '../../../../../../src/dashboard/DockProjectionReconciler.mjs';
 
-import {initialDocument} from '../../../../../../../apps/agentos/tour/demoADockChoreography.mjs';
+import {initialDocument} from '../../../../../../examples/dashboard/choreography/demoADockChoreography.mjs';
 
 /**
  * @summary Contract specs for the Demo-A workspace: the dock-holder contract, the
@@ -22,7 +22,7 @@ import {initialDocument} from '../../../../../../../apps/agentos/tour/demoADockC
  * The full choreography replay lives with the screenplay spec; the live gesture/visual
  * tier rides the reserved whitebox-e2e leaf.
  */
-test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
+test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () => {
     let workspace;
 
     test.beforeEach(() => {
@@ -263,7 +263,7 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
 
     test('ClockPane: renders wall time on demand, mount-toggles and destroys without leaking', async () => {
         const
-            module    = await import('../../../../../../../apps/agentos/childapps/dockdemo/view/ClockPane.mjs'),
+            module    = await import('../../../../../../examples/dashboard/choreography/ClockPane.mjs'),
             ClockPane = module.default,
             clock     = Neo.create(ClockPane, {});
 

@@ -2,7 +2,7 @@ import {test, expect} from '../../fixtures.mjs';
 
 /**
  * Whitebox-e2e for the Fleet cockpit's GESTURE tear-out vessel-death return leg — the
- * uncovered sibling of the click pop-out witness (`FleetCockpitPopOutNL.spec.mjs`) and the dockdemo
+ * uncovered sibling of the click pop-out witness (`FleetCockpitPopOutNL.spec.mjs`) and the cross-window example
  * tear-out matrix (`TearOutMatrixRows4To7NL.spec.mjs`). A dock pane is torn out to a REAL second
  * browser window on the ONE SharedWorker heap, the vessel adopts the SAME live instance, then the
  * vessel DIES — and the pane must come HOME to the cockpit tree, never strand in the dead

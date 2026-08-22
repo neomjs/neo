@@ -37,12 +37,12 @@ test.describe('AgentOS mission control — the walkthrough trinity (demo = e2e =
         });
 
         // the dedicated demo host composes the real cockpit; the walkthrough drives THE HOST
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=mission');
+        await page.goto('/apps/agentos/childapps/missioncontrol/index.html');
         await expect(page.locator('.fm-fleet-cockpit'), 'the demo host composes the real cockpit').toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
         const app    = await neuralLink.connectToApp('AgentOSDockDemo'),
-              hosts  = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.MissionControlWorkspace'}, ['id']),
+              hosts  = await app.findInstances({className: 'AgentOS.childapps.missioncontrol.view.MissionControlWorkspace'}, ['id']),
               hostId = (Array.isArray(hosts) ? hosts[0] : hosts)?.id;
 
         expect(hostId, 'the MissionControlWorkspace host must exist in the App Worker').toBeTruthy();

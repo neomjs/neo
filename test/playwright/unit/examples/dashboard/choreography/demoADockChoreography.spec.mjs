@@ -15,7 +15,7 @@ import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import DockLayoutAdapter                  from '../../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import {validateTourScript}               from '../../../../../../src/ai/client/tourScript.mjs';
-import {demoATourScript, initialDocument} from '../../../../../../apps/agentos/tour/demoADockChoreography.mjs';
+import {demoATourScript, initialDocument} from '../../../../../../examples/dashboard/choreography/demoADockChoreography.mjs';
 
 /**
  * @summary Walks a projected config tree and collects every edge-rail container.

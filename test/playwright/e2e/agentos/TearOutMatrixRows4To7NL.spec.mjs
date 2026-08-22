@@ -20,7 +20,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
      */
     async function getCounter(app) {
         const found = await app.findInstances({
-            className: 'AgentOS.childapps.dockdemo.view.CounterPane'
+            className: 'Neo.examples.dashboard.crossWindow.CounterPane'
         }, ['frames', 'id', 'isDestroyed', 'mounted', 'mountCount', 'windowId']);
 
         const counters = (Array.isArray(found) ? found : found ? [found] : [])
@@ -103,13 +103,13 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
      * @returns {Promise<{app:Object, wsId:String}>}
      */
     async function bootDemoB(page, neuralLink) {
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
         const
             app        = await neuralLink.connectToApp('AgentOSDockDemo'),
             workspaces = await app.findInstances({
-                className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'
+                className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
             }, ['id']),
             wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
@@ -218,7 +218,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         });
         page.on('pageerror', error => pageErrors.push(String(error?.stack || error?.message || error)));
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
 
         const
@@ -254,7 +254,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         const
             app        = await neuralLink.connectToApp('AgentOSDockDemo'),
             workspaces = await app.findInstances({
-                className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'
+                className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
             }, ['id']),
             wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 

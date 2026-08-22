@@ -4253,7 +4253,11 @@ class DemoBWorkspace extends Container {
 
             me.crossWindowEnabled && await me.measureWorkspaceGeometry(workspaceId);
 
-            if (flip) {
+            // Guard on the CAPABILITY, not on truthiness. `Neo.main.addon.DockFlip` holds the
+            // registered CLASS until an instance replaces it, and a class is truthy with no
+            // `play` — so `if (flip)` admits it and the call below throws. This matches the
+            // optional-chained `flip?.captureFirst` two calls up, which never had the problem.
+            if (flip?.play) {
                 DockMotionSignal.enter(me);
                 flip.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
                     .catch(() => {})

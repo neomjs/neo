@@ -147,19 +147,19 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
         const registries = [{
             file       : 'examples_devmode.json',
             devIndexUrl: 'apps/devindex/index.html',
-            dockDemoUrl: 'apps/agentos/childapps/dockdemo/index.html'
+            dockDemoUrl: 'examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_dev.json',
             devIndexUrl: 'dist/development/apps/devindex/index.html',
-            dockDemoUrl: 'dist/development/apps/agentos/childapps/dockdemo/index.html'
+            dockDemoUrl: 'dist/development/examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_esm.json',
             devIndexUrl: 'dist/esm/apps/devindex/index.html',
-            dockDemoUrl: 'dist/esm/apps/agentos/childapps/dockdemo/index.html'
+            dockDemoUrl: 'dist/esm/examples/dashboard/choreography/index.html'
         }, {
             file       : 'examples_dist_prod.json',
             devIndexUrl: 'dist/production/apps/devindex/index.html',
-            dockDemoUrl: 'dist/production/apps/agentos/childapps/dockdemo/index.html'
+            dockDemoUrl: 'dist/production/examples/dashboard/choreography/index.html'
         }];
 
         registries.forEach(({file, devIndexUrl, dockDemoUrl}) => {
@@ -174,7 +174,7 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
                 hidden       : true,
                 id           : 28,
                 sharedWorkers: true,
-                sourceUrl    : 'apps/agentos/childapps/dockdemo',
+                sourceUrl    : 'examples/dashboard/choreography',
                 url          : dockDemoUrl
             });
             expect(firstSeen, `${file}: DevIndex remains the first live flagship`).toBe(devIndex);

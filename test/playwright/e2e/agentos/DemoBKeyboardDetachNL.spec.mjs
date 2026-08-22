@@ -32,7 +32,7 @@ test.describe('AgentOS Demo B — keyboard detach + cycle grammar (Neural Link)'
         const pageErrors = [];
         page.on('pageerror', error => pageErrors.push(error.message));
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
 
         const headers = page.locator('.neo-tab-header-toolbar .neo-tab-header-button');
         await expect(headers.first()).toBeVisible({timeout: 60000});
@@ -73,7 +73,7 @@ test.describe('AgentOS Demo B — keyboard detach + cycle grammar (Neural Link)'
         const pageErrors = [];
         page.on('pageerror', error => pageErrors.push(error.message));
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
 
         const headers = page.locator('.neo-tab-header-toolbar .neo-tab-header-button');
         await expect(headers.first()).toBeVisible({timeout: 60000});
@@ -125,13 +125,13 @@ test.describe('AgentOS Demo B — keyboard detach + cycle grammar (Neural Link)'
 
         page.on('pageerror', error => pageErrors.push(error.message));
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.goto('/examples/dashboard/crossWindow/index.html');
         await page.waitForSelector('.agentos-dockdemo-counter-pane', {timeout: 60000});
 
         // stage the second active workspace window — a host affordance, not a keyboard step:
         // the journey under witness is the transfer + return, not window creation
         const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
-              workspaces = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'}, ['id']),
+              workspaces = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(wsId, 'the App Worker must own one DemoBWorkspace').toBeTruthy();
