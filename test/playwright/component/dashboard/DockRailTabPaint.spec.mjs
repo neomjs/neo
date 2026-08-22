@@ -178,4 +178,210 @@ test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
         expect(measured.before.scoped, 'the change must be observable — equal before/after proves nothing')
             .not.toBe(measured.after.scoped)
     })
+
+    /**
+     * The two real consuming apps, loaded as the COMPILED stylesheets they ship as.
+     *
+     * The synthetic `.test-app-a` arm above proves the engine's token PLUMBING works. It cannot
+     * prove either app's own rule reaches it, because a rule authored in a spec is a rule nobody
+     * ships. These link `dist/**\/css/**` — the same artifacts Neo loads at runtime — plus the
+     * theme-scoped token layer the app's values reference, because `--workstation-signal` and
+     * `--fm-ink-dim` are declared under `:root .neo-theme-neo-*` and NOT in the app stylesheet.
+     * Loading the rule alone leaves every `var()` an invalid substitution and the tab quietly
+     * computes the engine default while the arm reports on the app.
+     */
+    const APP_IDENTITIES = [{
+        inkHover  : '--workstation-ink',
+        inkResting: '--workstation-ink-dim',
+        name      : 'workstation',
+        // Only workstation declares `--dock-rail-tab-font-family`; FM leaves the engine's
+        // `inherit` in place, and that difference is itself a value meant to stay unchanged.
+        ownsVoice: true,
+        rootCls  : 'workstation-workspace',
+        rule     : '/dist/development/css/src/apps/workstation/Workspace.css',
+        tokens   : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/workstation/Viewport.css`
+    }, {
+        inkHover  : '--fm-ink',
+        inkResting: '--fm-ink-dim',
+        name      : 'FM',
+        ownsVoice : false,
+        rootCls   : 'fm-fleet-cockpit',
+        rule      : '/dist/development/css/src/apps/agentos/fleet/FleetCockpit.css',
+        tokens    : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/agentos/Viewport.css`
+    }];
+
+    /** Links stylesheets into the document, rejecting loudly when one is missing. */
+    const loadStylesheets = (page, hrefs) => page.evaluate(async hrefs => {
+        // The engine rule TRANSITIONS `color`. Reading straight after a hover returns the start
+        // value and a frame later returns a blend — both green-looking wrong answers, and a fixed
+        // sleep would only make the flake slower.
+        const freeze = document.createElement('style');
+
+        freeze.textContent = '*, *::after, *::before { transition: none !important }';
+        document.head.appendChild(freeze);
+
+        for (const href of hrefs) {
+            const link = document.createElement('link');
+
+            link.rel  = 'stylesheet';
+            link.href = href;
+
+            // A missing artifact must be a loud red. Skipping it silently would leave the app's
+            // tokens undefined, and the arm would then measure the ENGINE floor under the app's name.
+            await new Promise((resolve, reject) => {
+                link.onload  = resolve;
+                link.onerror = () => reject(new Error(`stylesheet did not load: ${href}`));
+                document.head.appendChild(link)
+            })
+        }
+    }, hrefs);
+
+    /** The five properties the close target names, resting and hovered. */
+    const readTabPaint = (page, selector, tokens = []) => page.evaluate(({sel, tokens}) => {
+        const tab   = document.querySelector(sel),
+              style = getComputedStyle(tab);
+
+        /**
+         * The browser's own serialisation of a colour, so a comparison is apples-to-apples.
+         *
+         * A custom property comes back verbatim (`#8b97a8`) while `color` comes back serialised
+         * (`rgb(139, 151, 168)`). String-comparing those two reports a parity FAILURE on identical
+         * colours — a false red as misleading as a false green.
+         */
+        const resolveColor = value => {
+            if (!value) return '';
+
+            const probe = document.createElement('div');
+
+            probe.style.color = value;
+            document.body.appendChild(probe);
+
+            const resolved = getComputedStyle(probe).color;
+
+            probe.remove();
+
+            return resolved
+        };
+
+        return {
+            background: style.backgroundColor,
+            border    : `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+            boxShadow : style.boxShadow,
+            color     : style.color,
+            fontFamily: style.fontFamily,
+            resolved  : Object.fromEntries(tokens.map(name =>
+                [name, resolveColor(style.getPropertyValue(name).trim())]))
+        }
+    }, {sel: selector, tokens});
+
+    for (const identity of APP_IDENTITIES) {
+        for (const theme of THEMES) {
+            test(`${identity.name} rail-tab paint, resting and hovered — ${theme}`, async ({page}) => {
+                await applyTheme(page, theme);
+                await loadStylesheets(page, [identity.tokens(theme), identity.rule]);
+                await page.evaluate(cls => document.querySelector('.neo-dashboard').classList.add(cls),
+                    identity.rootCls);
+
+                const tab = page.locator('.neo-dashboard-dock-rail-tab').first();
+
+                await page.mouse.move(0, 0);
+
+                const
+                    inkTokens = [identity.inkResting, identity.inkHover],
+                    resting   = await readTabPaint(page, '.neo-dashboard-dock-rail-tab', inkTokens);
+
+                await tab.hover();
+
+                const hovered = await readTabPaint(page, '.neo-dashboard-dock-rail-tab', inkTokens);
+
+                // PARITY, per state, against the app's OWN palette token — which is what these
+                // tabs computed before the promotion, when the app declared `color` directly.
+                //
+                // An earlier version asserted only `resting.color !== hovered.color` and called
+                // that "the app's ink reaches the tab". It did not: deleting the engine's resting
+                // `color: var(--dock-rail-tab-color)` left the arm GREEN, because the separate
+                // hover rule still moved the value. Two states differing proves neither of them
+                // came from where the arm claims.
+                expect(resting.color, `${identity.name} resting ink is ${identity.inkResting}`)
+                    .toBe(resting.resolved[identity.inkResting]);
+                expect(hovered.color, `${identity.name} hover ink is ${identity.inkHover}`)
+                    .toBe(hovered.resolved[identity.inkHover]);
+
+                // The hover affordance is the rail's whole navigation read.
+                expect(hovered.background, 'hover lifts the tab out of the strip')
+                    .not.toBe(resting.background);
+
+                // Values meant to stay UNCHANGED by identity: structural paint stays engine-neutral
+                // in both states. An app that re-declared border or shadow would be back in the
+                // equal-specificity tie this promotion dissolved.
+                for (const [state, reading] of Object.entries({resting, hovered})) {
+                    expect(reading.border, `${state} border stays engine-neutral`).toBe('0px none ' + reading.color);
+                    expect(reading.boxShadow, `${state} box-shadow stays engine-neutral`).toBe('none')
+                }
+
+                // Voice is app-owned and asymmetric on purpose: only workstation declares the mono
+                // family. Asserting the same font for both would assert a design neither has.
+                identity.ownsVoice
+                    ? expect(resting.fontFamily, 'workstation speaks mono through the token')
+                        .toMatch(/mono/i)
+                    : expect(resting.fontFamily, 'FM leaves the engine inherit in place')
+                        .not.toMatch(/mono/i)
+            })
+        }
+    }
+
+    test('mutating ONE app token moves that app only — both real consumers, side by side', async ({page}) => {
+        await applyTheme(page, 'neo-theme-neo-dark');
+        await loadStylesheets(page, [
+            APP_IDENTITIES[0].tokens('neo-theme-neo-dark'), APP_IDENTITIES[0].rule,
+            APP_IDENTITIES[1].tokens('neo-theme-neo-dark'), APP_IDENTITIES[1].rule
+        ]);
+
+        // Two subtrees in ONE document, each wearing a real app root class, so the isolation claim
+        // is measured across the two shipped rules rather than across two spec-authored ones.
+        await page.evaluate(() => {
+            const dashboard = document.querySelector('.neo-dashboard'),
+                  sibling   = dashboard.cloneNode(true);
+
+            sibling.id = 'sibling-dashboard';
+            dashboard.parentElement.appendChild(sibling);
+
+            dashboard.classList.add('workstation-workspace');
+            sibling.classList.add('fm-fleet-cockpit')
+        });
+
+        const
+            wsTab = '.workstation-workspace .neo-dashboard-dock-rail-tab',
+            fmTab = '.fm-fleet-cockpit .neo-dashboard-dock-rail-tab';
+
+        const before = {
+            fm: await readTabPaint(page, fmTab),
+            ws: await readTabPaint(page, wsTab)
+        };
+
+        // Non-vacuity: the two subtrees must be genuinely different consumers, or "only one moved"
+        // is unfalsifiable. It is anchored on VOICE rather than ink, because the two apps really do
+        // share `#8b97a8` for dim ink in the dark theme — an equal-colour assertion here would have
+        // been asserting a difference the design does not have, and it failed exactly that way
+        // first. Voice is the axis where they genuinely diverge: only workstation sets the family.
+        expect(before.ws.fontFamily, 'precondition: the two subtrees are different consumers')
+            .not.toBe(before.fm.fontFamily);
+
+        await page.evaluate(() => {
+            const style = document.createElement('style');
+
+            style.textContent =
+                '.workstation-workspace .neo-dashboard-dock-edge-rail .neo-button.neo-dashboard-dock-rail-tab ' +
+                '{ --dock-rail-tab-color: rgb(255, 0, 0) }';
+            document.head.appendChild(style)
+        });
+
+        const after = {
+            fm: await readTabPaint(page, fmTab),
+            ws: await readTabPaint(page, wsTab)
+        };
+
+        expect(after.ws.color, 'the mutated token moves the app that sets it').toBe('rgb(255, 0, 0)');
+        expect(after.fm, 'and the other real consumer is untouched, on every property').toEqual(before.fm)
+    })
 });
