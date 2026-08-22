@@ -47,7 +47,8 @@ const EMAIL_BY_LOGIN = Object.freeze({
     '@neo-kimi-phoebe': 'neo-kimi-phoebe@neomjs.com',    // 51
     '@neo-fable'      : 'neo-fable@neomjs.com',          // 92
     '@neo-fable-clio' : 'neo-fable-clio@neomjs.com',     // 64
-    '@neo-gemini-pro' : 'neo-gemini-3-1-pro@neomjs.com'  // 288 — dormant seat, address still real
+    '@neo-gemini-pro' : 'neo-gemini-3-1-pro@neomjs.com', // 288 — dormant seat, address still real
+    '@neo-preview'    : 'neo-preview@neomjs.com'         // 0 — provisioned ahead of first boot; satisfies the sunset form
 });
 
 /**
