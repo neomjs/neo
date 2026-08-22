@@ -425,7 +425,7 @@ class DockWorkspace extends Container {
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
-                resolveRevealComponentRef: (componentRef, item, itemId) => me.resolveRevealPane(itemId, item),
+                resolveRevealComponentRef: (componentRef, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
                 tabInsertDescriptor
             });
 

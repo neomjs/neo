@@ -84,8 +84,9 @@ const seededPerspectives = [{
  *
  * The example is also the app root: single inheritance puts the dock host on this class, so the
  * `Neo.container.Viewport` traits the standalone page relies on — self-mounting, the `neo-viewport`
- * sizing class, and the flex-centered, overflow-hidden body class — are declared explicitly (see the
- * `autoMount` config and {@link #onConstructed}).
+ * sizing class together with the Viewport stylesheet that sizes it, and the flex-centered,
+ * overflow-hidden body class — are declared explicitly (see the `additionalThemeFiles` and
+ * `autoMount` configs and {@link #onConstructed}).
  *
  * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
  * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
@@ -100,11 +101,19 @@ class MainContainer extends DockWorkspace {
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
         /**
+         * Theme files load per class in an instance's prototype chain, so a subclass list REPLACES
+         * the engine class's entry and must repeat it. The second entry is part of the viewport
+         * contract below: `body > .neo-viewport` lives in the Viewport stylesheet, which nothing
+         * on this page would otherwise load now that no `Neo.container.Viewport` instance exists.
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','Neo.container.Viewport']
+         */
+        additionalThemeFiles: ['Neo.dashboard.Container', 'Neo.container.Viewport'],
+        /**
          * The app root keeps the viewport contract — single inheritance puts the dock host on this
-         * class, so the three `Neo.container.Viewport` traits the standalone page relies on are
-         * declared here: it mounts itself, it carries the `neo-viewport` sizing class
-         * (`body > .neo-viewport` is what gives an app root its full height and width), and it
-         * applies the body class in {@link #onConstructed}.
+         * class, so the `Neo.container.Viewport` traits the standalone page relies on are declared
+         * here: it mounts itself, it carries the `neo-viewport` sizing class AND loads the stylesheet
+         * that gives `body > .neo-viewport` its full height and width (see `additionalThemeFiles`),
+         * and it applies the body class in {@link #onConstructed}.
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
