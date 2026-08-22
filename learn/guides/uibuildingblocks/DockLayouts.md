@@ -161,12 +161,18 @@ window. State that wants to live in two rows is two pieces of state — the revi
 
 ## Adopting docking in your application
 
-The workstation app (`apps/workstation/`) is the worked example — a dense twenty-pane cockpit built exactly this way.
-The adoption surface is deliberately small:
+The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) is the dense
+twenty-pane cockpit built on it, and — honest measurement — it, the fleet cockpit, and the dock demos each still carry
+a hand-rolled copy of that loop (four to five thousand lines apiece at the time of writing) that migrates to the engine
+class under epic `#17539`; measure your own adoption against `examples/dashboard/dock/`, not against those. Once you
+extend the class, the adoption surface is:
 
-1. **Own a document.** Your workspace container holds the committed `dockModel` and exposes the two seams the landed
-   pattern names: `applyDockZoneOperation(descriptor)` — a pure call through `DockZoneModel.applyOperation` — and
-   `onDockZoneDocumentChange(document)`, which stores the committed result and re-projects it through the adapter.
+1. **Extend `Neo.dashboard.DockWorkspace`.** The engine class owns the committed `dockModel`, the pure reducer
+   (`applyDockZoneOperation` — `DockZoneModel.applyOperation` over the current document), the deferred, promise-chained
+   re-projection (`onDockZoneDocumentChange` → `DockLayoutAdapter` → `DockProjectionReconciler`, bracketed by FLIP
+   motion) and the in-window cross-zone drop path. Your subclass overrides `resolvePane(itemId, item)` and, when it has
+   them, the handful of hooks for owner-preserved panes, chrome that syncs on every re-projection, and extra projection
+   options. `examples/dashboard/dock/MainContainer.mjs` is the minimal consumer.
 2. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
    serializable `blueprint` for creation-from-saved-state). Policy hints (`closable`, `pinnable`, `movable`) are
    enforced at the operation layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI

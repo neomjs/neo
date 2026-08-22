@@ -1,13 +1,7 @@
-import Component                from '../../../src/component/Base.mjs';
-import DockLayoutAdapter        from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal         from '../../../src/dashboard/DockMotionSignal.mjs';
-import DockPreviewProducer      from '../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler from '../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService              from '../../../src/ai/client/DockService.mjs';
-import DockZoneModel            from '../../../src/dashboard/DockZoneModel.mjs';
-import TourRunner               from '../../../src/ai/client/TourRunner.mjs';
-import Viewport                 from '../../../src/container/Viewport.mjs';
-import {previewToOperation}     from '../../../src/dashboard/dockPreviewContract.mjs';
+import DockService   from '../../../src/ai/client/DockService.mjs';
+import DockWorkspace from '../../../src/dashboard/DockWorkspace.mjs';
+import DockZoneModel from '../../../src/dashboard/DockZoneModel.mjs';
+import TourRunner    from '../../../src/ai/client/TourRunner.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
@@ -70,46 +64,34 @@ const seededPerspectives = [{
 }];
 
 /**
- * Resolves a model `componentRef` to the component config rendered inside its dock zone. For this example, a simple
- * centered label per panel; a real app resolves each ref to its feature view.
- * @param {String} componentRef
- * @param {Object} _item The persisted item record.
- * @param {String} itemId The stable workspace identity from the item catalog.
- * @returns {Object}
- */
-const resolveComponentRef = (componentRef, _item, itemId) => ({
-    // the flip marker class carries stable item identity across reconciled geometry changes
-    cls  : [`dock-flip-item-${encodeURIComponent(itemId)}`],
-    ntype: 'component',
-    style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
-    html : componentRef
-});
-
-/**
- * @summary Standalone, interactive example for the dashboard dock-zone layout system.
+ * @summary Standalone, interactive example for the dashboard dock-zone layout system — the minimal
+ * consumer of {@link Neo.dashboard.DockWorkspace}.
  *
- * Builds a representative {@link Neo.dashboard.DockZoneModel} document, projects it through
- * {@link Neo.dashboard.DockLayoutAdapter} into a live container of split / tab zones with splitter affordances, and
- * wires the **resize commit loop** end-to-end: dragging a splitter commits a `resizeSplit` operation through
- * `DockZoneModel`, and the layout re-projects from the new committed document.
+ * The engine class owns the whole host loop: the committed document ({@link #dockModel}), the pure
+ * reducer (`applyDockZoneOperation`), the deferred, promise-chained re-projection through
+ * `DockLayoutAdapter` and `DockProjectionReconciler` (`onDockZoneDocumentChange`), the FLIP motion
+ * bracket, and the in-window cross-zone drop path. Dragging a splitter commits a `resizeSplit`
+ * operation through `DockZoneModel`, and the layout re-projects from the new committed document —
+ * the example adds nothing to that mechanism.
  *
- * The rendered perspective toolbar consumes the same saved-layout collection helpers the model exposes: seed
- * perspectives are stored as `neo.harness.dockLayoutCollection.v1`, selecting a perspective calls
- * `restoreActiveSavedLayout()`, Save Current upserts the live committed document, and Delete Active keeps a valid
- * replacement active. Persistence uses the main-thread `LocalStorage` addon so App-Worker code never reaches for
- * `window.localStorage` directly.
+ * What the example owns is exactly what an adopting app owns: which pane renders a catalog item
+ * ({@link #resolvePane}), and its own chrome — a perspective toolbar consuming the saved-layout
+ * collection helpers the model exposes (seed perspectives stored as `neo.harness.dockLayoutCollection.v1`,
+ * selecting a perspective calls `restoreActiveSavedLayout()`, Save Current upserts the live committed
+ * document, Delete Active keeps a valid replacement active) plus browser-local persistence through the
+ * main-thread `LocalStorage` addon, so App-Worker code never reaches for `window.localStorage` directly.
+ * The toolbar re-syncs on every re-projection through the {@link #beforeRefreshDockWorkspace} hook.
  *
- * The example owns the committed document ({@link #dockModel}) as the single source of truth and drives the loop with
- * the two callbacks `DockSplitter` calls — a clean reducer / view-sync split:
- * - {@link #applyDockZoneOperation} is the **reducer**: a pure `DockZoneModel.applyOperation` over the current document.
- * - {@link #onDockZoneDocumentChange} is the **view-sync**: it stores the committed document and re-projects from it.
+ * The example is also the app root: single inheritance puts the dock host on this class, so the one
+ * `Neo.container.Viewport` behavior the standalone page relies on — the flex-centered,
+ * overflow-hidden body class — is applied explicitly in {@link #onConstructed}.
  *
- * This is the first *runtime* exercise of the full model → operation → re-projection cycle in a standalone app; Slice 1
- * delivered the static render. See `learn/agentos/DockZoneModel.md` for the model/projection contract.
+ * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
+ * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
  * @class Neo.examples.dashboard.dock.MainContainer
- * @extends Neo.container.Viewport
+ * @extends Neo.dashboard.DockWorkspace
  */
-class MainContainer extends Viewport {
+class MainContainer extends DockWorkspace {
     static config = {
         /**
          * @member {String} className='Neo.examples.dashboard.dock.MainContainer'
@@ -117,19 +99,26 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
         /**
-         * The dock motion/token contract (`--dock-transition-*`, reveal keyframes, splitter
-         * cursors) lives in the `Neo.dashboard.Container` theme file — the projected dock tree
-         * is plain containers, so per-class loading never fetches it; the workspace declares
-         * the dependency (the projection root carries the matching `.neo-dashboard` scope).
-         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container']
+         * The app root mounts itself, as a viewport would.
+         * @member {Boolean} autoMount=true
          */
-        additionalThemeFiles: ['Neo.dashboard.Container'],
+        autoMount: true,
+        /**
+         * The projected shell shares the root vbox with the perspective toolbar above it.
+         * @member {Object} dockProjectionConfig={flex:1}
+         */
+        dockProjectionConfig: {flex: 1},
+        /**
+         * The perspective toolbar sits at index 0; the projected shell follows it.
+         * @member {Number} dockShellIndex=1
+         */
+        dockShellIndex: 1,
         /**
          * @member {Object} layout={ntype:'vbox', align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
         // `items` is built in construct() — not here — so each projection can carry the instance-bound
-        // applyDockZoneOperation + onDockZoneDocumentChange callbacks the resize commit loop needs.
+        // reducer and view-sync callbacks the commit loop needs.
     }
 
     /**
@@ -137,13 +126,6 @@ class MainContainer extends Viewport {
      * @member {String} layoutCollectionStorageKey='neo.examples.dashboard.dock.layoutCollection'
      */
     layoutCollectionStorageKey = 'neo.examples.dashboard.dock.layoutCollection'
-
-    /**
-     * The live committed dock-zone document — the single source of truth the view projects from. Initialized to
-     * `initialDockModel`; advanced by {@link #onDockZoneDocumentChange} on each committed splitter resize.
-     * @member {Object|null} dockModel=null
-     */
-    dockModel = null
 
     /**
      * The active named-perspective collection backing the toolbar.
@@ -156,17 +138,6 @@ class MainContainer extends Viewport {
      * @member {Promise|null} layoutCollectionLoadPromise=null
      */
     layoutCollectionLoadPromise = null
-
-    /**
-     * The in-flight deferred re-projection, tracked as an awaitable: every committed operation
-     * defers its view-sync one tick ({@link #onDockZoneDocumentChange}), so any consumer that
-     * must observe a SETTLED surface — the tour-replay adapter, teardown-sensitive probes —
-     * awaits this promise instead of racing that deferral. Commits chain with their document and
-     * one-use descriptor snapshots, so staged transactions cannot overlap or cross-correlate.
-     * @member {Promise|null} refreshPromise=null
-     * @protected
-     */
-    refreshPromise = null
 
     /**
      * Monotonic suffix for user-saved example perspectives.
@@ -182,40 +153,56 @@ class MainContainer extends Viewport {
 
         let me = this;
 
-        me.dockPreviewProducer = Neo.create(DockPreviewProducer);
-        me.layoutCollection    = me.createDefaultLayoutCollection();
-        me.dockModel           = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
+        me.layoutCollection = me.createDefaultLayoutCollection();
+        me.dockModel        = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
 
         me.add(me.buildWorkspaceItems());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
     }
 
     /**
-     * The owning reducer `DockSplitter.commitResizeSplit` calls: applies a splitter-emitted operation descriptor
-     * against the live committed document and returns `DockZoneModel`'s fail-closed `{document, errors}` result.
-     * Pure — the view sync happens in {@link #onDockZoneDocumentChange}, which the splitter calls on success.
-     * @param {Object} descriptor The `resizeSplit` operation descriptor.
-     * @returns {{document: Object, errors: String[]}}
+     * The perspective toolbar re-syncs on every re-projection: layout buttons keep identity, move
+     * into collection order, and update their active state in place.
+     * @param {Object} document The committed document this refresh projects.
+     * @param {Object} refreshOptions
      */
-    applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        this.syncPerspectiveToolbar()
     }
 
     /**
-     * The read half of the dock-holder contract (`src/ai/client/DockService.mjs`): exposes the
-     * live committed document so Neural Link topology reads work BEFORE any operation has run.
-     * The write half is {@link #applyDockZoneOperation}; the state sync stays in
-     * {@link #onDockZoneDocumentChange}, which advances `dockModel` on each commit.
-     * @returns {Object} The current committed dockZone.v1 document.
+     * The body contract of a viewport root: the flex-centered, overflow-hidden page this standalone
+     * example lays out against.
      */
-    getDockZoneDocument() {
-        return this.dockModel
+    onConstructed() {
+        super.onConstructed();
+
+        Neo.main.DomAccess.applyBodyCls({
+            cls     : ['neo-body-viewport'],
+            windowId: this.windowId
+        })
+    }
+
+    /**
+     * Resolves a catalog item to the pane rendered inside its dock zone. For this example, a simple
+     * centered label per panel; a real app resolves each item to its feature view. The FLIP marker
+     * class is stamped by the engine class, never here.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Object} item The persisted item record.
+     * @returns {Object}
+     */
+    resolvePane(itemId, item) {
+        return {
+            ntype: 'component',
+            style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
+            html : item?.componentRef ?? itemId
+        }
     }
 
     /**
      * An example-local tour-replay ADAPTER consuming the two-part holder contract (the read half
-     * {@link #getDockZoneDocument} / the write half {@link #applyDockZoneOperation}, driven through
-     * the app-side dock seam) — deliberately NOT a third holder-contract member. It replays one
+     * `getDockZoneDocument` / the write half `applyDockZoneOperation`, driven through the app-side
+     * dock seam) — deliberately NOT a third holder-contract member. It replays one
      * `neo.tour.script.v1` script against THIS holder in `spec` mode and returns the runner's
      * structured result plus the SETTLED post-run document. One call = one hydrated, settled run —
      * the whitebox-e2e L3 smoke drives it twice and diffs the operation logs (the determinism
@@ -224,7 +211,7 @@ class MainContainer extends Viewport {
      * Two synchronization guarantees callers rely on:
      * 1. Runs only start against the HYDRATED document (storage restore awaited) — a replay racing
      *    the restore would mutate a baseline the restore then overwrites.
-     * 2. Resolution only after the LAST deferred re-projection settles ({@link #refreshPromise}),
+     * 2. Resolution only after the LAST deferred re-projection settles (`refreshPromise`),
      *    so a page error thrown by the projection lands inside the caller's verdict window.
      *
      * Example-tier by design: the same composition the dockdemo workspaces wire at construct time,
@@ -296,13 +283,9 @@ class MainContainer extends Viewport {
      * @returns {Object[]}
      */
     buildWorkspaceItems(tabInsertDescriptor=null) {
-        let dockConfig = this.projectDockModel(tabInsertDescriptor);
-
-        dockConfig.flex = 1;
-
         return [
             this.createPerspectiveToolbar(),
-            dockConfig
+            this.projectDockModel(tabInsertDescriptor)
         ]
     }
 
@@ -427,69 +410,6 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Returns the one-use projection correlation only when the committed descriptor creates a
-     * globally absent header. `DockZoneModel` downgrades `addTab` to `moveItem` whenever the item
-     * already lives in any tabs node; those identity-preserving relocations use FLIP alone. A
-     * same-node reorder, malformed descriptor, restore, and initial path fail closed to an instant
-     * projection.
-     *
-     * The returned object is deliberately normalized instead of retaining caller/runtime fields,
-     * and is carried only by the scheduled projection closure — it never enters `dockModel`, a
-     * saved perspective, or persistence.
-     * @param {Object} document The post-commit dock-zone document.
-     * @param {Object|null} descriptor The semantic operation that produced `document`.
-     * @returns {Object|null}
-     * @protected
-     */
-    getTabInsertProjectionDescriptor(document, descriptor) {
-        let {itemId, operation, tabsNodeId} = descriptor || {},
-            oldItems                        = this.dockModel?.nodes?.[tabsNodeId]?.items,
-            newItems                        = document?.nodes?.[tabsNodeId]?.items;
-
-        return operation === 'addTab'
-            && typeof itemId === 'string'
-            && typeof tabsNodeId === 'string'
-            && Array.isArray(oldItems)
-            && Array.isArray(newItems)
-            && !DockZoneModel.findContainingTabsId(this.dockModel, itemId)
-            && !oldItems.includes(itemId)
-            && newItems.includes(itemId)
-                ? {itemId, operation: 'addTab', tabsNodeId}
-                : null
-    }
-
-    /**
-     * The view-sync `DockSplitter` / DockService calls after a successful commit: stores the new
-     * committed document and re-projects the layout from it.
-     *
-     * Deferred one tick: this fires synchronously from inside the committing splitter's `onDragEnd`
-     * (via `commitResizeSplit`). Reconciliation still retires that splitter with its old shell, so
-     * doing it mid-handler would create a use-after-destroy on the rest of `onDragEnd`. The
-     * `isDestroyed` guard covers teardown before the tick fires.
-     * A real `addTab` captures its exact normalized correlation in THIS scheduled closure; every
-     * other call carries `null`, so the descriptor is consumed by one projection only.
-     * @param {Object} document The committed dock-zone document.
-     * @param {Object|null} [descriptor=null] The semantic operation that produced `document`.
-     */
-    onDockZoneDocumentChange(document, descriptor=null) {
-        let me                  = this,
-            tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
-
-        me.dockModel = document;
-
-        // Retained as an awaitable (NOT fire-and-forget): a consumer asserting page survival or
-        // settled geometry must be able to await the projection this commit just scheduled —
-        // otherwise its verdict window closes before the staged transaction has executed.
-        me.refreshPromise = (me.refreshPromise || Promise.resolve())
-            .then(() => me.timeout(0))
-            .then(() => {
-                if (!me.isDestroyed) {
-                    return me.refreshDockWorkspace(tabInsertDescriptor, document)
-                }
-            })
-    }
-
-    /**
      * Reads the persisted named-perspective collection and applies it only when both the collection and active restore
      * validate. Invalid payloads fail closed to the seeded collection/current document.
      * @returns {Promise<{collection:(Object|null), document:(Object|null), errors:String[], loaded:Boolean}>}
@@ -559,71 +479,6 @@ class MainContainer extends Viewport {
             error    : error?.message || 'LocalStorage update rejected',
             persisted: false
         }))
-    }
-
-    /**
-     * Reconciles the dock projection while synchronizing the persistent perspective toolbar.
-     * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
-     * captured by the commit that scheduled this refresh.
-     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
-     */
-    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel) {
-        const
-            me           = this,
-            flip         = Neo.main?.addon?.DockFlip,
-            placeholders = new Map();
-
-        // FLIP phase 1 (presentation-only, fail-safe): snapshot outgoing pane geometry so the
-        // committed re-layout GLIDES — a human drop and an NL operation animate identically
-        try {
-            await flip?.captureFirst({hostId: me.id, markerPrefix: 'dock-flip-item-'})
-        } catch (e) {/* instant landing */}
-
-        me.syncPerspectiveToolbar();
-
-        const nextConfig = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId) => {
-            const placeholder = Neo.create({
-                module: Component,
-                header: {text: item?.title ?? componentRef ?? itemId},
-                hidden: true
-            });
-
-            placeholders.set(itemId, placeholder);
-
-            return placeholder
-        }, document);
-
-        nextConfig.flex = 1;
-
-        await DockProjectionReconciler.reconcileProjection({
-            host       : me,
-            nextConfig,
-            placeholders,
-            resolveItem: itemId => {
-                const item = document.items[itemId];
-
-                return DockLayoutAdapter.decorateProjectedItem(
-                    resolveComponentRef(item?.componentRef, item, itemId),
-                    itemId,
-                    item,
-                    {
-                        nodeId: tabInsertDescriptor?.tabsNodeId,
-                        tabInsertDescriptor
-                    }
-                )
-            },
-            shellIndex: 1
-        });
-
-        // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts, plays
-        // the counted motion signal brackets the awaited animation window — ownership
-        // lives in DockMotionSignal (fail-safe backstopped), never in the addon
-        if (flip) {
-            DockMotionSignal.enter(me);
-            flip.play({hostId: me.id, markerPrefix: 'dock-flip-item-'})
-                .catch(() => {})
-                .finally(() => DockMotionSignal.leave(me))
-        }
     }
 
     /**
@@ -740,76 +595,6 @@ class MainContainer extends Viewport {
         } while (me.layoutCollection?.layouts?.[id]);
 
         return id
-    }
-
-    /**
-     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading
-     * the instance-bound commit-loop callbacks onto every projected affordance.
-     * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation.
-     * @param {Function} [itemResolver=resolveComponentRef] Pane resolver used by this projection.
-     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
-     * @returns {Object}
-     */
-    projectDockModel(tabInsertDescriptor=null, itemResolver=resolveComponentRef, document=this.dockModel) {
-        let me = this;
-
-        return DockLayoutAdapter.project(document, {
-            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
-            onDockCrossZoneDrop      : me.onDockCrossZoneDrop.bind(me),
-            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef      : itemResolver,
-            resolveRevealComponentRef: resolveComponentRef,
-            tabInsertDescriptor
-        })
-    }
-
-    /**
-     * Cross-zone drop reducer: a dock tab-header released outside its own toolbar reports its release point
-     * here (via {@link Neo.dashboard.DockTabSortZone}). Resolves which tabs zone is under the pointer and,
-     * when it differs from the source, commits a semantic `moveItem` — relocating the item across zones in
-     * the committed dockZone.v1 document. A same-zone drop is a no-op (the within-toolbar reorder already
-     * committed via the `moveTo` listener).
-     * @param {Object} data
-     * @param {Number} data.clientX
-     * @param {Number} data.clientY
-     * @param {String} data.itemId       The dock item id being dragged.
-     * @param {String} data.sourceNodeId The tabs node the drag started in.
-     */
-    async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
-        let me    = this,
-            nodes = me.dockModel?.nodes || {},
-            zones = Object.keys(nodes)
-                .filter(nodeId => nodes[nodeId].type === 'tabs' && nodeId !== sourceNodeId)
-                .map(nodeId => ({nodeId, container: me.down({dockNodeId: nodeId})}))
-                .filter(zone => zone.container);
-
-        if (!zones.length) {
-            return
-        }
-
-        let rects = await me.getDomRect(zones.map(zone => zone.container.id));
-
-        // The producer resolves the placement KIND (tab-into / edge-* / split-*) from the pointer and
-        // each zone's rect; a tabs node's parent-split orientation lets it pick split-before/after vs an
-        // edge band. `previewToOperation` maps that dockPreview.v1 to the semantic op the reducer applies
-        // — replacing the former crude "which rect contains the pointer" → hardcoded moveItem shortcut.
-        let producerZones = zones
-                .map((zone, index) => ({
-                    nodeId     : zone.nodeId,
-                    rect       : rects[index],
-                    orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
-                }))
-                .filter(zone => zone.rect),
-            preview    = me.dockPreviewProducer.produce({pointer: {x: clientX, y: clientY}, zones: producerZones, itemId, sourceNodeId}),
-            descriptor = previewToOperation(preview);
-
-        if (descriptor) {
-            let result = me.applyDockZoneOperation(descriptor);
-
-            if (result && !result.errors?.length && result.document) {
-                me.onDockZoneDocumentChange(result.document, descriptor, me)
-            }
-        }
     }
 }
 
