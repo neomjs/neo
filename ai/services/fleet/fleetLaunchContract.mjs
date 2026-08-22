@@ -1,22 +1,15 @@
 import {generateLocalBearerToken, isLocalBearerToken} from '../../mcp/server/shared/helpers/localBearer.mjs';
 import {normalizeAgentIdentityNodeId}                 from '../../graph/normalizeAgentIdentityNodeId.mjs';
-import {
-    createFleetWireRequest,
-    FLEET_WIRE_RESPONSE_STATES,
-    inspectFleetWireResponse
-}                                                     from './fleetWireMethods.mjs';
 
 /**
  * @module ai/services/fleet/fleetLaunchContract
- * @summary The Fleet launch path's four trust decisions — viewer binding, bearer intake,
- * authenticated owned-child readiness, and existing-process probing — as injectable,
- * unit-testable seams the Fleet entrypoints and launchers compose.
+ * @summary The Fleet launch path's three trust decisions — viewer binding, bearer intake, and
+ * existing-process probing — as injectable, unit-testable seams the `devFleetServer` entry composes.
  *
  * The contract this module enforces: Fleet startup fails CLOSED unless the server-side viewer
  * resolves to one canonical, seeded `AgentIdentity` node (a bare login tag is not enough — an
  * unbound viewer cannot attribute admission, so it must not serve); the process bearer is either a
  * caller-supplied canonical value or freshly generated, and is never logged, persisted, or echoed;
- * an owned process becomes ready only after the versioned consumer round-trip accepts its bearer;
  * and an already-listening Fleet process is only ever REUSED after proving "same token, same
  * viewer" through its authenticated probe — an unknown, stale, or mismatched process receives a
  * named refusal, never silent adoption (the shared-port trap: an instrument that cannot verify
@@ -133,85 +126,6 @@ export function resolveFleetBearer({suppliedToken = null} = {}) {
     }
 
     return generateLocalBearerToken()
-}
-
-/**
- * @summary Awaits genuine Fleet readiness through the authenticated, versioned `listAgents`
- * round-trip consumed by Fleet Manager. A listening port, process id, legacy `{ok:true}` payload,
- * or bearer refusal never counts as ready. The owned child lifecycle and deadline bound the wait.
- *
- * @param {Object} options
- * @param {Object} options.child Owned `node:child_process` ChildProcess.
- * @param {Number|String} options.port Bound loopback port.
- * @param {String} options.bearerToken Process bearer the child must admit.
- * @param {Number} [options.timeoutMs=15000]
- * @param {Number} [options.pollMs=300]
- * @param {Function} [options.fetchFn=globalThis.fetch] Injectable fetch for tests.
- * @returns {Promise<void>}
- */
-export function awaitFleetReady({
-    child,
-    port,
-    bearerToken,
-    timeoutMs = 15000,
-    pollMs = 300,
-    fetchFn = globalThis.fetch
-} = {}) {
-    const request = createFleetWireRequest('listAgents', {});
-
-    return new Promise((resolve, reject) => {
-        let poller = null, settled = false, timer = null;
-
-        const finish = error => {
-            if (settled) {
-                return
-            }
-
-            settled = true;
-            timer && clearTimeout(timer);
-            poller && clearInterval(poller);
-            child.off('exit', onExit);
-            child.off('error', onExit);
-            error ? reject(error) : resolve()
-        };
-
-        const onExit = (codeOrError, signal) => finish(new Error(
-            `fleet transport exited before ready (${codeOrError instanceof Error ? codeOrError.message : `code=${codeOrError} signal=${signal}`})`
-        ));
-
-        const probe = async () => {
-            try {
-                const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
-                    body   : JSON.stringify(request),
-                    headers: {
-                        Authorization : `Bearer ${bearerToken}`,
-                        'content-type': 'application/json'
-                    },
-                    method: 'POST'
-                });
-                const body = await response.json();
-
-                if (inspectFleetWireResponse(body, request.protocol).ok &&
-                    body.state === FLEET_WIRE_RESPONSE_STATES.ok) {
-                    finish()
-                }
-            } catch {
-                // Not listening yet — keep polling until the child exits or the deadline closes.
-            }
-        };
-
-        child.once('exit', onExit);
-        child.once('error', onExit);
-
-        if (child.exitCode !== null) {
-            onExit(child.exitCode, child.signalCode);
-            return
-        }
-
-        timer  = setTimeout(() => finish(new Error(`fleet transport not ready within ${timeoutMs}ms`)), timeoutMs);
-        poller = setInterval(probe, pollMs);
-        probe()
-    })
 }
 
 /**

@@ -1,5 +1,8 @@
 import {test, expect}               from '@playwright/test';
-import {redeemFleetBearerHandshake} from '../../../../../../apps/agentos/fleet/redeemFleetBearerHandshake.mjs';
+import {
+    redeemFleetBearerHandshake,
+    redeemFleetBearerHandshakeUntilAvailable
+} from '../../../../../../apps/agentos/fleet/redeemFleetBearerHandshake.mjs';
 
 // The browser half of the one-command bearer hand-off, witnessed pure: a stub fetchImpl replaces
 // the network, so every claim below is about THIS module's contract — the derived handshake URL,
@@ -117,5 +120,67 @@ test.describe('redeemFleetBearerHandshake — the page half of the one-command h
 
         expect(token).toBeNull();
         expect(called).toBe(false)
+    })
+
+    test('the bounded heal retries refusals and returns the first valid pair', async () => {
+        let calls = 0, time = 0;
+
+        const result = await redeemFleetBearerHandshakeUntilAvailable({
+            url         : 'http://127.0.0.1:8083/fleet',
+            deadlineMs  : 100,
+            retryDelayMs: 10,
+            now         : () => time,
+            wait        : async ms => { time += ms },
+            fetchImpl   : async () => {
+                calls++;
+                return calls < 3 ? {ok: false} : okEnvelope(validToken)
+            }
+        });
+
+        expect(result).toEqual({bearerToken: validToken, mcAuthorization: null});
+        expect(calls).toBe(3);
+        expect(time).toBe(20)
+    });
+
+    test('the healing deadline is terminal and leaves no unbounded retry owner', async () => {
+        let   calls = 0, time = 0;
+        const waits = [];
+
+        const result = await redeemFleetBearerHandshakeUntilAvailable({
+            url         : 'http://127.0.0.1:8083/fleet',
+            deadlineMs  : 25,
+            retryDelayMs: 10,
+            now         : () => time,
+            wait        : async ms => {
+                waits.push(ms);
+                time += ms
+            },
+            fetchImpl: async () => {
+                calls++;
+                return {ok: false}
+            }
+        });
+
+        expect(result).toBeNull();
+        expect(calls).toBe(3);
+        expect(waits).toEqual([10, 10, 5]);
+        expect(time).toBe(25)
+    });
+
+    test('a newer connection owner cancels before a newly redeemed pair can escape', async () => {
+        let active = true, waited = false;
+
+        const result = await redeemFleetBearerHandshakeUntilAvailable({
+            url           : 'http://127.0.0.1:8083/fleet',
+            shouldContinue: () => active,
+            wait          : async () => { waited = true },
+            fetchImpl     : async () => {
+                active = false;
+                return okEnvelope(validToken)
+            }
+        });
+
+        expect(result).toBeNull();
+        expect(waited).toBe(false)
     })
 });

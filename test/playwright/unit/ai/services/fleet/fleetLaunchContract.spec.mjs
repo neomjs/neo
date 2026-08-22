@@ -21,8 +21,7 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer} from '
 import {startFleetBridgeServer}                                           from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
 
 /**
- * @summary The Fleet launch contract's viewer, bearer, readiness, and incumbent-reuse decisions,
- * witnessed through injected seams and the harness's dynamic-organism wrapper.
+ * @summary The Fleet launch contract's three trust decisions, witnessed through injected seams.
  *
  * The inversion under test: where the memory-core stdio boot treats a missing identity as
  * single-tenant fallthrough, the Fleet launch FAILS CLOSED — an unbound viewer cannot attribute

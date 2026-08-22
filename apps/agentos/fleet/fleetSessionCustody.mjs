@@ -63,13 +63,15 @@ export function resolveFleetUrl() {
  *     boot/heal paths never pass it.
  * @param {Function} [opts.installImpl=installFleetBridge] Injectable install for tests.
  * @param {Object}   [opts.target=globalThis]              Injectable global for tests.
- * @returns {Object} `{bridge, custodySettled, verified}` — the bridge PUBLISHED at return time
+ * @returns {Object} `{bridge, custodySettled, promoted, verified}` — the bridge PUBLISHED at return time
  *     (the fresh install, or the preserved known-good one while a candidate proves itself);
  *     `custodySettled`, a never-rejecting promise resolving `true` exactly when the bearer INGRESS
  *     was verified-retired (the boot/heal contract — a switch with a caller-provided bearer has no
  *     ingress slot, so it settles `false` there by design); and `verified`, resolving `true`
  *     exactly when the authenticated whoami round-trip proved the session — the switch owner's
- *     verdict, sharing custodySettled's single wire proof.
+ *     verdict. `promoted` additionally requires the detached candidate to retain compare-and-swap
+ *     authority over the published bridge; a later operator switch wins even if the stale candidate
+ *     authenticated successfully.
  */
 export function establishFleetSessionCustody({fleetUrl, redeemed = null, deliberate = false, installImpl = installFleetBridge, target = globalThis} = {}) {
     const
@@ -79,7 +81,12 @@ export function establishFleetSessionCustody({fleetUrl, redeemed = null, deliber
         mcAuthorization = redeemed?.mcAuthorization ?? fleet?.mcAuthorization ?? null;
 
     if (bearerToken === null && existing && !deliberate) {
-        return {bridge: existing, custodySettled: Promise.resolve(false), verified: Promise.resolve(false)}
+        return {
+            bridge        : existing,
+            custodySettled: Promise.resolve(false),
+            promoted      : Promise.resolve(false),
+            verified      : Promise.resolve(false)
+        }
     }
 
     const
@@ -97,12 +104,29 @@ export function establishFleetSessionCustody({fleetUrl, redeemed = null, deliber
         ? Promise.resolve(false)
         : bridge.resolveViewerIdentity().then(() => true, () => false);
 
-    const custodySettled = verified.then(ok => {
+    const promoted = verified.then(ok => {
         if (!ok) {
             return false
         }
 
-        publishNow || installImpl({url: fleetUrl, bearerToken, mcAuthorization, profileId: profile.profileId, target});
+        if (!publishNow) {
+            // The detached candidate began against `existing`. If another owner published a new
+            // bridge while verification was in flight (operator switch, manual re-wire, another
+            // successful heal), that newer choice has authority. Never let stale success overwrite it.
+            if (target.AgentOS?.fleet?.registryBridge !== existing) {
+                return false
+            }
+
+            installImpl({url: fleetUrl, bearerToken, mcAuthorization, profileId: profile.profileId, target})
+        }
+
+        return true
+    });
+
+    const custodySettled = promoted.then(didPromote => {
+        if (!didPromote) {
+            return false
+        }
 
         // One proof gates BOTH retires: the class-3 mint has no boot-time wire proof of
         // its own (its truth surface is the stream's arming answer, observed later), so
@@ -112,5 +136,5 @@ export function establishFleetSessionCustody({fleetUrl, redeemed = null, deliber
         return retireBearerIngressSlot(target, {expected: bearerToken})
     });
 
-    return {bridge: publishNow ? bridge : existing, custodySettled, verified}
+    return {bridge: publishNow ? bridge : existing, custodySettled, promoted, verified}
 }

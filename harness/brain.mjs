@@ -69,7 +69,6 @@ export function loadFleetRuntimeContracts(repoRoot = DEFAULT_REPO_ROOT) {
             createFleetWireRequest      : wireContract.createFleetWireRequest,
             createFleetWireResponse     : wireContract.createFleetWireResponse,
             inspectFleetWireResponse    : wireContract.inspectFleetWireResponse,
-            awaitFleetReady             : fleetContract.awaitFleetReady,
             normalizeAgentIdentityNodeId: identityContract.normalizeAgentIdentityNodeId,
             probeExistingFleetServer    : fleetContract.probeExistingFleetServer,
             resolveFleetBearer          : fleetContract.resolveFleetBearer
@@ -650,7 +649,7 @@ export function awaitOrchestratorReady({child, timeoutMs = 30000}) {
  * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
  * @returns {Promise<void>}
  */
-export async function awaitFleetReady({
+export function awaitFleetReady({
     child,
     port,
     bearerToken,
@@ -658,15 +657,64 @@ export async function awaitFleetReady({
     timeoutMs = 15000,
     fetchFn = fetch
 }) {
-    let runtime;
+    const wireContract = loadFleetRuntimeContracts(repoRoot);
 
-    try {
-        runtime = await loadFleetRuntimeContracts(repoRoot)
-    } catch {
-        throw new Error('fleet wire contract unavailable')
-    }
+    return new Promise((resolve, reject) => {
+        let settled = false;
 
-    return runtime.awaitFleetReady({bearerToken, child, fetchFn, port, timeoutMs})
+        const finish = error => {
+            if (settled) {
+                return
+            }
+
+            settled = true;
+            clearTimeout(timer);
+            clearInterval(poller);
+            child.off('exit', onExit);
+            child.off('error', onExit);
+            error ? reject(error) : resolve()
+        };
+
+        const onExit = (codeOrError, signal) => finish(new Error(
+            `fleet transport exited before ready (${codeOrError instanceof Error ? codeOrError.message : `code=${codeOrError} signal=${signal}`})`
+        ));
+
+        const probe = async () => {
+            try {
+                const {
+                    createFleetWireRequest,
+                    FLEET_WIRE_RESPONSE_STATES,
+                    inspectFleetWireResponse
+                } = await wireContract;
+                const request  = createFleetWireRequest('listAgents', {});
+                const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
+                    body   : JSON.stringify(request),
+                    headers: {
+                        Authorization : `Bearer ${bearerToken}`,
+                        'content-type': 'application/json'
+                    },
+                    method : 'POST'
+                });
+
+                const body = await response.json();
+
+                if (inspectFleetWireResponse(body, request.protocol).ok &&
+                    body.state === FLEET_WIRE_RESPONSE_STATES.ok) {
+                    finish()
+                }
+            } catch (error) {
+                // Not listening yet — keep polling until the deadline.
+            }
+        };
+
+        const timer  = setTimeout(() => finish(new Error(`fleet transport not ready within ${timeoutMs}ms`)), timeoutMs);
+        const poller = setInterval(probe, 300);
+
+        child.once('exit', onExit);
+        child.once('error', onExit);
+        wireContract.catch(() => finish(new Error('fleet wire contract unavailable')));
+        probe()
+    })
 }
 
 /**

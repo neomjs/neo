@@ -43,9 +43,8 @@
  * for Neural Link / tooling flows.
  *
  * Signals: SIGINT/SIGTERM forward to every child this launcher spawned; a webpack exit tears the
- * session down. Before page launch, the owned Fleet child must pass the authenticated/versioned
- * readiness contract or the launcher refuses without opening webpack. A later fleet-server exit
- * logs loudly while the already-open cockpit degrades to its honest seed/stale states.
+ * session down; a fleet-server exit logs loudly while the cockpit degrades to its honest
+ * seed/stale states (the operable-cold banner names it on the surface).
  *
  * Live mode (`--live`, the `cockpit:live` script): the same supervised boot, but the fleet child
  * is composed against the containerized plane — one command for the real-fleet journey, no
@@ -454,10 +453,9 @@ export function buildFleetChildEnv({baseEnv, fleetBearer, livePlane = null}) {
 }
 
 /**
- * @summary Process entry: resolve authority, probe, plan, spawn, await authenticated Fleet
- * readiness, then open and supervise the cockpit. The webpack child is spawned via an injectable
- * command seam (`NEO_COCKPIT_WEBPACK_CMD`, JSON `[cmd, ...args]`) so the composed-boot integration
- * witness can substitute a stub without touching the production default.
+ * @summary Process entry: resolve authority, probe, plan, spawn, supervise. The webpack child is
+ * spawned via an injectable command seam (`NEO_COCKPIT_WEBPACK_CMD`, JSON `[cmd, ...args]`) so the
+ * composed-boot integration witness can substitute a stub without touching the production default.
  * Live mode (`--live`) resolves + probes the plane binding BEFORE anything spawns, never adopts an
  * incumbent fleet transport (its plane binding is not probe-observable), and refuses named.
  * @returns {Promise<void>}
@@ -583,21 +581,10 @@ async function main() {
         children.push(fleet);
 
         fleet.on('exit', code => {
-            // Once readiness opened the page, a later loss degrades honestly; before readiness,
-            // awaitFleetReady owns the named refusal and no page exists yet.
+            // fail-closed, not fail-silent: the cockpit keeps serving on seeds/stale states,
+            // and the log names the loss so the operator knows why controls degraded
             console.error(`[cockpit] fleet transport exited (code ${code}) — the cockpit degrades to its honest offline states; restart with: npm run ai:fleet-server`)
-        });
-
-        try {
-            const {awaitFleetReady} = await import('../../services/fleet/fleetLaunchContract.mjs');
-
-            await awaitFleetReady({bearerToken: fleetBearer, child: fleet, port: fleetPort});
-            console.log(`[cockpit] fleet transport authenticated and ready on :${fleetPort}; opening cockpit`)
-        } catch (error) {
-            !fleet.killed && fleet.kill('SIGTERM');
-            console.error(`[cockpit] REFUSED: owned fleet transport did not become ready before page launch (${error.message})`);
-            process.exit(1)
-        }
+        })
     }
 
     let webpackCmd = ['npx', 'webpack', 'serve', '-c', './buildScripts/webpack/webpack.server.config.mjs', '--open-target', COCKPIT_OPEN_TARGET];

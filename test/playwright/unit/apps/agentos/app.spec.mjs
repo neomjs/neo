@@ -33,6 +33,78 @@ test.describe('AgentOS packaged Fleet window routing', () => {
         expect(() => resolveFleetTransportMode({search: ''})).toThrow()
     })
 
+    test('browser boot invokes Neo.app before its delayed handshake settles', async () => {
+        const {onStart} = await import('../../../../../apps/agentos/app.mjs');
+
+        let releaseFetch;
+
+        const
+            originalAgentOS = globalThis.AgentOS,
+            originalApp     = Neo.app,
+            originalFetch   = globalThis.fetch,
+            originalUrl     = Neo.config.url,
+            order           = [];
+
+        try {
+            globalThis.AgentOS = {};
+            Neo.config.url     = {href: 'http://localhost:8080/apps/agentos/', search: ''};
+            Neo.app            = () => { order.push('app') };
+            globalThis.fetch   = async () => {
+                order.push('fetch');
+                await new Promise(resolve => { releaseFetch = resolve });
+                return {ok: false}
+            };
+
+            onStart();
+
+            expect(order[0]).toBe('app');
+            await expect.poll(() => order.includes('fetch')).toBe(true);
+            expect(order).toEqual(['app', 'fetch']);
+
+            // A newer operator-selected bridge cancels the pending default-endpoint heal.
+            globalThis.AgentOS.fleet.registryBridge = {profileId: 'operator-choice'};
+            releaseFetch();
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve()
+        } finally {
+            globalThis.AgentOS = originalAgentOS;
+            globalThis.fetch   = originalFetch;
+            Neo.app            = originalApp;
+            Neo.config.url     = originalUrl
+        }
+    });
+
+    test('the browser heal refuses to establish after its expected bridge loses authority', async () => {
+        const {healBrowserFleetSession} = await import('../../../../../apps/agentos/app.mjs');
+
+        const
+            expected = {profileId: 'boot'},
+            newer    = {profileId: 'operator-choice'},
+            target   = {AgentOS: {fleet: {registryBridge: expected}}};
+
+        let establishCalled = false;
+
+        const healed = await healBrowserFleetSession({
+            expectedBridge: expected,
+            fleetUrl      : 'http://127.0.0.1:8083/fleet',
+            target,
+            redeemImpl    : async ({shouldContinue}) => {
+                expect(shouldContinue()).toBe(true);
+                target.AgentOS.fleet.registryBridge = newer;
+                return {bearerToken: 'a'.repeat(43), mcAuthorization: null}
+            },
+            establishImpl: () => {
+                establishCalled = true;
+                return {promoted: Promise.resolve(true)}
+            }
+        });
+
+        expect(healed).toBe(false);
+        expect(establishCalled).toBe(false);
+        expect(target.AgentOS.fleet.registryBridge).toBe(newer)
+    });
+
     test.describe('session custody lifecycle — real bridge, stubbed wire; verification is the server answer, never the closure', () => {
         const
             bearer   = 'A'.repeat(43),

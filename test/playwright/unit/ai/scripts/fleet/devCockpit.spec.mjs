@@ -175,7 +175,7 @@ test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', (
             cwd: repoRoot,
             env: {
                 ...process.env,
-                NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'console.log("WEBPACK_STUB_STARTED"); setInterval(() => {}, 1000)']),
+                NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'setInterval(() => {}, 1000)']),
                 // The fixture transport proves the LAUNCH CONTRACT: it constructs the real
                 // authenticated server from the NEO_FLEET_BEARER the launcher hands down via env —
                 // startFleetBridgeServer REFUSES to construct without it, so 'fleet' reaching the
@@ -185,7 +185,7 @@ test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', (
                     // module chain requires at load — the same entry-point invariant devFleetServer keeps.
                     // The fixture consumes BOTH env halves of the launch contract exactly like
                     // devFleetServer: the bearer and the handshake arm flag.
-                    `const root = ${JSON.stringify(repoRoot)}; console.log('FLEET_BIND_DELAY_STARTED'); await new Promise(resolve => setTimeout(resolve, 1500)); await import(root + '/src/Neo.mjs'); await import(root + '/src/core/_export.mjs'); await import(root + '/src/manager/Instance.mjs'); const {startFleetBridgeServer} = await import(root + '/ai/services/fleet/fleetBridgeServer.mjs'); const {createFleetWireResponse, FLEET_WIRE_RESPONSE_STATES, selectFleetWireContract} = await import(root + '/ai/services/fleet/fleetWireMethods.mjs'); const dispatch = async request => { const selected = selectFleetWireContract(request.protocol); return selected.ok ? createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {protocol: selected.protocol, result: []}) : createFleetWireResponse(selected.state, {protocol: selected.protocol, error: selected.error}) }; const server = await startFleetBridgeServer({port: 8083, bearerToken: process.env.NEO_FLEET_BEARER, bearerHandshake: process.env.NEO_FLEET_BEARER_HANDSHAKE === '1', viewerContext: {userId: 'cockpit-fixture', username: 'Cockpit Fixture', agentIdentityNodeId: '@cockpit-fixture'}, runInContext: (context, fn) => fn(), dispatch}); ['SIGTERM', 'SIGINT'].forEach(signal => process.on(signal, () => server.close(() => process.exit(0))))`
+                    `const root = ${JSON.stringify(repoRoot)}; await import(root + '/src/Neo.mjs'); await import(root + '/src/core/_export.mjs'); await import(root + '/src/manager/Instance.mjs'); const {startFleetBridgeServer} = await import(root + '/ai/services/fleet/fleetBridgeServer.mjs'); const server = await startFleetBridgeServer({port: 8083, bearerToken: process.env.NEO_FLEET_BEARER, bearerHandshake: process.env.NEO_FLEET_BEARER_HANDSHAKE === '1', viewerContext: {userId: 'cockpit-fixture', username: 'Cockpit Fixture', agentIdentityNodeId: '@cockpit-fixture'}, runInContext: (context, fn) => fn()}); ['SIGTERM', 'SIGINT'].forEach(signal => process.on(signal, () => server.close(() => process.exit(0))))`
                 ])
             },
             stdio: ['ignore', 'pipe', 'pipe']
@@ -196,16 +196,9 @@ test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', (
         launcher.stderr.on('data', chunk => output += chunk);
 
         try {
-            await expect.poll(() => output.includes('FLEET_BIND_DELAY_STARTED'), {timeout: 10000}).toBe(true);
-            await new Promise(resolve => setTimeout(resolve, 750));
-
-            expect(output, 'webpack must not start while the owned Fleet child is still binding')
-                .not.toContain('WEBPACK_STUB_STARTED');
-
             // the fresh-boot assertion: the REAL fleet transport reaches protocol identity on the
             // default endpoint with zero manual server starts
             await expect.poll(async () => (await probeFleetEndpoint(8083)).status, {timeout: 30000}).toBe('fleet');
-            await expect.poll(() => output.includes('WEBPACK_STUB_STARTED'), {timeout: 30000}).toBe(true);
 
             expect(output).toContain('starting fleet transport on :8083');
 
@@ -231,48 +224,6 @@ test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', (
         }
 
         await expect.poll(async () => (await probeFleetEndpoint(8083)).status, {timeout: 10000}).toBe('free')
-    });
-
-    test('an owned Fleet child that exits before readiness refuses without opening webpack', async () => {
-        test.setTimeout(30000);
-
-        if ((await probeFleetEndpoint(8083)).status !== 'free') {
-            test.skip(true, 'the default fleet endpoint is occupied on this machine — the pre-ready exit witness needs to own it');
-            return
-        }
-
-        const launcher = spawn(process.execPath, [path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs')], {
-            cwd: repoRoot,
-            env: {
-                ...process.env,
-                NEO_COCKPIT_FLEET_CMD  : JSON.stringify([process.execPath, '-e', 'process.exit(23)']),
-                NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'console.log("WEBPACK_STUB_STARTED"); setInterval(() => {}, 1000)'])
-            },
-            stdio: ['ignore', 'pipe', 'pipe']
-        });
-
-        const result = await new Promise(resolve => {
-            let output = '', timedOut = false;
-
-            launcher.stdout.on('data', chunk => output += chunk);
-            launcher.stderr.on('data', chunk => output += chunk);
-
-            // out-waits: the owned Fleet child early-exit plus launcher refusal; never page readiness
-            const timer = setTimeout(() => {
-                timedOut = true;
-                launcher.kill('SIGTERM')
-            }, 5000);
-
-            launcher.on('exit', code => {
-                clearTimeout(timer);
-                resolve({code, output, timedOut})
-            })
-        });
-
-        expect(result.timedOut, result.output).toBe(false);
-        expect(result.code).toBe(1);
-        expect(result.output).toContain('fleet transport exited before ready');
-        expect(result.output).not.toContain('WEBPACK_STUB_STARTED')
     });
 
     test('⭐ real-ingress reuse falsifier: an armed incumbent bound to viewer/token A is NEVER adopted by launcher B — and the same-token+same-viewer control IS', async () => {
