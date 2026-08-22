@@ -79,6 +79,36 @@ class FleetTask extends Model {
             type        : 'String',
             convert     : value => typeof value === 'string' && value ? value : null,
             defaultValue: null
+        }, {
+            // ── projection-row vocabulary: the pane's Store is a PROJECTION of one
+            // envelope into exactly what the tasks list renders, so the record set carries the
+            // list's own structural rows — section headers and honest empty lines — beside the
+            // task rows. `isHeader` is the list.Base `useHeaders` contract field.
+            name        : 'isHeader',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
+            name        : 'rowKind',
+            type        : 'String',
+            convert     : value => value === 'header' || value === 'empty' ? value : 'task',
+            defaultValue: 'task'
+        }, {
+            // header rows: the section label · empty rows: the honest empty sentence
+            name        : 'label',
+            type        : 'String',
+            convert     : value => typeof value === 'string' && value ? value : null,
+            defaultValue: null
+        }, {
+            // header rows only: the freshness pill word (`sample` · `live` · `unavailable`)
+            name        : 'pill',
+            type        : 'String',
+            convert     : value => typeof value === 'string' && value ? value : null,
+            defaultValue: null
+        }, {
+            // cold-spine rows render the `sample` pill instead of a source claim
+            name        : 'sample',
+            type        : 'Boolean',
+            defaultValue: false
         }]
     }
 }

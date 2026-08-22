@@ -59,40 +59,51 @@ function createPane(config = {}) {
     return {pane, requests}
 }
 
+// The list renders the projection Store into a flat vdom of section-header, task and empty-line
+// items — the render truth lives in the list's vdom nodes, the projection truth in the
+// Store records. Both are asserted.
 const
-    sectionsOf = pane => pane.getReference('tasks-sections').items,
-    headOf     = section => section.items[0],
-    pillOf     = section => headOf(section).items[1],
-    rowsOf     = section => section.items.slice(1).filter(item => item.cls?.includes('fm-task-row')),
-    emptyOf    = section => section.items.slice(1).find(item => item.cls?.includes('fm-tasks-empty')),
-    cellsOf    = row => row.items;
+    nodesOf   = pane => pane.getReference('tasks-list').getVdomRoot().cn.filter(Boolean),
+    headersOf = pane => nodesOf(pane).filter(node => node.cls?.includes('fm-tasks-section-head')),
+    labelOf   = header => header.cn[0],
+    pillOf    = header => header.cn[1],
+    rowsIn    = (pane, section) => nodesOf(pane).filter(node => node.cls?.includes('fm-task-row') && node.cls?.includes(`is-${section}`)),
+    emptyIn   = (pane, section) => nodesOf(pane).find(node => node.cls?.includes('fm-tasks-empty-row') && node.cls?.includes(`is-${section}`))?.cn[0],
+    cellsOf   = row => row.cn,
+    taskCount = pane => pane.taskStore.items.filter(record => record.rowKind === 'task' && !record.sample).length;
 
-test.describe('AgentOS TasksPane — the WHAT surface', () => {
+test.describe('AgentOS tasks surface — the WHAT view as a store-driven list', () => {
+
     test('the cold spine renders one sample-labeled row per section — shape, never a claim', () => {
-        const {pane}   = createPane(),
-              sections = sectionsOf(pane);
+        const {pane}  = createPane(),
+              headers = headersOf(pane);
 
         expect(pane.getReference('tasks-meta').text).toContain('not observed yet');
-        expect(sections).toHaveLength(3);
-        expect(sections.map(section => headOf(section).items[0].text)).toEqual(['Running', 'Queued · next', 'Recent']);
+        expect(headers).toHaveLength(3);
+        expect(headers.map(header => labelOf(header).text)).toEqual(['Running', 'Queued · next', 'Recent']);
 
-        for (const section of sections) {
-            expect(pillOf(section).text).toBe('sample');
-            expect(pillOf(section).cls).toContain('is-sample');
+        for (const header of headers) {
+            expect(pillOf(header).text).toBe('sample');
+            expect(pillOf(header).cls).toContain('is-sample')
+        }
 
-            const rows = rowsOf(section);
+        for (const section of ['running', 'queued', 'recent']) {
+            const rows = rowsIn(pane, section);
 
             expect(rows).toHaveLength(1);
             expect(cellsOf(rows[0]).at(-1).text, 'the row pill says sample too').toBe('sample')
         }
 
         // the running sample carries the determinate idiom: a native progress element PLUS the text
-        const progress = cellsOf(rowsOf(sections[0])[0]).find(cell => cell.cls?.includes('fm-task-progress'));
+        const progress = cellsOf(rowsIn(pane, 'running')[0]).find(cell => cell.cls?.includes('fm-task-progress'));
 
-        expect(progress.vdom.cn[0]).toMatchObject({tag: 'progress', value: 42, max: 100});
-        expect(progress.vdom.cn[1].text).toBe('42%');
+        expect(progress.cn[0]).toMatchObject({tag: 'progress', value: 42, max: 100});
+        expect(progress.cn[1].text).toBe('42%');
 
-        expect(pane.taskStore.count, 'samples never enter the Store').toBe(0);
+        // the Store is the full render projection now — sample rows enter LABELED (`sample: true`,
+        // the pill word), never as deployment claims: zero unlabeled task records on the cold spine
+        expect(taskCount(pane), 'no record claims to be the deployment').toBe(0);
+        expect(pane.taskStore.items.filter(record => record.sample)).toHaveLength(3);
 
         pane.destroy()
     });
@@ -106,13 +117,16 @@ test.describe('AgentOS TasksPane — the WHAT surface', () => {
         expect(meta.text).toContain('show the shape, not the deployment');
         expect(meta.vdom.title, 'no stamp hovers behind an unavailable read').toBeFalsy();
 
-        for (const section of sectionsOf(pane)) {
-            expect(pillOf(section).text).toBe('sample');
-            expect(rowsOf(section)).toHaveLength(1);
-            expect(cellsOf(rowsOf(section)[0]).at(-1).text).toBe('sample')
+        for (const header of headersOf(pane)) {
+            expect(pillOf(header).text).toBe('sample')
         }
 
-        expect(pane.taskStore.count).toBe(0);
+        for (const section of ['running', 'queued', 'recent']) {
+            expect(rowsIn(pane, section)).toHaveLength(1);
+            expect(cellsOf(rowsIn(pane, section)[0]).at(-1).text).toBe('sample')
+        }
+
+        expect(taskCount(pane)).toBe(0);
 
         pane.destroy()
     });
@@ -127,42 +141,44 @@ test.describe('AgentOS TasksPane — the WHAT surface', () => {
 
         expect(pane.getReference('tasks-meta').text).toBe('Tasks unavailable · no-task-source-answered');
 
-        for (const section of sectionsOf(pane)) {
-            expect(pillOf(section).text).toBe('unavailable');
-            expect(rowsOf(section)).toHaveLength(0);
-            expect(emptyOf(section).text).toContain('did not answer')
+        for (const header of headersOf(pane)) {
+            expect(pillOf(header).text).toBe('unavailable')
+        }
+
+        for (const section of ['running', 'queued', 'recent']) {
+            expect(rowsIn(pane, section)).toHaveLength(0);
+            expect(emptyIn(pane, section).text).toContain('did not answer')
         }
 
         pane.destroy()
     });
 
     test('a wired envelope projects into the Store and renders the one row grammar per section', () => {
-        const {pane}                    = createPane({snapshot: envelope()}),
-              [running, queued, recent] = sectionsOf(pane),
-              meta                      = pane.getReference('tasks-meta');
+        const {pane} = createPane({snapshot: envelope()}),
+              meta   = pane.getReference('tasks-meta');
 
-        expect(pane.taskStore.count).toBe(4);
+        expect(taskCount(pane)).toBe(4);
         expect(meta.text).toContain('captured');
         expect(meta.text).toContain('orchestrator live · memory core live · knowledge base not reachable');
         expect(meta.vdom.title, 'T5: the exact wire instant rides the title').toContain('2026-08-22T12:30:00.000Z');
 
-        for (const section of [running, queued, recent]) {
-            expect(pillOf(section).text).toBe('live')
+        for (const header of headersOf(pane)) {
+            expect(pillOf(header).text).toBe('live')
         }
 
         // running: time · name · state word · determinate bar + percent · source pill
-        const run = cellsOf(rowsOf(running)[0]);
+        const run = cellsOf(rowsIn(pane, 'running')[0]);
 
         expect(run[1].text).toBe('KB ingestion');
-        expect(run[1].vdom.title, 'the detail rides the name\'s title').toBe('this-process-only');
+        expect(run[1].title, 'the detail rides the name\'s title').toBe('this-process-only');
         expect(run[2].text).toBe('embedding');
-        expect(run[3].vdom.cn[0]).toMatchObject({tag: 'progress', value: 100, max: 400});
-        expect(run[3].vdom.cn[1].text).toBe('25%');
+        expect(run[3].cn[0]).toMatchObject({tag: 'progress', value: 100, max: 400});
+        expect(run[3].cn[1].text).toBe('25%');
         expect(run[4].text).toBe('knowledge base');
         expect(run[4].cls).toContain('is-source-kb');
 
         // queued: the due repo (no bar) and the backlog gauge under its own word
-        const [due, backlog] = rowsOf(queued).map(cellsOf);
+        const [due, backlog] = rowsIn(pane, 'queued').map(cellsOf);
 
         expect(due[1].text).toBe('Repo sync · cbff435f');
         expect(due[2].text).toBe('due');
@@ -172,12 +188,12 @@ test.describe('AgentOS TasksPane — the WHAT surface', () => {
         expect(backlog[0].text, 'no instant → the honest dash').toBe('—');
         expect(backlog[2].text).toBe('backlog');
         expect(backlog[3].cls).toContain('is-backlog');
-        expect(backlog[3].vdom.cn[0]).toMatchObject({tag: 'progress', value: 1040, max: 2000});
-        expect(backlog[3].vdom.cn[1].text).toBe('1040 / 2000');
+        expect(backlog[3].cn[0]).toMatchObject({tag: 'progress', value: 1040, max: 2000});
+        expect(backlog[3].cn[1].text).toBe('1040 / 2000');
         expect(backlog.at(-1).text).toBe('memory core');
 
         // recent
-        const done = cellsOf(rowsOf(recent)[0]);
+        const done = cellsOf(rowsIn(pane, 'recent')[0]);
 
         expect(done[1].text).toBe('Tenant repo sync');
         expect(done[2].text).toBe('completed');
@@ -195,7 +211,7 @@ test.describe('AgentOS TasksPane — the WHAT surface', () => {
         const {pane} = createPane({snapshot});
 
         expect(pane.getReference('tasks-meta').text).toContain('memory core unavailable');
-        expect(rowsOf(sectionsOf(pane)[1])).toHaveLength(1);
+        expect(rowsIn(pane, 'queued')).toHaveLength(1);
 
         pane.destroy()
     });
@@ -203,7 +219,7 @@ test.describe('AgentOS TasksPane — the WHAT surface', () => {
     test('a wired section with no rows says so in words, and a fresh snapshot REPLACES rows — never accumulates', () => {
         const {pane} = createPane({snapshot: envelope()});
 
-        expect(pane.taskStore.count).toBe(4);
+        expect(taskCount(pane)).toBe(4);
 
         pane.snapshot = envelope({
             running: [],
@@ -212,21 +228,19 @@ test.describe('AgentOS TasksPane — the WHAT surface', () => {
             counts : {running: 0, queued: 0, recent: 1}
         });
 
-        const [running, queued, recent] = sectionsOf(pane);
-
-        expect(pane.taskStore.count).toBe(1);
-        expect(rowsOf(running)).toHaveLength(0);
-        expect(emptyOf(running).text).toBe('Nothing in flight.');
-        expect(emptyOf(queued).text).toBe('Nothing scheduled.');
-        expect(rowsOf(recent)).toHaveLength(1);
+        expect(taskCount(pane)).toBe(1);
+        expect(rowsIn(pane, 'running')).toHaveLength(0);
+        expect(emptyIn(pane, 'running').text).toBe('Nothing in flight.');
+        expect(emptyIn(pane, 'queued').text).toBe('Nothing scheduled.');
+        expect(rowsIn(pane, 'recent')).toHaveLength(1);
 
         pane.destroy()
     });
 
-    test('the refresh affordance fires the read INTENT — the pane never touches a bridge', () => {
+    test('the refresh affordance fires the read INTENT through the controller — the surface never touches a bridge', () => {
         const {pane, requests} = createPane({snapshot: envelope()});
 
-        pane.onRefreshClick();
+        pane.getController().onRefreshClick({});
 
         expect(requests).toEqual([{}]);
 

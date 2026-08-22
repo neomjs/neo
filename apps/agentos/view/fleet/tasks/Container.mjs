@@ -1,8 +1,9 @@
-import Button                              from '../../../../../src/button/Base.mjs';
-import Component                           from '../../../../../src/component/Base.mjs';
-import Container                           from '../../../../../src/container/Base.mjs';
-import FleetTasks                          from '../../../store/FleetTasks.mjs';
-import {formatViewerTime, viewerTimeTitle} from '../../../util/viewerTime.mjs';
+import BaseContainer                                  from '../../../../../src/container/Base.mjs';
+import Button                                         from '../../../../../src/button/Base.mjs';
+import FleetTasks                                     from '../../../store/FleetTasks.mjs';
+import TasksController                                from './Controller.mjs';
+import TasksList, {SOURCE_LABELS, SOURCE_STATE_WORDS} from './List.mjs';
+import {formatViewerTime, viewerTimeTitle}            from '../../../util/viewerTime.mjs';
 
 /**
  * @summary The three sections, in the order the operator asks: what is in flight, what comes
@@ -15,28 +16,6 @@ const SECTIONS = Object.freeze([
     {id: 'queued',  label: 'Queued · next', empty: 'Nothing scheduled.'},
     {id: 'recent',  label: 'Recent',        empty: 'Nothing completed recently.'}
 ]);
-
-/**
- * @summary Provenance words per source axis — the pill every row carries.
- * @type {Object}
- */
-const SOURCE_LABELS = Object.freeze({
-    orchestrator: 'orchestrator',
-    mc          : 'memory core',
-    kb          : 'knowledge base'
-});
-
-/**
- * @summary The meta-line word for each source state the envelope can report.
- * @type {Object}
- */
-const SOURCE_STATE_WORDS = Object.freeze({
-    wired      : 'live',
-    stale      : 'stale',
-    degraded   : 'degraded',
-    unavailable: 'unavailable',
-    unwired    : 'not reachable'
-});
 
 /**
  * @summary The cold-spine rows: one per section, labeled `sample` at the section AND the row, so
@@ -52,12 +31,15 @@ const SAMPLE_ROWS = Object.freeze([
 
 /**
  * The resident Fleet tasks surface: WHAT the deployment is doing — running, queued / next, and
- * recently completed work — beside the grid that says WHO.
+ * recently completed work — beside the roster that says WHO.
  *
- * @summary Renders one viewer-bound `fleetTasks` envelope as three provenance-labeled sections
- * without synthesizing, ranking, or caching it. The pane owns only a local projection Store of
- * task rows; it fires intent events for reads and the owning FleetCockpit holds the authenticated
- * bridge and drives the read at boot and on every liveness tick.
+ * @summary Projects one viewer-bound `fleetTasks` envelope into the bound Store as the exact
+ * record set the {@link AgentOS.view.fleet.tasks.List tasks list} renders — section headers
+ * (`isHeader`, the `useHeaders` contract), task rows, honest empty lines — without synthesizing,
+ * ranking, or caching the envelope. The surface owns only this local projection Store plus the
+ * honest chrome (meta line, refresh intent); its {@link AgentOS.view.fleet.tasks.Controller
+ * controller} fires the read intent, and the owning FleetCockpit holds the authenticated bridge
+ * and drives the read at boot and on every liveness tick.
  *
  * Honest states are first-class: the cold spine renders sample-labeled rows (shape, not claim),
  * an unavailable read names its reason, a wired read with an empty section says so in words, a
@@ -67,7 +49,7 @@ const SAMPLE_ROWS = Object.freeze([
  * @class AgentOS.view.fleet.tasks.Container
  * @extends Neo.container.Base
  */
-class TasksPane extends Container {
+class Container extends BaseContainer {
     static config = {
         /**
          * @member {String} className='AgentOS.view.fleet.tasks.Container'
@@ -83,6 +65,11 @@ class TasksPane extends Container {
          * @member {String[]} baseCls=['fm-tasks-pane']
          */
         baseCls: ['fm-tasks-pane'],
+        /**
+         * @member {Neo.controller.Component} controller=TasksController
+         * @reactive
+         */
+        controller: TasksController,
         /**
          * Latest tasks envelope. `null` is unobserved, never empty.
          * @member {Object|null} snapshot_=null
@@ -119,11 +106,9 @@ class TasksPane extends Container {
             reference: 'tasks-meta',
             text     : 'Tasks not observed yet'
         }, {
-            ntype    : 'container',
-            cls      : ['fm-tasks-sections'],
+            module   : TasksList,
             flex     : 1,
-            layout   : {ntype: 'vbox', align: 'stretch'},
-            reference: 'tasks-sections'
+            reference: 'tasks-list'
         }, {
             ntype : 'container',
             cls   : ['fm-tasks-actions'],
@@ -138,7 +123,7 @@ class TasksPane extends Container {
                 text     : 'Refresh',
                 iconCls  : 'fa fa-rotate',
                 ui       : 'ghost',
-                handler  : 'up.onRefreshClick'
+                handler  : 'onRefreshClick'
             }]
         }]
     }
@@ -147,16 +132,20 @@ class TasksPane extends Container {
     taskStore = null
 
     /**
-     * @summary Create the pane-local Store and render held owner state. No read fires here: the
-     * cockpit drives the tasks read at boot and on its liveness tick, so a resident tab constructs
-     * on the owner-held snapshot and never queries the plane on its own.
+     * @summary Create the pane-local projection Store, seat it on the list, and render held owner
+     * state. No read fires here: the cockpit drives the tasks read at boot and on its liveness
+     * tick, so a resident tab constructs on the owner-held snapshot and never queries the plane
+     * on its own.
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
 
-        this.taskStore = Neo.create(FleetTasks);
-        this.applySnapshot()
+        let me = this;
+
+        me.taskStore = Neo.create(FleetTasks);
+        me.getReference('tasks-list').store = me.taskStore;
+        me.applySnapshot()
     }
 
     /** @param {...*} args */
@@ -171,16 +160,13 @@ class TasksPane extends Container {
         this.isConstructed && this.applySnapshot()
     }
 
-    /** @summary Re-read the deployment's task picture. */
-    onRefreshClick() {
-        this.fire('tasksRequest', {})
-    }
-
     /**
-     * @summary Project the latest envelope into Store rows and honest chrome. A wired or partial
-     * read replaces the Store wholesale — rows are a glance at one instant, never an accumulation —
-     * and the meta line names every source axis by its own state word, so a partial read is
-     * readable as exactly that.
+     * @summary Project the latest envelope into the Store as the full render set — one header
+     * record per section under its freshness pill, then that section's rows (sample on the cold
+     * spine, the mapped envelope rows on a wired read, the honest empty line otherwise). A
+     * replace is wholesale — rows are a glance at one instant, never an accumulation — and the
+     * meta line names every source axis by its own state word, so a partial read is readable as
+     * exactly that.
      */
     applySnapshot() {
         const
@@ -199,27 +185,43 @@ class TasksPane extends Container {
 
         if (!me.taskStore) return;
 
+        const
+            pill      = cold ? 'sample' : wired ? 'live' : 'unavailable',
+            wiredRows = wired
+                ? ['running', 'queued', 'recent']
+                    .flatMap(section => Array.isArray(snapshot[section]) ? snapshot[section] : [])
+                    .filter(row => typeof row?.id === 'string' && row.id)
+                    .map(row => ({
+                        id           : row.id,
+                        section      : row.section,
+                        name         : row.name,
+                        source       : row.source,
+                        state        : row.state,
+                        at           : row.at ?? null,
+                        progressKind : row.progress?.kind  ?? null,
+                        progressDone : row.progress?.done  ?? null,
+                        progressTotal: row.progress?.total ?? null,
+                        detail       : row.detail ?? null
+                    }))
+                : [],
+            records   = SECTIONS.flatMap(section => {
+                const rows = cold
+                    ? SAMPLE_ROWS.filter(row => row.section === section.id).map(row => ({...row, sample: true}))
+                    : wiredRows.filter(row => row.section === section.id);
+
+                return [
+                    {id: `header:${section.id}`, isHeader: true, rowKind: 'header', section: section.id, label: section.label, pill},
+                    ...(rows.length > 0 ? rows : [{
+                        id     : `empty:${section.id}`,
+                        rowKind: 'empty',
+                        section: section.id,
+                        label  : wired ? section.empty : 'The task sources did not answer. Nothing here claims to be the deployment.'
+                    }])
+                ]
+            });
+
         me.taskStore.clear();
-
-        if (wired) {
-            const rows = ['running', 'queued', 'recent']
-                .flatMap(section => Array.isArray(snapshot[section]) ? snapshot[section] : [])
-                .filter(row => typeof row?.id === 'string' && row.id)
-                .map(row => ({
-                    id           : row.id,
-                    section      : row.section,
-                    name         : row.name,
-                    source       : row.source,
-                    state        : row.state,
-                    at           : row.at ?? null,
-                    progressKind : row.progress?.kind  ?? null,
-                    progressDone : row.progress?.done  ?? null,
-                    progressTotal: row.progress?.total ?? null,
-                    detail       : row.detail ?? null
-                }));
-
-            rows.length > 0 && me.taskStore.add(rows)
-        }
+        me.taskStore.add(records);
 
         if (metaEl) {
             metaEl.text = !snapshot
@@ -234,8 +236,6 @@ class TasksPane extends Container {
             // no stamp — cannot leave a previous read's instant hovering behind their copy
             metaEl.changeVdomRootKey('title', wired ? viewerTimeTitle(snapshot.capability.capturedAt) : null)
         }
-
-        me.renderSections(wired, cold)
     }
 
     /**
@@ -255,142 +255,7 @@ class TasksPane extends Container {
     }
 
     /**
-     * @summary Render the three sections into the sections zone: sample rows for the cold spine
-     * (unobserved, or a transport-level fallback — the cockpit's fail-closed-never-blank
-     * convention), the honest empty lines for a source-level unavailable read, and the Store's
-     * rows (or the section's own empty line) for a wired one. Every section head carries its
-     * provenance pill.
-     * @param {Boolean} wired
-     * @param {Boolean} cold
-     */
-    renderSections(wired, cold) {
-        const me     = this,
-              target = me.getReference('tasks-sections');
-
-        if (!target) return;
-
-        target.removeAll(true);
-
-        target.add(SECTIONS.map(section => {
-            const
-                sample = cold,
-                rows   = sample
-                    ? SAMPLE_ROWS.filter(row => row.section === section.id)
-                    : wired ? me.taskStore.items.filter(record => record.section === section.id) : [],
-                pill   = sample ? 'sample' : wired ? 'live' : 'unavailable',
-                items  = [{
-                    module: Container,
-                    cls   : ['fm-tasks-section-head'],
-                    flex  : 'none',
-                    layout: {ntype: 'hbox', align: 'center'},
-                    items : [{
-                        module: Component,
-                        cls   : ['fm-tasks-section-label'],
-                        flex  : 1,
-                        text  : section.label
-                    }, {
-                        module: Component,
-                        cls   : ['fm-freshness', `is-${pill}`],
-                        text  : pill
-                    }]
-                }];
-
-            if (rows.length > 0) {
-                items.push(...rows.map(row => me.rowConfig(row, sample)))
-            } else {
-                items.push({
-                    module: Component,
-                    cls   : ['fm-tasks-empty'],
-                    text  : wired ? section.empty : 'The task sources did not answer. Nothing here claims to be the deployment.'
-                })
-            }
-
-            return {
-                module: Container,
-                cls   : ['fm-tasks-section', `is-${section.id}`],
-                flex  : 'none',
-                layout: {ntype: 'vbox', align: 'stretch'},
-                items
-            }
-        }))
-    }
-
-    /**
-     * @summary Build one row from a Store record (or a sample row) under the one row grammar:
-     * `[time] [name] [state] [progress?] [provenance]`. The time is viewer-local with the exact
-     * ISO instant as its title (T5); a determinate run renders a native `progress` element PLUS
-     * the percentage as text — the bar is the glance, the text is the 1.4.1 channel; a backlog
-     * gauge renders `done / total` and keeps its "backlog" word, because a queue is not a task.
-     * @param {Neo.data.Model|Object} row
-     * @param {Boolean} sample
-     * @returns {Object}
-     */
-    rowConfig(row, sample) {
-        const
-            me       = this,
-            progress = row.progressKind && Number.isInteger(row.progressDone) && Number.isInteger(row.progressTotal) && row.progressTotal > 0
-                ? {kind: row.progressKind, done: Math.min(row.progressDone, row.progressTotal), total: row.progressTotal}
-                : null,
-            title    = viewerTimeTitle(row.at),
-            items    = [{
-                module: Component,
-                cls   : ['fm-task-time'],
-                text  : me.formatStamp(row.at),
-                ...(title ? {vdom: {title}} : {})
-            }, {
-                module: Component,
-                cls   : ['fm-task-name'],
-                flex  : 1,
-                text  : row.name ?? 'Unnamed task',
-                ...(row.detail ? {vdom: {title: row.detail}} : {})
-            }, {
-                module: Component,
-                cls   : ['fm-task-state'],
-                text  : row.state ?? 'unknown'
-            }];
-
-        if (progress) {
-            const label = progress.kind === 'determinate'
-                ? `${Math.round(progress.done / progress.total * 100)}%`
-                : `${progress.done} / ${progress.total}`;
-
-            items.push({
-                module: Component,
-                cls   : ['fm-task-progress', `is-${progress.kind}`],
-                vdom  : {
-                    cn: [{
-                        tag         : 'progress',
-                        cls         : ['fm-task-bar'],
-                        value       : progress.done,
-                        max         : progress.total,
-                        'aria-label': `${row.name ?? 'task'} ${progress.kind === 'backlog' ? 'backlog' : 'progress'}`
-                    }, {
-                        tag : 'span',
-                        cls : ['fm-task-progress-text'],
-                        text: label
-                    }]
-                }
-            })
-        }
-
-        items.push({
-            module: Component,
-            cls   : ['fm-freshness', sample ? 'is-sample' : `is-source-${row.source ?? 'unknown'}`],
-            text  : sample ? 'sample' : (SOURCE_LABELS[row.source] ?? 'unknown source')
-        });
-
-        return {
-            module: Container,
-            cls   : ['fm-task-row', `is-${row.section ?? 'unknown'}`],
-            flex  : 'none',
-            layout: {ntype: 'hbox', align: 'center'},
-            items
-        }
-    }
-
-    /**
-     * @summary Viewer-local rendering of one wire instant, or the honest dash for a row with no
-     * governing time (a frozen collection, a queue fact without a cycle).
+     * @summary Viewer-local rendering of the envelope's capture instant for the meta line.
      * @param {String|null} value
      * @returns {String}
      */
@@ -399,4 +264,4 @@ class TasksPane extends Container {
     }
 }
 
-export default Neo.setupClass(TasksPane);
+export default Neo.setupClass(Container);

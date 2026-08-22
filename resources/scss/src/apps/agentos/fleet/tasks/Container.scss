@@ -1,10 +1,9 @@
-/* AgentOS.view.fleet.TasksPane — the resident WHAT surface of mission control: running, queued /
-   next, and recently completed work, beside the grid that says WHO. Head (title · authority) over
-   the meta line, three sections of one row grammar, and the actions rail. Mount-agnostic by the
-   drawer-shell contract: the HOST owns surface, padding, and rhythm — this root declares no frame;
-   every color reads from the --fm-* token layer, every text node from a --fm-text-* role, every
-   gap from the --fm-space-* rhythm. The progress bar is the native element: the fill width is DATA
-   (value / max), so no script ever writes a style — the skin only paints the track and the fill. */
+/* AgentOS.view.fleet.tasks.Container — the resident WHAT surface of mission control: head
+   (title · authority) over the meta line, the tasks list (its own skin: tasks/List.scss — the
+   list owns the scroll), and the actions rail. Mount-agnostic by the drawer-shell contract: the
+   HOST owns surface, padding, and rhythm — this root declares no frame; every color reads from
+   the --fm-* token layer, every text node from a --fm-text-* role, every gap from the
+   --fm-space-* rhythm. */
 .fm-tasks-pane {
 
     .fm-tasks-head {
@@ -22,149 +21,6 @@
     .fm-tasks-meta {
         color: var(--fm-ink-dim);
         font : var(--fm-text-micro);
-    }
-
-    /* the sections own the scroll — the chrome above stays put */
-    .fm-tasks-sections {
-        overflow  : auto;
-        min-height: 0;
-        gap       : var(--fm-space-3);
-    }
-
-    .fm-tasks-section {
-        gap: var(--fm-space-2);
-    }
-
-    .fm-tasks-section-head {
-        gap: var(--fm-space-2);
-    }
-
-    /* the InstanceManager section-label idiom, verbatim: chrome role + tracking + uppercase */
-    .fm-tasks-section-label {
-        color         : var(--fm-ink-dim);
-        font          : var(--fm-text-chrome);
-        letter-spacing: var(--fm-text-chrome-tracking);
-        text-transform: uppercase;
-    }
-
-    /* the honest empty line — absence is not an error, so it stays muted */
-    .fm-tasks-empty {
-        color  : var(--fm-ink-dim);
-        font   : var(--fm-text-detail);
-        padding: var(--fm-space-1) 0;
-    }
-
-    /* one row grammar: [time] [name] [state] [progress?] [provenance] on the sibling card plate */
-    .fm-task-row {
-        gap          : var(--fm-space-2);
-        padding      : var(--fm-space-2) var(--fm-space-3);
-        border       : 1px solid var(--fm-line-soft);
-        border-radius: var(--fm-chip-radius);
-        background   : var(--fm-panel);
-    }
-
-    .fm-task-time,
-    .fm-task-state,
-    .fm-task-progress-text {
-        color: var(--fm-ink-dim);
-        font : var(--fm-text-micro);
-    }
-
-    .fm-task-time {
-        flex       : none;
-        white-space: nowrap;
-    }
-
-    /* one line, ellipsis — the density-frozen-window rule; the detail rides the title */
-    .fm-task-name {
-        color        : var(--fm-ink);
-        font         : var(--fm-text-body);
-        min-width    : 0;
-        overflow     : hidden;
-        text-overflow: ellipsis;
-        white-space  : nowrap;
-    }
-
-    /* "in progress" is a first-class rendered state — a word, never an absence */
-    .fm-task-state {
-        flex       : none;
-        white-space: nowrap;
-    }
-
-    /* the progress idiom: a rhythm-high native bar PLUS the number as text — the bar is the
-       glance, the text is the 1.4.1 channel; a backlog gauge uses the same geometry under its own
-       word (the state cell says "backlog"), because a queue is not a task */
-    .fm-task-progress {
-        align-items: center;
-        display    : flex;
-        flex       : none;
-        gap        : var(--fm-space-1);
-    }
-
-    .fm-task-bar {
-        appearance        : none;
-        -webkit-appearance: none;
-        background        : var(--fm-panel-2);
-        border            : none;
-        border-radius     : 999px;
-        height            : var(--fm-space-1);
-        overflow          : hidden;
-        width             : calc(var(--fm-space-4) * 4);
-
-        &::-webkit-progress-bar {
-            background: var(--fm-panel-2);
-        }
-
-        &::-webkit-progress-value {
-            background: var(--fm-signal);
-        }
-
-        &::-moz-progress-bar {
-            background: var(--fm-signal);
-        }
-
-        /* width updates are state transitions (the chip precedent); the vocabulary layer's
-           reduced-motion collapse flows through var(--motion-base) by construction */
-        @media (prefers-reduced-motion: no-preference) {
-            &::-webkit-progress-value {
-                transition: width var(--motion-base) var(--ease-out-soft);
-            }
-        }
-    }
-
-    .fm-task-progress-text {
-        font-variant-numeric: tabular-nums;
-        white-space         : nowrap;
-    }
-
-    /* the freshness ledger chip — the S1 vocabulary, verbatim from the AgentDetail sibling so the
-       cockpit speaks ONE freshness language in every mount (values must not drift); the task pane
-       adds its provenance tones on the same pill: live / sample / unavailable at the section, the
-       source axis at the row */
-    .fm-freshness {
-        flex         : none;
-        font         : var(--fm-text-micro);
-        line-height  : 1;
-        white-space  : nowrap;
-        padding      : 2px 7px;
-        border-radius: 999px;
-        background   : color-mix(in srgb, currentColor 12%, transparent);
-        color        : var(--fm-ink-dim);
-
-        &.is-live,
-        &.is-source-orchestrator {
-            color: var(--fm-signal);
-        }
-
-        &.is-source-mc,
-        &.is-source-kb,
-        &.is-sample {
-            color: var(--fm-ink-dim);
-        }
-
-        &.is-unavailable {
-            color: var(--fm-state-wedged);
-        }
     }
 
     .fm-tasks-actions {

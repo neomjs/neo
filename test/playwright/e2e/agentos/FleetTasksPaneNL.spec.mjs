@@ -114,16 +114,17 @@ test.describe('AgentOS Tasks pane — the WHAT surface through the authenticated
             // the meta line names every source axis by its own state word
             await expect(pane.locator('.fm-tasks-meta')).toContainText('orchestrator live · memory core live · knowledge base not reachable');
 
-            const sections = pane.locator('.fm-tasks-section');
-            await expect(sections).toHaveCount(3);
-            await expect(sections.nth(0).locator('.fm-tasks-section-label')).toHaveText('Running');
-            await expect(sections.nth(1).locator('.fm-tasks-section-label')).toHaveText('Queued · next');
-            await expect(sections.nth(2).locator('.fm-tasks-section-label')).toHaveText('Recent');
+            // the flat store-driven list: section headers and rows are li siblings
+            const heads = pane.locator('.fm-tasks-section-head');
+            await expect(heads).toHaveCount(3);
+            await expect(heads.nth(0).locator('.fm-tasks-section-label')).toHaveText('Running');
+            await expect(heads.nth(1).locator('.fm-tasks-section-label')).toHaveText('Queued · next');
+            await expect(heads.nth(2).locator('.fm-tasks-section-label')).toHaveText('Recent');
             await expect(pane.locator('.fm-tasks-section-head .fm-freshness')).toHaveText(['live', 'live', 'live']);
 
             // running: the determinate idiom in REAL DOM — a native progress element carrying the
             // fraction as data, plus the percentage as text beside it
-            const run = sections.nth(0).locator('.fm-task-row');
+            const run = pane.locator('.fm-task-row.is-running');
             await expect(run).toHaveCount(1);
             await expect(run.locator('.fm-task-name')).toHaveText('KB ingestion');
             await expect(run.locator('.fm-task-state')).toHaveText('embedding');
@@ -133,7 +134,7 @@ test.describe('AgentOS Tasks pane — the WHAT surface through the authenticated
             await expect(run.locator('.fm-freshness')).toHaveText('knowledge base');
 
             // queued: the due repo carries no bar; the backlog gauge keeps its word and renders done / total
-            const queued = sections.nth(1).locator('.fm-task-row');
+            const queued = pane.locator('.fm-task-row.is-queued');
             await expect(queued).toHaveCount(2);
             await expect(queued.nth(0).locator('.fm-task-name')).toHaveText('Repo sync · cbff435f');
             await expect(queued.nth(0).locator('.fm-task-state')).toHaveText('due');
@@ -144,7 +145,7 @@ test.describe('AgentOS Tasks pane — the WHAT surface through the authenticated
             await expect(queued.nth(1).locator('.fm-task-time')).toHaveText('—');
 
             // recent
-            await expect(sections.nth(2).locator('.fm-task-row .fm-task-name')).toHaveText(['Tenant repo sync']);
+            await expect(pane.locator('.fm-task-row.is-recent .fm-task-name')).toHaveText(['Tenant repo sync']);
 
             // the refresh affordance is an INTENT that crosses the real wire: the bridge records a
             // second fleetTasks request, and the replacement envelope REPLACES the rows — no accumulation
@@ -159,10 +160,10 @@ test.describe('AgentOS Tasks pane — the WHAT surface through the authenticated
 
             await pane.locator('.fm-tasks-actions .neo-button', {hasText: 'Refresh'}).click();
 
-            await expect(sections.nth(0).locator('.fm-tasks-empty')).toHaveText('Nothing in flight.', {timeout: 30000});
-            await expect(sections.nth(1).locator('.fm-tasks-empty')).toHaveText('Nothing scheduled.');
-            await expect(sections.nth(0).locator('.fm-task-row')).toHaveCount(0);
-            await expect(sections.nth(2).locator('.fm-task-row')).toHaveCount(1);
+            await expect(pane.locator('.fm-tasks-empty-row.is-running .fm-tasks-empty')).toHaveText('Nothing in flight.', {timeout: 30000});
+            await expect(pane.locator('.fm-tasks-empty-row.is-queued .fm-tasks-empty')).toHaveText('Nothing scheduled.');
+            await expect(pane.locator('.fm-task-row.is-running')).toHaveCount(0);
+            await expect(pane.locator('.fm-task-row.is-recent')).toHaveCount(1);
 
             expect(fleet.requests.filter(request => request.method === 'fleetTasks').length).toBeGreaterThan(before);
         } finally {
