@@ -1,4 +1,4 @@
-import Component from '../../../../../src/component/Base.mjs';
+import Component from '../../../src/component/Base.mjs';
 
 /**
  * @summary The editor pane's ticking-clock witness: a live seconds clock that keeps
@@ -14,16 +14,16 @@ import Component from '../../../../../src/component/Base.mjs';
  *
  * Interval hygiene: the tick starts on mount, stops on unmount, and destroy() is
  * idempotent about it — a demo pane must never leak timers across re-projections.
- * @class AgentOS.childapps.dockdemo.view.ClockPane
+ * @class Neo.examples.dashboard.choreography.ClockPane
  * @extends Neo.component.Base
  */
 class ClockPane extends Component {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.ClockPane'
+         * @member {String} className='Neo.examples.dashboard.choreography.ClockPane'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.ClockPane',
+        className: 'Neo.examples.dashboard.choreography.ClockPane',
         /**
          * @member {String[]} cls=['agentos-dockdemo-pane','agentos-dockdemo-clock-pane']
          */

@@ -1,5 +1,5 @@
 {
-    "appPath"         : "apps/agentos/childapps/dockdemo/app.mjs",
+    "appPath"         : "apps/agentos/childapps/missioncontrol/app.mjs",
     "basePath"        : "../../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",

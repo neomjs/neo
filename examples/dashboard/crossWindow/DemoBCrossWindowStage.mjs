@@ -1,11 +1,11 @@
-import Container            from '../../../../../src/container/Base.mjs';
-import DockDropIndicators   from '../../../../../src/dashboard/DockDropIndicators.mjs';
-import DockPreview          from '../../../../../src/dashboard/DockPreview.mjs';
-import DockZoneModel        from '../../../../../src/dashboard/DockZoneModel.mjs';
-import {previewToOperation} from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import Container            from '../../../src/container/Base.mjs';
+import DockDropIndicators   from '../../../src/dashboard/DockDropIndicators.mjs';
+import DockPreview          from '../../../src/dashboard/DockPreview.mjs';
+import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
+import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
 
 /**
- * @module AgentOS.childapps.dockdemo.view.DemoBCrossWindowStage
+ * @module Neo.examples.dashboard.crossWindow.DemoBCrossWindowStage
  * @summary The Demo-B cross-window STAGE choreography the workspace composes — staging a second
  * render target, mounting its participation, measuring its geometry, and retiring it after a
  * whole-stack return. Extracted from `DemoBWorkspace` (decomposition Phase 1) with zero behavior
@@ -155,7 +155,7 @@ export function createCrossWindowStage(seams) {
      * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation|null>}
      */
     async function createParticipation(workspaceId, windowId, host, generation) {
-        let Participation = (await import('../../../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
+        let Participation = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
 
         if (!isTargetCurrent(workspaceId, windowId, host, generation)) {
             return null
@@ -533,7 +533,7 @@ export function createCrossWindowStage(seams) {
      * @returns {Promise<Object>}
      */
     async function positionStage({attempts=120, delay=16}={}) {
-        let WindowManager = (await import('../../../../../src/manager/Window.mjs')).default,
+        let WindowManager = (await import('../../../src/manager/Window.mjs')).default,
             sourceWindow  = WindowManager.get(getWindowId()),
             targetWindow  = WindowManager.get(getTargetWindowId(workspaceIds.popup)),
             sourceData    = await Neo.Main.getWindowData({windowId: getWindowId()}),

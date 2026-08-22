@@ -1,29 +1,29 @@
-import Component                            from '../../../../../src/component/Base.mjs';
-import Container                            from '../../../../../src/container/Base.mjs';
+import Component                            from '../../../src/component/Base.mjs';
+import Container                            from '../../../src/container/Base.mjs';
 import CounterPane                          from './CounterPane.mjs';
 import {createCrossWindowStage}             from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators                   from '../../../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                    from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                     from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore                 from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                          from '../../../../../src/dashboard/DockPreview.mjs';
-import DockPreviewProducer                  from '../../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler             from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                          from '../../../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler               from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
-import DockZoneModel                        from '../../../../../src/dashboard/DockZoneModel.mjs';
-import InteractionService                   from '../../../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}         from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
-import {createDockTearOutHandlers}          from '../../../../../src/dashboard/DockTearOut.mjs';
-import {createDockVesselEmbodiment}         from '../../../../../src/dashboard/DockVesselEmbodiment.mjs';
-import {createDockWorkspaceSet}             from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
-import {createVesselParkHandlers}           from '../../../../../src/dashboard/DockVesselPark.mjs';
-import TourRunner                           from '../../../../../src/ai/client/TourRunner.mjs';
-import {PREVIEW_SCHEMA, previewToOperation} from '../../../../../src/dashboard/dockPreviewContract.mjs';
-import {demoBTourScript, initialDocument}   from '../../../tour/demoBPerspectives.mjs';
-import '../../../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
-import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
-import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the bars use
+import DockDropIndicators                   from '../../../src/dashboard/DockDropIndicators.mjs';
+import DockLayoutAdapter                    from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                     from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore                 from '../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreview                          from '../../../src/dashboard/DockPreview.mjs';
+import DockPreviewProducer                  from '../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler             from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                          from '../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler               from '../../../src/dashboard/DockTopologyReconciler.mjs';
+import DockZoneModel                        from '../../../src/dashboard/DockZoneModel.mjs';
+import InteractionService                   from '../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}         from '../../../src/dashboard/DockKeyboardCommands.mjs';
+import {createDockTearOutHandlers}          from '../../../src/dashboard/DockTearOut.mjs';
+import {createDockVesselEmbodiment}         from '../../../src/dashboard/DockVesselEmbodiment.mjs';
+import {createDockWorkspaceSet}             from '../../../src/dashboard/DockWorkspaceSet.mjs';
+import {createVesselParkHandlers}           from '../../../src/dashboard/DockVesselPark.mjs';
+import TourRunner                           from '../../../src/ai/client/TourRunner.mjs';
+import {PREVIEW_SCHEMA, previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
+import {demoBTourScript, initialDocument}   from './demoBPerspectives.mjs';
+import '../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
+import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
+import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the bars use
 
 /**
  * @summary The Demo-B showcase workspace: named perspectives that MORPH, and a pane that
@@ -43,13 +43,13 @@ import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype 
  *   handed across every re-projection by `DockProjectionReconciler`), so detaching the
  *   workbench moves the LIVE component into the popup window's view tree
  *   (`mainView.add(instance)` — both windows share one App Worker) and reattaching moves it
- *   home. The {@link AgentOS.childapps.dockdemo.view.CounterPane} witness makes the
+ *   home. The {@link Neo.examples.dashboard.crossWindow.CounterPane} witness makes the
  *   reparent-never-recreate contract visible: its count survives because its instance does.
  *   Document honesty: pop-out and item return use the atomic two-document `transferItem` seam;
  *   the popup stack-handle return composes the sibling `transferNode` seam. Ownership therefore
  *   moves commit-or-neither while component reparenting stays orthogonal.
  *
- * @class AgentOS.childapps.dockdemo.view.DemoBWorkspace
+ * @class Neo.examples.dashboard.crossWindow.DemoBWorkspace
  * @extends Neo.container.Base
  */
 class DemoBWorkspace extends Container {
@@ -87,10 +87,10 @@ class DemoBWorkspace extends Container {
     static POPUP2_WINDOW_NAME = 'demo-b-cross-window-2'
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.DemoBWorkspace'
+         * @member {String} className='Neo.examples.dashboard.crossWindow.DemoBWorkspace'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace',
+        className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace',
         /**
          * Theme dependencies: the FM token bridge, the dock motion/token contract file (the
          * projected tree is plain containers; nothing loads it per-class), and Demo A's skin
@@ -101,7 +101,7 @@ class DemoBWorkspace extends Container {
         additionalThemeFiles: [
             'AgentOS.view.Viewport',
             'Neo.dashboard.Container',
-            'AgentOS.childapps.dockdemo.view.DemoAWorkspace'
+            'Neo.examples.dashboard.choreography.DemoAWorkspace'
         ],
         /**
          * @member {String[]} cls=['agentos-dockdemo-workspace','agentos-dockdemo-workspace-b']
@@ -1443,7 +1443,7 @@ class DemoBWorkspace extends Container {
 
     /**
      * Facade over the extracted cross-window stage module — the spec-stable
-     * public seam. The choreography lives in {@link AgentOS.childapps.dockdemo.view.DemoBCrossWindowStage}.
+     * public seam. The choreography lives in {@link Neo.examples.dashboard.crossWindow.DemoBCrossWindowStage}.
      * @param {Neo.app.Base} app
      * @param {String} windowId
      * @returns {Promise<Object|null>}
@@ -2023,7 +2023,7 @@ class DemoBWorkspace extends Container {
                     : [],
                 targetGeometry = me.crossWindowGeometry.get(targetWorkspaceId),
                 targetRect     = targetGeometry?.zones.find(zone => zone.nodeId === targetNodeId)?.rect,
-                WindowManager  = (await import('../../../../../src/manager/Window.mjs')).default,
+                WindowManager  = (await import('../../../src/manager/Window.mjs')).default,
                 sourceWindow   = WindowManager.get(sourceButton?.windowId),
                 targetWindow   = WindowManager.get(me.crossWindowTargetWindowId);
 
@@ -2599,7 +2599,7 @@ class DemoBWorkspace extends Container {
                 tabs          = host?.down({dockNodeId: sourceNodeId}),
                 sortZone      = tabs?.getTabBar()?.sortZone,
                 itemIndex     = node.items.indexOf(itemId),
-                WindowManager = (await import('../../../../../src/manager/Window.mjs')).default;
+                WindowManager = (await import('../../../src/manager/Window.mjs')).default;
 
             button = tabs?.getTabAtIndex(itemIndex);
 

@@ -31,16 +31,16 @@ import '../../../../../src/toolbar/Base.mjs'; // registers the `toolbar` ntype t
  * displaced. The fusion tour is the play button; the mission-control walkthrough is driven
  * programmatically by its e2e leg and the recording pipeline through {@link #playWalkthroughTour}.
  *
- * @class AgentOS.childapps.dockdemo.view.MissionControlWorkspace
+ * @class AgentOS.childapps.missioncontrol.view.MissionControlWorkspace
  * @extends Neo.container.Base
  */
 class MissionControlWorkspace extends Container {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.MissionControlWorkspace'
+         * @member {String} className='AgentOS.childapps.missioncontrol.view.MissionControlWorkspace'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.MissionControlWorkspace',
+        className: 'AgentOS.childapps.missioncontrol.view.MissionControlWorkspace',
         /**
          * The composed cockpit and its sub-tree carry `--fm-*` tokens defined in the main app
          * Viewport's theme layer; per-class CSS loading would never fetch it from a childapp, so
