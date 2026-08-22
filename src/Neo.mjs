@@ -4,8 +4,17 @@ import {isDescriptor} from './core/ConfigSymbols.mjs';
 const
     camelRegex   = /-./g,
     configSymbol = Symbol.for('configSymbol'),
-    getSetCache  = Symbol('getSetCache'),
-    cloneMap     = {
+    /**
+     * Keys that steer a property write onto the prototype chain instead of the object.
+     *
+     * `__proto__` is the setter; `constructor` and `prototype` are the two-hop route to the same
+     * place. A `JSON.parse`d payload carries `__proto__` as an OWN enumerable key, so any traversal
+     * that enumerates untrusted input has to refuse them explicitly — the object model will not.
+     * @type {Set<String>}
+     */
+    protoChainKeys = new Set(['__proto__', 'constructor', 'prototype']),
+    getSetCache    = Symbol('getSetCache'),
+    cloneMap       = {
         Array(obj, deep, ignoreNeoInstances) {
             return !deep ? obj.slice() : obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))
         },
@@ -540,7 +549,21 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
     },
 
     /**
-     * Deep-merges a source object into a target object
+     * Deep-merges a source object into a target object.
+     *
+     * **`__proto__`, `constructor` and `prototype` are skipped.** All three are silently dropped
+     * from `source`: they never appear as own properties of the returned target, and they never
+     * modify what the target inherits. The skip is unconditional — it does not depend on the
+     * value's type, on nesting depth, or on whether the key arrived as an own or inherited one —
+     * because a `JSON.parse`d payload carries `__proto__` as an OWN enumerable key and this method
+     * is part of the public default export, so its own boundary is the security boundary.
+     *
+     * A caller that legitimately needs to transport one of those three names must assign it
+     * directly rather than merge it; there is no opt-out, deliberately.
+     *
+     * Branch decisions use `Object.hasOwn(target, key)`, so an INHERITED property on the target is
+     * not mistaken for an existing branch to recurse into.
+     *
      * @memberOf module:Neo
      * @param {Object} target
      * @param {Object} source
@@ -557,10 +580,25 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
         }
 
         for (const key in source) {
+            // `for…in` enumerates inherited keys, and `JSON.parse` produces `__proto__` as an OWN
+            // enumerable one — so a parsed payload can steer this loop onto the prototype chain.
+            // Skipping the three chain keys is what keeps the write below on the caller's object.
+            //
+            // The guard lives HERE, in the primitive, because `Neo.merge` is part of the public
+            // default export: no census of repository callers can bound who calls it. It is not
+            // hypothetical even inside this repository — `ai/mcp/client/config.mjs` passes a
+            // `JSON.parse`d file chosen by an `mcp-cli --config` flag straight in, and
+            // `src/worker/Base.mjs` merges worker-message payloads into `Neo.config`.
+            if (protoChainKeys.has(key)) {
+                continue
+            }
+
             const value = source[key];
 
             if (Neo.typeOf(value) === 'Object') {
-                target[key] = Neo.merge(target[key] || {}, value)
+                // `Object.hasOwn`, not truthiness: an inherited property would otherwise read as an
+                // existing branch and this would recurse into shared state instead of a fresh node.
+                target[key] = Neo.merge(Object.hasOwn(target, key) ? target[key] : {}, value)
             } else {
                 target[key] = value
             }
