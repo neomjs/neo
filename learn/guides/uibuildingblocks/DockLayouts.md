@@ -161,21 +161,36 @@ window. State that wants to live in two rows is two pieces of state — the revi
 
 ## Adopting docking in your application
 
-The workstation app (`apps/workstation/`) is the worked example — a dense twenty-pane cockpit built exactly this way.
-The adoption surface is deliberately small:
+The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) is the dense
+twenty-pane cockpit built on it, and — honest measurement — it, the fleet cockpit, and the dock demos each still carry
+a hand-rolled copy of that loop (four to five thousand lines apiece at the time of writing) that migrates to the engine
+class under epic `#17539`; measure your own adoption against `examples/dashboard/dock/`, not against those. Once you
+extend the class, the adoption surface is:
 
-1. **Own a document.** Your workspace container holds the committed `dockModel` and exposes the two seams the landed
-   pattern names: `applyDockZoneOperation(descriptor)` — a pure call through `DockZoneModel.applyOperation` — and
-   `onDockZoneDocumentChange(document)`, which stores the committed result and re-projects it through the adapter.
-2. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
+1. **Extend `Neo.dashboard.DockWorkspace`.** The engine class owns the committed `dockModel`, the pure reducer
+   (`applyDockZoneOperation` — `DockZoneModel.applyOperation` over the current document), the deferred, promise-chained
+   re-projection (`onDockZoneDocumentChange` → `DockLayoutAdapter` → `DockProjectionReconciler`, bracketed by FLIP
+   motion) and the in-window cross-zone drop path. Your subclass overrides `resolvePane(itemId, item)` and, when it has
+   them, the handful of hooks for owner-preserved panes, chrome that syncs on every re-projection, and extra projection
+   options. `examples/dashboard/dock/MainContainer.mjs` is the minimal consumer.
+2. **Seed the document, mount the first shell.** The class owns the loop, not your boot state. Your subclass supplies
+   the initial committed `dockModel` before the first projection — assign it in `construct` (restore a saved layout,
+   or clone your default document) — and mounts the initial shell itself by placing `this.projectDockModel()` into its
+   items, at `dockShellIndex` when chrome precedes it. Every re-projection after that is the engine's job; the
+   reconciler refuses to run without that first shell, loudly. Two prerequisites travel with this step: a subclass
+   that declares its own `additionalThemeFiles` REPLACES the inherited list, so repeat `'Neo.dashboard.Container'`
+   (and add `'Neo.container.Viewport'` when your workspace is the app root, since it no longer extends the viewport
+   class that would load it — the example shows both); and the FLIP motion rides the `DockFlip` main-thread addon,
+   degrading to instant landing when it is absent.
+3. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
    serializable `blueprint` for creation-from-saved-state). Policy hints (`closable`, `pinnable`, `movable`) are
    enforced at the operation layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI
    code.
-3. **Give vessels a render target.** Tear-out windows load a bare child app whose viewport is deliberately empty — a
+4. **Give vessels a render target.** Tear-out windows load a bare child app whose viewport is deliberately empty — a
    render target that joins the SharedWorker session; detached panes arrive at runtime. The agentos app's
    `childapps/widget` viewport is the canonical example — a bare viewport class whose own JSDoc says it all:
    "deliberately empty: detached panels arrive at runtime; nothing is declared here."
-4. **Persist through the wrappers, not by hand.** `createSavedLayout` / `restoreSavedLayout` and the
+5. **Persist through the wrappers, not by hand.** `createSavedLayout` / `restoreSavedLayout` and the
    perspective-carrying `dockLayout.v2` envelope give you named, switchable, fail-closed-validated arrangements.
    Restore refuses invalid documents wholesale — your users' layouts never half-restore.
 

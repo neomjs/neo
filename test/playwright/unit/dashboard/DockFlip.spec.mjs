@@ -9,8 +9,8 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
-import MainContainer  from '../../../../examples/dashboard/dock/MainContainer.mjs';
 import DockFlip       from '../../../../src/main/addon/DockFlip.mjs';
+import DockWorkspace  from '../../../../src/dashboard/DockWorkspace.mjs';
 
 /**
  * Creates the iterable class-list surface consumed by DockFlip.
@@ -100,13 +100,23 @@ test.describe('Neo.main.addon.DockFlip', () => {
                     }
                 }
             },
+            // a duck-typed host borrowing the engine class's projection loop: the members the
+            // loop consults are supplied explicitly, the marker stamp rides the class default
             context = {
                 applyDockZoneOperation() {},
-                dockModel: model,
+                decorateFlipMarker      : DockWorkspace.prototype.decorateFlipMarker,
+                dockModel               : model,
+                dockProjectionConfig    : null,
+                flipMarkerPrefix        : 'dock-flip-item-',
+                getDockProjectionOptions: () => ({}),
+                getPaneHeaderText       : DockWorkspace.prototype.getPaneHeaderText,
                 onDockCrossZoneDrop() {},
-                onDockZoneDocumentChange() {}
+                onDockZoneDocumentChange() {},
+                resolvePane         : DockWorkspace.prototype.resolvePane,
+                resolveProjectedPane: DockWorkspace.prototype.resolveProjectedPane,
+                resolveRevealPane   : DockWorkspace.prototype.resolveRevealPane
             },
-            projected = MainContainer.prototype.projectDockModel.call(context),
+            projected = DockWorkspace.prototype.projectDockModel.call(context),
             markers   = projected.items.map(item => item.cls.find(cls => cls.startsWith('dock-flip-item-')));
 
         expect(markers).toEqual([
