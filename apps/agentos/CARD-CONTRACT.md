@@ -42,7 +42,7 @@ The single citable contract for what an agent card renders, from which wire fiel
 
 The six entries the recompose introduced, each now carrying its witness. **Reading spec titles is the audit; grepping slugs is not** — the pass that mapped these found that NO conformance slug on this page appeared in any `test/` file, including the mapped rows above, because the assertions carry prose titles (`key-is-id` is witnessed as "never a re-key"). A slug grep would have reported false gaps. Every slug below is now greppable: the four specs added here are slug-titled, and the two pre-existing witnesses carry the slug in a comment, so `git grep <slug> -- test/` resolves every row.
 
-`unit` = `test/playwright/unit/apps/agentos/view/fleet/agentCard.spec.mjs` · `grid` = `…/fleetGrid.spec.mjs` · `e2e` = `test/playwright/e2e/agentos/AgentCardSynthesisRenderNL.spec.mjs`
+`unit` = `test/playwright/unit/apps/agentos/view/fleet/roster/card/container.spec.mjs` · `grid` = `…/fleetGrid.spec.mjs` · `e2e` = `test/playwright/e2e/agentos/AgentCardSynthesisRenderNL.spec.mjs`
 
 - [x] `avatar-persists` (#15536) — **unit**: a null `avatarUrl` keeps the slot mounted and visible with its `alt` retained; no lifecycle state hides the face. **e2e**: goldens render the avatar at 294 / 360 / 720 px in both themes. Width persistence is a `@container` fact and is golden-borne by design; the unit owns the data-driven half only.
 - [x] `lane-elision-distinguishes` (#15536) — **unit**: the two `control-plane…` fixtures the e2e also renders collapse to an IDENTICAL head while their preserved tails differ, each an inert text node with no `title` fallback. The goldens catch a visual regression; the unit owns the semantic claim a regenerated baseline could otherwise bless away.

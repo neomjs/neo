@@ -19,7 +19,7 @@ import {IDENTITIES}            from '../../graph/identityRoots.mjs';
  *   (`sources.roster`) plus the `_meta` block, so "this is a registry snapshot" is visible in the
  *   data itself. Live session state is the wired roster path's job (`FleetCockpit.loadRoster`).
  *   The per-row stamp is a DECLARED-CALM source fact in the cockpit's source-health contract
- *   (`apps/agentos/view/fleet/sourceHealth.mjs`): it names the live producer as expected-absent
+ *   (`apps/agentos/util/sourceHealth.mjs`): it names the live producer as expected-absent
  *   (`not-wired` / `none`) and carries the static provenance in `reason`. A bare provenance string
  *   is a present-but-malformed fact there — `invalid`, one red alarm per card on the offline
  *   first-run; declared absence is the one present shape allowed to be calm. The producer literal

@@ -65,7 +65,7 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
             const app = await neuralLink.connectToApp('AgentOS');
             await wireAuthenticatedFleetBridge({app, fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
 
-            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
             expect(cockpit?.properties?.id).toBeTruthy();
             await app.callMethod(cockpit.properties.id, 'loadRoster');
             await app.callMethod(cockpit.properties.id, 'loadOperatorIdentity');
@@ -79,8 +79,8 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
             await expect(mailboxPane).toBeVisible({timeout: 10000});
             await expect(mailboxPane).toContainText('No active messages for @e2e-operator');
 
-            const [mailbox] = await app.queryComponent({className: 'AgentOS.view.fleet.OperatorMailbox'}, ['id', 'record', 'snapshot']),
-                  [form]    = await app.queryComponent({className: 'AgentOS.view.fleet.OperatorComposeForm'}, ['id', 'recipientOptions', 'composeOutcome']),
+            const [mailbox] = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.OperatorContainer'}, ['id', 'record', 'snapshot']),
+                  [form]    = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.ComposeForm'}, ['id', 'recipientOptions', 'composeOutcome']),
                   [list]    = await app.queryComponent({reference: 'compose-recipients'}, ['id', 'selectionModel']);
 
             expect(mailbox.properties.record).toEqual({agentIdentityNodeId: '@e2e-operator', githubUsername: 'e2e-operator'});

@@ -8,7 +8,7 @@ import {
 // the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
 // the expectation imports the same helper instead of hard-coding either the UTC wire form or a
 // zone-dependent literal (browser and runner share the host zone)
-import {formatViewerTime} from '../../../../apps/agentos/view/fleet/viewerTime.mjs';
+import {formatViewerTime} from '../../../../apps/agentos/util/viewerTime.mjs';
 
 const WINDOW = {
     semantics  : 'half-open',
@@ -142,7 +142,7 @@ test.describe('AgentOS Fleet catch-up — authenticated resident-tab journey (#1
             const app = await neuralLink.connectToApp('AgentOS');
             await wireAuthenticatedFleetBridge({app, fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
 
-            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
             expect(cockpit?.properties?.id).toBeTruthy();
             await app.callMethod(cockpit.properties.id, 'loadRoster');
 

@@ -62,7 +62,7 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
         await expect(page.locator('[class*="dock-flip-item-stream"]').first()).toBeVisible();
 
         const app      = await neuralLink.connectToApp('AgentOS'),
-              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId = Array.isArray(cockpits) ? cockpits[0]?.id : cockpits?.id;
 
         expect(holderId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();
@@ -75,8 +75,8 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
         expect(doc0.nodes['primary-split'].children).toEqual(['fleet-tabs', 'stream-tabs']);
         expect(doc0.nodes['cockpit-root'].zones.center).toBe('primary-split');
 
-        const fleetGrids = await app.findInstances({className: 'AgentOS.view.fleet.FleetGrid'}, ['id']),
-              streams    = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['id']),
+        const fleetGrids = await app.findInstances({className: 'AgentOS.view.fleet.roster.Container'}, ['id']),
+              streams    = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['id']),
               identity   = {
                   fleetGrid: (Array.isArray(fleetGrids) ? fleetGrids[0] : fleetGrids)?.id,
                   stream   : (Array.isArray(streams) ? streams[0] : streams)?.id,
@@ -213,13 +213,13 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
         await expect(focusButton, 'the preset bar must render on the boot surface').toBeVisible({timeout: 30000});
 
         const app      = await neuralLink.connectToApp('AgentOS'),
-              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId = Array.isArray(cockpits) ? cockpits[0]?.id : cockpits?.id;
 
         expect(holderId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();
 
-        const fleetGrids = await app.findInstances({className: 'AgentOS.view.fleet.FleetGrid'}, ['id']),
-              streams    = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['id']),
+        const fleetGrids = await app.findInstances({className: 'AgentOS.view.fleet.roster.Container'}, ['id']),
+              streams    = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['id']),
               keepers    = {
                   fleetGrid: (Array.isArray(fleetGrids) ? fleetGrids[0] : fleetGrids)?.id,
                   stream   : (Array.isArray(streams) ? streams[0] : streams)?.id,
@@ -262,7 +262,7 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
 
         await expect(page.locator('.fm-agent-detail'), 'Review materializes the genuinely absent detail pane')
             .toBeVisible({timeout: 10000});
-        const details = await app.findInstances({className: 'AgentOS.view.fleet.AgentDetail'}, ['id']),
+        const details = await app.findInstances({className: 'AgentOS.view.fleet.detail.Container'}, ['id']),
               detail  = Array.isArray(details) ? details[0] : details;
         expect(detail?.id, 'the absent-item resolver returns one live AgentDetail component').toBeTruthy();
 
@@ -276,7 +276,7 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
 
         await expect(page.locator('.fm-agent-detail'), 'returning to Fleet retires the no-longer-projected detail pane')
             .toHaveCount(0);
-        const detailsAfter = await app.findInstances({className: 'AgentOS.view.fleet.AgentDetail'}, ['id']);
+        const detailsAfter = await app.findInstances({className: 'AgentOS.view.fleet.detail.Container'}, ['id']);
         expect((Array.isArray(detailsAfter) ? detailsAfter : [detailsAfter]).filter(entry => entry?.id),
             'the retired detail component leaves no worker-side corpse').toEqual([]);
 

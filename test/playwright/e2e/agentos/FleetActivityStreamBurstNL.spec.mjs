@@ -19,14 +19,14 @@ import {NeuralLink_InstanceService} from '../../../../ai/services.mjs';
  * started — the stream is possessed directly, so `loadActivity`'s no-bridge path keeps the sample
  * seed until this test overrides it.
  *
- * @see apps/agentos/view/fleet/ActivityStream.mjs
- * @see test/playwright/unit/apps/agentos/view/fleet/activityStream.spec.mjs
+ * @see apps/agentos/view/fleet/activity/Container.mjs
+ * @see test/playwright/unit/apps/agentos/view/fleet/activity/container.spec.mjs
  * @see test/playwright/e2e/agentos/FleetGridScaleNL.spec.mjs (the density-scale possession pattern)
  */
 test.describe('AgentOS fleet cockpit ActivityStream — burst bound holds live (Neural Link)', () => {
     test.setTimeout(90000);
 
-    const STREAM = 'AgentOS.view.fleet.ActivityStream';
+    const STREAM = 'AgentOS.view.fleet.activity.Container';
 
     /**
      * A burst of DISTINCT-actor events (so coalescing never collapses them) with monotonically

@@ -31,7 +31,7 @@ test.describe('AgentOS Fleet cockpit — dock geometry convergence (Neural Link)
         await expect(splitter).toBeVisible({timeout: 30000});
 
         const app      = await neuralLink.connectToApp('AgentOS'),
-              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId = Array.isArray(cockpits) ? cockpits[0]?.id : cockpits?.id;
 
         expect(holderId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();

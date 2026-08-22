@@ -1,7 +1,7 @@
 import {expect, test}                                            from '../../fixtures.mjs';
 // the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
 // the expectation imports it instead of hard-coding the UTC wire form or a zone-dependent literal
-import {formatViewerTime} from '../../../../apps/agentos/view/fleet/viewerTime.mjs';
+import {formatViewerTime} from '../../../../apps/agentos/util/viewerTime.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -149,7 +149,7 @@ test.describe('AgentOS Fleet memories — authenticated resident-tab journey (#1
             const app = await neuralLink.connectToApp('AgentOS');
             await wireAuthenticatedFleetBridge({app, fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
 
-            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+            const [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']);
             expect(cockpit?.properties?.id).toBeTruthy();
             await app.callMethod(cockpit.properties.id, 'loadRoster');
 

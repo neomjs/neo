@@ -28,7 +28,7 @@ import {E2E_FLEET_VIEWER, wireAuthenticatedFleetBridge} from './authenticatedFle
  *
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/FleetCockpitViewerWakeNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  *
- * @see apps/agentos/view/fleet/FleetCockpit.mjs (ensureViewerWakeStream / stampViewerWake / syncViewerWakeTelltale)
+ * @see apps/agentos/view/fleet/cockpit/Container.mjs (ensureViewerWakeStream / stampViewerWake / syncViewerWakeTelltale)
  * @see apps/agentos/fleet/fleetWakeStreamConsumer.mjs (the browser consumer under test)
  * @see ai/services/fleet/fleetWakeFanout.mjs (the production push-lane producer)
  */
@@ -191,7 +191,7 @@ test.describe('FleetCockpit — viewer wake push journey (#17130 leg 2)', () => 
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
 
         const app        = await neuralLink.connectToApp('AgentOS'),
-              [cockpit0] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              [cockpit0] = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               cockpitId  = cockpit0?.properties?.id;
 
         expect(cockpitId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();

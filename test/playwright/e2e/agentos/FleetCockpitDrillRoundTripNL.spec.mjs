@@ -43,8 +43,8 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
         const app       = await neuralLink.connectToApp('AgentOS'),
-              cards     = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
-              cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              cards     = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']),
+              cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId  = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id,
               cardCount = cards.length;
 
@@ -59,7 +59,7 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
               targetCardId = target.properties.id;
 
         const readStreamTicks = async () => {
-            const streams = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['events']),
+            const streams = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['events']),
                   stream  = Array.isArray(streams) ? streams[0] : streams;
 
             return stream?.properties?.events?.length ?? 0
@@ -76,7 +76,7 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
             payload   : {text: `journey tick ${i}`}
         }));
 
-        const streamInstances = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['id']),
+        const streamInstances = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['id']),
               liveStreamId    = (Array.isArray(streamInstances) ? streamInstances[0] : streamInstances)?.id;
 
         expect(liveStreamId, 'the worker owns one ActivityStream').toBeTruthy();
@@ -84,7 +84,7 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
         const injectTicks = n => app.callMethod(liveStreamId, 'set', [{adapterState: 'live', events: tick(n)}]);
 
         const queryDetail = async () => {
-            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id']);
+            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'}, ['record', 'id']);
 
             return (Array.isArray(matches) ? matches : [matches]).filter(Boolean)[0]
         };
@@ -275,13 +275,13 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
               home    = docHome?.document ?? docHome;
 
         expect(home.nodes['secondary-rail'].items, 'the detail re-trees on its rail').toContain('detail');
-        expect((await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['id'])).length,
+        expect((await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['id'])).length,
             'the grid census is unchanged by the round trip').toBe(cardCount);
 
         expect(await readStreamTicks(), 'the tick count never reset across the hops — 45 held through reattach').toBe(45);
 
         // ── join 4: adapter loss — stale, never frozen ───────────────────────────────────────
-        const streams  = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['id']),
+        const streams  = await app.findInstances({className: 'AgentOS.view.fleet.activity.Container'}, ['id']),
               streamId = (Array.isArray(streams) ? streams[0] : streams)?.id;
 
         await app.setProperties(streamId, {adapterState: 'stale'});

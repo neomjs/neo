@@ -18,7 +18,7 @@ import {test, expect} from '../../fixtures.mjs';
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/FmReducedMotionCollapse -c test/playwright/playwright.config.e2e.mjs --workers=1
  *
  * @see resources/scss/_motion.scss (the vocabulary + the reduced-motion collapse this witnesses)
- * @see apps/agentos/view/fleet/FleetCockpit.mjs (the cockpit-bar buttons carrying --motion-fast)
+ * @see apps/agentos/view/fleet/cockpit/Container.mjs (the cockpit-bar buttons carrying --motion-fast)
  */
 test.describe('AgentOS FM motion vocabulary — reduced-motion collapse witness (#15509)', () => {
     test.setTimeout(90000);

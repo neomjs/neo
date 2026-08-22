@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import Instance       from '../../../../../src/manager/Instance.mjs';
-import AddAgentForm   from '../../../../../apps/agentos/view/fleet/AddAgentForm.mjs';
+import AddAgentForm   from '../../../../../apps/agentos/view/fleet/instances/AddAgentForm.mjs';
 
 import {
     ADD_AGENT_STATES,
@@ -19,7 +19,7 @@ import {
     submitDefineAgent,
     validateDefinePayload,
     validateReadback
-} from '../../../../../apps/agentos/view/fleet/addAgentFlow.mjs';
+} from '../../../../../apps/agentos/util/addAgentFlow.mjs';
 
 const CREDENTIAL = 'github_pat_11TESTSECRET_shouldNeverEscape';
 
@@ -148,7 +148,7 @@ test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)',
     });
 });
 
-test.describe('AgentOS.view.fleet.AddAgentForm — flow wiring + the credential-settle rule (#15242)', () => {
+test.describe('AgentOS.view.fleet.instances.AddAgentForm — flow wiring + the credential-settle rule (#15242)', () => {
     test('bridge absent at construction renders gated with the submit affordance disabled-with-reason', () => {
         const form = Neo.create(AddAgentForm, {appName: 'AgentOSAddAgentFlowTest'});
 

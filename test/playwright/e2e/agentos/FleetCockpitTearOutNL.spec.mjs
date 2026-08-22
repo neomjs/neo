@@ -81,7 +81,7 @@ test.describe('AgentOS Fleet cockpit — gesture tear-out vessel-death return (N
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
 
         const app       = await neuralLink.connectToApp('AgentOS'),
-              cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               cockpitId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id;
 
         expect(cockpitId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();
@@ -243,7 +243,7 @@ test.describe('AgentOS Fleet cockpit — gesture tear-out vessel-death return (N
     test('stream: tear out → own OS window → vessel death → same instance comes HOME, no orphan', async ({page, neuralLink}) => {
         await runVesselDeathCycle(page, neuralLink, {
             itemId     : 'stream',
-            className  : 'AgentOS.view.fleet.ActivityStream',
+            className  : 'AgentOS.view.fleet.activity.Container',
             domSelector: '.fm-activity-stream'
         })
     });
@@ -251,7 +251,7 @@ test.describe('AgentOS Fleet cockpit — gesture tear-out vessel-death return (N
     test('operator (rail-pinned first): the item-keyed return branch holds beyond the default tree', async ({page, neuralLink}) => {
         await runVesselDeathCycle(page, neuralLink, {
             itemId     : 'operator',
-            className  : 'AgentOS.view.fleet.OperatorMailbox',
+            className  : 'AgentOS.view.fleet.mailbox.OperatorContainer',
             domSelector: '.fm-operator-mailbox',
             pin        : true
         })

@@ -23,7 +23,7 @@ test.describe('Neural Link window operations (e2e)', () => {
 
         const
             dashboards = await app.queryComponent({className: 'Neo.dashboard.Container'}, ['id', 'className', 'ntype']),
-            panels     = await app.queryComponent({className: 'AgentOS.view.Accounts'}, ['id', 'className', 'ntype', 'parentId']);
+            panels     = await app.queryComponent({className: 'AgentOS.view.accounts.Panel'}, ['id', 'className', 'ntype', 'parentId']);
 
         expect(dashboards.length, 'dashboard host should be discoverable through Neural Link').toBeGreaterThan(0);
         expect(panels.length, 'the Accounts panel should be discoverable through Neural Link').toBeGreaterThan(0);
@@ -37,7 +37,7 @@ test.describe('Neural Link window operations (e2e)', () => {
             ntype    : 'dashboard'
         });
         expect(panel.properties).toMatchObject({
-            className: 'AgentOS.view.Accounts',
+            className: 'AgentOS.view.accounts.Panel',
             ntype    : 'dashboard-panel',
             parentId : dashboard.id
         });

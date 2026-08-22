@@ -45,11 +45,11 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
         const app   = await neuralLink.connectToApp('AgentOS'),
-              cards = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']);
+              cards = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']);
 
         expect(cards.length, 'the fleet renders cards with records').toBeGreaterThan(1);
 
-        const controllers  = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpitController'}, ['id']),
+        const controllers  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Controller'}, ['id']),
               controllerId = (Array.isArray(controllers) ? controllers[0] : controllers)?.id,
               firstAgentId = cards[0]?.properties?.record?.agentId;
 
@@ -70,9 +70,9 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
         await expect(toggle).toBeVisible();
         await expect(toggle).toContainText('Pop out detail');
 
-        const cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+        const cockpits = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
               holderId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id,
-              details  = await app.findInstances({className: 'AgentOS.view.fleet.AgentDetail'}, ['id']),
+              details  = await app.findInstances({className: 'AgentOS.view.fleet.detail.Container'}, ['id']),
               detail0  = Array.isArray(details) ? details[0] : details,
               detailId = detail0?.id;
 
@@ -80,12 +80,12 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
         expect(detailId, 'the AgentDetail must exist in the App Worker').toBeTruthy();
 
         const queryDetail = async () => {
-            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id']);
+            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'}, ['record', 'id']);
             return (Array.isArray(matches) ? matches : [matches]).find(candidate => candidate?.id === detailId)
         };
 
         const queryVesselState = async () => {
-            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['detailVesselState', 'id']);
+            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.cockpit.Container'}, ['detailVesselState', 'id']);
             return (Array.isArray(matches) ? matches : [matches]).find(candidate => candidate?.id === holderId)?.properties?.detailVesselState
         };
 
@@ -181,7 +181,7 @@ test.describe('AgentOS Fleet cockpit — agent-detail pop-out round-trip (Neural
         expect(docHome.nodes['secondary-rail'].items).toContain('detail');
         expect(docHome.nodes['secondary-rail'].items.indexOf('detail'), 'exact-index restore — never an append').toBe(homeIndexBefore);
 
-        const home      = await app.findInstances({className: 'AgentOS.view.fleet.AgentDetail'}, ['id']),
+        const home      = await app.findInstances({className: 'AgentOS.view.fleet.detail.Container'}, ['id']),
               homeIds   = (Array.isArray(home) ? home : [home]).map(entry => entry?.id),
               homeState = await queryDetail();
 

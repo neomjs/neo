@@ -13,17 +13,17 @@ import {fileURLToPath} from 'url';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../src/manager/Instance.mjs';
-import Accounts        from '../../../../../apps/agentos/view/Accounts.mjs';
+import Accounts        from '../../../../../apps/agentos/view/accounts/Panel.mjs';
 
-import {runConfigIntentRoundTrip} from '../../../../../apps/agentos/view/fleet/configIntentRoundTrip.mjs';
+import {runConfigIntentRoundTrip} from '../../../../../apps/agentos/util/configIntentRoundTrip.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
     __dirname  = path.dirname(__filename),
     repoRoot   = path.resolve(__dirname, '../../../../..'),
-    viewPath   = path.join(repoRoot, 'apps/agentos/view/Accounts.mjs');
+    viewPath   = path.join(repoRoot, 'apps/agentos/view/accounts/Panel.mjs');
 
-test.describe('AgentOS.view.Accounts credential boundary', () => {
+test.describe('AgentOS.view.accounts.Panel credential boundary', () => {
     test('accepted creation applies the canonical Brain response, emits the owner intent, and clears the PAT', async () => {
         const
             canonical = {
@@ -346,7 +346,7 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
     })
 });
 
-test.describe('AgentOS.view.Accounts NL-MCP connect entry (#13548)', () => {
+test.describe('AgentOS.view.accounts.Panel NL-MCP connect entry (#13548)', () => {
     let savedAgentOS;
 
     test.beforeEach(() => { savedAgentOS = globalThis.AgentOS });
@@ -414,7 +414,7 @@ test.describe('AgentOS.view.Accounts NL-MCP connect entry (#13548)', () => {
     })
 });
 
-test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple agents)', () => {
+test.describe('AgentOS.view.accounts.Panel — agent-scoped configuration (multiple agents)', () => {
     let AgentDefinition, Store;
 
     test.beforeAll(async () => {
@@ -611,7 +611,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
     let AgentConfigCard, AgentDefinition, FleetTenants, Store, savedAgentOS;
 
     test.beforeAll(async () => {
-        AgentConfigCard = (await import('../../../../../apps/agentos/view/fleet/AgentConfigCard.mjs')).default;
+        AgentConfigCard = (await import('../../../../../apps/agentos/view/fleet/detail/AgentConfigComponent.mjs')).default;
         AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
         FleetTenants    = (await import('../../../../../apps/agentos/store/FleetTenants.mjs')).default;
         Store           = (await import('../../../../../src/data/Store.mjs')).default

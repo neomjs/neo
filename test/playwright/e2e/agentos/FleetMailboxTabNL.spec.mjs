@@ -13,8 +13,8 @@ import {test, expect} from '../../fixtures.mjs';
  * Read-only discipline (the record's MUST-NOT) is asserted live: no button/input renders anywhere
  * inside the pane, and the tab button text is exactly "Mailbox" — countless by design.
  *
- * @see apps/agentos/view/fleet/MailboxPane.mjs
- * @see apps/agentos/view/fleet/AgentDetail.mjs
+ * @see apps/agentos/view/fleet/mailbox/Container.mjs
+ * @see apps/agentos/view/fleet/detail/Container.mjs
  * @see test/playwright/e2e/agentos/FleetCockpitDrillNL.spec.mjs (the drill pattern this extends)
  */
 test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#15270)', () => {
@@ -26,7 +26,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
         const app    = await neuralLink.connectToApp('AgentOS'),
-              cards  = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+              cards  = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']),
               target = cards.find(entry => entry?.properties?.record?.agentId && entry?.properties?.id);
 
         expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
@@ -71,7 +71,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // finding rather than a coincidence.)
         await page.waitForTimeout(500);
 
-        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.MailboxPane'}, ['record', 'snapshot', 'id']);
+        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.Container'}, ['record', 'snapshot', 'id']);
         expect(mounted?.properties?.record?.agentId, 'the pane record follows the drill').toBe(expectedAgentId);
         expect(mounted?.properties?.snapshot ?? null, 'a fail-closed read assigns NOTHING — never a fabricated snapshot').toBe(null);
 
@@ -196,8 +196,8 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
      * a measurement taken there would be vacuous. `setProperties` drives real rows past the
      * admission gate exactly as the sibling test does.
      *
-     * @see resources/scss/src/apps/agentos/fleet/AgentDetail.scss (the `.neo-tab-body-container` seat)
-     * @see resources/scss/src/apps/agentos/fleet/MailboxPane.scss (the pane's own `min-width`)
+     * @see resources/scss/src/apps/agentos/fleet/detail/Container.scss (the `.neo-tab-body-container` seat)
+     * @see resources/scss/src/apps/agentos/fleet/mailbox/Container.scss (the pane's own `min-width`)
      */
     test('a full mailbox page never pushes the activity stream out of the shell, on either axis (#17313)', async ({page, neuralLink}) => {
         await page.goto('/apps/agentos/index.html');
@@ -206,7 +206,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await expect(page.locator('.fm-activity-stream')).toBeVisible({timeout: 30000});
 
         const app    = await neuralLink.connectToApp('AgentOS'),
-              cards  = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+              cards  = await app.queryComponent({className: 'AgentOS.view.fleet.roster.card.Container'}, ['record', 'id']),
               target = cards.find(entry => entry?.properties?.record?.agentId && entry?.properties?.id);
 
         expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
@@ -224,7 +224,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         const pane = detail.locator('.fm-mailbox-pane');
         await expect(pane).toBeVisible({timeout: 15000});
 
-        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.MailboxPane'}, ['id']);
+        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.Container'}, ['id']);
         expect(mounted?.properties?.id, 'the mailbox pane is mounted and addressable').toBeTruthy();
 
         // A FULL page. The subject lines are deliberately long: intrinsic WIDTH is what drove the

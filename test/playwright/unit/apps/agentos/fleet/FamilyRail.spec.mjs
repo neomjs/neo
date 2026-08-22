@@ -1,5 +1,5 @@
 import {expect, test}                            from '@playwright/test';
-import {familyClass, familyToken, isKnownFamily} from '../../../../../../apps/agentos/view/fleet/familyTokens.mjs';
+import {familyClass, familyToken, isKnownFamily} from '../../../../../../apps/agentos/util/familyTokens.mjs';
 
 // Pure family-token resolvers — imported directly, no component instantiation needed.
 

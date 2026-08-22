@@ -206,7 +206,7 @@ test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
         name      : 'FM',
         ownsVoice : false,
         rootCls   : 'fm-fleet-cockpit',
-        rule      : '/dist/development/css/src/apps/agentos/fleet/FleetCockpit.css',
+        rule      : '/dist/development/css/src/apps/agentos/fleet/cockpit/Container.css',
         tokens    : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/agentos/Viewport.css`
     }];
 

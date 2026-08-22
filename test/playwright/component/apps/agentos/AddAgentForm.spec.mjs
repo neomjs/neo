@@ -34,7 +34,7 @@ test.describe('AgentOS.view.fleet.AddAgentForm — mounted credential boundary (
         page.on('console', message => consoleLines.push(message.text()));
 
         const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), {
-            importPath: '../../apps/agentos/view/fleet/AddAgentForm.mjs',
+            importPath: '../../apps/agentos/view/fleet/instances/AddAgentForm.mjs',
             ntype     : 'fm-add-agent-form',
             parentId  : 'component-test-viewport'
         });

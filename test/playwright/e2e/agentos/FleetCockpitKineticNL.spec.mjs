@@ -114,13 +114,13 @@ test.describe('AgentOS Fleet Cockpit — kinetic multi-window choreography (#156
             await page.waitForSelector('.fm-agent-card', {timeout: 30000});
 
             const app       = await neuralLink.connectToApp('AgentOS'),
-                  cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+                  cockpits  = await app.findInstances({className: 'AgentOS.view.fleet.cockpit.Container'}, ['id']),
                   cockpitId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id;
 
             expect(cockpitId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();
 
             const readDetail = async () => {
-                const details = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'},
+                const details = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'},
                     ['id', 'mounted', 'record', 'windowId']);
 
                 return (Array.isArray(details) ? details : [details]).filter(Boolean)[0]
