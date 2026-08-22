@@ -4,6 +4,15 @@ import {isDescriptor} from './core/ConfigSymbols.mjs';
 const
     camelRegex   = /-./g,
     configSymbol = Symbol.for('configSymbol'),
+    /**
+     * Keys that steer a property write onto the prototype chain instead of the object.
+     *
+     * `__proto__` is the setter; `constructor` and `prototype` are the two-hop route to the same
+     * place. A `JSON.parse`d payload carries `__proto__` as an OWN enumerable key, so any traversal
+     * that enumerates untrusted input has to refuse them explicitly — the object model will not.
+     * @type {Set<String>}
+     */
+    PROTO_CHAIN_KEYS = new Set(['__proto__', 'constructor', 'prototype']),
     getSetCache  = Symbol('getSetCache'),
     cloneMap     = {
         Array(obj, deep, ignoreNeoInstances) {
@@ -557,10 +566,25 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
         }
 
         for (const key in source) {
+            // `for…in` enumerates inherited keys, and `JSON.parse` produces `__proto__` as an OWN
+            // enumerable one — so a parsed payload can steer this loop onto the prototype chain.
+            // Skipping the three chain keys is what keeps the write below on the caller's object.
+            //
+            // The guard lives HERE, in the primitive, because `Neo.merge` is part of the public
+            // default export: no census of repository callers can bound who calls it. It is not
+            // hypothetical even inside this repository — `ai/mcp/client/config.mjs` passes a
+            // `JSON.parse`d file chosen by an `mcp-cli --config` flag straight in, and
+            // `src/worker/Base.mjs` merges worker-message payloads into `Neo.config`.
+            if (PROTO_CHAIN_KEYS.has(key)) {
+                continue
+            }
+
             const value = source[key];
 
             if (Neo.typeOf(value) === 'Object') {
-                target[key] = Neo.merge(target[key] || {}, value)
+                // `Object.hasOwn`, not truthiness: an inherited property would otherwise read as an
+                // existing branch and this would recurse into shared state instead of a fresh node.
+                target[key] = Neo.merge(Object.hasOwn(target, key) ? target[key] : {}, value)
             } else {
                 target[key] = value
             }
