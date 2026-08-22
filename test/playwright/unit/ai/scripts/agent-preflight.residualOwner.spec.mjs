@@ -17,6 +17,9 @@ const base = [
     '',
     'Evidence: L1 (static) → L1 required. No residuals.',
     '',
+    '## AC Evidence',
+    '| AC-1 | unit spec: this file |',
+    '',
     '## Deltas',
     'one file',
     '',
@@ -466,6 +469,7 @@ test.describe('validatePrBody — Residual-Owner STATE gate (#17314)', () => {
         const inline = [
             'Resolves #100', '',
             'Evidence: L2 (unit) → L4 required (AC5 live plane). Residual: AC5 live-plane observation, Residual-Owner: #17271.', '',
+            '## AC Evidence', '| AC-1 | unit spec: this file |', '',
             '## Deltas', 'one file', '',
             '## Test Evidence', 'green', '',
             '## Post-Merge Validation', 'None deferred.', '',

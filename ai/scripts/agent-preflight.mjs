@@ -30,6 +30,7 @@ const
 // `prReviewAnchors.mjs`; sync-by-convention is deliberate.
 export const VISIBLE_PR_BODY_ANCHORS = [
     'Evidence:',
+    '## AC Evidence',
     '## Test Evidence',
     '## Post-Merge Validation'
 ];
@@ -66,6 +67,19 @@ const
     //    bare mid-line mention still cannot qualify.
     RESIDUAL_OWNER_INLINE_PATTERN = /Residual:[^\n]*?,[ \t]*Residual-Owner:[ \t]+#(\d+)/i,
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
+    // A REAL level-two heading, for the same shadowing reason as the Post-Merge pattern above.
+    AC_EVIDENCE_H2                = /^##[ \t]+AC Evidence[ \t]*$/m,
+    // One certificate row: `| AC-1 | <proof> |`. The table's header (`| AC | ... |`) carries no
+    // digit and its separator row no `AC` at all, so neither can pose as a certificate.
+    AC_EVIDENCE_ROW_PATTERN       = /^\|[ \t]*(?:\*\*)?AC[- ]?(\d+)[.:]?(?:\*\*)?[ \t]*\|[ \t]*(.*?)[ \t]*\|[ \t]*$/,
+    // The sanctioned alternative for close targets without a structured AC list.
+    NO_STRUCTURED_ACS_PATTERN     = /^[ \t]*No structured ACs on #(\d+)\b/m,
+    // A proof slot that holds no proof: empty, a dash placeholder, or a promise word.
+    EMPTY_PROOF_PATTERN           = /^(?:[-—–]+|n\/a|tbd|todo|pending)?$/i,
+    // A ticket's structured AC line: a TOP-LEVEL checkbox bullet or a numbered `AC-N` bullet.
+    // Indented sub-bullets are elaboration, not additional criteria.
+    TICKET_AC_LINE_PATTERN        = /^[-*][ \t]+(?:\[[ xX]\]|(?:\*\*)?AC[- ]?\d+)/,
+    ACCEPTANCE_CRITERIA_H2        = /^##[ \t]+Acceptance Criteria[ \t]*$/im,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
     DECLARED_TICKET_PATTERN       = /\b(?:Resolves|Refs|Related):?\s+#(\d+)/gi,
@@ -385,6 +399,82 @@ function firstLiveObligation(section = '') {
     return line ? line.trim() : null
 }
 
+/**
+ * @summary A close-target ticket's structured AC lines, in body order.
+ *
+ * The dominant ticket format is ANONYMOUS checkbox bullets under `## Acceptance Criteria`; a
+ * minority carries numbered `AC-N:` bullets. Certificates therefore match by COUNT IN ORDER —
+ * the k-th table row certifies the k-th AC line — so neither format needs migrating. Only
+ * top-level bullets count: an indented sub-bullet elaborates its parent criterion.
+ * @param {String} ticketBody
+ * @returns {String[]} The AC lines' text, trimmed.
+ */
+export function extractTicketAcLines(ticketBody = '') {
+    const
+        lines = String(ticketBody).split('\n'),
+        acs   = [];
+
+    let inSection = false;
+
+    for (const line of lines) {
+        if (ACCEPTANCE_CRITERIA_H2.test(line)) {
+            inSection = true;
+            continue
+        }
+
+        if (inSection && /^##\s/.test(line)) {
+            break
+        }
+
+        if (inSection && TICKET_AC_LINE_PATTERN.test(line)) {
+            // A struck-through AC is an honest in-flight amendment (the ticket keeps its history),
+            // not a live criterion — counting it would make the gate fire on exactly the kind of
+            // visible correction it should encourage, teaching silent amendment instead.
+            if (/^[-*][ \t]+(?:\[[ xX]\][ \t]*)?~~/.test(line)) {
+                continue
+            }
+
+            acs.push(line.trim())
+        }
+    }
+
+    return acs
+}
+
+/**
+ * @summary The `## AC Evidence` section's text, from a fenceless body copy — heading to the next
+ * `##` heading, or to end-of-body. `null` when the heading is absent (the generic anchor check
+ * owns THAT failure; this reader owns the content).
+ * @param {String} fenceless
+ * @returns {String|null}
+ * @private
+ */
+function acEvidenceSection(fenceless = '') {
+    const match = new RegExp(AC_EVIDENCE_H2.source, 'm').exec(fenceless);
+
+    if (!match) {
+        return null
+    }
+
+    const
+        after = fenceless.slice(match.index + match[0].length),
+        next  = after.search(/^##\s/m);
+
+    return next === -1 ? after : after.slice(0, next)
+}
+
+/**
+ * @summary The certificate rows of an `## AC Evidence` section.
+ * @param {String} section
+ * @returns {Array<{id: String, proof: String}>}
+ */
+export function parseAcEvidenceRows(section = '') {
+    return String(section).split('\n')
+        .map(line => line.match(AC_EVIDENCE_ROW_PATTERN))
+        .filter(Boolean)
+        .map(match => ({id: match[1], proof: match[2]}))
+}
+
 // The ONE signal separating "the cited ticket is not there" from "we could not look": `gh` exits 1
 // for both, so the exit code decides nothing. This repo has been bitten from the other side —
 // `gh pr checks` exits 1 for a failing check AND for an unreachable API, which read a 503 as a red
@@ -454,6 +544,39 @@ export function resolveIssueState(number, {
 }
 
 /**
+ * @summary Reads a close-target ticket's body and extracts its structured AC lines, or reports
+ * that it could not be read.
+ *
+ * Same honesty contract as {@link resolveIssueState}: `ok` and `missing` are answers about the
+ * ticket; `unknown` is the absence of an answer, and callers must never convert it into a verdict.
+ * @param {Number|String} number
+ * @param {Object} [options]
+ * @param {String} [options.cwd]
+ * @param {Function} [options.execFileSyncImpl]
+ * @param {Number} [options.timeoutMs]
+ * @returns {{state: 'ok'|'missing'|'unknown', acs: String[]}}
+ */
+export function resolveTicketAcs(number, {
+    cwd              = process.cwd(),
+    execFileSyncImpl = execFileSync,
+    timeoutMs        = GH_PROBE_TIMEOUT_MS
+} = {}) {
+    try {
+        const raw = String(execFileSyncImpl(
+            'gh',
+            ['api', `repos/{owner}/{repo}/issues/${number}`, '--jq', '.body // ""'],
+            {cwd, encoding: 'utf8', stdio: 'pipe', timeout: timeoutMs}
+        ));
+
+        return {acs: extractTicketAcLines(raw), state: 'ok'}
+    } catch (error) {
+        return GH_NOT_FOUND_PATTERN.test(String(error?.stderr ?? ''))
+            ? {acs: [], state: 'missing'}
+            : {acs: [], state: 'unknown'}
+    }
+}
+
+/**
  * @summary Every owner number a body DECLARES, across all owing units.
  *
  * The shape check upstream deliberately reports on ONE section — the first unowned one, so its
@@ -492,13 +615,18 @@ function collectDeclaredResidualOwners({fenceless, owingSections}) {
  * and offline — `npm run agent-preflight` is the author's own pre-flight and its value is that it
  * runs anywhere. Supplied, it turns the `Residual-Owner` check from a shape check into a state
  * check: a closed or missing owner fails, and an unreadable one produces a WARNING and no verdict.
+ * `resolveTicketAcs` follows the same injection contract: absent, the AC-Evidence gate stays a
+ * pure SHAPE check (rows present, proofs non-empty); supplied, it also verifies the certificate
+ * COVERS the close target — one row per structured ticket AC, matched by count in order — and an
+ * unreadable ticket produces a WARNING and no verdict.
  * @param {String} body
  * @param {Object} [options]
  * @param {Boolean} [options.draft=false]
  * @param {Function|null} [options.resolveOwnerState=null] `(number) => 'open'|'closed'|'missing'|'unknown'`.
+ * @param {Function|null} [options.resolveTicketAcs=null] `(number) => {state: 'ok'|'missing'|'unknown', acs: String[]}`.
  * @returns {{missingInvisible: String[], missingVisible: String[], valid: Boolean, warnings: String[]}}
  */
-export function validatePrBody(body, {draft = false, resolveOwnerState = null} = {}) {
+export function validatePrBody(body, {draft = false, resolveOwnerState = null, resolveTicketAcs = null} = {}) {
     const
         warnings               = [],
         missingVisible         = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
@@ -611,6 +739,51 @@ export function validatePrBody(body, {draft = false, resolveOwnerState = null} =
                     warnings.push(`\`Residual-Owner: #${number}\` was NOT state-checked — GitHub could not be read. The owner's shape is valid; whether it is still an open ticket is unverified.`)
                 }
             })
+        }
+    }
+
+    // ── The AC-Evidence certificate: the author's machine-checked claim that every close-target
+    //    AC was addressed. A draft with no close target yet cannot be matched against any AC list,
+    //    so the gate waits for the target; everything else is judged now. The heading's PRESENCE
+    //    belongs to the generic anchor list above — this block owns the CONTENT.
+    const acSection = acEvidenceSection(fenceless);
+
+    if ((!draft || hasResolves) && acSection === null && body.includes('## AC Evidence')) {
+        // The raw-substring anchor check above is satisfiable by QUOTING the heading in a fence —
+        // the same discharge-by-example the Residual gate blanks inline code for.
+        missingVisible.push('`## AC Evidence` appears only inside a fence or quote — a REAL level-two heading with the certificate rows is required.')
+    }
+
+    if ((!draft || hasResolves) && acSection !== null) {
+        const
+            acRows       = parseAcEvidenceRows(acSection),
+            noStructured = acSection.match(NO_STRUCTURED_ACS_PATTERN);
+
+        if (!acRows.length && !noStructured) {
+            missingVisible.push('`## AC Evidence` is empty — one `| AC-k | <proof> |` row per close-target AC (count in order), or the line `No structured ACs on #N` when the ticket carries none.')
+        }
+
+        acRows.filter(row => EMPTY_PROOF_PATTERN.test(row.proof)).forEach(row => {
+            missingVisible.push(`\`AC-${row.id}\` declares no proof. A CI-covered AC names its owning spec; an outside-CI AC carries command + receipt. An empty slot certifies nothing.`)
+        });
+
+        const acCloseTarget = (body.match(/\bResolves:?\s+#(\d+)/i) || [])[1] ?? null;
+
+        if (resolveTicketAcs && acCloseTarget) {
+            const {acs, state} = resolveTicketAcs(acCloseTarget) ?? {acs: [], state: 'unknown'};
+
+            if (state === 'ok') {
+                if (acs.length && noStructured) {
+                    missingVisible.push(`#${acCloseTarget} carries ${acs.length} structured AC(s) — the \`No structured ACs\` declaration is false. Certify each AC, or change the ticket.`)
+                } else if (acs.length && acRows.length !== acs.length) {
+                    // A draft is work in flux: the mismatch is surfaced, not enforced, until handoff.
+                    (draft ? warnings : missingVisible).push(`#${acCloseTarget} carries ${acs.length} structured AC(s); \`## AC Evidence\` certifies ${acRows.length}. One row per ticket AC, matched by count in order.`)
+                }
+            } else if (state === 'missing') {
+                warnings.push(`AC coverage was NOT verified — \`Resolves #${acCloseTarget}\` was not found. The certificate's shape is valid; whether it covers the ticket is unverified.`)
+            } else {
+                warnings.push(`AC coverage of #${acCloseTarget} was NOT verified — GitHub could not be read. The certificate's shape is valid; whether it covers every ticket AC is unverified.`)
+            }
         }
     }
 
@@ -882,7 +1055,10 @@ function runPrBodyGate({cwd, execFileSyncImpl, existsSyncImpl, prBody, prDraft, 
         // actually declares a `Residual-Owner`, which is rare, and every failure of it degrades to
         // `unknown` rather than to a verdict. So the gate is never network-DEPENDENT — it is
         // network-INFORMED when it can be, and says so when it cannot.
-        resolveOwnerState: owner => resolveIssueState(owner, {cwd, execFileSyncImpl})
+        resolveOwnerState: owner => resolveIssueState(owner, {cwd, execFileSyncImpl}),
+        // Same contract for the AC-coverage read: one cheap metadata fetch of the close target,
+        // degrading to a WARNING when GitHub cannot be read.
+        resolveTicketAcs: ticket => resolveTicketAcs(ticket, {cwd, execFileSyncImpl})
     })
 }
 

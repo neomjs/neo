@@ -4,23 +4,21 @@ This is the authoritative PR protocol for every agent. PR creation is an archite
 
 ## 1. The "Stepping Back" Reflection Protocol (Pre-Commit Gate)
 
-Before the final `git commit` and `gh pr create`—an irreversible Agent OS handoff—step back from implementation and act as an Architect.
+Before the final `git commit` and `gh pr create`—an irreversible handoff—step back and act as an Architect.
 
-**Scope Creep vs. Iteration:** challenge the original assumptions before handoff:
-- **Minor gaps:** repair JSDoc/Anchor & Echo, edge cases, tests, and test placement on the branch before opening the PR.
-- **Major refactors:** do not cram an out-of-scope superior architecture into this branch; keep the bounded solution and file a linked follow-up ticket.
+**Scope Creep vs. Iteration:**
+- **Minor gaps:** repair JSDoc/Anchor & Echo, edge cases, tests, and test placement on the branch first.
+- **Major refactors:** keep the bounded solution; file a linked follow-up ticket for the superior architecture.
 - **Tier 2.5 foreign-authority trigger:** If a repair would change a reviewer's contract or another named peer's consumer surface, send that owner the fork, recommendation, and evidence, then continue fork-independent author work. Named authority—not uncertainty—triggers this; the reply is never a wait gate.
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
-Before the first commit, declare §3.1's class (`capability`, `restoration`, or
-`zero-delta`) and run `npm run agent-preflight -- --change-class <class>
---commit-subject "<subject>" [files...]`. This repair pass may align blocks. For
-final check-only validation, add `--no-fix`, `--pr-title "<title>"`, and, when
-available after the final commit, `--pr-body <draft-body.md>`; use `--pr-base
-<ref>` when the PR target is not `origin/dev`. The same run locally rejects
-stacked commit tickets missing from `Resolves` / `Refs` / `Related`. The class
-still gates both subjects; calls without semantic inputs stay compatible.
+Before the first commit, declare §3.1's class and run
+`npm run agent-preflight -- --change-class <class> --commit-subject "<subject>" [files...]`;
+before handoff add `--no-fix --pr-title "<title>" --pr-body <draft-body.md>`
+(`--pr-base <ref>` off-dev). Full option surface: `--help`. The class gates both
+subjects; the body run also rejects stacked commit tickets missing from
+`Resolves`/`Refs`/`Related`.
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
@@ -224,17 +222,14 @@ Use role-routing, not naked multi-peer pings:
    `primary-reviewer` in GitHub and send one matching wake:
    `Review role: primary-reviewer`; `Requested action: use /pr-review on PR #N`.
    Use round-robin unless subsystem familiarity justifies an override.
-2. **Eligibility / 1h fallback:** at review-start, pass the Review-Seat Gate in
-   `post-review-pickup/references/pre-review-intake-lane-gate.md`: sole request,
-   explicit operator direction, or unengaged empty / ≥1h stale request after
-   self-request / one-for-one replacement. Record and re-read after mutation;
-   engagement or any result except exactly your seat means yield unless the
-   operator explicitly overrides it.
-3. **Reroute / SLA:** re-read before decline, timeout, or reassignment; engagement
-   means yield. Primary max remains 4h. Stacked unengaged requests trigger
-   claim-or-decline; inability answers `Requested action: unassign`, and 4h
-   silence permits recorded author reroute. The 1h peer fallback, §6.1 ~2h
-   invite, and 4h author SLA are distinct.
+2. **Eligibility / 1h fallback:** at review-start, pass the Review-Seat Gate
+   (`post-review-pickup/references/pre-review-intake-lane-gate.md`); re-read
+   after mutation — any result except exactly your seat means yield unless the
+   operator overrides.
+3. **Reroute / SLA:** re-read before decline/timeout/reassignment; engagement
+   means yield. Primary max 4h; 4h silence permits recorded author reroute;
+   inability answers `Requested action: unassign`. The 1h peer fallback, §6.1
+   ~2h invite, and 4h author SLA are distinct.
 4. **Observer:** say `Review role: observer`; `Requested action: none`.
 5. **Tie-breaker:** after one disagreement cycle, post `[TIE_BREAKER_REQUEST]`
    with the position summary and A2A its `commentId` to one third peer.
@@ -316,11 +311,22 @@ Resolves #N
 
 Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N>, Residual-Owner: #<EXISTING open ticket, NOT the close target>.
 
+Micro-review eligible: <class> — <one line why>   ← optional (pr-review-guide §6.4)
+
+## AC Evidence
+| AC-1 | <CI-covered: owning spec reference> |
+| AC-2 | <outside-CI: command + receipt> |
+<one row per close-target AC, count-in-order (struck-through ticket ACs don't count). CI-covered ⇒
+owning spec reference; outside-CI (e2e/visual/live/mutation) ⇒ command + receipt. No structured list
+on the ticket ⇒ the single line `No structured ACs on #N`. Empty proof slot ⇒ lint fail.>
+
 ## Deltas from ticket
 <scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>
 
 ## Test Evidence
-<commands/results; per directly touched app/feature surface: <surface>: <spec/journey + result> | `None found`>
+<OUTSIDE-CI evidence only: e2e/visual/live receipts + mutation/diagonal results (the artifact a green
+suite cannot show — a real guard reddens on its named defect). All coverage in CI ⇒ the single line
+`All coverage runs in CI.` Never restate CI-covered counts (red CI already means no review).>
 
 ## Post-Merge Validation
 - [ ] <items verifiable only after merge>
@@ -332,9 +338,9 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 <one compressed paragraph per pivot — why direction changed, not the old text>
 ```
 
-`agent-pr-body-lint.yml` enforces `Evidence:`, `## Test Evidence`, `## Post-Merge Validation`, `## Deltas`, `Authored by ` as **unconditional** anchors — presence is never prose-conditional (PR #14465).
+`agent-pr-body-lint.yml` enforces `Evidence:`, `## AC Evidence`, `## Test Evidence`, `## Post-Merge Validation`, `## Deltas`, `Authored by ` as **unconditional** anchors — presence is never prose-conditional (PR #14465). The AC-Evidence CONTENT is machine-checked too: the lint resolves the close target and fails a certificate that misses the ticket's AC count or leaves a proof slot empty.
 
-**Evidence discipline (`#10698`):** `Evidence:` declares achieved vs required for sandbox-unreachable runtime/substrate/harness/UI/host effects. `## Test Evidence` lists commands/results and, per directly touched app/feature surface, existing non-CI coverage or `None found`; omissions are not PR-claim-dependent. Put unavailable-environment residuals in `Evidence:` + `## Post-Merge Validation`. See [`evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md); `pr-review` checks close-target ACs.
+**Evidence discipline (`#10698`):** `Evidence:` declares achieved vs required for sandbox-unreachable runtime/substrate/harness/UI/host effects. Put unavailable-environment residuals in `Evidence:` + `## Post-Merge Validation`. See [`evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md); `## AC Evidence` is the author's machine-checked coverage claim, which `pr-review` audits rather than reconstructs.
 
 ## 10. Authorship Respect
 

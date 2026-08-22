@@ -140,15 +140,14 @@ Before drafting, classify the round. Round 1 is the comprehensive review and car
 
 Template fidelity is mandatory in both cycle shapes: copy selected-template headings, icons, order, and null-state wording; compact follow-up means delta content, not lower quality.
 
-> **Symmetry Note:** The `pull-request` skill enforces an author-side template-adherence check (see `pull-request-workflow.md §6.4`). If you fail to use the correct template structure specified below, the author is mandated to reject your review and A2A you for a complete rewrite. Substantive content without structural adherence is not merge-eligible.
+> **Symmetry Note:** authors are mandated to reject structurally non-adherent reviews (`pull-request-workflow.md §6.4`) — substantive content without template structure is not merge-eligible.
 
 ### 6.1 Full Review Template
 
 Use the full template from `.agents/skills/pr-review/assets/pr-review-template.md` when any of these apply:
 
 - **Cycle 1 / cold-cache review:** first substantive review of the PR.
-- **Fresh session bootstrap:** you do not have prior-cycle context loaded in this context window.
-- **Cross-agent handoff without grounding:** another agent hands you a PR and you have not loaded the prior review/response context.
+- **Fresh session bootstrap / ungrounded handoff:** prior-cycle context is not loaded in this window.
 - **Major delta:** the author changed scope, touched new architectural surfaces, added new files outside the prior Required Actions, or rewrote the PR body/close-target semantics enough that prior scores are no longer reliable.
 - **Lost anchor recovery:** no usable prior review commentId, author response commentId, or last-known anchor exists.
 
@@ -174,29 +173,38 @@ At RC2 or >24KB, load the payload. **A demand round is a `CHANGES_REQUESTED`** �
 
 **Byte gate:** this file + the payload load together; their combined size is gated. Owner: `COMBINED_BUDGETS` in `ai/scripts/diagnostics/check-substrate-size.mjs` (`ai:check-substrate-size`) — run it before growing either.
 
+### 6.4 Micro-Review — the blast-scaled Cycle-1 light path
+
+`# PR Micro-Review` (`assets/pr-micro-review-template.md`) — anchors: `**Class:**`
+asserting `micro` | `contained` | `mechanical`, `**Verdict:**`, `**Glance:**` (the
+premise + correctness check), origin-session signature. No premise snapshot, no
+Depth Floor, no audits, no metrics.
+
+**When:** a MECHANICAL PR — no architectural concept to teach (test-only /
+config-leaf / behavior-preserving / docs / receipt refresh) — at ANY size, or a
+micro/contained diff. **Never** when the PR touches an ADR, a new abstraction, a
+consumed contract, security, a migration, or a fleet-critical zone (`ai/` config,
+release path, workflows, substrate, MCP contracts) — those take the full form
+regardless of size. Authors signal candidacy with the body line
+`Micro-review eligible: <class> — <why>`; the reviewer decides, and escalating to
+the full form is always free — the reverse never happens.
+
+**Bounded-repair guard (Grace, #17527):** a repair of a named prescription stays
+micro-eligible only while it touches NO site the prescription did not name. A
+widened repair is a new change wearing a repair's eligibility — full form.
+
+Three light paths, three axes: **Micro-Review** scales the Cycle-1 review FORM
+(this section); §6.1's **micro-change exception** scales the cross-family MERGE
+gate (`chore` < 20 lines / pure docs); **Micro-Delta** closes mechanical-hygiene
+RESIDUE under the circuit breaker after semantics cleared.
+
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
 Structural compliance ≠ rigor — these mandates (+ the concept-graph feed) are for **concept-bearing** changes: touch an ADR/new-abstraction/consumed-contract/security/migration. A **mechanical** PR (test/config/behavior-preserving, any size) gets a premise+correctness glance → Approve.
 
 ### 7.1 Minimum-One-Challenge for Peer Reviews
 
-Peer-reviews MUST name at least one of the following:
-- A **weakness** in the approach, even if non-blocking
-- An **unverified assumption** the author is relying on
-- An **edge case** that may not be covered
-- A **follow-up concern** (something orthogonal the PR surfaces but doesn't resolve)
-
-If no such concern exists, the reviewer MUST explicitly document the search:
-
-> *"I actively looked for [specific thing 1], [specific thing 2], and [specific thing 3] and found no concerns."*
-
-The search documentation is not optional filler — it's the reviewer proving they looked. A peer-review with neither a challenge nor a documented search fails the Depth Floor, regardless of structural compliance elsewhere.
-
-**Note on Resolution Paths:** If your challenge raises a "this pattern is suspect" claim or architectural dispute, refer to **§5.1 Suggesting Empirical Isolation Tests** as the preferred path for resolving the concern empirically rather than via theoretical debate.
-
-Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
-
-*(Discussion reviews: this Depth Floor applies equally — challenge an assumption or document the search; `ideation-sandbox-workflow.md §4`.)*
+Name at least one: a **weakness** (even non-blocking), an **unverified assumption**, an uncovered **edge case**, or a **follow-up concern**. If none exists, document the search — *"I actively looked for [thing 1], [thing 2], [thing 3] and found no concerns."* The documentation is the reviewer proving they looked; a peer-review with neither fails the Depth Floor regardless of structural compliance. Architectural disputes route through **§5.1 Empirical Isolation Tests** rather than theoretical debate. Self-reviews already carry the analogous "hunt for blind spots" (§1); Discussion reviews inherit this floor (`ideation-sandbox-workflow.md §4`).
 
 ### 7.2 Cross-Model Asymmetry Context
 
@@ -204,16 +212,7 @@ Cross-family review works because different model families fail differently. Use
 
 ### 7.3 Provenance Audit
 
-When a PR introduces a major new architectural abstraction or core subsystem, it is vulnerable to ingesting external framework bias or improperly attributed concepts. The reviewer MUST execute a **Provenance Audit**:
-
-1. **The Threshold:** Standard feature PRs or bug fixes are exempt. This audit triggers only for structural shifts, novel algorithms, or core subsystems.
-2. **The Audit Task:** The reviewer's task is **not** to play detective or run exhaustive web searches for stolen code. The task is to audit the author's declarations.
-3. **Chain of Custody:** The conceptual origin trace of an architectural abstraction. The PR description (Fat Ticket) MUST explicitly declare this provenance:
-   - *Internal Origin:* E.g., "Derived from internal Neo.mjs R&D / Session ID XYZ."
-   - *External Origin:* E.g., "Friction abstracted from [Ecosystem] via industry-friction-radar."
-4. **The External Nuance:** External human or agent contributors will likely not use internal ideation tools. For external PRs, the reviewer enforces the *principle* of the radar. If the author cannot defend the conceptual origin of the architecture natively (e.g., relying on "Because React does it this way"), the PR fails the audit.
-
-If a qualifying PR lacks a provenance declaration, or if it merely ports external framework code rather than solving the abstracted friction natively, the reviewer MUST flag it as a Required Action.
+Triggers only for structural shifts, novel algorithms, or core subsystems (standard features and fixes are exempt). The reviewer audits the author's DECLARATIONS — never plays detective: the PR must declare the conceptual chain of custody, internal ("derived from Neo R&D / session X") or external ("friction abstracted from [ecosystem] via industry-friction-radar"). External contributors satisfy the *principle* natively — "because React does it this way" fails the audit. A qualifying PR without a provenance declaration, or one porting framework code instead of solving the abstracted friction natively, gets a Required Action.
 
 ### 7.4 Rhetorical-Drift Audit
 

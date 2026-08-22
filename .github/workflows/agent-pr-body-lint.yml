@@ -126,6 +126,7 @@ jobs:
 
             const VISIBLE_PR_BODY_ANCHORS = [
               "Evidence:",
+              "## AC Evidence",
               "## Test Evidence",
               "## Post-Merge Validation"
             ];
