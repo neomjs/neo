@@ -86,7 +86,18 @@ class ChromeWorkspace extends DockWorkspace {
     }
 
     resolvePane(itemId, item) {
-        return {cls: ['custom-pane'], html: item.title, ntype: 'component'}
+        return {cls: ['custom-pane'], ntype: 'component', text: item.title}
+    }
+}
+
+/**
+ * A consumer whose configured dock-host reference resolves to nothing — the loud-failure control.
+ */
+class BrokenHostWorkspace extends DockWorkspace {
+    static config = {
+        className        : 'Test.Unit.Dashboard.DockWorkspace.BrokenHostWorkspace',
+        dockHostReference: 'gone',
+        layout           : {ntype: 'vbox', align: 'stretch'}
     }
 }
 
@@ -114,6 +125,7 @@ class HostedWorkspace extends DockWorkspace {
 Neo.setupClass(PlainWorkspace);
 Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
+Neo.setupClass(BrokenHostWorkspace);
 
 const
     tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
@@ -228,6 +240,148 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
         await expect(pending).resolves.toBeUndefined()
     });
 
+    test('a rejected refresh stays observable and never suppresses the next transaction', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        let hookCalls = 0;
+
+        workspace.beforeRefreshDockWorkspace = () => {
+            if (++hookCalls === 1) {
+                throw new Error('chrome sync failed')
+            }
+        };
+
+        const first = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+        workspace.onDockZoneDocumentChange(first.document, {operation: 'moveItem'});
+
+        const firstRefresh = workspace.refreshPromise;
+
+        // the first transaction's failure belongs to whoever awaits its snapshot …
+        await expect(firstRefresh).rejects.toThrow('chrome sync failed');
+
+        // … and the next commit still projects: scheduling chains off the settled tail
+        const second = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'preview', targetNodeId: 'editor-tabs', index: 0});
+
+        workspace.onDockZoneDocumentChange(second.document, {operation: 'moveItem'});
+
+        expect(workspace.refreshPromise).not.toBe(firstRefresh);
+        await workspace.refreshPromise;
+
+        expect(hookCalls).toBe(2);
+        expect(tabsOf(workspace.items[0]).get('editor-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'editor', 'terminal'])
+    });
+
+    test('a configured dock host that resolves to no live host rejects loudly, never silently', async () => {
+        workspace = Neo.create(BrokenHostWorkspace, {dockModel: createDocument()});
+
+        const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+        workspace.onDockZoneDocumentChange(result.document);
+
+        // the committed truth advanced …
+        expect(workspace.getDockZoneDocument()).toBe(result.document);
+
+        // … so the missing render target must reject, not settle over frozen chrome
+        await expect(workspace.refreshPromise).rejects.toThrow(/resolved to no live dock host/)
+    });
+
+    test('a null document projects the ledgered empty shell and reconciles every pane away', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        // the ledgered fallback at the projection surface: dockModel === null → empty projection
+        expect(workspace.projectDockModel(null, null, null)).toEqual({ntype: 'container', cls: ['neo-dashboard'], items: []});
+
+        // and through a commit: every pane retires, the shell itself survives
+        workspace.onDockZoneDocumentChange(null);
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument()).toBeNull();
+        expect(workspace.items.length).toBe(1);
+        expect(tabsOf(workspace.items[0]).size).toBe(0)
+    });
+
+    test('the FLIP first-snapshot precedes the consumer chrome hook', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            order    = [],
+            hadMain  = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs   = Neo.main = Neo.main || {},
+            hadAddon = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs  = mainNs.addon = mainNs.addon || {},
+            previous = addonNs.DockFlip;
+
+        addonNs.DockFlip = {
+            captureFirst: () => {order.push('captureFirst')},
+            play        : () => {order.push('play')}
+        };
+
+        workspace.beforeRefreshDockWorkspace = () => {order.push('chromeHook')};
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document);
+            await workspace.refreshPromise
+        } finally {
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+
+        expect(order).toEqual(['captureFirst', 'chromeHook', 'play'])
+    });
+
+    test('a persisted title renders as escaped text, never as markup', async () => {
+        const
+            evil     = '<img src=x onerror="window.__pwned = 1">',
+            document = createDocument();
+
+        document.items.editor.title = evil;
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        // the default resolution carries the title under `text` — no `html` key exists to persist markup
+        const config = workspace.resolveProjectedPane('editor', document.items.editor);
+
+        expect(config.text).toBe(evil);
+        expect(config.html).toBeUndefined();
+
+        // and the mounted default pane holds it as component text, not markup
+        const findPlaceholder = component => {
+            if (component.cls?.includes?.('neo-dock-workspace-placeholder')) {
+                return component
+            }
+
+            for (const child of component.items || []) {
+                const hit = findPlaceholder(child);
+
+                if (hit) {
+                    return hit
+                }
+            }
+
+            return null
+        };
+
+        const pane = findPlaceholder(workspace.items[0]);
+
+        expect(pane.text).toBe(evil);
+        expect(pane.html ?? null).toBeNull()
+    });
+
+    test('a string cls survives marker decoration as one class, not characters', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        expect(workspace.decorateFlipMarker({cls: 'custom-pane'}, 'editor').cls).toEqual(['custom-pane', 'dock-flip-item-editor']);
+        expect(workspace.decorateFlipMarker({ntype: 'component'}, 'editor').cls).toEqual(['dock-flip-item-editor'])
+    });
+
     test('the add-tab correlation is minted only for a globally absent header', () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
@@ -254,7 +408,7 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
         const config = workspace.resolveProjectedPane('editor', workspace.dockModel.items.editor);
 
         expect(config.ntype).toBe('component');
-        expect(config.html).toBe('Editor');
+        expect(config.text).toBe('Editor');
         expect(config.cls).toEqual(['neo-dock-workspace-placeholder', 'dock-flip-item-editor']);
         // live instances are never stamped — their identity resolves through the document
         expect(workspace.decorateFlipMarker(workspace, 'editor')).toBe(workspace)

@@ -39,8 +39,11 @@ import {previewToOperation}     from './dockPreviewContract.mjs';
  *
  * Two invariants every method here protects: the committed document advances ONLY inside
  * {@link #onDockZoneDocumentChange}, and every re-projection is ONE atomic ownership transaction —
- * commits chain on {@link #refreshPromise}, so a later commit can never start a second staged shell
- * before the first retired its source.
+ * commits schedule off the SETTLED tail of {@link #refreshPromise}, so a later commit can never
+ * start a second staged shell before the first settled, and a FAILED transaction stays observable
+ * on its own {@link #refreshPromise} snapshot without suppressing any later one. A configured
+ * {@link #dockHostReference} that resolves to no live host rejects the refresh loudly: the
+ * committed truth already advanced, and settling silently would freeze stale chrome over it.
  *
  * The projection mounts into the dock host — this container itself by default, or a dedicated child
  * named by {@link #dockHostReference} when a consumer keeps persistent overlay siblings (a preview
@@ -138,7 +141,9 @@ class DockWorkspace extends Container {
      * defers its view-sync one tick, so any consumer that must observe a SETTLED surface — a tour
      * replay, a reveal cue, a teardown-sensitive probe — awaits this promise instead of racing that
      * deferral. Commits chain with their document and one-use descriptor snapshots, so staged
-     * transactions cannot overlap or cross-correlate.
+     * transactions cannot overlap or cross-correlate. Each commit stores the promise of ITS OWN
+     * transaction here: a rejection belongs to whoever awaits the snapshot taken at that commit,
+     * and the next commit schedules off the settled tail, never off the rejection.
      * @member {Promise|null} refreshPromise=null
      * @protected
      */
@@ -166,8 +171,10 @@ class DockWorkspace extends Container {
 
     /**
      * Hook: app chrome that must sync on every re-projection (a perspective toolbar, a control
-     * bar, a drag-affordance session to invalidate). Runs before the FLIP snapshot of the outgoing
-     * geometry. The default does nothing.
+     * bar, a drag-affordance session to invalidate). Runs AFTER the FLIP snapshot of the outgoing
+     * geometry and before the staged projection, so chrome mutation can never alter the captured
+     * first rects. A thrown error rejects this refresh transaction loudly — and only this one.
+     * The default does nothing.
      * @param {Object} document The committed document this refresh projects.
      * @param {Object} refreshOptions The options {@link #getRefreshOptions} produced for it.
      */
@@ -193,7 +200,8 @@ class DockWorkspace extends Container {
 
     /**
      * Stamps the FLIP marker class onto a plain pane config so a newly materialized pane joins the
-     * addon's geometry correlation. Live component instances are returned untouched — their
+     * addon's geometry correlation. `cls` is accepted as a single class String or a String[] and
+     * normalized to an array either way. Live component instances are returned untouched — their
      * identity resolves through the committed document, never through a class stamp.
      * @param {*} config Resolved pane config or live component instance.
      * @param {String} itemId
@@ -205,9 +213,13 @@ class DockWorkspace extends Container {
             return config
         }
 
+        let {cls} = config;
+
+        cls = Array.isArray(cls) ? cls : cls ? [cls] : [];
+
         return {
             ...config,
-            cls: [...new Set([...(config.cls || []), `${this.flipMarkerPrefix}${encodeURIComponent(itemId)}`])]
+            cls: [...new Set([...cls, `${this.flipMarkerPrefix}${encodeURIComponent(itemId)}`])]
         }
     }
 
@@ -384,21 +396,26 @@ class DockWorkspace extends Container {
      * (e.g. a splitter's `onDragEnd`), and reconciliation retires that surface with its old shell —
      * refreshing mid-handler would be a use-after-destroy on the rest of the handler. Every
      * projection is an atomic ownership transaction across the old shell, the staged shell, and
-     * their closest common parent; chaining on {@link #refreshPromise} preserves that atomicity
-     * across rapid commits. The one-use `addTab` correlation and the refresh options are captured
+     * their closest common parent; scheduling off the SETTLED tail of {@link #refreshPromise}
+     * preserves that atomicity across rapid commits AND keeps one failed transaction from
+     * suppressing every later one: each commit's {@link #refreshPromise} snapshot carries that
+     * refresh's own outcome, so a rejection is the awaiting caller's to observe and the next
+     * commit still projects. The one-use `addTab` correlation and the refresh options are captured
      * in THIS closure, so they are consumed by exactly one projection.
-     * @param {Object} document The committed dock-zone document.
+     * @param {Object|null} document The committed dock-zone document; `null` clears the workspace
+     *     toward the empty projection.
      * @param {Object|null} [descriptor=null] The semantic operation that produced `document`.
      * @param {Object|null} [source=null] The committing surface, when it identifies itself.
      */
     onDockZoneDocumentChange(document, descriptor=null, source=null) {
         let me                  = this,
             tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor),
-            refreshOptions      = me.getRefreshOptions(descriptor, source);
+            refreshOptions      = me.getRefreshOptions(descriptor, source),
+            tail                = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.dockModel = document;
 
-        me.refreshPromise = (me.refreshPromise || Promise.resolve())
+        me.refreshPromise = tail
             .then(() => me.timeout(0))
             .then(() => {
                 if (!me.isDestroyed) {
@@ -411,14 +428,23 @@ class DockWorkspace extends Container {
      * Projects a committed document into the dock shell config, threading the instance-bound
      * reducer and view-sync onto every projected affordance, the consumer's resolvers, and the
      * hook-provided options. {@link #dockProjectionConfig} is merged onto the result.
+     *
+     * A `null` document projects the EMPTY shell — the model contract's recoverable fallback
+     * (`dockModel === null` → empty projection) — still carrying the `neo-dashboard`
+     * default-carrier class, so the token floor reaches an empty workspace.
      * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation.
      * @param {Function|null} [itemResolver=null] Item resolver for a staged projection (the
      *     reconciler's placeholder factory); `null` resolves through {@link #resolvePane}.
-     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
+     * @param {Object|null} [document=this.dockModel] Committed document snapshot to project.
      * @returns {Object}
      */
     projectDockModel(tabInsertDescriptor=null, itemResolver=null, document=this.dockModel) {
-        let me     = this,
+        let me = this,
+            config;
+
+        if (!document) {
+            config = {ntype: 'container', cls: ['neo-dashboard'], items: []}
+        } else {
             config = DockLayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
@@ -427,20 +453,27 @@ class DockWorkspace extends Container {
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
                 resolveRevealComponentRef: (componentRef, item, itemId) => me.decorateFlipMarker(me.resolveRevealPane(itemId, item), itemId),
                 tabInsertDescriptor
-            });
+            })
+        }
 
         return me.dockProjectionConfig ? {...config, ...me.dockProjectionConfig} : config
     }
 
     /**
      * Re-projects a committed document through the identity-preserving reconciler: the outgoing
-     * geometry is FLIP-snapshotted, the consumer's chrome hook runs, the staged shell is projected
-     * with hidden placeholders, the reconciler hands every surviving pane and tab button into it,
-     * and the FLIP play brackets the motion signal. Any motion failure lands the new layout
-     * instantly — the try/catch guards motion, never truth.
+     * geometry is FLIP-snapshotted FIRST, then the consumer's chrome hook runs (so chrome mutation
+     * can never alter the captured first rects), the staged shell is projected with hidden
+     * placeholders, the reconciler hands every surviving pane and tab button into it, and the FLIP
+     * play brackets the motion signal. Any motion failure lands the new layout instantly — the
+     * try/catch guards motion, never truth.
+     *
+     * A `null` document reconciles toward the EMPTY projection: every pane retires, the shell
+     * survives. A configured {@link #dockHostReference} that resolves to no live host throws —
+     * the committed document is not rendered, and that must fail loudly, never settle silently.
      * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
      *     captured by the commit that scheduled this refresh.
-     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
+     * @param {Object|null} [document=this.dockModel] Committed document snapshot owned by this
+     *     refresh.
      * @param {Object} [refreshOptions={}]
      * @param {Boolean} [refreshOptions.geometryOnly=false] Admit the reconciler's strict in-place
      *     geometry path.
@@ -458,11 +491,9 @@ class DockWorkspace extends Container {
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions;
 
-        if (!host || !document) {
-            return
+        if (!host) {
+            throw new Error(`DockWorkspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
         }
-
-        me.beforeRefreshDockWorkspace(document, refreshOptions);
 
         try {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix})
@@ -471,6 +502,8 @@ class DockWorkspace extends Container {
         if (me.isDestroyed) {
             return
         }
+
+        me.beforeRefreshDockWorkspace(document, refreshOptions);
 
         const nextConfig = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId) => {
             const placeholder = me.createProjectionPlaceholder(itemId, item, componentRef);
@@ -487,7 +520,7 @@ class DockWorkspace extends Container {
             placeholders,
             preserveItemIds: me.getPreservedItemIds(),
             resolveItem    : itemId => {
-                const item = document.items[itemId];
+                const item = document?.items?.[itemId];
 
                 return DockLayoutAdapter.decorateProjectedItem(
                     me.resolveProjectedPane(itemId, item),
@@ -528,7 +561,8 @@ class DockWorkspace extends Container {
      * Hook: resolves a catalog item to the live component or the plain config that renders it.
      * The default renders a titled placeholder pane — the model contract's recoverable fallback
      * for an item no consumer claimed — so a workspace is never silently empty; every consumer
-     * overrides this with its own panes. A thrown error fails the projection loudly.
+     * overrides this with its own panes. The title renders as ESCAPED text: persisted titles are
+     * data, never markup. A thrown error fails the projection loudly.
      * @param {String} itemId The stable workspace identity from the item catalog.
      * @param {Object} item The persisted item record (`componentRef`, `title`, `kind`, policy hints).
      * @returns {Object|Neo.component.Base}
@@ -536,8 +570,8 @@ class DockWorkspace extends Container {
     resolvePane(itemId, item) {
         return {
             cls  : ['neo-dock-workspace-placeholder'],
-            html : this.getPaneHeaderText(itemId, item, item?.componentRef),
-            ntype: 'component'
+            ntype: 'component',
+            text : this.getPaneHeaderText(itemId, item, item?.componentRef)
         }
     }
 
