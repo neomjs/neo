@@ -25,8 +25,13 @@ import {test, expect} from '../../fixtures.mjs';
  * fix would silently drop. A green on one alone leaves the other's failure mode untested.
  */
 const HOSTS = [
-    {name: 'the example (engine floor, no app dock CSS)', url: '/examples/dashboard/dock/',   ready: '.neo-dashboard-dock-splitter'},
-    {name: 'AgentOS (consumer values under an app root)', url: '/apps/agentos/index.html',    ready: '.fm-fleet-cockpit .neo-dashboard-dock-splitter'}
+    // `handleDiscriminates` records where the handle assertion actually has teeth. AgentOS opts OUT
+    // of the grip (`--dock-splitter-handle-size: 0`, a deliberate FM design statement), so comparing
+    // proxy-to-source there is `0 === 0` — it passes whether or not the metric travelled. Naming
+    // that keeps it from reading as coverage it is not, and the example host, which inherits the
+    // engine's 36px default, is what genuinely covers the axis.
+    {name: 'the example (engine floor, no app dock CSS)', url: '/examples/dashboard/dock/', ready: '.neo-dashboard-dock-splitter',                    handleDiscriminates: true},
+    {name: 'AgentOS (consumer values under an app root)', url: '/apps/agentos/index.html',  ready: '.fm-fleet-cockpit .neo-dashboard-dock-splitter', handleDiscriminates: false}
 ];
 
 test.describe('Neo.dashboard.DockSplitter — the drag proxy carries its paint', () => {
@@ -53,6 +58,12 @@ test.describe('Neo.dashboard.DockSplitter — the drag proxy carries its paint',
 
         expect(source.background, 'the resting splitter must itself be painted, or the comparison is vacuous')
             .not.toBe('rgba(0, 0, 0, 0)');
+
+        // Guards the flag above rather than trusting it: if a consumer's handle opt-out changed,
+        // this fails instead of silently turning a real assertion into `0 === 0` or the reverse.
+        host.handleDiscriminates
+            ? expect(source.handleSize, `${host.name} is declared to cover the handle axis, so its source handle must be non-zero`).not.toBe('0')
+            : expect(source.handleSize, `${host.name} is declared to opt out of the handle, so its source handle must be zero`).toBe('0');
 
         const box = await splitter.boundingBox();
         const sx  = box.x + box.width  / 2,
@@ -90,6 +101,9 @@ test.describe('Neo.dashboard.DockSplitter — the drag proxy carries its paint',
 
             // The handle is the half that fails silently: a 0px handle still renders a band, so a
             // background-only assertion would pass a proxy whose grip had vanished.
+            // Asserted on both hosts, but only DISCRIMINATING where the source handle is non-zero —
+            // see `handleDiscriminates`. On a zero-handle consumer this is a consistency check, not
+            // evidence that the metric travelled.
             expect(measured.handleSize,
                 `the proxy resolves the handle metric too — measured '${measured.handleSize}', source '${source.handleSize}'`
             ).toBe(source.handleSize);
