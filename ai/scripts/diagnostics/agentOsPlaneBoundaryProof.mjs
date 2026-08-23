@@ -13,6 +13,8 @@ import {
     resolveRelative,
     walkCapabilityClosure
 }                                from '../lint/scriptPlaneClosure.mjs';
+import {SURFACE, buildInventory} from './agentOsExtractionInventory.mjs';
+import {edgeIdentity}            from '../lint/lint-script-plane.mjs';
 
 /**
  * Pre-Flight (structural fast-path): authoring
@@ -70,6 +72,7 @@ const
     PROJECT_ROOT   = path.resolve(path.dirname(__filename), '../../..'),
     BRAIN_MANIFEST = path.join(PROJECT_ROOT, 'package.brain.json'),
     PROBE_BASENAME = 'resolve-probe.cjs',
+    REGISTRY_REGION = 'ai',
 
     /**
      * The probe deliberately prints ONLY machine-parseable verdict lines. `require.resolve` throwing
@@ -99,6 +102,7 @@ export const PROOF_CLASS = Object.freeze({
     closureEscapesPlaneRoot    : 'topology-edge-closure-escapes-plane-root',
     closureImportsCloudPackage : 'topology-edge-closure-imports-cloud-package',
     closureReachesCloudModule  : 'topology-edge-closure-reaches-cloud-module',
+    closureOutOfRegistryRegion : 'topology-edge-closure-reaches-out-of-registry-region',
     closureUnregisteredModule  : 'topology-edge-closure-unregistered-module',
     closureUnresolvedEdge      : 'instrument-closure-unresolved-edge',
     edgePopulationInterim      : 'topology-edge-dependency-population-derived-not-authoritative',
@@ -369,6 +373,8 @@ export function runStaticClosureProof({
         instrumentErrors = [],
         topologyFindings = [],
         cloudPackages    = new Set(cloudOnlyPackages),
+        undispositioned  = [],
+        outOfRegion      = [],
         relative         = absPath => path.relative(planeRoot, absPath).split(path.sep).join('/'),
         seen             = new Set();
 
@@ -421,13 +427,11 @@ export function runStaticClosureProof({
             const disposition = dispositionByIdentity.get(identity);
 
             if (disposition === undefined) {
-                topologyFindings.push({
-                    class               : PROOF_CLASS.closureUnregisteredModule,
-                    identity,
-                    detail              : `reached from ${relative(entrypoint)} with no registry row — declared population undershoots actual reach`,
-                    successorOwner      : 'the Edge manifest authority (#17645 H1)',
-                    preRelocationBlocker: true
-                })
+                // Collected, not emitted per-module. Two regions with two different owners, and at
+                // current head they run to the hundreds — one finding each keeps the exact-identity
+                // classes below readable, which is the whole point of a receipt. Full identity
+                // lists ride in the finding's `identities` array for the machine reader.
+                (identity.startsWith(`${REGISTRY_REGION}/`) ? undispositioned : outOfRegion).push(identity)
             } else if (disposition === 'cloud') {
                 topologyFindings.push({
                     class               : PROOF_CLASS.closureReachesCloudModule,
@@ -456,13 +460,13 @@ export function runStaticClosureProof({
         }
 
         for (const edge of closure.unresolved) {
-            // The two emitted shapes carry different fields — `{module, specifier, reason:
-            // 'unresolved-specifier'}` and `{module, reason: 'unreadable'}` (no specifier). A key
-            // guessed from one shape silently never matches the other, which would leave
-            // `ledgeredEdges` as a guard doing no work. Both forms are spelled out.
-            const identity = edge.specifier
-                ? `${relative(edge.module)} → ${edge.specifier}`
-                : `${relative(edge.module)} [${edge.reason}]`;
+            // Identity comes from the REGISTRY's own `edgeIdentity()`, never a local format. The
+            // ledger this matches against is the inventory's `closure-edge` surface, whose keys are
+            // built by that function (`<rel>::<reason>::<specifier|member->callee|member>`); a
+            // hand-rolled key cannot match it except by luck, which would leave `ledgeredEdges` a
+            // guard doing no work. Emitted shapes vary — `{module, specifier}`, `{module, member}`,
+            // `{module}` alone — and that function already discriminates all of them.
+            const identity = edgeIdentity(edge, planeRoot);
 
             if (!ledgeredEdges.has(identity)) {
                 instrumentErrors.push({
@@ -472,6 +476,30 @@ export function runStaticClosureProof({
                 })
             }
         }
+    }
+
+    // The registry's population is `ai/**`. A reached module OUTSIDE it is not "unregistered" —
+    // the authority never claimed that region, and scoring it as a population gap would point the
+    // inventory owner at a repair that is not theirs. The two get separate classes and separate
+    // successor owners for exactly that reason.
+    for (const [bucket, proofClass, owner, detail] of [
+        [undispositioned, PROOF_CLASS.closureUnregisteredModule, 'the AgentOS extraction inventory (#17525 / #17645 lineage)',
+            'reached from an Edge entrypoint with no registry disposition — the declared population undershoots actual reach'],
+        [outOfRegion, PROOF_CLASS.closureOutOfRegistryRegion, 'reconcile out-of-AgentOS consumers (#17631)',
+            `reached from an Edge entrypoint but outside the registry's \`${REGISTRY_REGION}/\` region — post-cut these cross a package boundary`]
+    ]) {
+        if (bucket.length === 0) continue;
+
+        const identities = [...new Set(bucket)].sort();
+
+        topologyFindings.push({
+            class               : proofClass,
+            identity            : `${identities.length} module(s)`,
+            detail,
+            identities,
+            successorOwner      : owner,
+            preRelocationBlocker: true
+        })
     }
 
     return {instrumentErrors, topologyFindings}
@@ -583,13 +611,27 @@ async function main() {
 
         const {instrumentErrors, topologyFindings} = runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages: cloudOnly});
 
-        topologyFindings.push({
-            class               : PROOF_CLASS.edgePopulationInterim,
-            identity            : 'edge dependencies = root devDependencies minus the brain tier',
-            detail              : `${Object.keys(edgeDeps).length} packages, a deliberate superset — derived, not authoritative`,
-            successorOwner      : '#17533 help-shape H1 (manifest-authority promotion on the #17525 inventory)',
-            preRelocationBlocker: true
-        });
+        // The static-closure layer consumes H1's reconciled authority rather than re-deriving it:
+        // Edge launch roots are the entrypoint population, and every reconciled row's disposition
+        // is the classifier. A row the registry never dispositioned is `undefined` here, which is
+        // precisely the `unregistered` finding — so the population's own gaps stay visible instead
+        // of defaulting to something benign.
+        const
+            inventory             = buildInventory({allowDirty: true}),
+            dispositionByIdentity = new Map(inventory.rows.map(row => [row.identity, row.disposition])),
+            edgeEntrypoints       = inventory.launchRoots.rows
+                .filter(row => row.disposition === 'edge')
+                .map(row => path.join(PROJECT_ROOT, row.identity)),
+            closure               = runStaticClosureProof({
+                entrypoints      : edgeEntrypoints,
+                dispositionByIdentity,
+                cloudOnlyPackages: cloudOnly,
+                planeRoot        : PROJECT_ROOT,
+                ledgeredEdges    : new Set(inventory.rows.filter(row => row.surface === SURFACE.closureEdge).map(row => row.identity))
+            });
+
+        instrumentErrors.push(...closure.instrumentErrors);
+        topologyFindings.push(...closure.topologyFindings);
 
         const receipt = buildReceipt({
             instrumentErrors,

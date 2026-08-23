@@ -301,16 +301,44 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
         expect(classesOf(result)).toEqual([PROOF_CLASS.closureEscapesPlaneRoot])
     });
 
-    test('a reached module with no registry row is unregistered — the declared population undershooting actual reach', () => {
+    test('unregistered modules AGGREGATE into one finding carrying the identity list, not one row each', () => {
         const result = run({
+            planeRoot            : '/root',
+            entrypoints          : ['/root/ai/e.mjs'],
+            dispositionByIdentity: new Map([['ai/e.mjs', 'edge']]),
             readFile: graph({
-                '/plane/e.mjs'    : "import {a} from './ghost.mjs'; a();",
-                '/plane/ghost.mjs': 'export function a() {}'
-            })
+                '/root/ai/e.mjs'     : "import {a} from './ghost.mjs'; import {b} from './wraith.mjs'; a(); b();",
+                '/root/ai/ghost.mjs' : 'export function a() {}',
+                '/root/ai/wraith.mjs': 'export function b() {}'
+            }),
+            resolve: specifier => specifier.startsWith('./') ? `/root/ai/${specifier.slice(2)}` : null
         });
 
+        // Two undispositioned modules, ONE finding. At current head this class runs to the
+        // hundreds; a row each would bury the exact-identity cloud classes that carry the signal.
         expect(classesOf(result)).toEqual([PROOF_CLASS.closureUnregisteredModule]);
-        expect(result.topologyFindings[0].identity).toBe('ghost.mjs')
+        expect(result.topologyFindings[0].identity).toBe('2 module(s)');
+        expect(result.topologyFindings[0].identities).toEqual(['ai/ghost.mjs', 'ai/wraith.mjs'])
+    });
+
+    test('a module OUTSIDE the registry region gets its own class and owner — the authority never claimed that region', () => {
+        const result = run({
+            planeRoot            : '/root',
+            entrypoints          : ['/root/ai/e.mjs'],
+            dispositionByIdentity: new Map([['ai/e.mjs', 'edge']]),
+            readFile             : graph({
+                '/root/ai/e.mjs'   : "import {a} from '../src/Neo.mjs'; a();",
+                '/root/src/Neo.mjs': 'export function a() {}'
+            }),
+            resolve: (specifier, from) => specifier.startsWith('.')
+                ? `/root/${specifier.replace('../', '').replace('./', '')}`
+                : null
+        });
+
+        // `src/**` is Engine source; scoring it as an inventory population gap would point the
+        // registry owner at a repair that is not theirs.
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureOutOfRegistryRegion]);
+        expect(result.topologyFindings[0].successorOwner).toContain('#17631')
     });
 
     test('an unresolved SPECIFIER is an instrument error: the hole could be hiding the Cloud reach', () => {
@@ -337,17 +365,18 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
     test('the ledger silences BOTH unresolved shapes — the two emitted forms carry different fields', () => {
         const
             specifierForm = run({
-                ledgeredEdges: new Set(['e.mjs → ./missing.mjs']),
+                ledgeredEdges: new Set(['e.mjs::unresolved-specifier::./missing.mjs']),
                 readFile     : graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"}),
                 resolve      : () => null
             }),
             unreadableForm = run({
-                ledgeredEdges: new Set(['missing.mjs [unreadable]']),
+                ledgeredEdges: new Set(['missing.mjs::unreadable']),
                 readFile     : graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"})
             });
 
-        // A key guessed from one shape silently never matches the other, leaving `ledgeredEdges` a
-        // guard doing no work. Both forms must actually suppress.
+        // Keys come from the registry's own `edgeIdentity()`, so they match the inventory's
+        // `closure-edge` ledger by construction. A hand-rolled format matched nothing: wiring this
+        // to the real ledger took the live run from 31 instrument errors to 0.
         expect(specifierForm.instrumentErrors).toEqual([]);
         expect(unreadableForm.instrumentErrors).toEqual([])
     });
