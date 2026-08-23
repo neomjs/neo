@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-08-23T04:53:57.178Z",
-  "releasesLastFetched": "2026-08-23T04:44:03.131Z",
+  "lastSync": "2026-08-23T05:51:01.780Z",
+  "releasesLastFetched": "2026-08-23T05:35:31.194Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -104047,10 +104047,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-18/issue-17595.md",
       "closedAt": null,
-      "updatedAt": "2026-08-23T04:51:10Z",
-      "contentHash": "3c5320cae746c92b8c88ba773afd44ce415d188d27cd2435704e8bfacb3345ec",
+      "updatedAt": "2026-08-23T05:47:17Z",
+      "contentHash": "af95c5679d480742b859da0fbfc156ba213e50abd8023a3fc39dd34f5bbc8251",
       "milestone": null,
-      "commentsTotal": 4
+      "commentsTotal": 5
     },
     "17596": {
       "state": "OPEN",
@@ -104092,10 +104092,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-18/issue-17605.md",
       "closedAt": null,
-      "updatedAt": "2026-08-23T04:51:09Z",
-      "contentHash": "a72683ef12a6d950218ea515e1ea1cd1c3a043fc9b751e02428287f6e38a9560",
+      "updatedAt": "2026-08-23T05:24:24Z",
+      "contentHash": "e166c77b18567bf90fa98d5c8ed8bd381974364ee61c7011b863035eaceadc6a",
       "milestone": null,
-      "commentsTotal": 1
+      "commentsTotal": 2
     }
   },
   "releases": {
@@ -108115,8 +108115,8 @@
       "closedAt": null,
       "mergedAt": null,
       "milestone": null,
-      "updatedAt": "2026-08-23T04:18:08Z",
-      "contentHash": "bd9c0ad61f046090ab30671a2fb116380c5422e6acb485cb82561e45676c869d"
+      "updatedAt": "2026-08-23T05:51:06Z",
+      "contentHash": "671c95156b340c7721c413cae3bbc3b1be40603373c5facc2e87a9ae078cde9b"
     },
     "17606": {
       "state": "OPEN",
@@ -108124,8 +108124,8 @@
       "closedAt": null,
       "mergedAt": null,
       "milestone": null,
-      "updatedAt": "2026-08-23T04:53:36Z",
-      "contentHash": "18a1d149a9ca2920df5624622462ae71dda98698a7b35fe2da2625b7304a76d5"
+      "updatedAt": "2026-08-23T05:39:29Z",
+      "contentHash": "b05ed28a75a8c657140b681235ca6c87a234a73978e3a82a0e0576d9179b57f7"
     }
   },
   "discussions": {
