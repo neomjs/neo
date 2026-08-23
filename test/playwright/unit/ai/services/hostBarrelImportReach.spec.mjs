@@ -159,6 +159,28 @@ test.describe('host-plane import reach — a store handle must be unreachable by
         expect([...externals], 'a dynamic import is not a static edge').not.toContain('@google/generative-ai');
     });
 
+    test('the two perspective E2Es cannot statically reach the cloud services barrel', () => {
+        const
+            cloudBarrel = path.join(repoRoot, 'ai/services.mjs'),
+            control     = path.join(repoRoot, 'test/playwright/unit/ai/services-resilient-load.spec.mjs'),
+            targets     = [
+                'test/playwright/e2e/agentos/DemoBPerspectiveToolsNL.spec.mjs',
+                'test/playwright/e2e/workstation/WorkstationPerspectivesNL.spec.mjs'
+            ];
+
+        expect(
+            [...walkStaticImports(control).files],
+            'positive control: the graph walk must recognize a real cloud-barrel adopter'
+        ).toContain(cloudBarrel);
+
+        for (const target of targets) {
+            expect(
+                [...walkStaticImports(path.join(repoRoot, target)).files],
+                `${target} needs one host Neural Link service; it must not inherit the Brain barrel`
+            ).not.toContain(cloudBarrel)
+        }
+    });
+
     for (const pkg of STATICALLY_REACHED_CLOUD_PACKAGES) {
         test(`the HOST barrel cannot statically reach ${pkg}`, () => {
             // The acceptance property, one package per test so a regression names the package that
