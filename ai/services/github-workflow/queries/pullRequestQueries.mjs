@@ -72,6 +72,9 @@ export const GET_MERGE_READINESS = `
         headRefOid
         mergeStateStatus
         reviewDecision
+        author {
+          login
+        }
         reviewRequests(first: 100) {
           pageInfo {
             hasNextPage
@@ -99,6 +102,9 @@ export const GET_MERGE_READINESS = `
           nodes {
             state
             submittedAt
+            author {
+              login
+            }
             commit {
               oid
             }

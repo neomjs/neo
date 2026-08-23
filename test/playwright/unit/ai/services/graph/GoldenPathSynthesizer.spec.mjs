@@ -20,6 +20,7 @@ import fs                    from 'fs';
 import path                  from 'path';
 import os                    from 'os';
 import child_process         from 'child_process';
+import {resolveCrossFamilyVerdict} from '../../../../../../ai/services/graph/agentFamilyResolution.mjs';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
@@ -267,7 +268,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test('hasCrossFamilyReview accepts injected identity-family maps', () => {
         const pr = {
             author : {login: 'author-agent'},
-            reviews: [{author: {login: 'reviewer-agent'}}]
+            // `state` is explicit because coverage now means an APPROVED review, not any review.
+            // The fixture predates that distinction; the arm's subject is the injected map.
+            reviews: [{author: {login: 'reviewer-agent'}, state: 'APPROVED'}]
         };
 
         expect(Synthesizer.hasCrossFamilyReview(pr, {
@@ -279,6 +282,40 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'author-agent'  : 'gpt',
             'reviewer-agent': 'claude'
         })).toBe(true);
+    });
+
+    test('cross-family coverage requires an APPROVED review — attention is not coverage', () => {
+        const families = {'author-agent': 'gpt', 'reviewer-agent': 'claude'};
+
+        // Same cross-family reviewer, three states. Only one of them is coverage under the mandate,
+        // and CHANGES_REQUESTED is the case where counting any state would be actively backwards.
+        for (const state of ['COMMENTED', 'CHANGES_REQUESTED']) {
+            const pr = {author: {login: 'author-agent'}, reviews: [{author: {login: 'reviewer-agent'}, state}]};
+
+            expect(Synthesizer.hasCrossFamilyReview(pr, families), state).toBe(false);
+        }
+
+        const approved = {author: {login: 'author-agent'}, reviews: [{author: {login: 'reviewer-agent'}, state: 'APPROVED'}]};
+
+        expect(Synthesizer.hasCrossFamilyReview(approved, families)).toBe(true);
+    });
+
+    test('an unrostered author reports null, and the report keeps its external-contributor charity', () => {
+        const pr = {
+            author : {login: 'external-dev'},
+            reviews: [{author: {login: 'reviewer-agent'}, state: 'APPROVED'}]
+        };
+
+        // Three states, not two. The mandate exists to stop one model family self-approving, which
+        // an external human's PR does not risk — so the REPORT stays permissive here, unchanged.
+        // The verdict keeps `null` distinct so a merge gate can apply its own policy instead of
+        // inheriting that charity by accident.
+        expect(resolveCrossFamilyVerdict(pr, {'reviewer-agent': 'claude'}).crossFamily).toBe(null);
+        expect(Synthesizer.hasCrossFamilyReview(pr, {'reviewer-agent': 'claude'})).toBe(true);
+
+        // …but charity is not blanket: with no classified approver at all there is nothing to be
+        // charitable about, so it stays false rather than passing on the author's absence alone.
+        expect(Synthesizer.hasCrossFamilyReview(pr, {})).toBe(false);
     });
 
     test('getRecentSummaryDocuments returns the N most-recent summaries by timestamp, newest-first (#13800)', async () => {
@@ -367,7 +404,12 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('## Active PR Cycle State');
         expect(handoffContent).toContain('(Source: GitHub Live; Status at generation: current; Fresh until:');
         expect(handoffContent).toContain('### Recent Open PRs (`1` of `1` items)');
-        expect(handoffContent).toContain('cross-family reviewed: yes');
+        // The fixture's ONLY review is a CHANGES_REQUESTED from a cross-family reviewer, so the
+        // honest answer is `no` — a blocked PR is the opposite of covered. This assertion read
+        // `yes` while the predicate counted reviews of any state: the Golden Path was telling
+        // readers that a PR its cross-family reviewer BLOCKED was covered by them.
+        // Pinning the distinction rather than the value, so the arm fails in either direction.
+        expect(handoffContent).toContain('cross-family reviewed: no');
         expect(handoffContent).toContain('- **PR #11178**: feat(ai): Automate PR Cycle State Extraction');
         expect(handoffContent).not.toContain('](https://github.com/');
         expect(handoffContent).not.toContain('### @neo-gemini-pro');

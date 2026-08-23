@@ -11,7 +11,15 @@ import * as core            from '../../../../../../src/core/_export.mjs';
 import {validateMergeReady} from '../../../../../../ai/scripts/lifecycle/validateMergeReady.mjs';
 
 test.describe('validateMergeReady — strict merge-readiness contract', () => {
-    const openSource = overrides => ({state: 'OPEN', mergedAt: null, ...overrides});
+    // A healthy default for the §6.1 mandate, so arms about OTHER rules stay about those rules.
+    // The gate itself is fail-closed on an unresolved verdict, which its own arms assert explicitly
+    // rather than relying on this builder's silence.
+    const openSource = overrides => ({
+        state             : 'OPEN',
+        mergedAt          : null,
+        crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
+        ...overrides
+    });
 
     test('a fully-disposed approved PR is strict-merge-ready', () => {
         const result = validateMergeReady(openSource({
@@ -136,7 +144,15 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
 });
 
 test.describe('validateMergeReady — the approval anchor', () => {
-    const openSource = overrides => ({state: 'OPEN', mergedAt: null, ...overrides});
+    // A healthy default for the §6.1 mandate, so arms about OTHER rules stay about those rules.
+    // The gate itself is fail-closed on an unresolved verdict, which its own arms assert explicitly
+    // rather than relying on this builder's silence.
+    const openSource = overrides => ({
+        state             : 'OPEN',
+        mergedAt          : null,
+        crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
+        ...overrides
+    });
 
     test('a stale anchor is REPORTED, never a blocker', () => {
         const result = validateMergeReady(openSource({
@@ -205,5 +221,74 @@ test.describe('validateMergeReady — the approval anchor', () => {
         expect(result.strictMergeReady).toBe(false);
         expect(result.blockers.some(entry => entry.includes('not APPROVED'))).toBe(true);
         expect(result.advisories).toHaveLength(1)
+    })
+});
+
+/**
+ * @summary The §6.1 cross-family mandate, which no GitHub field can express.
+ *
+ * The anchor is a live incident rather than a constructed case: a real pull request carried exactly
+ * the values below and returned `strictMergeReady: true` with ZERO blockers and zero advisories,
+ * for a PR whose only approval came from the author's own model family. These arms are red without
+ * the sixth rule.
+ */
+test.describe('validateMergeReady — the cross-family mandate', () => {
+    // Deliberately NOT the shared `openSource` builder: these arms are about the verdict field, so
+    // inheriting a healthy default would be the one thing that makes them vacuous.
+    const green = overrides => ({
+        state           : 'OPEN',
+        mergedAt        : null,
+        reviewDecision  : 'APPROVED',
+        checksGreen     : true,
+        mergeStateStatus: 'CLEAN',
+        reviewRequests  : [],
+        ...overrides
+    });
+
+    test('a same-family-only approval is NOT strict-merge-ready', () => {
+        const result = validateMergeReady(green({
+            crossFamilyVerdict: {crossFamily: false, authorFamily: 'claude', approvingFamilies: ['claude'], authorLogin: 'neo-opus-vega'}
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        // The blocker must name both families — a reader who cannot see WHO approved has to go back
+        // to the API to find out why their green PR is blocked.
+        expect(result.blockers.some(entry => entry.includes("author family 'claude'") && entry.includes('[claude]'))).toBe(true);
+    });
+
+    test('a genuinely cross-family approval passes, on the same otherwise-identical surface', () => {
+        const result = validateMergeReady(green({
+            crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-vega'}
+        }));
+
+        expect(result.strictMergeReady).toBe(true);
+        expect(result.blockers).toEqual([]);
+    });
+
+    test('a THIRD family satisfies it — the mandate is cross-family, not one specific other family', () => {
+        const result = validateMergeReady(green({
+            crossFamilyVerdict: {crossFamily: true, authorFamily: 'gpt', approvingFamilies: ['gemini'], authorLogin: 'neo-gpt-emmy'}
+        }));
+
+        expect(result.strictMergeReady).toBe(true);
+    });
+
+    test('an UNRESOLVED verdict fails closed, like every other predicate field', () => {
+        const result = validateMergeReady(green());
+
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.some(entry => entry.includes('was not resolved'))).toBe(true);
+    });
+
+    test('an unrostered author blocks with its OWN reason, not a mandate-breach claim', () => {
+        const result = validateMergeReady(green({
+            crossFamilyVerdict: {crossFamily: null, authorFamily: null, approvingFamilies: ['claude'], authorLogin: 'external-dev'}
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        // Three states, three messages. Reporting "mandate unsatisfied" for an external contributor
+        // would send the reader hunting for a reviewer who was never required.
+        expect(result.blockers.some(entry => entry.includes('could not be evaluated') && entry.includes('external-dev'))).toBe(true);
+        expect(result.blockers.some(entry => entry.includes('mandate unsatisfied'))).toBe(false);
     })
 });

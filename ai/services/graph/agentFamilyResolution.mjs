@@ -255,16 +255,64 @@ export function groupReviewsByFamily(reviews = [], agentFamilies = getCoreSwarmA
  * @returns {Boolean}
  */
 export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
-    const authorFamily = resolveAuthorFamily(pr, agentFamilies);
-    const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
+    const verdict = resolveCrossFamilyVerdict(pr, agentFamilies);
 
-    return reviews.some(review => {
-        const reviewerLogin  = review.author?.login || review.author?.name || review.author?.login;
-        const reviewerFamily = agentFamilies[reviewerLogin];
+    // `null` (author family unresolvable) maps to TRUE here, preserving this function's original
+    // reading: an unrostered author is an EXTERNAL contributor, and the mandate exists to stop one
+    // model family self-approving — a risk an external human's PR does not carry. That is why any
+    // classified approver satisfies it. The verdict form below keeps `null` distinct so a gate can
+    // decide for itself rather than inheriting a report's charity.
+    return verdict.crossFamily === null
+        ? verdict.approvingFamilies.length > 0
+        : verdict.crossFamily
+}
 
-        if (!reviewerFamily) return false;
-        if (!authorFamily) return true;
+/**
+ * @summary The cross-family mandate as a VERDICT rather than a boolean — the shape a merge gate needs.
+ *
+ * `hasCrossFamilyReview` above answers a report line, where an optimistic guess costs a wrong word.
+ * A gate cannot spend the same optimism, and the two differences are load-bearing:
+ *
+ * **1. Only an APPROVED review counts.** The mandate is "at least one cross-family *Approved*
+ * review", so a cross-family `COMMENT` or `CHANGES_REQUESTED` is not coverage — it is the opposite
+ * of coverage in the `CHANGES_REQUESTED` case. Reviews arrive in every state on the same
+ * connection, so the state filter is the difference between counting approvals and counting
+ * attention.
+ *
+ * **2. An unresolvable author family reports `null`, not a verdict.** The boolean form treats that
+ * case as satisfied, and deliberately so — an unrostered author is an external contributor, and the
+ * mandate exists to stop one model family self-approving, which is not a risk an external human's
+ * PR carries. That charity is right for a report and is not a decision this function should make
+ * for a caller. `null` is deliberately neither `true` nor `false`: "the author is not one of ours,
+ * so the mandate may not even apply" is a third state, and a consumer that collapses it into either
+ * boolean has silently chosen a policy. The gate decides; the resolver reports.
+ *
+ * The approving families are returned alongside the verdict because a blocker that cannot name who
+ * approved and what family they belong to sends the reader back to the API to find out.
+ *
+ * @param {Object} pr GitHub PR payload (`author`, `body`, `reviews`).
+ * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @returns {{crossFamily: (Boolean|null), authorFamily: (String|null), approvingFamilies: String[], unclassifiedApprovers: String[]}}
+ */
+export function resolveCrossFamilyVerdict(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
+    const
+        authorFamily = resolveAuthorFamily(pr, agentFamilies) ?? null,
+        reviews      = Array.isArray(pr?.reviews) ? pr.reviews : [],
+        approvals    = reviews.filter(review => review?.state === 'APPROVED'),
+        resolved     = approvals.map(review => resolveReviewerFamily(review, agentFamilies)),
 
-        return reviewerFamily !== authorFamily
-    })
+        approvingFamilies     = [...new Set(resolved.filter(item => item.classified).map(item => item.family))],
+        unclassifiedApprovers = resolved.filter(item => !item.classified).map(item => item.login).filter(Boolean);
+
+    return {
+        authorFamily,
+        approvingFamilies,
+        unclassifiedApprovers,
+        // Order matters: an unknown author short-circuits BEFORE the comparison, because comparing
+        // against `null` would silently make every classified approver look cross-family — the same
+        // fail-open the boolean form takes deliberately and a gate must not.
+        crossFamily: authorFamily === null
+            ? null
+            : approvingFamilies.some(family => family !== authorFamily)
+    }
 }

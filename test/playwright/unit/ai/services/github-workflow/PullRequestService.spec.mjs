@@ -387,7 +387,11 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         reviewers = [],
         // `null` models a connection GitHub did not return at all — the silence case — which is
         // distinct from an empty node list (fetched, no approvals).
-        reviews = [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}}],
+        // Rostered logins, and DIFFERENT families on purpose: the default fixture models a healthy
+        // PR, and after the §6.1 rule a same-family default would block every arm here for a reason
+        // none of them is about. `neo-opus-vega` is claude, `neo-gpt-emmy` is gpt.
+        authorLogin = 'neo-opus-vega',
+        reviews = [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}}],
         reviewsHasPreviousPage = false,
         state = 'OPEN'
     } = {}) => ({
@@ -398,6 +402,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         headRefOid,
         mergeStateStatus,
         reviewDecision,
+        author        : authorLogin === null ? null : {login: authorLogin},
         reviewRequests: {
             pageInfo: {hasNextPage: reviewHasNextPage, endCursor: null},
             nodes   : reviewers.map(login => ({
@@ -513,7 +518,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         const moved = () => pullRequest({
             checkCommit: NEXT_HEAD,
             headRefOid : NEXT_HEAD,
-            reviews    : [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}}]
+            reviews    : [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}}]
         });
         const result = await project(dependencies({snapshots: [moved(), moved()]}));
 
@@ -576,11 +581,18 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         const deps   = dependencies({snapshots: [pullRequest({reviews: null}), pullRequest({reviews: null})]});
         const result = await project(deps);
 
-        // The inverse of this module's fail-closed rule, and deliberately so: the anchor certifies
-        // nothing, so a caller that never asked for it is not making a weaker claim. What must NOT
-        // happen is an advisory asserting freshness it never observed.
-        expect(result.verdict).toBe('merge-ready-observed');
+        // The arm's subject, unchanged: the anchor certifies nothing, so a caller that never asked
+        // for it is not making a weaker claim, and what must NOT happen is an advisory asserting
+        // freshness it never observed.
         expect(result.predicate.advisories).toEqual([]);
+
+        // The verdict, however, DID move with the §6.1 rule, and the two facts sit either side of
+        // this module's fail-closed line. The same unfetched connection that leaves the anchor
+        // silent also means nobody can see WHO approved — and the cross-family mandate is a
+        // predicate field, not a reporting channel, so it must block rather than certify. Asserting
+        // the reason as well as the outcome, so a future change cannot flip this back by accident.
+        expect(result.verdict).not.toBe('merge-ready-observed');
+        expect(result.predicate.blockers.some(entry => entry.includes('cross-family review mandate'))).toBe(true);
     });
 
     test('#16902: query carries exact workflow-run coordinates instead of inferring attempts by job name', () => {

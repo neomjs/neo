@@ -11,6 +11,7 @@ import RepositoryService    from './RepositoryService.mjs';
 import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
 import {
     groupReviewsByFamily,
+    resolveCrossFamilyVerdict,
     resolveReviewerFamily
 }                           from '../graph/agentFamilyResolution.mjs';
 import {
@@ -421,7 +422,10 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
     const reviewsConnection = pullRequest.reviews;
     const approvals         = (reviewsConnection?.nodes || [])
         .filter(node => node?.state === 'APPROVED' && node?.commit?.oid && node?.submittedAt)
-        .map(node => ({oid: node.commit.oid, submittedAt: node.submittedAt}))
+        // `login` rides along because the cross-family mandate is a question about WHO approved,
+        // and this map is the only place the reviewer identity survives into the snapshot. It is
+        // drift-safe: a login is a fixed property of a node whose arrival already moves this array.
+        .map(node => ({oid: node.commit.oid, submittedAt: node.submittedAt, login: node.author?.login ?? null}))
         // Sorted rather than trusting connection order: the caller reads `.at(-1)` as "latest", and
         // an ordering assumption that holds today would fail silently — as a WRONG anchor, not a
         // missing one. `oid` breaks ties so two approvals sharing a timestamp stay deterministic
@@ -443,6 +447,7 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
         headRefOid      : pullRequest.headRefOid,
         mergeStateStatus: pullRequest.mergeStateStatus,
         reviewDecision  : pullRequest.reviewDecision,
+        authorLogin     : pullRequest.author?.login ?? null,
         reviewRequests  : {
             available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),
             hasNextPage: Boolean(reviewConnection?.pageInfo?.hasNextPage),
@@ -774,6 +779,23 @@ async function buildMergeReadinessProjection({
     const approvedAtOid = snapshot.approvals.available
         ? snapshot.approvals.nodes.at(-1)?.oid
         : undefined;
+    // The §6.1 mandate, resolved here rather than inside the predicate so `validateMergeReady`
+    // stays a pure function over primitives. `approvals.nodes` is already filtered to APPROVED
+    // upstream, so re-stamping the state is a shape adapter, not a second filter.
+    //
+    // Unavailable approvals yield `undefined`, NOT an empty verdict: "the reviews were not fetched"
+    // and "nobody from another family approved" are different facts, and only the first should read
+    // as an unresolved gate. Collapsing them would report a mandate breach for a connection error.
+    const crossFamilyVerdict = snapshot.approvals.available
+        ? {
+            ...resolveCrossFamilyVerdict({
+                author : {login: snapshot.authorLogin},
+                reviews: snapshot.approvals.nodes.map(node => ({state: 'APPROVED', author: {login: node.login}}))
+            }),
+            authorLogin: snapshot.authorLogin
+        }
+        : undefined;
+
     const predicate = validateMergeReady({
         state           : snapshot.state,
         mergedAt        : snapshot.mergedAt,
@@ -781,6 +803,7 @@ async function buildMergeReadinessProjection({
         checksGreen,
         mergeStateStatus: snapshot.mergeStateStatus,
         reviewRequests,
+        crossFamilyVerdict,
         approvedAtOid,
         headRefOid      : snapshot.headRefOid
     });
