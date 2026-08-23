@@ -4,8 +4,9 @@
 > manifest IS the Host-Edge package: root scripts are Edge-only, `cloud/` is an independent nested
 > package that installs alone, npm workspaces are forbidden because hoisting is the falsifier of the
 > isolation this topology exists to prove, and a pure `shared/` package exists only if the inventory
-> proves a population for it. AgentOS depends on the published Engine; the Engine never depends back.
-> Runtime root and target root are two authorities that never collapse into one cwd. Nothing
+> proves a population for it. AgentOS depends on the published Engine; the Engine's production graph
+> never depends back — its test infrastructure consumes the extracted package as pinned dev-time
+> tooling only. Runtime root and target root are two authorities that never collapse into one cwd. Nothing
 > relocates until two receipts exist — the zero-residue inventory and the paired isolation exercise —
 > the cut precedes the v13.2 Engine release, and no historical `neomjs/neo` SHA changes, ever.
 
@@ -62,27 +63,46 @@ spoken contractions ("neo brain", "agent brain") are speech-only drift and never
   root, which silently restores exactly the reachability the split removes. Nested packages install
   independently; hoisting is the falsifier, not an inconvenience.
 
-### §2.2 `shared/` is conditional on inventory proof — otherwise it does not exist
+### §2.2 `shared/` is admitted — the accepted inventory proved its population
 
-The inventory (#17525) may establish a plane-neutral `shared/` package **only** for modules proven
-pure and genuinely consumed by both planes. It contains no drivers, no durable-store packages, no
-host capabilities, and no ambient config authority; both planes depend on it explicitly. If the
-inventory finds no such population, the package is not created. An empty-but-present `shared/` is a
-future dumping ground wearing a contract's name.
+The gate was conditional; the proof has run. The accepted inventory (#17525, merged) establishes
+**exactly one** pure cross-plane module — `ai/scripts/benchmark/helpers/stats.mjs`, reached by both
+planes' benchmark roots and owning no capability — so the plane-neutral `shared/` package **exists
+in the first wave** for the inventory-owned population. Custody split: **the registry owns the
+list; this record owns the admission rule** — pure, driver-free, capability-free, no ambient config
+authority, both planes depending on it explicitly. Growth happens through registry rows under that
+rule, never by editing this record, and proof 2 revalidates the population at the cut. An
+empty-but-present `shared/` stays refused: if the registry's shared population ever empties, the
+package retires with it — a future dumping ground wearing a contract's name is the failure mode
+this rule exists to block.
 
-### §2.3 Dependency direction: AgentOS → published Engine, never back
+### §2.3 Dependency direction: AgentOS → published Engine; the Engine's production graph never back
 
 The extracted repository consumes the Engine as a **published package**. The Engine never imports
 from the extracted repository, and `src/ai/**` (the Body-side AI surfaces) stays Engine-owned. The
 release seam already exists as the two-command protocol: `publish.mjs` owns the Engine half;
 `ai:post-release-sync` owns the Brain half with a fail-closed preflight (#17239).
 
-This covenant reads **production-strict**. A dev-time/test-tooling consumption ruling — the Engine's
-whitebox-e2e fixture is the second Bridge entrypoint, and tracked seat hooks import Brain lifecycle
-modules — is under active fold on the source Discussion
-([`DC_kwDODSospM4BFJL_`](https://github.com/neomjs/neo/discussions/17489#discussioncomment-18125567));
-if the Discussion folds a carve-out, it lands here as an explicit amendment. A migration PR may not
-assume the carve-out before this record carries it.
+The covenant is **production-strict, with one explicit dev-time carve-out** — decided here because
+the measured consumer classes
+([`DC_kwDODSospM4BFJL_`](https://github.com/neomjs/neo/discussions/17489#discussioncomment-18125567))
+determine whether "Engine-only clone remains testable" and "no Engine→AgentOS dependency" can both
+stay true:
+
+- **Engine test infrastructure and `apps/agentos` specs** (the whitebox-e2e fixture is the second
+  Bridge entrypoint, importing seven Neural Link services; the app specs import fleet services)
+  consume the extracted package as a **pinned devDependency, test tooling only**, with the Bridge
+  arriving as a package-owned bin per §2.5's family-1 shape. The production import graph stays
+  Engine-only and mechanically enforced: the existing engine-brain boundary checker extends to fail
+  any `dependencies`-reachable or `src/**`/`buildScripts/**` Brain import while permitting `test/**`
+  dev-time consumption. The move leaf rewires the fixture's relative imports; the Engine-only clone
+  proof (leaf 12) proves the clone **buildable without** and **testable with** the devDependency.
+- Rejected in place: relocating the NL-dependent e2e population out of the Engine (the Engine loses
+  its own component-regression loop) and vendoring the Bridge (the parallel-substrate trap §2.11
+  already names).
+
+The D#17489 body carries this fold's source measurement; its author-side mirror follows the same
+anchors. A migration PR may not widen the carve-out beyond `test/**` dev-time consumption.
 
 ### §2.4 Isolation is a proof-set, not a package-omission claim
 
@@ -128,6 +148,12 @@ and read back at cutover**; a corrected template alone is not migration evidence
 same-root repair for the current monorepo (#17611 / PR #17610) is a compatibility fix, not
 extraction precedent, unless explicitly revalidated against this contract.
 
+**Tracked seat hooks are the third consumer family** (beyond Neural Link `--cwd` and GitHub
+Workflow's target binding): they run every seat turn in the target checkout and today import Brain
+lifecycle modules relatively. Post-split they resolve Brain substrate only through
+`agentosRuntimeRoot`-provisioned artifacts per §2.7's custody ruling — never relatively from
+`targetRepoRoot`.
+
 ### §2.6 The two blocking receipts precede every relocation leaf (criteria 2/3, amended timing)
 
 Per the author correction `DC_kwDODSospM4BFFq_` — which explicitly amended "before Epic filing" to
@@ -167,6 +193,14 @@ Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own d
 mirrors, `src/ai/**`, and the minimal Engine contributor surface. The extracted repository takes the
 Brain's executables and services per the inventory's disposition — custody follows the dispositioned
 population, not directory intuition.
+
+**Tracked seat hooks move.** The `.claude/hooks`, `.codex/hooks`, and `.kimi-code/hooks` files are
+Agent OS substrate (lane-state, wake, presence are Brain concepts) that imports `ai/scripts/lifecycle/*`
+relatively; leaving them tracked in the Engine breaks them the moment `ai/` leaves. They relocate to
+the extracted repository, and **seat provisioning materializes them into target checkouts as
+generated-not-tracked artifacts** — the same covenant shape as §2.5's seat-config re-materialization.
+The seat re-provisioning leaf (leaf 11) owns this scope explicitly, and the Engine's ignore rules
+take the generated paths.
 
 ### §2.8 Conversion, canary, cut window
 
@@ -237,7 +271,9 @@ of scope here.)
 **Revalidation triggers** — any of these reopens this record: a future physical Edge/Cloud
 repository split; custody changes to `apps/**`, `learn/agentos`, or `src/ai/**`; a new plane
 entrypoint class; a computed-import mechanism that bypasses the §2.4 disposition; any dependency
-change that reintroduces hoisting; renaming the repository after creation.
+change that reintroduces hoisting; a new out-of-`ai/` Brain-consumer class beyond the three §2.3/§2.7
+disposition (test infrastructure, app specs, tracked seat hooks); a widening of the dev-time
+carve-out beyond `test/**`; renaming the repository after creation.
 
 **Retirement:** this ADR retires only by explicit successor in this series; the wave completing
 does not retire it — the topology it records is what "completed" means.
