@@ -7,7 +7,7 @@ import {isEngineProfile, isFilmTake}                 from '../utils/gpuIntent.mj
  * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
  *
  * The unit floor owns the document/script contract. This journey drives the REAL tour button
- * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one Provider,
+ * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one root Provider,
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
  * Canvas-worker value change (plus pixel change under the presenting profile), exact 160x50 chart
@@ -52,29 +52,30 @@ const readCanvasPixels = async canvas => (await canvas.screenshot()).toString('b
 /**
  * @param {Object} app Neural Link fixture app handle.
  * @param {String} workspaceId Workstation workspace id.
- * @returns {Promise<Object>} Identity-only snapshot (counts deliberately excluded).
+ * @returns {Promise<Object>} Root-provider and stable pane / Store identity snapshot.
  */
 const readIdentity = async (app, workspaceId) => {
     const [providers, scalePanes, feedPanes, listedStores, workspace, securityPaneId] = await Promise.all([
-        app.findInstances({className: 'Neo.state.Provider'}, ['id']),
+        app.findInstances({className: 'Neo.state.Provider'}, ['id', 'parent.id']),
         app.findInstances({className: 'Workstation.view.ScalePane'}, ['id', 'store.id']),
         app.findInstances({className: 'Workstation.view.FeedPane'}, ['id', 'store.id']),
         app.listStores(),
         app.getComponent(workspaceId, ['stateProvider.id']),
         app.callMethod(workspaceId, 'getPaneIdentity', ['security'])
     ]),
-        providerList = asArray(providers),
-        scaleList    = asArray(scalePanes),
-        feedList     = asArray(feedPanes),
-        stores       = asArray(listedStores?.stores ?? listedStores),
-        scaleStore   = stores.find(store => store.id?.endsWith('__scale')),
-        feedStore    = stores.find(store => store.id?.endsWith('__feed'));
+        providerList  = asArray(providers),
+        rootProviders = providerList.filter(provider => !provider.properties?.['parent.id']),
+        scaleList     = asArray(scalePanes),
+        feedList      = asArray(feedPanes),
+        stores        = asArray(listedStores?.stores ?? listedStores),
+        scaleStore    = stores.find(store => store.id?.endsWith('__scale')),
+        feedStore     = stores.find(store => store.id?.endsWith('__feed'));
 
     return {
         feedPaneId         : feedList[0]?.id,
         feedStoreId        : feedStore?.id ?? feedList[0]?.properties?.['store.id'],
-        providerCount      : providerList.length,
-        providerId         : providerList[0]?.id,
+        rootProviderCount  : rootProviders.length,
+        rootProviderId     : rootProviders[0]?.id,
         scalePaneId        : scaleList[0]?.id,
         scaleStoreId       : scaleStore?.id ?? scaleList[0]?.properties?.['store.id'],
         securityPaneId,
@@ -547,9 +548,9 @@ test.describe('Workstation — dense living-data composition', () => {
             beforeIdentity = await readIdentity(app, workspaceId),
             beforeChrome   = await readTabChromeIdentity(app, workspaceId);
 
-        expect(beforeIdentity.providerCount, 'Workstation owns one root StateProvider').toBe(1);
+        expect(beforeIdentity.rootProviderCount, 'Workstation owns one root StateProvider').toBe(1);
         expect(beforeIdentity.workspaceProviderId, 'the workspace references that one Provider')
-            .toBe(beforeIdentity.providerId);
+            .toBe(beforeIdentity.rootProviderId);
         expect(beforeIdentity.scaleStoreId).toBeTruthy();
         expect(beforeIdentity.feedStoreId).toBeTruthy();
         expect(beforeIdentity.securityPaneId, 'the transformed heavy resident has a stable pane identity').toBeTruthy();

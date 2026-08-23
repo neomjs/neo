@@ -735,23 +735,27 @@ class Component extends Abstract {
 
     /**
      * Triggered after the theme config got changed
+     * @summary Keeps a local theme carrier unless the logical parent is also the physical DOM parent.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetTheme(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let me          = this,
-                {cls}       = me,
-                needsUpdate = false;
+            let me            = this,
+                {cls, parent} = me,
+                inheritsTheme = value === parent?.theme && me.parentId === parent?.id,
+                needsUpdate   = false;
 
             if (oldValue && cls.includes(oldValue)) {
                 NeoArray.remove(cls, oldValue);
                 needsUpdate = true
             }
 
-            // We do not need to add a DOM based CSS selector, in case the theme is already inherited
-            if (value !== me.parent?.theme) {
+            // `parentComponent` can preserve logical focus / controller ancestry while `parentId`
+            // roots a floating embodiment elsewhere. CSS inheritance crosses only the physical DOM
+            // edge, so omit the local carrier exclusively when both parent roles are the same component.
+            if (!inheritsTheme) {
                 value && NeoArray.add(cls, value);
                 needsUpdate = true
             }
