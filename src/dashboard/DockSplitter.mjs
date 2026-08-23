@@ -17,6 +17,33 @@ import NeoArray      from '../util/Array.mjs';
  * @see learn/agentos/DockZoneModel.md
  */
 class DockSplitter extends Component {
+    /**
+     * @summary The `--dock-splitter-*` contract, projected onto the drag proxy by
+     * {@link Neo.dashboard.DockSplitter#projectProxyTokens}.
+     *
+     * The SSOT is the `.neo-dashboard` token block in `resources/scss/src/dashboard/Container.scss`;
+     * this is a restatement, and a restatement drifts. The guard is the parity spec, which parses
+     * that block and fails when the two sets diverge — so an engine token added without a line here
+     * turns a test red instead of silently dropping out of every drag proxy.
+     * @member {String[]} proxyProjectedTokens
+     * @static
+     */
+    static proxyProjectedTokens = [
+        '--dock-splitter-background',
+        '--dock-splitter-background-active',
+        '--dock-splitter-background-hover',
+        '--dock-splitter-handle-color',
+        '--dock-splitter-handle-color-active',
+        '--dock-splitter-handle-color-hover',
+        '--dock-splitter-handle-glow-hover',
+        '--dock-splitter-handle-size',
+        '--dock-splitter-handle-thickness',
+        '--dock-splitter-radius',
+        '--dock-splitter-ring',
+        '--dock-splitter-ring-active',
+        '--dock-splitter-ring-hover'
+    ]
+
     static config = {
         /**
          * @member {String} className='Neo.dashboard.DockSplitter'
@@ -121,6 +148,62 @@ class DockSplitter extends Component {
             windowId           : me.windowId,
             ...me.dragZoneConfig
         })
+    }
+
+    /**
+     * @summary Carries the splitter's resolved paint onto its drag proxy, which mounts outside the
+     * cascade that produced it.
+     *
+     * The proxy is a clone mounted at `document.body` ({@link Neo.draggable.DragZone#proxyParentId}),
+     * so it keeps the splitter's classes and loses every ancestor. That breaks the paint twice over:
+     * the engine declares its `--dock-splitter-*` defaults on `.neo-dashboard`, and each consumer
+     * declares its values as a DESCENDANT rule (`.fm-fleet-cockpit .neo-dashboard-dock-splitter`,
+     * `.workstation-workspace .neo-dashboard-dock-splitter`). Detached from both, every token
+     * resolves empty and the proxy renders transparent with a zero-sized handle — the affordance
+     * disappears at exactly the moment it is telling the user they are moving something.
+     *
+     * Reading the SOURCE element's computed values is what makes this consumer-agnostic: the source
+     * has already been through the real cascade, so the projection never needs to know which class
+     * carried a value or how deeply it was nested. A scope class cannot do this — it would restore
+     * the engine floor and leave every consumer value absent, which paints the proxy WRONG rather
+     * than not at all, and wrong is the harder failure to notice.
+     *
+     * Best-effort by contract: a failed read must never block a drag. Losing the paint costs an
+     * affordance; throwing here would cost the gesture.
+     *
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async projectProxyTokens() {
+        let me = this;
+
+        try {
+            const styles = await Neo.main.DomAccess.getComputedStyle({
+                id   : me.id,
+                style: DockSplitter.proxyProjectedTokens
+            });
+
+            const projected = Object.entries(styles || {}).reduce((acc, [token, value]) => {
+                // An unresolved custom property reads as an empty string. Projecting it would pin
+                // the proxy to "explicitly nothing" and shadow the engine floor it could otherwise
+                // still inherit, so an absent value must stay absent.
+                value?.trim() && (acc[token] = value.trim());
+                return acc
+            }, {});
+
+            Object.keys(projected).length > 0 && me.dragZone?.set({
+                dragProxyConfig: {
+                    ...(me.dragZone.dragProxyConfig || {}),
+                    style: {
+                        ...(me.dragZone.dragProxyConfig?.style || {}),
+                        ...projected
+                    }
+                }
+            })
+        } catch {
+            // Unmounted, destroyed, or a main-thread round trip that lost its node: the drag
+            // proceeds unpainted rather than not at all.
+        }
     }
 
     /**
@@ -364,6 +447,7 @@ class DockSplitter extends Component {
         });
 
         await me.captureDragStart(data);
+        await me.projectProxyTokens();
         await me.dragZone.dragStart(data);
 
         me.style = {

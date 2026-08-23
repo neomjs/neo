@@ -233,3 +233,44 @@ test.describe('Neo.dashboard.DockSplitter', () => {
         expect(rejected).toHaveLength(1)                                         // the rejection event fired instead
     });
 });
+
+test.describe('Neo.dashboard.DockSplitter — drag-proxy token projection', () => {
+    /**
+     * The projection restates the `--dock-splitter-*` contract in JS, and a restatement drifts.
+     * This is the guard that makes the restatement safe: it parses the engine's own `.neo-dashboard`
+     * block and fails when the two sets diverge, so a token added to the stylesheet without a line
+     * in `proxyProjectedTokens` turns this red instead of silently vanishing from every drag proxy.
+     *
+     * Parsing the SSOT rather than pinning a count on purpose — a count arm would pass whenever an
+     * addition and a removal cancelled out.
+     */
+    test('the projected token list matches the engine stylesheet exactly, in both directions', async () => {
+        const fs   = await import('node:fs/promises'),
+              path = await import('node:path'),
+              url  = await import('node:url');
+
+        const scssPath = path.resolve(
+            path.dirname(url.fileURLToPath(import.meta.url)),
+            '../../../../resources/scss/src/dashboard/Container.scss'
+        );
+
+        const source = await fs.readFile(scssPath, 'utf8'),
+              open   = source.indexOf('.neo-dashboard {'),
+              block  = source.slice(open, source.indexOf('\n}', open));
+
+        expect(open, 'the .neo-dashboard token block must be locatable').toBeGreaterThan(-1);
+
+        const declared = [...new Set(
+            [...block.matchAll(/(--dock-splitter-[a-z-]+)\s*:/g)].map(match => match[1])
+        )].sort();
+
+        // Non-vacuity: a regex that matched nothing would make the comparison below trivially
+        // satisfiable by an empty projection list.
+        expect(declared.length, 'the parse must find the engine tokens, not silently match nothing')
+            .toBeGreaterThan(5);
+
+        expect([...DockSplitter.proxyProjectedTokens].sort(),
+            'every engine splitter token is projected, and nothing is projected that the engine does not declare'
+        ).toEqual(declared)
+    })
+});
