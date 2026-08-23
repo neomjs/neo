@@ -68,6 +68,18 @@
     --dock-rail-tab-color-hover     : inherit;
     --dock-rail-tab-font-family     : inherit;
 
+    // The REVEALED tab's state. A rail whose tab looks identical whether or not it is the one
+    // showing forces the reader to look at the overlay to answer "which of these is open" — the
+    // question the rail itself should answer. Resting and hover ship `transparent`/`inherit`
+    // because a navigation tab must not arrive wearing the generic button's slab; the active state
+    // is the one case where the engine DOES owe a visible default, for the same reason the splitter
+    // floor exists — an affordance nobody can see is not an affordance.
+    //
+    // `currentColor`-relative for the same reason as the splitter tokens: the engine cannot know a
+    // host's palette, and a literal would read wrong on half of them.
+    --dock-rail-tab-background-active: color-mix(in srgb, currentColor 14%, transparent);
+    --dock-rail-tab-color-active    : currentColor;
+
     // ── Edge-rail measure ────────────────────────────────────────────────────────────────
     // The strip's cross-axis extent, and the ONE source for it. This value was a `14px`
     // literal in six places — the four `-left`/`-right`/`-top`/`-bottom` rail rules and the
@@ -350,6 +362,14 @@
     &:hover {
         background: var(--dock-rail-tab-background-hover);
         color     : var(--dock-rail-tab-color-hover);
+    }
+
+    // AFTER `:hover` on purpose, and the ordering is the contract: the tab that is currently
+    // showing must never read as LESS engaged than one the pointer is merely passing over. Same
+    // rule the splitter's active state keeps, one component across.
+    &.pressed {
+        background: var(--dock-rail-tab-background-active);
+        color     : var(--dock-rail-tab-color-active);
     }
 
     // The generic button skin re-colors these descendants through its own token layer, which

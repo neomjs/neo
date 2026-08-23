@@ -385,3 +385,56 @@ test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
         expect(after.fm, 'and the other real consumer is untouched, on every property').toEqual(before.fm)
     })
 });
+
+test.describe('Neo.dashboard.DockRail — the revealed tab reads as revealed', () => {
+    /**
+     * The rail's job is answering "which pane is showing". Before this contract every tab painted
+     * identically whether or not it was the one that opened the overlay, so the answer lived only
+     * in the overlay itself.
+     *
+     * SCOPE, stated so this arm is not read as proving more than it does: it drives the `pressed`
+     * class directly and asserts the PAINT. That the reveal machine actually projects that state
+     * onto the matching tab is a different property, proven against `syncRevealedTabState` in the
+     * DockRail unit spec, and end-to-end through real clicks in the AgentOS cockpit witness. Each
+     * layer asserts the half it is positioned to see.
+     *
+     * Both themes run because a `currentColor`-relative default resolves against inherited ink —
+     * the one class of value that can look correct in one theme and vanish in the other.
+     */
+    for (const theme of THEMES) {
+        test(`the revealed tab is visually distinguishable from a resting sibling in ${theme}`, async ({page}) => {
+            await applyTheme(page, theme);
+
+            const measured = await page.evaluate(() => {
+                const [revealed, resting] = document.querySelectorAll('.neo-dashboard-dock-rail-tab');
+
+                revealed.classList.add('pressed');
+
+                const read = el => {
+                    const s = getComputedStyle(el);
+                    return {background: s.backgroundColor, color: s.color}
+                };
+
+                const result = {revealed: read(revealed), resting: read(resting)};
+
+                revealed.classList.remove('pressed');
+
+                result.afterRemoval = read(revealed);
+
+                return result
+            });
+
+            // The floor exists: an engine that ships this state as `transparent` would satisfy a
+            // "has a rule" check and still leave the rail unreadable, so the assertion is on the
+            // DIFFERENCE against a live sibling rather than on the presence of a declaration.
+            expect(measured.revealed.background,
+                `revealed ${measured.revealed.background} must differ from resting ${measured.resting.background}`
+            ).not.toBe(measured.resting.background);
+
+            // Reversibility, so the state cannot latch: dismissing must return the tab to resting
+            // paint, not merely stop adding to it.
+            expect(measured.afterRemoval, 'clearing the state restores resting paint exactly')
+                .toEqual(measured.resting)
+        })
+    }
+});

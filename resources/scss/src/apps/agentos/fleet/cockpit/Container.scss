@@ -73,6 +73,14 @@
         --dock-rail-tab-color-hover     : var(--fm-ink);
         --dock-transition-duration-fast : var(--fm-motion-fast);
 
+        /* The REVEALED tab. Deliberately NOT the bar's `.pressed` idiom (panel ground + full ink):
+           that pair is byte-identical to this rail's hover, so reusing it would make "open" and
+           "under the pointer" the same picture — and the rail's whole job is answering which pane
+           is showing. The ground stays the quiet panel lift, and the SIGNAL ink carries the state,
+           which is FM's existing vocabulary for "this is the one" without reaching for a slab. */
+        --dock-rail-tab-background-active: var(--fm-panel);
+        --dock-rail-tab-color-active     : var(--fm-signal);
+
         /* Voice stays app-side: mono, tracking and case are the FM chrome role, not dock
            capability. The engine owns the 11px/1 metric floor; this speaks the role on top. */
         .neo-button-text {

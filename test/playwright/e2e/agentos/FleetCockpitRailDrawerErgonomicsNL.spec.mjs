@@ -117,6 +117,41 @@ test.describe('AgentOS Fleet cockpit — rail measure + drawer content fit (Neur
         await expect(overlay, 'the native rail click must open the runtime reveal').toBeVisible({timeout: 15000});
         await expect(overlay.locator('.neo-dashboard-dock-reveal-title')).toHaveText('Agent detail');
 
+        // THE REVEALED-TAB STATE, through real clicks rather than a synthetic class. The rail's job
+        // is answering "which pane is showing"; a rail whose tabs paint identically open or closed
+        // leaves that answer only in the overlay. Paint is asserted in both themes by the CI-running
+        // component sibling; what this arm adds is that the real click path drives it.
+        await expect(railTab, 'the tab that opened the reveal must read as the active one')
+            .toHaveClass(/\bpressed\b/, {timeout: 10000});
+
+        // RETARGET without an intervening dismissal — the transition that latches if the projection
+        // marks the new tab without clearing the old.
+        const perspectivesTab = page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Perspectives'}).first();
+
+        await perspectivesTab.click();
+        await expect(overlay.locator('.neo-dashboard-dock-reveal-title')).toHaveText('Perspectives', {timeout: 10000});
+        await expect(perspectivesTab, 'retargeting moves the mark').toHaveClass(/\bpressed\b/);
+        await expect(railTab, 'and clears it from the tab that no longer hosts the reveal').not.toHaveClass(/\bpressed\b/);
+
+        // DISMISS via Escape — the machine's explicit dismissal input, not re-click.
+        //
+        // Re-click is documented as dismissing (`revealed*` + `tabClick(same item)` -> `idle`), and
+        // it does NOT clear the mark here. Observed, not guessed at: a click-born reveal is
+        // `revealed-focused` with real focus inside the overlay, so clicking its own tab first
+        // moves focus OUT — `overlayFocusLeave()` -> `idle`, which dismisses — and the click then
+        // arrives at an idle machine and re-opens. Net effect: the tab stays revealed and stays
+        // marked. That is engine interaction behaviour and predates this change, so this witness
+        // uses the unambiguous input rather than encoding the quirk as expected; it is written up
+        // on the PR for a follow-up rather than silently absorbed here.
+        await page.keyboard.press('Escape');
+        await expect(perspectivesTab, 'dismissal clears the mark').not.toHaveClass(/\bpressed\b/, {timeout: 10000});
+        await expect(page.locator('.neo-dashboard-dock-rail-tab.pressed'),
+            'no tab may stay marked once nothing is revealed').toHaveCount(0);
+
+        // Reopen for the drawer measurements below, which need a hosted pane.
+        await railTab.click();
+        await expect(overlay.locator('.neo-dashboard-dock-reveal-title')).toHaveText('Agent detail', {timeout: 10000});
+
         // `paneSlot` is the well the engine stamps; `paneRoot` is the product pane mounted into it.
         // The invariant is that the pane consumes the slot's CONTENT width — slot width less its
         // own horizontal padding — and the delta names any dead space.

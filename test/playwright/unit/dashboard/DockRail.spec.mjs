@@ -452,3 +452,59 @@ test.describe('Neo.dashboard.DockRail', () => {
         expect(rail.onTabClick({})).toBeNull();
     });
 });
+
+test.describe('Neo.dashboard.DockRail — revealed-tab state projection', () => {
+    let rail;
+
+    test.afterEach(() => {
+        rail?.destroy?.();
+        rail = null
+    });
+
+    test('the revealed tab is marked, its siblings are cleared, and dismissal clears them all', () => {
+        rail = Neo.create(DockRail, {
+            edge     : 'right',
+            id       : 'dock-rail-revealed-state',
+            railItems: [
+                {dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Terminal'},
+                {dockEdge: 'right', dockItemId: 'output',   restorable: true, title: 'Output'}
+            ]
+        });
+
+        const pressedIds = () => tabsOf(rail).filter(tab => tab.pressed).map(tab => tab.dockItemId);
+
+        // Two tabs, not one, on purpose: a projection that only SETS would pass a single-tab arm
+        // while leaving every previously-revealed tab latched. Clearing is the half that needs a
+        // sibling to be observable at all.
+        expect(tabsOf(rail)).toHaveLength(2);
+        expect(pressedIds(), 'a rail with nothing revealed marks nothing').toEqual([]);
+
+        rail.syncRevealedTabState('terminal');
+        expect(pressedIds(), 'the revealed tab is the only one marked').toEqual(['terminal']);
+
+        // RETARGET without an intervening dismissal — the transition that latches if the projection
+        // sets the new tab without clearing the old one.
+        rail.syncRevealedTabState('output');
+        expect(pressedIds(), 'retargeting moves the mark rather than accumulating it').toEqual(['output']);
+
+        rail.syncRevealedTabState(null);
+        expect(pressedIds(), 'dismissal clears every mark').toEqual([]);
+    });
+
+    test('an unknown item id marks nothing, rather than throwing or latching the previous tab', () => {
+        rail = Neo.create(DockRail, {
+            edge     : 'right',
+            id       : 'dock-rail-revealed-unknown',
+            railItems: createRailItems()
+        });
+
+        rail.syncRevealedTabState('terminal');
+        expect(tabsOf(rail).filter(tab => tab.pressed)).toHaveLength(1);
+
+        // A stale id can arrive from a machine snapshot taken before a model flip retired the item.
+        // The rail must fall to "nothing revealed" rather than keep painting a tab that no longer
+        // corresponds to what the overlay hosts.
+        rail.syncRevealedTabState('a-retired-item');
+        expect(tabsOf(rail).filter(tab => tab.pressed), 'a stale id clears rather than latches').toHaveLength(0);
+    });
+});
