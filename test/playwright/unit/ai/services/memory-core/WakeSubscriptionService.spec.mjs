@@ -3591,4 +3591,115 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             await expect(WakeSubscriptionService.fleetIdentities()).rejects.toThrow(/identity/i)
         });
     });
+
+    test.describe('route delivery annotation (#17619) — a stored row answers whether its transport builds a route', () => {
+        test('a stored non-deliverable row reads back its withdrawal reason instead of a bare active', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                // The schema still accepts the value and the row stores it; what changed is that
+                // the owner can now see the transport never builds a route without reading the
+                // manifest builder's source.
+                const res = await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
+
+                expect(row.status).toBe('active');
+                expect(row.routeDeliverable).toBe(false);
+                expect(row.routeWithdrawalReason).toContain('mcp-notifications');
+                expect(row.routeWithdrawalReason).toContain('not deliverable');
+            });
+        });
+
+        test('a deliverable row carries routeDeliverable true and no withdrawal reason', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.subscribe({
+                    trigger              : 'SENT_TO_ME',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake-annotated'}
+                });
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
+
+                expect(row.routeDeliverable).toBe(true);
+                // Absence of the reason IS the deliverable signal — the annotation never carries
+                // a null placeholder that a consumer must know to ignore.
+                expect(row).not.toHaveProperty('routeWithdrawalReason');
+            });
+        });
+
+        test('a degraded a2a row reads back not-deliverable with the status named — an active same-transport row is the control', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const degradedRes = await WakeSubscriptionService.subscribe({
+                    trigger              : 'SENT_TO_ME',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake-degraded'}
+                });
+                const activeRes = await WakeSubscriptionService.subscribe({
+                    trigger              : 'TASK_STATE_CHANGED',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake-active'}
+                });
+
+                // The lifecycle's own durable mutation: degradation writes status onto the node
+                // (resume() clears it through the same call), so the test degrades through the
+                // production path rather than hand-crafting a row shape.
+                GraphService.upsertNode({id: degradedRes.subscriptionId, properties: {status: 'degraded'}});
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const degraded        = subscriptions.find(entry => entry.id === degradedRes.subscriptionId);
+                const active          = subscriptions.find(entry => entry.id === activeRes.subscriptionId);
+
+                expect(degraded.status).toBe('degraded');
+                expect(degraded.routeDeliverable).toBe(false);
+                expect(degraded.routeWithdrawalReason).toContain("status is 'degraded'");
+                expect(active.routeDeliverable).toBe(true);
+            });
+        });
+
+        test('the previously silent combination is now visible: subscribe succeeds, manifest omits, list says why', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+
+                const node = GraphService.db.nodes.get(res.subscriptionId);
+                // The builder refuses an all-skipped build (fail-loud empty-manifest guard), so the
+                // withdrawn row rides alongside a deliverable one — the skipped list is still the
+                // assertion surface for the row under test.
+                const deliverable = {
+                    id                   : 'WAKE_SUB:deliverable-spec',
+                    agentIdentity        : '@alice',
+                    status               : 'active',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake', signingKey: 'a'.repeat(64)}
+                };
+                const {manifest, skipped} = buildWakeReceiverManifest({
+                    subscriptions : [deliverable, {
+                        id                   : res.subscriptionId,
+                        agentIdentity        : '@alice',
+                        status               : 'active',
+                        harnessTarget        : node.properties.harnessTarget,
+                        harnessTargetMetadata: node.properties.harnessTargetMetadata
+                    }],
+                    callerIdentity: '@alice'
+                });
+
+                expect(manifest.routes['WAKE_SUB:deliverable-spec']).toBeDefined();
+                expect(manifest.routes[res.subscriptionId]).toBeUndefined();
+                expect(skipped.map(entry => entry.subscriptionId)).toContain(res.subscriptionId);
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
+                expect(row.routeDeliverable).toBe(false);
+                // Byte-equality is the point: the annotation and the builder's skip list are the
+                // same predicate's output, so the two surfaces cannot disagree about a row.
+                expect(row.routeWithdrawalReason).toBe(skipped[0].reason);
+            });
+        });
+    });
 });
