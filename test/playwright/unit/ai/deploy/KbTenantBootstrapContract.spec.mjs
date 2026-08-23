@@ -72,14 +72,15 @@ test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
             document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
             repos    = document.tenants['neo-shared'].tenantRepos;
 
-        expect(repos).toHaveLength(3);
+        expect(repos).toHaveLength(4);
 
         const normalized = repos.map(normalizeTenantRepoEntry);
 
         const expected = [
             {repoSlug: 'create-app',       cloneUrl: 'https://github.com/neomjs/create-app.git'},
             {repoSlug: 'devindex-opt-in',  cloneUrl: 'https://github.com/neomjs/devindex-opt-in.git'},
-            {repoSlug: 'devindex-opt-out', cloneUrl: 'https://github.com/neomjs/devindex-opt-out.git'}
+            {repoSlug: 'devindex-opt-out', cloneUrl: 'https://github.com/neomjs/devindex-opt-out.git'},
+            {repoSlug: 'devindex',         cloneUrl: 'https://github.com/neomjs/devindex.git'}
         ];
 
         expected.forEach((entry, index) => {
@@ -111,7 +112,8 @@ test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
         expect(keys).toEqual([
             'neo-shared/create-app',
             'neo-shared/devindex-opt-in',
-            'neo-shared/devindex-opt-out'
+            'neo-shared/devindex-opt-out',
+            'neo-shared/devindex'
         ])
     });
 
@@ -153,7 +155,8 @@ test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
 
         expect(bySlug['create-app']).toBe('main');
         expect(bySlug['devindex-opt-in']).toBe('main');
-        expect(bySlug['devindex-opt-out']).toBe('main')
+        expect(bySlug['devindex-opt-out']).toBe('main');
+        expect(bySlug['devindex']).toBe('main')
     });
 
     test('exactly the two consuming services mount the bootstrap read-only in the local-agent-os overlay', () => {
