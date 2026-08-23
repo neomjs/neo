@@ -57,22 +57,28 @@
  * @see ai/scripts/lifecycle/swarmWakeCooldown.mjs   — idle-out-mode action dispatcher
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — wake-recovery failure-mode background
  */
-import Neo from '../../../src/Neo.mjs';
-import * as core from '../../../src/core/_export.mjs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import Neo                              from '../../../src/Neo.mjs';
+import * as core                        from '../../../src/core/_export.mjs';
+import path                             from 'path';
+import { fileURLToPath }                from 'url';
+import LifecycleService                 from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import {isActiveWakeSubscriptionStatus} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
-import GraphService from '../../services/memory-core/GraphService.mjs';
-import AiConfig from '../../config.mjs';
-import { checkInflightLock } from './inflightLock.mjs';
+import GraphService                     from '../../services/memory-core/GraphService.mjs';
+import AiConfig                         from '../../config.mjs';
+import memoryCoreConfig                 from '../../mcp/server/memory-core/config.mjs';
+import { checkInflightLock }            from './inflightLock.mjs';
 
 /**
  * @summary Compute the sunset / idle-out detector payload for one agent identity.
  * @param {String} [identity] Agent identity to inspect.
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<Object>} Structured detector contract consumed by shell and daemon paths.
  */
-export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY || '@neo-gemini-pro') {
+export async function checkSunsetted(
+    identity = process.env.NEO_AGENT_IDENTITY || '@neo-gemini-pro',
+    {wakeDaemonDir}={}
+) {
     await LifecycleService.ready();
 
     // Ensure GraphService finished initializing
@@ -164,9 +170,9 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     `);
     const memRow = memStmt.get(identity, identity);
 
-    const originSessionId = memRow?.sessionIdField || '';
-    const lastMemTimeMs   = memRow?.timestampField ? new Date(memRow.timestampField).getTime() : 0;
-    const memAgeMs        = lastMemTimeMs ? (Date.now() - lastMemTimeMs) : null;
+    const originSessionId  = memRow?.sessionIdField || '';
+    const lastMemTimeMs    = memRow?.timestampField ? new Date(memRow.timestampField).getTime() : 0;
+    const memAgeMs         = lastMemTimeMs ? (Date.now() - lastMemTimeMs) : null;
     const lastMemoryAgeMin = memAgeMs !== null ? Math.round(memAgeMs / 60000) : null;
 
     // Compute the two recovery signals with in-flight lock awareness. Absence of
@@ -174,15 +180,15 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     // staleness is never a sunset signal; when paired with an active subscription,
     // it only produces the lower-authority in-place idle-out nudge candidate.
 
-    let sunset             = false;
-    let idleOutCandidate   = false;
-    let reason             = '';
-    let lockData           = null;
+    let sunset           = false;
+    let idleOutCandidate = false;
+    let reason           = '';
+    let lockData         = null;
 
     if (!subscriptionActive) {
         // Sunset path: if a restart is already in flight, downgrade to no-op so
         // recovery stays single-dispatch.
-        lockData = await checkInflightLock(identity, 'sunset_restart', lastMemTimeMs);
+        lockData = await checkInflightLock(identity, 'sunset_restart', lastMemTimeMs, {wakeDaemonDir});
 
         if (lockData.inFlight) {
             sunset = false;
@@ -196,7 +202,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
         // This signal is "candidate in-place nudge," NOT "agent is idle." The
         // consumer is responsible for bounded, non-spawning, idempotent dispatch
         // that never destructively types into an active draft.
-        lockData = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs);
+        lockData = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs, {wakeDaemonDir});
 
         if (!lockData.inFlight) {
             idleOutCandidate = true;
@@ -218,16 +224,16 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
         identity,
         sunset,
         idle_out_candidate: idleOutCandidate,
-        evidence: {
-            subscription_active : subscriptionActive,
-            subscription_status : subscriptionStatus,
-            last_memory_age_min : lastMemoryAgeMin,
-            last_sessionId      : originSessionId
+        evidence          : {
+            subscription_active: subscriptionActive,
+            subscription_status: subscriptionStatus,
+            last_memory_age_min: lastMemoryAgeMin,
+            last_sessionId     : originSessionId
         },
         recommended_action: recommendedAction,
 
         // Backward-compat fields:
-        sunsetted: sunset,
+        sunsetted     : sunset,
         reason,
         originSessionId,
         abandonedCount: lockData?.abandonedCount || 0
@@ -236,7 +242,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
 
 async function main() {
     const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-pro';
-    const result = await checkSunsetted(identity);
+    const result   = await checkSunsetted(identity, {wakeDaemonDir: memoryCoreConfig.wakeDaemon.dataDir});
     console.log(JSON.stringify(result));
 }
 

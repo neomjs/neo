@@ -45,22 +45,24 @@ import path              from 'path';
 import { fileURLToPath } from 'url';
 import {writeFileAtomic} from '../../services/shared/atomicFileWrite.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 /**
- * Resolve the canonical state-file path under the wake-daemon data directory.
- * Resolved from `__dirname` rather than `process.cwd()` so the path is stable
- * under cron / launchd / sub-process invocations that don't inherit the
- * working directory of the operator's shell.
+ * Resolve the state-file path under the injected, already-resolved wake-daemon data directory.
  *
  * Tests may override the path via the `WAKE_GATE_FILE_PATH` environment
  * variable so parallel specs don't collide on the singleton on-disk state.
- * Production deployments leave this unset; the canonical path applies.
- *
+ * Production callers inject the resolved `wakeDaemon.dataDir` member. The explicit file override
+ * remains the narrow test/operator seam and wins without requiring a directory.
+ * @param {Object} [options]
+ * @param {String} [options.wakeDaemonDir] Resolved wake-daemon data member.
  * @returns {string} Absolute path to the gate state file.
  */
-export function gateFilePath() {
-    return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/wake-safety-gate.json');
+export function gateFilePath({wakeDaemonDir}={}) {
+    if (process.env.WAKE_GATE_FILE_PATH) return process.env.WAKE_GATE_FILE_PATH;
+    if (!wakeDaemonDir) {
+        throw new Error('wakeSafetyGate: wake-daemon directory must be injected by the composing entrypoint')
+    }
+
+    return path.join(wakeDaemonDir, 'wake-safety-gate.json')
 }
 
 /**
@@ -79,11 +81,13 @@ const DEFAULT_TRIPPED = {
  * missing or unreadable — the deny-by-default discipline echoes the file-level
  * Anchor & Echo: forgetting to create the file MUST NOT be interpreted as
  * permission to act.
+ * @param {Object} [options]
+ * @param {String} [options.wakeDaemonDir] Resolved wake-daemon data member; not needed with an explicit file override.
  * @returns {Promise<{state: string, reason: string, trippedAt: ?string, trippedBy: ?string}>}
  */
-export async function readGateState() {
+export async function readGateState(options={}) {
     try {
-        const raw    = await fs.readFile(gateFilePath(), 'utf8');
+        const raw    = await fs.readFile(gateFilePath(options), 'utf8');
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== 'object' || typeof parsed.state !== 'string') {
             return {
@@ -112,10 +116,12 @@ export async function readGateState() {
  * Atomic write of the gate state. Writes to a temp file then rename to avoid
  * scheduler readers seeing a partial write under concurrent operator updates.
  * @param {{state: string, reason: string, trippedBy: string|undefined}} payload
+ * @param {Object} [options]
+ * @param {String} [options.wakeDaemonDir] Resolved wake-daemon data member; not needed with an explicit file override.
  * @returns {Promise<void>}
  */
-export async function writeGateState(payload) {
-    const filePath = gateFilePath();
+export async function writeGateState(payload, options={}) {
+    const filePath = gateFilePath(options);
     await fs.mkdir(path.dirname(filePath), {recursive: true});
     const body = {
         state    : payload.state,
@@ -141,11 +147,13 @@ export function hasOverride() {
  * Convenience: is the gate open for high-authority actions? `true` only when
  * state is explicitly `enabled` OR the operator override is set. All other
  * states (`disabled`, `tripped`, malformed, missing) return `false`.
+ * @param {Object} [options]
+ * @param {String} [options.wakeDaemonDir] Resolved wake-daemon data member; not needed with an explicit file override.
  * @returns {Promise<boolean>}
  */
-export async function isGateOpen() {
+export async function isGateOpen(options={}) {
     if (hasOverride()) return true;
-    const state = await readGateState();
+    const state = await readGateState(options);
     return state.state === 'enabled';
 }
 
@@ -160,9 +168,10 @@ export async function isGateOpen() {
 //   trip     — write tripped state. Reason from --reason= flag or stdin.
 //   disable  — write disabled state. Reason from --reason= flag.
 //   enable   — write enabled state. No reason required (cleared on enable).
-async function main() {
-    const argv = process.argv.slice(2);
-    const cmd  = argv[0];
+async function main({wakeDaemonDir}={}) {
+    const argv        = process.argv.slice(2);
+    const cmd         = argv[0];
+    const pathOptions = {wakeDaemonDir};
 
     const flag = name => {
         const prefix = `--${name}=`;
@@ -171,27 +180,27 @@ async function main() {
     };
 
     if (cmd === 'check') {
-        const open = await isGateOpen();
+        const open = await isGateOpen(pathOptions);
         process.exit(open ? 0 : 1);
     }
     if (cmd === 'reason') {
-        const state = await readGateState();
+        const state = await readGateState(pathOptions);
         process.stdout.write(state.reason + '\n');
         process.exit(0);
     }
     if (cmd === 'show') {
-        const state = await readGateState();
+        const state = await readGateState(pathOptions);
         process.stdout.write(JSON.stringify(state, null, 2) + '\n');
         process.exit(0);
     }
     if (cmd === 'trip' || cmd === 'disable') {
         const reason    = flag('reason') ?? '';
         const trippedBy = flag('by') ?? 'cli';
-        await writeGateState({state: cmd === 'trip' ? 'tripped' : 'disabled', reason, trippedBy});
+        await writeGateState({state: cmd === 'trip' ? 'tripped' : 'disabled', reason, trippedBy}, pathOptions);
         process.exit(0);
     }
     if (cmd === 'enable') {
-        await writeGateState({state: 'enabled', reason: ''});
+        await writeGateState({state: 'enabled', reason: ''}, pathOptions);
         process.exit(0);
     }
     console.error('Usage: wakeSafetyGate.mjs <check|reason|show|trip|disable|enable> [--reason=...] [--by=...]');
@@ -201,7 +210,15 @@ async function main() {
 // Only run CLI when invoked as a script, not when imported.
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-    main().catch(err => {
+    (async () => {
+        // The module is also a Neo-free helper. Bootstrap config only on the direct CLI path, then
+        // inject the resolved member into the same functions every composing caller uses.
+        await import('../../../src/Neo.mjs');
+        await import('../../../src/core/_export.mjs');
+        const {default: memoryCoreConfig} = await import('../../mcp/server/memory-core/config.mjs');
+
+        await main({wakeDaemonDir: memoryCoreConfig.wakeDaemon.dataDir})
+    })().catch(err => {
         console.error('wakeSafetyGate failed:', err.message);
         process.exit(2);
     });

@@ -1,10 +1,6 @@
 import fs   from 'fs';
 import path from 'path';
-import {fileURLToPath} from 'url';
 import Base from '../../src/core/Base.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
 
 /**
  * @class Neo.ai.services.ConceptService
@@ -46,8 +42,8 @@ class ConceptService extends Base {
         /**
          * @member {String} defaultConceptsDir_=null
          * @summary
-         * Absolute path to the concepts directory. Defaults to `.neo-ai-data/concepts/`
-         * at the repository root. Override for testing.
+         * Absolute path to the concepts directory, injected by the composing entrypoint from its
+         * resolved plane root. Tests inject an isolated directory through the same seam.
          */
         defaultConceptsDir_: null
     }
@@ -102,17 +98,20 @@ class ConceptService extends Base {
     }
 
     /**
-     * @summary Resolves the default concepts directory path.
-     * Falls back to `.neo-ai-data/concepts/` at the repository root.
+     * @summary Returns the composing entrypoint's resolved concepts directory.
+     *
+     * There is deliberately no checkout-relative fallback. A singleton imported from two seat clones
+     * must not silently select two different ontology roots, and a configured plane must not fall back
+     * to its canonical default. The entrypoint owns resolution; this service only consumes the result.
      * @returns {String} Absolute path to concepts directory.
      * @private
      */
     getConceptsDir() {
-        if (this.defaultConceptsDir) {
-            return this.defaultConceptsDir;
+        if (!this.defaultConceptsDir) {
+            throw new Error('[ConceptService] concepts directory must be injected by the composing entrypoint')
         }
 
-        return path.resolve(__dirname, '../../.neo-ai-data/concepts');
+        return this.defaultConceptsDir
     }
 
     /**
@@ -169,9 +168,9 @@ class ConceptService extends Base {
         this.aliasIndex.clear();
         this.loaded = false;
 
-        const errors    = [],
-              rawNodes  = this.parseJsonl(nodesPath),
-              rawEdges  = this.parseJsonl(edgesPath);
+        const errors   = [],
+              rawNodes = this.parseJsonl(nodesPath),
+              rawEdges = this.parseJsonl(edgesPath);
 
         // Index nodes
         for (const node of rawNodes) {
@@ -316,10 +315,10 @@ class ConceptService extends Base {
         this.ensureLoaded();
 
         return {
-            explainedBy:   this.getEdges(conceptId, 'EXPLAINED_BY'),
+            explainedBy  : this.getEdges(conceptId, 'EXPLAINED_BY'),
             implementedBy: this.getEdges(conceptId, 'IMPLEMENTED_BY'),
             exemplifiedBy: this.getEdges(conceptId, 'EXEMPLIFIED_BY'),
-            requirements:  this.getEdges(conceptId, 'REQUIRES')
+            requirements : this.getEdges(conceptId, 'REQUIRES')
         };
     }
 
@@ -383,8 +382,8 @@ class ConceptService extends Base {
                 gaps.push({
                     concept,
                     weight,
-                    tier:             concept.tier,
-                    severity:         concept.tier === 1 ? 'CRITICAL' : concept.tier === 2 ? 'HIGH' : 'MEDIUM',
+                    tier            : concept.tier,
+                    severity        : concept.tier === 1 ? 'CRITICAL' : concept.tier === 2 ? 'HIGH' : 'MEDIUM',
                     missingEdgeTypes: missing
                 });
             }
@@ -426,7 +425,7 @@ class ConceptService extends Base {
      * @summary Returns the top concepts most relevant to a task description.
      * Bounded by a default limit to prevent LLM context flooding.
      * Phase 1: Keyword/Tier-based heuristic matching.
-     * Phase 2 (Pending #10037): ChromaDB cosine similarity.
+     * A future semantic pass may add ChromaDB cosine similarity.
      *
      * @param {String} taskDescription Natural language task description.
      * @param {Object} [options]
@@ -446,7 +445,7 @@ class ConceptService extends Base {
         const scored = [...this.nodes.values()]
             .filter(n => n.tier > 0) // Skip anchor
             .map(concept => {
-                let score = 0;
+                let   score = 0;
                 const terms = [
                     concept.id.toLowerCase(),
                     concept.name.toLowerCase(),
@@ -475,7 +474,7 @@ class ConceptService extends Base {
      * @summary Task-scoped version of findGuideGaps that returns gaps semantically related to the task.
      * Bounded by a default limit to prevent LLM context flooding.
      * Phase 1: Keyword/Tier-based heuristic matching.
-     * Phase 2 (Pending #10037): ChromaDB cosine similarity.
+     * A future semantic pass may add ChromaDB cosine similarity.
      *
      * @param {String} taskDescription Natural language task description.
      * @param {Object} [options]
@@ -496,9 +495,9 @@ class ConceptService extends Base {
 
         const scoredGaps = allGaps
             .map(gap => {
-                let score = gap.weight; // start with existing weight
+                let   score   = gap.weight; // start with existing weight
                 const concept = gap.concept;
-                const terms = [
+                const terms   = [
                     concept.id.toLowerCase(),
                     concept.name.toLowerCase(),
                     ...(concept.aliases || []).map(a => a.toLowerCase())
@@ -603,7 +602,7 @@ class ConceptService extends Base {
 
                   lines.push(line);
 
-                  const children    = this.getChildren(conceptId)
+                  const children = this.getChildren(conceptId)
                             .filter(c => c.tier <= maxTier),
                         childPrefix = isRoot
                             ? ''
@@ -632,22 +631,22 @@ class ConceptService extends Base {
     getSummary() {
         this.ensureLoaded();
 
-        const allConcepts = [...this.nodes.values()].filter(n => n.tier > 0),
-              gaps        = this.findGuideGaps(),
-              guideGaps   = gaps.filter(g => g.missingEdgeTypes.includes('EXPLAINED_BY')),
+        const allConcepts  = [...this.nodes.values()].filter(n => n.tier > 0),
+              gaps         = this.findGuideGaps(),
+              guideGaps    = gaps.filter(g => g.missingEdgeTypes.includes('EXPLAINED_BY')),
               deadConcepts = gaps.filter(g => g.missingEdgeTypes.includes('IMPLEMENTED_BY')
                   && !g.missingEdgeTypes.includes('EXPLAINED_BY'));
 
         return {
-            totalConcepts:        allConcepts.length,
-            totalEdges:           [...this.edgesBySource.values()].reduce((sum, edges) => sum + edges.length, 0),
-            guideGapCount:        guideGaps.length,
-            deadConceptCount:     deadConcepts.length,
-            coveragePercent:      allConcepts.length > 0
+            totalConcepts   : allConcepts.length,
+            totalEdges      : [...this.edgesBySource.values()].reduce((sum, edges) => sum + edges.length, 0),
+            guideGapCount   : guideGaps.length,
+            deadConceptCount: deadConcepts.length,
+            coveragePercent : allConcepts.length > 0
                 ? Math.round(((allConcepts.length - guideGaps.length) / allConcepts.length) * 100)
                 : 100,
-            criticalGaps:         guideGaps.filter(g => g.severity === 'CRITICAL'),
-            highGaps:             guideGaps.filter(g => g.severity === 'HIGH')
+            criticalGaps: guideGaps.filter(g => g.severity === 'CRITICAL'),
+            highGaps    : guideGaps.filter(g => g.severity === 'HIGH')
         };
     }
 

@@ -18,7 +18,6 @@ import * as core               from '../../../../src/core/_export.mjs';
 import FleetManager            from '../../../../ai/services/fleet/FleetManager.mjs';
 import {inspectFleetRepos}     from '../../../../ai/services/fleet/inspectFleetRepos.mjs';
 import {startAgentProvisioned} from '../../../../ai/services/fleet/startAgentProvisioned.mjs';
-import path                    from 'path';
 
 const ENV_KEY = 'NEO_FLEET_MANAGED_ROOT';
 let savedEnv;
@@ -41,21 +40,20 @@ test.describe('Neo.ai.services.fleet.FleetManager', () => {
         reset();
     });
 
-    test('getManagedRoot: the managedRoot field wins over env + default', () => {
+    test('getManagedRoot: the injected managedRoot is the sole runtime authority', () => {
         FleetManager.managedRoot = '/explicit/root';
         process.env[ENV_KEY]     = '/env/root';
         expect(FleetManager.getManagedRoot()).toBe('/explicit/root');
     });
 
-    test('getManagedRoot: env wins when no managedRoot field is set', () => {
+    test('getManagedRoot: a legacy env value cannot replace entrypoint injection', () => {
         process.env[ENV_KEY] = '/env/root';
-        expect(FleetManager.getManagedRoot()).toBe('/env/root');
+
+        expect(() => FleetManager.getManagedRoot()).toThrow('managed root must be injected')
     });
 
-    test('getManagedRoot: a __dirname-relative default when neither the managedRoot field nor env is set (no hidden fallback)', () => {
-        const root = FleetManager.getManagedRoot();
-        expect(path.isAbsolute(root)).toBe(true);
-        expect(root.endsWith(path.join('.neo-ai-data', 'fleet', 'repos'))).toBe(true);
+    test('getManagedRoot: omission fails loud instead of selecting the importing checkout', () => {
+        expect(() => FleetManager.getManagedRoot()).toThrow('managed root must be injected')
     });
 
     test('startAgent provisions+starts via the composer with the resolved root + lifecycle service', async () => {
@@ -136,8 +134,8 @@ test.describe('Neo.ai.services.fleet.FleetManager', () => {
     });
 
     test('removeAgent on a non-running agent: stop is a safe no-op, deregister still proceeds', async () => {
-        const order     = [],
-              registry  = {removeAgent: id => { order.push(`deregister:${id}`); return {success: false, id}; }},
+        const order    = [],
+              registry = {removeAgent: id => { order.push(`deregister:${id}`); return {success: false, id}; }},
               // a non-running agent: stop resolves {success:false} without an exit — removal must still deregister.
               lifecycle = {
                   stop       : id => { order.push(`stop:${id}`); return Promise.resolve({success: false, id, state: 'stopped'}); },

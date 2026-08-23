@@ -16,10 +16,6 @@
  */
 import fs   from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE_DIR = path.resolve(__dirname, '../../../.neo-ai-data/harness-state');
 
 function sanitize(identity) {
     return identity.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -28,9 +24,17 @@ function sanitize(identity) {
 /**
  * @summary Build the absolute state-file path for an identity.
  * Exposed for spec cleanup; runtime consumers should use record/terminate APIs.
+ * @param {String} identity Agent identity.
+ * @param {Object} options
+ * @param {String} options.stateDir Resolved harness-state member.
+ * @returns {String} Absolute state-file path.
  */
-export function getStateFilePath(identity) {
-    return path.join(STATE_DIR, `${sanitize(identity)}.json`);
+export function getStateFilePath(identity, {stateDir}={}) {
+    if (!stateDir) {
+        throw new Error('harnessLifecycle: harness-state directory must be injected by the composing entrypoint')
+    }
+
+    return path.join(stateDir, `${sanitize(identity)}.json`)
 }
 
 /**
@@ -43,11 +47,15 @@ export function getStateFilePath(identity) {
  * @param {string} identity        Agent identity (e.g. '@neo-opus-ada').
  * @param {number} pid             Spawned process PID.
  * @param {number} [spawnedAt]     Spawn timestamp (defaults to Date.now()).
+ * @param {Object} options
+ * @param {String} options.stateDir Resolved harness-state member.
  * @returns {Promise<void>}
  */
-export async function recordHarnessProcess(identity, pid, spawnedAt = Date.now()) {
-    await fs.mkdir(STATE_DIR, { recursive: true });
-    await fs.writeFile(getStateFilePath(identity), JSON.stringify({ pid, spawnedAt }), 'utf-8');
+export async function recordHarnessProcess(identity, pid, spawnedAt = Date.now(), {stateDir}={}) {
+    const filePath = getStateFilePath(identity, {stateDir});
+
+    await fs.mkdir(stateDir, { recursive: true });
+    await fs.writeFile(filePath, JSON.stringify({ pid, spawnedAt }), 'utf-8');
 }
 
 /**
@@ -63,12 +71,13 @@ export async function recordHarnessProcess(identity, pid, spawnedAt = Date.now()
  * - Other kill error → `{terminated: false, reason: <error message>}`
  *
  * @param {string} identity        Agent identity.
- * @param {object} [opts]
- * @param {number} [opts.graceMs=2000] SIGTERM grace period before SIGKILL probe.
+ * @param {Object} [options]
+ * @param {Number} [options.graceMs=2000] SIGTERM grace period before SIGKILL probe.
+ * @param {String} options.stateDir Resolved harness-state member.
  * @returns {Promise<{terminated: boolean, pid: number|undefined, reason: string|undefined, escalated: string|undefined}>}
  */
-export async function terminatePreviousHarness(identity, { graceMs = 2000 } = {}) {
-    const file = getStateFilePath(identity);
+export async function terminatePreviousHarness(identity, {graceMs = 2000, stateDir} = {}) {
+    const file = getStateFilePath(identity, {stateDir});
     let prev;
     try {
         prev = JSON.parse(await fs.readFile(file, 'utf-8'));

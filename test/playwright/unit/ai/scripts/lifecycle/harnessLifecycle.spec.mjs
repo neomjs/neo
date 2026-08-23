@@ -19,6 +19,7 @@ import fs             from 'fs/promises';
 import {existsSync}   from 'fs';
 import path           from 'path';
 import os             from 'os';
+import {randomUUID}   from 'crypto';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -30,31 +31,41 @@ test.describe('ai/scripts/harnessLifecycle', () => {
     let getStateFilePath;
     const identity = '@neo-test-harness-agent';
     let stateFile;
+    let stateDir;
 
     test.beforeAll(async () => {
         harnessLifecycle = await import('../../../../../../ai/scripts/lifecycle/harnessLifecycle.mjs');
         getStateFilePath = harnessLifecycle.getStateFilePath;
     });
 
+    test('getStateFilePath derives from the injected resolved harness-state directory', () => {
+        const stateDir = path.join(os.tmpdir(), `harness-state-${randomUUID()}`);
+
+        expect(getStateFilePath(identity, {stateDir}))
+            .toBe(path.join(stateDir, 'neo-test-harness-agent.json'))
+    });
+
     test.beforeEach(async () => {
-        stateFile = getStateFilePath(identity);
+        stateDir  = path.join(os.tmpdir(), `harness-lifecycle-${randomUUID()}`);
+        stateFile = getStateFilePath(identity, {stateDir});
         try { await fs.unlink(stateFile); } catch (e) {}
     });
 
     test.afterEach(async () => {
         try { await fs.unlink(stateFile); } catch (e) {}
+        await fs.rm(stateDir, {recursive: true, force: true})
     });
 
     test('terminatePreviousHarness with no prior state returns no-prior-state (#10696)', async () => {
-        const result = await harnessLifecycle.terminatePreviousHarness(identity);
+        const result = await harnessLifecycle.terminatePreviousHarness(identity, {stateDir});
         expect(result.terminated).toBe(false);
         expect(result.reason).toBe('no-prior-state');
     });
 
     test('recordHarnessProcess persists pid + spawnedAt to state file (#10696)', async () => {
         const pid = 99999;
-        const t0 = Date.now();
-        await harnessLifecycle.recordHarnessProcess(identity, pid, t0);
+        const t0  = Date.now();
+        await harnessLifecycle.recordHarnessProcess(identity, pid, t0, {stateDir});
 
         expect(existsSync(stateFile)).toBe(true);
         const content = JSON.parse(await fs.readFile(stateFile, 'utf-8'));
@@ -67,9 +78,9 @@ test.describe('ai/scripts/harnessLifecycle', () => {
         // systems or, on test sandboxes, no-op. We use a much higher PID very unlikely to
         // belong to any process: 999999 is well above typical pid_max ranges.
         const stalePid = 999999;
-        await harnessLifecycle.recordHarnessProcess(identity, stalePid, Date.now() - 60000);
+        await harnessLifecycle.recordHarnessProcess(identity, stalePid, Date.now() - 60000, {stateDir});
 
-        const result = await harnessLifecycle.terminatePreviousHarness(identity);
+        const result = await harnessLifecycle.terminatePreviousHarness(identity, {stateDir});
 
         // process.kill on a non-existent PID throws ESRCH which the helper translates.
         // On rare systems this may return EPERM (e.g., kernel-protected pids); accept either
@@ -85,17 +96,17 @@ test.describe('ai/scripts/harnessLifecycle', () => {
 
     test('terminatePreviousHarness on a live spawned process actually terminates it (#10696)', async () => {
         // Spawn a long-sleep child we can record + then terminate.
-        const child = spawn('node', ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: false });
+        const child    = spawn('node', ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: false });
         const childPid = child.pid;
         expect(childPid).toBeTruthy();
 
         try {
-            await harnessLifecycle.recordHarnessProcess(identity, childPid, Date.now());
+            await harnessLifecycle.recordHarnessProcess(identity, childPid, Date.now(), {stateDir});
 
             // Confirm child is alive before termination.
             expect(() => process.kill(childPid, 0)).not.toThrow();
 
-            const result = await harnessLifecycle.terminatePreviousHarness(identity, { graceMs: 500 });
+            const result = await harnessLifecycle.terminatePreviousHarness(identity, {graceMs: 500, stateDir});
             expect(result.terminated).toBe(true);
             expect(result.pid).toBe(childPid);
             // State file cleared post-termination.
@@ -112,8 +123,8 @@ test.describe('ai/scripts/harnessLifecycle', () => {
     });
 
     test('recordHarnessProcess overwrites prior state for same identity (#10696)', async () => {
-        await harnessLifecycle.recordHarnessProcess(identity, 11111, 1000);
-        await harnessLifecycle.recordHarnessProcess(identity, 22222, 2000);
+        await harnessLifecycle.recordHarnessProcess(identity, 11111, 1000, {stateDir});
+        await harnessLifecycle.recordHarnessProcess(identity, 22222, 2000, {stateDir});
 
         const content = JSON.parse(await fs.readFile(stateFile, 'utf-8'));
         expect(content.pid).toBe(22222);
@@ -122,7 +133,7 @@ test.describe('ai/scripts/harnessLifecycle', () => {
 
     test('getStateFilePath sanitizes identity to prevent path traversal (#10696)', async () => {
         const malicious = '../../../etc/passwd@neo';
-        const safePath = getStateFilePath(malicious);
+        const safePath  = getStateFilePath(malicious, {stateDir});
         // Sanitization strips non-alphanumeric (except _ and -) so '../../../etc/passwd@neo' becomes 'etcpasswdneo'
         expect(safePath).not.toContain('..');
         expect(safePath).not.toContain('/etc/');

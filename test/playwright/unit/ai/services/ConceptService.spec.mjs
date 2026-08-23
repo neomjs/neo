@@ -21,6 +21,8 @@ import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
 
+const productionConceptsDir = path.resolve(process.cwd(), '.neo-ai-data/concepts');
+
 /**
  * Creates a temporary concepts directory with test JSONL files.
  * Returns the absolute path to the temp directory.
@@ -73,6 +75,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
 
     test.afterEach(() => {
         // Reset the singleton state for isolation between tests
+        ConceptService.defaultConceptsDir = null;
         ConceptService.nodes.clear();
         ConceptService.edgesBySource.clear();
         ConceptService.edgesByTarget.clear();
@@ -81,6 +84,12 @@ test.describe('Neo.ai.services.ConceptService', () => {
     });
 
     // ── loadGraph ──────────────────────────────────────────────
+
+    test('getConceptsDir fails loud without composing-entrypoint injection', () => {
+        ConceptService.defaultConceptsDir = null;
+
+        expect(() => ConceptService.getConceptsDir()).toThrow('concepts directory must be injected')
+    });
 
     test('loadGraph should parse JSONL files and return correct statistics', () => {
         const tmpDir = createMinimalFixture();
@@ -101,7 +110,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
             {id: 'valid', name: 'Valid', tier: 1, description: 'OK', uniqueToNeo: false, tags: []},
             {name: 'MissingId', tier: 1}  // missing id
         ];
-        const edges = [];
+        const edges  = [];
         const tmpDir = createTestFixture(nodes, edges);
 
         ConceptService.defaultConceptsDir = tmpDir;
@@ -354,7 +363,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
         expect(tree.tier).toBe(0);
         expect(tree.children.length).toBe(2);
 
-        // AC #10033: "Root nodes are Tier 1 concepts" — every direct child of the anchor
+        // Root nodes are Tier 1 concepts — every direct child of the anchor
         // must be tier 1, enforcing the ontology's top-level structure
         expect(tree.children.every(c => c.tier === 1)).toBe(true);
 
@@ -400,7 +409,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
         expect(tree).toContain('├─');
         expect(tree).toContain('└─');
 
-        // AC #10033: "Coverage annotations are correct" — threading has an EXPLAINED_BY
+        // Coverage annotations are correct — threading has an EXPLAINED_BY
         // edge so its line must carry the ✅ marker; vdom has no EXPLAINED_BY so its line
         // must carry the ❌ marker. Asserts markers are placed per-concept, not just present.
         const threadingLine = lines.find(l => l.includes('Multi-Threading'));
@@ -435,8 +444,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
     // ── Production graph ──────────────────────────────────────
 
     test('should load the real production ontology without errors', () => {
-        // Reset to use the real concepts directory
-        ConceptService.defaultConceptsDir = null;
+        ConceptService.defaultConceptsDir = productionConceptsDir;
 
         const stats = ConceptService.loadGraph();
 
@@ -547,21 +555,21 @@ test.describe('Neo.ai.services.ConceptService', () => {
         fs.rmSync(tmpDir, {recursive: true});
     });
 
-    // ── AC #10033 coverage completeness ────────────────────────
+    // ── Tier 1-2 coverage completeness ───────────────────────
 
     test('serializeForLLM Tier 1-2 from production graph should produce non-empty output and report current size', () => {
-        // Observability test (NOT a ceiling). #10033's original AC called for a 100-line
+        // Observability test (NOT a ceiling). The original contract called for a 100-line
         // cap, which codified a stale heuristic from a smaller-context era. Capping output
         // length works against the concept ontology's core purpose — it IS designed to grow
-        // as #10050/#10036/#10037 enrich Tier 1-2 coverage. A hard cap creates perverse
+        // as the ontology gains richer Tier 1-2 coverage. A hard cap creates perverse
         // incentives: demote legitimate concepts to pass the test, or silently lift the cap.
         // Line count is a formatting proxy, not an architectural invariant — the real
         // curation discipline lives at the `tier` assignment layer in nodes.jsonl.
         //
         // This test logs the current size on every run (visible in CI output) so growth
         // trends and sudden jumps are observable, and asserts only that the serializer
-        // didn't regress to empty output. See PR #10078 review thread for the full reasoning.
-        ConceptService.defaultConceptsDir = null;
+        // didn't regress to empty output. The behavior-first rationale above is the durable contract.
+        ConceptService.defaultConceptsDir = productionConceptsDir;
         ConceptService.loadGraph();
 
         const tree  = ConceptService.serializeForLLM(2),
@@ -573,7 +581,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
     });
 
     test('calculateWeight should order tier 1 above tier 3 at equal coverage', () => {
-        // AC #10033: "Tier 1 > Tier 3 in weight" — explicit cross-tier ordering assertion.
+        // Tier 1 > Tier 3 in weight — explicit cross-tier ordering assertion.
         // Fixture holds a tier-1 and a tier-3 concept with identical coverage so the only
         // signal driving the weight delta is the tier multiplier.
         const nodes = [
@@ -602,7 +610,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
     // ── Production graph: aliases & ANALOGOUS_TO ──────────────
 
     test('production graph should have aliases and ANALOGOUS_TO edges', () => {
-        ConceptService.defaultConceptsDir = null;
+        ConceptService.defaultConceptsDir = productionConceptsDir;
         ConceptService.loadGraph();
 
         // Alias index should be populated

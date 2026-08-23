@@ -13,17 +13,17 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import {execFileSync}    from 'child_process';
-import {randomUUID}      from 'crypto';
-import fs                from 'fs';
-import os                from 'os';
-import path              from 'path';
-import Neo               from '../../../../../../src/Neo.mjs';
-import * as core         from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import {execFileSync} from 'child_process';
+import {randomUUID}   from 'crypto';
+import fs             from 'fs';
+import os             from 'os';
+import path           from 'path';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Validation for the Wake Safety Gate primitive (#10648, child of #10647).
+ * @summary Validation for the Wake Safety Gate primitive.
  *
  * Covers the deny-by-default discipline (missing file → tripped), state-file
  * round-trip (enable / disable / trip), CLI surface (check / reason / show),
@@ -33,6 +33,11 @@ import * as core         from '../../../../../../src/core/_export.mjs';
  */
 test.describe('ai/scripts/wakeSafetyGate', () => {
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/wakeSafetyGate.mjs');
+    let wakeSafetyGate;
+
+    test.beforeAll(async () => {
+        wakeSafetyGate = await import('../../../../../../ai/scripts/lifecycle/wakeSafetyGate.mjs')
+    });
 
     /**
      * Each test gets its own gate-file path via the `WAKE_GATE_FILE_PATH`
@@ -52,6 +57,35 @@ test.describe('ai/scripts/wakeSafetyGate', () => {
 
     test.afterEach(() => {
         if (fs.existsSync(gatePath)) fs.unlinkSync(gatePath);
+    });
+
+    test('module path derives from the injected resolved wake-daemon directory', () => {
+        const
+            savedOverride = process.env.WAKE_GATE_FILE_PATH,
+            wakeDaemonDir = path.join(os.tmpdir(), `wake-daemon-${randomUUID()}`);
+
+        delete process.env.WAKE_GATE_FILE_PATH;
+
+        try {
+            expect(wakeSafetyGate.gateFilePath({wakeDaemonDir}))
+                .toBe(path.join(wakeDaemonDir, 'wake-safety-gate.json'))
+        } finally {
+            if (savedOverride === undefined) delete process.env.WAKE_GATE_FILE_PATH;
+            else process.env.WAKE_GATE_FILE_PATH = savedOverride
+        }
+    });
+
+    test('module path fails loud without an override or injected wake-daemon directory', () => {
+        const savedOverride = process.env.WAKE_GATE_FILE_PATH;
+
+        delete process.env.WAKE_GATE_FILE_PATH;
+
+        try {
+            expect(() => wakeSafetyGate.gateFilePath()).toThrow('wake-daemon directory must be injected')
+        } finally {
+            if (savedOverride === undefined) delete process.env.WAKE_GATE_FILE_PATH;
+            else process.env.WAKE_GATE_FILE_PATH = savedOverride
+        }
     });
 
     /**

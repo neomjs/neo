@@ -391,37 +391,21 @@ test.describe('PLANE-ROOT — __dirname-derived plane roots', () => {
         expect(planeRootHits(source)).toEqual([])
     });
 
-    test('POSITIVE CONTROL: the ledger silences all eight live SITES, and nothing else', () => {
-        const sites = [...ALLOWLIST['PLANE-ROOT']];
-
-        expect(sites).toHaveLength(8);
-        // Every entry is site-granular (`path::<source text>`), never a bare path — a bare path
-        // would mute the whole file and the growth arm below could not fail.
-        sites.forEach(entry => expect(entry).toContain('::'));
-
-        // Every ledger entry must still be a REAL hit at head. An entry whose site was already
-        // fixed silences a slot nobody is watching — the ledger has to shrink by deletion, not rot.
-        for (const entry of sites) {
-            const
-                file = entry.split('::')[0],
-                hits = planeRootHits(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
-
-            expect(hits.length, `${entry} is on the PLANE-ROOT ledger but no longer matches — delete the entry`).toBeGreaterThan(0);
-            expect(filterAllowlistedHits(hits, file)).toEqual([])
-        }
+    test('RETIREMENT CONTROL: the migration ledger is empty after every measured site was repaired', () => {
+        expect([...ALLOWLIST['PLANE-ROOT']]).toEqual([])
     });
 
-    test('RATCHET: a NINTH site inside an already-listed file stays RED — the ledger proves growth, not just shrink', () => {
+    test('RATCHET: a second site inside a temporarily listed file stays RED — the ledger proves growth', () => {
         const
-            file   = 'ai/services/ConceptService.mjs',
-            source = `${fs.readFileSync(path.join(repoRoot, file), 'utf8')}
-const sneak = path.resolve(__dirname, '../../.neo-ai-data/sneaky');
-`,
-            hits   = planeRootHits(source),
-            kept   = filterAllowlistedHits(hits, file);
+            file      = 'ai/services/SomeMigratingService.mjs',
+            knownSite = "const dir = path.resolve(__dirname, '../../.neo-ai-data/concepts');",
+            newSite   = "const sneak = path.resolve(__dirname, '../../.neo-ai-data/sneaky');",
+            hits      = planeRootHits(`${knownSite}\n${newSite}\n`),
+            allowlist = {...ALLOWLIST, 'PLANE-ROOT': new Set([`${file}::${knownSite}`])},
+            kept      = filterAllowlistedHits(hits, file, allowlist);
 
         // A per-FILE exemption would drop both and CI would stay green while the ledger still read
-        // as eight scheduled repairs. `hits.length > 0` proves shrink; only this proves growth.
+        // as one scheduled repair. `hits.length > 0` proves shrink; only this proves growth.
         expect(hits).toHaveLength(2);
         expect(kept).toHaveLength(1);
         expect(kept[0].text).toContain('.neo-ai-data/sneaky')

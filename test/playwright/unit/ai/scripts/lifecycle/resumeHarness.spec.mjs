@@ -34,8 +34,7 @@ import {
 test.describe('ai/scripts/resumeHarness', () => {
     test.describe.configure({mode: 'serial'});
 
-    const scriptPath  = path.resolve(process.cwd(), 'ai/scripts/lifecycle/resumeHarness.mjs');
-    const cooldownDir = path.resolve(process.cwd(), '.neo-ai-data/wake-daemon');
+    const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/resumeHarness.mjs');
 
     /**
      * Per-test gate-file path via the `WAKE_GATE_FILE_PATH` env-var override
@@ -68,20 +67,34 @@ test.describe('ai/scripts/resumeHarness', () => {
      * `CODEX_APP_SERVER_MOCK=1` plus a mock `NEO_FLEET_CODEX_BIN` config-leaf override.
      * Real probes require `RUN_LIVE_CODEX_APP_SERVER=1`.
      */
-    let gatePath, overrideEnv;
-    const gateOnlyEnv = () => ({...process.env, WAKE_GATE_FILE_PATH: gatePath});
+    let gatePath, harnessStateDir, overrideEnv, planeDataRoot, wakeDaemonDir;
+    const gateOnlyEnv = () => ({
+        ...process.env,
+        NEO_AI_DAEMON_DIR  : wakeDaemonDir,
+        NEO_PLANE_DATA_ROOT: planeDataRoot,
+        WAKE_GATE_FILE_PATH: gatePath
+    });
 
     test.beforeEach(() => {
-        gatePath    = path.join(os.tmpdir(), `wake-gate-resumeharness-${randomUUID()}.json`);
-        overrideEnv = {...process.env, WAKE_GATE_FILE_PATH: gatePath, WAKE_GATE_OVERRIDE: '1'};
+        gatePath       = path.join(os.tmpdir(), `wake-gate-resumeharness-${randomUUID()}.json`);
+        planeDataRoot  = path.join(os.tmpdir(), `resume-plane-${randomUUID()}`);
+        wakeDaemonDir  = path.join(planeDataRoot, 'wake-daemon');
+        harnessStateDir = path.join(planeDataRoot, 'harness-state');
+        overrideEnv    = {
+            ...process.env,
+            NEO_AI_DAEMON_DIR  : wakeDaemonDir,
+            NEO_PLANE_DATA_ROOT: planeDataRoot,
+            WAKE_GATE_FILE_PATH: gatePath,
+            WAKE_GATE_OVERRIDE : '1'
+        };
 
         // Clear cooldown files before each test so they don't skip
-        if (fs.existsSync(cooldownDir)) {
-            const files = fs.readdirSync(cooldownDir);
+        if (fs.existsSync(wakeDaemonDir)) {
+            const files = fs.readdirSync(wakeDaemonDir);
             for (const file of files) {
                 if (file.startsWith('cooldown-')) {
                     try {
-                        fs.unlinkSync(path.join(cooldownDir, file));
+                        fs.unlinkSync(path.join(wakeDaemonDir, file));
                     } catch(e) {}
                 }
             }
@@ -90,6 +103,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test.afterEach(() => {
         if (fs.existsSync(gatePath)) fs.unlinkSync(gatePath);
+        fs.rmSync(planeDataRoot, {recursive: true, force: true})
     });
 
     test('Unknown identity exits with code 1 and unknown message', async () => {
@@ -435,7 +449,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // successful CLI dispatch, resumeHarness records the spawned process's PID via
         // harnessLifecycle.recordHarnessProcess — the PID the NEXT invocation SIGTERMs during cleanup.
         const harnessLifecycle = await import('../../../../../../ai/scripts/lifecycle/harnessLifecycle.mjs');
-        const stateFile        = harnessLifecycle.getStateFilePath('@neo-gemini-pro');
+        const stateFile        = harnessLifecycle.getStateFilePath('@neo-gemini-pro', {stateDir: harnessStateDir});
         if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
 
         const mockPath = path.join(os.tmpdir(), `mock-ag-record-${randomUUID()}`);
@@ -464,7 +478,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // should detect ESRCH and proceed with a fresh spawn — cleanup never blocks fresh-spawn on
         // missing/dead PIDs.
         const harnessLifecycle = await import('../../../../../../ai/scripts/lifecycle/harnessLifecycle.mjs');
-        const stateFile        = harnessLifecycle.getStateFilePath('@neo-gemini-pro');
+        const stateFile        = harnessLifecycle.getStateFilePath('@neo-gemini-pro', {stateDir: harnessStateDir});
         const stalePid         = 999999; // way above typical pid_max
         await import('fs/promises').then(({writeFile, mkdir}) => mkdir(path.dirname(stateFile), {recursive: true})
             .then(() => writeFile(stateFile, JSON.stringify({pid: stalePid, spawnedAt: Date.now() - 60000}))));
@@ -595,7 +609,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         const { getLockPath } = await import('../../../../../../ai/scripts/lifecycle/inflightLock.mjs');
-        const lockPath        = getLockPath('sunset_restart', '@neo-gpt');
+        const lockPath        = getLockPath('sunset_restart', '@neo-gpt', {wakeDaemonDir});
         if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 
         try {
@@ -689,7 +703,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         const missingAgCli = path.join(os.tmpdir(), `missing-ag-fail-${randomUUID()}`);
 
         const { getLockPath } = await import('../../../../../../ai/scripts/lifecycle/inflightLock.mjs');
-        const lockPath        = getLockPath('sunset_restart', '@neo-gemini-pro');
+        const lockPath        = getLockPath('sunset_restart', '@neo-gemini-pro', {wakeDaemonDir});
         if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 
         const env = { ...overrideEnv, ANTIGRAVITY_CLI_PATH: missingAgCli };

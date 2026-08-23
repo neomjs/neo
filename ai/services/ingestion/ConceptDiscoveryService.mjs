@@ -8,10 +8,10 @@ import {
     Memory_Config as aiConfig,
     Memory_GraphService as GraphService
 } from '../../services.mjs';
-import Json                      from '../../../src/util/Json.mjs';
-import logger                    from '../../mcp/server/memory-core/logger.mjs';
+import Json                                            from '../../../src/util/Json.mjs';
+import logger                                          from '../../mcp/server/memory-core/logger.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from '../graph/providerDispatch.mjs';
-import {assertTestWriteIsolated} from '../shared/storeWriteGuard.mjs';
+import {assertTestWriteIsolated}                       from '../shared/storeWriteGuard.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -896,7 +896,7 @@ class ConceptDiscoveryService extends Base {
      */
     async appendCandidates(candidates) {
         const
-            conceptsDir = ConceptService.defaultConceptsDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts'),
+            conceptsDir = ConceptService.getConceptsDir(),
             nodesPath   = path.join(conceptsDir, 'nodes.jsonl');
 
         // Defense-in-depth: refuse a concept-ontology write to the production concepts dir from a

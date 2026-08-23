@@ -388,16 +388,20 @@ test.describe('ai/scripts/checkSunsetted', () => {
         const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
 
-        const testIdentity = '@neo-locked-sunset-test';
-        const lockPath     = getLockPath('sunset_restart', testIdentity);
+        const testIdentity  = '@neo-locked-sunset-test';
+        const wakeDaemonDir = mkdtempSync(path.join(os.tmpdir(), 'neo-sunset-lock-'));
+        const lockPath      = getLockPath('sunset_restart', testIdentity, {wakeDaemonDir});
 
         // Acquire an in-flight lock to simulate ongoing sunset_restart action.
-        await writeInflightLock(testIdentity, 'sunset_restart', 0);
+        await writeInflightLock(testIdentity, 'sunset_restart', 0, {wakeDaemonDir});
 
         try {
             const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkSunsetted.mjs');
-            const output     = execFileSync('node', [scriptPath, testIdentity], {encoding: 'utf-8'});
-            const parsed     = JSON.parse(output);
+            const output     = execFileSync('node', [scriptPath, testIdentity], {
+                encoding: 'utf-8',
+                env     : {...process.env, NEO_AI_DAEMON_DIR: wakeDaemonDir}
+            });
+            const parsed = JSON.parse(output);
 
             // No subscription would normally → sunset=true; lock downgrades to no-action.
             expect(parsed.sunset).toBe(false);
@@ -406,6 +410,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
             expect(parsed.reason).toContain('in-flight');
         } finally {
             if (existsSync(lockPath)) await fs.unlink(lockPath);
+            rmSync(wakeDaemonDir, {recursive: true, force: true})
         }
     });
 

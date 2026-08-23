@@ -1662,6 +1662,8 @@ export class Orchestrator extends Base {
                 this.swarmHeartbeatService.pollIntervalMs  = AiConfig.orchestrator.intervals.swarmHeartbeatMs;
                 this.swarmHeartbeatService.targetSource    = AiConfig.orchestrator.swarmHeartbeat.targetSource;
                 this.swarmHeartbeatService.explicitTargets = this.swarmHeartbeatExplicitTargets;
+                this.swarmHeartbeatService.wakeDaemonDir   = memoryCoreConfig.wakeDaemon.dataDir;
+                this.swarmHeartbeatService.harnessStateDir = path.join(AiConfig.plane.dataRoot, 'harness-state');
                 await this.swarmHeartbeatService.ready();
             } catch (e) {
                 this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);
