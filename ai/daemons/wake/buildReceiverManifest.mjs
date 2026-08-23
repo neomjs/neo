@@ -54,6 +54,7 @@ import path            from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 import {loadWakeReceiverManifest} from './receiver.mjs';
+import {collectUnroutedEligibleIdentities} from './wakeTargetEligibility.mjs';
 import {withOutboxLock}           from './outboxLock.mjs';
 import {
     DEFAULT_CONTEXT_GATE_MAX_TOKENS,
@@ -663,6 +664,27 @@ export async function runManifestBuilder({
         if (route?.harnessTargetMetadata?.addressType === 'pid') {
             logger.log(`  WARN ${id}: carried pid tuple is ephemeral — re-run with --instance userDataDir to make it durable`);
         }
+    }
+
+    // The same reasoning as the skip loop below, one scope wider. That loop surfaces a seat whose
+    // route was ATTEMPTED and produced nothing; this surfaces a seat that was never attempted at
+    // all, because no subscription for it exists. Nothing else in this process would ever say so:
+    // a manifest missing a seat is simply smaller than the roster, and a smaller set reads as
+    // information to nobody. That silence is how a live seat spent its whole existence receiving
+    // another seat's wakes and none of its own.
+    //
+    // Never fails the build. A missing route is a provisioning gap, not a manifest defect, and
+    // failing closed here would block route generation for every other seat because one is
+    // unprovisioned. It also cannot self-heal: `manage_wake_subscription` acts on the CALLER, so a
+    // seat's row can only be minted by that seat — which is why the line says so rather than
+    // sending the reader to a tool that cannot act for them.
+    const unrouted = collectUnroutedEligibleIdentities({
+        routedIdentities: Object.values(manifest.routes).map(route => route?.agentIdentity)
+    });
+
+    for (const identity of unrouted) {
+        logger.log(`  WARN ${identity}: wake-eligible with no route — that seat must run ` +
+                   `manage_wake_subscription({action:'subscribe'}) itself; the tool acts on the caller`);
     }
 
     // Skips are printed, never swallowed: a seat that silently produces no route is indistinguishable
