@@ -1,22 +1,23 @@
 # ADR 0040: The AgentOS Extraction Topology — One Repository Whose Root Is the Host Edge
 
-> The Agent OS leaves `neomjs/neo` as ONE new repository whose root manifest IS the Host-Edge
-> package: root scripts are Edge-only, `cloud/` is an independent nested package that installs
-> alone, npm workspaces are forbidden because hoisting is the falsifier of the isolation this
-> topology exists to prove, and a pure `shared/` package exists only if the inventory proves a
-> population for it. AgentOS depends on the published Engine; the Engine never depends back.
-> Nothing relocates until two receipts exist — the zero-residue inventory and the paired isolation
-> exercise — and no historical `neomjs/neo` SHA changes, ever.
+> The Agent OS leaves `neomjs/neo` for **`neomjs/neo-agent-brain`** — ONE repository whose root
+> manifest IS the Host-Edge package: root scripts are Edge-only, `cloud/` is an independent nested
+> package that installs alone, npm workspaces are forbidden because hoisting is the falsifier of the
+> isolation this topology exists to prove, and a pure `shared/` package exists only if the inventory
+> proves a population for it. AgentOS depends on the published Engine; the Engine never depends back.
+> Runtime root and target root are two authorities that never collapse into one cwd. Nothing
+> relocates until two receipts exist — the zero-residue inventory and the paired isolation exercise —
+> the cut precedes the v13.2 Engine release, and no historical `neomjs/neo` SHA changes, ever.
 
 | Attribute | Value |
 |---|---|
 | **Status** | Proposed — 2026-08-22 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
-| **Author** | Vega (@neo-opus-vega), recording the D#17489 convergence; topology authored by the swarm — Emmy's C′ fold + STEP_BACK, the operator's root-invariant challenge, Grace's severance rows, Clio's staged-split falsifiers |
+| **Author** | Vega (@neo-opus-vega), recording the D#17489 convergence; topology authored by the swarm — Emmy's C′ fold + STEP_BACK, the operator's root-invariant and function-legibility challenges plus the winning name candidate, Grace's severance rows and build-vocabulary naming convergence, Clio's staged-split falsifiers, Euclid's two-root consumer correction |
 | **Resolves** | #17502 — the `Required: ADR` gate on Epic #17500's topology authority |
-| **Graduated from** | Discussion #17489 — family-keyed quorum: GPT author signal + Claude `[GRADUATION_APPROVED]`, re-issued and REVALIDATED at the root-invariant correction `DC_kwDODSospM4BFFq_` |
+| **Graduated from** | Discussion #17489 — family-keyed quorum (Signal Ledger in the Epic #17500 body): GPT author signal + Claude `[GRADUATION_APPROVED]`, re-issued and REVALIDATED at the root-invariant correction `DC_kwDODSospM4BFFq_`; two-root authority + release sequence folded at `DC_kwDODSospM4BFJBP` (2026-08-23) |
 | **Depends on** | ADR 0039 — this ADR realizes its Brain-internal host-edge ↔ container-plane boundary as *repository and package* topology; 0039's proof semantics (two instruments, neither sufficient alone) are inherited, not replaced. ADR 0019 — realm disposition may move config files but may not create a second config authority. |
 | **Aligns with** | ADR 0018 — the extracted repository is the Brain's new home; the Body (`/src/`) stays in `neomjs/neo`, and this ADR moves nothing across that seam |
-| **Anti-anchor for** | npm workspaces anywhere in the new repository; package-omission presented as isolation; `process.cwd()` as target-repo authority; an orchestration-only root manifest; extracting Core or `src/ai/**`; a second Engine history rewrite; treating first-wave custody as permanent global topology |
+| **Anti-anchor for** | npm workspaces anywhere in the new repository; package-omission presented as isolation; `process.cwd()` as target-repo authority; `npm run` plus one shared cwd carrying both root meanings; an orchestration-only root manifest; extracting Core or `src/ai/**`; a second Engine history rewrite; treating first-wave custody as permanent global topology |
 
 ---
 
@@ -37,9 +38,19 @@ that conversation. This record exists so it cannot.
 
 ### §2.1 One repository; the root manifest IS the Host-Edge package
 
-The first wave extracts the Agent OS into one new repository:
-**`neomjs/<REPO_NAME — pending the #17502 naming-convergence close>`**. "Agent OS" remains the
-subsystem term regardless of the repository's concrete name (§2.10).
+The first wave extracts the Agent OS into one new repository: **`neomjs/neo-agent-brain`** —
+closed by disjoint two-maintainer convergence on the operator-proposed candidate
+([#17502 close receipt, 2026-08-23](https://github.com/neomjs/neo/issues/17502#issuecomment-5387121429),
+superseding the 2026-08-22 `neo-cortex` close after the operator's function-legibility challenge):
+`agent` carries the function axis, `brain` carries the vocabulary the build already enforces
+(`package.brain.json`, `engine-brain-boundary-lint`, the `unit-brain` test projects), and every
+registry form (`neo-agent-brain`, `neoagentbrain`, `agentbrain`, the GitHub org/user namespace) was
+verified free under two independent instruments. "Agent OS" remains the subsystem term regardless of
+the repository's concrete name (§2.10).
+
+**Contraction discipline** (Grace's convergence condition, on the record): the full form is the only
+registry and import surface. The intended prose shorthand is the canon hemisphere term "the Brain";
+spoken contractions ("neo brain", "agent brain") are speech-only drift and never name artifacts.
 
 - **Repository root = the Host-Edge package surface.** Root scripts are Edge-only. There is no
   orchestration-only root manifest, and no Cloud operation is runnable from the local root. The
@@ -65,6 +76,13 @@ The extracted repository consumes the Engine as a **published package**. The Eng
 from the extracted repository, and `src/ai/**` (the Body-side AI surfaces) stays Engine-owned. The
 release seam already exists as the two-command protocol: `publish.mjs` owns the Engine half;
 `ai:post-release-sync` owns the Brain half with a fail-closed preflight (#17239).
+
+This covenant reads **production-strict**. A dev-time/test-tooling consumption ruling — the Engine's
+whitebox-e2e fixture is the second Bridge entrypoint, and tracked seat hooks import Brain lifecycle
+modules — is under active fold on the source Discussion
+([`DC_kwDODSospM4BFJL_`](https://github.com/neomjs/neo/discussions/17489#discussioncomment-18125567));
+if the Discussion folds a carve-out, it lands here as an explicit amendment. A migration PR may not
+assume the carve-out before this record carries it.
 
 ### §2.4 Isolation is a proof-set, not a package-omission claim
 
@@ -93,6 +111,23 @@ target root**: the binding is explicit and fails loud when absent. The negative-
 part of the paired exercise, because a cwd default is the kind of convenience that survives every
 review until an operator runs a command from the wrong directory.
 
+**Consumer mapping** (Euclid's source-bound tightening `DC_kwDODSospM4BFI-g`, folded
+`DC_kwDODSospM4BFJBP` — the monorepo hides this because both roots are one path today):
+
+| Authority | Owns | Must not own |
+|---|---|---|
+| `agentosRuntimeRoot` | Agent OS MCP executable/package resolution; the Neural Link Bridge spawn root (`--cwd` names THIS, never the target) | the repository GitHub Workflow acts on merely because the server runs there |
+| `targetRepoRoot` | the resident's active checkout; Git/worktree/project truth for GitHub Workflow, startup-bound | Agent OS executable or Bridge discovery |
+| ambient `process.cwd()` | nothing | fallback for either root |
+
+What does not survive the split: `npm run` plus one shared cwd carrying both meanings. The
+generated-seat proof runs with **different** runtime and target directories and carries two negative
+controls — swapped roots fail on the named boundary, and an omitted binding fails loud without
+recovering through `process.cwd()`. Already-provisioned ignored seat configs are **re-materialized
+and read back at cutover**; a corrected template alone is not migration evidence. The merged
+same-root repair for the current monorepo (#17611 / PR #17610) is a compatibility fix, not
+extraction precedent, unless explicitly revalidated against this contract.
+
 ### §2.6 The two blocking receipts precede every relocation leaf (criteria 2/3, amended timing)
 
 Per the author correction `DC_kwDODSospM4BFFq_` — which explicitly amended "before Epic filing" to
@@ -115,6 +150,15 @@ NON-EMPTY; every non-empty finding names the successor leaf that owns it and whe
 relocation; and relocation authorization requires the receipt to exist AND its named pre-move
 blockers to be discharged. The already-scheduled severance stays leaf 3 — never smuggled into
 proof 2, never an excuse for the proof to pretend green.
+
+**Release sequencing (operator decision, folded 2026-08-23 at `DC_kwDODSospM4BFJBP`):** the Agent OS
+repository cut plus the Engine-only clone/build/test/onboarding proof **precede the v13.2 Engine
+release**. The split is the onboarding simplification v13.2's story rests on; publishing onboarding
+instructions against a topology scheduled to disappear would invert that. Sequencing orders the
+releases; it waives none of the receipts, the naming disposition, the cut window, or live
+acceptance. Within the wave, the operator's tempo guidance permits draining adjacent backlog first —
+notably the Neural Link consumer set — because the cut inherits whatever suite state exists when it
+lands.
 
 ### §2.7 Wave-one custody — what stays Engine, explicitly
 
