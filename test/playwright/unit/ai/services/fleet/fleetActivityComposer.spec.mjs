@@ -29,8 +29,9 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 test.describe('fleetActivityComposer — composing two truths means composing two capabilities', () => {
     let createFleetActivityReadSource;
 
-    const wired = (events = []) => async () => ({
+    const wired = (events = [], counts = []) => async () => ({
         capability: {source: 'fleet:a2a', state: 'wired', confidence: 'observed'},
+        counts,
         events
     });
 
@@ -46,8 +47,8 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
 
     test('both adapters wired → the composite may claim wired, and the feed merges newest-first', async () => {
         const source = createFleetActivityReadSource({
-            readA2ASnapshot   : wired([{occurredAt: '2026-07-16T11:00:00.000Z', id: 'a2a-old'}]),
-            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', id: 'pr-new'}])
+            readA2ASnapshot   : wired([{occurredAt: '2026-07-16T11:00:00.000Z', eventId: 'a2a-old'}]),
+            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', eventId: 'pr-new'}])
         });
 
         const {capability, events} = await source.readActivitySnapshot();
@@ -56,12 +57,57 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         expect(capability.confidence).toBe('observed');
         expect(capability.reason).toBeNull();
         // one feed, not two lists stapled together
-        expect(events.map(event => event.id)).toEqual(['pr-new', 'a2a-old'])
+        expect(events.map(event => event.eventId)).toEqual(['pr-new', 'a2a-old'])
+    });
+
+    test('keeps only producer-complete source counts — never promotes a partial slot into a fleet total', async () => {
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot: wired([], [{
+                source    : 'memory-core:mailbox',
+                scope     : 'total',
+                value     : 2159,
+                complete  : true,
+                capturedAt: '2026-08-22T21:00:00.000Z'
+            }, {
+                source    : 'memory-core:mailbox',
+                scope     : 'last24h',
+                value     : 42,
+                complete  : false,
+                capturedAt: '2026-08-22T21:00:00.000Z'
+            }]),
+            readPrLaneSnapshot: wired([], [{scope: 'total', value: 999, complete: true, capturedAt: '2026-08-22T21:00:00.000Z'}])
+        });
+
+        const {counts} = await source.readActivitySnapshot();
+
+        expect(counts).toEqual([{
+            source    : 'memory-core:mailbox',
+            scope     : 'total',
+            value     : 2159,
+            complete  : true,
+            capturedAt: '2026-08-22T21:00:00.000Z'
+        }])
+    });
+
+    test('drops missing identities and collapses repeated producer ids newest-first', async () => {
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot: wired([
+                {eventId: 'a2a:one', occurredAt: '2026-07-16T11:00:00.000Z'},
+                {occurredAt: '2026-07-16T11:30:00.000Z'}
+            ]),
+            readPrLaneSnapshot: wired([
+                {eventId: 'a2a:one', occurredAt: '2026-07-16T12:00:00.000Z'}
+            ])
+        });
+
+        const {events} = await source.readActivitySnapshot();
+
+        expect(events).toEqual([{eventId: 'a2a:one', occurredAt: '2026-07-16T12:00:00.000Z'}])
     });
 
     test('ONE blind adapter degrades the composite — a half-feed must not read as the whole fleet', async () => {
         const source = createFleetActivityReadSource({
-            readA2ASnapshot   : wired([{occurredAt: '2026-07-16T11:00:00.000Z', id: 'a2a-1'}]),
+            readA2ASnapshot   : wired([{occurredAt: '2026-07-16T11:00:00.000Z', eventId: 'a2a-1'}]),
             readPrLaneSnapshot: degraded('fleet:pr-lane', 'github unreachable')
         });
 
@@ -69,7 +115,7 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
 
         // The events look perfectly healthy — one real row, nothing obviously missing. That is exactly
         // why `wired` here would be a lie the caller could never detect.
-        expect(events.map(event => event.id)).toEqual(['a2a-1']);
+        expect(events.map(event => event.eventId)).toEqual(['a2a-1']);
 
         expect(capability.state).toBe('degraded');
         expect(capability.confidence).toBe('none');
@@ -111,7 +157,7 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
     test('a THROWING adapter degrades rather than taking the snapshot down with it', async () => {
         const source = createFleetActivityReadSource({
             readA2ASnapshot   : async () => { throw new Error('mailbox exploded') },
-            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', id: 'pr-1'}])
+            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', eventId: 'pr-1'}])
         });
 
         const {capability, events} = await source.readActivitySnapshot();
@@ -119,7 +165,7 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         expect(capability.state).toBe('degraded');
         expect(capability.reason).toContain('mailbox exploded');
         // the half that CAN be read still reaches the cockpit — degraded is not blank
-        expect(events.map(event => event.id)).toEqual(['pr-1'])
+        expect(events.map(event => event.eventId)).toEqual(['pr-1'])
     });
 
     test('the caller\'s limit bounds the MERGED feed, and reaches both adapters', async () => {
@@ -127,8 +173,8 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         const recording = id => async params => {
             seen.push([id, params.limit]);
             return {capability: {source: id, state: 'wired', confidence: 'observed'}, events: [
-                {occurredAt: '2026-07-16T12:00:00.000Z', id: `${id}-a`},
-                {occurredAt: '2026-07-16T11:00:00.000Z', id: `${id}-b`}
+                {occurredAt: '2026-07-16T12:00:00.000Z', eventId: `${id}-a`},
+                {occurredAt: '2026-07-16T11:00:00.000Z', eventId: `${id}-b`}
             ]}
         };
 
@@ -151,14 +197,14 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         // A real adapter validating its arguments throws exactly this way.
         const source = createFleetActivityReadSource({
             readA2ASnapshot   : () => { throw new Error('sync validation failure') },
-            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', id: 'pr-1'}])
+            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', eventId: 'pr-1'}])
         });
 
         const {capability, events} = await source.readActivitySnapshot();
 
         expect(capability.state).toBe('degraded');
         expect(capability.reason).toContain('sync validation failure');
-        expect(events.map(event => event.id)).toEqual(['pr-1'])
+        expect(events.map(event => event.eventId)).toEqual(['pr-1'])
     });
 
     test('failure attribution is by SLOT, not by the adapter\'s self-report', async () => {
@@ -349,7 +395,7 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         // adapters to honour it. A slot returning more than asked must not blow the cap.
         const flood = async () => ({
             capability: {source: 'a', state: 'wired', confidence: 'observed'},
-            events    : Array.from({length: 500}, (_, index) => ({occurredAt: `2026-07-16T${String(index % 24).padStart(2, '0')}:00:00.000Z`, id: `e-${index}`}))
+            events    : Array.from({length: 500}, (_, index) => ({occurredAt: `2026-07-16T${String(index % 24).padStart(2, '0')}:00:00.000Z`, eventId: `e-${index}`}))
         });
         const source = createFleetActivityReadSource({readA2ASnapshot: flood, readPrLaneSnapshot: flood, limit: 25});
 
@@ -423,14 +469,14 @@ test.describe('fleetActivityComposer ↔ FleetControlBridge — the real consume
                 seen.push(['a2a', params.limit]);
                 return {
                     capability: {source: 'fleet:a2a', state: 'wired', confidence: 'observed'},
-                    events    : [{occurredAt: '2026-07-16T11:00:00.000Z', id: 'a2a-1'}]
+                    events    : [{occurredAt: '2026-07-16T11:00:00.000Z', eventId: 'a2a-1'}]
                 }
             },
             readPrLaneSnapshot: async params => {
                 seen.push(['pr-lane', params.limit]);
                 return {
                     capability: {source: 'fleet:pr-lane', state: 'wired', confidence: 'observed'},
-                    events    : [{occurredAt: '2026-07-16T12:00:00.000Z', id: 'pr-1'}]
+                    events    : [{occurredAt: '2026-07-16T12:00:00.000Z', eventId: 'pr-1'}]
                 }
             }
         });
@@ -444,7 +490,7 @@ test.describe('fleetActivityComposer ↔ FleetControlBridge — the real consume
 
         expect(result.capability.state).toBe('wired');
         expect(result.capability.source).toBe('fleet:activity-adapters');
-        expect(result.events.map(event => event.id)).toEqual(['pr-1', 'a2a-1'])
+        expect(result.events.map(event => event.eventId)).toEqual(['pr-1', 'a2a-1'])
     });
 
     test('a blind half reaches the bridge as degraded — the honest state survives the seam', async () => {

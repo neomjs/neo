@@ -18,6 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs'
 import * as core      from '../../../../../../src/core/_export.mjs'
 
 import {
+    createA2AActivityCounts,
     createA2AMessageActivityEvents,
     createFleetA2AActivitySnapshot,
     readFleetA2AActivitySnapshot
@@ -42,6 +43,7 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         }])
 
         expect(event).toMatchObject({
+            eventId   : `${FLEET_COCKPIT_SOURCES.a2a}:MESSAGE:123`,
             type      : 'a2a-activity',
             source    : FLEET_COCKPIT_SOURCES.a2a,
             agentId   : 'neo-opus-ada',
@@ -211,6 +213,65 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         expect(snapshot.events[0].payload.messageId).toBe('MESSAGE:middle')
     })
 
+    test('omits messages without producer identity instead of inventing a view key', () => {
+        const events = createA2AMessageActivityEvents([{
+            subject: 'missing native id',
+            from   : '@neo-gpt',
+            sentAt : '2026-07-04T06:01:00Z'
+        }]);
+
+        expect(events).toEqual([])
+    });
+
+    test('emits total independently, and last24h only when the page proves complete coverage', () => {
+        const capturedAt = '2026-07-04T12:00:00.000Z',
+              messages   = [{sentAt: '2026-07-04T11:00:00.000Z'}, {sentAt: '2026-07-02T11:00:00.000Z'}];
+
+        expect(createA2AActivityCounts({capturedAt, messages, totalCount: 3})).toEqual([{
+            source  : FLEET_COCKPIT_SOURCES.a2a,
+            scope   : 'total',
+            value   : 3,
+            complete: true,
+            capturedAt
+        }]);
+
+        expect(createA2AActivityCounts({capturedAt, messages, totalCount: 1})).toEqual([{
+            source  : FLEET_COCKPIT_SOURCES.a2a,
+            scope   : 'total',
+            value   : 1,
+            complete: true,
+            capturedAt
+        }]);
+
+        for (const incompletePage of [
+            {pageOffset: 1},
+            {truncated: true}
+        ]) {
+            expect(createA2AActivityCounts({capturedAt, messages, totalCount: 2, ...incompletePage}))
+                .toEqual([{
+                    source  : FLEET_COCKPIT_SOURCES.a2a,
+                    scope   : 'total',
+                    value   : 2,
+                    complete: true,
+                    capturedAt
+                }])
+        }
+
+        expect(createA2AActivityCounts({capturedAt, messages, totalCount: 2})).toEqual([{
+            source  : FLEET_COCKPIT_SOURCES.a2a,
+            scope   : 'last24h',
+            value   : 1,
+            complete: true,
+            capturedAt
+        }, {
+            source  : FLEET_COCKPIT_SOURCES.a2a,
+            scope   : 'total',
+            value   : 2,
+            complete: true,
+            capturedAt
+        }])
+    });
+
     test('reads through a MailboxService-compatible function with explicit bounds', async() => {
         const seenArgs = []
 
@@ -222,6 +283,9 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
                 seenArgs.push(args)
 
                 return {
+                    offset    : 0,
+                    totalCount: 1,
+                    truncated : false,
                     messages: [{
                         messageId: 'MESSAGE:reader',
                         subject  : 'reader path',
@@ -241,6 +305,7 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         }])
         expect(snapshot.events).toHaveLength(1)
         expect(snapshot.events[0].payload.messageId).toBe('MESSAGE:reader')
+        expect(snapshot.counts.map(row => row.scope)).toEqual(['last24h', 'total'])
     })
 
     test('returns degraded capability when Memory Core is missing or errors', async() => {
@@ -277,8 +342,8 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
 test.describe('fleetA2AActivityAdapter — the recipient rides beside its class', () => {
     test('a directed send carries the raw recipient; a broadcast carries AGENT:* — the surface renders sender→recipient from it', () => {
         const [direct, broadcast] = createA2AMessageActivityEvents([
-            {from: '@neo-fable-clio', to: '@neo-opus-ada', subject: 'S1', sentAt: '2026-08-18T10:00:00.000Z'},
-            {from: '@neo-opus-vega',  to: 'AGENT:*',       subject: 'S2', sentAt: '2026-08-18T10:01:00.000Z'}
+            {messageId: 'MESSAGE:direct',    from: '@neo-fable-clio', to: '@neo-opus-ada', subject: 'S1', sentAt: '2026-08-18T10:00:00.000Z'},
+            {messageId: 'MESSAGE:broadcast', from: '@neo-opus-vega',  to: 'AGENT:*',       subject: 'S2', sentAt: '2026-08-18T10:01:00.000Z'}
         ]);
 
         expect(direct.payload).toMatchObject({to: '@neo-opus-ada', recipientClass: 'agent'});
@@ -286,7 +351,7 @@ test.describe('fleetA2AActivityAdapter — the recipient rides beside its class'
     });
 
     test('a missing recipient is null beside its unknown class — absence stays absence', () => {
-        const [event] = createA2AMessageActivityEvents([{from: '@neo-fable-clio', subject: 'S', sentAt: '2026-08-18T10:00:00.000Z'}]);
+        const [event] = createA2AMessageActivityEvents([{messageId: 'MESSAGE:no-recipient', from: '@neo-fable-clio', subject: 'S', sentAt: '2026-08-18T10:00:00.000Z'}]);
 
         expect(event.payload.to).toBeNull();
         expect(event.payload.recipientClass).toBe('unknown')

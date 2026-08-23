@@ -1,18 +1,23 @@
-/* Activity stream — a liveness header over bounded event rows (time · kind chip · text; a coalesced
-   same-actor run reads slightly stronger) plus the "N earlier events" fold, all scoped under the
-   component root. Rail-toned; every color from the token layer.
-   §04 rhythm record (#17265): off-rhythm survivors — root pad 12/14, row gap 10, the 1px optical
-   baseline nudges on time/recipient — recorded here, deferred to the #17268 pane-composition
-   pass. The stream head joins the chrome tier (tracking .06 → the role's .08). */
+/* Store-backed activity history: stable header + list.Buffered scroll seat. Counts are producer
+   truth, retention is local-ring truth, and the new-events affordance never steals the viewport. */
 .fm-activity-stream {
-    padding   : var(--fm-space-3) 14px;
-    background: var(--fm-rail);
-    overflow  : hidden;
+    background    : var(--fm-rail);
+    container-name: fm-activity-stream;
+    container-type: inline-size;
+    min-height    : 0;
+    overflow      : hidden;
+    padding       : var(--fm-space-3) 14px;
+    position      : relative;
 
     .fm-stream-head {
-        margin-bottom : var(--fm-space-2);
+        align-items   : center;
+        column-gap    : var(--fm-space-3);
+        display       : flex;
+        flex-wrap     : wrap;
         font          : var(--fm-text-chrome);
         letter-spacing: var(--fm-text-chrome-tracking);
+        margin-bottom : var(--fm-space-2);
+        min-height    : 20px;
 
         &.is-live .fm-stream-state {
             color: var(--fm-signal);
@@ -24,60 +29,62 @@
     }
 
     .fm-stream-label {
-        text-transform: uppercase;
         color         : var(--fm-ink-dim);
+        text-transform: uppercase;
     }
 
+    .fm-stream-counts,
+    .fm-stream-retention,
     .fm-stream-state {
-        color: var(--fm-ink-dim);
-    }
-
-    .fm-ev-row {
-        gap          : 10px;
-        padding      : var(--fm-space-2) 0;
-        border-bottom: 1px solid var(--fm-line-soft);
-    }
-
-    .fm-ev-time {
-        padding-top: 1px;
-        font       : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
         color      : var(--fm-ink-dim);
         white-space: nowrap;
     }
 
-    .fm-ev-text {
-        font         : var(--fm-text-body);   /* 12.5 → body: the ruled invisible 0.5px migration */
-        color        : var(--fm-ink);
-        overflow     : hidden;
-        white-space  : nowrap;
-        text-overflow: ellipsis;
+    .fm-stream-counts.is-empty {
+        display: none;
     }
 
-    /* the A2A recipient piece — sender→recipient at a glance. The broadcast form differs by
-       arrow AND weight, never by color alone: the reader distinguishes a fleet-wide send from a
-       directed one without relying on the signal wash. */
-    .fm-ev-recipient {
-        padding-top: 1px;
-        font       : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
-        color      : var(--fm-ink-dim);
-        white-space: nowrap;
+    .fm-activity-list {
+        background: transparent;
+        min-height: 0;
+        overflow  : auto;
 
-        &.is-broadcast {
-            color      : color-mix(in srgb, var(--fm-signal) 70%, var(--fm-ink-dim));
-            font-weight: 600;
+        > .neo-list-item {
+            background: transparent;
+            cursor    : default;
+            padding   : 0;
+
+            &:hover,
+            &:active {
+                background: transparent;
+                color     : inherit;
+            }
         }
     }
 
-    /* a coalesced same-actor run — the ×N text carries the count; the row reads slightly
-       stronger so a burst is glanceable without flooding the window */
-    .fm-ev-coalesced .fm-ev-text {
-        font-weight: 600;
+    .fm-stream-new-events {
+        bottom    : var(--fm-space-3);
+        box-shadow: var(--fm-shadow-overlay);
+        left      : 50%;
+        position  : absolute;
+        transform : translateX(-50%);
+        z-index   : 2;
     }
 
-    .fm-stream-fold {
-        padding   : var(--fm-space-2) 0 0;
-        font      : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
-        color     : var(--fm-ink-dim);
-        text-align: center;
+    .fm-stream-announcer {
+        block-size : 1px;
+        clip       : rect(0 0 0 0);
+        clip-path  : inset(50%);
+        inline-size: 1px;
+        overflow   : hidden;
+        position   : absolute;
+        white-space: nowrap;
+    }
+}
+
+@container fm-activity-stream (max-width: 560px) {
+    .fm-activity-stream .fm-stream-head {
+        column-gap: var(--fm-space-2);
+        font      : var(--fm-text-micro);
     }
 }

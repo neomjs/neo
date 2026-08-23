@@ -1,5 +1,6 @@
 import {
     createFleetCockpitEvent,
+    createFleetCockpitEventId,
     FLEET_COCKPIT_SOURCES
 } from './fleetCockpitStatus.mjs'
 import {collisionPreventionTag} from '../shared/a2aCollisionTags.mjs'
@@ -36,7 +37,7 @@ export const DEFAULT_FLEET_A2A_ACTIVITY_EVENT_LIMIT = 50
  * @param {Number} [options.limit] Maximum events to return and default mailbox read bound.
  * @param {Date|String|null} [options.since] Lower timestamp bound for mapped events.
  * @param {Date|String|null} [options.until] Upper timestamp bound for mapped events.
- * @returns {Promise<{capability: Object, events: Object[]}>}
+ * @returns {Promise<{capability: Object, counts: Object[], events: Object[]}>}
  */
 export async function readFleetA2AActivitySnapshot({
     mailboxService = null,
@@ -69,6 +70,9 @@ export async function readFleetA2AActivitySnapshot({
             capturedAt,
             limit,
             messages: result?.messages || [],
+            pageOffset: result?.offset ?? listArgs.offset ?? 0,
+            totalCount: result?.totalCount,
+            truncated : result?.truncated === true,
             since,
             until
         })
@@ -88,15 +92,21 @@ export async function readFleetA2AActivitySnapshot({
  * @param {Error|String|null} options.error Source-read failure; returns degraded capability.
  * @param {Date|String} options.capturedAt Capture timestamp.
  * @param {Number} options.limit Maximum events to return.
+ * @param {Number} options.pageOffset Offset of the returned page in the matching population.
+ * @param {Number|null} options.totalCount Complete MailboxService population count for this query.
+ * @param {Boolean} options.truncated Whether more matching rows exist after this page.
  * @param {Date|String|null} options.since Lower timestamp bound for mapped events.
  * @param {Date|String|null} options.until Upper timestamp bound for mapped events.
- * @returns {{capability: Object, events: Object[]}}
+ * @returns {{capability: Object, counts: Object[], events: Object[]}}
  */
 export function createFleetA2AActivitySnapshot({
     messages = [],
     error = null,
     capturedAt = new Date(),
     limit = DEFAULT_FLEET_A2A_ACTIVITY_EVENT_LIMIT,
+    pageOffset = 0,
+    totalCount = null,
+    truncated = false,
     since = null,
     until = null
 } = {}) {
@@ -112,7 +122,9 @@ export function createFleetA2AActivitySnapshot({
                 reason,
                 state     : 'degraded'
             }),
+            counts: [],
             events: [createFleetCockpitEvent({
+                eventId   : createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.a2a, 'source-degraded'),
                 type      : 'source-degraded',
                 source    : FLEET_COCKPIT_SOURCES.a2a,
                 confidence: 'none',
@@ -136,8 +148,67 @@ export function createFleetA2AActivitySnapshot({
             confidence: 'observed',
             state     : 'wired'
         }),
+        counts: createA2AActivityCounts({capturedAt, messages, pageOffset, totalCount, truncated}),
         events
     }
+}
+
+/**
+ * @summary Emits only MailboxService counts whose completeness the read result proves.
+ *
+ * `totalCount` is complete independently of page size. A last-24h count is complete only when
+ * the returned page covers the entire matching mailbox population and every row carries a valid
+ * timestamp; otherwise that row is absent. Retained event count never substitutes for either.
+ * @param {Object} options
+ * @param {Object[]} options.messages Returned mailbox page.
+ * @param {Number} options.pageOffset Offset of the returned page in the matching population.
+ * @param {Number|null} options.totalCount Complete matching population count.
+ * @param {Boolean} options.truncated Whether the returned page omits later matching rows.
+ * @param {Date|String} options.capturedAt Capture time and 24h-window upper bound.
+ * @returns {Object[]}
+ */
+export function createA2AActivityCounts({
+    messages = [],
+    pageOffset = 0,
+    totalCount = null,
+    truncated = false,
+    capturedAt = new Date()
+} = {}) {
+    if (!Number.isInteger(totalCount) || totalCount < 0) {
+        return []
+    }
+
+    const capturedAtIso = toIsoString(capturedAt),
+          counts        = [{
+              source    : FLEET_COCKPIT_SOURCES.a2a,
+              scope     : 'total',
+              value     : totalCount,
+              complete  : true,
+              capturedAt: capturedAtIso
+          }];
+
+    if (pageOffset !== 0 || truncated || messages.length !== totalCount) {
+        return counts
+    }
+
+    const capturedTime = toTime(capturedAtIso),
+          messageTimes = messages.map(message => toTime(message?.sentAt || message?.createdAt));
+
+    if (capturedTime === null || messageTimes.some(time => time === null)) {
+        return counts
+    }
+
+    const cutoff = capturedTime - 24 * 60 * 60 * 1000;
+
+    counts.unshift({
+        source    : FLEET_COCKPIT_SOURCES.a2a,
+        scope     : 'last24h',
+        value     : messageTimes.filter(time => time >= cutoff && time <= capturedTime).length,
+        complete  : true,
+        capturedAt: capturedAtIso
+    });
+
+    return counts
 }
 
 /**
@@ -157,8 +228,10 @@ export function createA2AMessageActivityEvents(messages = [], {capturedAt = new 
     return asArray(messages)
         .filter(Boolean)
         .map(message => normalizeA2AMessage(message, capturedAt))
+        .filter(message => message.messageId)
         .filter(message => isWithinBounds(message.occurredAt, sinceTime, untilTime))
         .map(message => createFleetCockpitEvent({
+            eventId   : createFleetCockpitEventId(FLEET_COCKPIT_SOURCES.a2a, message.messageId),
             type      : message.isLaneClaim ? 'lane-claim' : 'a2a-activity',
             source    : FLEET_COCKPIT_SOURCES.a2a,
             agentId   : message.from,

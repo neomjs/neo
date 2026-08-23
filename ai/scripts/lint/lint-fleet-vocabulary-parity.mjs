@@ -259,6 +259,7 @@ export function compareFleetVocabulary({authority, twin}) {
         ['cockpit', 'authority', 'FLEET_COCKPIT_EVENT_TYPES', 'Brain-owned event validation vocabulary; the app twin only names sources'],
         ['cockpit', 'authority', 'boundReason', 'Brain-owned status sanitization; the app twin only names sources'],
         ['cockpit', 'authority', 'createFleetCockpitEvent', 'Brain-owned event assembler; the app twin only names sources'],
+        ['cockpit', 'authority', 'createFleetCockpitEventId', 'Brain-owned event identity assembler; the app consumes ids but never mints producer events'],
         ['cockpit', 'authority', 'createFleetCockpitStatus', 'Brain-owned status assembler; the app twin only names sources'],
         ['cockpit', 'authority', 'createNotWiredCapability', 'Brain-owned capability assembler; the app twin only names sources']
     ];
