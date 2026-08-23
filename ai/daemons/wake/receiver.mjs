@@ -21,6 +21,15 @@ import {evaluateContextGate}                    from './contextGatePolicy.mjs';
 import {dispatchLocalWake, probeSessionContext} from './localWakeAdapters.mjs';
 
 const DEFAULT_MAX_BODY_BYTES = 256 * 1024;
+
+/**
+ * Dialog-gate bound: how many times a wake deferred for a pending interactive prompt may
+ * re-park before it exhausts into an observable failure. Dialogs are transient (seconds to
+ * minutes), so the default covers a pending question across many drain cycles; a seat parked on a
+ * dialog for good surfaces as `dialog-defer-bound-exhausted` rather than parking silently.
+ * @type {Number}
+ */
+const DIALOG_DEFER_BOUND = 20;
 /**
  * Coalesces the burst of filesystem events one atomic publish produces into a single reload.
  * @type {Number}
@@ -315,9 +324,48 @@ export function createWakeReceiver({
                         outcomeReason = String(result.outcomeReason);
                     }
 
-                    if (!['delivered', 'skipped', 'failed', 'unknown'].includes(outcome)) {
+                    if (!['delivered', 'skipped', 'failed', 'unknown', 'deferred'].includes(outcome)) {
                         outcomeReason = `invalid-adapter-outcome:${String(outcome)}`;
                         outcome       = 'failed';
+                    }
+
+                    // The dialog gate: an adapter that read a pending interactive prompt on
+                    // the target seat DEFERS instead of typing the wake into the operator's dialog.
+                    // Same park-and-reschedule contract as the context gate above, but bounded —
+                    // a dialog is a transient state, so the wake retries on subsequent drains until
+                    // either the seat returns to composer state (deliver, envelope identity intact)
+                    // or the bound exhausts into an OBSERVABLE failure. A defer that can park
+                    // forever is the silent non-delivery failure mode wearing a polite name.
+                    if (outcome === 'deferred') {
+                        const deferCount = (dispatching.deferCount || 0) + 1;
+
+                        if (deferCount > DIALOG_DEFER_BOUND) {
+                            const exhausted = `dialog-defer-bound-exhausted:${outcomeReason || 'unknown'}`;
+
+                            await state.transition(record.recordKey, 'dispatching', 'failed', {
+                                outcomeReason     : exhausted,
+                                deferCount,
+                                dispatchFinishedAt: new Date().toISOString()
+                            });
+                            logger.error?.(
+                                `[Wake Receiver] dialog gate EXHAUSTED ${record.subscriptionId} after ` +
+                                `${deferCount} deferrals (${outcomeReason}); surfacing as failed — ` +
+                                'the mailbox stays authoritative'
+                            );
+                            continue;
+                        }
+
+                        await state.transition(record.recordKey, 'dispatching', 'pending', {
+                            deferCount,
+                            deferredAt : new Date().toISOString(),
+                            deferReason: outcomeReason || 'interactive-dialog-pending'
+                        });
+                        logger.warn?.(
+                            `[Wake Receiver] dialog gate DEFERRED ${record.subscriptionId}: a pending ` +
+                            `interactive prompt holds the seat's input path; the wake waits for ` +
+                            `composer state (defer #${deferCount}/${DIALOG_DEFER_BOUND})`
+                        );
+                        continue;
                     }
                 } catch (error) {
                     outcomeReason = error?.code || error?.name || 'adapter-error';
