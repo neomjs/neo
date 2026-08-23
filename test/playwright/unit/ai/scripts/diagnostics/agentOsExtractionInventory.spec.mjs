@@ -5,12 +5,15 @@ import {fileURLToPath} from 'node:url';
 
 import {
     buildInventory,
+    deriveRuntimeProbeTargets,
     discoverSubprocessLaunches,
     discoverWorkflowReferences,
     listTrackedFiles,
     reconcileInventory,
+    reconcileRuntimeProbeEligibility,
     resolveTrackedConfigSpecifier,
     rowKey,
+    RUNTIME_PROBE_ELIGIBILITY,
     sourceBindingError,
     SURFACE
 }                       from '../../../../../../ai/scripts/diagnostics/agentOsExtractionInventory.mjs';
@@ -208,6 +211,119 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         })
     });
 
+    test('runtime-probe targets are the unique launch roots whose explicit custody is Edge', () => {
+        const targets = deriveRuntimeProbeTargets({
+            launchRoots: [
+                {rel: 'ai/scripts/edge.mjs'},
+                {rel: 'ai/scripts/cloud.mjs'},
+                {rel: 'ai/scripts/edge.mjs'}
+            ],
+            scriptRows: [{
+                surface: SURFACE.scriptModule, identity: 'ai/scripts/edge.mjs', disposition: 'edge'
+            }, {
+                surface: SURFACE.scriptModule, identity: 'ai/scripts/cloud.mjs', disposition: 'cloud'
+            }, {
+                surface: SURFACE.scriptModule, identity: 'ai/scripts/unlaunched.mjs', disposition: 'edge'
+            }]
+        });
+
+        expect(targets).toEqual(['ai/scripts/edge.mjs'])
+    });
+
+    test('runtime-probe authority reconciles one exact judgment per target', () => {
+        const result = reconcileRuntimeProbeEligibility([
+            'ai/scripts/a.mjs', 'ai/scripts/b.mjs'
+        ], {
+            runtimeProbeEligibility: [{
+                identity   : 'ai/scripts/a.mjs',
+                eligibility: RUNTIME_PROBE_ELIGIBILITY.eligible,
+                reason     : 'entrypoint work is guarded and eager imports are bounded',
+                source     : 'fixture:a'
+            }, {
+                identity   : 'ai/scripts/b.mjs',
+                eligibility: RUNTIME_PROBE_ELIGIBILITY.ineligible,
+                reason     : 'module starts a persistent process at import time',
+                source     : 'fixture:b'
+            }]
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.byEligibility).toEqual({eligible: 1, ineligible: 1});
+        expect(result.rows.map(row => row.identity)).toEqual(['ai/scripts/a.mjs', 'ai/scripts/b.mjs'])
+    });
+
+    test('RED: same-count eligibility substitution names missing and stale identities', () => {
+        const result = reconcileRuntimeProbeEligibility(['ai/scripts/a.mjs'], {
+            runtimeProbeEligibility: [{
+                identity   : 'ai/scripts/b.mjs',
+                eligibility: 'eligible',
+                reason     : 'different identity at the same population count',
+                source     : 'fixture substitution'
+            }]
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.residue).toEqual({
+            targetsWithoutAuthority: ['ai/scripts/a.mjs'],
+            authorityWithoutTargets: ['ai/scripts/b.mjs']
+        });
+        expect(result.errors).toEqual(expect.arrayContaining([{
+            kind: 'missing-runtime-probe-eligibility', key: 'ai/scripts/a.mjs'
+        }, {
+            kind: 'stale-runtime-probe-eligibility', key: 'ai/scripts/b.mjs'
+        }]))
+    });
+
+    test('RED: added and removed Edge targets fail independently by identity', () => {
+        const shared = {
+                  identity   : 'ai/scripts/a.mjs',
+                  eligibility: 'eligible',
+                  reason     : 'the stable target is explicitly safe to evaluate',
+                  source     : 'fixture stable target'
+              },
+              added  = reconcileRuntimeProbeEligibility([
+                  'ai/scripts/a.mjs', 'ai/scripts/new.mjs'
+              ], {runtimeProbeEligibility: [shared]}),
+              removed = reconcileRuntimeProbeEligibility(['ai/scripts/a.mjs'], {
+                  runtimeProbeEligibility: [shared, {
+                      identity   : 'ai/scripts/removed.mjs',
+                      eligibility: 'ineligible',
+                      reason     : 'the former target started persistent work on import',
+                      source     : 'fixture removed target'
+                  }]
+              });
+
+        expect(added.errors).toContainEqual({
+            kind: 'missing-runtime-probe-eligibility', key: 'ai/scripts/new.mjs'
+        });
+        expect(added.errors.some(error => error.kind === 'stale-runtime-probe-eligibility')).toBe(false);
+        expect(removed.errors).toContainEqual({
+            kind: 'stale-runtime-probe-eligibility', key: 'ai/scripts/removed.mjs'
+        });
+        expect(removed.errors.some(error => error.kind === 'missing-runtime-probe-eligibility')).toBe(false)
+    });
+
+    test('RED: duplicate, invalid, and explanation-free probe authority stays visible', () => {
+        const result = reconcileRuntimeProbeEligibility(['ai/scripts/a.mjs'], {
+            runtimeProbeEligibility: [{
+                identity: 'ai/scripts/a.mjs', eligibility: 'unknown', reason: '', source: ''
+            }, {
+                identity   : 'ai/scripts/a.mjs',
+                eligibility: 'eligible',
+                reason     : 'duplicate authority must not replace the first row',
+                source     : 'duplicate fixture'
+            }]
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.errors.map(error => error.kind)).toEqual(expect.arrayContaining([
+            'duplicate-runtime-probe-eligibility',
+            'invalid-runtime-probe-eligibility',
+            'missing-runtime-probe-reason',
+            'missing-runtime-probe-source'
+        ]))
+    });
+
     test('the committed receipt is zero-residue, exhaustive, and independent of rendered overlays', () => {
         const overlayHiddenResolve = (specifier, fromFile) => {
                   const requested = path.resolve(path.dirname(fromFile), specifier),
@@ -247,6 +363,20 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.counts[SURFACE.rootScript].total).toBe(packageScripts.length);
         expect(first.counts[SURFACE.workflowReference].total).toBe(workflowReferences.length);
         expect(first.counts[SURFACE.planeOpener].total).toBe(censusPlaneOpeners({projectRoot: REPO_ROOT}).total);
+        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v2');
+        expect(first.runtimeProbeEligibility.ok).toBe(true);
+        expect(first.runtimeProbeEligibility.total).toBe(
+            first.runtimeProbeEligibility.rows.length
+        );
+        expect(first.runtimeProbeEligibility.byEligibility.eligible +
+            first.runtimeProbeEligibility.byEligibility.ineligible).toBe(
+            first.runtimeProbeEligibility.total
+        );
+        first.runtimeProbeEligibility.rows.forEach(row => {
+            expect(['eligible', 'ineligible']).toContain(row.eligibility);
+            expect(row.reason).toBeTruthy();
+            expect(row.source).toBeTruthy()
+        });
 
         const keys = first.rows.map(row => rowKey(row.surface, row.identity));
 
