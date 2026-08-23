@@ -56,12 +56,17 @@
         min-width : 0;
     }
 
+    /* Values only. The rail's structural paint moved to `src/dashboard/Container.scss`, where the
+       engine declares it against these tokens — this block used to be the only place in the tree
+       that answered "what does a dock rail look like", so a second consumer could reach that answer
+       only by copying it. `overflow` rides along because it is what clips the tabs to the 7px
+       corners: it belongs to the radius decision made here, not to every rail. */
     .neo-dashboard-dock-edge-rail {
-        background: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
-        border    : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
-        border-radius : 7px;
-        box-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
-        overflow      : hidden;
+        --dock-edge-rail-background: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
+        --dock-edge-rail-border    : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
+        --dock-edge-rail-radius    : 7px;
+        --dock-edge-rail-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+        --dock-edge-rail-overflow  : hidden;
 
         // The stock theme floors every `.neo-button` at `min-width: var(--cmp-button-height)` (48px)
         // through `:root .neo-theme-* .neo-button` — a (0,3,0) selector that TIES the shared rail

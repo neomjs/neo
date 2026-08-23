@@ -96,6 +96,31 @@
     // strip, rendering as cramped rotated text). What the strip should measure is a per-consumer
     // decision, which is exactly why it is a value and not a constant.
     --dock-edge-rail-size           : 14px;
+
+    // ── Edge-rail paint ──────────────────────────────────────────────────────────────────
+    // Identity slots, empty by default — the same class of token as `--dock-splitter-ring`
+    // above, and for the same reason: an app fills them, the engine never does. The strip is
+    // not the affordance here. Its TABS are, and they already carry an engine-owed visible
+    // active state; a rail whose surface is transparent still reads as navigation because the
+    // tabs on it do. So unlike the splitter floor, discoverability does not oblige a default.
+    //
+    // What this buys is the layer, not a new look: the whole rail identity used to exist once,
+    // as four declarations inside `apps/workstation/Workspace.scss`, so a second consumer could
+    // only reproduce it by copying CSS out of another app. Every shipped consumer renders
+    // byte-identically after this — the workstation because it now sets these values, everyone
+    // else because bare was already what they resolved.
+    --dock-edge-rail-background     : transparent;
+    --dock-edge-rail-border         : 0;
+    --dock-edge-rail-radius         : 0;
+    --dock-edge-rail-shadow         : none;
+
+    // Clipping is coupled to the RADIUS, not to the labels: a rounded strip needs its children
+    // clipped to the corners, and a square one does not. That coupling is why this is a value
+    // rather than a structural declaration — a consumer that rounds the rail sets `hidden` in
+    // the same block where it sets the radius, and one that does not is left exactly as it renders
+    // today. Defaulting to `hidden` would have been a silent rendering change for every square
+    // rail, which is a redesign wearing a promotion's clothes.
+    --dock-edge-rail-overflow       : visible;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -298,12 +323,20 @@
     }
 }
 
-// Demo-consumable minimal hooks only — the real visual language lands with the F-tranche.
 // Flow direction comes from the rail's layout (vbox/vertical, hbox/horizontal edges); the
-// buttons bring their own base theming — these hooks only shape the strip.
+// buttons bring their own base theming — these rules shape and paint the strip.
 .neo-dashboard-dock-edge-rail {
     flex-shrink: 0;
     gap        : 2px;
+
+    // Every value reads a token, so a consumer skins by overriding and never by re-declaring.
+    // Re-declaring is what put an app rule in an equal-specificity tie with the engine's on the
+    // rail tab (see the note above the tab block) — the same trap one element out.
+    background   : var(--dock-edge-rail-background);
+    border       : var(--dock-edge-rail-border);
+    border-radius: var(--dock-edge-rail-radius);
+    box-shadow   : var(--dock-edge-rail-shadow);
+    overflow     : var(--dock-edge-rail-overflow);
 
     &-left,
     &-right {
