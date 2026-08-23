@@ -164,3 +164,150 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
         expect(chevronColor, 'the chevron falls back to the structure literal (#4493f8)').toBe(FALLBACK_PAINT);
     });
 });
+
+/**
+ * The relocated-example palette boundary (ticket-ref-ok: #17573): Demo A and Demo B must
+ * render from an example-owned theme file, never from the Fleet Manager's Viewport sheet.
+ *
+ * The positive matrix observes both the worker-owned workspace instance and browser paint under
+ * both primary themes. The mutation cell replaces only the new palette sheet with an empty 200
+ * response; the token and its resulting paint must disappear, proving the positive assertions
+ * would fail if the example-owned layer were removed.
+ */
+test.describe('Relocated dock examples — example-owned palette (Neural Link)', () => {
+    test.setTimeout(90000);
+
+    const EXAMPLES = [{
+              appName      : 'Neo.examples.dashboard.choreography',
+              className    : 'Neo.examples.dashboard.choreography.DemoAWorkspace',
+              configPath   : path.resolve(__dirname, '../../../../examples/dashboard/choreography/neo-config.json'),
+              configRoute  : '**/examples/dashboard/choreography/neo-config.json*',
+              paintSelector: '.agentos-dockdemo-pane',
+              slug         : 'choreography',
+              url          : '/examples/dashboard/choreography/'
+          }, {
+              appName      : 'Neo.examples.dashboard.crossWindow',
+              className    : 'Neo.examples.dashboard.crossWindow.DemoBWorkspace',
+              configPath   : path.resolve(__dirname, '../../../../examples/dashboard/crossWindow/neo-config.json'),
+              configRoute  : '**/examples/dashboard/crossWindow/neo-config.json*',
+              paintSelector: '.agentos-dockdemo-pane',
+              slug         : 'cross-window',
+              url          : '/examples/dashboard/crossWindow/'
+          }],
+          EXPECTATIONS = {
+              'neo-theme-neo-dark': {
+                  background: 'rgb(11, 14, 19)',
+                  ground    : '#0b0e13',
+                  panel     : '#141a23',
+                  panelPaint: 'rgb(20, 26, 35)',
+                  signal    : '#5eead4'
+              },
+              'neo-theme-neo-light': {
+                  background: 'rgb(242, 245, 249)',
+                  ground    : '#f2f5f9',
+                  panel     : '#ffffff',
+                  panelPaint: 'rgb(255, 255, 255)',
+                  signal    : '#0f766e'
+              }
+          },
+          PALETTE_REQUEST = '**/css/theme-neo-*/examples/dashboard/Palette.css*';
+
+    /**
+     * Boots one relocated example under one pinned theme and binds NL to its exact worker.
+     * @param {Object} page
+     * @param {Object} neuralLink
+     * @param {Object} example
+     * @param {String} theme
+     * @param {Object} [options]
+     * @param {Boolean} [options.blockPalette=false]
+     * @returns {Promise<{app: Object, workspaceId: String}>}
+     */
+    async function bootRelocatedExample(page, neuralLink, example, theme, {blockPalette = false} = {}) {
+        const config = {...JSON.parse(fs.readFileSync(example.configPath, 'utf8')), themes: [theme]};
+
+        await page.route(example.configRoute, route =>
+            route.fulfill({contentType: 'application/json', body: JSON.stringify(config)})
+        );
+
+        if (blockPalette) {
+            await page.route(PALETTE_REQUEST, route =>
+                route.fulfill({contentType: 'text/css', body: '/* mutation: example palette defines nothing */'})
+            )
+        }
+
+        await page.goto(example.url);
+        await page.waitForSelector('.agentos-dockdemo-workspace', {timeout: 30000});
+        await page.evaluate(() => document.fonts.ready);
+
+        const app         = await neuralLink.connectToApp(example.appName),
+              found       = await app.findInstances({className: example.className}, ['id']),
+              workspaceId = Array.isArray(found) ? found[0]?.id : found?.id;
+
+        expect(workspaceId, `${example.slug} workspace must exist in the App Worker`).toBeTruthy();
+
+        return {app, workspaceId}
+    }
+
+    for (const example of EXAMPLES) {
+        for (const [theme, expected] of Object.entries(EXPECTATIONS)) {
+            test(`${example.slug} owns its ${theme} palette — worker token + browser paint`, async ({page, neuralLink}) => {
+                const {app, workspaceId} = await bootRelocatedExample(page, neuralLink, example, theme);
+
+                const sheetUrls = await page.evaluate(() =>
+                    [...document.styleSheets].map(sheet => sheet.href || '')
+                );
+
+                expect(
+                    sheetUrls.filter(url => url.includes('/apps/agentos/')),
+                    'a standalone example must load zero AgentOS product stylesheets'
+                ).toEqual([]);
+                expect(
+                    sheetUrls.some(url => url.includes('/examples/dashboard/Palette.css')),
+                    'the example-owned palette stylesheet is present'
+                ).toBe(true);
+
+                const workerStyles = await app.getComputedStyles(workspaceId, [
+                    '--dashboard-example-ground',
+                    '--dashboard-example-panel',
+                    '--dashboard-example-signal',
+                    'background-color'
+                ]);
+                expect(workerStyles['--dashboard-example-ground']).toBe(expected.ground);
+                expect(workerStyles['--dashboard-example-panel']).toBe(expected.panel);
+                expect(workerStyles['--dashboard-example-signal']).toBe(expected.signal);
+                expect(workerStyles['background-color']).toBe(expected.background);
+
+                const browserPaint = await page.locator(example.paintSelector).first().evaluate(node => {
+                    const style = getComputedStyle(node);
+                    return {
+                        background: style.backgroundColor,
+                        panel     : style.getPropertyValue('--dashboard-example-panel').trim()
+                    }
+                });
+                expect(browserPaint.panel).toBe(expected.panel);
+                expect(browserPaint.background).toBe(expected.panelPaint)
+            })
+        }
+    }
+
+    test('MUTATION control: removing the example palette removes its token and ground paint', async ({page, neuralLink}) => {
+        const example            = EXAMPLES[0],
+              {app, workspaceId} = await bootRelocatedExample(
+                  page,
+                  neuralLink,
+                  example,
+                  'neo-theme-neo-dark',
+                  {blockPalette: true}
+              ),
+              workerStyles      = await app.getComputedStyles(workspaceId, [
+                  '--dashboard-example-ground',
+                  'background-color'
+              ]);
+
+        expect(workerStyles['--dashboard-example-ground'] || '', 'the blocked palette token is absent').toBe('');
+        expect(
+            workerStyles['background-color'],
+            'the workspace cannot keep the positive dark ground when the palette is empty'
+        ).not.toBe(EXPECTATIONS['neo-theme-neo-dark'].background)
+    })
+});

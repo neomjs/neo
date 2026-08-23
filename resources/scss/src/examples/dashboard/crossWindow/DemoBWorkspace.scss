@@ -1,54 +1,54 @@
 // Demo-B perspectives + pop-out showcase — the hooks Demo A's skin does not carry.
-// Same discipline: fleet-manager module tokens only, theme variance rides the token layer.
+// Same discipline: dashboard-example tokens only; theme variance rides the example-owned layer.
 
 .agentos-dockdemo-switcher {
-    background   : var(--fm-panel);
-    border-bottom: 1px solid var(--fm-line);
+    background   : var(--dashboard-example-panel);
+    border-bottom: 1px solid var(--dashboard-example-line);
     flex   : 0 0 auto;
     height : 44px;
     padding: 6px 12px;
 
     .agentos-dockdemo-switcher-label {
-        color         : var(--fm-ink-dim);
-        font-family   : var(--fm-font-mono);
+        color         : var(--dashboard-example-ink-dim);
+        font-family   : var(--dashboard-example-font-mono);
         font-size     : 11px;
         letter-spacing: .08em;
         text-transform: uppercase;
     }
 
     .agentos-dockdemo-switcher-btn {
-        background   : var(--fm-panel-2);
-        border       : 1px solid var(--fm-line);
+        background   : var(--dashboard-example-panel-2);
+        border       : 1px solid var(--dashboard-example-line);
         border-radius: 6px;
-        color        : var(--fm-ink);
-        font-family  : var(--fm-font-mono);
+        color        : var(--dashboard-example-ink);
+        font-family  : var(--dashboard-example-font-mono);
         margin-left  : 6px;
 
         .neo-button-text {
-            color: var(--fm-ink);
+            color: var(--dashboard-example-ink);
         }
     }
 }
 
 .agentos-dockdemo-restore-report {
-    background : color-mix(in srgb, var(--fm-signal) 10%, var(--fm-panel));
-    border-bottom: 1px solid var(--fm-line);
-    color      : var(--fm-ink);
+    background : color-mix(in srgb, var(--dashboard-example-signal) 10%, var(--dashboard-example-panel));
+    border-bottom: 1px solid var(--dashboard-example-line);
+    color      : var(--dashboard-example-ink);
     flex       : 0 0 auto;
-    font-family: var(--fm-font-mono);
+    font-family: var(--dashboard-example-font-mono);
     font-size  : 11px;
     line-height: 1.45;
     padding    : 7px 12px;
 
     strong {
-        color: var(--fm-signal);
+        color: var(--dashboard-example-signal);
     }
 }
 
 .agentos-dockdemo-counter-pane {
     align-items    : center;
-    background     : var(--fm-panel);
-    border         : 1px solid var(--fm-line-soft);
+    background     : var(--dashboard-example-panel);
+    border         : 1px solid var(--dashboard-example-line-soft);
     border-radius  : 8px;
     display        : flex;
     flex-direction : column;
@@ -56,21 +56,21 @@
     justify-content: center;
 
     .agentos-dockdemo-counter-label {
-        color         : var(--fm-ink-dim);
-        font-family   : var(--fm-font-mono);
+        color         : var(--dashboard-example-ink-dim);
+        font-family   : var(--dashboard-example-font-mono);
         font-size     : 12px;
         letter-spacing: .12em;
     }
 
     .agentos-dockdemo-counter-value {
-        color      : var(--fm-signal);
-        font-family: var(--fm-font-mono);
+        color      : var(--dashboard-example-signal);
+        font-family: var(--dashboard-example-font-mono);
         font-size  : 34px;
         font-weight: 700;
     }
 
     .agentos-dockdemo-counter-note {
-        color      : var(--fm-ink-dim);
+        color      : var(--dashboard-example-ink-dim);
         font-size  : 11px;
         font-style : italic;
     }
@@ -78,7 +78,7 @@
 
 // the pop-out window: a bare stage for the reparented pane — full-bleed, token ground
 .agentos-dockdemo-popout-host {
-    background: var(--fm-ground);
+    background: var(--dashboard-example-ground);
     padding   : 10px;
 
     > * {
@@ -92,7 +92,7 @@
 // (display:none / visibility:hidden would silence the live region — this deliberately is
 // a one-line, low-emphasis strip instead of a visually-hidden clip)
 .agentos-dockdemo-kbd-live {
-    color     : var(--fm-ink-dim);
+    color     : var(--dashboard-example-ink-dim);
     font-size : 11px;
     min-height: 14px;
     padding   : 0 12px;

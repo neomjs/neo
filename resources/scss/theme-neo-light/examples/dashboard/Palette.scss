@@ -1,0 +1,14 @@
+:root .neo-theme-neo-light {
+    // Example-owned daylight palette. It mirrors the dark layer's semantic vocabulary while
+    // remaining independent from every product app's tokens and future palette changes.
+    --dashboard-example-ground   : #f2f5f9;
+    --dashboard-example-panel    : #ffffff;
+    --dashboard-example-panel-2  : #f7f9fc;
+    --dashboard-example-line     : #d3dae4;
+    --dashboard-example-line-soft: #e4e9f0;
+    --dashboard-example-ink      : #1f2733;
+    --dashboard-example-ink-dim  : #5a6b80;
+    --dashboard-example-signal   : #0f766e;
+    --dashboard-example-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --dashboard-example-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

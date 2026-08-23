@@ -1,0 +1,15 @@
+:root .neo-theme-neo-dark {
+    // Example-owned palette: the relocated dashboard demos are standalone theme authorities.
+    // Values intentionally preserve their shipped FM-era appearance, but ownership is local —
+    // product palette drift must never silently restyle a copyable engine example.
+    --dashboard-example-ground   : #0b0e13;
+    --dashboard-example-panel    : #141a23;
+    --dashboard-example-panel-2  : #1a212c;
+    --dashboard-example-line     : #262f3d;
+    --dashboard-example-line-soft: #1c242f;
+    --dashboard-example-ink      : #d6dce6;
+    --dashboard-example-ink-dim  : #8b97a8;
+    --dashboard-example-signal   : #5eead4;
+    --dashboard-example-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --dashboard-example-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

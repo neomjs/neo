@@ -92,14 +92,14 @@ class DemoBWorkspace extends Container {
          */
         className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace',
         /**
-         * Theme dependencies: the FM token bridge, the dock motion/token contract file (the
+         * Theme dependencies: the example-owned palette, the dock motion/token contract file (the
          * projected tree is plain containers; nothing loads it per-class), and Demo A's skin
          * (this workspace reuses its tourbar/pip/pane visual family — in `?demo=b` mode
          * Demo A never instantiates, so its sheet must be declared, not assumed).
          * @member {String[]} additionalThemeFiles
          */
         additionalThemeFiles: [
-            'AgentOS.view.Viewport',
+            'Neo.examples.dashboard.Palette',
             'Neo.dashboard.Container',
             'Neo.examples.dashboard.choreography.DemoAWorkspace'
         ],

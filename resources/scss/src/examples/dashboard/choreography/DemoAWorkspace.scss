@@ -1,50 +1,49 @@
 // Demo-A dock-choreography showcase — structural skin.
-// Consumes the fleet-manager module tokens (apps/agentos/TOKENS.md) exclusively: the demo
-// and the cockpit read as one design family, and theme variance rides the token layer
-// (definitions live on the theme roots), so this file stays theme-agnostic on purpose.
-// Pane-identity tints (the design mock's --pane-a…d) are deliberately NOT minted here:
-// a new token is a recorded design decision per TOKENS.md; until then panes alternate the
-// existing surface tiers.
+// Consumes the standalone dashboard-example palette exclusively. Theme variance rides the
+// example-owned token layer, so this structural skin stays theme-agnostic without importing
+// or tracking a product application's palette.
+// Pane-identity tints (the design mock's --pane-a…d) are deliberately NOT minted here;
+// until the example palette gains that explicit need, panes alternate its existing tiers.
 
 .agentos-dockdemo-viewport {
-    background: var(--fm-ground);
-    color     : var(--fm-ink);
-    font-family: var(--fm-font-sans);
+    background: var(--dashboard-example-ground);
+    color     : var(--dashboard-example-ink);
+    font-family: var(--dashboard-example-font-sans);
 }
 
 .agentos-dockdemo-workspace {
-    background: var(--fm-ground);
+    background: var(--dashboard-example-ground);
 }
 
 .agentos-dockdemo-tourbar {
-    background   : var(--fm-panel);
-    border-bottom: 1px solid var(--fm-line);
+    background   : var(--dashboard-example-panel);
+    border-bottom: 1px solid var(--dashboard-example-line);
     flex   : 0 0 auto;
     height : 52px;
     padding: 8px 12px;
 
     .agentos-dockdemo-tour-play {
-        background   : var(--fm-signal);
+        background   : var(--dashboard-example-signal);
         border-radius: 7px;
-        color        : var(--fm-ground);
-        font-family  : var(--fm-font-mono);
+        color        : var(--dashboard-example-ground);
+        font-family  : var(--dashboard-example-font-mono);
         font-weight  : 600;
 
         // the button's glyph/text descendants own their colors in the theme layer —
         // the token must be bridged onto them explicitly or it never lands
         .neo-button-glyph,
         .neo-button-text {
-            color: var(--fm-ground);
+            color: var(--dashboard-example-ground);
         }
 
         .neo-button-text {
-            font-family: var(--fm-font-mono);
+            font-family: var(--dashboard-example-font-mono);
         }
     }
 
     .agentos-dockdemo-tour-caption {
-        color      : var(--fm-ink-dim);
-        font-family: var(--fm-font-mono);
+        color      : var(--dashboard-example-ink-dim);
+        font-family: var(--dashboard-example-font-mono);
         font-size  : 13px;
     }
 }
@@ -55,7 +54,7 @@
     padding: 0 4px;
 
     .agentos-dockdemo-pip {
-        background   : var(--fm-line);
+        background   : var(--dashboard-example-line);
         border-radius: 3px;
         height    : 5px;
         transition: background var(--motion-base) var(--ease-out-soft);
@@ -63,12 +62,12 @@
     }
 
     .agentos-dockdemo-pip-done {
-        background: var(--fm-signal);
+        background: var(--dashboard-example-signal);
     }
 }
 
 .agentos-dockdemo-dock-host {
-    background: var(--fm-ground);
+    background: var(--dashboard-example-ground);
     padding   : 8px;
     // the positioning context for the two persistent drag-affordance overlays below
     position  : relative;
@@ -86,34 +85,34 @@
 }
 
 .agentos-dockdemo-pane {
-    background: var(--fm-panel);
-    border    : 1px solid var(--fm-line-soft);
+    background: var(--dashboard-example-panel);
+    border    : 1px solid var(--dashboard-example-line-soft);
     border-radius: 8px;
-    color        : var(--fm-ink-dim);
-    font-family  : var(--fm-font-mono);
+    color        : var(--dashboard-example-ink-dim);
+    font-family  : var(--dashboard-example-font-mono);
     letter-spacing: .08em;
     text-transform: uppercase;
 }
 
 .agentos-dockdemo-clock-pane {
     align-items    : center;
-    background: var(--fm-panel-2);
+    background: var(--dashboard-example-panel-2);
     display   : flex;
     flex-direction : column;
     gap            : 6px;
     justify-content: center;
 
     .agentos-dockdemo-clock-label {
-        color         : var(--fm-ink-dim);
-        font-family   : var(--fm-font-mono);
+        color         : var(--dashboard-example-ink-dim);
+        font-family   : var(--dashboard-example-font-mono);
         font-size     : 12px;
         letter-spacing: .14em;
         text-transform: uppercase;
     }
 
     .agentos-dockdemo-clock-time {
-        color      : var(--fm-signal);
-        font-family: var(--fm-font-mono);
+        color      : var(--dashboard-example-signal);
+        font-family: var(--dashboard-example-font-mono);
         font-size  : 34px;
         font-weight: 600;
         // the witness must stay readable while panes glide — tabular digits prevent jitter
@@ -121,8 +120,8 @@
     }
 
     .agentos-dockdemo-clock-note {
-        color      : var(--fm-ink-dim);
-        font-family: var(--fm-font-mono);
+        color      : var(--dashboard-example-ink-dim);
+        font-family: var(--dashboard-example-font-mono);
         font-size  : 11px;
     }
 }
