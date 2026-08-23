@@ -106,6 +106,16 @@ are the Epic's first two blocking proofs. **No relocation leaf starts until both
 from Epic #17500.** Undispositioned population and unexercised isolation block every move; the
 timing amendment relaxed *when* the receipts exist, never *whether*.
 
+**The receipts are red-capable, and that is the contract rather than a concession** (the #17533
+premise correction, validated 2026-08-23): proof 2 runs before the store-edge severance leaf, so a
+receipt demanding zero Cloud reach at that point is a proof that cannot honestly fail — which is a
+proof of nothing. Instrument integrity and paired controls must be green; the membership, static
+reach, runtime denial, and computed-edge results are exact current-head truth whose blockers may be
+NON-EMPTY; every non-empty finding names the successor leaf that owns it and whether it blocks
+relocation; and relocation authorization requires the receipt to exist AND its named pre-move
+blockers to be discharged. The already-scheduled severance stays leaf 3 — never smuggled into
+proof 2, never an excuse for the proof to pretend green.
+
 ### §2.7 Wave-one custody — what stays Engine, explicitly
 
 Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own decision), published
