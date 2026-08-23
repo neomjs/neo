@@ -401,6 +401,55 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         expect(list.getItemRecordId(calls[0].target)).toBe(200)
     });
 
+    test('focus follows a mounted record and retargets when that record leaves the pooled range', async () => {
+        const {store} = await createList({count: 500});
+
+        await list.timeout(20);
+
+        const
+            calls      = [],
+            navigateTo = Neo.main.addon.Navigator.navigateTo,
+            recordFive = store.get(5);
+
+        Neo.main.addon.Navigator.navigateTo = data => calls.push(data);
+
+        try {
+            list.focusIndex = recordFive;
+
+            await expect.poll(() => calls.at(-1)?.target).toBe(list.getSlotId(5));
+            calls.length = 0;
+
+            list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 80});
+
+            await expect.poll(() => calls.at(-1)?.target).toBe(list.getSlotId(3));
+
+            expect(list.mountedRange).toEqual([2, 11]);
+            expect(list.focusIndex).toBe(recordFive);
+            expect(calls.at(-1).fromTarget).toBe(list.getSlotId(5));
+            expect(list.getItemRecordId(calls.at(-1).target)).toBe(5);
+
+            list.focusIndex = store.get(4);
+            await expect.poll(() => calls.at(-1)?.target).toBe(list.getSlotId(2));
+            calls.length = 0;
+
+            list.onScrollCapture({target: {id: list.id}, scrollLeft: 0, scrollTop: 200});
+
+            await expect.poll(() => ({
+                focusIndex: list.focusIndex,
+                target    : calls.at(-1)?.target
+            })).toEqual({
+                focusIndex: 8,
+                target    : list.getSlotId(0)
+            });
+
+            expect(list.mountedRange).toEqual([8, 17]);
+            expect(calls.at(-1).fromTarget).toBe(list.getSlotId(2));
+            expect(list.getItemRecordId(calls.at(-1).target)).toBe(8)
+        } finally {
+            Neo.main.addon.Navigator.navigateTo = navigateTo
+        }
+    });
+
     test('Store sort reorders the bounded range once through the coarse load contract', async () => {
         const {store} = await createList({count: 20});
 
