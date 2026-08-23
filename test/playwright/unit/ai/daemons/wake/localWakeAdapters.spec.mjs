@@ -630,6 +630,60 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
             expect(calls).toBe(0);
         });
 
+        test('a REBIND that hands back another seat\'s envelope is refused before the retry POST', async () => {
+            // The reviewer's falsifier found this uncovered: deleting the rebound owner assertion left
+            // every other arm green, because they all refuse on the FIRST read.
+            //
+            // The tuple is held IDENTICAL across the re-read on purpose. `deliverOpenCode` already
+            // refuses when `sessionId`/`projectId`/`directory` move, so a rebound envelope that also
+            // changed those would be caught by that check and this arm would pass with the owner
+            // assertion deleted — proving nothing. Same tuple, different owner, different port isolates
+            // the owner check as the only thing that can refuse.
+            const own = {
+                agentIdentity: '@neo-gpt',
+                hostname     : '127.0.0.1',
+                port         : 4201,
+                sessionId    : 'ses_rebind',
+                projectId    : 'proj-rebind',
+                directory    : '/seat/rebind',
+                username     : 'opencode',
+                password     : 'secret'
+            };
+            // Same authority tuple, foreign owner, moved coordinates — without the owner check this is
+            // a legal rebind and the digest is delivered into another seat's session.
+            const stolen = {...own, agentIdentity: '@neo-kimi-phoebe', port: 4202};
+
+            let   reads = 0,
+                  posts = 0;
+            const opencode = record('opencode-server', {
+                route: {
+                    agentIdentity,
+                    harnessTargetMetadata: {adapter: 'opencode-server', envelopePath: '/seat/envelope.json'},
+                    adapterConfig        : {attemptTimeoutMs: 2000}
+                }
+            });
+
+            const outcome = await dispatchLocalWake(opencode, {
+                fs   : {readFile: async () => JSON.stringify(reads++ === 0 ? own : stolen)},
+                fetch: async () => {
+                    posts++;
+                    const error = new Error('connection refused');
+
+                    error.code = 'ECONNREFUSED';
+                    throw error
+                }
+            });
+
+            expect(reads, 'the rebind path was entered — the envelope was re-read').toBe(2);
+            expect(outcome).toMatchObject({
+                outcome      : 'failed',
+                outcomeReason: 'opencode-server envelope does not match the configured seat owner'
+            });
+            // THE DISCRIMINATOR. Remove the rebound owner assertion and the coordinates-changed branch
+            // accepts this as a legal retry, so a second POST lands on the other seat's session.
+            expect(posts, 'no retry POST may be issued against an envelope this wake does not own').toBe(1)
+        });
+
         test('the context probe refuses a foreign envelope rather than reading its transcript', async () => {
             let calls = 0;
 
