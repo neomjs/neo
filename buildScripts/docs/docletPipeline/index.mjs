@@ -1,18 +1,18 @@
-import {run as runJSDoc} from './runner.mjs';
-import {transform}       from './transformer.mjs';
-import fg                from 'fast-glob';
-import path              from 'path';
-import fs                from 'fs/promises';
+import {run as defaultRunJSDoc} from './runner.mjs';
+import {transform}              from './transformer.mjs';
+import fg                       from 'fast-glob';
+import path                     from 'path';
+import fs                       from 'fs/promises';
 
 /**
  * Fast glob with optimized settings for documentation files
  * @param {string|string[]} globs - Glob patterns
  * @returns {Promise<string[]>} - Array of matching file paths
  */
-async function promiseGlobFiles(globs) {
+async function resolveDocletFiles(globs, {glob = fg} = {}) {
     const patterns = Array.isArray(globs) ? globs : [globs];
 
-    return fg(patterns, {
+    const files = await glob(patterns, {
         absolute : false,
         onlyFiles: true,
         unique   : true,
@@ -26,6 +26,13 @@ async function promiseGlobFiles(globs) {
         // Only match .mjs files (all relevant neo.mjs files use this extension)
         extglob: true
     });
+
+    // `fast-glob` walks directories concurrently, so the same file set can arrive in a different
+    // order on consecutive runs. JSDoc resolves cross-file symbols in input order; without this
+    // boundary, identical sources produced different memberof/augments/longname content in all.json
+    // and assigned different structure ids. The source set needs one canonical order BEFORE it is
+    // split into worker batches.
+    return files.sort()
 }
 
 /**
@@ -52,9 +59,13 @@ export async function writeJSON(options, object) {
 /**
  * Parses JSDoc documentation from files or source code.
  * @param {object|string|string[]} options - Options or file paths.
+ * @param {Object} [dependencies]
+ * @param {Function} [dependencies.glob] Injectable file discovery for deterministic-order tests.
+ * @param {Function} [dependencies.runJSDoc] Injectable parser runner for source-order observation.
  * @returns {Promise<any>}
  */
-export async function parse(options) {
+export async function parse(options, dependencies) {
+    const {glob = fg, runJSDoc = defaultRunJSDoc} = dependencies || {};
     const opts = typeof options !== 'object' || options === null ? {files: options} : {...options};
     opts.files = opts.files || opts.file;
 
@@ -66,7 +77,7 @@ export async function parse(options) {
     }
 
     if (hasFiles) {
-        opts.files = await promiseGlobFiles(opts.files);
+        opts.files = await resolveDocletFiles(opts.files, {glob});
 
         if (opts.files.length === 0) {
             throw new Error('No files matched the provided glob patterns.');
