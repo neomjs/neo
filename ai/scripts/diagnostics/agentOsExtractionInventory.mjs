@@ -56,11 +56,18 @@ const
     SCRIPT_PATH_RE          = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
     WORKFLOW_ARTIFACT_RE    = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
     VALID_DISPOSITIONS      = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
+    VALID_MANIFEST_TARGETS  = new Set(['cloud', 'edge', 'engine', 'shared']),
     VALID_PROBE_ELIGIBILITY = new Set(['eligible', 'ineligible']),
     LAUNCH_CALLEES          = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
     SUBPROCESS_SCAN_ROOTS   = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
+
+const
+    DEPENDENCY_MANIFESTS = ['package.json', 'package.brain.json'],
+    DEPENDENCY_SECTIONS  = [
+        'dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'
+    ];
 
 /**
  * Stable surface names in the machine receipt.
@@ -70,6 +77,8 @@ export const SURFACE = Object.freeze({
     closureEdge      : 'closure-edge',
     configAuthority  : 'config-authority',
     custodyBoundary  : 'custody-boundary',
+    launchRoot       : 'launch-root',
+    packageDependency: 'package-dependency',
     planeOpener      : 'plane-opener',
     rootScript       : 'root-script',
     scriptModule     : 'script-module',
@@ -366,6 +375,13 @@ export function collectScriptModules({
             }),
             plane    = resolved.plane ?? 'unresolved';
 
+        // Keep the owning closure/authority classifier's result on the exact launch population.
+        // H1 later promotes these objects into registry rows; retaining the result here lets task
+        // roots outside `ai/scripts` receive the same authority-conflict protection as resident
+        // script modules without re-running or copying the plane classifier.
+        entry.plane                = plane;
+        entry.suggestedDisposition = PLANE_DISPOSITIONS[plane] ?? null;
+
         closure.reached.forEach(absolutePath => {
             const relative = normalizePath(path.relative(projectRoot, absolutePath));
 
@@ -408,6 +424,209 @@ export function collectScriptModules({
     });
 
     return {rows, closureRows: [...closureRows.values()].sort(compareRows), launchRoots}
+}
+
+/**
+ * @summary Promotes the owning launch-root classifier's exact target population into inventory
+ * rows. The target path is stable identity; npm/workflow/task channel and source name stay
+ * evidence, so a channel correction does not manufacture a different executable while a target
+ * substitution still changes identity. Custody follows the already-reconciled target module when
+ * one exists; task roots outside `ai/scripts` must carry their classifier's explicit suggestion,
+ * because emitting a null suggestion would silently disable the later authority-conflict guard.
+ * @param {Object} options
+ * @param {Object[]} options.launchRoots Output of `readEntrypoints()`.
+ * @param {Map<String, Object>} options.scriptRowsByIdentity Reconciled script-module rows.
+ * @returns {Object[]}
+ * @throws {Error} When a launch root has neither reconciled script-module custody nor an explicit
+ *     classifier suggestion.
+ */
+export function collectLaunchRoots({launchRoots = [], scriptRowsByIdentity = new Map()} = {}) {
+    return launchRoots.map(({name, plane = null, rel, suggestedDisposition = null, via}) => {
+        const
+            target            = scriptRowsByIdentity.get(rel),
+            targetDisposition = target?.disposition ?? suggestedDisposition;
+
+        if (!targetDisposition) {
+            throw new Error(`collectLaunchRoots: launch root '${rel}' has no reconciled script-module custody or explicit suggestedDisposition`)
+        }
+
+        return {
+            surface : SURFACE.launchRoot,
+            identity: rel,
+            source  : via === 'npm'
+                ? `package.json#scripts.${name}`
+                : via === 'task'
+                    ? `ai/daemons/orchestrator/taskDefinitions.mjs#${name}`
+                    : `.github/workflows launch target ${rel}`,
+            disposition: null,
+            rationale  : null,
+            evidence   : {
+                name,
+                plane,
+                target              : rel,
+                via,
+                suggestedDisposition: targetDisposition,
+                suggestedRationale  : targetDisposition ? `follows ${rel}` : null
+            }
+        }
+    }).sort(compareRows)
+}
+
+/**
+ * @summary Derives exact dependency-declaration rows from one parsed package manifest.
+ * Identity binds manifest, declaration section, and package name; version is evidence rather than
+ * identity so a version edit remains the same owned declaration while still changing the receipt.
+ * The Brain tier supplies a Cloud suggestion only; the registry remains final custody authority.
+ * @param {Object} options
+ * @param {Object} options.manifest Parsed package manifest.
+ * @param {String} options.manifestName Repository-relative manifest path.
+ * @returns {Object[]}
+ */
+export function inspectManifestDependencies({manifest = {}, manifestName}) {
+    const errors = [];
+
+    Object.keys(manifest).filter(key => /dependencies$/i.test(key) && !DEPENDENCY_SECTIONS.includes(key))
+        .forEach(key => errors.push({
+            kind : 'unsupported-dependency-section',
+            key  : `${manifestName}::${key}`,
+            error: 'dependency-bearing sections must enter the exact manifest population explicitly'
+        }));
+
+    const rows = DEPENDENCY_SECTIONS.flatMap(section => {
+        const declarations = manifest[section];
+
+        if (declarations === undefined) return [];
+        if (!declarations || typeof declarations !== 'object' || Array.isArray(declarations)) {
+            errors.push({
+                kind : 'invalid-dependency-section',
+                key  : `${manifestName}::${section}`,
+                error: 'expected a package-name to version object'
+            });
+            return []
+        }
+
+        return Object.entries(declarations)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, version]) => ({
+            surface    : SURFACE.packageDependency,
+            identity   : `${manifestName}::${section}::${name}`,
+            source     : `${manifestName}#${section}.${name}`,
+            disposition: null,
+            rationale  : null,
+            evidence   : {
+                manifest            : manifestName,
+                name,
+                section,
+                version,
+                suggestedDisposition: manifestName === 'package.brain.json' ? 'cloud' : null,
+                suggestedRationale  : manifestName === 'package.brain.json'
+                    ? 'the Brain install tier owns durable Cloud packages'
+                    : null
+            }
+        }))
+    }).sort(compareRows);
+
+    return {
+        rows,
+        errors: errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`))
+    }
+}
+
+/**
+ * @summary Convenience projection for callers that already own manifest-read error handling.
+ * @param {Object} options See `inspectManifestDependencies()`.
+ * @returns {Object[]}
+ */
+export function collectManifestDependencyRows(options) {
+    return inspectManifestDependencies(options).rows
+}
+
+/**
+ * @summary Reads every current dependency manifest and install-bearing declaration section into
+ * one exact, disposition-ready population.
+ * Missing optional manifests contribute no rows; a future declaration inside either supported
+ * section enters the population automatically and fails reconciliation until it gains authority.
+ * @param {Object} [options]
+ * @param {String[]} [options.manifestNames=DEPENDENCY_MANIFESTS]
+ * @param {String} [options.projectRoot=PROJECT_ROOT]
+ * @returns {{rows: Object[], errors: Object[]}}
+ */
+export function collectPackageDependencies({
+    manifestNames = DEPENDENCY_MANIFESTS,
+    projectRoot   = PROJECT_ROOT
+} = {}) {
+    const rows = [], errors = [];
+
+    manifestNames.forEach(manifestName => {
+        const manifestPath = path.join(projectRoot, manifestName);
+
+        if (!fs.existsSync(manifestPath)) {
+            errors.push({kind: 'missing-dependency-manifest', key: manifestName});
+            return
+        }
+
+        let manifest;
+
+        try {
+            manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+        } catch (error) {
+            errors.push({kind: 'invalid-dependency-manifest', key: manifestName, error: error.message});
+            return
+        }
+
+        const inspected = inspectManifestDependencies({manifest, manifestName});
+
+        rows.push(...inspected.rows);
+        errors.push(...inspected.errors)
+    });
+
+    return {
+        rows  : rows.sort(compareRows),
+        errors: errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`))
+    }
+}
+
+/**
+ * @summary Materializes the explicit dependency membership authority into independently installable
+ * manifest maps. A package may target multiple planes, but each target is named; no `shared`
+ * disposition is overloaded to mean duplication, and conflicting versions for one target fail.
+ * @param {Object[]} rows Reconciled package-dependency inventory rows.
+ * @returns {{manifests: Object<String, Object>, errors: Object[]}}
+ */
+export function composeDependencyManifests(rows = []) {
+    const
+        errors    = [],
+        manifests = Object.fromEntries([...VALID_MANIFEST_TARGETS].sort().map(target => [target, {}]));
+
+    rows.forEach(row => {
+        const {name, version} = row.evidence ?? {};
+
+        (row.manifestTargets ?? []).forEach(target => {
+            const previous = manifests[target]?.[name];
+
+            if (previous !== undefined && previous !== version) {
+                errors.push({
+                    kind : 'manifest-target-version-conflict',
+                    key  : `${target}::${name}`,
+                    error: `${previous} != ${version}`
+                });
+                return
+            }
+            if (manifests[target]) manifests[target][name] = version
+        })
+    });
+
+    Object.values(manifests).forEach(manifest => {
+        const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
+
+        Object.keys(manifest).forEach(key => delete manifest[key]);
+        Object.assign(manifest, sorted)
+    });
+
+    return {
+        manifests,
+        errors: errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`))
+    }
 }
 
 /**
@@ -641,13 +860,55 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
         }
         if (typeof entry.source !== 'string' || !entry.source.trim()) errors.push({kind: 'missing-source', key});
 
+        if (entry.surface === SURFACE.packageDependency) {
+            const targets = entry.manifestTargets;
+
+            // The physical shared source package reserves `shared` custody for its inventory-proven
+            // module population. A dependency may MATERIALIZE into the shared manifest, but letting its source
+            // declaration own shared custody would keep that package's empty-population retirement
+            // trigger unreachable.
+            if (entry.disposition === 'shared') {
+                errors.push({kind: 'shared-disposition-on-dependency', key})
+            }
+
+            if (!Array.isArray(targets) || (targets.length === 0 && entry.disposition !== 'retire')) {
+                errors.push({kind: 'missing-manifest-targets', key})
+            } else {
+                const uniqueTargets = new Set(targets);
+
+                if (uniqueTargets.size !== targets.length) errors.push({kind: 'duplicate-manifest-target', key});
+                targets.filter(target => !VALID_MANIFEST_TARGETS.has(target)).forEach(target => {
+                    errors.push({kind: 'invalid-manifest-target', key: `${key}::${target}`})
+                });
+
+                const dispositionTarget = {
+                    cloud         : 'cloud',
+                    edge          : 'edge',
+                    'stays-engine': 'engine'
+                }[entry.disposition];
+
+                if (dispositionTarget && !uniqueTargets.has(dispositionTarget)) {
+                    errors.push({kind: 'disposition-target-mismatch', key})
+                }
+                if (entry.disposition === 'retire' && uniqueTargets.size > 0) {
+                    errors.push({kind: 'retired-dependency-targeted', key})
+                }
+            }
+        }
+
         overrideMap.set(key, entry)
     }
 
     const rows = derivedRows.map(row => {
         const override = overrideMap.get(rowKey(row.surface, row.identity));
 
-        if (override && [SURFACE.rootScript, SURFACE.subprocessLaunch, SURFACE.workflowReference].includes(row.surface)
+        if (override && [
+            SURFACE.launchRoot,
+            SURFACE.packageDependency,
+            SURFACE.rootScript,
+            SURFACE.subprocessLaunch,
+            SURFACE.workflowReference
+        ].includes(row.surface)
             && row.evidence?.suggestedDisposition
             && override.disposition !== row.evidence.suggestedDisposition
             && override.allowDivergence !== true) {
@@ -663,6 +924,9 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
             disposition    : override.disposition,
             rationale      : override.rationale,
             authoritySource: override.source,
+            ...(row.surface === SURFACE.packageDependency
+                ? {manifestTargets: [...new Set(override.manifestTargets ?? [])].sort()}
+                : {}),
             evidence       : {...row.evidence, override: true}
         } : row
     });
@@ -703,17 +967,18 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
  * eligibility. Custody remains authoritative in the reconciled script rows; launch-root shape
  * merely selects which owned modules the paired proof may need to evaluate.
  * @param {Object} [options]
- * @param {Object[]} [options.launchRoots=[]]
- * @param {Object[]} [options.scriptRows=[]] Reconciled inventory rows.
+ * @param {Object[]} options.launchRootRows Reconciled launch-root inventory rows. This is
+ * authoritative at schema v3 and includes task roots outside the resident `ai/scripts` population.
  * @returns {String[]}
  */
-export function deriveRuntimeProbeTargets({launchRoots = [], scriptRows = []} = {}) {
-    const dispositionByIdentity = new Map(scriptRows
-        .filter(row => row.surface === SURFACE.scriptModule)
-        .map(row => [row.identity, row.disposition]));
+export function deriveRuntimeProbeTargets({launchRootRows} = {}) {
+    if (!Array.isArray(launchRootRows) || launchRootRows.length === 0) {
+        throw new Error('deriveRuntimeProbeTargets: schema v3 requires non-empty reconciled launch-root rows')
+    }
 
-    return [...new Set(launchRoots.map(row => row.rel).filter(Boolean))]
-        .filter(identity => dispositionByIdentity.get(identity) === 'edge')
+    return launchRootRows
+        .filter(row => row.surface === SURFACE.launchRoot && row.disposition === 'edge')
+        .map(row => row.identity)
         .sort()
 }
 
@@ -833,17 +1098,24 @@ export function buildInventory({
             resolveFallback: closureResolve
         }),
         preliminary                                  = reconcileInventory(scriptRows, registry),
+        scriptRowsByIdentity                         = new Map(preliminary.rows
+            .filter(row => row.surface === SURFACE.scriptModule)
+            .map(row => [row.identity, row])),
+        launchRootRows                               = collectLaunchRoots({launchRoots, scriptRowsByIdentity}),
+        dependencyPopulation                         = collectPackageDependencies({projectRoot}),
+        packageDependencyRows                        = dependencyPopulation.rows,
+        manifestPreliminary                          = reconcileInventory([
+            ...scriptRows,
+            ...launchRootRows,
+            ...packageDependencyRows
+        ], registry),
         runtimeProbeTargets                          = deriveRuntimeProbeTargets({
-            launchRoots,
-            scriptRows: preliminary.rows
+            launchRootRows: manifestPreliminary.rows
         }),
         runtimeProbeEligibility                      = reconcileRuntimeProbeEligibility(
             runtimeProbeTargets,
             registry
         ),
-        scriptRowsByIdentity                         = new Map(preliminary.rows
-            .filter(row => row.surface === SURFACE.scriptModule)
-            .map(row => [row.identity, row])),
         rootRows                             = collectRootScripts({projectRoot, scriptRowsByIdentity}),
         workflowRows                         = collectWorkflowReferences({projectRoot, scriptRowsByIdentity}),
         subprocess                           = collectSubprocessLaunches({projectRoot, scriptRowsByIdentity}),
@@ -852,6 +1124,8 @@ export function buildInventory({
         allDerived                           = [
             ...scriptRows,
             ...closureRows,
+            ...launchRootRows,
+            ...packageDependencyRows,
             ...rootRows,
             ...workflowRows,
             ...subprocess.rows,
@@ -869,8 +1143,9 @@ export function buildInventory({
         counts                               = {};
 
     reconciled.errors.push(...runtimeProbeEligibility.errors);
+    reconciled.errors.push(...dependencyPopulation.errors);
     reconciled.errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`));
-    reconciled.ok &&= runtimeProbeEligibility.ok;
+    reconciled.ok &&= runtimeProbeEligibility.ok && dependencyPopulation.errors.length === 0;
 
     const bindingError = sourceBindingError(status, allowDirty);
 
@@ -887,8 +1162,17 @@ export function buildInventory({
             (surface.byDisposition[row.disposition ?? 'unclassified'] ?? 0) + 1
     });
 
+    const
+        reconciledLaunchRoots  = reconciled.rows.filter(row => row.surface === SURFACE.launchRoot),
+        reconciledDependencies = reconciled.rows.filter(row => row.surface === SURFACE.packageDependency),
+        dependencyManifests    = composeDependencyManifests(reconciledDependencies);
+
+    reconciled.errors.push(...dependencyManifests.errors);
+    reconciled.errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`));
+    reconciled.ok &&= dependencyManifests.errors.length === 0;
+
     return {
-        schemaVersion: 'agentos-extraction-inventory.v2',
+        schemaVersion: 'agentos-extraction-inventory.v3',
         capturedAt,
         git          : {
             sha,
@@ -896,9 +1180,19 @@ export function buildInventory({
             dirtyPaths: status ? status.split('\n').map(line => line.slice(3)).sort() : []
         },
         launchRoots: {
-            total: launchRoots.length,
+            total: reconciledLaunchRoots.length,
             byVia: Object.fromEntries(Object.entries(Object.groupBy(launchRoots, row => row.via))
-                .map(([via, rows]) => [via, rows.length]))
+                .map(([via, rows]) => [via, rows.length])),
+            rows: reconciledLaunchRoots
+        },
+        packageDependencies: {
+            total     : reconciledDependencies.length,
+            byManifest: Object.fromEntries(Object.entries(Object.groupBy(
+                reconciledDependencies,
+                row => row.evidence.manifest
+            )).map(([manifest, rows]) => [manifest, rows.length])),
+            manifests: dependencyManifests.manifests,
+            rows     : reconciledDependencies
         },
         runtimeProbeEligibility,
         counts,
@@ -922,6 +1216,17 @@ export function formatInventory(report) {
     });
 
     const probe = report.runtimeProbeEligibility;
+
+    lines.push('', `launch-root identities: ${report.launchRoots.total}`);
+    report.launchRoots.rows.forEach(row => lines.push(
+        `  ${String(row.disposition).padEnd(12)} ${row.identity} — ${row.evidence.via}:${row.evidence.name}`
+    ));
+
+    lines.push('', `package-dependency identities: ${report.packageDependencies.total}`);
+    report.packageDependencies.rows.forEach(row => lines.push(
+        `  ${String(row.disposition).padEnd(12)} ${row.identity} @ ${row.evidence.version} ` +
+        `→ ${(row.manifestTargets ?? []).join('+')}`
+    ));
 
     lines.push('', `runtime-probe targets: ${probe.total} · eligible ${probe.byEligibility.eligible} · ` +
         `ineligible ${probe.byEligibility.ineligible}`);

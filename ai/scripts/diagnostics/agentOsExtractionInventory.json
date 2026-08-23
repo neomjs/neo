@@ -1,10 +1,23 @@
 {
     "$schema": {
         "description": "Source-owned judgments for the C-prime AgentOS extraction inventory.",
-        "schemaVersion": "agentos-extraction-inventory.v2",
-        "runtimeProbeEligibility": "eligible means import and eager evaluation settle safely inside the disposable denial child; ineligible rows name the exact unguarded or external-work boundary"
+        "schemaVersion": "agentos-extraction-inventory.v3",
+        "runtimeProbeEligibility": "eligible means import and eager evaluation settle safely inside the disposable denial child; ineligible rows name the exact unguarded or external-work boundary",
+        "manifestAuthority": "launch-root targets and package declarations are exact identity populations; every package row names explicit engine/edge/cloud/shared manifestTargets and never relies on workspace hoisting"
     },
     "runtimeProbeEligibility": [
+        {
+            "identity": "ai/daemons/wake/daemon.mjs",
+            "eligibility": "eligible",
+            "source": "ai/daemons/wake/daemon.mjs:2831-2862",
+            "reason": "the direct-run guard contains config validation, database acquisition, polling, locks, and process exits; eager imports do not start the daemon"
+        },
+        {
+            "identity": "ai/mcp/server/neural-link/run-bridge.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/mcp/server/neural-link/run-bridge.mjs:14-52",
+            "reason": "module scope parses argv and an unguarded async IIFE validates config, starts the persistent Bridge listener, and installs signal handlers"
+        },
         {
             "identity": "ai/scripts/agent-preflight.mjs",
             "eligibility": "eligible",
@@ -277,6 +290,235 @@
         }
     ],
     "overrides": [
+        {
+            "surface": "launch-root",
+            "identities": [
+                "ai/daemons/wake/daemon.mjs",
+                "ai/mcp/server/neural-link/run-bridge.mjs",
+                "ai/scripts/agent-preflight.mjs",
+                "ai/scripts/benchmark/gemma4-rem-benchmark.mjs",
+                "ai/scripts/benchmark/keep-alive-probe.mjs",
+                "ai/scripts/benchmark/provider-lane-election.mjs",
+                "ai/scripts/diagnostics/analyzeNlTelemetry.mjs",
+                "ai/scripts/diagnostics/audit-discussion-lifecycle.mjs",
+                "ai/scripts/diagnostics/bootstrapCodexSandbox.mjs",
+                "ai/scripts/diagnostics/check-identity-facts.mjs",
+                "ai/scripts/diagnostics/check-retired-primitives.mjs",
+                "ai/scripts/diagnostics/check-substrate-size.mjs",
+                "ai/scripts/diagnostics/defectObservations.mjs",
+                "ai/scripts/diagnostics/fleetHealthcheck.mjs",
+                "ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs",
+                "ai/scripts/diagnostics/genesisProbe.mjs",
+                "ai/scripts/diagnostics/mcpHealthcheck.mjs",
+                "ai/scripts/diagnostics/providerLaneComposition.mjs",
+                "ai/scripts/diagnostics/seatCostReport.mjs",
+                "ai/scripts/diagnostics/structureMap.mjs",
+                "ai/scripts/fleet/devCockpit.mjs",
+                "ai/scripts/lifecycle/postReleaseSync.mjs",
+                "ai/scripts/lifecycle/revalidationSweep.mjs",
+                "ai/scripts/lint/check-commit-authorship.mjs",
+                "ai/scripts/lint/check-front-door-fingerprint.mjs",
+                "ai/scripts/lint/lint-adr-seam-table.mjs",
+                "ai/scripts/lint/lint-agents.mjs",
+                "ai/scripts/lint/lint-config-template-ssot.mjs",
+                "ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
+                "ai/scripts/lint/lint-guard-ci-parity.mjs",
+                "ai/scripts/lint/lint-guides.mjs",
+                "ai/scripts/lint/lint-identity-engine-coherence.mjs",
+                "ai/scripts/lint/lint-identity-vocabulary.mjs",
+                "ai/scripts/lint/lint-mcp-test-locations.mjs",
+                "ai/scripts/lint/lint-npm-script-entrypoints.mjs",
+                "ai/scripts/lint/lint-openapi-service-parity.mjs",
+                "ai/scripts/lint/lint-retry-bounds.mjs",
+                "ai/scripts/lint/lint-script-plane.mjs",
+                "ai/scripts/lint/lint-skill-manifest.mjs",
+                "ai/scripts/lint/lint-tree-json.mjs",
+                "ai/scripts/maintenance/communityBatchPushClient.mjs",
+                "ai/scripts/maintenance/kbPushClient.mjs",
+                "ai/scripts/maintenance/probeBusinessMetrics.mjs",
+                "ai/scripts/maintenance/probeCommunityActivityShadow.mjs",
+                "ai/scripts/maintenance/syncGithubWorkflow.mjs",
+                "ai/scripts/migrations/bootstrapWorktree.mjs",
+                "ai/scripts/runners/runAgent.mjs"
+            ],
+            "disposition": "edge",
+            "source": "readEntrypoints plus reconciled target custody at origin/dev f47f337809",
+            "rationale": "Host-Edge launch targets form the root manifest entrypoint population"
+        },
+        {
+            "surface": "launch-root",
+            "identities": [
+                "ai/daemons/embed/daemon.mjs",
+                "ai/daemons/message/daemon.mjs",
+                "ai/scripts/diagnostics/staleEmbeddingCensus.mjs",
+                "ai/scripts/lifecycle/backfill-memory-summaries.mjs",
+                "ai/scripts/lifecycle/summarize-sessions.mjs",
+                "ai/scripts/maintenance/aggregate-temporal-summary.mjs",
+                "ai/scripts/maintenance/auditGraphIntegrity.mjs",
+                "ai/scripts/maintenance/backup.mjs",
+                "ai/scripts/maintenance/backupCorruptionTimeline.mjs",
+                "ai/scripts/maintenance/buildKbAgentFaqs.mjs",
+                "ai/scripts/maintenance/checkChromaIntegrity.mjs",
+                "ai/scripts/maintenance/checkDetectionRetentionSla.mjs",
+                "ai/scripts/maintenance/communitySourceOperator.mjs",
+                "ai/scripts/maintenance/compactGraphLog.mjs",
+                "ai/scripts/maintenance/defragChromaDB.mjs",
+                "ai/scripts/maintenance/defragSQLiteDB.mjs",
+                "ai/scripts/maintenance/downloadKnowledgeBase.mjs",
+                "ai/scripts/maintenance/graphLifecycleReport.mjs",
+                "ai/scripts/maintenance/ingestTenant.mjs",
+                "ai/scripts/maintenance/migrationCensusReport.mjs",
+                "ai/scripts/maintenance/purgeNoContentGraphMemories.mjs",
+                "ai/scripts/maintenance/purgeTestCollections.mjs",
+                "ai/scripts/maintenance/restore.mjs",
+                "ai/scripts/maintenance/syncKnowledgeBase.mjs",
+                "ai/scripts/runners/runSandman.mjs"
+            ],
+            "disposition": "cloud",
+            "source": "readEntrypoints plus reconciled target custody at origin/dev f47f337809",
+            "rationale": "Container-Cloud launch targets form the nested Cloud manifest entrypoint population"
+        },
+        {
+            "surface": "launch-root",
+            "identities": [
+                "ai/scripts/benchmark/setupClass-cold-start.mjs"
+            ],
+            "disposition": "stays-engine",
+            "source": "readEntrypoints plus reconciled target custody at origin/dev f47f337809",
+            "rationale": "the Engine class-system benchmark remains with its measured subject"
+        },
+        {
+            "surface": "launch-root",
+            "identities": [
+                "ai/scripts/diagnostics/printAiConfig.mjs"
+            ],
+            "disposition": "retire",
+            "source": "ADR 0019 plus reconciled target custody at origin/dev f47f337809",
+            "rationale": "the mixed Tier-1 config diagnostic retires with its forbidden authority"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::@fortawesome/fontawesome-free",
+                "package.json::devDependencies::astring",
+                "package.json::devDependencies::autoprefixer",
+                "package.json::devDependencies::chalk",
+                "package.json::devDependencies::cssnano",
+                "package.json::devDependencies::envinfo",
+                "package.json::devDependencies::esbuild",
+                "package.json::devDependencies::highlightjs-line-numbers.js",
+                "package.json::devDependencies::html-minifier-terser",
+                "package.json::devDependencies::husky",
+                "package.json::devDependencies::inquirer",
+                "package.json::devDependencies::jsdoc-api",
+                "package.json::devDependencies::lint-staged",
+                "package.json::devDependencies::marked",
+                "package.json::devDependencies::mermaid",
+                "package.json::devDependencies::monaco-editor",
+                "package.json::devDependencies::parse5",
+                "package.json::devDependencies::postcss",
+                "package.json::devDependencies::sass",
+                "package.json::devDependencies::terser",
+                "package.json::devDependencies::webpack",
+                "package.json::devDependencies::webpack-cli",
+                "package.json::devDependencies::webpack-dev-server",
+                "package.json::devDependencies::webpack-hook-plugin"
+            ],
+            "disposition": "stays-engine",
+            "manifestTargets": [
+                "engine"
+            ],
+            "source": "AST devDependency importer census plus tool-usage census at origin/dev f47f337809",
+            "rationale": "Engine build, browser asset, contributor, and Engine-owned test declarations stay with the Engine package"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::@playwright/test",
+                "package.json::devDependencies::semver"
+            ],
+            "disposition": "stays-engine",
+            "manifestTargets": [
+                "engine",
+                "edge"
+            ],
+            "source": "subject-based test custody plus direct GitHub Workflow importer audit at origin/dev f47f337809",
+            "rationale": "the Engine keeps its test and release tooling while the AgentOS root independently declares the same packages for moved tests and Host-Edge workflow services"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::fast-glob"
+            ],
+            "disposition": "stays-engine",
+            "manifestTargets": [
+                "engine",
+                "cloud"
+            ],
+            "source": "direct Engine-build and Knowledge Base importer audit at origin/dev f47f337809",
+            "rationale": "the Engine retains its build declaration and the nested Cloud manifest independently declares the Knowledge Base dependency"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::acorn",
+                "package.json::devDependencies::commander",
+                "package.json::devDependencies::fs-extra",
+                "package.json::devDependencies::gray-matter",
+                "package.json::devDependencies::url"
+            ],
+            "disposition": "stays-engine",
+            "manifestTargets": [
+                "engine",
+                "edge",
+                "cloud"
+            ],
+            "source": "direct Engine plus both-plane importer audit joined to launch-target custody at origin/dev f47f337809",
+            "rationale": "all three independently installed roots consume these packages; explicit target membership replaces ancestor hoisting"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::@google/generative-ai",
+                "package.json::devDependencies::@modelcontextprotocol/sdk",
+                "package.json::devDependencies::dotenv",
+                "package.json::devDependencies::js-yaml",
+                "package.json::devDependencies::zod"
+            ],
+            "disposition": "edge",
+            "manifestTargets": [
+                "edge",
+                "cloud"
+            ],
+            "source": "direct Host-Edge and Container-Cloud importer audit at origin/dev f47f337809",
+            "rationale": "both AgentOS package roots declare these external dependencies independently; no physical shared-package or hoist meaning is implied"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::ws"
+            ],
+            "disposition": "edge",
+            "manifestTargets": [
+                "edge"
+            ],
+            "source": "direct Neural Link Bridge and ConnectionService importer audit at origin/dev f47f337809",
+            "rationale": "the Host-Edge Neural Link runtime owns the WebSocket dependency"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.brain.json::devDependencies::@chroma-core/default-embed",
+                "package.brain.json::devDependencies::better-sqlite3",
+                "package.brain.json::devDependencies::chromadb"
+            ],
+            "disposition": "cloud",
+            "manifestTargets": [
+                "cloud"
+            ],
+            "source": "package.brain.json durable-driver tier at origin/dev f47f337809",
+            "rationale": "the independently installed nested Cloud package owns every durable driver"
+        },
         {
             "surface": "script-module",
             "identities": [
