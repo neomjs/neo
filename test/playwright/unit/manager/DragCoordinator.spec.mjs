@@ -182,6 +182,60 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(DragCoordinator.sortZones.get('dock').get(2)).toBe(target)
     });
 
+    /**
+     * The registry is keyed by `[sortGroup, windowId]`, and `register` OVERWRITES that key. So a
+     * window whose zone is REPLACED briefly has two zone objects claiming one key, and the order
+     * they resolve in decides what the coordinator can see.
+     *
+     * Replacement is not universal: an in-place geometry or retained-topology refresh reconciles
+     * the existing shell and swaps no zone. A staged structural re-projection builds the successor
+     * before retiring the predecessor, so the live sequence there is
+     * register(new) → destroy(old) → unregister(old). A `delete(windowId)` that does not check
+     * WHICH zone it is evicting therefore removes the zone that just replaced it.
+     *
+     * The failure is silent and remote: nothing throws, the surviving zone is perfectly healthy and
+     * still answers `acceptsRemoteDrag`, but `resolveClaimedTarget` iterates the coordinator's map
+     * and never reaches it — so a cross-window drag finds no candidate while every app-side
+     * reconstruction of "would this zone accept?" says yes.
+     *
+     * The sibling guard below it is already identity-scoped ("leaves an UNRELATED live target
+     * alone"); this is the same discipline one line up, on the registry rather than on
+     * `activeTargetZone`.
+     */
+    test('unregister evicts only ITS OWN registration — a replaced zone must not delete its successor', () => {
+        const
+            retiring  = createTargetZone({type: 'transferItem'}),
+            successor = createTargetZone({type: 'transferItem'});
+
+        // Same identity, as a re-projection produces: one window, one sort group, two objects.
+        expect(retiring.windowId, 'the two zones must contend for one key, or this proves nothing')
+            .toBe(successor.windowId);
+        expect(retiring).not.toBe(successor);
+
+        DragCoordinator.register(retiring);
+        DragCoordinator.register(successor);
+
+        expect(DragCoordinator.sortZones.get('dock').get(2), 'the successor owns the key after registering')
+            .toBe(successor);
+
+        DragCoordinator.unregister(retiring);
+
+        expect(DragCoordinator.sortZones.get('dock').get(2),
+            'the retiring zone must not evict the successor that replaced it'
+        ).toBe(successor)
+    });
+
+    test('unregister of the LAST holder still clears the key, and prunes an empty group', () => {
+        // The guard above must not turn into "never delete": a zone that genuinely still owns its
+        // key has to be removed, or a departed window stays reachable as a drag target forever.
+        const departing = createTargetZone({type: 'transferItem'});
+
+        DragCoordinator.register(departing);
+        DragCoordinator.unregister(departing);
+
+        expect(DragCoordinator.sortZones.has('dock'), 'the emptied group is pruned').toBe(false)
+    });
+
     test('every terminal is idempotent — a second invocation is a witnessed no-op, not a second commit', () => {
         const
             source = createSourceZone(),

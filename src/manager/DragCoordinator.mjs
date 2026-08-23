@@ -1120,10 +1120,23 @@ class DragCoordinator extends Manager {
 
         if (sortGroup && me.sortZones.has(sortGroup)) {
             let group = me.sortZones.get(sortGroup);
-            group.delete(windowId);
 
-            if (group.size === 0) {
-                me.sortZones.delete(sortGroup)
+            // Evict only THIS zone's own registration. The key is `[sortGroup, windowId]` and
+            // `register` overwrites it, so a window whose zone is REPLACED briefly has two objects
+            // contending for one key. That happens on a staged structural re-projection, which
+            // builds the successor shell before retiring the predecessor — not on an in-place
+            // geometry or retained-topology refresh, which reconciles the existing shell and
+            // replaces no zone at all. An unconditional delete lets the retiring zone evict the
+            // live successor, and then prune the whole group as empty, leaving
+            // `resolveClaimedTarget` to return before its loop runs. Nothing throws and the
+            // surviving zone still answers `acceptsRemoteDrag`, so an app-side reconstruction
+            // reports a target the coordinator can no longer see.
+            if (group.get(windowId) === sortZone) {
+                group.delete(windowId);
+
+                if (group.size === 0) {
+                    me.sortZones.delete(sortGroup)
+                }
             }
         }
 
