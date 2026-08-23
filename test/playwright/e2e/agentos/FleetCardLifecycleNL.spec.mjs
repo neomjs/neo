@@ -1,6 +1,6 @@
-import {test, expect}           from '../../fixtures.mjs';
-import {NeuralLink_DataService} from '../../../../ai/services.mjs';
-import {FLEET_WIRE_METHODS}     from '../../../../apps/agentos/config/fleetWireMethods.mjs';
+import {test, expect}                             from '../../fixtures.mjs';
+import {NeuralLink_DataService}                   from '../../../../ai/services.mjs';
+import {createFleetWireOffer, FLEET_WIRE_METHODS} from '../../../../apps/agentos/config/fleetWireMethods.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -100,6 +100,12 @@ async function startLifecycleFleetBridge({rejectStart = false} = {}) {
  * @summary The retired panel spec's minimal-payload contract, re-homed onto the card path: a
  * lifecycle click crosses the fleet wire as the minimal agent-id operation — a registered wire
  * method carrying ONE string param, with no credential-shaped bytes.
+ *
+ * Minimal describes the PAYLOAD, never the envelope. Every browser-mode request also carries this
+ * realm's versioned protocol offer (`installFleetBridge` sends the full `createFleetWireRequest`
+ * result; only shell mode strips it back to method/params), so the offer is asserted through the
+ * exported builder rather than a literal — exact equality still rejects any extra key, and the next
+ * contract revision moves this expectation without touching the spec.
  * @param {Object} request The recorded loopback fleet request.
  * @param {String} [method='startAgent'] The expected registered lifecycle wire method.
  */
@@ -107,7 +113,8 @@ function expectMinimalLifecyclePayload(request, method = 'startAgent') {
     expect(FLEET_WIRE_METHODS).toContain(request.method);
     expect(request).toEqual({
         method,
-        params: TEST_AGENT_ID
+        params  : TEST_AGENT_ID,
+        protocol: createFleetWireOffer()
     });
     expect(typeof request.params).toBe('string');
     expect(JSON.stringify(request.params)).not.toMatch(/credential|pat|token/i)
