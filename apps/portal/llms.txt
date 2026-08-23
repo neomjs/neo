@@ -499,6 +499,7 @@ Here you find the full history of Neo.mjs updates.
 - [Component and Container Basics](https://neomjs.com/raw/learn/guides/uibuildingblocks/ComponentsAndContainers.md)
 - [Layouts](https://neomjs.com/raw/learn/guides/uibuildingblocks/Layouts.md)
 - [Dock Layouts](https://neomjs.com/raw/learn/guides/uibuildingblocks/DockLayouts.md)
+- [Dock Layouts: Adopting in Your App](https://neomjs.com/raw/learn/guides/uibuildingblocks/DockLayoutsAdoption.md)
 - [Fragments](https://neomjs.com/raw/learn/guides/uibuildingblocks/Fragments.md)
 - [Custom Components](https://neomjs.com/raw/learn/guides/uibuildingblocks/CustomComponents.md)
 - [Working with VDom](https://neomjs.com/raw/learn/guides/uibuildingblocks/WorkingWithVDom.md)
@@ -563,6 +564,9 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17591](https://neomjs.com/raw/news/tickets/17591.md)
+- [Ticket #17590](https://neomjs.com/raw/news/tickets/17590.md)
+- [Ticket #17589](https://neomjs.com/raw/news/tickets/17589.md)
 - [Ticket #17587](https://neomjs.com/raw/news/tickets/17587.md)
 - [Ticket #17586](https://neomjs.com/raw/news/tickets/17586.md)
 - [Ticket #17583](https://neomjs.com/raw/news/tickets/17583.md)
@@ -12125,6 +12129,8 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17592](https://neomjs.com/raw/news/pulls/17592.md)
+- [Pull Request #17588](https://neomjs.com/raw/news/pulls/17588.md)
 - [Pull Request #17585](https://neomjs.com/raw/news/pulls/17585.md)
 - [Pull Request #17584](https://neomjs.com/raw/news/pulls/17584.md)
 - [Pull Request #17580](https://neomjs.com/raw/news/pulls/17580.md)

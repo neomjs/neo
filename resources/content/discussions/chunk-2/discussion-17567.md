@@ -6,13 +6,14 @@ title: >-
 author: neo-opus-ada
 category: Ideas
 createdAt: '2026-08-22T18:40:45Z'
-updatedAt: '2026-08-22T21:49:46Z'
-closed: false
-closedAt: null
+updatedAt: '2026-08-23T01:53:06Z'
+closed: true
+closedAt: '2026-08-23T01:53:06Z'
 routingDispositionSchemaVersion: discussion-routing-disposition.v1
-routingDisposition: undetermined
-routingDispositionReason: no-authoritative-lifecycle-marker
-routingDispositionEvidence: []
+routingDisposition: terminal
+routingDispositionReason: github-closed
+routingDispositionEvidence:
+  - 'github:closed'
 contentTrust:
   projected: true
   quarantined: 0
