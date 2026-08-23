@@ -29,7 +29,7 @@ our class. For the sake of our discussion we're putting that statement in the sa
 file where the class is defined, but normally your code would import the class elsewhere, 
 and create instances as needed.
 
-Let's add a `name` propery to the class.
+Let's add a `name` property to the class.
 
 ```javascript readonly
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';

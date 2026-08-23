@@ -350,7 +350,7 @@ and inspect or update component.
 ##Lab. Debugging
 
 In this lab you'll get a little debugging practice by getting component references, changing properties, 
-and runing methods.
+and running methods.
 
 Remember that when using the debugger console you need to be in the _neo-app-worker_ context.
 
