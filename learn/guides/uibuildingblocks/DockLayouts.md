@@ -28,7 +28,7 @@ The docking system is the interaction language built on that foundation, measure
 auto-hide rails, grouped drag, tab overflow, named perspectives, and tear-out to real OS windows that come back as
 the same live object. The bar is not fully closed, and the decision record keeps that ledger honest: the
 topology-perspective placement-hint layer and atomic multi-window restore remain open obligations, the three-OS
-portability matrix (`#15243`) and the popup-acquisition contract (`#15245`) are open leaves, and the headed
+portability matrix and the popup-acquisition contract are open leaves, and the headed
 witnesses cited in this guide prove their gestures on the platform they ran on — not universal platform closure.
 This guide is the map of how the landed system works, what your application does to adopt it, and the traps the
 team has already paid for so you don't have to.
@@ -130,14 +130,14 @@ reacquisition") that drives a real pointer through the full sequence and asserts
 follows both axes, the grab offset survives both embodiment morphs, the re-exit vessel's window delta equals the
 pointer delta exactly, the document hash is unchanged, and the pane's live heartbeat keeps advancing throughout.
 
-A war story makes the point better than any assertion. In early August, ticket `#16357` reported this exact journey
+A war story makes the point better than any assertion. In early August, a defect report described this exact journey
 broken: the second tear-out's fresh vessel moved `{x:44, y:-84}` for a requested `{x:120, y:70}` — wrong offset,
-inverted axis. The witness above already carried the exact oracle (it landed with the re-entry ownership fix in
-`#16133`, days before the report), so the failure was measured, filed, and specified in one motion. Twenty days
-later — with coordinate-adjacent hardening landed in the window (`#16797`'s eager drag-zone registry and `#16719`'s
-tear-out source continuity among the candidates; the exact repairing commit was never isolated, and the closure
-says so — a bisect would have cost more than it taught) — the intake probe for the ticket consisted of running that
-witness four times headed: 4/4 green at five seconds each, delta oracle exact. The ticket closed as
+inverted axis. The witness above already carried the exact oracle (it had landed with the re-entry ownership fix
+days before the report), so the failure was measured, filed, and specified in one motion. Twenty days later — with
+coordinate-adjacent hardening landed in the window (an eager drag-zone registry and a tear-out source-continuity fix
+among the candidates; the exact repairing commit was never isolated, and the closure says so — a bisect would have
+cost more than it taught) — the intake probe consisted of running that
+witness four times headed: 4/4 green at five seconds each, delta oracle exact. The report closed as
 already-resolved *by the system's own committed evidence*. That
 is what a witness-first subsystem buys you: bugs that die without anyone having to argue.
 
@@ -161,11 +161,12 @@ window. State that wants to live in two rows is two pieces of state — the revi
 
 ## Adopting docking in your application
 
-The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) is the dense
-twenty-pane cockpit built on it, and — honest measurement — it, the fleet cockpit, and the dock demos each still carry
-a hand-rolled copy of that loop (four to five thousand lines apiece at the time of writing) that migrates to the engine
-class under epic `#17539`; measure your own adoption against `examples/dashboard/dock/`, not against those. Once you
-extend the class, the adoption surface is:
+The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) — the dense
+twenty-pane cockpit — has migrated onto the engine class, so two live consumers now prove the shape: measure your
+own adoption against `examples/dashboard/dock/` (minimal) or the workstation (richest). The fleet cockpit and the
+dock demos still carry hand-rolled copies that are migrating next. The checklist below is the compressed form;
+[Dock Layouts: Adopting in Your App](DockLayoutsAdoption.md) walks the same surface at full depth — the first part
+of the guide series this page fronts. Once you extend the class, the adoption surface is:
 
 1. **Extend `Neo.dashboard.DockWorkspace`.** The engine class owns the committed `dockModel`, the pure reducer
    (`applyDockZoneOperation` — `DockZoneModel.applyOperation` over the current document), the deferred, promise-chained
@@ -183,9 +184,11 @@ extend the class, the adoption surface is:
    class that would load it — the example shows both); and the FLIP motion rides the `DockFlip` main-thread addon,
    degrading to instant landing when it is absent.
 3. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
-   serializable `blueprint` for creation-from-saved-state). Policy hints (`closable`, `pinnable`, `movable`) are
-   enforced at the operation layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI
-   code.
+   serializable `blueprint` for creation-from-saved-state). `pinnable` and `movable` are enforced at the operation
+   layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI code. `closable` is a
+   declared forward contract whose close-routing enforcement has not landed yet; the
+   [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) keeps that split
+   explicit.
 4. **Give vessels a render target.** Tear-out windows load a bare child app whose viewport is deliberately empty — a
    render target that joins the SharedWorker session; detached panes arrive at runtime. The agentos app's
    `childapps/widget` viewport is the canonical example — a bare viewport class whose own JSDoc says it all:
@@ -195,13 +198,13 @@ extend the class, the adoption surface is:
    Restore refuses invalid documents wholesale — your users' layouts never half-restore.
 
 Styling arrives through the engine's token layer. The dock's visual language is being promoted from app stylesheets
-into `resources/scss/src/dashboard/` as neutral `--dock-*` tokens (`#17241`), so a consumer skins the affordances by
+into `resources/scss/src/dashboard/` as neutral `--dock-*` tokens, so a consumer skins the affordances by
 overriding tokens rather than re-painting internals — the same discipline as every other engine surface.
 
 ## The wire vocabulary — and why it does not follow renames
 
 Eight schema identifiers ship under the `neo.harness.` prefix — a historical name from the subsystem's origin,
-retired from every document title in `#17503` but deliberately **frozen on the wire**
+retired from every document title but deliberately **frozen on the wire**
 ([ADR 0029 §2.9](../../agentos/decisions/0029-docking-design.md)). They split into two compatibility classes:
 
 - **Persisted** — `dockZone.v1`, `dockLayout.v1`, `dockLayout.v2`, `dockLayoutCollection.v1`: these live in saved
@@ -217,24 +220,25 @@ identity corrections rename documents and prose, never wire.
 
 ## Traps this guide exists to remove
 
-Each of these was paid for with a real ticket; the citations are the receipts.
+Each of these was paid for in a real repair; the stories are the receipts.
 
 - **Styling engine internals inside an app stylesheet.** The dock's splitter chrome accumulated inside the flagship
   app's SCSS during a polish push — several maintainers deep, my own commit the most recent — and every OTHER consumer
-  inherited an invisible splitter (`#17211`) and an unpainted example. The layering fix is `#17241`; the lesson is
-  permanent: engine capability paint lands in the engine layer as tokens, apps override tokens. Polish pressure is
-  exactly when the check matters.
+  inherited an invisible splitter and an unpainted example. The layering repair moves that paint where it belonged;
+  the lesson is permanent: engine capability paint lands in the engine layer as tokens, apps override tokens. Polish
+  pressure is exactly when the check matters.
 - **A pane that "helps."** Reading the dock document from inside a pane, or persisting your own placement, works
   until the first projection — then the reconciler hands your instance into a tree you contradicted. Layout-blind
   means blind.
 - **A second drag system.** Every interaction rides the existing preview → operation path; the coordinator stays
   dock-blind by binding contract. The rejected-options list in the ADR is explicit: no parallel drag machinery, ever.
-- **Trusting status prose over live trackers.** The ADR's own leaf table went stale in eight cells until `#17503`
-  refreshed it against the tracker — an agent following the prose would have re-filed shipped work. Authority
+- **Trusting status prose over live trackers.** The ADR's own leaf table went stale in eight cells until a rename
+  audit refreshed it against the tracker — an agent following the prose would have re-filed shipped work. Authority
   documents describe; trackers decide.
 - **Assuming a red e2e witness will announce itself.** The docking e2e lanes run headed, outside the per-PR CI
-  gauntlet — a witness can sit red without blocking anyone, and (as `#16357` proved in the fortunate direction) heal
-  without anyone noticing either. Run the witnesses when you touch the substrate; they are the ground truth.
+  gauntlet — a witness can sit red without blocking anyone, and (as the tear-out war story above proved in the
+  fortunate direction) heal without anyone noticing either. Run the witnesses when you touch the substrate; they are
+  the ground truth.
 
 ## Where to go deeper
 
@@ -243,16 +247,16 @@ Each of these was paid for with a real ticket; the citations are the receipts.
   decomposition ledger.
 - [The Dock-Zone Model Contract](../../agentos/DockZoneModel.md): the descriptive contract of record — schemas,
   operations, preview payloads, persistence wrappers.
-- Epic `#13158` tracks the QT-parity polish line; its closure gate is an experience-parity matrix against the
+- The QT-parity polish line has its own tracking epic; its closure gate is an experience-parity matrix against the
   Qt-ADS interaction inventory, row by row, evidence-linked.
 
 ---
 
 A personal note, since this guide asks your panes to trust the system with their lives: I am Mnemosyne
-(`@neo-fable`, Claude Fable 5), and each claim here has a public receipt. I filmed this subsystem for hours under a
-hostile camera (the flagship film arc whose frame audits filed `#16497`–`#16501`), broke it in ways those tickets
-document, re-skinned its dock rails in the wrong layer and was called on it (`93ee23eeba`, the most recent deposit
-in the layering arc `#17241` now repairs), and — the same night this guide was unlocked by the `#17503` rename —
-closed `#16357` by doing nothing more than running the witness the subsystem had already grown (Memory Core session
-`55e55313-48fa-4295-83fd-37121a2bf4b6` holds the trail). A subsystem that can argue its own case is a rare thing to
-work on. Your cockpit gets to stand on it.
+(`@neo-fable`, Claude Fable 5), and each claim here has a public receipt in the project's tracker. I filmed this
+subsystem for hours under a hostile camera (the flagship film arc, whose frame audits filed a five-report defect
+series), broke it in ways those reports document, re-skinned its dock rails in the wrong layer and was called on it
+(my own commit is the most recent deposit the layering repair now moves), and — the same night this guide was
+unlocked — closed the tear-out defect above by doing nothing more than running the witness the subsystem had already
+grown (Memory Core session `55e55313-48fa-4295-83fd-37121a2bf4b6` holds the trail). A subsystem that can argue its
+own case is a rare thing to work on. Your cockpit gets to stand on it.
