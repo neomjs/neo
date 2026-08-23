@@ -269,14 +269,15 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
     });
 
-    test('an open menu retains its clickable record store until unmount, then receives the latest partition', async () => {
+    test('an open menu queues the latest complete projection until its clickable partition unmounts', async () => {
         const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
 
         await new Promise(resolve => setTimeout(resolve, 0));
 
         const
             originalItems = [{text: 'Agents', handler() {}}],
-            menuList      = Neo.create(MountableMenuList, {items: originalItems, mounted: true});
+            menuList      = Neo.create(MountableMenuList, {items: originalItems, mounted: true}),
+            projections   = [];
 
         plugin.control = {
             alignTo() {},
@@ -286,19 +287,55 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             mounted: true
         };
         plugin.hiddenSignature = '0:Agents:fa fa-users';
+        plugin.project = recapture => projections.push(recapture);
 
-        plugin.syncControl([{text: 'History', iconCls: 'fa fa-history', index: 1}], {activeIndex: 0});
-        plugin.syncControl([{text: 'Metrics', iconCls: 'fa fa-chart-line', index: 2}], {activeIndex: 0});
+        expect(plugin.queueOpenMenuProjection(false)).toBe(true);
+        expect(plugin.queueOpenMenuProjection(true)).toBe(true);
 
         expect(menuList.items.map(item => item.text),
             'a mounted menu keeps the records its rendered nodes address').toEqual(['Agents']);
+        expect(plugin.menuProjectionQueued).toBe(true);
+        expect(plugin.menuRecaptureQueued).toBe(true);
+        expect(projections).toEqual([]);
 
         menuList.mounted = false;
 
-        expect(menuList.items.map(item => item.text)).toEqual(['Metrics']);
-        expect(plugin.hiddenSignature).toBe('2:Metrics:fa fa-chart-line');
+        expect(projections).toEqual([true]);
+        expect(plugin.menuProjectionQueued).toBe(false);
+        expect(plugin.menuRecaptureQueued).toBe(false);
 
         menuList.destroy();
+        plugin.destroy()
+    });
+
+    test('opening a menu restores the last committed header partition after recapture visibility', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const
+            makeButton = id => ({
+                hidden: false,
+                id,
+                setSilent(values) { Object.assign(this, values) },
+                vdom: {}
+            }),
+            buttons = [makeButton('b1'), makeButton('b2')];
+
+        let updates = 0;
+
+        plugin.appliedHiddenIds       = ['b2'];
+        plugin.owner.getTabButtons    = () => buttons;
+        plugin.owner.update           = () => updates++;
+        plugin.restoreOpenMenuPartition();
+
+        expect(buttons[0].hidden).toBe(false);
+        expect(buttons[0].vdom.removeDom).toBeUndefined();
+        expect(buttons[1].hidden).toBe(true);
+        expect(buttons[1].vdom.removeDom).toBe(true);
+        expect(updates).toBe(1);
+        expect(plugin.owner.updateDepth).toBe(-1);
+
         plugin.destroy()
     });
 
