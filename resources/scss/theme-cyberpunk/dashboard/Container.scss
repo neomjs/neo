@@ -1,0 +1,14 @@
+@use 'preview-accents' as *;
+
+:where(.neo-theme-cyberpunk) {
+    @include preview-accents;
+
+    --agent-dock-preview-signal-ground: rgba(22, 27, 34, 0.94);
+    --dock-preview-ground             : rgba(13, 17, 23, 0.94);
+    --dock-preview-line               : #30363d;
+    --dock-arrival-outline            : rgba(0, 210, 255, 0.55);
+    --agent-dock-proxy-border         : color-mix(in srgb, #00d2ff 38%, #30363d);
+    --agent-dock-proxy-ground         : #161b22;
+    --agent-dock-proxy-shadow         : #0d1117;
+    --agent-dock-proxy-text           : #c9d1d9;
+}
