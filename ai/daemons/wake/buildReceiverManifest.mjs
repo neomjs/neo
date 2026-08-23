@@ -54,7 +54,6 @@ import path            from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 import {loadWakeReceiverManifest} from './receiver.mjs';
-import {collectUnroutedEligibleIdentities} from './wakeTargetEligibility.mjs';
 import {withOutboxLock}           from './outboxLock.mjs';
 import {
     DEFAULT_CONTEXT_GATE_MAX_TOKENS,
@@ -539,7 +538,14 @@ export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
         adapterConfigPath: read('--adapter-config'),
         attemptTimeoutMs : attemptTimeoutRaw ? Number(attemptTimeoutRaw) : undefined,
         instanceType     : read('--instance'),
-        instanceAddress  : read('--instance-address')
+        instanceAddress  : read('--instance-address'),
+        // Comma-separated canonical `@handle`s. Absent ⇒ no expectation, hence no unrouted warning:
+        // a host-edge box legitimately has no roster to compare against, and inventing one there
+        // would make this guard cry on exactly the hosts it knows least about.
+        expectedSeatIdentities: (read('--expected-seats') || '')
+            .split(',')
+            .map(entry => entry.trim())
+            .filter(Boolean)
     }
 }
 
@@ -589,8 +595,9 @@ export async function runManifestBuilder({
     attemptTimeoutMs,
     instanceType,
     instanceAddress,
-    lockOptions = {},
-    logger      = console
+    expectedSeatIdentities = [],
+    lockOptions            = {},
+    logger                 = console
 }) {
     if (!subscriptionsPath || !manifestPath) {
         throw new Error('Usage: --subscriptions <file|-> --manifest <absolute path> [--identity <@handle>] [--adapter-config <file.json>] [--attempt-timeout-ms <n>] [--instance pid|userDataDir --instance-address <value>]');
@@ -678,12 +685,19 @@ export async function runManifestBuilder({
     // unprovisioned. It also cannot self-heal: `manage_wake_subscription` acts on the CALLER, so a
     // seat's row can only be minted by that seat — which is why the line says so rather than
     // sending the reader to a tool that cannot act for them.
-    const unrouted = collectUnroutedEligibleIdentities({
-        routedIdentities: Object.values(manifest.routes).map(route => route?.agentIdentity)
-    });
+    //
+    // `expectedSeatIdentities` arrives as PLAIN DATA and both sides are compared as given. That is
+    // this module's graphless boundary, not an oversight: it imports nothing from the graph so
+    // host-edge tooling stays runnable without the plane, exactly as subscription records already
+    // arrive from whoever queried them. The caller derives the census (`wakeSeatIdentities` in
+    // `wakeTargetEligibility.mjs` is the canonical source) and hands it over canonical.
+    const routedIdentities = new Set(
+              Object.values(manifest.routes).map(route => route?.agentIdentity).filter(Boolean)
+          ),
+          unroutedSeats    = expectedSeatIdentities.filter(seat => seat && !routedIdentities.has(seat)).sort();
 
-    for (const identity of unrouted) {
-        logger.log(`  WARN ${identity}: wake-eligible with no route — that seat must run ` +
+    for (const seat of unroutedSeats) {
+        logger.log(`  WARN ${seat}: expected wake seat with no route — that seat must run ` +
                    `manage_wake_subscription({action:'subscribe'}) itself; the tool acts on the caller`);
     }
 

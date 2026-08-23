@@ -749,8 +749,15 @@ test.describe('runManifestBuilder — strict-lock + boot truths', () => {
             adapterConfigPath: 'adapters.json',
             attemptTimeoutMs : 15000,
             instanceType     : 'userDataDir',
-            instanceAddress  : '/seat/path'
+            instanceAddress  : '/seat/path',
+            // Absent `--expected-seats` parses to an empty census, which the builder reads as "no
+            // expectation" rather than "no seats" — the distinction that keeps a host-edge build quiet.
+            expectedSeatIdentities: []
         });
+
+        expect(parseManifestBuilderArgs(['--expected-seats', '@a, @b ,,@c']).expectedSeatIdentities,
+            'the flag trims and drops empties rather than emitting blank identities'
+        ).toEqual(['@a', '@b', '@c']);
 
         expect(parseManifestBuilderArgs([]).attemptTimeoutMs).toBeUndefined()
     });
@@ -844,4 +851,91 @@ test.describe('readPublishedRoutes', () => {
             await rm(dir, {force: true, recursive: true})
         }
     });
+});
+
+test.describe('runManifestBuilder — the unrouted-seat warning at the consumer seam', () => {
+    /**
+     * The pure difference is trivial; what needed witnessing is that the BUILDER emits it, with the
+     * exact identity and an actionable instruction, and that publication is unaffected. A helper-only
+     * suite proves the arithmetic and says nothing about the shipped effect. Citing a green suite as
+     * proof of lines no spec asserts is exactly the over-claim these arms exist to close.
+     *
+     * `expectedSeatIdentities` arrives as plain data on purpose: this module imports nothing from the
+     * graph so host-edge tooling stays runnable without the plane. Absent input therefore means "no
+     * expectation", not "no seats" — asserted below, because a guard that invents an expectation on a
+     * host it knows nothing about is worse than one that stays quiet.
+     */
+    const runWithExpectations = async (dir, expectedSeatIdentities) => {
+        const manifestPath = path.join(dir, 'routes.json'),
+              input        = path.join(dir, 'subs.json'),
+              lines        = [],
+              logger       = {log: line => lines.push(line)};
+
+        await writeFile(input, JSON.stringify({subscriptions: [webhookSubscription]}));
+
+        const result = await runManifestBuilder({
+            subscriptionsPath: input,
+            manifestPath,
+            instanceType     : INSTANCE.type,
+            instanceAddress  : INSTANCE.address,
+            expectedSeatIdentities,
+            logger
+        });
+
+        return {lines, manifestPath, result}
+    };
+
+    test('one missing seat emits its exact identity and an actionable instruction; publication still succeeds', async () => {
+        const dir = await tempDir();
+
+        try {
+            // `webhookSubscription` routes @neo-opus-ada; @neo-opus-vega is expected and absent.
+            const {lines, manifestPath, result} = await runWithExpectations(
+                dir, ['@neo-opus-ada', '@neo-opus-vega']
+            );
+
+            const warn = lines.find(line => line.includes('@neo-opus-vega'));
+
+            expect(warn, 'the missing seat is named').toBeTruthy();
+            expect(warn, 'and the line says who can fix it, since the tool acts on the caller')
+                .toContain('manage_wake_subscription');
+
+            expect(lines.some(line => line.includes('@neo-opus-ada') && line.includes('expected wake seat')),
+                'the ROUTED seat must not be warned about').toBe(false);
+
+            // Detection only: a provisioning gap must never block route generation for everyone else.
+            expect(Object.keys(await readPublishedRoutes(manifestPath)),
+                'publication still succeeds alongside the warning').toHaveLength(1);
+            expect(result?.published, 'the builder still publishes').toBeTruthy();
+            expect(result?.routeSummaries, 'and still reports its routes').toHaveLength(1)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a fully routed expectation set emits nothing', async () => {
+        const dir = await tempDir();
+
+        try {
+            const {lines} = await runWithExpectations(dir, ['@neo-opus-ada']);
+
+            expect(lines.some(line => line.includes('expected wake seat')),
+                'every expected seat is routed ⇒ silence').toBe(false)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('no expectation input emits nothing — absence is not an empty census', async () => {
+        const dir = await tempDir();
+
+        try {
+            const {lines} = await runWithExpectations(dir, undefined);
+
+            expect(lines.some(line => line.includes('expected wake seat')),
+                'a host-edge build with no roster must stay quiet rather than invent one').toBe(false)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    })
 });

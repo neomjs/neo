@@ -3,17 +3,29 @@ import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNo
 
 /**
  * @module Neo.ai.daemons.wake.wakeTargetEligibility
- * @summary The single definition of "may this identity receive a wake", plus the roster-versus-
- * manifest difference that detects a seat nobody routed.
+ * @summary Two different questions about a wake identity, kept apart on purpose: may it RECEIVE a
+ * wake, and should it HOLD a route.
  *
- * Extracted from the wake daemon rather than copied into the manifest builder. Both need the same
- * participation rule, and a second copy would drift — the builder would eventually warn about seats
- * the daemon is happily serving, or stay silent about ones it refuses. The daemon is an entry point
- * and exports nothing, so sharing required a module; this is that module and nothing more.
+ * Extracted from the wake daemon rather than copied. Both the daemon and route tooling need the
+ * participation rule, a second copy would drift, and the daemon is an entry point that exports
+ * nothing. This module owns the graph read so the manifest builder does not have to — that builder
+ * documents itself as importing nothing from the graph, and honouring it is what keeps host-edge
+ * tooling runnable without the plane it is being wired to.
+ *
+ * **Conflating the two questions was a real defect.** Receive-permission is deliberately permissive:
+ * an unknown identity stays eligible so forks and local custom agents keep working. Route-population
+ * is a census of seats that ought to exist. Reusing the permission predicate as the census warned
+ * about the human owner — permitted to receive a wake, and not a seat. It surfaced only when the
+ * collector was run against the real roster: a fixture containing agents alone cannot reproduce it,
+ * which is why the controls here read the live roster rather than a hand-built map.
  */
 
 /**
- * @summary Canonical identity → participation status, built from the repo's identity roster.
+ * @summary Canonical identity → participation status, over every roster entry.
+ *
+ * Permission, not census. This deliberately includes humans and system accounts, because
+ * {@link isWakeTargetEligible} answers *may this receive a wake*, which is not *should this have a
+ * route*. Do not reuse it as a route expectation.
  * @member {Map<String,String>} identityParticipationById
  */
 export const identityParticipationById = new Map(
@@ -26,11 +38,33 @@ export const identityParticipationById = new Map(
 );
 
 /**
+ * @summary The identities expected to hold a wake route: active agent seats, canonical and sorted.
+ *
+ * `accountType` is the discriminator the roster already carries — `agent` for seats, `human` for the
+ * owner, `system` for service accounts. Both filters are load-bearing: a retired agent is a seat
+ * that should NOT be routed, and an active human is not a seat at all.
+ *
+ * Exported as canonical ids so a consumer can compare without normalising, which is what lets the
+ * manifest builder stay free of graph imports.
+ * @member {String[]} wakeSeatIdentities
+ */
+export const wakeSeatIdentities = IDENTITIES
+    .filter(identity =>
+        identity.type === 'AgentIdentity' &&
+        identity.properties?.accountType === 'agent' &&
+        (identity.properties?.participationStatus || 'active') === 'active')
+    .map(identity => normalizeAgentIdentityNodeId(identity.id))
+    .sort();
+
+/**
  * @summary True when a wake subscription target may receive wake delivery.
  *
  * Unknown identities stay eligible for forks/local custom agents. Known repo identities with
  * non-active participationStatus are filtered before coalescing so they never create delivery
  * attempts or retries.
+ *
+ * Semantics unchanged from the daemon's original — deliberately. Tightening delivery permission is a
+ * different decision from tightening a route census, and only the second is in scope here.
  * @param {String} identity Agent identity.
  * @param {Map<String,String>} [participation=identityParticipationById] Injectable for tests.
  * @returns {Boolean}
@@ -41,33 +75,4 @@ export function isWakeTargetEligible(identity, participation=identityParticipati
           participationStatus = participation.get(normalizedIdentity);
 
     return !participationStatus || participationStatus === 'active';
-}
-
-/**
- * @summary Canonical, wake-eligible identities that no route serves.
- *
- * The absence this exists to make visible has no error state of its own: a manifest missing a seat
- * is simply smaller than the roster, and nothing reads a smaller set as information. That is how a
- * live seat spent its whole existence receiving another seat's wakes and none of its own — no
- * warning fired, because none was ever written.
- *
- * Anchored to {@link isWakeTargetEligible} on purpose. Most roster entries legitimately have no
- * route at any moment — benched, dark, never-connected — and warning about those would make this
- * noise on every build and get it ignored inside a week. Reusing the daemon's own predicate means
- * the warning fires for exactly the seats the daemon would try to deliver to, and for no others.
- *
- * Pure over its inputs (the roster is injectable) so the difference is testable without a live
- * plane, matching `collectThemeCoverageFailures`'s shape in the theme-coverage guard.
- *
- * @param {Object} options
- * @param {String[]} options.routedIdentities Identities the manifest actually carries a route for.
- * @param {Map<String,String>} [options.participation=identityParticipationById] Roster to test against.
- * @returns {String[]} Canonical ids, sorted, that are eligible and unrouted.
- */
-export function collectUnroutedEligibleIdentities({routedIdentities=[], participation=identityParticipationById}={}) {
-    const routed = new Set(routedIdentities.filter(Boolean).map(normalizeAgentIdentityNodeId));
-
-    return [...participation.keys()]
-        .filter(identity => !routed.has(identity) && isWakeTargetEligible(identity, participation))
-        .sort()
 }
