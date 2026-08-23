@@ -106,6 +106,12 @@ class DockWorkspace extends Container {
          */
         dockProjectionConfig: null,
         /**
+         * Projects one persistent close action into each Dock tab header. Disabled by default;
+         * applications opt into model-authoritative close semantics explicitly.
+         * @member {Boolean} enableDockCloseAction=false
+         */
+        enableDockCloseAction: false,
+        /**
          * Index of the projected shell inside the dock host — `1` when one toolbar precedes it.
          * @member {Number} dockShellIndex=0
          */
@@ -154,6 +160,13 @@ class DockWorkspace extends Container {
      */
     construct(config) {
         super.construct(config);
+
+        if (this.enableDockCloseAction) {
+            // Closing a node's last item prunes its empty TabContainer. The surviving workspace
+            // root is therefore the semantic focus fallback and must accept programmatic focus.
+            this.vdom.tabIndex = -1
+        }
+
         this.dockPreviewProducer = Neo.create(DockPreviewProducer)
     }
 
@@ -279,6 +292,134 @@ class DockWorkspace extends Container {
      */
     getDockProjectionOptions() {
         return {}
+    }
+
+    /**
+     * Resolves the current Dock item from live tab order, never a closure-captured model index.
+     * The reconciler owns `dockItemIds`; the TabContainer owns `activeIndex`.
+     * @param {Neo.tab.Container|null} tabContainer
+     * @returns {String|null}
+     * @protected
+     */
+    getActiveDockItemId(tabContainer) {
+        let itemIds = tabContainer?.getTabBar()?.sortZoneConfig?.dockItemIds,
+            index   = tabContainer?.activeIndex;
+
+        return Array.isArray(itemIds) && Number.isInteger(index) ? itemIds[index] ?? null : null
+    }
+
+    /**
+     * Synchronizes one retained close action against the live active item and committed policy.
+     * Hidden-state changes stay on the stable action instance so Overflow receives its existing
+     * `actionVisibilityChange` signal instead of an action-group replacement.
+     * @param {Neo.tab.Container|null} tabContainer
+     * @protected
+     */
+    syncDockCloseAction(tabContainer) {
+        let action = tabContainer?.getActionItem?.('close'),
+            itemId = this.getActiveDockItemId(tabContainer),
+            hidden = !itemId || this.dockModel?.items?.[itemId]?.closable === false;
+
+        action && action.hidden !== hidden && (action.hidden = hidden)
+    }
+
+    /**
+     * Synchronizes every projected close action after reconciliation, including retained tabs
+     * whose action instance outlived a model-policy or active-item change.
+     * @param {Map<String,Neo.tab.Container>|null} [tabs=null]
+     * @protected
+     */
+    syncDockCloseActions(tabs=null) {
+        let projectedTabs = tabs;
+
+        if (!projectedTabs) {
+            let shell = this.getDockHost()?.items?.[this.dockShellIndex];
+
+            projectedTabs = shell ? DockProjectionReconciler.collectProjectedTabs(shell) : new Map()
+        }
+
+        projectedTabs?.forEach?.(tab => this.syncDockCloseAction(tab))
+    }
+
+    /**
+     * Updates close availability when the user changes the live active tab without committing a
+     * Dock document operation.
+     * @param {Object} data
+     * @param {Neo.component.Base|null} [data.item]
+     * @param {Neo.tab.Container|null} [data.tabContainer]
+     */
+    onDockActiveIndexChange({item, tabContainer}={}) {
+        this.syncDockCloseAction(tabContainer || item?.parent?.parent || null)
+    }
+
+    /**
+     * Routes one persistent header action through the model and the class-owned projection chain.
+     * Live reconciled order owns the close target at dispatch time. The current model locates that
+     * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
+     * is chained onto `refreshPromise`, so it cannot reach chrome the reconciler retires.
+     * @param {Object} data
+     * @param {String} data.action
+     * @param {String} data.dockNodeId
+     * @param {Neo.tab.Container} data.tabContainer
+     * @returns {{document:Object,errors:String[]}|null}
+     */
+    onDockHeaderAction({action, dockNodeId, tabContainer}={}) {
+        if (action !== 'close' || !this.enableDockCloseAction) return null;
+
+        let me     = this,
+            itemId = me.getActiveDockItemId(tabContainer);
+
+        if (!itemId) {
+            return {document: me.dockModel, errors: ['Dock close action requires an active item']}
+        }
+
+        if (!me.dockModel) {
+            return {document: me.dockModel, errors: ['Dock close action requires a committed document']}
+        }
+
+        let modelNodeId = DockZoneModel.findContainingTabsId(me.dockModel, itemId) || dockNodeId,
+            descriptor  = {operation: 'closeItem', itemId},
+            result      = me.applyDockZoneOperation(descriptor);
+
+        if (result && !result.errors?.length && result.document) {
+            let focusId = result.document.nodes?.[modelNodeId]?.activeItemId ?? null;
+
+            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer);
+            me.refreshPromise = me.refreshPromise.then(() => {
+                me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId})
+            })
+        }
+
+        return result
+    }
+
+    /**
+     * Focuses the committed close successor after reconciliation. The exact item id is resolved
+     * back through the reconciled `dockItemIds`; an empty tabs node focuses its own root.
+     * @param {Object} data
+     * @param {String} data.dockNodeId
+     * @param {String|null} data.itemId
+     * @protected
+     */
+    focusDockCloseTarget({dockNodeId, itemId}={}) {
+        let tabContainer = this.getDockHost()?.down?.({dockNodeId});
+
+        if (!tabContainer) {
+            this.focus();
+            return
+        }
+
+        if (itemId) {
+            let itemIds = tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || [],
+                index   = itemIds.indexOf(itemId);
+
+            if (index > -1) {
+                tabContainer.getTabButtons()[index]?.focus();
+                return
+            }
+        }
+
+        tabContainer.focus()
     }
 
     /**
@@ -490,6 +631,9 @@ class DockWorkspace extends Container {
             config = DockLayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
+                enableDockCloseAction    : me.enableDockCloseAction,
+                onDockActiveIndexChange  : me.onDockActiveIndexChange.bind(me),
+                onDockHeaderAction       : me.onDockHeaderAction.bind(me),
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
@@ -591,6 +735,8 @@ class DockWorkspace extends Container {
             shellIndex    : me.dockShellIndex,
             waitForOverflowProjection
         });
+
+        me.syncDockCloseActions(result?.currentTabs);
 
         // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and
         // plays; the counted motion signal brackets the awaited animation window. Gate on the

@@ -1269,6 +1269,51 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             const {document, errors} = DockZoneModel.closeItem(doc(), {itemId: 'terminal'});
             expect(errors).toEqual([]);
             expect(document.items.terminal).toBeUndefined()
+        });
+
+        test('closeItem rejects explicit non-closable policy without changing one byte', () => {
+            const input = doc();
+
+            input.items.swarm.closable = false;
+
+            const snapshot           = JSON.stringify(input),
+                  {document, errors} = DockZoneModel.closeItem(input, {itemId: 'swarm'});
+
+            expect(errors).toEqual(['item "swarm" is not closable']);
+            expect(document).toBe(input);
+            expect(JSON.stringify(input)).toBe(snapshot)
+        });
+
+        test('closeItem selects the item at the closed index, then the preceding item, then null', () => {
+            const createCloseDocument = () => {
+                const input = doc();
+
+                input.nodes['main-tabs'].items        = ['strategy', 'swarm', 'inspector'];
+                input.nodes['main-tabs'].activeItemId = 'strategy';
+
+                return input
+            };
+
+            const first = DockZoneModel.closeItem(createCloseDocument(), {itemId: 'strategy'});
+            expect(first.errors).toEqual([]);
+            expect(first.document.nodes['main-tabs'].items).toEqual(['swarm', 'inspector']);
+            expect(first.document.nodes['main-tabs'].activeItemId).toBe('swarm');
+
+            const middle = DockZoneModel.closeItem(createCloseDocument(), {itemId: 'swarm'});
+            expect(middle.errors).toEqual([]);
+            expect(middle.document.nodes['main-tabs'].items).toEqual(['strategy', 'inspector']);
+            expect(middle.document.nodes['main-tabs'].activeItemId).toBe('inspector');
+
+            const last = DockZoneModel.closeItem(createCloseDocument(), {itemId: 'inspector'});
+            expect(last.errors).toEqual([]);
+            expect(last.document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+            expect(last.document.nodes['main-tabs'].activeItemId).toBe('swarm');
+
+            const only = DockZoneModel.closeItem(doc(), {itemId: 'terminal'});
+            expect(only.errors).toEqual([]);
+            expect(only.document.items.terminal).toBeUndefined();
+            expect(only.document.nodes['side-tabs']).toBeUndefined();
+            expect(only.document.nodes.root.zones.right).toBeUndefined()
         })
     });
 

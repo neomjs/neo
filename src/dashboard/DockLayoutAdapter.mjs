@@ -342,6 +342,10 @@ class DockLayoutAdapter extends Base {
      *     conversion policy. Consumers keep this false until their physical lifecycle is ready.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
+     * @param {Boolean} [options.enableDockCloseAction=false] Projects one persistent close action
+     *     into every tabs header. The workspace owns the effect and policy synchronization.
+     * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
+     * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
@@ -393,6 +397,7 @@ class DockLayoutAdapter extends Base {
             // terminal; the projection only threads the opt-in + the closure seams. Absent = fully
             // in-window, the unchanged default.
             dockTearOutBoundaryContainerId   : options.dockTearOutBoundaryContainerId ?? null,
+            enableDockCloseAction            : options.enableDockCloseAction === true,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
             items                            : model.items || {},
@@ -400,6 +405,8 @@ class DockLayoutAdapter extends Base {
             onDockCrossZoneDragCancel        : options.onDockCrossZoneDragCancel,
             onDockCrossZoneDragMove          : options.onDockCrossZoneDragMove,
             onDockCrossZoneDrop              : options.onDockCrossZoneDrop,
+            onDockActiveIndexChange          : options.onDockActiveIndexChange,
+            onDockHeaderAction               : options.onDockHeaderAction,
             onDockStackDragTerminal          : options.onDockStackDragTerminal,
             onDockTearOutCancel              : options.onDockTearOutCancel,
             onDockTearOutEntry               : options.onDockTearOutEntry,
@@ -820,11 +827,14 @@ class DockLayoutAdapter extends Base {
                 ? allItems.filter(itemId => !context.railedItemIds.has(itemId))
                 : allItems,
             activeIndex = items.length ? items.indexOf(node.activeItemId) : null,
-            projectedItems;
+            projectedItems,
+            activeItemId;
 
         if (activeIndex < 0) {
             activeIndex = items.length ? 0 : null
         }
+
+        activeItemId = Number.isInteger(activeIndex) ? items[activeIndex] : null;
 
         // One-use operation correlation: only a real addTab's exact target header receives
         // the dashboard-owned producer. Whole-stack projection additionally overlays the active
@@ -846,6 +856,17 @@ class DockLayoutAdapter extends Base {
             cls         : ['neo-dashboard-dock-tabs'],
             dockNodeId  : nodeId,
             dockNodeType: 'tabs',
+            ...(context.enableDockCloseAction && {
+                headerActions: [{
+                    action    : 'close',
+                    contextual: false,
+                    hidden    : !activeItemId || context.items[activeItemId]?.closable === false,
+                    iconCls   : 'fa fa-times'
+                }],
+                // The empty-tabs fallback receives focus after its last close. A plain div cannot
+                // own programmatic focus, so the opt-in makes the projected root focusable.
+                vdom: {tabIndex: -1}
+            }),
             // Reuse the EXISTING tab-header SortZone for the gesture — no parallel drag system:
             // `dragResortable` makes the headers draggable, and the `moveTo` the container fires on drop
             // commits the reorder into the COMMITTED dock model through the landed operation seam. The
@@ -900,6 +921,16 @@ class DockLayoutAdapter extends Base {
             },
             items    : projectedItems,
             listeners: {
+                activeIndexChange: data => context.onDockActiveIndexChange?.({
+                    ...data,
+                    dockNodeId  : nodeId,
+                    tabContainer: data.item?.parent?.parent ?? null
+                }),
+                headerAction: data => {
+                    if (data.action === 'close') {
+                        context.onDockHeaderAction?.({...data, dockNodeId: nodeId})
+                    }
+                },
                 // Cancel is a gesture lifecycle signal, not a synthetic drop: the workspace clears
                 // transient affordances while the sort zone restores its captured layout.
                 dockCrossZoneDragCancel: data => context.onDockCrossZoneDragCancel?.(data),

@@ -38,16 +38,25 @@ test.describe('dock tab-overflow floating control', () => {
         // It carries the ellipsis affordance.
         await expect(control.locator('.fa-ellipsis')).toHaveCount(1);
 
-        // Owner-EXACT geometry: the control's right edge + top align (within 2px) to its owner toolbar — the
-        // one carrying 'Strategy' — NOT a stale pre-settle position. This requires the
-        // `.neo-button.neo-floating { position: fixed }` cascade fix; without it the control is pinned to its
-        // offsetParent instead of the viewport and lands at the wrong coordinates.
+        // Owner-EXACT geometry: the control's right edge aligns (within 2px) immediately before the
+        // persistent Dock close-action rail, and its top aligns to that action inside the toolbar
+        // carrying 'Strategy' — NOT a stale pre-settle position. This requires the
+        // `.neo-button.neo-floating { position: fixed }` cascade fix; without it the control is pinned
+        // to its offsetParent instead
+        // of the viewport and lands at the wrong coordinates.
         const mainToolbar = page.locator('.neo-tab-header-toolbar').filter({ hasText: 'Strategy' }).first(),
-              controlBox  = await control.boundingBox(),
-              toolbarBox  = await mainToolbar.boundingBox();
-        expect(Math.abs((controlBox.x + controlBox.width) - (toolbarBox.x + toolbarBox.width)),
-            'control right edge aligns to the toolbar right edge').toBeLessThanOrEqual(2);
-        expect(Math.abs(controlBox.y - toolbarBox.y), 'control top aligns to the toolbar top').toBeLessThanOrEqual(2);
+              closeAction = mainToolbar.getByRole('button', {name: 'close', exact: true});
+
+        await expect(closeAction).toBeVisible();
+
+        const controlBox = await control.boundingBox(),
+              actionBox  = await closeAction.boundingBox();
+
+        expect(Math.abs((controlBox.x + controlBox.width) - actionBox.x),
+            'control right edge aligns immediately before the Dock action rail').toBeLessThanOrEqual(2);
+        expect(Math.abs(controlBox.y - actionBox.y),
+            'control top aligns to the adjacent Dock action').toBeLessThanOrEqual(2);
+        await expect(mainToolbar.locator('.neo-toolbar-action.neo-draggable')).toHaveCount(0);
 
         // Clicking the control opens its dropdown menu of hidden tabs.
         await control.click();

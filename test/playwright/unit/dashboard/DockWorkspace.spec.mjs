@@ -192,6 +192,138 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
         expect(JSON.stringify(document)).toBe(before)
     });
 
+    test('the opt-in close action resolves live identity, commits once, preserves its instance and focuses after refresh', async () => {
+        const document = createDocument();
+
+        document.items.terminal.closable = false;
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: true
+        });
+
+        const
+            tabs         = tabsOf(workspace.items[0]),
+            side         = tabs.get('side-tabs'),
+            closeAction  = side.getActionItem('close'),
+            terminalTab  = side.getTabButtons()[1],
+            focusTargets = [],
+            commits      = [],
+            apply        = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+        terminalTab.focus = () => focusTargets.push('terminal');
+
+        expect(closeAction).toBeTruthy();
+        expect(closeAction.hidden).toBe(false);
+
+        await side.set({activeIndex: 1});
+        expect(closeAction.hidden, 'explicit false is projected into live availability').toBe(true);
+
+        const refused = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
+
+        expect(refused.errors).toEqual(['item "terminal" is not closable']);
+        expect(workspace.getDockZoneDocument()).toBe(document);
+        expect(workspace.refreshPromise).toBeNull();
+        expect(side.activeIndex).toBe(1);
+        expect(side.getActionItem('close')).toBe(closeAction);
+        expect(focusTargets).toEqual([]);
+
+        workspace.dockModel = null;
+
+        const noDocument = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
+
+        expect(noDocument.errors).toEqual(['Dock close action requires a committed document']);
+        expect(workspace.refreshPromise).toBeNull();
+        expect(focusTargets).toEqual([]);
+
+        workspace.dockModel = document;
+
+        await side.set({activeIndex: 0});
+        expect(closeAction.hidden).toBe(false);
+
+        closeAction.handler({component: closeAction});
+        await workspace.refreshPromise;
+
+        const retainedSide = tabsOf(workspace.items[0]).get('side-tabs');
+
+        expect(commits.map(item => item.itemId)).toEqual(['terminal', 'preview']);
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['terminal']);
+        expect(retainedSide).toBe(side);
+        expect(retainedSide.getActionItem('close')).toBe(closeAction);
+        expect(closeAction.hidden).toBe(true);
+        expect(focusTargets).toEqual(['terminal'])
+    });
+
+    test('a model-ahead close targets live chrome but focuses the model-selected successor', async () => {
+        const document = createDocument();
+
+        document.items.aux = {componentRef: 'Aux', title: 'Aux', kind: 'panel'};
+        document.nodes['side-tabs'].items.push('aux');
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: true
+        });
+
+        const
+            side       = tabsOf(workspace.items[0]).get('side-tabs'),
+            modelAhead = workspace.applyDockZoneOperation({
+                operation: 'moveItem', itemId: 'preview', targetNodeId: 'side-tabs', index: 2
+            }),
+            focusTargets = [];
+
+        expect(side.getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'terminal', 'aux']);
+        expect(modelAhead.document.nodes['side-tabs'].items).toEqual(['terminal', 'aux', 'preview']);
+
+        // Model commits are synchronous while projection is deferred. Preserve that exact window:
+        // live chrome still targets preview, while semantic successor policy already lives in the
+        // reordered document.
+        workspace.dockModel = modelAhead.document;
+        workspace.focusDockCloseTarget = data => focusTargets.push(data.itemId);
+
+        const closed = workspace.onDockHeaderAction({
+            action: 'close', dockNodeId: 'side-tabs', tabContainer: side
+        });
+
+        await workspace.refreshPromise;
+
+        expect(closed.errors).toEqual([]);
+        expect(closed.document.items.preview).toBeUndefined();
+        expect(closed.document.nodes['side-tabs'].activeItemId).toBe('aux');
+        expect(focusTargets).toEqual(['aux'])
+    });
+
+    test('closing a node\'s only item focuses the surviving DockWorkspace root after normalization prunes the tab shell', async () => {
+        const document = createDocument();
+
+        document.nodes['side-tabs'].items        = ['terminal'];
+        document.nodes['side-tabs'].activeItemId = 'terminal';
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel            : document,
+            enableDockCloseAction: true
+        });
+
+        const
+            side         = tabsOf(workspace.items[0]).get('side-tabs'),
+            closeAction  = side.getActionItem('close'),
+            focusTargets = [];
+
+        workspace.focus = () => focusTargets.push('workspace');
+
+        closeAction.handler({component: closeAction});
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes['side-tabs']).toBeUndefined();
+        expect(tabsOf(workspace.items[0]).has('side-tabs')).toBe(false);
+        expect(focusTargets).toEqual(['workspace']);
+        expect(workspace.vdom.tabIndex).toBe(-1)
+    });
+
     test('rapid commits advance the document synchronously and stage one transaction at a time', async () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 

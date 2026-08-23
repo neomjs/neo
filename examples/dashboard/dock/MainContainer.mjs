@@ -127,6 +127,11 @@ class MainContainer extends DockWorkspace {
          */
         dockProjectionConfig: {flex: 1},
         /**
+         * The standalone example opts into the engine-owned, model-authoritative close action.
+         * @member {Boolean} enableDockCloseAction=true
+         */
+        enableDockCloseAction: true,
+        /**
          * The perspective toolbar sits at index 0; the projected shell follows it.
          * @member {Number} dockShellIndex=1
          */
