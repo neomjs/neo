@@ -35,6 +35,14 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * 2. **Seat personal.** Identity + credentials load via `--env-file` from the seat's OWN `.env`
  *    (`NEO_AGENT_IDENTITY`, `GH_TOKEN`, provider keys). Node's `--env-file` never overwrites
  *    already-set vars, so explicit `environment` entries win where a caller needs them to.
+ *
+ *    **`XDG_DATA_HOME` is the seat-separation seam — not the OpenCode project list.** Provisioning a
+ *    second seat on one machine means giving it its own data home, because that is what separates the
+ *    wake envelope (`<XDG_DATA_HOME>/opencode/wake-envelope.json`), the session database and the
+ *    project registry. Two seats under one `HOME` share all three no matter how many projects the
+ *    desktop app displays — adding a project to an existing instance looks like separation and is
+ *    not. The hook below additionally stamps the envelope's writer so the wake reader can refuse
+ *    another seat's, but that check is a backstop for a shared data home, never a licence to run one.
  * 3. **The memory layer is the always-loaded slot — Grace-pattern.** OpenCode has no
  *    persistent auto-memory layer, so `instructions` carries the boot files (`MEMORY.md` +
  *    `identity.md`) into EVERY session. Detail files deliberately stay OUT of the array — each

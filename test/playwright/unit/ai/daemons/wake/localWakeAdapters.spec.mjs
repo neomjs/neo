@@ -451,8 +451,8 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         const kimiRecord     = () => record('kimi-pull-bridge');
 
         const openCodeEnvelope = JSON.stringify({
-            // Names the seat that WROTE it. Required since #17586 — the envelope path is per-seat
-            // only while each seat owns its XDG_DATA_HOME, so the file has to say whose it is.
+            // Names the seat that WROTE it. The envelope path is per-seat only while each seat owns
+            // its XDG_DATA_HOME, so the file has to say whose it is or a sharing seat inherits it.
             agentIdentity: '@neo-gpt',
             hostname     : '127.0.0.1',
             port         : 63181,
