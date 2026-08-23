@@ -1,5 +1,5 @@
 /**
- * @module test/playwright/unit/ai/services/denyCloudPlanePackages.loader
+ * @module ai/scripts/diagnostics/denyCloudPlanePackages.loader
  * @summary Resolve hook that denies cloud-plane-only packages, simulating a host install.
  *
  * The host plane gets `npm install`; the cloud plane additionally runs `npm run install-brain`
@@ -13,6 +13,11 @@
  *
  * Recovered from a closed, unmerged branch rather than rewritten — the original was reviewed and its
  * failure-code fidelity is the load-bearing part.
+ *
+ * Lives beside the plane-boundary proof rather than under `test/**` because it has two consumers now:
+ * the host-barrel spec and the proof's runtime-denial layer, and the latter is a production
+ * diagnostic that must not import an instrument out of the test tree. One loader, two consumers —
+ * a copy would fork exactly the failure-code fidelity described above.
  */
 
 const DENIED = (process.env.NEO_DENIED_PACKAGES || 'chromadb,better-sqlite3,@chroma-core/default-embed')

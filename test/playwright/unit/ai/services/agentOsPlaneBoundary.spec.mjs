@@ -10,6 +10,7 @@ import {
     injectDriverStub,
     materializeBoundaryFixture,
     runResolutionProof,
+    runRuntimeDenialProof,
     runStaticClosureProof
 } from '../../../../../ai/scripts/diagnostics/agentOsPlaneBoundaryProof.mjs';
 
@@ -26,7 +27,10 @@ import {
  * the resolver semantics under test are Node's real ones over real directories.
  */
 
-const FAKE_DRIVER = 'neo-proof-fake-driver';
+const
+    FAKE_DRIVER = 'neo-proof-fake-driver',
+    // spec -> services -> ai -> unit -> playwright -> test -> repo root
+    REPO_ROOT   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../..');
 
 /** @returns {String} A fresh scratch dir for one arm. */
 function scratchDir() {
@@ -403,5 +407,126 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
         });
 
         expect(result.topologyFindings.filter(f => f.identity === 'svc.mjs')).toHaveLength(1)
+    })
+});
+
+/**
+ * @summary Red-proofs the runtime-denial layer with an injected probe, so no arm spawns a process.
+ *
+ * The layer's whole claim is "every eligible Edge entrypoint imports cleanly while the Cloud-only
+ * packages are unresolvable" — and that is the shape a broken instrument produces for free, since a
+ * loader that never engages denies nothing and everything survives. Two controls exist to make the
+ * green mean something, and the arms below prove each one can actually turn the layer red.
+ */
+test.describe('C′ plane-boundary proof — runtime-denial layer arms (#17533)', () => {
+    const
+        CLOUD = ['chromadb', 'better-sqlite3'],
+
+        rows = [
+            // A REAL, readable entrypoint: the Edge-used-package control reads the survivor's own
+            // imports to build itself, so a fictional path would make the control unconstructible
+            // and every arm below would inherit that instrument error instead of its own result.
+            {identity: 'ai/scripts/agent-preflight.mjs', eligibility: 'eligible'},
+            {identity: 'ai/listener.mjs', eligibility: 'ineligible', reason: 'starts a persistent listener on import'}
+        ],
+
+        classesOf = result => [
+            ...result.instrumentErrors.map(entry => entry.class),
+            ...result.topologyFindings.map(finding => finding.class)
+        ].sort(),
+
+        /** Survives unless the target is named in `dies.targets`, or `dies.package` is denied. */
+        probeThat = dies => ({target, denied}) => {
+            const killed = (dies.targets || []).includes(target) || (dies.package && denied.includes(dies.package));
+
+            return killed
+                ? {survived: false, status: 1, stdout: `DENIED_AT_RUNTIME: DENIED_CLOUD_PLANE_PACKAGE: ${dies.package || 'chromadb'}`}
+                : {survived: true, status: 0, stdout: 'SURVIVED'}
+        },
+
+        run = overrides => runRuntimeDenialProof({
+            eligibilityRows  : rows,
+            cloudOnlyPackages: CLOUD,
+            projectRoot      : REPO_ROOT,
+            ...overrides
+        });
+
+    test('POSITIVE CONTROL: clean population yields only the ineligible carry-through, no instrument errors', () => {
+        const result = run({
+            cloudControlTarget: 'ai/cloud.mjs',
+            probe             : probeThat({targets: ['ai/cloud.mjs'], package: 'commander'})
+        });
+
+        expect(result.instrumentErrors).toEqual([]);
+        expect(classesOf(result)).toEqual([PROOF_CLASS.edgeProbeIneligible])
+    });
+
+    test('the CLOUD control surviving invalidates the run — and short-circuits before any Edge result', () => {
+        const result = run({
+            cloudControlTarget: 'ai/cloud.mjs',
+            probe             : () => ({survived: true, status: 0, stdout: 'SURVIVED'})
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.denialCloudControlSurvived]);
+        // No Edge rows are reported at all: with the denial unproven, every survival below would be
+        // a green that means nothing, and emitting them would launder that into a result.
+        expect(result.topologyFindings).toEqual([])
+    });
+
+    test('the EDGE-PACKAGE control surviving invalidates the run — the sharper of the two controls', () => {
+        const result = run({
+            cloudControlTarget: 'ai/cloud.mjs',
+            // Cloud entrypoint dies (denial reaches ITS imports) but nothing else ever dies, so the
+            // hook is missing the resolution path Edge code takes. The Cloud control alone passes.
+            probe             : probeThat({targets: ['ai/cloud.mjs']})
+        });
+
+        expect(result.instrumentErrors.map(entry => entry.class))
+            .toContain(PROOF_CLASS.denialEdgePackageControlSurvived)
+    });
+
+    test('an eligible Edge entrypoint denied at runtime is an exact, successor-owned topology finding', () => {
+        const result = run({
+            cloudControlTarget: 'ai/cloud.mjs',
+            // BOTH the cloud control and the Edge target die — the control must pass for the Edge
+            // denial below to be reportable at all.
+            probe             : probeThat({targets: ['ai/cloud.mjs', 'ai/scripts/agent-preflight.mjs'], package: 'commander'})
+        });
+
+        const denied = result.topologyFindings.find(finding => finding.class === PROOF_CLASS.edgeDeniedAtRuntime);
+
+        expect(denied.identity).toBe('ai/scripts/agent-preflight.mjs');
+        expect(denied.preRelocationBlocker).toBe(true);
+        expect(denied.successorOwner).toContain('#16202')
+    });
+
+    test('a target that dies WITHOUT a denial marker is an instrument error — never an accusation', () => {
+        const result = run({
+            cloudControlTarget: 'ai/cloud.mjs',
+            probe             : ({target}) => target === 'ai/scripts/agent-preflight.mjs'
+                ? {survived: false, status: 1, stdout: 'ReferenceError: Neo is not defined'}
+                : {survived: false, status: 1, stdout: 'DENIED_AT_RUNTIME: DENIED_CLOUD_PLANE_PACKAGE: chromadb'}
+        });
+
+        // A syntax error or an unrelated missing dependency would otherwise be reported as "this
+        // Edge entrypoint needs a Cloud package" — a false accusation that ships with an owner.
+        expect(result.instrumentErrors.map(entry => entry.class)).toContain(PROOF_CLASS.denialProbeFailure);
+        expect(result.topologyFindings.some(finding => finding.class === PROOF_CLASS.edgeDeniedAtRuntime)).toBe(false)
+    });
+
+    test('an INELIGIBLE entrypoint is never run, and carries its registry reason into the receipt', () => {
+        let   probed = false;
+        const result = run({
+            probe: ({target}) => {
+                if (target === 'ai/listener.mjs') probed = true;
+                return {survived: true, status: 0, stdout: 'SURVIVED'}
+            }
+        });
+
+        // Importing one starts a listener or spawns durable work — the population stays complete by
+        // recording the reason, so an ineligible target can never read as an untested one.
+        expect(probed).toBe(false);
+        expect(result.topologyFindings.find(finding => finding.class === PROOF_CLASS.edgeProbeIneligible).detail)
+            .toContain('starts a persistent listener on import')
     })
 });

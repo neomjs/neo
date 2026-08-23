@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {execFileSync, spawnSync} from 'node:child_process';
+import {isBuiltin}               from 'node:module';
 import fs                        from 'node:fs';
 import os                        from 'node:os';
 import path                      from 'node:path';
@@ -71,8 +72,10 @@ const
     __filename     = fileURLToPath(import.meta.url),
     PROJECT_ROOT   = path.resolve(path.dirname(__filename), '../../..'),
     BRAIN_MANIFEST = path.join(PROJECT_ROOT, 'package.brain.json'),
+    DENIAL_LOADER    = path.join(path.dirname(__filename), 'denyCloudPlanePackages.loader.mjs'),
     PROBE_BASENAME = 'resolve-probe.cjs',
     REGISTRY_REGION = 'ai',
+    PROBE_TIMEOUT_MS = 30000,
 
     /**
      * The probe deliberately prints ONLY machine-parseable verdict lines. `require.resolve` throwing
@@ -105,6 +108,11 @@ export const PROOF_CLASS = Object.freeze({
     closureOutOfRegistryRegion : 'topology-edge-closure-reaches-out-of-registry-region',
     closureUnregisteredModule  : 'topology-edge-closure-unregistered-module',
     closureUnresolvedEdge      : 'instrument-closure-unresolved-edge',
+    denialCloudControlSurvived      : 'instrument-runtime-denial-cloud-control-survived',
+    denialEdgePackageControlSurvived: 'instrument-runtime-denial-edge-package-control-survived',
+    denialProbeFailure              : 'instrument-runtime-denial-probe-failure',
+    edgeDeniedAtRuntime             : 'topology-edge-entrypoint-denied-under-cloud-denial',
+    edgeProbeIneligible             : 'topology-edge-entrypoint-runtime-probe-ineligible',
     edgePopulationInterim      : 'topology-edge-dependency-population-derived-not-authoritative',
     edgeResolvesCloudPackage   : 'topology-edge-resolves-cloud-package',
     emptyPopulation            : 'instrument-empty-manifest-population',
@@ -360,6 +368,218 @@ export function runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages}) {
  * @param {Function} [config.resolve]            `(specifier, fromFile) => String|null`.
  * @returns {{instrumentErrors: Object[], topologyFindings: Object[]}}
  */
+/**
+ * @summary Spawns one Edge entrypoint under a resolver that denies the Cloud-only packages, and
+ * reports whether it survived.
+ *
+ * Extracted from the host-barrel spec rather than reimplemented — the ticket's reuse AC is not
+ * stylistic here: the loader's `ERR_MODULE_NOT_FOUND` fidelity is what makes the child unable to
+ * tell simulated absence from real absence, and a second copy would drift from it silently.
+ *
+ * `NODE_OPTIONS` is cleared for the reason the sibling documents: an inherited harness loader makes
+ * the child resolve through the harness instead of the denial hook, and the probe then proves
+ * nothing while looking green. The 400ms settle is likewise load-bearing — a target whose failure
+ * arrives on a later microtask would otherwise exit 0 before its rejection lands.
+ *
+ * @param {Object}   config
+ * @param {String}   config.target      Repo-relative module to import in the spawned child.
+ * @param {String[]} config.denied      Package specifiers the resolve hook must refuse.
+ * @param {String}   [config.projectRoot=PROJECT_ROOT]
+ * @returns {{survived: Boolean, stdout: String, status: Number}}
+ */
+export function readSource(absPath) {
+    try { return fs.readFileSync(absPath, 'utf8') } catch { return null }
+}
+
+export function runDenialProbe({target, denied, projectRoot = PROJECT_ROOT}) {
+    const
+        dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-plane-denial-probe-')),
+        probeJs = path.join(dir, 'probe.mjs'),
+        regJs   = path.join(dir, 'register.mjs');
+
+    fs.writeFileSync(probeJs, [
+        "process.on('unhandledRejection', e => {",
+        "    console.log('DENIED_AT_RUNTIME: ' + (e && e.message));",
+        '    process.exit(1);',
+        '});',
+        'await import(process.env.NEO_PROBE_TARGET);',
+        'await new Promise(r => setTimeout(r, 400));',
+        "console.log('SURVIVED');",
+        'process.exit(0);',
+        ''
+    ].join('\n'));
+
+    fs.writeFileSync(regJs, [
+        "import {register} from 'node:module';",
+        "import {pathToFileURL} from 'node:url';",
+        `register(${JSON.stringify(DENIAL_LOADER)}, pathToFileURL('./'));`,
+        ''
+    ].join('\n'));
+
+    try {
+        const result = spawnSync(process.execPath, ['--import', regJs, probeJs], {
+            cwd     : projectRoot,
+            encoding: 'utf8',
+            stdio   : ['ignore', 'pipe', 'pipe'],
+            timeout : PROBE_TIMEOUT_MS,
+            env     : {
+                ...process.env,
+                NODE_OPTIONS       : '',
+                NEO_DENIED_PACKAGES: denied.join(','),
+                NEO_PROBE_TARGET   : path.join(projectRoot, target)
+            }
+        });
+
+        return {
+            survived: result.status === 0 && /SURVIVED/.test(`${result.stdout || ''}`),
+            status  : result.status,
+            stdout  : `${result.stdout || ''}${result.stderr || ''}`.trim()
+        }
+    } finally {
+        fs.rmSync(dir, {recursive: true, force: true})
+    }
+}
+
+/**
+ * @summary Runs the runtime-denial layer: every ELIGIBLE Edge entrypoint must import cleanly while
+ * the Cloud-only packages are unresolvable, and the two controls must prove the denial is real.
+ *
+ * ## Why a survival result means nothing without both controls
+ *
+ * "Every Edge entrypoint survived Cloud denial" is the shape of a green that a broken instrument
+ * produces for free — a loader that never engages denies nothing and everything survives. So two
+ * controls run alongside, and either failing makes the whole layer an INSTRUMENT error rather than
+ * a topology result:
+ *
+ * - **Cloud positive control** — a Cloud-dispositioned entrypoint is probed under the same denial
+ *   and MUST die. If it survives, the denial is not reaching imports at all.
+ * - **Edge-used-package control** — one Edge entrypoint is re-probed with a package it genuinely
+ *   imports added to the denied set, and MUST die. This is the sharper of the two: the Cloud
+ *   control can pass while the hook still misses the specific resolution path Edge code takes.
+ *
+ * Ineligible entrypoints are NOT run — importing one starts a listener, parses argv, or spawns
+ * durable work. Their registry reason is carried into the receipt instead, so the population stays
+ * complete and an ineligible target can never be mistaken for an untested one.
+ *
+ * @param {Object}   config
+ * @param {Object[]} config.eligibilityRows Reconciled runtime-probe-eligibility rows.
+ * @param {String[]} config.cloudOnlyPackages
+ * @param {String}   [config.cloudControlTarget] A Cloud entrypoint that must die under denial.
+ * @param {String}   [config.projectRoot=PROJECT_ROOT]
+ * @param {Function} [config.probe=runDenialProbe] Injected for the spec's arms.
+ * @returns {{instrumentErrors: Object[], topologyFindings: Object[]}}
+ */
+export function runRuntimeDenialProof({
+    eligibilityRows,
+    cloudOnlyPackages,
+    cloudControlTarget = null,
+    projectRoot        = PROJECT_ROOT,
+    probe              = runDenialProbe
+}) {
+    const
+        instrumentErrors = [],
+        topologyFindings = [],
+        denied           = [...cloudOnlyPackages].sort();
+
+    if (cloudControlTarget) {
+        const control = probe({target: cloudControlTarget, denied, projectRoot});
+
+        if (control.survived) {
+            instrumentErrors.push({
+                class   : PROOF_CLASS.denialCloudControlSurvived,
+                identity: cloudControlTarget,
+                detail  : 'a Cloud entrypoint survived Cloud-package denial — the loader is not reaching imports, so every Edge survival below is vacuous'
+            });
+
+            return {instrumentErrors, topologyFindings}
+        }
+    }
+
+    for (const row of [...eligibilityRows].sort((a, b) => a.identity.localeCompare(b.identity))) {
+        if (row.eligibility !== 'eligible') {
+            topologyFindings.push({
+                class               : PROOF_CLASS.edgeProbeIneligible,
+                identity            : row.identity,
+                detail              : `not run under denial — ${row.reason || 'no reason recorded'}`,
+                successorOwner      : 'the runtime-probe eligibility authority',
+                preRelocationBlocker: false
+            });
+
+            continue
+        }
+
+        const result = probe({target: row.identity, denied, projectRoot});
+
+        if (!result.survived) {
+            const died = /DENIED_CLOUD_PLANE_PACKAGE|DENIED_AT_RUNTIME|ERR_MODULE_NOT_FOUND/.test(result.stdout);
+
+            // A target that died for a reason OTHER than the denial is an instrument problem, not a
+            // topology one: a syntax error or a missing unrelated dependency would otherwise be
+            // reported as "Edge needs a Cloud package", which is a false accusation with an owner.
+            (died ? topologyFindings : instrumentErrors).push(died ? {
+                class               : PROOF_CLASS.edgeDeniedAtRuntime,
+                identity            : row.identity,
+                detail              : result.stdout.split('\n').find(line => /DENIED/.test(line)) || 'denied under Cloud-package denial',
+                successorOwner      : 'store-edge severance leaves (#16202 / #17627)',
+                preRelocationBlocker: true
+            } : {
+                class   : PROOF_CLASS.denialProbeFailure,
+                identity: row.identity,
+                detail  : `exited ${result.status} without a denial marker — instrument problem, not a topology finding: ${result.stdout.slice(0, 200)}`
+            })
+        }
+    }
+
+    // The Edge-used-package control runs LAST and is self-calibrating, because a hand-picked
+    // control target is a guess that rots: pick one that already dies under plain denial and the
+    // control proves nothing. So it re-probes an actual SURVIVOR with a package that survivor
+    // genuinely imports, which is the only version of this control that can discriminate "the hook
+    // reaches Edge's resolution path" from "the hook reached the Cloud entrypoint's".
+    //
+    // A survivor is required for it to run at all. Zero survivors is not a silent skip — it is
+    // reported, because "every eligible Edge entrypoint was denied" is exactly the result a
+    // catastrophically broken instrument also produces.
+    const survivors = eligibilityRows
+        .filter(row => row.eligibility === 'eligible')
+        .map(row => row.identity)
+        .filter(identity => !topologyFindings.some(finding =>
+            finding.class === PROOF_CLASS.edgeDeniedAtRuntime && finding.identity === identity) &&
+            !instrumentErrors.some(error => error.identity === identity));
+
+    if (survivors.length > 0) {
+        const
+            target = survivors[0],
+            source = readSource(path.join(projectRoot, target)),
+            // `isBuiltin`, not a `node:` prefix test: `normalizeSpecifier` STRIPS that prefix, so
+            // `node:child_process` arrives as `child_process` and a prefix check waves every
+            // builtin through. Denying a builtin is not a control — the loader would refuse
+            // something Node resolves internally and the arm would prove nothing about packages.
+            ownPkg  = source && collectModuleFacts(source).imports
+                .map(normalizeSpecifier)
+                .find(name => name && !name.startsWith('.') && !isBuiltin(name) && !denied.includes(name));
+
+        if (!ownPkg) {
+            instrumentErrors.push({
+                class   : PROOF_CLASS.denialEdgePackageControlSurvived,
+                identity: target,
+                detail  : 'no external package import found on the chosen survivor, so the Edge-used-package control cannot be constructed — Edge survivals are unlicensed'
+            })
+        } else {
+            const control = probe({target, denied: [...denied, ownPkg].sort(), projectRoot});
+
+            if (control.survived) {
+                instrumentErrors.push({
+                    class   : PROOF_CLASS.denialEdgePackageControlSurvived,
+                    identity: `${target} → ${ownPkg}`,
+                    detail  : 'an Edge entrypoint survived denial of a package it imports — the hook misses the resolution path Edge code takes, so every Edge survival above is vacuous'
+                })
+            }
+        }
+    }
+
+    return {instrumentErrors, topologyFindings}
+}
+
 export function runStaticClosureProof({
     entrypoints,
     dispositionByIdentity,
@@ -578,6 +798,7 @@ async function main() {
     program
         .option('--json', 'Emit the machine receipt JSON on stdout.')
         .option('--keep-fixture', 'Skip fixture cleanup, print its path for inspection.')
+        .option('--skip-runtime', 'Skip the runtime-denial layer (it spawns one child per eligible entrypoint).')
         .parse(process.argv);
 
     const
@@ -632,6 +853,23 @@ async function main() {
 
         instrumentErrors.push(...closure.instrumentErrors);
         topologyFindings.push(...closure.topologyFindings);
+
+        if (!options.skipRuntime) {
+            // The Cloud control is a Cloud-DISPOSITIONED launch root, taken from the registry rather
+            // than named here: a hardcoded control target rots the moment custody changes, and this
+            // one has to die for any Edge survival below to mean anything.
+            const
+                cloudControl = inventory.launchRoots.rows.find(row => row.disposition === 'cloud'),
+                denial       = runRuntimeDenialProof({
+                    eligibilityRows   : inventory.runtimeProbeEligibility.rows || [],
+                    cloudOnlyPackages : cloudOnly,
+                    cloudControlTarget: cloudControl?.identity ?? null,
+                    projectRoot       : PROJECT_ROOT
+                });
+
+            instrumentErrors.push(...denial.instrumentErrors);
+            topologyFindings.push(...denial.topologyFindings)
+        }
 
         const receipt = buildReceipt({
             instrumentErrors,

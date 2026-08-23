@@ -10,7 +10,10 @@ const
     __dirname  = path.dirname(__filename),
     // services -> ai -> unit -> playwright -> test -> repo root
     REPO_ROOT  = path.resolve(__dirname, '../../../../..'),
-    LOADER     = path.join(__dirname, 'denyCloudPlanePackages.loader.mjs'),
+    // Lives beside the plane-boundary proof: that proof is a PRODUCTION diagnostic and a
+    // second consumer of this loader, and it cannot import an instrument out of `test/**`. One
+    // loader, two consumers — a copy would fork the ERR_MODULE_NOT_FOUND fidelity that is its point.
+    LOADER     = path.join(REPO_ROOT, 'ai/scripts/diagnostics/denyCloudPlanePackages.loader.mjs'),
 
     /**
      * The full cloud-only population. Two are static edges; `better-sqlite3` is not, which is
