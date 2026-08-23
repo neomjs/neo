@@ -11,6 +11,7 @@ import BenchmarkSystemReporter, {
 
 const launchExit = ({
     exitCode = 'null',
+    launchCommand = null,
     pid = 4242,
     prefix = 'Error: browserType.launch: Failed to launch the browser process.',
     signal = 'SIGABRT'
@@ -18,9 +19,10 @@ const launchExit = ({
     prefix,
     'Browser logs:',
     '',
+    launchCommand ? `<launching> ${launchCommand}` : null,
     `<launched> pid=${pid}`,
     `[pid=${pid}] <process did exit: exitCode=${exitCode}, signal=${signal}>`
-].join('\n');
+].filter(Boolean).join('\n');
 
 /**
  * @summary Coverage for the bounded E2E browser-launch lifecycle receipt.
@@ -87,6 +89,17 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
         });
         expect(classifyBrowserLaunchExit(launchExit())).toMatchObject({
             launchMode: 'unknown'
+        });
+
+        expect(classifyBrowserLaunchExit(launchExit({
+            launchCommand: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless --no-sandbox'
+        }), {browserName: 'chromium', headless: false})).toMatchObject({
+            launchMode: 'headless'
+        });
+        expect(classifyBrowserLaunchExit(launchExit({
+            launchCommand: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --no-sandbox'
+        }), {browserName: 'chromium', headless: true})).toMatchObject({
+            launchMode: 'headed'
         })
     });
 
@@ -191,7 +204,7 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
             error                = {
                 message: [
                     launchExit(),
-                    '<launching> /Applications/Google Chrome.app --user-data-dir=/private/profile',
+                    '<launching> /Applications/Google Chrome.app --headless --user-data-dir=/private/profile',
                     'https://private.example.test secret-window-title'
                 ].join('\n')
             };

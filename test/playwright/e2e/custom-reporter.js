@@ -6,6 +6,8 @@ import {isEngineProfile} from './utils/gpuIntent.mjs';
 
 const
   ANSI_ESCAPE_PATTERN = /\u001B\[[0-?]*[ -/]*[@-~]/g,
+  HEADLESS_TOKEN_PATTERN = /(?:^|\s)-{1,2}headless(?:=[^\s]+)?(?=\s|$)/,
+  LAUNCH_COMMAND_PATTERN = /^<launching>\s+(.+)$/m,
   MACH_SERVICE_PERMISSION_TOKEN = 'Permission denied (1100)',
   PROCESS_EXIT_PATTERN = /\[pid=(\d+)]\s+<process did exit: exitCode=([^,>]+), signal=([^>]+)>/;
 
@@ -29,11 +31,20 @@ export function resolveBrowserKind({browserName = null, channel = null} = {}) {
 }
 
 /**
- * @summary Resolves the launch-mode enum only when Playwright supplied the effective headless flag.
+ * @summary Resolves launch mode from the observed command without retaining its path or arguments.
+ * @param {String} text ANSI-free Playwright error text.
  * @param {Boolean|null} [headless=null]
+ * @param {String} [browserKind='unknown']
  * @returns {'headed'|'headless'|'unknown'}
  */
-function resolveLaunchMode(headless = null) {
+function resolveLaunchMode(text, headless = null, browserKind = 'unknown') {
+  const launchCommand = text.match(LAUNCH_COMMAND_PATTERN)?.[1];
+
+  if (launchCommand) {
+    if (HEADLESS_TOKEN_PATTERN.test(launchCommand)) return 'headless';
+    if (browserKind !== 'unknown') return 'headed'
+  }
+
   return headless === true ? 'headless' : headless === false ? 'headed' : 'unknown'
 }
 
@@ -98,14 +109,15 @@ export function classifyBrowserLaunchExit(error, {
     permissionDenied = text.includes(MACH_SERVICE_PERMISSION_TOKEN),
     cause = permissionDenied
       ? 'macos-mach-service-permission-denied'
-      : 'unclassified-process-exit';
+      : 'unclassified-process-exit',
+    browserKind = resolveBrowserKind({browserName, channel});
 
   return {
     classification          : 'browser-launch-process-exit',
     project,
     channel,
-    browserKind             : resolveBrowserKind({browserName, channel}),
-    launchMode              : resolveLaunchMode(headless),
+    browserKind,
+    launchMode              : resolveLaunchMode(text, headless, browserKind),
     profile,
     processId               : Number(match[1]),
     exitCode,
