@@ -11,10 +11,15 @@ import TreeBuilder   from '../util/vdom/TreeBuilder.mjs';
  * {@link #bufferRowRange} rows on either side is mounted between two stable spacers.
  *
  * Physical pool slots and logical records are different identities. Slot ids never encode a record;
- * `data.recordId` does. Surviving records retain their slot across scroll, prepend, sort, and filter
- * whenever possible, while the vdom orders those slots by logical Store position so assistive
- * technology reads the same order the operator sees. Moving a range edge therefore rotates/rebinds
- * bounded slots; it never creates one component per Store record.
+ * `data.recordId` does. A slot belongs to one mounted-range offset, keeping `[slot-0 … slot-N]` in
+ * invariant DOM order while records rebind through Store position. Assistive technology therefore
+ * reads the same order the operator sees without structural VDOM moves. Moving a range edge updates
+ * bounded slot contents; it never creates one component per Store record.
+ *
+ * Focus follows logical record identity when that record remains mounted. If it leaves the pooled
+ * range, focus retargets to the nearest mounted logical record and `focusIndex` changes with it. This
+ * keeps DOM focus and worker state coherent without snapping the operator's scroll position back to
+ * an offscreen record.
  *
  * Consumers that need component rows provide {@link #itemConfig}: an object or function returning a
  * component config. The component is created once per physical slot and receives the current record
@@ -246,9 +251,9 @@ class Buffered extends ComponentList {
     }
 
     /**
-     * Assigns current-range records to a bounded pool. A surviving record keeps its old physical
-     * slot; only entrants consume freed slots. The returned descriptors remain in logical order so
-     * DOM reading order matches visual/Store order even when slot ids rotate.
+     * Assigns current-range records to fixed physical slots by mounted-range offset. The physical
+     * slot order is invariant while Store records rebind, so logical/DOM reading order stays aligned
+     * without `moveNode`, `insertNode`, or `removeNode` deltas during steady-state range movement.
      * @param {Object[]} records
      * @param {Number} start Logical start index.
      * @param {Number} poolSize
@@ -257,28 +262,11 @@ class Buffered extends ComponentList {
      */
     assignPoolSlots(records, start, poolSize) {
         let me          = this,
-            assignments = records.map((record, offset) => ({
-                logicalIndex: start + offset,
-                poolIndex   : null,
+            assignments = records.slice(0, poolSize).map((record, poolIndex) => ({
+                logicalIndex: start + poolIndex,
+                poolIndex,
                 record
-            })),
-            used        = new Set(),
-            freeSlots;
-
-        assignments.forEach(item => {
-            const slot = me.recordSlotMap.get(me.toRecordMapKey(me.getRecordId(item.record)));
-
-            if (slot !== undefined && slot < poolSize && !used.has(slot)) {
-                item.poolIndex = slot;
-                used.add(slot)
-            }
-        });
-
-        freeSlots = Array.from({length: poolSize}, (_, index) => index).filter(index => !used.has(index));
-
-        assignments.forEach(item => {
-            item.poolIndex ??= freeSlots.shift()
-        });
+            }));
 
         me.recordSlotMap = new Map();
         me.slotRecordIds = Array(poolSize).fill(null);
@@ -378,6 +366,8 @@ class Buffered extends ComponentList {
             records.push(store.getAt(index))
         }
 
+        const focusState = me.captureItemFocusState();
+
         me.trimComponentPool(poolSize);
 
         const assignments = me.assignPoolSlots(records, range[0], poolSize),
@@ -399,6 +389,7 @@ class Buffered extends ComponentList {
         }
 
         return me.promiseUpdate().then(data => {
+            me.restoreItemFocus(focusState);
             me.fire('createItems')
 
             return data
@@ -845,6 +836,84 @@ class Buffered extends ComponentList {
         }
 
         items.length = Math.min(items.length, poolSize)
+    }
+
+    /**
+     * Captures the logical record and physical slot which own focus before a range rebind. No slot
+     * means there is no mounted DOM target to reconcile after delivery.
+     * @returns {Object|null}
+     * @protected
+     */
+    captureItemFocusState() {
+        let me                  = this,
+            {focusIndex, store} = me;
+
+        if (focusIndex === null || !store) {
+            return null
+        }
+
+        const
+            logicalIndex = Neo.isNumber(focusIndex) ? focusIndex : store.indexOf(focusIndex),
+            record       = logicalIndex < 0 ? focusIndex : store.getAt(logicalIndex),
+            recordId     = record && me.getRecordId(record),
+            slot         = recordId === null || recordId === undefined
+                ? undefined
+                : me.recordSlotMap.get(me.toRecordMapKey(recordId));
+
+        return slot === undefined ? null : {focusIndex, logicalIndex, recordId, slot}
+    }
+
+    /**
+     * Reconciles DOM focus after fixed physical slots receive new logical records. A still-mounted
+     * focus owner moves to its new slot. An owner outside the range retargets to the nearest mounted
+     * logical record so the DOM target and `focusIndex` never describe different records. The main
+     * thread only performs the move while the captured old slot still owns browser focus.
+     * @param {Object|null} state Captured result from {@link #captureItemFocusState}.
+     * @protected
+     */
+    restoreItemFocus(state) {
+        if (!state) {
+            return
+        }
+
+        let me                         = this,
+            {store}                    = me,
+            [mountedStart, mountedEnd] = me.mountedRange,
+            slot                       = me.recordSlotMap.get(me.toRecordMapKey(state.recordId)),
+            logicalIndex;
+
+        if (!store || mountedStart === mountedEnd) {
+            me._focusIndex = null;
+            return
+        }
+
+        if (slot !== undefined) {
+            logicalIndex = mountedStart + slot
+        } else {
+            const record = store.get(state.recordId);
+
+            logicalIndex = record ? store.indexOf(record) : state.logicalIndex;
+            logicalIndex = Math.min(Math.max(logicalIndex < 0 ? mountedStart : logicalIndex, mountedStart), mountedEnd - 1);
+
+            const targetRecord = store.getAt(logicalIndex);
+
+            slot = targetRecord && me.recordSlotMap.get(me.toRecordMapKey(me.getRecordId(targetRecord)))
+        }
+
+        const retargeted = slot !== undefined && me.toRecordMapKey(me.slotRecordIds[slot]) !== me.toRecordMapKey(state.recordId);
+
+        if (retargeted || Neo.isNumber(state.focusIndex) && state.focusIndex !== logicalIndex) {
+            me._focusIndex = logicalIndex
+        }
+
+        if (slot !== undefined && slot !== state.slot) {
+            Neo.main.addon.Navigator.navigateTo({
+                data      : me.navigator,
+                fromTarget: me.getSlotId(state.slot),
+                target    : me.getSlotId(slot),
+                windowId  : me.windowId
+            })
+        }
     }
 
     /**

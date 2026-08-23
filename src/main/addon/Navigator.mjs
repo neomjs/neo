@@ -5,9 +5,9 @@ import DomUtils  from '../DomUtils.mjs';
 
 // We do not need to inject a synthesized "click" event when we detect an ENTER
 // keypress on these element types.
-const enterActivatedTags= {
-    A      : 1,
-    BUTTON : 1
+const enterActivatedTags = {
+    A     : 1,
+    BUTTON: 1
 };
 
 /**
@@ -53,11 +53,11 @@ class Navigator extends Base {
                 clientY = rect.y + (rect.height / 2);
 
             el.dispatchEvent(new MouseEvent('click', {
-                bubbles  : true,
-                altKey   : Neo.altKeyDown,
-                ctrlKey  : Neo.controlKeyDown,
-                metaKey  : Neo.metaKeyDown,
-                shiftKey : Neo.shiftKeyDown,
+                bubbles : true,
+                altKey  : Neo.altKeyDown,
+                ctrlKey : Neo.controlKeyDown,
+                metaKey : Neo.metaKeyDown,
+                shiftKey: Neo.shiftKeyDown,
                 clientX,
                 clientY
             }))
@@ -299,14 +299,24 @@ class Navigator extends Base {
      * Navigates to the passed target
      * @param {Object} config
      * @param {Object} config.data The data block as passed to {@link #subscribe}
+     * @param {HTMLElement|String} [config.fromTarget] Only navigate while browser focus is still
+     * inside this source target. This prevents asynchronous reconciliation from stealing focus.
      * @param {HTMLElement|Number|String} config.target The new active element, id or index
      */
     navigateTo(config) {
-        let {data, target} = config;
+        let {data, fromTarget, target} = config;
 
         if (!data.subject) {
             // If subject has been unmounted, we cannot navigate
             if (!(data = DomAccess.getElement(data.id)?.$navigator)) {
+                return
+            }
+        }
+
+        if (fromTarget !== undefined) {
+            fromTarget = typeof fromTarget === 'string' ? DomAccess.getElement(fromTarget) : fromTarget;
+
+            if (!this.isActiveTarget(fromTarget)) {
                 return
             }
         }
@@ -327,8 +337,8 @@ class Navigator extends Base {
 
         // Scroll the target into view smoothly before we focus it without triggering a scroll
         target.scrollIntoView({
-            behavior : 'smooth',
-            block    : 'nearest'
+            behavior: 'smooth',
+            block   : 'nearest'
         });
 
         // Find a focusable element which may be the item, or inside the item to draw focus to.
@@ -343,6 +353,18 @@ class Navigator extends Base {
         else {
             this.setActiveItem(target, data)
         }
+    }
+
+    /**
+     * Returns true when a target itself or one of its descendants owns browser focus.
+     * @param {HTMLElement|null} target
+     * @returns {Boolean}
+     * @protected
+     */
+    isActiveTarget(target) {
+        const activeElement = target?.ownerDocument?.activeElement;
+
+        return Boolean(target && (target === activeElement || target.contains?.(activeElement)))
     }
 
     /**
@@ -390,19 +412,19 @@ class Navigator extends Base {
         // navigating to the same element should get ignored
         if (data.activeItem !== data.previousActiveItem) {
             DomEvents.sendMessageToApp({
-                type                : 'neonavigate',
-                target              : data.id,
-                path                : [{
+                type  : 'neonavigate',
+                target: data.id,
+                path  : [{
                     id : data.id
                 }],
-                activeItem          : data.activeItem.id,
-                previousActiveItem  : data.previousActiveItem?.id,
-                activeIndex         : data.activeIndex,
-                previousActiveIndex : data.previousActiveIndex,
-                altKey              : Neo.altKeyDown,
-                ctrlKey             : Neo.controlKeyDown,
-                metaKey             : Neo.metaKeyDown,
-                shiftKey            : Neo.shiftKeyDown
+                activeItem         : data.activeItem.id,
+                previousActiveItem : data.previousActiveItem?.id,
+                activeIndex        : data.activeIndex,
+                previousActiveIndex: data.previousActiveIndex,
+                altKey             : Neo.altKeyDown,
+                ctrlKey            : Neo.controlKeyDown,
+                metaKey            : Neo.metaKeyDown,
+                shiftKey           : Neo.shiftKeyDown
             })
         }
 
@@ -472,8 +494,8 @@ class Navigator extends Base {
 
             // We have to know when the DOM mutates in case the active item is removed.
             (data.targetMutationMonitor = new MutationObserver(e => me.navigateTargetChildListChange(e, data))).observe(subject, {
-                childList : true,
-                subtree   : true
+                childList: true,
+                subtree  : true
             });
 
             eventSource.addEventListener('keydown', data.l1 = e => me.navigateKeyDownHandler(e, data));
