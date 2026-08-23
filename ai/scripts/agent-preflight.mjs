@@ -40,6 +40,40 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
     '## Deltas'
 ];
 
+/** The artifact that actually carries the full anchor list (both layers). */
+export const PR_TEMPLATE_ASSET = '.github/PULL_REQUEST_TEMPLATE.md';
+
+/** The workflow section mirroring the same list for hosted lint runs. */
+export const PULL_REQUEST_WORKFLOW_REFERENCE =
+    '.github/workflows/agent-pr-body-lint.yml — mirrors pull-request-workflow.md §9';
+
+/**
+ * Guidance emitted when the structural (silent) anchor layer finds misses.
+ *
+ * Contract: states that the layer is checked silently and DELIBERATELY, so a reader stops
+ * concluding the tool is broken; points at the artifact that actually carries the anchor
+ * list rather than one indirection short of it; never names, counts, or hints at which
+ * anchors are missing — the silence is the mechanism, not a gap. Controls must assert no
+ * anchor literal from either list appears anywhere in this output.
+ *
+ * ticket-ref-ok: #11501 + #15828 are load-bearing here — citing them beside the emitter is
+ * the fix; without them a reader cannot distinguish deliberate silence from a broken tool.
+ *
+ * @returns {String[]}
+ */
+export function buildStructuralAnchorMissGuidance() {
+    return [
+        'agent-preflight: structural template anchors were checked silently and deliberately.',
+        'agent-preflight: misses on this layer are never named, counted, or hinted at — that',
+        'agent-preflight: silence is an anti-Goodhart guard by operator direction: naming an',
+        'agent-preflight: anchor lets an agent paste it instead of reading the template.',
+        'agent-preflight: the full anchor list lives in:',
+        `agent-preflight:   - ${PR_TEMPLATE_ASSET}`,
+        `agent-preflight:   - ${PULL_REQUEST_WORKFLOW_REFERENCE}`,
+        'agent-preflight: reread those before editing the body.'
+    ];
+}
+
 const
     // A REAL level-two heading on its own line. `indexOf` would anchor on the first substring, so a
     // body that merely quotes the heading in prose or a fenced block would have its section read
@@ -1293,7 +1327,9 @@ export function runAgentPreflight({
                 result.missingVisible.forEach(anchor => writeLine(stderr, `  - ${anchor}`));
             }
             if (result.missingInvisible.length > 0) {
-                writeLine(stderr, 'Structural template anchors are missing; reread .agents/skills/pull-request/SKILL.md before editing the body.');
+                // Deliberately generic about WHICH anchors missed — see the guidance builder's
+                // contract above; enumerating here would defeat the anti-stuffing guard.
+                buildStructuralAnchorMissGuidance().forEach(line => writeLine(stderr, line));
             }
         }
 
