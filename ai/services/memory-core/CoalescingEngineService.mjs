@@ -440,9 +440,9 @@ class CoalescingEngineService extends Base {
         // replayed lane-claim is the highest-cost shape, since it points one peer at another over
         // territory both already hold correctly. Mailbox state stays untouched — old unread mail
         // remains listable; it simply cannot manufacture live interruption urgency.
-        const surviving = this._partitionExpiredMessageWakes(subscription, queue);
+        const ageAdmitted = this._partitionExpiredMessageWakes(subscription, queue);
 
-        if (surviving.length === 0) {
+        if (ageAdmitted.length === 0) {
             // Every queued message event was past the admission horizon (or carried no verifiable
             // `sentAt` — fail-closed, daemon-symmetric): consume the queue WITHOUT dispatching a
             // zero-event wake. No `lastFlushAtBySub` arming — nothing was delivered, so no
@@ -450,8 +450,23 @@ class CoalescingEngineService extends Base {
             return;
         }
 
-        const digest          = this._buildDigestEnvelope(subscription, surviving, firstQueuedAt);
-        const dispatchPromise = this._dispatchDigest(subscription, digest)
+        // Reconcile read-state before the digest exists, for the same reason freshness lives above:
+        // every outer field and rendered bucket must describe ONE admitted event set. The prior
+        // implementation skipped committed-read messages only while incrementing buckets, then
+        // derived `totalEvents`, source ids, digest identity, and the tail `logId` from the original
+        // queue — producing a turn-priced `[WAKE] … 1 events` header with zero detail when a message
+        // was read inside the coalescing window.
+        const {events: surviving, unopenableEvents} = this._reconcileMessageWakeReadState(subscription, ageAdmitted);
+
+        if (surviving.length === 0) {
+            // A committed read is user authority, not a delivery failure. Consume the queue without
+            // dispatch/retry/refractory; the durable mailbox state is already the receipt.
+            return;
+        }
+
+        const
+            digest          = this._buildDigestEnvelope(subscription, surviving, firstQueuedAt, {unopenableEvents}),
+            dispatchPromise = this._dispatchDigest(subscription, digest)
             .then(outcome => {
                 if (outcome === 'delivered') {
                     this.lastFlushAtBySub.set(subscriptionId, Date.now());
@@ -505,6 +520,70 @@ class CoalescingEngineService extends Base {
     }
 
     /**
+     * @summary Reconciles queued MESSAGE wakes against committed recipient read-state before digest construction.
+     *
+     * Four outcomes stay deliberately distinct:
+     *
+     * - `{readAt}` — committed user action; remove the event from every digest field.
+     * - `{missing: true}` — a positive no-row finding; keep the queued fact/count but disqualify it
+     *   from `latest`, preserving the existing openability contract.
+     * - `{}` / no resolver — graph state is UNKNOWN; keep the event fail-safe.
+     * - resolver throw — keep the event and warn; a visible extra wake is safer than a missing one.
+     *
+     * The pass is synchronous and its result feeds `_buildDigestEnvelope` immediately, so read-state
+     * cannot be consulted once for aggregate identity and again for rendered buckets. Suppression
+     * telemetry names only count + recipient/subscription; mailbox content never enters the log.
+     *
+     * @protected
+     * @param {Object}   subscription Owning cached subscription.
+     * @param {Object[]} events       Age-admitted queued wake envelopes.
+     * @returns {{events: Object[], unopenableEvents: Set<Object>}} One surviving set plus the
+     * positively-missing events that may count but cannot become a `latest` pointer.
+     */
+    _reconcileMessageWakeReadState(subscription, events) {
+        const unopenableEvents = new Set();
+
+        if (!this.resolveDeliveryReadState || !subscription.agentIdentity) {
+            return {events, unopenableEvents}
+        }
+
+        const suppressed = new Set();
+
+        for (const event of events) {
+            if (event?.eventType !== 'wake/sent_to_me') continue;
+
+            const messageId = event.payload?.messageId;
+
+            if (!messageId) continue;
+
+            let state = null;
+
+            try {
+                state = this.resolveDeliveryReadState(messageId, subscription.agentIdentity)
+            } catch (error) {
+                logger.warn?.(`[CoalescingEngine] read-state lookup failed for ${messageId}; rendering as unread: ${error.message}`);
+                continue
+            }
+
+            if (state?.readAt) {
+                suppressed.add(event)
+            } else if (state?.missing === true) {
+                unopenableEvents.add(event)
+            }
+        }
+
+        if (suppressed.size === 0) return {events, unopenableEvents};
+
+        logger.info(`[CoalescingEngine] Suppressed ${suppressed.size} already-read message wake event(s) for ` +
+            `${subscription.agentIdentity || subscription.id} at flush.`);
+
+        return {
+            events: events.filter(event => !suppressed.has(event)),
+            unopenableEvents
+        }
+    }
+
+    /**
      * Builds the digest envelope per ADR §6.4.2. The structured payload reports counts
      * per trigger type plus the latest-of-each for context. Wraps in the standard
      * notification envelope (schemaVersion / eventType=`wake/digest` / eventId / etc.)
@@ -526,9 +605,12 @@ class CoalescingEngineService extends Base {
      * @param {Object} subscription
      * @param {Object[]} events Queued event envelopes
      * @param {Number} firstQueuedAt Epoch ms when the first event in this window was enqueued
+     * @param {Object} [options]
+     * @param {Set<Object>} [options.unopenableEvents] Positively-missing MESSAGE events which count
+     * but cannot become the `latest` pointer.
      * @returns {Object} Digest envelope
      */
-    _buildDigestEnvelope(subscription, events, firstQueuedAt) {
+    _buildDigestEnvelope(subscription, events, firstQueuedAt, {unopenableEvents = new Set()} = {}) {
         const breakdown = {
             sent_to_me        : {count: 0, latest: null, latestTs: null, highestPriority: 'normal'},
             task_state_changed: {count: 0, latest: null, latestTs: null},
@@ -550,42 +632,6 @@ class CoalescingEngineService extends Base {
                 continue
             }
 
-            // Read-state reconciliation, `sent_to_me` only — the other buckets carry no mailbox row
-            // and therefore have no read-state to reconcile against.
-            //
-            // FAIL-SAFE at every branch. No resolver, no messageId, a resolver that throws, or a
-            // resolver returning `{}` (graph unavailable) all mean UNKNOWN, and unknown renders the
-            // event exactly as before. Only a committed `readAt` suppresses one. Suppressing on
-            // uncertainty would turn a mislabelled count into a missing wake, and a missing wake is
-            // visible to nobody.
-            let unopenable = false;
-
-            if (bucketKey === 'sent_to_me' && this.resolveDeliveryReadState) {
-                const messageId = evt.payload?.messageId;
-
-                if (messageId && subscription.agentIdentity) {
-                    let state = null;
-
-                    try {
-                        state = this.resolveDeliveryReadState(messageId, subscription.agentIdentity)
-                    } catch (error) {
-                        logger.warn?.(`[CoalescingEngine] read-state lookup failed for ${messageId}; rendering as unread: ${error.message}`)
-                    }
-
-                    if (state?.readAt) {
-                        continue
-                    }
-
-                    // `missing` is NOT `{}`. The resolver reports it only after establishing that no
-                    // MESSAGE row exists — a positive finding, not an absence of information. The
-                    // event still counts (something was queued, and hiding that is the suppression
-                    // failure mode), but it must never become `latest`: a `latest` is a pointer the
-                    // recipient is invited to open, and naming one that cannot be opened sends them
-                    // hunting for a message that is not there. That is AC-6.
-                    unopenable = state?.missing === true
-                }
-            }
-
             const bucket = breakdown[bucketKey];
 
             bucket.count++;
@@ -594,7 +640,7 @@ class CoalescingEngineService extends Base {
 
             // Recency wins over position; a timestamp-less candidate keeps last-write-wins. An
             // unopenable event is disqualified from the pointer only — it has already been counted.
-            if (!unopenable && (bucket.latest === null || ts === null || ts >= bucket.latestTs)) {
+            if (!unopenableEvents.has(evt) && (bucket.latest === null || ts === null || ts >= bucket.latestTs)) {
                 bucket.latest   = evt.payload;
                 bucket.latestTs = ts ?? bucket.latestTs;
             }
