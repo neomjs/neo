@@ -510,7 +510,16 @@ test.describe('CoalescingEngineService', () => {
     // replaces, because a wrong number is visible in the wake and a missing wake is visible to nobody.
     // -----------------------------------------------------------------------------
 
-    test('an already-read message is excluded from the count and cannot be named latest', async () => {
+    /**
+     * @summary A committed read before flush removes the event from every digest field.
+     *
+     * The original reconciliation skipped read messages while populating the breakdown, then built
+     * `totalEvents`, source ids, digest identity, and the tail `logId` from the unfiltered queue. A
+     * read HIGH tail therefore produced a normal-priority header claiming one extra event, with no
+     * corresponding detail when it was the only item. This mixed arm pins the one-surviving-set
+     * contract across every aggregate, not only the bucket that already worked.
+     */
+    test('an already-read HIGH tail is excluded from every digest field and cannot be named latest', async () => {
         CoalescingEngineService.configure({
             coalesceWindowSeconds : 30,
             flushRefractorySeconds: 120,
@@ -519,16 +528,88 @@ test.describe('CoalescingEngineService', () => {
             resolveDeliveryReadState: messageId => messageId === 'M-READ' ? {readAt: '2026-08-10T10:00:00.000Z'} : {}
         });
 
-        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
-        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-READ',   subject: 'handled hours ago'}, 10));
-        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-UNREAD', subject: 'actually new'}, 11));
+        const
+            sub    = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}}),
+            unread = buildEnvelope('wake/sent_to_me', {
+                messageId: 'M-UNREAD',
+                subject  : 'actually new',
+                priority : 'normal'
+            }, 10),
+            read   = buildEnvelope('wake/sent_to_me', {
+                messageId: 'M-READ',
+                subject  : 'handled before flush',
+                priority : 'high'
+            }, 11);
+
+        CoalescingEngineService.enqueue(sub, unread);
+        CoalescingEngineService.enqueue(sub, read);
 
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        const digest = deliverCalls[0].eventData;
+        const
+            digest   = deliverCalls[0].eventData,
+            expected = CoalescingEngineService._buildDigestEnvelope(sub, [unread], Date.now());
 
+        expect(digest.payload.totalEvents).toBe(1);
+        expect(digest.payload.sourceEventIds).toEqual(['M-UNREAD']);
+        expect(digest.eventId, 'digest identity is derived from the admitted source ids').toBe(expected.eventId);
+        expect(digest.logId, 'the read queue tail cannot remain the delivery cursor').toBe(10);
         expect(digest.payload.breakdown.sent_to_me.count).toBe(1);
         expect(digest.payload.breakdown.sent_to_me.latest.messageId).toBe('M-UNREAD');
+        expect(digest.payload.breakdown.sent_to_me.highestPriority,
+            'a read HIGH message cannot shape interruption priority').toBe('normal')
+    });
+
+    /**
+     * @summary An all-read queue is consumed without dispatch, retry, or refractory state.
+     *
+     * This is the exact live regression: the direct message was read inside the 150-second window,
+     * yet the outer queue length still produced `[WAKE] … 1 events` while every rendered bucket was
+     * zero. Suppression telemetry is deliberately bounded to count + recipient; logging the subject
+     * or body would turn a wake-safety repair into a content leak.
+     */
+    test('an all-read queue is consumed without a header-only wake or refractory claim', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: () => ({readAt: '2026-08-23T22:53:02.704Z'})
+        });
+
+        const
+            logger       = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default,
+            originalInfo = logger.info,
+            infoCalls    = [],
+            sub          = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+
+        logger.info = message => infoCalls.push(String(message));
+
+        try {
+            CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {
+                messageId: 'M-READ',
+                subject  : 'must never enter suppression telemetry',
+                body     : 'nor may the body'
+            }, 10));
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+        } finally {
+            logger.info = originalInfo;
+        }
+
+        expect(deliverCalls, 'a consumed message cannot price a harness turn').toEqual([]);
+        expect(CoalescingEngineService.coalesceState.size, 'the queue is consumed, not re-armed').toBe(0);
+        expect(CoalescingEngineService.lastFlushAtBySub.has(sub.id),
+            'nothing delivered, so no refractory may be claimed').toBe(false);
+        expect(CoalescingEngineService.dispatchInFlight.has(sub.id),
+            'no delivery means no retry-bearing dispatch promise').toBe(false);
+
+        const telemetry = infoCalls.join('\n');
+
+        expect(telemetry).toContain('Suppressed 1 already-read message wake event(s) for @alice at flush');
+        expect(telemetry).not.toContain('M-READ');
+        expect(telemetry).not.toContain('must never enter suppression telemetry');
+        expect(telemetry).not.toContain('nor may the body')
     });
 
     test('NON-VACUITY — the same two events both count when neither is read', async () => {
