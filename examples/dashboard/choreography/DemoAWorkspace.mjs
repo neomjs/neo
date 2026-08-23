@@ -1,16 +1,12 @@
 import ClockPane                          from './ClockPane.mjs';
-import Component                          from '../../../src/component/Base.mjs';
 import Container                          from '../../../src/container/Base.mjs';
-import DockDropIndicators                 from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                  from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                   from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockDragAffordances                from '../../../src/dashboard/DockDragAffordances.mjs';
+import DockDropIndicators                 from '../../../src/dashboard/DockDropIndicators.mjs';
 import DockPreview                        from '../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler           from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                        from '../../../src/ai/client/DockService.mjs';
+import DockWorkspace                      from '../../../src/dashboard/DockWorkspace.mjs';
 import DockZoneModel                      from '../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
-import {previewToOperation}               from '../../../src/dashboard/dockPreviewContract.mjs';
 import {demoATourScript, initialDocument} from './demoADockChoreography.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the tour bar composes
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
@@ -20,17 +16,17 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the to
  * @summary The Demo-A showcase workspace: the reducer-container that hosts the dock
  * choreography and plays its screenplay through the tour runner.
  *
- * This class is the normative workspace-ownership pattern (the reducer-container the docking
- * design record fixes as canonical): it owns the committed dock-zone document as the single
- * source of truth, `applyDockZoneOperation()` is the pure reducer, `getDockZoneDocument()`
- * is the read half of the dock-holder contract (Neural Link topology reads work before any
- * operation ran), and `onDockZoneDocumentChange()` is the view-sync that stores each
- * committed document and re-projects the layout from it.
+ * The normative workspace host is the engine class {@link Neo.dashboard.DockWorkspace}, which the
+ * docking design record fixes as canonical; this class is one of its CONSUMERS, not the pattern
+ * itself. Everything the holder contract requires — the committed dock-zone document as single
+ * source of truth, the pure reducer, the read half Neural Link topology calls before any operation
+ * ran, and the deferred view-sync that re-projects from each committed document — is inherited.
+ * What stays here is what the demo actually is: the screenplay, the tour bar, and the panes.
  *
- * Because the workspace implements the holder contract, it is drivable identically by all
- * three consumers of the trinity: the tour bar's play button (this class), an agent through
- * the Neural Link dock tools, and the whitebox replay specs — every one of them dispatches
- * semantic operation descriptors through the same commit path; there is no parallel
+ * Because the holder contract is satisfied by the base class, this workspace is drivable
+ * identically by all three consumers of the trinity: the tour bar's play button (this class), an
+ * agent through the Neural Link dock tools, and the whitebox replay specs — every one of them
+ * dispatches semantic operation descriptors through the same commit path; there is no parallel
  * mutation route.
  *
  * The tour bar composes real `button.Base` children riding the `handler` contract (zero
@@ -43,9 +39,9 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the to
  * siblings. The `workspace` advisory block of the screenplay (hover-reveal opt-in) is threaded
  * into the projection options — inert until the rail interaction layer lands, correct afterwards.
  * @class Neo.examples.dashboard.choreography.DemoAWorkspace
- * @extends Neo.container.Base
+ * @extends Neo.dashboard.DockWorkspace
  */
-class DemoAWorkspace extends Container {
+class DemoAWorkspace extends DockWorkspace {
     static config = {
         /**
          * @member {String} className='Neo.examples.dashboard.choreography.DemoAWorkspace'
@@ -67,11 +63,26 @@ class DemoAWorkspace extends Container {
          */
         cls: ['agentos-dockdemo-workspace'],
         /**
+         * The projection mounts into the dock host, not into the workspace itself: the tour bar is
+         * a sibling ABOVE it, and the preview + indicator overlays are persistent siblings BESIDE
+         * it that must survive every re-projection.
+         * @member {String} dockHostReference='dock-host'
+         */
+        dockHostReference: 'dock-host',
+        /**
+         * The demo's own FLIP correlation prefix, kept from before the engine class owned the
+         * stamping. Item ids in this screenplay are the lower-cased component refs (`editor` for
+         * `Editor`), so the engine's itemId-keyed marker reproduces the class names the panes
+         * carried when {@link #resolvePane} stamped them by hand.
+         * @member {String} flipMarkerPrefix='agentos-dockdemo-pane-'
+         */
+        flipMarkerPrefix: 'agentos-dockdemo-pane-',
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
-        // `items` is built in construct() — each projection carries the instance-bound
-        // reducer + view-sync callbacks, so it cannot live in static config.
+        // `items` is built in construct() — the projection is instance-bound, so it cannot live
+        // in static config.
     }
 
     /**
@@ -79,13 +90,6 @@ class DemoAWorkspace extends Container {
      * @member {Number} beatCount=0
      */
     beatCount = 0
-
-    /**
-     * The live committed dock-zone document — the single source of truth the view projects.
-     * Mutated exclusively through {@link #applyDockZoneOperation} results.
-     * @member {Object|null} dockModel=null
-     */
-    dockModel = null
 
     /**
      * The app-side Neural Link dock seam this workspace registers against and the tour
@@ -101,18 +105,6 @@ class DemoAWorkspace extends Container {
      * @member {Neo.dashboard.DockDragAffordances|null} dragAffordances=null
      */
     dragAffordances = null
-
-    /**
-     * The in-flight deferred re-projection, tracked as an awaitable. Every committed
-     * operation defers its view-sync one tick ({@link #onDockZoneDocumentChange}); any
-     * consumer that must resolve PROJECTED components — the reveal cue path — awaits this
-     * promise instead of racing that deferral (an unawaited lookup runs within ~0ms of
-     * the commit, resolves `null`, and no-ops silently). Commits chain onto this promise
-     * with their document snapshot, so staged shell transactions never overlap.
-     * @member {Promise|null} refreshPromise=null
-     * @protected
-     */
-    refreshPromise = null
 
     /**
      * The tour runner playing the Demo-A screenplay against this workspace.
@@ -180,15 +172,14 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * The pure reducer of the workspace-ownership pattern: applies one semantic operation
-     * descriptor against the live committed document and returns the executor's fail-closed
-     * `{document, errors}` result. View sync happens exclusively in
-     * {@link #onDockZoneDocumentChange}, which the dock seam calls on success.
-     * @param {Object} descriptor The semantic operation descriptor.
-     * @returns {{document: Object, errors: String[]}}
+     * A re-projection ends any drag-affordance session: rects go stale and the drop pipeline
+     * restarts its measurement lazily on the next gesture. The base class runs this AFTER the FLIP
+     * snapshot of the outgoing geometry, so clearing here can never alter the captured first rects.
+     * @param {Object} document The committed document this refresh projects.
+     * @param {Object} refreshOptions The options the scheduling commit produced.
      */
-    applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        this.dragAffordances.clear()
     }
 
     /**
@@ -242,33 +233,21 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * The read half of the dock-holder contract: exposes the live committed document, so
-     * Neural Link topology reads and the tour runner's asserts see truth before and after
-     * every operation.
-     * @returns {Object} The current committed dockZone.v1 document.
+     * The screenplay's `workspace` advisory block (the hover-reveal opt-in) plus the drag-affordance
+     * layer's gesture seams. The controller owns its own placement producer, so routing the drop
+     * seam here deliberately overrides the base class's built-in cross-zone drop path — the reducer
+     * and view-sync bindings stay class-owned and are not overridable from this hook.
+     * @returns {Object}
      */
-    getDockZoneDocument() {
-        return this.dockModel
-    }
-
-    /**
-     * The view-sync half: stores the committed document and re-projects the layout,
-     * deferred one tick so a committing interaction surface is never destroyed mid-handler
-     * (the normative guard from the reference workspace).
-     * @param {Object} document The committed dock-zone document.
-     */
-    onDockZoneDocumentChange(document) {
+    getDockProjectionOptions() {
         let me = this;
 
-        me.dockModel = document;
-
-        me.refreshPromise = (me.refreshPromise || Promise.resolve())
-            .then(() => me.timeout(0))
-            .then(() => {
-                if (!me.isDestroyed) {
-                    return me.refreshDockWorkspace(document)
-                }
-            })
+        return {
+            ...demoATourScript.workspace,
+            onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
+            onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
+            onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data)
+        }
     }
 
     /**
@@ -325,115 +304,26 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * Projects the committed document into the live container config, carrying the
-     * instance-bound reducer + view-sync callbacks and the screenplay's workspace advisory
-     * (the hover-reveal opt-in) as projection options.
-     * @param {Function|null} [resolveComponentRef=null] Optional item resolver for staged projections.
-     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
+     * Resolves a catalog item to its rendered pane. The editor carries the ticking-clock witness
+     * (the demo's continuity proof); the other panes stay labeled placeholders with the stable cls
+     * hook the SCSS skin targets.
+     *
+     * Keyed on the item id rather than the component ref: the id is the stable workspace identity
+     * the committed document and the FLIP correlation both use, and it is what the base class hands
+     * every resolver. The per-item marker class is stamped by {@link #flipMarkerPrefix}, never here.
+     * @param {String} itemId The stable workspace identity from the item catalog.
+     * @param {Object} item The persisted item record.
      * @returns {Object}
      */
-    projectDockModel(resolveComponentRef=null, document=this.dockModel) {
-        let me = this;
+    resolvePane(itemId, item) {
+        const componentRef = item?.componentRef ?? itemId;
 
-        return DockLayoutAdapter.project(document, {
-            ...demoATourScript.workspace,
-            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
-            onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
-            onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
-            onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
-            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef      : resolveComponentRef
-                || (componentRef => me.resolvePane(componentRef)),
-            resolveRevealComponentRef    : componentRef => me.resolvePane(componentRef)
-        })
-    }
-
-    /**
-     * Re-projection from the committed document, scoped to the dock-host subtree. The shared
-     * reconciler stages shell index 0 and transfers surviving tab chrome/panes before cleanup;
-     * the tour bar stays outside the host while preview/indicator overlays remain its persistent
-     * siblings. Drag-affordance geometry is still invalidated before structural ownership moves.
-     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
-     * @protected
-     */
-    async refreshDockWorkspace(document=this.dockModel) {
-        const
-            me           = this,
-            host         = me.getReference('dock-host'),
-            placeholders = new Map();
-
-        if (host) {
-            const flip = Neo.main?.addon?.DockFlip;
-
-            // A re-projection ends any drag affordance session: rects go stale and the drop
-            // pipeline restarts its measurement lazily on the next gesture.
-            me.dragAffordances.clear();
-
-            // FLIP phase 1: snapshot the outgoing geometry (presentation-only — any failure
-            // lands the new layout instantly, so the try/catch guards motion, never truth)
-            try {
-                await flip?.captureFirst({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
-            } catch (e) {/* instant landing */}
-
-            const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
-                const placeholder = Neo.create({
-                    module: Component,
-                    header: {text: item?.title ?? componentRef ?? itemId},
-                    hidden: true
-                });
-
-                placeholders.set(itemId, placeholder);
-
-                return placeholder
-            }, document);
-
-            await DockProjectionReconciler.reconcileProjection({
-                host,
-                nextConfig,
-                placeholders,
-                resolveItem: itemId => {
-                    const item = document.items[itemId];
-
-                    return DockLayoutAdapter.decorateProjectedItem(
-                        me.resolvePane(item?.componentRef ?? itemId),
-                        itemId,
-                        item
-                    )
-                }
-            });
-
-            // FLIP phase 2: fire-and-forget — the addon self-waits for the new tree to paint,
-            // inverts the survivors onto their old geometry and releases the transition
-            // the counted motion signal brackets the awaited animation window — ownership
-            // lives in DockMotionSignal (fail-safe backstopped), never in the addon
-            // Guard on the CAPABILITY, not on truthiness. `Neo.main.addon.DockFlip` holds the
-            // registered CLASS until an instance replaces it, and a class is truthy with no
-            // `play` — so `if (flip)` admits it and the call below throws. This matches the
-            // optional-chained `flip?.captureFirst` two calls up, which never had the problem.
-            if (flip?.play) {
-                DockMotionSignal.enter(me);
-                flip.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
-                    .catch(() => {})
-                    .finally(() => DockMotionSignal.leave(me))
-            }
-        }
-    }
-
-    /**
-     * Resolves a model `componentRef` to its rendered pane. The editor carries the
-     * ticking-clock witness (the demo's continuity proof); the other panes stay labeled
-     * placeholders with stable cls hooks the SCSS skin targets.
-     * @param {String} componentRef
-     * @returns {Object}
-     */
-    resolvePane(componentRef) {
         if (componentRef === 'Editor') {
-            // the flip marker rides the cls config so newly materialized panes join FLIP correlation
-            return {cls: ['agentos-dockdemo-clock-pane', 'agentos-dockdemo-pane-editor'], module: ClockPane}
+            return {cls: ['agentos-dockdemo-clock-pane'], module: ClockPane}
         }
 
         return {
-            cls  : ['agentos-dockdemo-pane', `agentos-dockdemo-pane-${componentRef.toLowerCase()}`],
+            cls  : ['agentos-dockdemo-pane'],
             html : componentRef,
             ntype: 'component',
             style: {alignItems: 'center', display: 'flex', fontSize: '18px', justifyContent: 'center'}

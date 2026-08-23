@@ -29,9 +29,19 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * @summary The Demo-B showcase workspace: named perspectives that MORPH, and a pane that
  * leaves for its own OS window and returns with its state unbroken — the only-Neo story.
  *
- * Same reducer-container ownership pattern as Demo A (committed `dockZone.v1` document as
+ * **This class hand-rolls a workspace host that the engine now owns, and is not the shape to
+ * copy.** {@link Neo.dashboard.DockWorkspace} is the normative host — it owns the committed
+ * document, the reducer, the read half of the holder contract, the deferred view-sync and the
+ * projection/FLIP loop — and the docking design record fixes it as canonical. Demo A already
+ * consumes it; this workspace has not migrated yet because its cross-window tear-out half is
+ * coupled to engine work still in flight. Anything starting a new dock host takes the base class.
+ * Be aware when reading below that its member signatures differ from the engine's: the base class
+ * hands resolvers `(itemId, item)` and passes a tab-insert descriptor as the first argument to the
+ * projection and refresh members, so these bodies are not drop-in overrides.
+ *
+ * The reducer-container ownership it implements by hand (committed `dockZone.v1` document as
  * the single source of truth; the pure reducer + view-sync halves of the dock-holder
- * contract), plus the two capabilities this demo exists to show:
+ * contract) carries the two capabilities this demo exists to show:
  *
  * - **Perspectives** ride a {@link Neo.dashboard.DockPerspectiveStore}: ordinary views are
  *   window-scoped; the detached view captures BOTH worker-owned workspace documents through
