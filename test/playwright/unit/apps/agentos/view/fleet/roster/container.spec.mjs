@@ -348,7 +348,7 @@ test.describe('Fleet roster — the animated store-driven list: sorters rank, fi
 
     test('the density fold is a filter preset: at threshold the idle tier hides behind the honest head count; the chip toggles it live', () => {
         // 4 online · 6 idle · 2 benched = 12 → folded
-        const store      = makeStore(roster([
+        const store = makeStore(roster([
                   'ok', 'ok', 'limited', 'wedged',
                   'idle', 'idle', 'idle', 'idle', 'idle', 'idle',
                   'off', 'off'
@@ -412,48 +412,55 @@ test.describe('Fleet roster — the animated store-driven list: sorters rank, fi
 
         const target = store.items[0];
 
-        // the selection seam: resolve the clicked item id → record → provider pair + intent
-        controller.onRosterSelect({items: [list.getItemId(target.agentId)]});
+        // Drive the real model: its view-level `select` event carries `{records, selection}` into
+        // the controller. This is the exact mounted click / Enter payload, not an invented fixture.
+        list.selectionModel.select(target);
 
         expect(provider.getData('selectedAgentId')).toBe(target.agentId);
         expect(provider.getData('selectedAgentIdentity')).toBe(`@${target.githubUsername}`);
         expect(fired).toHaveLength(1);
         expect(fired[0].agentId).toBe(target.agentId);
 
-        // an empty selection clears the pair and fires nothing
-        controller.onRosterSelect({items: []});
-        expect(provider.getData('selectedAgentId')).toBeNull();
-        expect(provider.getData('selectedAgentIdentity')).toBeNull();
-        expect(fired).toHaveLength(1);
-
         // the lifecycle-control carve-out: a click whose path enters the control cluster BEFORE
-        // the list item belongs to the lifecycle seam — selection stays untouched
-        const model = list.selectionModel;
+        // the list item belongs to the lifecycle seam — the existing selection stays untouched
+        const
+            model = list.selectionModel,
+            other = store.items[1];
 
         model.onListClick({
             currentTarget: list.getItemId(target.agentId),
-            path: [
+            path         : [
                 {cls: ['fm-card-action']},
                 {cls: ['fm-card-control-verbs']},
                 {cls: ['fm-agent-card']},
                 {cls: ['neo-list-item']}
             ]
         });
-        expect(model.getSelection()).toHaveLength(0);
+        expect(model.getSelection()).toEqual([list.getItemId(target.agentId)]);
+        expect(provider.getData('selectedAgentId')).toBe(target.agentId);
+        expect(fired).toHaveLength(1);
 
-        // an ordinary item click selects through the base path
+        // an ordinary item click selects a different row through the base path
         model.onListClick({
-            currentTarget: list.getItemId(target.agentId),
-            path: [
+            currentTarget: list.getItemId(other.agentId),
+            path         : [
                 {cls: ['fm-card-name']},
                 {cls: ['fm-agent-card']},
                 {cls: ['neo-list-item']}
             ]
         });
         expect(model.getSelection()).toHaveLength(1);
+        expect(provider.getData('selectedAgentId')).toBe(other.agentId);
+        expect(fired).toHaveLength(2);
+
+        // an explicit empty event clears the cross-pane truth and fires no detail intent
+        model.deselectAll(true);
+        controller.onRosterSelect({records: [], selection: []});
+        expect(provider.getData('selectedAgentId')).toBeNull();
+        expect(provider.getData('selectedAgentIdentity')).toBeNull();
+        expect(fired).toHaveLength(2);
 
         // Enter selects the Navigator-focused row (focusIndex is the base list's navigate state)
-        model.deselectAll(true);
         list._focusIndex = 1;
         model.onKeyDownEnter({});
 

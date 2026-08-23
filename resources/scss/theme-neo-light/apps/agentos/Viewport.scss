@@ -47,6 +47,9 @@
        white panel the same alpha reads as dirt, so the shadow is shallower and softer while
        carrying the identical "this floats above" message. */
     --fm-shadow-overlay: 0 8px 24px rgba(15, 23, 35, .18);
+    /* Persistent roster selection is the one in-flow elevation exception: shallower than an
+       overlay and paint-only (no transform), so it reads as current context, never a popup. */
+    --fm-shadow-selection: 0 6px 16px rgba(15, 23, 35, .12);
     --fm-ink           : #1f2733;
     --fm-ink-dim       : #5a6b80;
     --fm-ink-faint     : #8494a7;

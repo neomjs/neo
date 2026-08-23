@@ -58,10 +58,11 @@ class List extends ComponentList {
          */
         itemHeight: 126,
         /**
-         * Fluid columns from the LIST's own measured width (ADR 0029 own-width discipline: the
-         * ladder measures this surface, never the viewport): the plugin derives the column count
-         * from `minItemWidth` and writes the fluid per-item width back — one squeezed column on a
-         * narrow dock slot, two at the shipped default, three on the wide fleet view.
+         * Fluid columns from the LIST's own rendered surface, preserving the pane-layout-blindness
+         * contract: this leaf knows neither its dock placement nor the viewport. The
+         * plugin derives the column count from `minItemWidth` and writes the fluid per-item width
+         * back — one squeezed column on a narrow dock slot, two at the shipped default, three on
+         * the wide fleet view.
          * @member {Object} pluginAnimateConfig={minItemWidth:410}
          */
         pluginAnimateConfig: {minItemWidth: 410},
@@ -85,14 +86,13 @@ class List extends ComponentList {
      * @returns {Object[]} The list item vdom children.
      */
     createItemContent(record, index) {
-        let me    = this,
-            items = me.items || [],
-            card  = items[index],
-
-        config = {
-            id: me.getComponentId(index),
-            record
-        };
+        let me     = this,
+            items  = me.items || [],
+            card   = items[index],
+            config = {
+                id: me.getComponentId(index),
+                record
+            };
 
         if (card) {
             card.setSilent(config);

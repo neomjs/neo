@@ -1,8 +1,8 @@
 /* Fleet roster — a health-summary header and a sort/filter cluster over the ANIMATED card list,
    all scoped under the component root. Every color from the token layer.
    §04 density ladder: the fluid column count now derives from the LIST's own measured width
-   (list.plugin.Animate `minItemWidth` — the card's own-width discipline, ADR 0029, expressed as
-   plugin geometry instead of container queries), because a vessel window makes the viewport a lie.
+   (list.plugin.Animate `minItemWidth` — a pane-layout-blind surface measuring its own rendered
+   width), because a vessel window makes the viewport a lie.
    §04 rhythm record: off-rhythm survivors — head gap 10, presence-cap pill pad 1/8, empty-CTA
    margin 24 + pad 10/18 — recorded here, deferred to the density-pass epic. */
 .fm-fleet-grid {
@@ -79,6 +79,19 @@
        Geometry (columns, per-item width, translate positions) is plugin-owned inline style —
        list.plugin.Animate derives it from THIS list's measured width. */
     .fm-fleet-cards {
+        /* The list is a geometry/selection primitive here, not the product surface. Rebind the
+           complete item-state token set at the consumer root so stock default / hover / active /
+           selected paint, focus chrome and five-pixel padding cannot bleed through in either
+           theme. The AgentCard below owns the visible surface and interaction treatment. */
+        --list-item-background-color         : transparent;
+        --list-item-background-color-hover   : transparent;
+        --list-item-background-color-active  : transparent;
+        --list-item-background-color-selected: transparent;
+        --list-item-color-selected           : var(--fm-ink);
+        --list-item-focus-outline            : none;
+        --list-item-focus-outline-offset     : 0;
+        --list-item-padding                  : 0;
+
         list-style: none;
         margin    : 0;
         min-height: 0;
@@ -94,20 +107,28 @@
 
             > .fm-agent-card {
                 height: 100%;
+
+                @media (prefers-reduced-motion: no-preference) {
+                    transition: background-color var(--fm-motion-fast) var(--ease-out-soft),
+                                border-color var(--fm-motion-fast) var(--ease-out-soft),
+                                box-shadow var(--fm-motion-fast) var(--ease-out-soft);
+                }
             }
 
-            /* the Navigator's item focus — a visible, colour-independent ring (the keyboard AC) */
-            &:focus,
-            &:focus-visible {
+            /* The AgentCard owns every visible pixel. `:focus-visible` keeps the strong outline
+               keyboard-only; a pointer click must not stack it onto the quieter selected halo. */
+            &:focus-visible > .fm-agent-card {
                 outline       : 2px solid var(--fm-signal);
                 outline-offset: 1px;
             }
 
-            /* selection is a state the theme owns: the signal ring names the cockpit's one
-               selected resident (detail + memories follow it) */
-            &.neo-selected {
-                border-radius: 8px;
-                box-shadow   : 0 0 0 2px var(--fm-signal);
+            /* Persistent selection is a calm context state, not focus or urgency: tint the card
+               surface and shift its existing one-pixel border. Keyboard focus keeps the crisp
+               outline above; no gradient competes with the family rail or status vocabulary. */
+            &[aria-selected="true"] > .fm-agent-card {
+                background-color: color-mix(in srgb, var(--fm-signal) 8%, var(--fm-panel));
+                border-color    : color-mix(in srgb, var(--fm-signal) 24%, var(--fm-line-soft));
+                box-shadow      : var(--fm-shadow-selection);
             }
         }
     }

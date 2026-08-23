@@ -29,6 +29,7 @@ import SourceHealth                from '../../../util/SourceHealth.mjs';
 import SpineBanner                 from '../../../util/SpineBanner.mjs';
 import ViewerWakeTelltale          from '../../../util/ViewerWakeTelltale.mjs';
 import {previewToOperation}        from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import '../../../../../src/manager/Instance.mjs'; // binds Neo.get for the retained-component dock projection path
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -891,7 +892,15 @@ class FleetCockpit extends Container {
 
         me.presetError = null;
         me.onDockZoneDocumentChange(document);
-        revealsInspector && me.detailRecord && me.getAgentDetailPane()?.set({record: me.detailRecord});
+
+        if (revealsInspector && me.detailRecord) {
+            const pane = me.getAgentDetailPane();
+
+            // A cold default already reached an existing pane through applySelection(). A pane
+            // materialized by the projection still needs the write; an already-current one does not.
+            pane && pane.record !== me.detailRecord && pane.set({record: me.detailRecord})
+        }
+
         return {errors: [], switched: true}
     }
 

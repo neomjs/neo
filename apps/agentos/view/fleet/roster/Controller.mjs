@@ -137,8 +137,8 @@ class Controller extends ComponentController {
      */
     onSortModeClick(data) {
         const
-            me     = this,
-            mode   = data.component.sortMode,
+            me      = this,
+            mode    = data.component.sortMode,
             sorters = SORT_MODES[mode];
 
         if (!sorters || mode === me.sortMode) {
@@ -185,19 +185,17 @@ class Controller extends ComponentController {
     }
 
     /**
-     * @summary The selection seam: resolve the selected list item to its FleetAgent record, write
+     * @summary The selection seam: consume the FleetAgent record emitted by the list model, write
      * the cockpit-provider truth pair (`selectedAgentId` for record-keyed consumers,
      * `selectedAgentIdentity` — the canonical `@github` mailbox identity — for identity-keyed
      * consumers like the memories read), and fire the roster's `agentSelect` intent for the
      * cockpit's detail path. An empty selection clears the provider pair and fires nothing.
-     * @param {Object} data The list `select` event `{items}` — vdom item ids.
+     * @param {Object} data The list `select` event `{records, selection}`.
      */
     onRosterSelect(data) {
         const
-            me       = this,
-            list     = me.getReference('roster-list'),
-            itemId   = data.items?.[0],
-            record   = itemId ? list?.store?.get(list.getItemRecordId(itemId)) : null,
+            me     = this,
+            record = data.records?.[0] ?? null,
             // resolved once, written optionally: a roster hosted without a provider ancestor
             // (isolated harnesses) must not crash a click — it simply has no cross-view truth
             provider = me.component.getStateProvider();

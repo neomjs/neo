@@ -336,14 +336,18 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
                 // the resident reading surfaces resolve their option lists through the
                 // projected tree and bind their listener scope to the owning controller; this
                 // host projects no tree and owns no controller — null is that honest answer
-                getController     : () => null,
-                getReference      : () => null,
-                dockModel         : (await import('../../../../../../../../apps/agentos/util/CockpitDockDocument.mjs')).default.create(),
-                gridAdapterState  : 'sample',
-                isDestroyed       : false,
-                perspectiveStore  : store,
-                presetError       : null,
-                refreshPromise    : null,
+                getController   : () => null,
+                getReference    : () => null,
+                dockModel       : (await import('../../../../../../../../apps/agentos/util/CockpitDockDocument.mjs')).default.create(),
+                gridAdapterState: 'sample',
+                isDestroyed     : false,
+                perspectiveStore: store,
+                presetError     : null,
+                refreshPromise  : null,
+                selectionState  : {},
+                setState(data) {
+                    Object.assign(this.selectionState, data)
+                },
                 streamAdapterState: 'sample',
                 streamEvents      : [],
                 timeout           : ms => new Promise(resolve => setTimeout(resolve, ms)),
@@ -431,9 +435,10 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
     test('#17451: a Review switch on a cold seat defaults the selection from the PROVIDER roster before the commit, and lands it on the live pane', async () => {
         const record = {agentId: 'vega', githubUsername: 'neo-opus-vega'},
               sets   = [],
+              detail = {record: null, set(values) { Object.assign(this, values); sets.push(values) }},
               host   = await makePresetHost({
                   detailRecord      : null,
-                  getAgentDetailPane: () => ({set: values => sets.push(values)}),
+                  getAgentDetailPane: () => detail,
                   getStateProvider  : () => ({getStore: name => name === 'fleetRoster' ? {first: () => record} : null}),
                   refreshDockWorkspace() {}
               });
@@ -443,6 +448,10 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
         expect(verdict).toEqual({errors: [], switched: true});
         // held owner-side BEFORE the deferred re-projection — the materializing resolver reads it
         expect(host.detailRecord).toBe(record);
+        expect(host.selectionState).toEqual({
+            selectedAgentId      : 'vega',
+            selectedAgentIdentity: '@neo-opus-vega'
+        });
         // and the live docked/popped pane updates through the select seam's owner accessor
         expect(sets).toEqual([{record}]);
 

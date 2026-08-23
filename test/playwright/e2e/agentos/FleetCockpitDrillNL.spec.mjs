@@ -1,10 +1,10 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary The FM cockpit card→detail drill, proven LIVE over the dedicated native drill Button —
- * the basic "live drill" the detail-view AC requires. Activating one resident's name Button reveals
- * the auto-hidden AgentDetail inspector and renders THAT resident: the whole chain — native DOM
- * click → `onCardSelect` → `agentSelect` → cockpit `onAgentSelect` → owner-held `detailRecord`
+ * @summary The FM cockpit card→detail drill, proven LIVE over the semantic roster item — the basic
+ * "live drill" the detail-view AC requires. Selecting one resident's li reveals the auto-hidden
+ * AgentDetail inspector and renders THAT resident: the whole chain — native DOM click →
+ * `Neo.selection.ListModel` → roster `onRosterSelect` → `agentSelect` → cockpit `onAgentSelect` → owner-held `detailRecord`
  * → dock `setItemAutoHidden` reveal → projection — is exercised end-to-end, never via a
  * controller call. Whitebox: the DOM proves the render, the possessed component proves the engine
  * truth (the mounted inspector holds the activated resident's record).
@@ -13,10 +13,10 @@ import {test, expect} from '../../fixtures.mjs';
  * @see apps/agentos/view/fleet/cockpit/Controller.mjs (onAgentSelect)
  * @see test/playwright/e2e/agentos/FleetActivityStreamBurstNL.spec.mjs (sibling possession pattern)
  */
-test.describe('AgentOS fleet cockpit — native Button→detail live drill (#14608, #15212)', () => {
+test.describe('AgentOS fleet cockpit — semantic roster item→detail live drill (#14608, #15212)', () => {
     test.setTimeout(90000);
 
-    test('a resident drill Button reveals the AgentDetail inspector rendering that agent + its four panes', async ({page, neuralLink}) => {
+    test('a resident list item reveals the AgentDetail inspector rendering that agent + its four panes', async ({page, neuralLink}) => {
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
@@ -54,8 +54,10 @@ test.describe('AgentOS fleet cockpit — native Button→detail live drill (#146
         expect(dockAfterAvatar, 'avatar activation must not mutate the committed dock document').toEqual(dockBefore);
         await expect(detail, 'avatar activation must not reveal the inspector').not.toBeVisible();
 
-        // The positive REAL DOM click targets THAT card's dedicated native drill Button.
-        await page.locator(`[id="${targetCardId}"] .fm-card-drill`).click();
+        // The positive REAL DOM click targets the semantic li containing THAT card.
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${targetCardId}"]`)
+        }).click();
 
         // the auto-hidden inspector reveals + renders a resident + the four SSOT panes
         await expect(detail).toBeVisible({timeout: 15000});

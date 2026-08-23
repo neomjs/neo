@@ -62,7 +62,6 @@ test.describe('FleetCockpit — vessel-fired pane intents + phase-blind owner pu
                     memoriesSnapshot         : null,
                     memoriesDrillSession     : null,
                     memoriesDrillSnapshot    : null,
-                    buildMemoriesAgentOptions: () => [],
                     buildMemoriesWindowToggle: () => ({})
                 }),
                 ref, {title: ref}, ref

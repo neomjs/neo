@@ -1,17 +1,17 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary The detail tranche's closing round-trip (T4.16): the full USER path — real
- * `.fm-card-drill` gesture → detail → real-window pop-out → reattach — proven live, joining the
+ * @summary The detail tranche's closing round-trip (T4.16): the full USER path — real semantic
+ * roster-item selection → detail → real-window pop-out → reattach — proven live, joining the
  * hops the sibling suites prove in isolation. Every step is gesture- or shell-affordance-driven
  * (never a controller call): the joins are the subject.
  *
  * The four joins no per-hop suite can see:
- * 1. **drill → detail**: the native Button seats the EXACT activated resident (identity header
+ * 1. **selection → detail**: the list item seats the EXACT activated resident (identity header
  *    matches the card), panes + freshness chips render.
  * 2. **detail → pop-out**: the SAME App-Worker instance re-renders in the real vessel window;
  *    the fixture-driven activity stream keeps TICKING through the hop (monotone event count —
- *    continuity observed, not inferred) — and a MAIN-window gesture drill re-seats the WINDOWED
+ *    continuity observed, not inferred) — and a MAIN-window item selection re-seats the WINDOWED
  *    inspector (one heap, two render targets). The vessel also owns the 271px responsive receipt:
  *    every title + full freshness pill stays inside an intrinsic-height head, with no body overlap,
  *    while the 480px composition remains a row.
@@ -19,7 +19,7 @@ import {test, expect} from '../../fixtures.mjs';
  *    consistent (card census unchanged, the item back on its rail) and the tick count never
  *    reset.
  * 4. **adapter loss mid-journey**: the stream drops to `stale` — the path renders
- *    stale-not-frozen: the marker state is worker-readable, and a FURTHER native drill still
+ *    stale-not-frozen: the marker state is worker-readable, and a FURTHER item selection still
  *    works end-to-end.
  *
  * Conventions shared with `FleetCockpitDrillNL` (the gesture chain) and `FleetCockpitPopOutNL`
@@ -89,8 +89,10 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
             return (Array.isArray(matches) ? matches : [matches]).filter(Boolean)[0]
         };
 
-        // ── join 1: the NATIVE drill gesture seats the exact resident ────────────────────────
-        await page.locator(`[id="${targetCardId}"] .fm-card-drill`).click();
+        // ── join 1: the semantic roster-item gesture seats the exact resident ───────────────
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${targetCardId}"]`)
+        }).click();
 
         const detail = page.locator('.fm-agent-detail');
 
@@ -243,12 +245,14 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
         }).toBe(45);
 
         // the JOIN the siblings cannot see: a MAIN-window GESTURE drill re-seats the WINDOWED
-        // inspector — one heap, two render targets, driven by the real Button
+        // inspector — one heap, two render targets, driven by the real list item
         const second = cards.find(entry => entry?.properties?.record?.agentId
             && entry.properties.record.agentId !== firstAgentId && entry?.properties?.id);
 
         expect(second, 'a second resident exists to drill into').toBeTruthy();
-        await page.locator(`[id="${second.properties.id}"] .fm-card-drill`).click();
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${second.properties.id}"]`)
+        }).click();
 
         await expect.poll(async () => (await queryDetail())?.properties?.record?.agentId, {
             message: 'the windowed inspector re-seats onto the gesture-selected resident',
@@ -291,9 +295,11 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
         await expect(page.locator('.fm-activity-stream .fm-stream-head.is-stale')).toBeVisible({timeout: 10000});
         await expect(page.locator('.fm-activity-stream .fm-stream-state')).toHaveText('stale — reconnecting');
 
-        // stale-NOT-frozen: with the adapter lost, a FURTHER native drill still runs the whole
+        // stale-NOT-frozen: with the adapter lost, a FURTHER item selection still runs the whole
         // gesture chain — the path degrades honestly instead of wedging
-        await page.locator(`[id="${targetCardId}"] .fm-card-drill`).click();
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${targetCardId}"]`)
+        }).click();
 
         await expect.poll(async () => (await queryDetail())?.properties?.record?.agentId, {
             message: 'the drill path stays live under adapter loss',

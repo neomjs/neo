@@ -19,9 +19,10 @@ import {test, expect} from '../../fixtures.mjs';
  * design renders against. The 319/320 pair is the box-model transition: container queries evaluate
  * the content box (outer − 28px padding − 2px border), so 319 outer = 289 content (last narrow:
  * engine hidden, 44px touch targets) and 320 outer = 290 content (first regular: engine shown,
- * 32px controls); 328 is the operator's exact realistic case. The grid is pinned to a single
- * fixed-width track per width so the card-owned `@container` modes engage; the contrast guard is a
- * luminance delta, honest in either skin.
+ * 32px controls); 328 is the operator's exact realistic case. The animated List is pinned to one
+ * card-width-plus-margins surface per width, so its own measured geometry seats a one-column item
+ * and the card-owned `@container` modes engage; the contrast guard is a luminance delta, honest in
+ * either skin.
  * Goldens are created/refreshed under the visual/e2e config only. Fidelity against the repaired mockup
  * head is Phoebe's narrow/mobile design-check seat.
  *
@@ -131,28 +132,37 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
               viewportState = await app.getComponent(viewport.properties.id, ['controller']),
               controllerId  = viewportState.controller.id;
 
-        // capture the card-width matrix under one skin: pin the grid to one fixed-width track so the
-        // card's own @container width modes engage (narrow <320 vs regular/wide), independent of viewport
+        // Capture one skin's card-width matrix by sizing the LIST's own rendered surface. Animate's
+        // one-column formula reserves two 10px outer margins, so list width = requested card width + 20.
+        // This is the production geometry path, not a retired CSS-grid track override.
         const captureWidthMatrix = async themeTag => {
             for (const {label, width, narrow} of CARD_WIDTHS) {
                 const scope = `${themeTag} ${label}`;
 
-                const actual = await page.evaluate(w => {
-                    const cards = document.querySelector('.fm-fleet-cards');
-                    cards.style.gridTemplateColumns = `${w}px`;
-                    cards.style.width               = `${w}px`;
-                    cards.style.minWidth            = `${w}px`;
-                    cards.style.maxWidth            = `${w}px`;
-                    // release the cockpit's height constraint so the wall grows to content — the falsifier
-                    // capture must show every card's FULL anatomy, not a scroll-clipped viewport
-                    cards.style.height              = 'auto';
-                    cards.style.maxHeight           = 'none';
-                    const card = document.querySelector('.fm-agent-card');
-                    return card ? Math.round(card.getBoundingClientRect().width) : null;
-                }, width);
+                await page.evaluate(({count, width}) => {
+                    const list = document.querySelector('.fm-fleet-cards');
 
-                expect(actual, `[${scope}] the pinned single column renders the card at ~${width}px`).toBeGreaterThanOrEqual(width - 4);
-                expect(actual, `[${scope}] the pinned single column renders the card at ~${width}px`).toBeLessThanOrEqual(width + 4);
+                    list.style.width     = `${width + 20}px`;
+                    list.style.minWidth  = `${width + 20}px`;
+                    list.style.maxWidth  = `${width + 20}px`;
+                    // Absolute plugin items do not establish flow height. Give the capture one full
+                    // column (top margin + N × [126px item + 10px margin]) so no card is scroll-clipped.
+                    list.style.height    = `${10 + count * 136}px`;
+                    list.style.maxHeight = 'none'
+                }, {count: PATHOLOGICAL_ROSTER.length, width});
+
+                await expect.poll(async () => page.evaluate(() => {
+                    const card = document.querySelector('.fm-agent-card');
+                    return card ? Math.round(card.getBoundingClientRect().width) : null
+                }), {
+                    message  : `[${scope}] Animate re-seats the card from the list's measured width`,
+                    timeout  : 15000,
+                    intervals: [100, 250]
+                }).toBeGreaterThanOrEqual(width - 4);
+
+                const settledWidth = await page.evaluate(() => Math.round(document.querySelector('.fm-agent-card').getBoundingClientRect().width));
+
+                expect(settledWidth, `[${scope}] the measured list renders the card at ~${width}px`).toBeLessThanOrEqual(width + 4);
 
                 await page.evaluate(() => document.fonts.ready);
 
@@ -163,7 +173,7 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
                 const fit = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
                     const rect  = card.getBoundingClientRect(),
                           strip = card.querySelector('.fm-card-strip'),
-                          name  = card.querySelector('.fm-card-name .neo-button-text'),
+                          name  = card.querySelector('.fm-card-name'),
                           sRect = strip?.getBoundingClientRect(),
                           lum   = c => { const [r, g, b] = c.match(/\d+/g).map(Number); return 0.299 * r + 0.587 * g + 0.114 * b };
                     return {

@@ -40,6 +40,9 @@
        precedent (--pickerfield-container-box-shadow, --neo-app-content-sidenav-shadow): the value
        is skin-native, the structure files consume the token only. */
     --fm-shadow-overlay: 0 8px 24px rgba(0, 0, 0, .55);
+    /* Persistent roster selection is the one in-flow elevation exception: shallower than an
+       overlay and paint-only (no transform), so it reads as current context, never a popup. */
+    --fm-shadow-selection: 0 6px 16px rgba(0, 0, 0, .34);
     --fm-ink           : #d6dce6;
     --fm-ink-dim       : #8b97a8;
     --fm-ink-faint     : #5a6575;

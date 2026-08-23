@@ -10,11 +10,11 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 import '../../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import Container     from '../../../../../../../../src/container/Base.mjs';
+import Container           from '../../../../../../../../src/container/Base.mjs';
 import FleetActivityEvents from '../../../../../../../../apps/agentos/store/FleetActivityEvents.mjs';
-import FleetCockpit  from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
-import FleetRoster   from '../../../../../../../../apps/agentos/store/FleetRoster.mjs';
-import StateProvider from '../../../../../../../../src/state/Provider.mjs';
+import FleetCockpit        from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
+import FleetRoster         from '../../../../../../../../apps/agentos/store/FleetRoster.mjs';
+import StateProvider       from '../../../../../../../../src/state/Provider.mjs';
 
 /**
  * @summary Installs deterministic popup-vessel seams for the cockpit pop-out specs.
@@ -680,9 +680,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
         }};
 
         try {
-            // the REAL user path: the agent-chip click sets the pane's own selection AND fires
-            // the intent — exactly what a click in the vessel window does
-            pane.onAgentClick('@neo-opus-grace');
+            // The REAL one-picker path: roster selection writes through the cockpit owner. Its
+            // phase-blind accessor reaches the vesseled pane; that reactive target change fires
+            // the pane's scoped memoriesRequest intent back to the owning controller.
+            cockpit.applySelection({agentId: 'grace', githubUsername: 'neo-opus-grace'});
 
             await expect.poll(() => bridgeCalls.length, {timeout: 2000}).toBe(1);
             expect(bridgeCalls[0].agentIdentity).toBe('@neo-opus-grace');
@@ -765,6 +766,15 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
               prevFleet  = globalThis.AgentOS?.fleet;
 
         globalThis.AgentOS.fleet = {registryBridge: {
+            fleetMemories: async params => ({
+                capability: {state: 'wired', capturedAt: '2026-08-18T10:00:00.000Z'},
+                viewer    : '@e2e-operator',
+                target    : params.agentIdentity,
+                page      : {offset: 0, limit: 20},
+                sessions  : [{id: 's1', sessionId: 'vessel-session-1', timestamp: '2026-08-17T18:00:00.000Z', title: 'Vessel session', summary: 'x', category: 'analysis', memoryCount: 1, quality: 90}],
+                count     : 1,
+                total     : 1
+            }),
             fleetSessionMemories: async params => {
                 drillCalls.push(params);
                 return {
@@ -780,16 +790,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
         }};
 
         try {
-            pane.snapshot = {
-                capability: {state: 'wired', capturedAt: '2026-08-18T10:00:00.000Z'},
-                viewer    : '@e2e-operator',
-                target    : '@neo-fable-clio',
-                page      : {offset: 0, limit: 20},
-                sessions  : [{id: 's1', sessionId: 'vessel-session-1', timestamp: '2026-08-17T18:00:00.000Z', title: 'Vessel session', summary: 'x', category: 'analysis', memoryCount: 1, quality: 90}],
-                count     : 1,
-                total     : 1
-            };
-            pane.activeAgent = '@neo-fable-clio';
+            // Roster selection writes through the owner to the vesseled pane; its scoped intent
+            // performs the summary read before the session drill begins.
+            cockpit.applySelection({agentId: 'clio', githubUsername: 'neo-fable-clio'});
+            await expect.poll(() => pane.summaryStore.count, {timeout: 2000}).toBe(1);
 
             pane.onCardOpen(pane.summaryStore.first());
 

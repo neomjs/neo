@@ -137,6 +137,14 @@ export function setup(options = {}) {
         }
     };
 
+    // Production's App Worker always exposes the Stylesheet addon. Component-composition unit
+    // specs need only its side-effect boundary (animated lists insert/delete owner-scoped rules),
+    // while plugin-specific suites replace these no-ops with recording witnesses.
+    Neo.main.addon.Stylesheet ??= {
+        deleteCssRules: () => {},
+        insertCssRules: () => {}
+    };
+
     if (mockLocalStorage) {
         const localStorage = Neo.ns('Neo.main.addon.LocalStorage', true);
 

@@ -24,7 +24,6 @@ function ownerStub({memoriesTarget = null, memoriesSnapshot = null, pane = null}
         memoriesTarget,
         memoriesSnapshot,
         memoriesReadGeneration   : 0,
-        buildMemoriesAgentOptions: () => [],
         // the shell-owned window verb rides the resolver config; this seam test asserts
         // selection travel, so an empty tool config is the honest minimal stub
         buildMemoriesWindowToggle: () => ({}),
