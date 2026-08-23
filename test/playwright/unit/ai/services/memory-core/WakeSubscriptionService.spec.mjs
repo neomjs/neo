@@ -3638,9 +3638,19 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     harnessTarget: 'mcp-notifications'
                 });
 
-                const node                = GraphService.db.nodes.get(res.subscriptionId);
+                const node = GraphService.db.nodes.get(res.subscriptionId);
+                // The builder refuses an all-skipped build (fail-loud empty-manifest guard), so the
+                // withdrawn row rides alongside a deliverable one — the skipped list is still the
+                // assertion surface for the row under test.
+                const deliverable = {
+                    id                   : 'WAKE_SUB:deliverable-spec',
+                    agentIdentity        : '@alice',
+                    status               : 'active',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake', signingKey: 'a'.repeat(64)}
+                };
                 const {manifest, skipped} = buildWakeReceiverManifest({
-                    subscriptions : [{
+                    subscriptions : [deliverable, {
                         id                   : res.subscriptionId,
                         agentIdentity        : '@alice',
                         status               : 'active',
@@ -3650,8 +3660,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     callerIdentity: '@alice'
                 });
 
+                expect(manifest.routes['WAKE_SUB:deliverable-spec']).toBeDefined();
                 expect(manifest.routes[res.subscriptionId]).toBeUndefined();
-                expect(skipped.length).toBe(1);
+                expect(skipped.map(entry => entry.subscriptionId)).toContain(res.subscriptionId);
 
                 const {subscriptions} = await WakeSubscriptionService.list();
                 const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
