@@ -258,10 +258,55 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         })]))
     });
 
-    test('RED: same-count launch-root substitution names the missing and stale targets', () => {
+    test('RED: launch-root collection refuses a task root without source custody', () => {
+        expect(() => collectLaunchRoots({
+            launchRoots: [{
+                name : 'wake-daemon',
+                plane: 'host-edge',
+                rel  : 'ai/daemons/wake/daemon.mjs',
+                via  : 'task'
+            }]
+        })).toThrow(
+            "collectLaunchRoots: launch root 'ai/daemons/wake/daemon.mjs' has no reconciled script-module custody or explicit suggestedDisposition"
+        )
+    });
+
+    test('RED: task-root authority cannot contradict its classifier custody', () => {
         const rows = collectLaunchRoots({
                   launchRoots: [{
-                      name: 'replacement', rel: 'ai/scripts/replacement.mjs', via: 'workflow'
+                      name                : 'wake-daemon',
+                      plane               : 'host-edge',
+                      rel                 : 'ai/daemons/wake/daemon.mjs',
+                      suggestedDisposition: 'edge',
+                      via                 : 'task'
+                  }]
+              }),
+              result = reconcileInventory(rows, {
+                  custody  : [],
+                  overrides: [{
+                      surface    : SURFACE.launchRoot,
+                      identities : ['ai/daemons/wake/daemon.mjs'],
+                      disposition: 'cloud',
+                      source     : 'fixture task-root authority',
+                      rationale  : 'fixture deliberately contradicts task-root custody'
+                  }]
+              });
+
+        expect(result.ok).toBe(false);
+        expect(result.errors).toContainEqual({
+            kind : 'authority-conflict',
+            key  : 'launch-root::ai/daemons/wake/daemon.mjs',
+            error: 'registry says cloud; target custody says edge'
+        })
+    });
+
+    test('RED: same-count launch-root substitution names the missing and stale targets', () => {
+        const rows = collectLaunchRoots({
+              launchRoots: [{
+                      name                : 'replacement',
+                      rel                 : 'ai/scripts/replacement.mjs',
+                      suggestedDisposition: 'edge',
+                      via                 : 'workflow'
                   }]
               }),
               result = reconcileInventory(rows, {
@@ -483,6 +528,40 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             'invalid-manifest-target',
             'disposition-target-mismatch'
         ]))
+    });
+
+    test('RED: dependency custody cannot use the physical shared-package disposition', () => {
+        const row = collectManifestDependencyRows({
+                  manifest    : {devDependencies: {'shared-package': '1'}},
+                  manifestName: 'package.json'
+              })[0],
+              sharedCustody = reconcileInventory([row], {
+                  custody  : [],
+                  overrides: [{
+                      surface        : SURFACE.packageDependency,
+                      identities     : [row.identity],
+                      disposition    : 'shared',
+                      manifestTargets: ['shared'],
+                      source         : 'fixture shared-custody authority',
+                      rationale      : 'fixture deliberately overloads physical shared custody'
+                  }]
+              }),
+              sharedTarget = reconcileInventory([row], {
+                  custody  : [],
+                  overrides: [{
+                      surface        : SURFACE.packageDependency,
+                      identities     : [row.identity],
+                      disposition    : 'edge',
+                      manifestTargets: ['edge', 'shared'],
+                      source         : 'fixture Edge dependency authority',
+                      rationale      : 'fixture keeps shared as a materialization target only'
+                  }]
+              });
+
+        expect(sharedCustody.errors).toContainEqual({
+            kind: 'shared-disposition-on-dependency', key: `package-dependency::${row.identity}`
+        });
+        expect(sharedTarget.ok).toBe(true)
     });
 
     test('runtime-probe targets are every exact launch-root row whose custody is Edge', () => {

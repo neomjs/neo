@@ -431,17 +431,24 @@ export function collectScriptModules({
  * rows. The target path is stable identity; npm/workflow/task channel and source name stay
  * evidence, so a channel correction does not manufacture a different executable while a target
  * substitution still changes identity. Custody follows the already-reconciled target module when
- * one exists, but remains an explicit registry judgment for task roots outside `ai/scripts`.
+ * one exists; task roots outside `ai/scripts` must carry their classifier's explicit suggestion,
+ * because emitting a null suggestion would silently disable the later authority-conflict guard.
  * @param {Object} options
  * @param {Object[]} options.launchRoots Output of `readEntrypoints()`.
  * @param {Map<String, Object>} options.scriptRowsByIdentity Reconciled script-module rows.
  * @returns {Object[]}
+ * @throws {Error} When a launch root has neither reconciled script-module custody nor an explicit
+ *     classifier suggestion.
  */
 export function collectLaunchRoots({launchRoots = [], scriptRowsByIdentity = new Map()} = {}) {
     return launchRoots.map(({name, plane = null, rel, suggestedDisposition = null, via}) => {
         const
             target            = scriptRowsByIdentity.get(rel),
             targetDisposition = target?.disposition ?? suggestedDisposition;
+
+        if (!targetDisposition) {
+            throw new Error(`collectLaunchRoots: launch root '${rel}' has no reconciled script-module custody or explicit suggestedDisposition`)
+        }
 
         return {
             surface : SURFACE.launchRoot,
@@ -856,6 +863,14 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
         if (entry.surface === SURFACE.packageDependency) {
             const targets = entry.manifestTargets;
 
+            // The physical shared source package reserves `shared` custody for its inventory-proven
+            // module population. A dependency may MATERIALIZE into the shared manifest, but letting its source
+            // declaration own shared custody would keep that package's empty-population retirement
+            // trigger unreachable.
+            if (entry.disposition === 'shared') {
+                errors.push({kind: 'shared-disposition-on-dependency', key})
+            }
+
             if (!Array.isArray(targets) || (targets.length === 0 && entry.disposition !== 'retire')) {
                 errors.push({kind: 'missing-manifest-targets', key})
             } else {
@@ -869,7 +884,6 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
                 const dispositionTarget = {
                     cloud         : 'cloud',
                     edge          : 'edge',
-                    shared        : 'shared',
                     'stays-engine': 'engine'
                 }[entry.disposition];
 
