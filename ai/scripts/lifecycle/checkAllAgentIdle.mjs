@@ -17,15 +17,16 @@
  *     "details": { [identity]: { "lastMemTime": string, "ageMs": number } }
  *   }
  */
-import Neo from '../../../src/Neo.mjs';
-import * as core from '../../../src/core/_export.mjs';
-import { createHash } from 'crypto';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import GraphService from '../../services/memory-core/GraphService.mjs';
-import AiConfig from '../../config.mjs';
-import {resolveTargets} from '../../daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
+import Neo                   from '../../../src/Neo.mjs';
+import * as core             from '../../../src/core/_export.mjs';
+import { createHash }        from 'crypto';
+import path                  from 'path';
+import { fileURLToPath }     from 'url';
+import LifecycleService      from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import GraphService          from '../../services/memory-core/GraphService.mjs';
+import AiConfig              from '../../config.mjs';
+import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
+import {resolveTargets}      from '../../daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
 /**
@@ -51,9 +52,11 @@ export function deriveAllAgentIdleCycleId(identities, details) {
 
 /**
  * @summary Compute whether every configured swarm identity is past the idle threshold.
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<Object>} All-agent-idle detector signal.
  */
-export async function checkAllAgentIdle() {
+export async function checkAllAgentIdle({wakeDaemonDir}={}) {
     await LifecycleService.ready();
     await GraphService.ready();
     const db = GraphService.db.storage.db;
@@ -67,12 +70,12 @@ export async function checkAllAgentIdle() {
     });
 
     const thresholdMs = AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
-    const now = Date.now();
+    const now         = Date.now();
 
-    let allIdle = true;
-    const details = {};
-    let earliestIdledIdentity = null;
-    let maxAge = -1;
+    let   allIdle               = true;
+    const details               = {};
+    let   earliestIdledIdentity = null;
+    let   maxAge                = -1;
 
     for (const identity of identities) {
         const memStmt = db.prepare(`
@@ -111,7 +114,7 @@ export async function checkAllAgentIdle() {
 
         // Check if there is an active idle_out_nudge lock for this identity
         const lastMemTimeMs = lastMemTime ? new Date(lastMemTime).getTime() : 0;
-        const lockData = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs);
+        const lockData      = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs, {wakeDaemonDir});
 
         if (lockData.inFlight) {
             ageMs = 0; // Treat as actively waking up (not idle)
@@ -120,7 +123,7 @@ export async function checkAllAgentIdle() {
         details[identity] = {
             lastMemTime,
             ageMs,
-            inFlightNudge: lockData.inFlight,
+            inFlightNudge : lockData.inFlight,
             abandonedCount: lockData.abandonedCount || 0
         };
 
@@ -138,7 +141,7 @@ export async function checkAllAgentIdle() {
 
     const signal = {
         allIdle,
-        cycle_id: cycleId,
+        cycle_id                  : cycleId,
         identities,
         coordinator_recommendation: earliestIdledIdentity,
         details
@@ -148,7 +151,7 @@ export async function checkAllAgentIdle() {
 }
 
 async function main() {
-    const signal = await checkAllAgentIdle();
+    const signal = await checkAllAgentIdle({wakeDaemonDir: memoryCoreConfig.wakeDaemon.dataDir});
     console.log(JSON.stringify(signal));
 }
 

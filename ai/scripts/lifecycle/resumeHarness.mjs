@@ -14,6 +14,7 @@
 import Neo                                                from '../../../src/Neo.mjs';
 import * as core                                          from '../../../src/core/_export.mjs';
 import AiConfig                                           from '../../config.mjs';
+import memoryCoreConfig                                   from '../../mcp/server/memory-core/config.mjs';
 import { spawn }                                          from 'child_process';
 import { constants as fsConstants }                       from 'fs';
 import fs                                                 from 'fs/promises';
@@ -54,16 +55,19 @@ const __dirname  = path.dirname(__filename);
  * @param {string[]} args
  * @param {?string} identity Agent identity for PID-record bookkeeping; pass `null` to skip.
  * @param {string} [hostPlatform=process.platform]
+ * @param {string} [harnessStateDir] Resolved harness-state member used when identity is present.
  * @returns {Promise<void>}
  */
-function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform) {
+function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform, harnessStateDir) {
     return new Promise((resolve, reject) => {
         const spawnRequest  = createSpawnRequest(cmd, args, hostPlatform);
         const proc          = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
         let   recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
-            recordPromise = recordHarnessProcess(identity, proc.pid).catch(err => {
+            recordPromise = recordHarnessProcess(identity, proc.pid, Date.now(), {
+                stateDir: harnessStateDir
+            }).catch(err => {
                 console.warn(`[harnessLifecycle] Failed to record PID for ${identity}: ${err.message}`);
             });
         }
@@ -310,13 +314,28 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
  * @param {String} reason Human-readable recovery reason.
  * @param {String} originSessionId Prior Memory Core session anchor, if known.
  * @param {Number} [abandonedCount=0] Prior abandoned wake action count for lock bookkeeping.
+ * @param {Object} [options]
+ * @param {String} [options.deploymentMode] Resolved deployment mode for addressed GUI routing.
+ * @param {Object} [options.env=process.env] Direct-invocation environment envelope.
+ * @param {String} options.harnessStateDir Resolved harness-state directory.
+ * @param {Object} [options.harnessTargetMetadata={}] Identity-bound wake route metadata.
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<void>}
  */
 export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0, {
     deploymentMode,
     env                   = process.env,
-    harnessTargetMetadata = {}
+    harnessStateDir,
+    harnessTargetMetadata = {},
+    wakeDaemonDir
 } = {}) {
+    if (!wakeDaemonDir) {
+        throw new Error('resumeHarness: wake-daemon directory must be injected by the composing entrypoint')
+    }
+    if (!harnessStateDir) {
+        throw new Error('resumeHarness: harness-state directory must be injected by the composing entrypoint')
+    }
+
     identity = normalizeAgentIdentityNodeId(identity);
 
     // Direct fresh-session-spawn invocations must fail closed when the wake
@@ -325,7 +344,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     if (hasOverride()) {
         console.error('[OVERRIDE] WAKE_GATE_OVERRIDE set; bypassing wake safety gate for resumeHarness.');
     } else {
-        const gate = await readGateState();
+        const gate = await readGateState({wakeDaemonDir});
         if (gate.state !== 'enabled') {
             console.error(`Skipping resume for ${identity}: Wake safety gate ${gate.state} (reason: ${gate.reason}). Set WAKE_GATE_OVERRIDE=1 to override.`);
             return;
@@ -334,7 +353,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
 
     // Idempotency: resolve the cooldown beside this script so cron/launchd callers
     // share the same 600s re-fire window regardless of their current working directory.
-    const cooldownDir  = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');
+    const cooldownDir  = wakeDaemonDir;
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
 
     try {
@@ -378,7 +397,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     const adapter = selectHarnessAdapter(harnessTarget);
 
     // Write the inflight lock before taking action to secure the boot ramp.
-    await writeInflightLock(identity, 'sunset_restart', abandonedCount);
+    await writeInflightLock(identity, 'sunset_restart', abandonedCount, {wakeDaemonDir});
 
     // Cross-adapter cleanup: sunset_restart replaces the previous CLI-spawned
     // harness process before starting a fresh one, preventing stale processes and
@@ -386,7 +405,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     // reuse an already-running host application instead of creating a tracked child
     // process.
     if (reason === 'sunset_restart' && adapter !== 'codex-app-server' && adapter !== 'osascript' && adapter !== 'tmux') {
-        const cleanup = await terminatePreviousHarness(identity);
+        const cleanup = await terminatePreviousHarness(identity, {stateDir: harnessStateDir});
         if (cleanup.terminated) {
             const escalation = cleanup.escalated ? `, escalated to ${cleanup.escalated}` : '';
             console.log(`[harnessLifecycle] Terminated previous ${identity} process (PID=${cleanup.pid}${escalation})`);
@@ -403,7 +422,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              */
             const cliPath = await resolveAntigravityCliPath();
             const args    = ['chat', '-n', payload];
-            await spawnAsync(cliPath, args, identity);
+            await spawnAsync(cliPath, args, identity, process.platform, harnessStateDir);
             console.log(`Successfully resumed ${identity} via antigravity-cli`);
         } else if (adapter === 'claude-cli') {
             /**
@@ -438,7 +457,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
                 );
             }
             const args = [payload];
-            await spawnAsync(cliPath, args, identity);
+            await spawnAsync(cliPath, args, identity, process.platform, harnessStateDir);
             console.log(`Successfully resumed ${identity} via claude-cli`);
         } else if (adapter === 'codex-app-server') {
             /**
@@ -554,7 +573,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
         await fs.writeFile(cooldownFile, Date.now().toString());
     } catch (err) {
         console.error(`Failed to resume ${identity} via ${adapter}: ${err.message}`);
-        await clearInflightLock(identity, 'sunset_restart');
+        await clearInflightLock(identity, 'sunset_restart', {wakeDaemonDir});
         throw err;
     }
 }
@@ -570,7 +589,11 @@ async function main() {
         process.exit(1);
     }
 
-    await resumeHarness(identity, reason, originSessionId, abandonedCount);
+    await resumeHarness(identity, reason, originSessionId, abandonedCount, {
+        deploymentMode : AiConfig.orchestrator.deploymentMode,
+        harnessStateDir: path.join(AiConfig.plane.dataRoot, 'harness-state'),
+        wakeDaemonDir  : memoryCoreConfig.wakeDaemon.dataDir
+    });
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === __filename;

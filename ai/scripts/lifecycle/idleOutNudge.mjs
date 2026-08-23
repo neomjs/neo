@@ -61,6 +61,7 @@ import LifecycleService                                          from '../../ser
 import GraphService                                              from '../../services/memory-core/GraphService.mjs';
 import WakeSubscriptionService                                   from '../../services/memory-core/WakeSubscriptionService.mjs';
 import RequestContextService                                     from '../../mcp/server/shared/services/RequestContextService.mjs';
+import memoryCoreConfig                                          from '../../mcp/server/memory-core/config.mjs';
 import {hasOverride, readGateState}                              from './wakeSafetyGate.mjs';
 import {writeInflightLock, clearInflightLock, checkInflightLock} from './inflightLock.mjs';
 
@@ -79,14 +80,16 @@ import {writeInflightLock, clearInflightLock, checkInflightLock} from './infligh
  * Lock is NOT cleared on success; release is memory-resolved.
  *
  * @param {string} identity Target agent identity (e.g., '@neo-opus-ada').
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<void>}
  */
-export async function idleOutNudge(identity) {
+export async function idleOutNudge(identity, {wakeDaemonDir}={}) {
     // 1. Wake safety gate. Fail-closed; operator override via WAKE_GATE_OVERRIDE=1.
     if (hasOverride()) {
         console.error('[OVERRIDE] WAKE_GATE_OVERRIDE set; bypassing wake safety gate for idleOutNudge.');
     } else {
-        const gate = await readGateState();
+        const gate = await readGateState({wakeDaemonDir});
         if (gate.state !== 'enabled') {
             console.error(`Skipping idle-out nudge for ${identity}: Wake safety gate ${gate.state} (reason: ${gate.reason}). Set WAKE_GATE_OVERRIDE=1 to override.`);
             return;
@@ -108,14 +111,14 @@ export async function idleOutNudge(identity) {
     //    upstream and would have downgraded if memory-resolved). Edge case: if a memory
     //    landed between detector-emit and this check, we'd send an unnecessary nudge —
     //    bounded harm given the lock immediately blocks the next cycle.
-    const lockCheck = await checkInflightLock(identity, 'idle_out_nudge', 0);
+    const lockCheck = await checkInflightLock(identity, 'idle_out_nudge', 0, {wakeDaemonDir});
     if (lockCheck.inFlight) {
         console.error(`Skipping idle-out nudge for ${identity}: in-flight idle_out_nudge lock already held.`);
         return;
     }
 
     // 4. Acquire the in-flight lock BEFORE emitting — secures the nudge bounded window.
-    await writeInflightLock(identity, 'idle_out_nudge', 0);
+    await writeInflightLock(identity, 'idle_out_nudge', 0, {wakeDaemonDir});
 
     const sender = process.env.NEO_AGENT_IDENTITY || '@system';
 
@@ -144,7 +147,7 @@ export async function idleOutNudge(identity) {
         //    Without this, a transient WakeSubscriptionService error would block all
         //    idle-out nudges for this identity for the full BOOT_TIMEOUT_MS window.
         console.error(`[idleOutNudge] Failed to emit heartbeat pulse to ${identity}: ${err.message}`);
-        await clearInflightLock(identity, 'idle_out_nudge').catch(() => {});
+        await clearInflightLock(identity, 'idle_out_nudge', {wakeDaemonDir}).catch(() => {});
         throw err;
     }
 }
@@ -157,7 +160,7 @@ async function main() {
         process.exit(1);
     }
 
-    await idleOutNudge(identity);
+    await idleOutNudge(identity, {wakeDaemonDir: memoryCoreConfig.wakeDaemon.dataDir});
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

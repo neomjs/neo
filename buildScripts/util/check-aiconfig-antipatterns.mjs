@@ -98,31 +98,9 @@ export const ALLOWLIST = Object.freeze({
         'ai/services/fleet/devFleetServer.mjs'
     ]),
     A5: new Set(),
-    // PLANE-ROOT census 2026-08-23: eight live sites, every one a known private-plane-root fork.
-    // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
-    // repair, and the set empties as they land. An entry here with no scheduled repair is a regression. `resources/content/**` targets are deliberately absent: they fork a corpus, not
-    // the plane, so the predicate correctly never sees them.
-    // PLANE-ROOT census 2026-08-23: eight live sites, every one a known private-plane-root fork.
-    // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
-    // repair, and the set empties as they land. An entry here with no scheduled repair is a regression.
-    // `resources/content/**` targets are deliberately absent: they fork a corpus, not the plane, so
-    // the predicate correctly never sees them.
-    //
-    // Entries are `path::<exact source text>`, NOT bare paths. A bare path would exempt the whole
-    // file, so a NINTH site appearing inside one of these eight — the files most likely to grow one,
-    // since they already do plane-root math — would be dropped in silence and the ledger would still
-    // read as eight scheduled repairs. Site identity makes the exemption name what is exempt, so
-    // anything new stays red.
-    'PLANE-ROOT': new Set([
-        "ai/examples/inspectGraph.mjs::const dbPath = path.resolve(__dirname, '../../.neo-ai-data/neo-sqlite/knowledge-graph.sqlite');",
-        "ai/scripts/lifecycle/harnessLifecycle.mjs::const STATE_DIR = path.resolve(__dirname, '../../../.neo-ai-data/harness-state');",
-        "ai/scripts/lifecycle/inflightLock.mjs::return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);",
-        "ai/scripts/lifecycle/resumeHarness.mjs::const cooldownDir  = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');",
-        "ai/scripts/lifecycle/wakeSafetyGate.mjs::return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/wake-safety-gate.json');",
-        "ai/services/ConceptService.mjs::return path.resolve(__dirname, '../../.neo-ai-data/concepts');",
-        "ai/services/fleet/FleetManager.mjs::return this.managedRoot || process.env.NEO_FLEET_MANAGED_ROOT || path.resolve(__dirname, '../../../.neo-ai-data/fleet/repos');",
-        "ai/services/ingestion/ConceptDiscoveryService.mjs::conceptsDir = ConceptService.defaultConceptsDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts'),"
-    ]),
+    // Zero baseline: all measured sites are repaired. A future migration may add only temporary,
+    // exact-site entries (`path::<source text>`), never a whole-file mute.
+    'PLANE-ROOT': new Set(),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
         'ai/mcp/server/shared/logger.mjs'

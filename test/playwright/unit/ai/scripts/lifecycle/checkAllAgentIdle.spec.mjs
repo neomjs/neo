@@ -256,16 +256,18 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
 
         // `setEnvOverride` takes the DECODED leaf type (a Number here, not the raw env string).
         const originalThreshold = AiConfig.orchestrator.swarmHeartbeat.idleThresholdMs;
+        const wakeDaemonDir     = mkdtempSync(path.join(os.tmpdir(), 'neo-check-all-idle-locks-'));
         try {
             AiConfig.setEnvOverride('NEO_IDLE_THRESHOLD_MS', 1000);    // 5s > 1s → member idle → all idle
-            expect((await checkAllAgentIdle()).allIdle).toBe(true);
+            expect((await checkAllAgentIdle({wakeDaemonDir})).allIdle).toBe(true);
 
             // Same memory, but the 10-min default makes the member active → not all-idle. This flip is
             // impossible unless the entrypoint actually reads the non-default value via the leaf.
             AiConfig.setEnvOverride('NEO_IDLE_THRESHOLD_MS', 600000);
-            expect((await checkAllAgentIdle()).allIdle).toBe(false);
+            expect((await checkAllAgentIdle({wakeDaemonDir})).allIdle).toBe(false);
         } finally {
             AiConfig.setEnvOverride('NEO_IDLE_THRESHOLD_MS', originalThreshold);
+            rmSync(wakeDaemonDir, {recursive: true, force: true})
         }
     });
 

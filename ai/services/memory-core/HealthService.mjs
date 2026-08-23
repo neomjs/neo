@@ -475,7 +475,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
     };
 
     try {
-        const gate = await readGateState();
+        const gate = await readGateState({wakeDaemonDir: aiConfig.wakeDaemon.dataDir});
         if (gate.trippedBy !== 'default-on-missing-file') {
             gateBlock = {
                 gateState    : gate.state,

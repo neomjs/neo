@@ -1,5 +1,3 @@
-import path                             from 'path';
-import {fileURLToPath}                  from 'url';
 import Base                             from '../../../src/core/Base.mjs';
 import FleetLifecycleService            from './FleetLifecycleService.mjs';
 import {inspectFleetRepos}              from './inspectFleetRepos.mjs';
@@ -7,10 +5,6 @@ import {readFleetPresenceSnapshot}      from './fleetPresenceStateAdapter.mjs';
 import {readFleetThrottleStateSnapshot} from './fleetThrottleStateAdapter.mjs';
 import {readFleetWakeStateSnapshot}     from './fleetWakeStateAdapter.mjs';
 import {startAgentProvisioned}          from './startAgentProvisioned.mjs';
-
-const
-    __filename = fileURLToPath(import.meta.url),
-    __dirname  = path.dirname(__filename);
 
 /**
  * @class Neo.ai.services.fleet.FleetManager
@@ -28,9 +22,8 @@ const
  * - `fleetRepoStatus()` → {@link Neo.ai.services.fleet.inspectFleetRepos} (fleet repo observability),
  *
  * each fed the resolved `managedRoot` + the lifecycle service — the registry is derived from the
- * lifecycle service (`getRegistry`), so there is one source of truth. `getManagedRoot` follows the
- * registry's `getDataDir` precedent: the `managedRoot` field, then the `NEO_FLEET_MANAGED_ROOT` env,
- * then a `__dirname`-relative default — no hidden fallback.
+ * lifecycle service (`getRegistry`), so there is one source of truth. The composing Fleet entrypoint
+ * injects `managedRoot` from the resolved `fleet.dataDir` member; this singleton never re-resolves it.
  *
  * The injectable seams (`lifecycleService`, `provisionAndStartFn`, `repoStatusFn` — default-real,
  * mirroring `FleetLifecycleService`'s `spawnFn` / `registry`) let the resolution + wiring be unit-proven
@@ -52,8 +45,8 @@ class FleetManager extends Base {
     }
 
     /**
-     * The absolute fleet-managed checkout root. `null` ⇒ resolved (env, then a `__dirname`-relative
-     * default) via {@link getManagedRoot}. Set a per-tenant / temp path to override. A **plain field**,
+     * The absolute fleet-managed checkout root. The composing entrypoint injects it from the resolved
+     * Fleet data member; tests inject a per-case temp path through the same seam. A **plain field**,
      * not reactive config — nothing observes/binds it, mirroring the sibling `FleetLifecycleService`'s
      * `credentialEnvVar` / `bridgeTokenEnvVar` tunables.
      * @member {String|null} managedRoot=null
@@ -108,14 +101,18 @@ class FleetManager extends Base {
     presenceStateOptions = null
 
     /**
-     * @summary Resolve (field > env > default) the absolute fleet-managed checkout root.
-     * Mirrors `FleetRegistryService.getDataDir`: the `managedRoot` field, then the
-     * `NEO_FLEET_MANAGED_ROOT` env, then a `__dirname`-relative `<repoRoot>/.neo-ai-data/fleet/repos`
-     * default. No hidden fallback — an unset field + unset env yields exactly the default.
+     * @summary Returns the composing entrypoint's resolved fleet-managed checkout root.
+     *
+     * Omission fails before a filesystem operation. Falling back to an env read or this module's
+     * location would bypass the AiConfig leaf that already resolved the owning Fleet member.
      * @returns {String}
      */
     getManagedRoot() {
-        return this.managedRoot || process.env.NEO_FLEET_MANAGED_ROOT || path.resolve(__dirname, '../../../.neo-ai-data/fleet/repos');
+        if (!this.managedRoot) {
+            throw new Error('FleetManager: managed root must be injected by the composing entrypoint')
+        }
+
+        return this.managedRoot
     }
 
     /**

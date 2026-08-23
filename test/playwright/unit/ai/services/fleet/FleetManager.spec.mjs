@@ -182,6 +182,7 @@ test.describe('Neo.ai.services.fleet.FleetManager — Codex Desktop cleanup fail
             getRegistry: () => registryStub,
             stop       : async id => ({success: false, id, state: 'failed', cleanupUnresolved: true})
         };
+        FleetManager.managedRoot        = '/managed/root';
         FleetManager.provisionAndStartFn = async options => {
             calls.push(['start', options.agentId]);
             return {id: options.agentId, state: 'running'};
@@ -190,6 +191,7 @@ test.describe('Neo.ai.services.fleet.FleetManager — Codex Desktop cleanup fail
 
     test.afterEach(() => {
         FleetManager.lifecycleService   = null;
+        FleetManager.managedRoot        = null;
         FleetManager.provisionAndStartFn = null;
     });
 

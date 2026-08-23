@@ -43,16 +43,22 @@ test.describe('ai/scripts/idleOutNudge', () => {
     // Shared identity-derived lock path; focused runs must not race the file state.
     test.describe.configure({mode: 'serial'});
 
-    const scriptPath  = path.resolve(process.cwd(), 'ai/scripts/lifecycle/idleOutNudge.mjs');
+    const scriptPath   = path.resolve(process.cwd(), 'ai/scripts/lifecycle/idleOutNudge.mjs');
     const testIdentity = '@neo-idle-out-test';
-    const lockPath    = getLockPath('idle_out_nudge', testIdentity);
 
-    let gatePath, overrideEnv, gateOnlyEnv;
+    let gatePath, lockPath, overrideEnv, gateOnlyEnv, wakeDaemonDir;
 
     test.beforeEach(async () => {
-        gatePath    = path.join(os.tmpdir(), `wake-gate-idleout-${randomUUID()}.json`);
-        overrideEnv = {...process.env, WAKE_GATE_FILE_PATH: gatePath, WAKE_GATE_OVERRIDE: '1'};
-        gateOnlyEnv = {...process.env, WAKE_GATE_FILE_PATH: gatePath};
+        gatePath     = path.join(os.tmpdir(), `wake-gate-idleout-${randomUUID()}.json`);
+        wakeDaemonDir = path.join(os.tmpdir(), `wake-state-idleout-${randomUUID()}`);
+        lockPath      = getLockPath('idle_out_nudge', testIdentity, {wakeDaemonDir});
+        overrideEnv   = {
+            ...process.env,
+            NEO_AI_DAEMON_DIR  : wakeDaemonDir,
+            WAKE_GATE_FILE_PATH: gatePath,
+            WAKE_GATE_OVERRIDE : '1'
+        };
+        gateOnlyEnv = {...process.env, NEO_AI_DAEMON_DIR: wakeDaemonDir, WAKE_GATE_FILE_PATH: gatePath};
 
         // Clean any pre-existing lock from prior runs
         if (fs.existsSync(lockPath)) await fsp.unlink(lockPath);
@@ -61,6 +67,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
     test.afterEach(async () => {
         if (fs.existsSync(lockPath)) await fsp.unlink(lockPath);
         if (fs.existsSync(gatePath)) await fsp.unlink(gatePath);
+        await fsp.rm(wakeDaemonDir, {recursive: true, force: true})
     });
 
     test('Unknown identity argument missing → exits with usage error', async () => {
@@ -93,7 +100,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
     test('In-flight lock already held → nudge skipped, lock unchanged (idempotent invariant #10675)', async () => {
         // Pre-create a lock as if a prior nudge is in-flight. The dispatcher's defensive
         // checkInflightLock guard MUST detect the lock and exit without touching it.
-        await writeInflightLock(testIdentity, 'idle_out_nudge', 0);
+        await writeInflightLock(testIdentity, 'idle_out_nudge', 0, {wakeDaemonDir});
         const lockBefore = await fsp.readFile(lockPath, 'utf-8');
 
         const result = spawnSync('node', [scriptPath, testIdentity], {
@@ -134,10 +141,10 @@ test.describe('ai/scripts/idleOutNudge', () => {
         // Use the LAST occurrence of each (the actual call site, not the import).
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
 
-        const gateCheckIndex   = scriptContent.lastIndexOf('readGateState()');
-        const lockCheckIndex   = scriptContent.lastIndexOf('checkInflightLock(identity');
-        const lockWriteIndex   = scriptContent.lastIndexOf('writeInflightLock(identity');
-        const emitPulseIndex   = scriptContent.lastIndexOf('emitHeartbeatPulse');
+        const gateCheckIndex = scriptContent.lastIndexOf('readGateState({wakeDaemonDir})');
+        const lockCheckIndex = scriptContent.lastIndexOf('checkInflightLock(identity');
+        const lockWriteIndex = scriptContent.lastIndexOf('writeInflightLock(identity');
+        const emitPulseIndex = scriptContent.lastIndexOf('emitHeartbeatPulse');
 
         expect(gateCheckIndex).toBeGreaterThan(-1);
         expect(lockCheckIndex).toBeGreaterThan(gateCheckIndex);
@@ -153,7 +160,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
 
         const emitIndex             = scriptContent.indexOf('emitHeartbeatPulse');
         const catchIndex            = scriptContent.indexOf('catch (err)', emitIndex);
-        const clearLockOnErrorIndex = scriptContent.indexOf("clearInflightLock(identity, 'idle_out_nudge')", catchIndex);
+        const clearLockOnErrorIndex = scriptContent.indexOf("clearInflightLock(identity, 'idle_out_nudge', {wakeDaemonDir})", catchIndex);
 
         expect(emitIndex).toBeGreaterThan(-1);
         expect(catchIndex).toBeGreaterThan(emitIndex);

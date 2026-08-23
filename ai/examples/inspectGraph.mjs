@@ -1,14 +1,16 @@
-import { fileURLToPath } from 'url';
-import path from 'path';
-import Database from 'better-sqlite3';
+import Neo              from '../../src/Neo.mjs';
+import * as core        from '../../src/core/_export.mjs';
+import Database         from 'better-sqlite3';
+import memoryCoreConfig from '../mcp/server/memory-core/config.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = path.resolve(__dirname, '../../.neo-ai-data/neo-sqlite/knowledge-graph.sqlite');
-
+/**
+ * @summary Prints recent Native Edge Graph rows from the resolved Memory Core graph leaf.
+ * @returns {void}
+ */
 function run() {
     try {
-        const db = new Database(dbPath, { readonly: true });
+        const dbPath = memoryCoreConfig.storagePaths.graph;
+        const db     = new Database(dbPath, { readonly: true });
 
         const nodes = db.prepare('SELECT * FROM nodes ORDER BY rowid DESC LIMIT 15').all();
         const edges = db.prepare('SELECT * FROM edges ORDER BY rowid DESC LIMIT 15').all();

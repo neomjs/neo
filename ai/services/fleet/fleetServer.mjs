@@ -22,6 +22,7 @@ import AuthService                from '../../mcp/server/shared/services/AuthSer
 import RequestContextService      from '../../mcp/server/shared/services/RequestContextService.mjs';
 import TransportService           from '../../mcp/server/shared/services/TransportService.mjs';
 import FleetControlBridge         from './FleetControlBridge.mjs';
+import FleetManager               from './FleetManager.mjs';
 import {createFleetWakeFanout}    from './fleetWakeFanout.mjs';
 import {createFleetWakeReceiver}  from './fleetWakeReceiver.mjs';
 import {createPlaneMailboxClient} from './planeMailboxClient.mjs';
@@ -1263,6 +1264,10 @@ export async function startFleetServer(options={}) {
     }
 
     const app = await createFleetServerApp({...options, aiConfig, logger});
+
+    // The plane guard above has accepted the resolved Fleet member. Inject it only now, before the
+    // listener can dispatch, so a refused composition never mutates the singleton's runtime root.
+    FleetManager.managedRoot = path.join(aiConfig.fleet.dataDir, 'repos');
 
     app.fleetWakeArming = options.wakeArmingContext ?? createWakeArmingContext({
         fanout: app.fleetWakeFanout,

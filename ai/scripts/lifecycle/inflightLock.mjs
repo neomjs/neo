@@ -1,9 +1,7 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs                 from 'fs/promises';
+import path               from 'path';
 import { writeGateState } from './wakeSafetyGate.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const BOOT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_ABANDONED_ACTIONS = 3;
 
@@ -11,11 +9,17 @@ export const MAX_ABANDONED_ACTIONS = 3;
  * @summary Build the absolute in-flight lock-file path for one identity/mode pair.
  * @param {string} mode Recovery action mode.
  * @param {string} identity Agent identity.
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {string} Absolute lock-file path.
  */
-export function getLockPath(mode, identity) {
+export function getLockPath(mode, identity, {wakeDaemonDir}={}) {
+    if (!wakeDaemonDir) {
+        throw new Error('inflightLock: wake-daemon directory must be injected by the composing entrypoint')
+    }
+
     const cleanIdentity = identity.replace(/[^a-zA-Z0-9_-]/g, '');
-    return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);
+    return path.join(wakeDaemonDir, `inflight-${mode}-${cleanIdentity}.txt`)
 }
 
 /**
@@ -29,13 +33,15 @@ export function getLockPath(mode, identity) {
  * @param {string} identity Agent identity.
  * @param {string} mode Recovery mode, usually `sunset_restart` or `idle_out_nudge`.
  * @param {number} latestMemoryTimestampMs Timestamp of the latest AGENT_MEMORY for this identity.
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<{inFlight: boolean, abandoned: boolean, abandonedCount: number}>} `abandonedCount` only present when abandoned.
  */
-export async function checkInflightLock(identity, mode, latestMemoryTimestampMs) {
-    const lockPath = getLockPath(mode, identity);
+export async function checkInflightLock(identity, mode, latestMemoryTimestampMs, options={}) {
+    const lockPath = getLockPath(mode, identity, options);
 
     try {
-        const content = await fs.readFile(lockPath, 'utf8');
+        const content  = await fs.readFile(lockPath, 'utf8');
         const lockData = JSON.parse(content);
 
         if (latestMemoryTimestampMs > lockData.timestamp) {
@@ -52,10 +58,10 @@ export async function checkInflightLock(identity, mode, latestMemoryTimestampMs)
             if (newAbandonedCount >= MAX_ABANDONED_ACTIONS) {
                 // Trip the safety gate after repeated abandoned wake actions.
                 await writeGateState({
-                    state: 'tripped',
-                    reason: `${newAbandonedCount} consecutive abandoned actions for ${mode} on ${identity}`,
+                    state    : 'tripped',
+                    reason   : `${newAbandonedCount} consecutive abandoned actions for ${mode} on ${identity}`,
                     trippedBy: 'inflight-lock-monitor'
-                });
+                }, options);
                 // Let callers continue; the safety gate blocks the next recovery action.
                 return { inFlight: false, abandoned: true };
             }
@@ -80,13 +86,15 @@ export async function checkInflightLock(identity, mode, latestMemoryTimestampMs)
  * @param {string} identity Agent identity.
  * @param {string} mode Recovery action mode.
  * @param {number} [abandonedCount=0] Prior abandoned-action count to carry forward.
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<void>}
  */
-export async function writeInflightLock(identity, mode, abandonedCount = 0) {
-    const lockPath = getLockPath(mode, identity);
+export async function writeInflightLock(identity, mode, abandonedCount = 0, options={}) {
+    const lockPath = getLockPath(mode, identity, options);
     const lockData = {
         timestamp: Date.now(),
-        lockId: Math.random().toString(36).slice(2),
+        lockId   : Math.random().toString(36).slice(2),
         abandonedCount
     };
     await fs.mkdir(path.dirname(lockPath), { recursive: true });
@@ -97,10 +105,12 @@ export async function writeInflightLock(identity, mode, abandonedCount = 0) {
  * @summary Clear an in-flight lock outside the implicit freshness check.
  * @param {string} identity Agent identity.
  * @param {string} mode Recovery action mode.
+ * @param {Object} options
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
  * @returns {Promise<void>}
  */
-export async function clearInflightLock(identity, mode) {
-    const lockPath = getLockPath(mode, identity);
+export async function clearInflightLock(identity, mode, options={}) {
+    const lockPath = getLockPath(mode, identity, options);
     try {
         await fs.unlink(lockPath);
     } catch (err) {

@@ -234,6 +234,17 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
+     * Resolved wake-daemon data member injected by the Orchestrator composition root.
+     * @member {String|null} wakeDaemonDir=null
+     */
+    wakeDaemonDir = null
+    /**
+     * Resolved harness-state directory injected by the Orchestrator composition root.
+     * @member {String|null} harnessStateDir=null
+     */
+    harnessStateDir = null
+
+    /**
      * Normalizes identity to canonical `@<identity>` form. Returns `null` for
      * empty values so unconfigured deployments surface the misconfiguration via
      * the resolver's disables-with-log path rather than silently inheriting a
@@ -511,7 +522,7 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async checkGateOpen() {
-        return isGateOpen()
+        return isGateOpen({wakeDaemonDir: this.wakeDaemonDir})
     }
 
     /**
@@ -520,7 +531,7 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async readGate() {
-        return readGateState()
+        return readGateState({wakeDaemonDir: this.wakeDaemonDir})
     }
 
     /**
@@ -531,7 +542,7 @@ class SwarmHeartbeatService extends Base {
      */
     async checkSunsetted(identity) {
         try {
-            return await checkSunsettedScript(identity)
+            return await checkSunsettedScript(identity, {wakeDaemonDir: this.wakeDaemonDir})
         } catch (err) {
             logger.error('[SwarmHeartbeatService] checkSunsetted.mjs failed:', err.message);
             return null
@@ -560,9 +571,11 @@ class SwarmHeartbeatService extends Base {
         }
 
         return resumeHarnessScript(identity, reason, originSessionId, abandonedCount, {
-            deploymentMode: AiConfig.orchestrator.deploymentMode,
-            env           : {},
-            harnessTargetMetadata
+            deploymentMode : AiConfig.orchestrator.deploymentMode,
+            env            : {},
+            harnessStateDir: this.harnessStateDir,
+            harnessTargetMetadata,
+            wakeDaemonDir  : this.wakeDaemonDir
         })
     }
 
@@ -625,7 +638,7 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async idleOutNudge(identity) {
-        return idleOutNudgeScript(identity)
+        return idleOutNudgeScript(identity, {wakeDaemonDir: this.wakeDaemonDir})
     }
 
     /**
@@ -635,7 +648,7 @@ class SwarmHeartbeatService extends Base {
      */
     async checkAllAgentIdle() {
         try {
-            return await checkAllAgentIdleScript()
+            return await checkAllAgentIdleScript({wakeDaemonDir: this.wakeDaemonDir})
         } catch (err) {
             logger.error('[SwarmHeartbeatService] checkAllAgentIdle.mjs failed:', err.message);
             return null
@@ -649,7 +662,7 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async swarmWakeCooldown(signal) {
-        return swarmWakeCooldownScript(signal)
+        return swarmWakeCooldownScript(signal, {wakeDaemonDir: this.wakeDaemonDir})
     }
 
     /**

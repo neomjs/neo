@@ -31,6 +31,7 @@ import fs                                                                from 'f
 import path                                                              from 'path';
 import {execSync}                                                        from 'child_process';
 import AiConfig                                                          from '../../config.mjs';
+import ConceptService                                                    from '../../services/ConceptService.mjs';
 import Orchestrator, {rotateLogFileIfNewDay}                             from './Orchestrator.mjs';
 import {acquireAuthorityLease, AUTHORITY_LEASE_TTL_MS}                   from './authorityLease.mjs';
 import {assertAuthorityProfile, isTaskOwnedByProfile}                    from './taskAuthority.mjs';
@@ -445,6 +446,10 @@ export async function startOrchestrator(options = {}) {
 
     fs.ensureDirSync(dataDir);
     await loadLocalAiConfig();
+
+    // Concept services are Neo-free of config imports. This entrypoint owns resolution and injects
+    // the already-resolved plane member after local overlays have applied, before any REM lane runs.
+    ConceptService.defaultConceptsDir = path.join(AiConfig.plane.dataRoot, 'concepts');
 
     // The role authority lease is claimed AHEAD of the legacy PID singleton: a refused boot must
     // leave the incumbent unsignaled and the plane untouched — enforceSingleton() can SIGTERM
