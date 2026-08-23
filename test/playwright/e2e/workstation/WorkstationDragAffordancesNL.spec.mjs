@@ -482,9 +482,82 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
                 reexitDrive        = {x: outside.x + 160, y: outside.y + 110},
                 reexitPopupPromise = page.waitForEvent('popup', {timeout: 30000});
 
+            await page.evaluate(() => {
+                const
+                    main     = globalThis.Neo.Main,
+                    original = main.windowMoveTo.bind(main),
+                    trace    = globalThis.__workstationReexitWindowMoves = [];
+
+                main.windowMoveTo = data => {
+                    const
+                        win   = main.openWindows[data.windowName]?.win,
+                        entry = {
+                            data  : {...data},
+                            handle: {
+                                exists : Boolean(win),
+                                closed : win?.closed ?? null,
+                                movable: typeof win?.moveTo === 'function'
+                            },
+                            result: 'pending'
+                        };
+
+                    trace.push(entry);
+
+                    let result;
+
+                    try {
+                        result = original(data)
+                    } catch (error) {
+                        entry.result = `throw:${error.message}`;
+                        throw error
+                    }
+
+                    Promise.resolve(result).then(value => {
+                        entry.result = value
+                    }, error => {
+                        entry.result = `reject:${error.message}`
+                    });
+
+                    return result
+                }
+            });
+
             await page.mouse.move(reexitStart.x, reexitStart.y, {steps: 40});
             reexitPopup = await reexitPopupPromise;
             await reexitPopup.waitForLoadState('domcontentloaded');
+
+            // `window.moveTo` is a platform-granted effect. This host can open the popup but may
+            // refuse every physical move (macOS/Chrome window-management policy); that is a stage
+            // ceiling, not evidence that the continuing gesture failed to emit move traffic. The
+            // positive control is strict: at least one call must arrive and EVERY completed result
+            // must be the adapter's verified `false`. Missing calls, pending calls, or any admitted
+            // move keep the behavioral witness live.
+            await expect.poll(() => page.evaluate(() => {
+                const trace = globalThis.__workstationReexitWindowMoves || [];
+
+                return trace.length > 0 && trace.every(entry => entry.result !== 'pending')
+            }), {
+                message: 'the second-generation pointer emits settled native move admissions',
+                timeout: 5000
+            }).toBe(true);
+
+            const openingMoveTrace = await page.evaluate(() => globalThis.__workstationReexitWindowMoves);
+
+            expect(
+                openingMoveTrace.every(entry => Number.isFinite(entry.data.x) && Number.isFinite(entry.data.y)),
+                'every native move request carries finite screen coordinates'
+            ).toBe(true);
+            expect(
+                openingMoveTrace.every(entry =>
+                    entry.handle.exists && entry.handle.closed === false && entry.handle.movable
+                ),
+                'every native move request resolves the live named popup handle'
+            ).toBe(true);
+
+            test.skip(
+                openingMoveTrace.every(entry => entry.result === false),
+                'host refused every verified window.moveTo effect; native pointer-follow is stage-bound here'
+            );
 
             const
                 secondVesselGeneration = new URL(reexitPopup.url()).searchParams.get('vesselGeneration'),

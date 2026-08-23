@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
+import Component      from '../../../../../src/component/Base.mjs';
 
 /**
  * @summary Reactive ancestor fixture for the inherited-theme overflow contract.
@@ -267,6 +268,37 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(plugin.control.theme, 'the floating control follows the source toolbar theme')
             .toBe('neo-theme-neo-light')
+    });
+
+    test('a body-mounted embodiment keeps a local theme carrier when its logical parent owns the same theme', () => {
+        const
+            parent = Neo.create(Component, {
+                appName : 'test-app',
+                id      : 'overflow-theme-logical-parent',
+                theme   : 'neo-theme-neo-dark',
+                windowId: 1
+            }),
+            control = Neo.create(Component, {
+                appName        : 'test-app',
+                parentComponent: parent,
+                parentId       : 'document.body',
+                theme          : 'neo-theme-neo-dark',
+                windowId       : 1
+            });
+
+        try {
+            expect(control.parent, 'focus ancestry still resolves through the logical owner').toBe(parent);
+            expect(control.cls, 'CSS inheritance cannot cross the distinct document.body edge')
+                .toContain('neo-theme-neo-dark');
+
+            control.theme = 'neo-theme-neo-light';
+
+            expect(control.cls).toContain('neo-theme-neo-light');
+            expect(control.cls).not.toContain('neo-theme-neo-dark')
+        } finally {
+            control.destroy();
+            parent.destroy()
+        }
     });
 
     test('a toolbar with no declared theme carries its ancestor theme at creation and follows ancestor switches', async () => {

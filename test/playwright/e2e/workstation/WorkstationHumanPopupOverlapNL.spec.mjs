@@ -36,10 +36,11 @@ const MATRIX_CELLS = [
             targetSize   : {height: 320, width: 400}
         }
     ],
-    MATRIX_CELL         = MATRIX_CELLS.find(cell =>
+    MATRIX_CELL           = MATRIX_CELLS.find(cell =>
         cell.name === (process.env.NEO_POPUP_CELL || 'large-over-small')),
-    TARGET_ITEM_ID      = 'metrics',
-    TARGET_WORKSPACE_ID = 'workstation-vessel:metrics';
+    PARTIAL_OVERLAP_RATIO = .68,
+    TARGET_ITEM_ID        = 'metrics',
+    TARGET_WORKSPACE_ID   = 'workstation-vessel:metrics';
 
 if (!MATRIX_CELL) {
     throw new Error(`Unknown NEO_POPUP_CELL: ${process.env.NEO_POPUP_CELL}`)
@@ -94,6 +95,20 @@ function readBrowserGeometry(page) {
             width : globalThis.outerWidth
         }
     }))
+}
+
+/**
+ * @summary Preserves the original popup-witness failure when a diagnostic page has already closed.
+ * @param {import('@playwright/test').Page} page
+ * @param {Function} reader
+ * @returns {Promise<Object>}
+ */
+async function readPageDiagnostic(page, reader) {
+    try {
+        return await reader()
+    } catch (error) {
+        return {closed: page.isClosed(), error: error.message}
+    }
 }
 
 /**
@@ -625,6 +640,17 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                     width     : globalThis.screen.availWidth
                 }));
 
+            const requiredStageWidth = Math.ceil(
+                cell.sourceSize.width + cell.targetSize.width -
+                PARTIAL_OVERLAP_RATIO * Math.min(cell.sourceSize.width, cell.targetSize.width)
+            );
+
+            test.skip(
+                screen.width < requiredStageWidth,
+                `${cell.name}: ${screen.width}px stage cannot contain the ${requiredStageWidth}px ` +
+                'minimum union for two reachable popup extents at the calibrated partial overlap'
+            );
+
             await setNativeBounds(mainHandle, {
                 height: Math.min(820, screen.height - 80),
                 left  : screen.left + 24,
@@ -782,7 +808,7 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                         positioned = await positionTargetForPartialOverlap({
                             app,
                             managerId,
-                            ratio : .68,
+                            ratio : PARTIAL_OVERLAP_RATIO,
                             source: sourceBefore,
                             targetHandle,
                             targetWindowId
@@ -941,7 +967,10 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                                 }
                             }),
                             snapshotA,
-                            sourceBrowser: await readBrowserGeometry(sourcePage),
+                            sourceBrowser: await readPageDiagnostic(
+                                sourcePage,
+                                () => readBrowserGeometry(sourcePage)
+                            ),
                             sourceState  : await app.getComponent(sourceZoneId, [
                                 'isWindowDragging',
                                 'vesselConversionLogicalRect',
@@ -950,14 +979,17 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                                 'vesselConversionTargetRect',
                                 'vesselConversionSensor'
                             ]),
-                            targetBrowser: await readBrowserGeometry(targetPage),
-                            targetDom    : await targetPage.evaluate(() => ({
+                            targetBrowser: await readPageDiagnostic(
+                                targetPage,
+                                () => readBrowserGeometry(targetPage)
+                            ),
+                            targetDom: await readPageDiagnostic(targetPage, () => targetPage.evaluate(() => ({
                                 indicators: document.querySelectorAll(
                                     '.neo-dashboard-dock-drop-indicators:not(.neo-dashboard-dock-drop-indicators-hidden)'
                                 ).length,
                                 previews: document.querySelectorAll('.neo-dock-preview-affordance').length,
                                 proxies : document.querySelectorAll('.workstation-vessel-dragproxy').length
-                            })),
+                            }))),
                             workspace: await app.getComponent(wsId, [
                                 'lastVesselParkReceipt',
                                 'lastVesselRestoreReceipt',
