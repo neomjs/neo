@@ -245,13 +245,14 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
 
     test('OpenCode retries changed coordinates once without allowing authority retarget', async () => {
         const first = {
-            hostname : '127.0.0.1',
-            port     : 4101,
-            sessionId: 'session-1',
-            projectId: 'project-1',
-            directory: '/workspace/one',
-            username : 'neo',
-            password : 'secret'
+            agentIdentity,
+            hostname     : '127.0.0.1',
+            port         : 4101,
+            sessionId    : 'session-1',
+            projectId    : 'project-1',
+            directory    : '/workspace/one',
+            username     : 'neo',
+            password     : 'secret'
         };
         const rebound    = {...first, port: 4102};
         let   readCount  = 0;
@@ -450,13 +451,16 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         const kimiRecord     = () => record('kimi-pull-bridge');
 
         const openCodeEnvelope = JSON.stringify({
-            hostname : '127.0.0.1',
-            port     : 63181,
-            sessionId: 'ses_probe',
-            projectId: 'proj',
-            directory: '/seat',
-            username : 'opencode',
-            password : 'secret'
+            // Names the seat that WROTE it. The envelope path is per-seat only while each seat owns
+            // its XDG_DATA_HOME, so the file has to say whose it is or a sharing seat inherits it.
+            agentIdentity: '@neo-gpt',
+            hostname     : '127.0.0.1',
+            port         : 63181,
+            sessionId    : 'ses_probe',
+            projectId    : 'proj',
+            directory    : '/seat',
+            username     : 'opencode',
+            password     : 'secret'
         });
 
         const messageList = [
@@ -536,6 +540,164 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
             for (const adapter of ['osascript', 'tmux', 'test']) {
                 expect(await probeSessionContext(record(adapter), {})).toBeNull();
             }
+        });
+    });
+
+    /**
+     * The envelope names ONE seat, and two seats on one host can end up sharing the file.
+     *
+     * `<XDG_DATA_HOME>/opencode/wake-envelope.json` is per-seat by construction — until two seats run
+     * under one `HOME` with no per-seat `XDG_DATA_HOME`, at which point whichever booted last owns
+     * delivery for both. Observed live: a peer's own broadcasts echoed back into its session inside
+     * envelopes addressed to a different seat, three times in 22 minutes, because the reader validated
+     * six coordinate fields and never the owner.
+     *
+     * `deliverKimiPullBridge` already refuses on `record.route.agentIdentity`; these arms hold the
+     * OpenCode adapter to the same contract. Delivery is the load-bearing one, but the probe matters
+     * too — it READS session messages, so a misrouted probe leaks a transcript rather than a wake.
+     */
+    test.describe('opencode envelope owner check (#17586)', () => {
+        const foreignEnvelope = JSON.stringify({
+            agentIdentity: '@neo-kimi-phoebe',   // written by the OTHER seat
+            hostname     : '127.0.0.1',
+            port         : 63181,
+            sessionId    : 'ses_phoebe',
+            projectId    : 'proj',
+            directory    : '/seat',
+            username     : 'opencode',
+            password     : 'secret'
+        });
+        const ownEnvelope = JSON.stringify({
+            agentIdentity: '@neo-gpt',           // matches record().route.agentIdentity
+            hostname     : '127.0.0.1',
+            port         : 63181,
+            sessionId    : 'ses_own',
+            projectId    : 'proj',
+            directory    : '/seat',
+            username     : 'opencode',
+            password     : 'secret'
+        });
+
+        test('a wake refuses an envelope written by another seat, and issues NO request', async () => {
+            let calls = 0;
+
+            const outcome = await dispatchLocalWake(record('opencode-server'), {
+                homedir: () => '/home/seat',
+                fs     : {readFile: async () => foreignEnvelope},
+                fetch  : async () => { calls++; return {status: 204}; }
+            });
+
+            // The refusal REASON is asserted, not just the outcome: a `failed` that happened to come
+            // from an unreadable file would satisfy the outcome alone and prove nothing about ownership.
+            expect(outcome, 'a wake for one seat must not deliver into another seat\'s session')
+                .toMatchObject({outcome: 'failed', outcomeReason: 'opencode-server envelope does not match the configured seat owner'});
+            // The assertion that matters: refusing AFTER the POST would already have started a turn on
+            // somebody else's lane. A wake is a turn-creation primitive.
+            expect(calls, 'no request may be issued against a session this wake does not own').toBe(0);
+        });
+
+        test('POSITIVE CONTROL: the same wake delivers when the envelope is its own', async () => {
+            let posted = null;
+
+            const outcome = await dispatchLocalWake(record('opencode-server'), {
+                homedir: () => '/home/seat',
+                fs     : {readFile: async () => ownEnvelope},
+                fetch  : async url => { posted = url; return {status: 204}; }
+            });
+
+            // Without this the guard could refuse everything and the arm above would still pass —
+            // a check that never admits anything is not a check, it is an outage.
+            expect(outcome).toBe('delivered');
+            expect(posted).toContain('/session/ses_own/prompt_async');
+        });
+
+        test('a pre-#17586 envelope carrying no owner is refused, not trusted', async () => {
+            // Envelopes already on disk predate the field. Fail closed: an unnamed owner cannot be
+            // proven to be this seat, and "probably ours" is how the original defect delivered.
+            const unnamed = JSON.stringify(JSON.parse(ownEnvelope, (key, value) =>
+                key === 'agentIdentity' ? undefined : value));
+            let calls = 0;
+
+            const outcome = await dispatchLocalWake(record('opencode-server'), {
+                homedir: () => '/home/seat',
+                fs     : {readFile: async () => unnamed},
+                fetch  : async () => { calls++; return {status: 204}; }
+            });
+
+            expect(outcome).toMatchObject({outcome: 'failed'});
+            expect(outcome.outcomeReason, 'the refusal names the missing field rather than guessing an owner')
+                .toContain("requires 'agentIdentity'");
+            expect(calls).toBe(0);
+        });
+
+        test('a REBIND that hands back another seat\'s envelope is refused before the retry POST', async () => {
+            // The reviewer's falsifier found this uncovered: deleting the rebound owner assertion left
+            // every other arm green, because they all refuse on the FIRST read.
+            //
+            // The tuple is held IDENTICAL across the re-read on purpose. `deliverOpenCode` already
+            // refuses when `sessionId`/`projectId`/`directory` move, so a rebound envelope that also
+            // changed those would be caught by that check and this arm would pass with the owner
+            // assertion deleted — proving nothing. Same tuple, different owner, different port isolates
+            // the owner check as the only thing that can refuse.
+            const own = {
+                agentIdentity: '@neo-gpt',
+                hostname     : '127.0.0.1',
+                port         : 4201,
+                sessionId    : 'ses_rebind',
+                projectId    : 'proj-rebind',
+                directory    : '/seat/rebind',
+                username     : 'opencode',
+                password     : 'secret'
+            };
+            // Same authority tuple, foreign owner, moved coordinates — without the owner check this is
+            // a legal rebind and the digest is delivered into another seat's session.
+            const stolen = {...own, agentIdentity: '@neo-kimi-phoebe', port: 4202};
+
+            let   reads = 0,
+                  posts = 0;
+            const opencode = record('opencode-server', {
+                route: {
+                    agentIdentity,
+                    harnessTargetMetadata: {adapter: 'opencode-server', envelopePath: '/seat/envelope.json'},
+                    adapterConfig        : {attemptTimeoutMs: 2000}
+                }
+            });
+
+            const outcome = await dispatchLocalWake(opencode, {
+                fs   : {readFile: async () => JSON.stringify(reads++ === 0 ? own : stolen)},
+                fetch: async () => {
+                    posts++;
+                    const error = new Error('connection refused');
+
+                    error.code = 'ECONNREFUSED';
+                    throw error
+                }
+            });
+
+            expect(reads, 'the rebind path was entered — the envelope was re-read').toBe(2);
+            expect(outcome).toMatchObject({
+                outcome      : 'failed',
+                outcomeReason: 'opencode-server envelope does not match the configured seat owner'
+            });
+            // THE DISCRIMINATOR. Remove the rebound owner assertion and the coordinates-changed branch
+            // accepts this as a legal retry, so a second POST lands on the other seat's session.
+            expect(posts, 'no retry POST may be issued against an envelope this wake does not own').toBe(1)
+        });
+
+        test('the context probe refuses a foreign envelope rather than reading its transcript', async () => {
+            let calls = 0;
+
+            const probe = await probeSessionContext(record('opencode-server'), {
+                homedir: () => '/home/seat',
+                fs     : {readFile: async () => foreignEnvelope},
+                fetch  : async () => { calls++; return {ok: true, json: async () => []}; }
+            });
+
+            // `null` is this path's documented fail-open value, so the outcome alone cannot
+            // distinguish "refused" from "unreadable". The request count is what proves the refusal
+            // happened BEFORE another seat's messages were fetched.
+            expect(probe).toBeNull();
+            expect(calls, 'a misrouted probe would read a peer\'s session messages').toBe(0);
         });
     });
 });

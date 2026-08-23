@@ -35,6 +35,14 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * 2. **Seat personal.** Identity + credentials load via `--env-file` from the seat's OWN `.env`
  *    (`NEO_AGENT_IDENTITY`, `GH_TOKEN`, provider keys). Node's `--env-file` never overwrites
  *    already-set vars, so explicit `environment` entries win where a caller needs them to.
+ *
+ *    **`XDG_DATA_HOME` is the seat-separation seam — not the OpenCode project list.** Provisioning a
+ *    second seat on one machine means giving it its own data home, because that is what separates the
+ *    wake envelope (`<XDG_DATA_HOME>/opencode/wake-envelope.json`), the session database and the
+ *    project registry. Two seats under one `HOME` share all three no matter how many projects the
+ *    desktop app displays — adding a project to an existing instance looks like separation and is
+ *    not. The hook below additionally stamps the envelope's writer so the wake reader can refuse
+ *    another seat's, but that check is a backstop for a shared data home, never a licence to run one.
  * 3. **The memory layer is the always-loaded slot — Grace-pattern.** OpenCode has no
  *    persistent auto-memory layer, so `instructions` carries the boot files (`MEMORY.md` +
  *    `identity.md`) into EVERY session. Detail files deliberately stay OUT of the array — each
@@ -264,6 +272,13 @@ function renderWakeHook() {
         ' * consumed by the wake daemon\'s opencode-server route (ai/daemons/wake/daemon.mjs). Credentials',
         ' * are read from OPENCODE_SERVER_USERNAME / OPENCODE_SERVER_PASSWORD in the process env and never',
         ' * accepted as flags, so the secret never touches argv (ps-visible).',
+        ' *',
+        ' * `agentIdentity` is stamped from NEO_AGENT_IDENTITY for the same reason the reader checks it:',
+        ' * the envelope path is per-seat only while each seat has its own XDG_DATA_HOME, and two seats',
+        ' * sharing one HOME collapse onto a single file. Naming the owner lets the reader refuse an',
+        ' * envelope that is not its own instead of delivering a wake into another seat\'s session. It is',
+        ' * read from the env rather than argv because the seat .env already carries it — no new flag, no',
+        ' * new config, and it cannot disagree with the identity the seat actually boots as.',
         ' */',
         "import fs   from 'node:fs/promises';",
         "import path from 'node:path';",
@@ -276,13 +291,24 @@ function renderWakeHook() {
         "    if (!args[key]) throw new Error(`write-wake-envelope: missing '--${key}'`);",
         '}',
         '',
-        'const {OPENCODE_SERVER_USERNAME: username, OPENCODE_SERVER_PASSWORD: password} = process.env;',
+        'const {',
+        '    NEO_AGENT_IDENTITY      : seatIdentity,',
+        '    OPENCODE_SERVER_USERNAME: username,',
+        '    OPENCODE_SERVER_PASSWORD: password',
+        '} = process.env;',
         '',
         "if (!username || !password) throw new Error('write-wake-envelope: OPENCODE_SERVER_USERNAME/PASSWORD must be set in the environment');",
+        "if (!seatIdentity) throw new Error('write-wake-envelope: NEO_AGENT_IDENTITY must be set in the environment');",
+        '',
+        '// The registry and every wake subscription spell an identity `@handle`; a seat .env may carry it',
+        "// bare. Normalising HERE keeps one spelling on the wire, so the reader can compare exactly rather",
+        '// than tolerantly — a tolerant comparison is how two identities start looking like one.',
+        "const agentIdentity = seatIdentity.startsWith('@') ? seatIdentity : `@${seatIdentity}`;",
         '',
         'const',
         "    envelopePath = path.join(args['data-home'], 'opencode', 'wake-envelope.json'),",
         '    envelope     = {',
+        '        agentIdentity,',
         "        hostname : '127.0.0.1',",
         "        port     : Number(args.port),",
         "        sessionId: args['session-id'],",

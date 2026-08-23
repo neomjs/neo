@@ -267,7 +267,7 @@ async function performDispatch({adapter, adapterConfig, digest, meta, record, si
         return 'delivered';
     }
     if (adapter === 'opencode-server') {
-        await deliverOpenCode({digest, effects, meta, signal});
+        await deliverOpenCode({digest, effects, meta, record, signal});
         return 'delivered';
     }
     if (adapter === 'kimi-server') {
@@ -301,10 +301,14 @@ async function performDispatch({adapter, adapterConfig, digest, meta, record, si
  * @summary Delivers into one live OpenCode session using its 0600 loopback envelope.
  * @private
  */
-async function deliverOpenCode({digest, effects, meta, signal}) {
+async function deliverOpenCode({digest, effects, meta, record, signal}) {
     const envelopePath = meta.envelopePath
         || path.join(effects.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
     const first = await readOpenCodeEnvelope(effects, envelopePath);
+
+    // Before the first POST, never after: the point is that no request is issued against a session
+    // this wake does not own.
+    assertOpenCodeEnvelopeOwner(first, record);
 
     try {
         await postOpenCodeDigest(effects, first, digest, signal);
@@ -314,6 +318,11 @@ async function deliverOpenCode({digest, effects, meta, signal}) {
         await new Promise(resolve => setTimeout(resolve, OPENCODE_REBIND_SETTLE_MS));
 
         const rebound = await readOpenCodeEnvelope(effects, envelopePath);
+
+        // Re-checked rather than assumed: a rebind re-reads the file, and the seat that rewrote it
+        // in between is exactly the case this guard exists for. The tuple check below compares the
+        // envelope against ITSELF across the retry and cannot see an owner change.
+        assertOpenCodeEnvelopeOwner(rebound, record);
 
         if (
             rebound.sessionId !== first.sessionId ||
@@ -342,10 +351,11 @@ async function deliverOpenCode({digest, effects, meta, signal}) {
  * @private
  */
 async function readOpenCodeEnvelope(effects, envelopePath) {
-    const envelope                                                              = await readJson(effects.fs, envelopePath, 'opencode-server seat envelope');
-    const {hostname, port, sessionId, projectId, directory, username, password} = envelope;
+    const envelope                                                                             = await readJson(effects.fs, envelopePath, 'opencode-server seat envelope');
+    const {agentIdentity, hostname, port, sessionId, projectId, directory, username, password} = envelope;
 
     for (const [key, value] of Object.entries({
+        agentIdentity,
         hostname,
         sessionId,
         projectId,
@@ -361,7 +371,36 @@ async function readOpenCodeEnvelope(effects, envelopePath) {
     if (!validPort(port)) throw new Error('opencode-server envelope requires a valid port');
     if (!LOOPBACK_HOSTS.has(hostname)) throw new Error('opencode-server envelope requires loopback');
 
-    return {hostname, port, sessionId, projectId, directory, username, password};
+    return {agentIdentity, hostname, port, sessionId, projectId, directory, username, password};
+}
+
+/**
+ * @summary Refuses an OpenCode envelope written by a different seat.
+ *
+ * The envelope path is per-seat BY DESIGN — the generated boot hook writes
+ * `<XDG_DATA_HOME>/opencode/wake-envelope.json`. Two seats sharing one `HOME` with no per-seat
+ * `XDG_DATA_HOME` resolve to the SAME file, and then whichever seat booted last silently owns wake
+ * delivery for every OpenCode seat on that host. Nothing on the path noticed, because the reader
+ * above validated six coordinate fields and never the owner.
+ *
+ * `deliverKimiPullBridge` already performs exactly this check against `record.route.agentIdentity`;
+ * the OpenCode adapter is the sibling that was missing it, so this restores a contract the file
+ * already keeps rather than introducing a new one.
+ *
+ * Fail CLOSED. A wake is a turn-creation primitive, not a notification, so a misdelivered one does
+ * not merely surface in the wrong place — it starts a turn on somebody else's lane. Queued beats
+ * delivered-to-the-wrong-seat.
+ *
+ * @param {Object} envelope Already-validated envelope.
+ * @param {Object} record   Durable receiver record, carrying the route's target identity.
+ * @private
+ */
+function assertOpenCodeEnvelopeOwner(envelope, record) {
+    const expected = record?.route?.agentIdentity;
+
+    if (typeof expected === 'string' && expected.length > 0 && envelope.agentIdentity !== expected) {
+        throw new Error('opencode-server envelope does not match the configured seat owner');
+    }
 }
 
 /**
@@ -823,7 +862,7 @@ export async function probeSessionContext(record, dependencies = {}) {
 
     try {
         if (adapter === 'opencode-server') {
-            return await probeOpenCodeSession({effects, meta});
+            return await probeOpenCodeSession({effects, meta, record});
         }
         if (adapter === 'kimi-server' || adapter === 'kimi-pull-bridge') {
             return await probeKimiWireSession({effects, meta});
@@ -841,10 +880,16 @@ export async function probeSessionContext(record, dependencies = {}) {
  * the probe at the fresh (cheap) session.
  * @private
  */
-async function probeOpenCodeSession({effects, meta}) {
+async function probeOpenCodeSession({effects, meta, record}) {
     const envelopePath = meta.envelopePath
         || path.join(effects.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
-    const {hostname, port, sessionId, username, password} = await readOpenCodeEnvelope(effects, envelopePath);
+    const envelope = await readOpenCodeEnvelope(effects, envelopePath);
+
+    // The probe READS another session's messages, so a misrouted one leaks a peer's transcript
+    // rather than merely misplacing a wake. Same guard, same reason.
+    assertOpenCodeEnvelopeOwner(envelope, record);
+
+    const {hostname, port, sessionId, username, password} = envelope;
 
     const response = await effects.fetch(
         `http://${hostname}:${port}/session/${encodeURIComponent(sessionId)}/message?limit=30`,
