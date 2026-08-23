@@ -88,6 +88,19 @@ class MountableControl extends Neo.core.Base {
 MountableControl = Neo.setupClass(MountableControl);
 
 /**
+ * @summary Reactive menu fixture for proving that an open Overflow menu keeps its record store
+ * stable until the floating list unmounts.
+ */
+class MountableMenuList extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.MountableMenuList',
+        items_   : null,
+        mounted_ : false
+    }
+}
+MountableMenuList = Neo.setupClass(MountableMenuList);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -254,6 +267,76 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(destroyed, 'the control is destroyed when the overflow set empties').toBe(true);
         expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
+    });
+
+    test('an open menu queues the latest complete projection until its clickable partition unmounts', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const
+            originalItems = [{text: 'Agents', handler() {}}],
+            menuList      = Neo.create(MountableMenuList, {items: originalItems, mounted: true}),
+            projections   = [];
+
+        plugin.control = {
+            alignTo() {},
+            destroy() {},
+            iconCls: 'fa fa-ellipsis',
+            menuList,
+            mounted: true
+        };
+        plugin.hiddenSignature = '0:Agents:fa fa-users';
+        plugin.project = recapture => projections.push(recapture);
+
+        expect(plugin.queueOpenMenuProjection(false)).toBe(true);
+        expect(plugin.queueOpenMenuProjection(true)).toBe(true);
+
+        expect(menuList.items.map(item => item.text),
+            'a mounted menu keeps the records its rendered nodes address').toEqual(['Agents']);
+        expect(plugin.menuProjectionQueued).toBe(true);
+        expect(plugin.menuRecaptureQueued).toBe(true);
+        expect(projections).toEqual([]);
+
+        menuList.mounted = false;
+
+        expect(projections).toEqual([true]);
+        expect(plugin.menuProjectionQueued).toBe(false);
+        expect(plugin.menuRecaptureQueued).toBe(false);
+
+        menuList.destroy();
+        plugin.destroy()
+    });
+
+    test('opening a menu restores the last committed header partition after recapture visibility', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const
+            makeButton = id => ({
+                hidden: false,
+                id,
+                setSilent(values) { Object.assign(this, values) },
+                vdom: {}
+            }),
+            buttons = [makeButton('b1'), makeButton('b2')];
+
+        let updates = 0;
+
+        plugin.appliedHiddenIds       = ['b2'];
+        plugin.owner.getTabButtons    = () => buttons;
+        plugin.owner.update           = () => updates++;
+        plugin.restoreOpenMenuPartition();
+
+        expect(buttons[0].hidden).toBe(false);
+        expect(buttons[0].vdom.removeDom).toBeUndefined();
+        expect(buttons[1].hidden).toBe(true);
+        expect(buttons[1].vdom.removeDom).toBe(true);
+        expect(updates).toBe(1);
+        expect(plugin.owner.updateDepth).toBe(-1);
+
+        plugin.destroy()
     });
 
     test('an owner theme change is carried onto the live out-of-tree control', async () => {

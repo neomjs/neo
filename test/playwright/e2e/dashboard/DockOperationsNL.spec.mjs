@@ -65,6 +65,102 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         expect(JSON.stringify(topo)).toBe(JSON.stringify(committed));
     });
 
+    test('close action resolves reordered live identity, retains chrome and restores successor or root focus', async ({ page, neuralLink }) => {
+        const { app, holderId } = await connect(page, neuralLink);
+        const pageErrors        = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error?.message || error)));
+
+        const seeded = await readTopology(app, holderId);
+
+        const mainRecords = await app.queryComponent({dockNodeId: 'main-tabs'}, ['id', 'ntype']);
+        const mainRecord  = Array.isArray(mainRecords) ? mainRecords[0] : mainRecords;
+        const mainId      = mainRecord?.id ?? mainRecord?.properties?.id;
+
+        expect(mainId, 'the main projected TabContainer must retain its semantic node id').toBeTruthy();
+
+        await expect.poll(async () => (await app.callMethod(mainId, 'getActionItem', ['close']))?.id, {
+            message: 'the opt-in projection materialises one persistent close action',
+            timeout: 10000
+        }).toBeTruthy();
+
+        const beforeItems = seeded.nodes['main-tabs'].items,
+              targetId    = beforeItems[1];
+
+        expect(targetId, 'the seeded main stack must expose a reorder target').toBeTruthy();
+
+        const moved = await app.executeDockOperation(holderId, {
+            operation: 'moveItem', itemId: targetId, targetNodeId: 'main-tabs', index: 0
+        });
+
+        expect(moved.errors).toEqual([]);
+        expect(moved.document.nodes['main-tabs'].items[0]).toBe(targetId);
+
+        const target = await app.findInstances(
+            {className: 'Neo.tab.header.Button', dockItemId: targetId},
+            ['id', 'dockItemId']
+        );
+        const targetRecord   = Array.isArray(target) ? target[0] : target,
+              targetButtonId = targetRecord?.id ?? targetRecord?.properties?.id;
+
+        expect(targetButtonId, 'the reordered item owns a live tab header').toBeTruthy();
+        await page.locator(`#${targetButtonId}`).click();
+        await expect.poll(async () => (await app.getComponent(mainId, ['activeIndex'])).activeIndex, {
+            message: 'the real tab click activates the reordered live index',
+            timeout: 10000
+        }).toBe(0);
+
+        const actionBefore = await app.callMethod(mainId, 'getActionItem', ['close']),
+              closeButton  = page.locator(`#${actionBefore.id}`),
+              successorId  = moved.document.nodes['main-tabs'].items[1];
+
+        await expect(closeButton).toBeVisible({timeout: 10000});
+        await closeButton.click();
+
+        await expect.poll(async () => (await readTopology(app, holderId)).items[targetId], {
+            message: 'the real header action commits the active reordered item through the model',
+            timeout: 10000
+        }).toBeUndefined();
+
+        const after       = await readTopology(app, holderId),
+              actionAfter = await app.callMethod(mainId, 'getActionItem', ['close']),
+              successor   = await app.findInstances(
+                  {className: 'Neo.tab.header.Button', dockItemId: successorId},
+                  ['id', 'dockItemId']
+              ),
+              successorRecord = Array.isArray(successor) ? successor[0] : successor,
+              successorButtonId = successorRecord?.id ?? successorRecord?.properties?.id;
+
+        expect(after.nodes['main-tabs'].items).toEqual(
+            moved.document.nodes['main-tabs'].items.filter(itemId => itemId !== targetId)
+        );
+        expect(after.nodes['main-tabs'].activeItemId).toBe(successorId);
+        expect(after.items[successorId]).toBeTruthy();
+        expect(actionAfter.id, 'retained topology keeps the exact action instance').toBe(actionBefore.id);
+        expect(successorButtonId, 'the model-selected successor owns a live tab header').toBeTruthy();
+        await expect.poll(() => page.evaluate(() => document.activeElement?.id), {
+            message: 'focus settles on the successor header after reconciliation',
+            timeout: 10000
+        }).toBe(successorButtonId);
+
+        const terminalRecords = await app.queryComponent({dockNodeId: 'terminal-tabs'}, ['id', 'ntype']),
+              terminalRecord  = Array.isArray(terminalRecords) ? terminalRecords[0] : terminalRecords,
+              terminalId      = terminalRecord?.id ?? terminalRecord?.properties?.id,
+              terminalAction  = await app.callMethod(terminalId, 'getActionItem', ['close']);
+
+        expect(terminalId, 'the single-item terminal stack must remain projected').toBeTruthy();
+        await page.locator(`#${terminalAction.id}`).click();
+        await expect.poll(async () => (await readTopology(app, holderId)).nodes['terminal-tabs'], {
+            message: 'closing the only item lets normalization prune its tabs node',
+            timeout: 10000
+        }).toBeUndefined();
+        await expect.poll(() => page.evaluate(() => document.activeElement?.id), {
+            message: 'the surviving DockWorkspace root receives focus after node pruning',
+            timeout: 10000
+        }).toBe(holderId);
+        expect(pageErrors).toEqual([])
+    });
+
     test('tab-move class: moveItem relocates across tabs nodes; delta and independent read agree', async ({ page, neuralLink }) => {
         const { app, holderId } = await connect(page, neuralLink);
 

@@ -38,16 +38,25 @@ test.describe('dock tab-overflow floating control', () => {
         // It carries the ellipsis affordance.
         await expect(control.locator('.fa-ellipsis')).toHaveCount(1);
 
-        // Owner-EXACT geometry: the control's right edge + top align (within 2px) to its owner toolbar — the
-        // one carrying 'Strategy' — NOT a stale pre-settle position. This requires the
-        // `.neo-button.neo-floating { position: fixed }` cascade fix; without it the control is pinned to its
-        // offsetParent instead of the viewport and lands at the wrong coordinates.
+        // Owner-EXACT geometry: the control's right edge aligns (within 2px) immediately before the
+        // persistent Dock close-action rail, and its top aligns to that action inside the toolbar
+        // carrying 'Strategy' — NOT a stale pre-settle position. This requires the
+        // `.neo-button.neo-floating { position: fixed }` cascade fix; without it the control is pinned
+        // to its offsetParent instead
+        // of the viewport and lands at the wrong coordinates.
         const mainToolbar = page.locator('.neo-tab-header-toolbar').filter({ hasText: 'Strategy' }).first(),
-              controlBox  = await control.boundingBox(),
-              toolbarBox  = await mainToolbar.boundingBox();
-        expect(Math.abs((controlBox.x + controlBox.width) - (toolbarBox.x + toolbarBox.width)),
-            'control right edge aligns to the toolbar right edge').toBeLessThanOrEqual(2);
-        expect(Math.abs(controlBox.y - toolbarBox.y), 'control top aligns to the toolbar top').toBeLessThanOrEqual(2);
+              closeAction = mainToolbar.getByRole('button', {name: 'close', exact: true});
+
+        await expect(closeAction).toBeVisible();
+
+        const controlBox = await control.boundingBox(),
+              actionBox  = await closeAction.boundingBox();
+
+        expect(Math.abs((controlBox.x + controlBox.width) - actionBox.x),
+            'control right edge aligns immediately before the Dock action rail').toBeLessThanOrEqual(2);
+        expect(Math.abs(controlBox.y - actionBox.y),
+            'control top aligns to the adjacent Dock action').toBeLessThanOrEqual(2);
+        await expect(mainToolbar.locator('.neo-toolbar-action.neo-draggable')).toHaveCount(0);
 
         // Clicking the control opens its dropdown menu of hidden tabs.
         await control.click();
@@ -56,17 +65,28 @@ test.describe('dock tab-overflow floating control', () => {
 
         // Partition: the visible headers + the hidden (menu) headers together are the full tab set — nothing
         // is lost or duplicated across the visible/hidden split.
-        const normalize      = values => values.map(value => value.trim()).filter(Boolean),
-              visibleHeaders = normalize(await page.locator('.neo-tab-header-button:visible').allTextContents()),
-              hiddenHeaders  = normalize(await menuItems.allTextContents());
-        expect([...visibleHeaders, ...hiddenHeaders].sort()).toEqual(
-            ['Agents', 'Alerts', 'History', 'Inspector', 'Logs', 'Metrics', 'Strategy', 'Swarm', 'Terminal', 'Timeline'].sort());
+        const normalize       = values => values.map(value => value.trim()).filter(Boolean),
+              expectedHeaders = ['Agents', 'Alerts', 'History', 'Inspector', 'Logs', 'Metrics', 'Strategy', 'Swarm', 'Terminal', 'Timeline'].sort();
+
+        await expect.poll(async () => {
+            const visibleHeaders = normalize(await page.locator('.neo-tab-header-button:visible').allTextContents()),
+                  hiddenHeaders  = normalize(await menuItems.allTextContents());
+
+            return [...visibleHeaders, ...hiddenHeaders].sort()
+        }, {
+            message: 'visible headers and the Overflow menu settle into one exact partition',
+            timeout: 10000
+        }).toEqual(expectedHeaders);
 
         // Selection: picking a hidden tab activates it and surfaces it into the header (pressed + visible),
         // via the ordinary activeIndex path (active-never-hidden), so the picked tab is never left in the menu.
-        const selectedText = (await menuItems.first().innerText()).trim();
-        await menuItems.first().click();
-        await expect(page.locator('.neo-tab-header-button.pressed:visible').filter({ hasText: selectedText })).toHaveCount(1);
+        const selectedText = (await menuItems.first().innerText()).trim(),
+              selectedItem = menuItems.filter({hasText: selectedText});
+
+        await expect(selectedItem, 'the selected semantic menu item remains unique while Overflow settles').toHaveCount(1);
+        await selectedItem.click();
+        await expect(page.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selectedText}))
+            .toHaveCount(1, {timeout: 10000});
 
         // No unexpected browser errors across the journey — notably, a fixed-positioned align must NOT trip
         // `ResizeObserver.observe(null)` (offsetParent is null for `position: fixed`), which the DomAccess

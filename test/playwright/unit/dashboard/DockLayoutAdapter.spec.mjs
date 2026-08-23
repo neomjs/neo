@@ -179,6 +179,50 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(sideChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
     });
 
+    test('projects the opt-in persistent Dock close action and forwards runtime intent only', () => {
+        const model = createModel();
+
+        model.items.swarm.closable = false;
+
+        const
+            closeIntents  = [],
+            activeChanges = [],
+            disabled      = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            enabled       = DockLayoutAdapter.project(model, {
+                enableDockCloseAction  : true,
+                onDockActiveIndexChange: data => activeChanges.push(data),
+                onDockHeaderAction     : data => closeIntents.push(data),
+                resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            disabledMain = getProjectedChildren(disabled)[0],
+            enabledMain  = getProjectedChildren(enabled)[0],
+            closeAction  = enabledMain.headerActions[0];
+
+        expect(disabledMain.headerActions).toBeUndefined();
+        expect(disabledMain.vdom).toBeUndefined();
+
+        expect(closeAction).toMatchObject({
+            action    : 'close',
+            contextual: false,
+            hidden    : true
+        });
+        expect(closeAction.iconCls).toBeTruthy();
+        expect(enabledMain.vdom.tabIndex).toBe(-1);
+
+        const tabContainer = {id: 'live-tabs'};
+
+        enabledMain.listeners.headerAction({action: 'custom', tabContainer});
+        expect(closeIntents).toEqual([]);
+
+        enabledMain.listeners.headerAction({action: 'close', tabContainer});
+        enabledMain.listeners.activeIndexChange({item: {id: 'live-card'}, value: 0});
+
+        expect(closeIntents).toEqual([{action: 'close', dockNodeId: 'main-tabs', tabContainer}]);
+        expect(activeChanges).toEqual([{dockNodeId: 'main-tabs', item: {id: 'live-card'}, tabContainer: null, value: 0}])
+    });
+
     test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
         let result = DockLayoutAdapter.project(createModel(), {
                 resolveComponentRef: componentRef => ({
