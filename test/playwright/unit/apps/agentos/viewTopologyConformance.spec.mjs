@@ -35,6 +35,7 @@ const
         ['src/menu/List.mjs',           'List'],
         ['src/button/Base.mjs',         'Button'],
         ['src/controller/Component.mjs','Controller'],
+        ['src/selection/ListModel.mjs', 'Model'],
         ['src/state/Provider.mjs',      'StateProvider']
     ];
 

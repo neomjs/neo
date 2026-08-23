@@ -106,6 +106,15 @@ class FleetAgent extends Model {
             type        : 'Integer',
             defaultValue: null
         }, {
+            // the newest attributable per-agent activity instant (ISO string), stamped Brain-side
+            // by the cockpit DTO assembler (activity-event fold merged with the presence
+            // producer's lastSeenAt) and passed through whole — the roster's recency sort axis.
+            // Tri-state like `openLaneCount`: null = no attributable instant, and the sorter's
+            // native null handling places such rows LAST — never a fabricated age, never
+            // view-derived (a client-side fold would be a second truth the producer cannot correct)
+            name        : 'lastActivityAt',
+            defaultValue: null
+        }, {
             // the AUTHORITATIVE swarm-participation fact from the identity roots ('active' |
             // 'operator_benched' | 'temporarily_unreachable'), resolved Brain-side through the
             // identity join seam; typeless so null (no identity root / not stamped) survives —
@@ -125,6 +134,20 @@ class FleetAgent extends Model {
             name        : 'state',
             type        : 'String',
             defaultValue: 'off'
+        }, {
+            // The roster's rank tier DERIVED from `state` — the default sort's leading axis,
+            // expressed as a calculated field so "online first" is a plain store sorter instead of
+            // a render-time partition: 0 = online (present and engaged: working, wedged or
+            // rate-limited — a wedged agent is a thing the operator must SEE, never calm
+            // background), 1 = idle (the calm middle, the collapsible tier), 2 = the tail
+            // (benched / offline / unknown-guest). One derivation site; every consumer sorts on
+            // the field
+            name     : 'tierRank',
+            calculate: data => {
+                const {state} = data;
+
+                return (state === 'ok' || state === 'wedged' || state === 'limited') ? 0 : state === 'idle' ? 1 : 2
+            }
         }, {
             // normalized `fleetCockpitStatus.rows[*].sources`: roster / repoStatus / runtime
             // provenance. Replaced as one Object on each snapshot so Store recordChange remains

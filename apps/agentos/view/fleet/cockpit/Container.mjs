@@ -29,6 +29,7 @@ import SourceHealth                from '../../../util/SourceHealth.mjs';
 import SpineBanner                 from '../../../util/SpineBanner.mjs';
 import ViewerWakeTelltale          from '../../../util/ViewerWakeTelltale.mjs';
 import {previewToOperation}        from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import '../../../../../src/manager/Instance.mjs'; // binds Neo.get for the retained-component dock projection path
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -258,7 +259,18 @@ class FleetCockpit extends Container {
                     stream : {alive: 'unknown', reason: 'wake stream not started', capturedAt: null},
                     catchUp: {state: null, at: null, pending: null}
                 },
-                activityCounts: []
+                activityCounts: [],
+                /**
+                 * The cockpit's ONE selection truth, written by the roster's selection seam
+                 * ({@link AgentOS.view.fleet.roster.Controller#onRosterSelect} via
+                 * {@link #applySelection}): the durable registry key for record-keyed consumers,
+                 * and the canonical `@github` mailbox identity for identity-keyed consumers (the
+                 * memories read). `selectedAgentIdentity` is null when the selected resident has
+                 * no verifiable identity authority — an honest "cannot address", never derived
+                 * from the registry key.
+                 */
+                selectedAgentId      : null,
+                selectedAgentIdentity: null
             },
             stores: {
                 fleetActivityEvents: {
@@ -873,12 +885,22 @@ class FleetCockpit extends Container {
         const revealsInspector = me.isInspectorRevealed(document);
 
         if (revealsInspector && !me.detailRecord) {
-            me.detailRecord = me.resolveFleetRosterStore()?.first() ?? null
+            // seat through the ONE selection-write site so the provider pair + memories
+            // write-through follow the cold default exactly like an operator click would
+            me.applySelection(me.resolveFleetRosterStore()?.first() ?? null)
         }
 
         me.presetError = null;
         me.onDockZoneDocumentChange(document);
-        revealsInspector && me.detailRecord && me.getAgentDetailPane()?.set({record: me.detailRecord});
+
+        if (revealsInspector && me.detailRecord) {
+            const pane = me.getAgentDetailPane();
+
+            // A cold default already reached an existing pane through applySelection(). A pane
+            // materialized by the projection still needs the write; an already-current one does not.
+            pane && pane.record !== me.detailRecord && pane.set({record: me.detailRecord})
+        }
+
         return {errors: [], switched: true}
     }
 
@@ -1426,9 +1448,11 @@ class FleetCockpit extends Container {
                     adapterState: me.gridAdapterState,
                     bind        : {store: 'stores.fleetRoster'},
                     cls         : [marker],
-                    // the bootstrap CTA's intent: an empty fleet's one path to its first agent —
-                    // the controller opens the S5 define-agent zone (the card-drill precedent)
-                    listeners: {addAgentRequest: 'onAddAgentRequest'},
+                    // two roster intents: the bootstrap CTA (an empty fleet's one path to its
+                    // first agent — the controller opens the S5 define-agent zone) and the
+                    // selection seam's drill (`agentSelect` — the roster controller already wrote
+                    // the provider truth pair; this listener drives the detail reveal)
+                    listeners: {addAgentRequest: 'onAddAgentRequest', agentSelect: 'onAgentSelect'},
                     reference: 'fleet-grid'
                 };
             case 'activity-stream':
@@ -1534,8 +1558,9 @@ class FleetCockpit extends Container {
                 // resident per-agent session-summary recall (a south reading-surface tab): the pane renders the owner-held
                 // source envelope and fires intent; this cockpit owns the authenticated bridge.
                 // The selected target travels WITH the snapshot (one coherent state key), so a
-                // rematerialized pane never shows cards no selection points at. Agent choices
-                // derive from the same provider-owned roster as the cards — no second resident list.
+                // rematerialized pane never shows cards no selection points at. The target is the
+                // roster SELECTION's write-through ({@link #applySelection}) — the cockpit's one
+                // picker; the pane renders no chooser of its own.
                 // The listener scope is bound EXPLICITLY to the owning controller: string handlers
                 // resolve through the component's controller chain at fire time, and a vesseled
                 // pane (click pop-out / gesture tear-out) has no controller above it — an
@@ -1548,7 +1573,6 @@ class FleetCockpit extends Container {
                     snapshot     : me.memoriesSnapshot,
                     drillSession : me.memoriesDrillSession,
                     drillSnapshot: me.memoriesDrillSnapshot,
-                    agentOptions : me.buildMemoriesAgentOptions(),
                     shellTools   : [me.buildMemoriesWindowToggle()],
                     listeners    : {
                         memoriesRequest     : 'onMemoriesRequest',
@@ -2560,8 +2584,41 @@ class FleetCockpit extends Container {
             current = store?.get(me.detailRecord.agentId) ?? null;
 
         if (current !== me.detailRecord) {
-            me.detailRecord = current;
-            me.getAgentDetailPane()?.set({record: current})
+            me.applySelection(current)
+        }
+    }
+
+    /**
+     * @summary The ONE selection-write site: seat a resident record (or null) as the cockpit's
+     * selection truth everywhere it lives — the owner-held {@link #detailRecord} (dock
+     * rematerialization), the provider pair (`selectedAgentId` for record-keyed consumers,
+     * `selectedAgentIdentity` for identity-keyed ones), the live detail pane, and the memories
+     * write-through (the one-picker contract: a selected resident with a verifiable mailbox
+     * identity re-targets the pane through the owner accessor, so a vesseled pane re-targets
+     * exactly like a docked one).
+     *
+     * A null identity keeps the pane's LAST target: the summary corpus outlives the seat, so a
+     * resident without identity authority (or a cleared selection) never blanks a valid read —
+     * the provider pair still reports the honest null.
+     * @param {Object|null} record The selected {@link AgentOS.model.FleetAgent} record, or null.
+     * @protected
+     */
+    applySelection(record) {
+        let me       = this,
+            identity = record?.githubUsername ? `@${record.githubUsername}` : null;
+
+        me.detailRecord = record ?? null;
+
+        me.setState({
+            selectedAgentId      : record?.agentId ?? null,
+            selectedAgentIdentity: identity
+        });
+
+        me.getAgentDetailPane()?.set({record: record ?? null});
+
+        if (identity && identity !== me.memoriesTarget) {
+            me.memoriesTarget = identity;
+            me.getMemoriesPane()?.set({activeAgent: identity})
         }
     }
 
@@ -2833,7 +2890,6 @@ class FleetCockpit extends Container {
             // next poll. Absent/malformed envelopes plumb null — the chip claims nothing.
             grid && (grid.presenceCapability = capabilities?.presence ?? null);
             me.getCatchUpPane()?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
-            me.getMemoriesPane()?.set({agentOptions: me.buildMemoriesAgentOptions()});
             // the activity rows' actor chips join the same roster truth (avatar + display name)
             me.getReference('activity-stream')?.set({actorDirectory: me.buildActivityActorDirectory()});
             // resident panes snapshot their roster-derived options at projection time, which can
@@ -2918,25 +2974,6 @@ class FleetCockpit extends Container {
                 id       : `catch-up-${row.agentId}`,
                 label    : row.displayName || row.githubUsername,
                 partition: `@${row.githubUsername}`
-            }))
-    }
-
-    /**
-     * @summary Build the memories-pane agent choices from the live roster Store — canonical
-     * `@identity` targets for the `fleetMemories` session-summary read. Same provider-owned
-     * roster as the cards; the summary corpus is the team-visible cross-author read, so the wire
-     * carries the target and paging only — never a viewer claim.
-     * @returns {Object[]}
-     */
-    buildMemoriesAgentOptions() {
-        const rows = this.resolveFleetRosterStore()?.items ?? [];
-
-        return rows
-            .filter(row => row.githubUsername)
-            .map(row => ({
-                id           : `memories-${row.agentId}`,
-                label        : row.displayName || row.githubUsername,
-                agentIdentity: `@${row.githubUsername}`
             }))
     }
 
@@ -3987,6 +4024,11 @@ class FleetCockpit extends Container {
             family        : row.family ?? null,
             launchable    : row.launchable ?? null,
             openLaneCount : row.openLaneCount ?? null,
+            // the newest attributable activity instant, stamped by the assembler (activity-event
+            // fold merged with presence recency) and passed through whole — the roster's
+            // latest-activity sort axis; null = not stamped, and the sorter's native null
+            // handling places such rows last (never a fabricated age)
+            lastActivityAt: row.lastActivityAt ?? null,
             // the authoritative identity-root participation fact (tri-state null = no root) —
             // the eligibility partition excludes any KNOWN non-active status before a lifecycle
             // write; null stays eligible (open-set honesty for forks/custom residents)

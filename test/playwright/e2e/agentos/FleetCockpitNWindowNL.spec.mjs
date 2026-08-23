@@ -230,9 +230,11 @@ test.describe('AgentOS Fleet Cockpit — N-window mailbox film beat (#15650)', (
             expect(mailboxBefore?.properties?.snapshot?.rows?.[0]?.subject,
                 'the mailbox must render the phase-0 fixture before detaching').toBe('Mailbox stage ready');
 
-            // Drill through the production card control, then detach the detail with its existing
+            // Select through the production roster item, then detach the detail with its existing
             // click-vessel seam. The operator pane remains a second live dock item in the main tree.
-            await page.locator('.fm-card-drill', {hasText: 'Mnemosyne'}).click();
+            await page.locator('.fm-fleet-cards > .neo-list-item', {
+                has: page.locator('.fm-card-name', {hasText: 'Mnemosyne'})
+            }).click();
 
             let detailBefore;
 

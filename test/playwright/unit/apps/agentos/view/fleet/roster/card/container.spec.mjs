@@ -306,49 +306,44 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('drill-in (gate-1): the dedicated native drill Button fires ONE agentSelect {agentId}', () => {
-        const card  = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
-        const fired = [];
+    test('selection ownership: the resident name is plain identity text, never a second drill control', () => {
+        const card = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
 
-        card.on('agentSelect', data => fired.push(data));
+        // The host list's real li is the one selection/drill target. Keeping the name as a plain
+        // Component prevents two competing keyboard/click seams inside one row; lifecycle verbs
+        // remain the card's only native controls.
+        const name = card.down({reference: 'card-name'});
 
-        // the drill target is a dedicated native <button> (the resident's name), NOT the card root — so the
-        // controller no longer needs the old key/control-path carve-out (toggle/restart are separate sibling
-        // Buttons with their own lifecycleIntent handlers that never reach onCardSelect). Activation fires
-        // ONE agentSelect; the controller reads the durable agentId off the record, intent-only.
-        const drill = card.down({reference: 'card-name'});
-        expect(drill.vdom.tag).toBe('button');
-        expect(drill.text).toBe('Vega');
-
-        card.getController().onCardSelect({component: drill});
-        expect(fired).toMatchObject([{agentId: 'vega'}]);
+        expect(name.ntype).toBe('component');
+        expect(name.vdom.tag).toBeUndefined();
+        expect(name.text).toBe('Vega');
+        expect(card.getController().onCardSelect).toBeUndefined();
 
         card.destroy()
     });
 
-    test('a11y shape (gate-1): a non-interactive listitem card + a native drill Button announced by the resident name (#14619)', () => {
+    test('a11y shape (gate-1): the card is content inside the host li; only lifecycle verbs are native Buttons (#14619)', () => {
         const card = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
 
-        // the card ROOT is a non-interactive listitem — NOT role=button, NOT focusable, NO card-level
-        // aria-label. The FM roster is a ranked responsive list, not a 2D data matrix, so the card is a
-        // list item and keyboard operability lives on its native child Buttons (drill / toggle / restart).
-        expect(card.vdom.role).toBe('listitem');
+        // The List owns semantic HTML (`ul > li`) and selection. The AgentCard is only the li's
+        // product surface, so it must not duplicate the implicit listitem role or add a tab stop.
+        expect(card.vdom.role).toBeUndefined();
         expect(card.vdom.tabIndex ?? null).toBeNull();
         expect(card.vdom['aria-label'] ?? null).toBeNull();
 
-        // the drill is a dedicated native <button> whose accessible name IS the resident's name (it
-        // announces "Vega, button"); native Enter/Space activation is a browser behavior proven in the
-        // mounted whitebox-e2e. Its cls carries `neo-selection` so the FleetGrid drill-to-drill Up/Down
-        // jump's scroll-suppression is scoped to the drill target, not the whole card.
-        const drill = card.down({reference: 'card-name'});
-        expect(drill.vdom.tag).toBe('button');
-        expect(drill.text).toBe('Vega');
-        expect(drill.cls).toContain('fm-card-drill');
-        expect(drill.cls).toContain('neo-selection');
+        const
+            name    = card.down({reference: 'card-name'}),
+            toggle  = card.down({reference: 'control-toggle'}),
+            restart = card.down({reference: 'control-restart'});
+
+        expect(name.ntype).toBe('component');
+        expect(name.text).toBe('Vega');
+        expect(toggle.vdom.tag).toBe('button');
+        expect(restart.vdom.tag).toBe('button');
 
         // the accessible name is record-derived display state — a rename updates it in place (never a re-key)
         applySet(card, {displayName: 'Vega (renamed)'});
-        expect(drill.text).toBe('Vega (renamed)');
+        expect(name.text).toBe('Vega (renamed)');
 
         card.destroy()
     });

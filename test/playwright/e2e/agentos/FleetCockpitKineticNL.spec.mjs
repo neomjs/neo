@@ -132,9 +132,11 @@ test.describe('AgentOS Fleet Cockpit — kinetic multi-window choreography (#156
             expect(baseline.detailVesselState).toBe('docked');
             expect(baseline.detachedDetail).toBeNull();
 
-            // ── beat 1: drill through the production selection seam (Playwright interaction
-            // → NL validation: the card's own drill Button, the same path an operator drives) ──
-            await page.locator('.fm-card-drill', {hasText: 'Mnemosyne'}).click();
+            // ── beat 1: select through the production list seam (Playwright interaction → NL
+            // validation: the semantic li is the target, the same path an operator drives) ──
+            await page.locator('.fm-fleet-cards > .neo-list-item', {
+                has: page.locator('.fm-card-name', {hasText: 'Mnemosyne'})
+            }).click();
 
             let dockedDetail;
 

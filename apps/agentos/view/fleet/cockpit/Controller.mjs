@@ -159,35 +159,30 @@ class FleetCockpitController extends Controller {
     }
 
     /**
-     * @summary Drill into a resident — the card→detail select seam.
+     * @summary Drill into a resident — the roster-selection→detail seam.
      *
-     * A card fires `agentSelect {agentId}` on a body click; the cockpit is the composition root that
-     * knows both the roster store and the detail pane. It resolves the record from the bound store,
-     * holds it as the OWNER-side selection (so a later re-projection re-materializes the inspector at
-     * this agent — {@link AgentOS.view.fleet.cockpit.Container#resolveDockComponentRef} reads
-     * `detailRecord`), and updates a live detail instance in place. The detail pane is auto-hidden on
-     * the rail by default, so the FIRST select reveals it through the standard commit loop (which
-     * re-projects and builds the pane from `detailRecord`); a later select updates the already-shown
-     * pane in place, with no full re-projection. An unknown agentId is a no-op (fail-closed).
-     * @param {Object} data The `agentSelect` payload `{agentId}` — Neo stamps `source`.
+     * The roster fires `agentSelect {agentId}` after its selection seam wrote the provider truth
+     * pair; the cockpit is the composition root that knows both the roster store and the detail
+     * pane. It resolves the record from the provider-owned store and seats it through
+     * {@link AgentOS.view.fleet.cockpit.Container#applySelection} — the ONE selection-write site
+     * (owner-held `detailRecord` for re-projection, the provider pair, the live detail pane, the
+     * memories write-through). The detail pane is auto-hidden on the rail by default, so the FIRST
+     * select reveals it through the standard commit loop (which re-projects and builds the pane
+     * from `detailRecord`); a later select updates the already-shown pane in place, with no full
+     * re-projection. An unknown agentId is a no-op (fail-closed).
+     * @param {Object} data The `agentSelect` payload `{agentId}`.
      */
     onAgentSelect(data) {
         const
             me      = this,
             cockpit = me.component,
-            // resolve from the firing card (data.source) — mirroring onAgentLifecycleIntent's proven
-            // source-based lookup; fall back to the roster store by agentId for callers with no source.
-            record  = Neo.getComponent(data.source)?.record ?? me.getReference('fleet-grid')?.store?.get(data.agentId);
+            record  = cockpit.resolveFleetRosterStore()?.get(data.agentId);
 
         if (!record) {
             return
         }
 
-        cockpit.detailRecord = record;
-        // routed through the owner accessor: a popped-out inspector lives in the vessel's view
-        // tree (outside this controller's getReference reach) and must drill exactly like a
-        // docked one
-        cockpit.getAgentDetailPane()?.set({record});
+        cockpit.applySelection(record);
 
         if (cockpit.dockModel?.items?.detail?.autoHidden) {
             const result = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false});

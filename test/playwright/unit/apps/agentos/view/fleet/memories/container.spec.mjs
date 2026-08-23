@@ -12,11 +12,6 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
 import '../../../../../../../../src/manager/Instance.mjs';
 import MemoriesPane   from '../../../../../../../../apps/agentos/view/fleet/memories/Container.mjs';
 
-const AGENT_OPTIONS = [
-    {id: 'memories-ada',  label: 'Ada',  agentIdentity: '@neo-opus-ada'},
-    {id: 'memories-clio', label: 'Clio', agentIdentity: '@neo-fable-clio'}
-];
-
 /**
  * @summary Build one wired source envelope in the exact `fleetMemories` contract shape.
  * @param {Object} options
@@ -52,7 +47,6 @@ function row(id, timestamp = '2026-08-02T20:00:00.000Z') {
 function createPane(config = {}) {
     const requests = [],
           pane     = Neo.create(MemoriesPane, {
-              agentOptions: AGENT_OPTIONS,
               listeners   : {memoriesRequest: data => {
                   const {source, ...params} = data;
                   requests.push(params)
@@ -67,7 +61,7 @@ test.describe('MemoriesPane — target-state coherence (selected target is part 
     test('a target switch invalidates old cards and continuation IMMEDIATELY — no stale-depth offset request can be emitted', () => {
         const {pane, requests} = createPane();
 
-        pane.onAgentClick('@neo-opus-ada');
+        pane.activeAgent = '@neo-opus-ada';
         expect(requests).toEqual([{agentIdentity: '@neo-opus-ada'}]);
 
         pane.snapshot = envelope({target: '@neo-opus-ada', sessions: [row('a1'), row('a2')], total: 3});
@@ -75,7 +69,7 @@ test.describe('MemoriesPane — target-state coherence (selected target is part 
         expect(pane.getReference('memories-more').hidden).toBe(false);
 
         // the switch: old target's cards and continuation die NOW, before any response
-        pane.onAgentClick('@neo-fable-clio');
+        pane.activeAgent = '@neo-fable-clio';
         expect(requests).toEqual([{agentIdentity: '@neo-opus-ada'}, {agentIdentity: '@neo-fable-clio'}]);
         expect(pane.summaryStore.count).toBe(0);
         expect(pane.renderedTarget).toBe(null);
@@ -91,9 +85,9 @@ test.describe('MemoriesPane — target-state coherence (selected target is part 
     test('a late foreign-target envelope is NOT adopted; the selected target\'s page zero is', () => {
         const {pane, requests} = createPane();
 
-        pane.onAgentClick('@neo-opus-ada');
+        pane.activeAgent = '@neo-opus-ada';
         pane.snapshot = envelope({target: '@neo-opus-ada', sessions: [row('a1'), row('a2')], total: 3});
-        pane.onAgentClick('@neo-fable-clio');
+        pane.activeAgent = '@neo-fable-clio';
 
         // the stale Ada page lands AFTER the switch — it must not resurrect cards or actions
         pane.snapshot = envelope({target: '@neo-opus-ada', sessions: [row('a1'), row('a2')], total: 3});
@@ -116,7 +110,7 @@ test.describe('MemoriesPane — target-state coherence (selected target is part 
     test('a same-target offset continuation appends onto the accepted page zero', () => {
         const {pane} = createPane();
 
-        pane.onAgentClick('@neo-opus-ada');
+        pane.activeAgent = '@neo-opus-ada';
         pane.snapshot = envelope({target: '@neo-opus-ada', sessions: [row('a1'), row('a2')], total: 3});
         pane.snapshot = envelope({target: '@neo-opus-ada', offset: 2, sessions: [row('a0', '2026-08-01T10:00:00.000Z')], total: 3});
 
@@ -144,7 +138,7 @@ test.describe('MemoriesPane — target-state coherence (selected target is part 
 
         expect(pane.activeAgent).toBe(null);
         expect(pane.summaryStore.count).toBe(0);
-        expect(pane.getReference('memories-meta').text).toBe('Pick an agent to read their recent sessions.');
+        expect(pane.getReference('memories-meta').text).toBe('Select an agent card in the roster to read their recent sessions.');
         expect(pane.getReference('memories-more').hidden).toBe(true);
         expect(pane.getReference('memories-refresh').hidden).toBe(true);
         expect(requests).toEqual([])
@@ -189,7 +183,6 @@ test.describe('MemoriesPane — session drill-in (open session is part of the dr
         const drills = [],
               closes = [],
               pane   = Neo.create(MemoriesPane, {
-                  agentOptions: AGENT_OPTIONS,
                   listeners   : {
                       sessionDetailRequest: data => {
                           const {source, ...params} = data;

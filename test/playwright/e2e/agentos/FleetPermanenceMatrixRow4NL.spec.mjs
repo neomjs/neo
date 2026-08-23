@@ -93,8 +93,10 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
 
         const detailIdOf = async () => (await queryDetail()).detail?.id;
 
-        // ── tooth 1: native drill → pop-out, same instance into the vessel ──────────────────
-        await page.locator(`[id="${targetCardId}"] .fm-card-drill`).click();
+        // ── tooth 1: semantic roster-item selection → pop-out, same instance into the vessel ──
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${targetCardId}"]`)
+        }).click();
 
         const detail = page.locator('.fm-agent-detail');
 

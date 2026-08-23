@@ -95,6 +95,39 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(snapshot.rows[1]).toMatchObject({id: 'counted', openLaneCount: 23})
     })
 
+    test('stamps each row with its newest attributable activity instant — events + presence, invalid/unattributed ignored', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents: [
+                {id: 'presence-wins'},
+                {id: 'event-wins'},
+                {id: 'presence-only'},
+                {id: 'unobserved'}
+            ],
+            events: [
+                {type: 'a2a-activity', source: FLEET_COCKPIT_SOURCES.a2a, agentId: 'presence-wins', occurredAt: '2026-08-22T10:00:00.000Z'},
+                {type: 'a2a-activity', source: FLEET_COCKPIT_SOURCES.a2a, agentId: 'presence-wins', occurredAt: '2026-08-22T12:00:00.000Z'},
+                {type: 'a2a-activity', source: FLEET_COCKPIT_SOURCES.a2a, agentId: 'presence-wins', occurredAt: 'not-an-instant'},
+                {type: 'pr-activity', source: FLEET_COCKPIT_SOURCES.githubPr, agentId: 'event-wins', occurredAt: '2026-08-22T14:00:00+02:00'},
+                {type: 'a2a-activity', source: FLEET_COCKPIT_SOURCES.a2a, occurredAt: '2026-08-23T23:59:59.000Z'}
+            ],
+            presenceStatus: [
+                {agentId: 'presence-wins', presence: 'online', lastSeenAt: '2026-08-22T13:00:00.000Z'},
+                {agentId: 'event-wins', presence: 'online', lastSeenAt: '2026-08-22T11:00:00.000Z'},
+                {agentId: 'presence-only', presence: 'idle', lastSeenAt: '2026-08-22T09:00:00.000Z'},
+                {agentId: 'unobserved', presence: 'unknown', lastSeenAt: 'invalid'}
+            ]
+        })
+
+        expect(snapshot.rows.map(row => [row.id, row.lastActivityAt])).toEqual([
+            ['presence-wins', '2026-08-22T13:00:00.000Z'],
+            // Preserve the producer's original parseable string; the assembler compares instants,
+            // but never reformats a passthrough fact.
+            ['event-wins', '2026-08-22T14:00:00+02:00'],
+            ['presence-only', '2026-08-22T09:00:00.000Z'],
+            ['unobserved', null]
+        ])
+    })
+
     test('composes runtimeStatus onto row lifecycle — observed process truth when present, honest not-wired when absent', () => {
         const snapshot = createFleetCockpitStatus({
             agents       : [{id: 'alice'}, {id: 'bob'}],

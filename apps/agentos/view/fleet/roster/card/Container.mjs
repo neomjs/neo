@@ -56,8 +56,9 @@ import Telltale     from '../../../../util/Telltale.mjs';
  *
  * **Data-driven from its `record`** — one {@link AgentOS.model.FleetAgent} record (a row of the
  * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface. Live field
- * changes flow `record.set()` → the store's `recordChange` → {@link AgentOS.view.fleet.roster.Container}
- * → {@link #applyRecord}, which updates the child components in place. `avatar`, `displayName`, and
+ * changes flow `record.set()` → the store's `recordChange` → {@link AgentOS.view.fleet.roster.List}
+ * (which re-seats the pooled card instance onto the record) → {@link #applyRecord}, which updates
+ * the child components in place. `avatar`, `displayName`, and
  * `engineTag` are mutable versioned DISPLAY STATE over the durable `agentId` — a field change
  * re-renders on the SAME instance and NEVER re-keys.
  *
@@ -80,15 +81,6 @@ class AgentCard extends Container {
          * @member {String[]} baseCls=['fm-agent-card']
          */
         baseCls: ['fm-agent-card'],
-        /**
-         * The card is a NON-interactive listitem — the FM roster is a ranked responsive list, not a 2D
-         * data matrix. The keyboard-operable drill target is the dedicated native `card-name` Button;
-         * lifecycle toggle/restart are sibling native Buttons, so every control is a real element in
-         * ordinary Tab order (drill → toggle → restart). Set via the Component.Base `role` config so it
-         * renders to the vdom ROOT through `changeVdomRootKey`.
-         * @member {String} role='listitem'
-         */
-        role: 'listitem',
         /**
          * Turns the actions-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
          * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.roster.card.Controller}.
@@ -147,15 +139,14 @@ class AgentCard extends Container {
                     layout   : {ntype: 'hbox', align: 'center'},
 
                     items: [{
-                        // the dedicated native drill Button — the keyboard-operable target that opens the
-                        // resident. A native <button> owns Enter/Space; its accessible name is the
-                        // resident's name (applyRecord). `neo-selection` opts JUST this drill Button into
-                        // the main-thread arrow-key preventDefault rule so the FleetGrid drill-to-drill
-                        // Up/Down jump never scrolls the viewport.
-                        module   : Button,
-                        cls      : ['fm-card-name', 'fm-card-drill', 'neo-selection'],
+                        // the resident's name — plain identity text. The card's host list item (`li`)
+                        // is the selection/drill target (the roster's SelectionModel: click / Enter
+                        // select, Navigator owns arrow focus), so the name carries no interactive
+                        // affordance of its own; lifecycle toggle/restart stay the card's only
+                        // native Buttons in ordinary Tab order.
+                        ntype    : 'component',
+                        cls      : ['fm-card-name'],
                         flex     : 'none',
-                        handler  : 'onCardSelect',
                         reference: 'card-name'
                     }, {
                         // the name-slot provenance chip, density-calibrated (applyRecord writes it)
@@ -396,12 +387,12 @@ class AgentCard extends Container {
         // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id
         const
             nameSlot   = NameSlot.resolveNameSlot(record),
-            nameButton = me.getReference('card-name'),
+            nameEl     = me.getReference('card-name'),
             provenance = me.getReference('name-provenance'),
             chip       = NameSlot.describeNameProvenance(nameSlot.provenance.state);
 
-        nameButton.text = nameSlot.text;
-        nameButton[nameSlot.isFallback ? 'addCls' : 'removeCls']('fm-card-name-id');
+        nameEl.text = nameSlot.text;
+        nameEl[nameSlot.isFallback ? 'addCls' : 'removeCls']('fm-card-name-id');
 
         provenance.set({cls: chip.cls, hidden: chip.hidden, text: chip.text});
 
@@ -449,7 +440,7 @@ class AgentCard extends Container {
         telltale.changeVdomRootKey('title', title);
 
         // the source strip: ONE honest word-line, a PURE role=status — no ▸/disclosure affordance on a
-        // non-interactive node (the card-name drill → detail IS the disclosure route). The level cls
+        // non-interactive node (selecting the item → detail IS the disclosure route). The level cls
         // colours the ::before dot; summary.text is a controlled literal from summarizeAnsweredAbnormal.
         // EXCEPTION-ONLY: nominal earns zero pixels (the cockpit's own doctrine, operator-falsified
         // when this line rendered "all sources nominal" permanently) — the strip exists exactly when

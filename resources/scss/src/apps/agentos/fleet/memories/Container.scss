@@ -27,39 +27,8 @@
         font : var(--fm-text-micro);   /* 10.5 → micro: the ruled invisible 0.5px migration */
     }
 
-    /* the agent picker — a WRAPPING chip row, never a squeezed line; selection is structural
-       (border + weight + a signal wash), mirroring the .fm-chip selector idiom */
-    .fm-memories-agents {
-        flex-wrap: wrap;
-        gap      : 6px;
-    }
-
-    .neo-button.fm-memories-agent {
-        background   : none;
-        border       : 1px solid var(--fm-line);
-        border-radius: 6px;
-        box-shadow   : none;
-        color        : var(--fm-ink-dim);
-        font         : var(--fm-text-detail);
-        font-family  : inherit;   /* affordance-class voice rule (Chips.scss) */
-        font-weight  : 500;
-        min-width    : 0;
-
-        &:hover {
-            color: var(--fm-ink);
-        }
-
-        &.is-active {
-            background  : color-mix(in srgb, var(--fm-signal) 16%, transparent);
-            border-color: var(--fm-signal);
-            color       : var(--fm-ink);
-            font-weight : 600;
-        }
-
-        .neo-button-text {
-            color: inherit;
-        }
-    }
+    /* the former agent-chip picker is GONE: the roster selection (one cockpit picker) writes the
+       target through — the meta line names it, and the null state points at the card click */
 
     /* the session cards own the scroll — the chrome above stays put */
     .fm-memories-rows {

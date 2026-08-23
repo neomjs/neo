@@ -20,7 +20,6 @@ import path                 from 'path';
 import {fileURLToPath}      from 'url';
 import Neo                  from '../../../../../../../../src/Neo.mjs';
 import * as core            from '../../../../../../../../src/core/_export.mjs';
-import Instance             from '../../../../../../../../src/manager/Instance.mjs';
 
 const seedPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../../../apps/agentos/resources/data/fleetRoster.json');
 
@@ -494,6 +493,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             // the mailbox identity authority: absent on this row → honest null (unverifiable), never
             // silently substituted with the registry key, which is a different id space entirely
             githubUsername: null,
+            lastActivityAt: null,
             launchable    : null,
             openLaneCount : null,   // roster-DTO-owned tri-state: un-stamped → honest null (no badge)
             // the authoritative participation fact: absent on the row → honest null, never guessed
@@ -617,6 +617,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             // the mailbox identity authority rides the reconcile like every other DTO fact —
             // absent on this row → honest null (unverifiable), never the registry key substituted
             githubUsername     : null,
+            lastActivityAt     : null,
             launchable         : null,
             openLaneCount      : null,
             participationStatus: null,
@@ -651,6 +652,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             // the REAL phase-blind memories accessor over this fake's surface: no
             // tear-out maps here → safe-nav falls through to getReference, same as the detail twin
             getMemoriesPane    : FleetCockpit.prototype.getMemoriesPane,
+            applySelection     : FleetCockpit.prototype.applySelection,
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
             getReference       : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
@@ -674,6 +676,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             getCatchUpPane        : () => null,
             getOperatorMailboxPane: () => null,
             rosterWired           : false,
+            selectionState        : {},
+            setState(values) {
+                Object.assign(this.selectionState, values)
+            },
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
             syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
@@ -777,6 +783,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(liveInstance).toBeTruthy();
         expect(liveInstance).not.toBe(sampleInstance);           // a genuinely new record instance
         expect(cockpit.detailRecord).toBe(liveInstance);         // re-seated onto the live instance
+        expect(cockpit.selectionState).toEqual({selectedAgentId: 'vega', selectedAgentIdentity: null});
         expect(setCalls).toEqual([{record: liveInstance}]);      // the inspector re-rendered
 
         store.destroy()
@@ -798,6 +805,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
         expect(store.get('vega')).toBeFalsy();                   // removed via the real Store path
         expect(cockpit.detailRecord).toBeNull();                // selection cleared
+        expect(cockpit.selectionState).toEqual({selectedAgentId: null, selectedAgentIdentity: null});
         expect(setCalls).toEqual([{record: null}]);             // AgentDetail → honest empty state
 
         store.destroy()
@@ -861,8 +869,13 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
                 const host = Object.create(FleetCockpit.prototype);
 
                 host.detailRecord            = detailRecord;
+                host.applySelection          = FleetCockpit.prototype.applySelection;
                 host.resolveFleetRosterStore = () => ({get: storeGet});
                 host.getReference            = name => name === 'agent-detail' ? detail : null;
+                host.getAgentDetailPane      = FleetCockpit.prototype.getAgentDetailPane;
+                host.getMemoriesPane         = () => null;
+                host.selectionState          = {};
+                host.setState                = values => Object.assign(host.selectionState, values);
 
                 return host
             };
@@ -873,6 +886,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const removedHost = makeHost({agentId: 'vega'}, () => undefined);
         FleetCockpit.prototype.reconcileSelection.call(removedHost);
         expect(removedHost.detailRecord).toBeNull();
+        expect(removedHost.selectionState).toEqual({selectedAgentId: null, selectedAgentIdentity: null});
         expect(setCalls).toEqual([{record: null}]);
 
         // (2) the resident survives as the SAME instance (in-place record.set reconcile) → no re-seat;
@@ -891,6 +905,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const reseatHost = makeHost(stale, id => id === 'vega' ? fresh : undefined);
         FleetCockpit.prototype.reconcileSelection.call(reseatHost);
         expect(reseatHost.detailRecord).toBe(fresh);
+        expect(reseatHost.selectionState).toEqual({selectedAgentId: 'vega', selectedAgentIdentity: null});
         expect(setCalls).toEqual([{record: fresh}]);
 
         // (4) nothing selected → no-op, and the Store is never touched
@@ -902,10 +917,13 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 });
 
 test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
-    let FleetCockpitController;
+    let FleetCockpit, FleetCockpitController;
 
     test.beforeAll(async () => {
-        FleetCockpitController = (await import('../../../../../../../../apps/agentos/view/fleet/cockpit/Controller.mjs')).default
+        [FleetCockpit, FleetCockpitController] = await Promise.all([
+            import('../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs').then(module => module.default),
+            import('../../../../../../../../apps/agentos/view/fleet/cockpit/Controller.mjs').then(module => module.default)
+        ])
     });
 
     test('onStartFleet fans out start to every resident card via the C2 adapter (fold skipped; no bridge → fail-closed per card, never optimistic)', () => {
@@ -1239,22 +1257,26 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
     test('onAgentSelect: a card select holds the owner-side detailRecord + reveals the auto-hidden inspector through the commit loop', () => {
         const
-            record  = {agentId: 'vega', displayName: 'Vega'},
+            record  = {agentId: 'vega', displayName: 'Vega', githubUsername: 'neo-opus-vega'},
             detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
             applied = [],
             cockpit = {
-                detailRecord: null,
-                dockModel   : {items: {detail: {autoHidden: true}}},
+                detailRecord  : null,
+                dockModel     : {items: {detail: {autoHidden: true}}},
+                selectionState: {},
+                applySelection: FleetCockpit.prototype.applySelection,
                 applyDockZoneOperation(op) { applied.push(op); return {document: {revealed: true}, errors: []} },
                 // the controller drill routes through the OWNER accessor (docked pane here;
                 // the vessel-held handle while detached — the pop-out suite covers that phase)
                 getAgentDetailPane() { return detail },
-                onDockZoneDocumentChange(doc) { this.committed = doc }
+                getMemoriesPane() { return null },
+                onDockZoneDocumentChange(doc) { this.committed = doc },
+                resolveFleetRosterStore() { return {get: id => id === 'vega' ? record : null} },
+                setState(values) { Object.assign(this.selectionState, values) }
             },
             controller = Object.create(FleetCockpitController.prototype);
 
-        controller.component    = cockpit;
-        controller.getReference = name => name === 'fleet-grid' ? {store: {get: id => id === 'vega' ? record : null}} : name === 'agent-detail' ? detail : null;
+        controller.component = cockpit;
 
         controller.onAgentSelect({agentId: 'vega'});
 
@@ -1262,6 +1284,10 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         // the live pane updated in place
         expect(cockpit.detailRecord).toBe(record);
         expect(detail.record).toBe(record);
+        expect(cockpit.selectionState).toEqual({
+            selectedAgentId      : 'vega',
+            selectedAgentIdentity: '@neo-opus-vega'
+        });
         // the auto-hidden inspector is revealed through the standard commit loop, not a bespoke path
         expect(applied).toEqual([{operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false}]);
         expect(cockpit.committed).toEqual({revealed: true})
@@ -1269,24 +1295,32 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
     test('onAgentSelect: an already-revealed inspector updates in place (no re-projection); an unknown agent is a fail-closed no-op', () => {
         const
-            record  = {agentId: 'ada'},
+            record  = {agentId: 'ada', githubUsername: 'neo-opus-ada'},
             detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
             applied = [],
             cockpit = {
-                detailRecord: null,
-                dockModel   : {items: {detail: {autoHidden: false}}},   // already revealed
+                detailRecord  : null,
+                dockModel     : {items: {detail: {autoHidden: false}}},   // already revealed
+                selectionState: {},
+                applySelection: FleetCockpit.prototype.applySelection,
                 applyDockZoneOperation(op) { applied.push(op); return {document: {}, errors: []} },
                 getAgentDetailPane() { return detail },
-                onDockZoneDocumentChange() { this.reprojected = true }
+                getMemoriesPane() { return null },
+                onDockZoneDocumentChange() { this.reprojected = true },
+                resolveFleetRosterStore() { return {get: id => id === 'ada' ? record : null} },
+                setState(values) { Object.assign(this.selectionState, values) }
             },
             controller = Object.create(FleetCockpitController.prototype);
 
-        controller.component    = cockpit;
-        controller.getReference = name => name === 'fleet-grid' ? {store: {get: id => id === 'ada' ? record : null}} : name === 'agent-detail' ? detail : null;
+        controller.component = cockpit;
 
         controller.onAgentSelect({agentId: 'ada'});
         expect(cockpit.detailRecord).toBe(record);
         expect(detail.record).toBe(record);
+        expect(cockpit.selectionState).toEqual({
+            selectedAgentId      : 'ada',
+            selectedAgentIdentity: '@neo-opus-ada'
+        });
         expect(applied).toEqual([]);                  // already revealed → no reveal op...
         expect(cockpit.reprojected).toBeUndefined();  // ...and no full re-projection
 

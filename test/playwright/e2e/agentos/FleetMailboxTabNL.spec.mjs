@@ -38,10 +38,10 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // identity authority the admitted subject is checked against.
         const expectedSubject = `@${target.properties.record.githubUsername}`;
 
-        // the drill target is the dedicated native Button (`fm-card-drill`), NOT the avatar: the
-        // a11y refactor moved the gesture onto a real <button> that owns Enter/Space, and the avatar
-        // is a handler-less Image, so clicking it is a silent no-op.
-        await page.locator(`[id="${target.properties.id}"] .fm-card-drill`).click();
+        // The semantic list item is the one picker; the avatar remains a handler-less Image.
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${target.properties.id}"]`)
+        }).click();
 
         const detail = page.locator('.fm-agent-detail');
         await expect(detail).toBeVisible({timeout: 15000});
@@ -211,7 +211,9 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
 
         expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
 
-        await page.locator(`[id="${target.properties.id}"] .fm-card-drill`).click();
+        await page.locator('.fm-fleet-cards > .neo-list-item', {
+            has: page.locator(`[id="${target.properties.id}"]`)
+        }).click();
 
         const detail = page.locator('.fm-agent-detail');
         await expect(detail).toBeVisible({timeout: 15000});

@@ -28,9 +28,9 @@ import Store              from '../../../../src/data/Store.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
-// The setup() mock set carries no Stylesheet addon — recording it here makes the plugin's
-// inserted/deleted rule payloads the witness surface for the containing-block + transition rules.
-// Installed in beforeAll and restored in afterAll, so nothing leaks past this file.
+// setup() carries production-shaped no-op Stylesheet methods for composition specs. Replacing them
+// here makes the plugin's inserted/deleted rule payloads the witness surface for the containing-block
+// + transition rules. Installed in beforeAll and restored in afterAll, so nothing leaks past this file.
 const
     insertedRules = [],
     deletedRules  = [];
