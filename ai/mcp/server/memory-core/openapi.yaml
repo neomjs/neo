@@ -2123,7 +2123,7 @@ paths:
                 priority:
                   type: string
                   enum: [low, normal, high]
-                  description: "Delivery priority. Omit to let the server set it from sender class: normal for an agent, high for an operator (turn-start drain ordering)."
+                  description: "Delivery priority. Omit to let the server set it from sender class: normal for an agent, high for an operator (turn-start drain ordering). On an AGENT:* broadcast, high is rejected unless you also set wakeSuppressed: false — broadcasts are quiet by default, so high alone would claim urgency nothing wakes for."
                 partOfThread:
                   type: string
                 taggedConcepts:
@@ -2132,7 +2132,7 @@ paths:
                     type: string
                 wakeSuppressed:
                   type: boolean
-                  description: "Persist + deliver but emit NO wake: the recipient sees it on their next list_messages, not as an interrupt — in autonomous mode, not until they next list or boot. Use for awareness/FYI (PR-opened-you're-not-the-reviewer, lane-progress, acks) and sunset self-DM handovers. Never suppress actionable messages — you're the reviewer, a lane was claimed on you, REQUEST_CHANGES; those subjects are rejected. Omit and the server decides: claim-class AGENT:* broadcasts and operator-sent messages are quiet, everything else wakes."
+                  description: "Persist + deliver but emit NO wake: the recipient sees it on their next list_messages, not as an interrupt — in autonomous mode, not until they next list or boot. Omit and the server decides: every AGENT:* broadcast is quiet, as are operator-sent messages; direct messages wake. To wake the whole fleet you must elect it with wakeSuppressed: false — reserve that for something every seat must act on now. On a direct message use true for awareness/FYI (PR-opened-you're-not-the-reviewer, lane-progress, acks) and sunset self-DM handovers; never for actionable ones — you're the reviewer, a lane was claimed on you, REQUEST_CHANGES; those subjects are rejected."
                 task:
                   type: object
                   additionalProperties: true

@@ -6,7 +6,6 @@ import {canonicalizeTaggedConceptIds}           from '../graph/conceptSpineCanon
 import GraphService                             from './GraphService.mjs';
 import PermissionService                        from './PermissionService.mjs';
 import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
-import {collisionPreventionTag}                 from '../shared/a2aCollisionTags.mjs';
 import {
     TASK_ASSIGNMENT_AUTHORITY,
     TASK_STATES,
@@ -2405,15 +2404,26 @@ class MailboxService extends Base {
         // 'human' inverts the delivery defaults: durable-quiet (wake is the sender's per-message
         // election, never the default) and priority-high as turn-start drain-ordering metadata.
         const senderPrincipalClass = resolveSenderPrincipalClass(db, sentBy),
-              operatorSteering     = senderPrincipalClass === 'human';
+              operatorSteering     = senderPrincipalClass === 'human',
+              // Captured BEFORE the defaults resolve below. The coherence gate has to tell "the
+              // sender elected a wake" apart from "the default left this loud", and after the `??`
+              // those two states are the same value.
+              wakeElectedBySender  = wakeSuppressed === false;
 
         priority       = priority       ?? (operatorSteering ? 'high' : 'normal');
-        // Claim-class broadcasts are quiet by default (operator-directed 2026-07-26, superseding the
-        // wake-mandatory polarity): a claim's collision defense lives at the claim surfaces (the
-        // `requireUnassigned` assignee gate + intake's claim-race re-check), while a forced wake
-        // taxed every active seat per claim. Explicit `wakeSuppressed: false` still wakes — the
-        // contested-lane escalation stays a sender election, never a default. Scoped to `AGENT:*`
-        // fan-out; direct messages keep the plain default.
+        // A broadcast cannot be action-required for everyone — if it were, it would be addressed to
+        // someone. So `AGENT:*` fan-out is quiet by DEFAULT, and a wake is the sender's election via
+        // explicit `wakeSuppressed: false`. That is the polarity `learn/agentos/A2A.md` already
+        // describes; what changed is that the implementation now covers it.
+        //
+        // This supersedes a four-tag allowlist that delivered the same sentence for claim-class
+        // subjects only. The routine broadcast vocabulary is far wider — `pr-merged`,
+        // `merge-readiness`, `PR-opened`, `handoff`, `defect-note`, `runtime-maintenance` — so every
+        // class outside those four woke every active seat unless its author remembered the flag,
+        // and authors remembered unevenly. The predecessor fixed a matcher that was too literal;
+        // the same failure then recurred one level up as a vocabulary that was too small. Addressing
+        // is the signal that needs no vocabulary to stay current, which is why the rule keys on it.
+        // Direct messages keep the plain default and still wake: the noise was never in 1:1 traffic.
         //
         // Both this line and the `priority` one above depend on the field arriving ABSENT, and that
         // is a contract with the tool schema, not a local property: `buildZodSchema` compiles a
@@ -2422,7 +2432,17 @@ class MailboxService extends Base {
         // value is never nullish, and `??` cannot reach either branch — silently, since the injected
         // value is a legal one. So `add_message` declares no default for either field: a request
         // field may carry a schema default OR a service-side contextual default, never both.
-        wakeSuppressed = wakeSuppressed ?? (operatorSteering || (to === 'AGENT:*' && !!collisionPreventionTag({subject, taggedConcepts})));
+        wakeSuppressed = wakeSuppressed ?? (operatorSteering || to === 'AGENT:*');
+
+        // `priority: 'high'` and a suppressed wake are contradictory instructions, and the pair was
+        // accepted silently: the message reads as urgent in every listing while nothing wakes for
+        // it. Under the quiet default that state stops being an authoring slip and becomes the
+        // common case, so the two knobs must agree on `AGENT:*` — `high` requires the sender to
+        // have elected the wake. Operator steering is exempt by construction: that class is
+        // durable-quiet, and its `high` is turn-start drain-ordering metadata, not urgency.
+        if (to === 'AGENT:*' && priority === 'high' && !wakeElectedBySender && !operatorSteering) {
+            throw new Error("Cannot send a 'high' priority AGENT:* broadcast without an explicit wake election: broadcasts are quiet by default, so 'high' would claim urgency nothing wakes for. Set wakeSuppressed: false to wake the fleet, or use priority: 'normal'.");
+        }
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
         // schema wording exposes the `'AGENT:@login'` prefixed form; the seed uses bare `@login`.

@@ -13,14 +13,22 @@
  * copy-pasted into two services, and a fix in one place left the other wrong: the wake guard was
  * repaired while a fleet-activity copy of the old anchored regex kept undercounting live claims.
  * A tag that lives in two places drifts.
+ *
+ * **The mailbox wake seam is no longer a consumer.** `MailboxService` once used this reader to pick
+ * which broadcasts default to quiet; `AGENT:*` fan-out is now quiet unconditionally, so that seam
+ * needs no vocabulary and asks nothing here. This module is NOT dead: `fleetA2AActivityAdapter`
+ * still reads it to identify lane claims, which is a question about what a message IS, not about
+ * how loudly it should arrive. That is the durable use — the classification outlived the delivery
+ * policy that first needed it, which is the argument for centralizing it rather than inlining a
+ * matcher at the seam.
  */
 
 /**
  * The collision-prevention tag vocabulary. PRIVATE to this module — the consumed contract is the
  * reader below, never the Set: an exported mutable Set lets any importer rewrite every consumer's
  * classifier at once (`.delete()` is a silent global veto). Consumers decide per-surface how WIDE
- * their own question is (the mailbox quiet-by-default seam fires on any member; fleet activity counts only
- * `lane-claim`) by comparing against the returned tag name.
+ * their own question is (fleet activity counts only `lane-claim`) by comparing against the returned
+ * tag name.
  * @type {Set<String>}
  */
 const COLLISION_PREVENTION_TAGS = new Set([

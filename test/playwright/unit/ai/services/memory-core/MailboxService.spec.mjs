@@ -21,6 +21,8 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import                            '../../../../../../src/manager/Instance.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+// Static import is safe: a pure classifier with no imports of its own, so it pulls in no Neo graph.
+import {collisionPreventionTag} from '../../../../../../ai/services/shared/a2aCollisionTags.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -3695,6 +3697,140 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     /**
+     * @summary The quiet default is scoped to `AGENT:*` fan-out, not to a tag vocabulary.
+     *
+     * The predecessor suppressed broadcasts only when `collisionPreventionTag` matched, so
+     * the routine lifecycle vocabulary — `pr-merged`, `merge-readiness`, `PR-opened`, `handoff`,
+     * `defect-note` — woke every active seat unless its author remembered the flag. Every subject
+     * below is chosen so the classifier returns `null`: an arm using a claim-class subject would
+     * pass under the OLD code too and would prove nothing about the change.
+     */
+    test('#17646 an AGENT:* broadcast is quiet with the flag omitted WHATEVER its subject', async () => {
+        // Real lifecycle subjects from the live corpus, none of them collision-classified.
+        const lifecycleSubjects = [
+            '[pr-merged][PR #17652 @ b909f8baa2][#17647 closed]',
+            '[merge-readiness][PR #17652][APPROVED cross-family · CLEAN] → @tobiu',
+            '[PR-opened][PR #17653 → #17533]',
+            '[handoff][claimable][PR #17650 / #17645]',
+            '[defect-note] manage_wake_subscription resync throws on an empty endpoint',
+            '[runtime-maintenance-complete][OC/MC/KB/Fleet][7f608560b0]'
+        ];
+
+        const ids = [];
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            for (const subject of lifecycleSubjects) {
+                // NON-VACUITY: this is the whole point of the arm. If any of these classified as a
+                // collision tag, the old default would already have quieted it.
+                expect(collisionPreventionTag({subject}), `must NOT be collision-classified: ${subject}`).toBe(null);
+
+                const {messageId} = await MailboxService.addMessage({to: 'AGENT:*', subject, body: 'status'});
+                ids.push([subject, messageId]);
+            }
+        });
+
+        for (const [subject, id] of ids) {
+            expect(GraphService.db.nodes.get(id).properties.wakeSuppressed, subject).toBe(true);
+        }
+    });
+
+    test('#17646 the sender election survives on a non-claim broadcast, and 1:1 traffic is untouched', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const ids = {};
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            // Explicit `false` still wakes the fleet — the inversion changed the DEFAULT, not the
+            // election. Verified red against a change that made broadcasts unconditionally quiet.
+            ({messageId: ids.elected} = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[alert] the embed drain has stalled — semantic recall is degrading',
+                body          : 'Fleet-wide alarm.',
+                wakeSuppressed: false
+            }));
+
+            // The operator's boundary: a DIRECT message with the flag omitted still wakes. The
+            // noise was never in 1:1 traffic, and an inversion that leaked into it would be the
+            // mirror defect — a reviewer's REQUEST_CHANGES arriving at next boot.
+            ({messageId: ids.direct} = await MailboxService.addMessage({
+                to     : '@bob',
+                subject: '[review-result][PR #99999][REQUEST_CHANGES]',
+                body   : 'One blocking RA.'
+            }));
+        });
+
+        expect(GraphService.db.nodes.get(ids.elected).properties.wakeSuppressed).toBe(false);
+        expect(GraphService.db.nodes.get(ids.direct).properties.wakeSuppressed).toBe(false);
+    });
+
+    /**
+     * @summary `priority: 'high'` and a suppressed wake cannot silently disagree.
+     *
+     * Before the quiet default this pair was an authoring slip; after it, it is what every
+     * high-priority broadcast becomes by default, so the message would read as urgent in every
+     * listing while nothing woke for it. The gate makes the sender resolve the contradiction.
+     */
+    test('#17646 priority high on an AGENT:* broadcast is rejected unless the wake is elected', async () => {
+        // Self-contained: the direct arm below needs its own grant, since state does not carry
+        // across tests in this suite.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            // Omitted flag → quiet by default → `high` claims urgency nothing wakes for.
+            await expect(MailboxService.addMessage({
+                to      : 'AGENT:*',
+                subject : '[pr-merged][PR #99999] shipped',
+                body    : 'status',
+                priority: 'high'
+            })).rejects.toThrow(/high.*AGENT:\*.*wakeSuppressed: false|wakeSuppressed: false.*priority: 'normal'/s);
+
+            // Explicit `true` is the same contradiction stated outright, and is rejected too.
+            await expect(MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[pr-merged][PR #99998] shipped',
+                body          : 'status',
+                priority      : 'high',
+                wakeSuppressed: true
+            })).rejects.toThrow(/wakeSuppressed: false/);
+
+            // The error has to name BOTH knobs, or the author cannot tell which one to move.
+            let message = '';
+            try {
+                await MailboxService.addMessage({to: 'AGENT:*', subject: '[handoff] x', body: 'y', priority: 'high'});
+            } catch (e) {
+                message = e.message;
+            }
+            expect(message).toContain('wakeSuppressed: false');
+            expect(message).toContain("priority: 'normal'");
+
+            // ACCEPTED: the two knobs agree. This is the shape the orchestrator's stall alarms use.
+            const {messageId} = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[alert] REM consolidation has stalled',
+                body          : 'Fleet-wide alarm.',
+                priority      : 'high',
+                wakeSuppressed: false
+            });
+
+            expect(GraphService.db.nodes.get(messageId).properties.wakeSuppressed).toBe(false);
+
+            // UNAFFECTED: a high-priority DIRECT message needs no election — it already wakes.
+            const {messageId: directId} = await MailboxService.addMessage({
+                to      : '@bob',
+                subject : '[review-request][PR #99997] you are the cross-family seat',
+                body    : 'Please review.',
+                priority: 'high'
+            });
+
+            expect(GraphService.db.nodes.get(directId).properties.wakeSuppressed).toBe(false);
+        });
+    });
+
+    /**
      * @summary The quiet-by-default seam covers the collision CLASS, and only where a tag is structural.
      *
      * Every subject below is VERBATIM from the live `AGENT:*` corpus (2026-07-24T21:46Z →
@@ -3725,22 +3861,36 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             ];
 
             for (const subject of collisionSubjects) {
-                // Flag OMITTED on purpose: the seam must derive quiet from the structural tag alone.
+                // The load-bearing assertion moved here. The mailbox seam below now quiets
+                // EVERY `AGENT:*` broadcast, so asserting only `wakeSuppressed === true` would stay
+                // green with `collisionPreventionTag` deleted outright — a control that cannot fail
+                // is not a control. The corpus keeps its value against the CLASSIFIER, which is
+                // where the "IS a claim vs MENTIONS one" question still has a consumer.
+                expect(collisionPreventionTag({subject}), subject).not.toBe(null);
+
+                // Flag OMITTED on purpose.
                 const {messageId} = await MailboxService.addMessage({
                     to  : 'AGENT:*',
                     subject,
                     body: 'collision signal'
                 });
 
+                // Still quiet — but now because it is a broadcast, not because of the tag.
                 expect(GraphService.db.nodes.get(messageId).properties.wakeSuppressed, subject).toBe(true);
             }
         });
     });
 
-    test('#15905 a message that MENTIONS a collision tag in prose is NOT default-suppressed (and stays suppressible)', async () => {
-        // The matcher's negative arm, now guarding the DEFAULT: a substring matcher would silently
-        // quiet every message *discussing* claims. All three subjects are real sends from the
-        // wake-routing divergence. Explicit suppression stays legal; omission must NOT flip.
+    test('#15905 a message that MENTIONS a collision tag in prose does not CLASSIFY as one (#17646 moved this off the wake seam)', async () => {
+        // The matcher's negative arm: a substring matcher would classify every message *discussing*
+        // claims as a claim. All three subjects are real sends from the wake-routing divergence.
+        //
+        // This arm used to assert that prose mentions were NOT default-suppressed at the mailbox.
+        // That reading was retired rather than the property: `AGENT:*` fan-out is now quiet
+        // unconditionally, so the wake seam cannot express the distinction any more and asserting
+        // `false` here would be asserting a policy that no longer exists. The distinction itself is
+        // still real and still consumed — `fleetA2AActivityAdapter` reads it to identify lane
+        // claims — so it is asserted against the classifier below, where it now lives.
         const metaSubjects = [
             '[falsifier-positive][D#15904] the [lane-claim] guard is ^-anchored — 53% of LIVE lane-claims bypass #14100',
             '[evidence][wake-routing] the guard ALREADY exempts broadcasts — why [lane-claim] must never be suppressible',
@@ -3774,7 +3924,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
 
         for (const id of omitted) {
-            expect(GraphService.db.nodes.get(id).properties.wakeSuppressed, 'prose mention must not default-suppress').toBe(false);
+            expect(GraphService.db.nodes.get(id).properties.wakeSuppressed, 'a broadcast is quiet regardless of its subject').toBe(true);
+        }
+
+        for (const subject of metaSubjects) {
+            expect(collisionPreventionTag({subject}), `prose mention must not classify as a claim: ${subject}`).toBe(null);
         }
     });
 
