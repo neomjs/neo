@@ -113,6 +113,7 @@ export const PROOF_CLASS = Object.freeze({
     denialCloudControlSurvived      : 'instrument-runtime-denial-cloud-control-survived',
     denialEdgePackageControlSurvived: 'instrument-runtime-denial-edge-package-control-survived',
     denialProbeFailure              : 'instrument-runtime-denial-probe-failure',
+    dirtyWorktreeBinding            : 'instrument-source-binding-dirty-worktree',
     edgeDeniedAtRuntime             : 'topology-edge-entrypoint-denied-under-cloud-denial',
     edgeProbeIneligible             : 'topology-edge-entrypoint-runtime-probe-ineligible',
     edgePopulationInterim      : 'topology-edge-dependency-population-derived-not-authoritative',
@@ -815,8 +816,12 @@ export function runComputedEdgeReconciliation({observedEdges, registryEdges, rea
  * @returns {Object} The receipt; `exitCode` is 0 only when both layers are empty.
  */
 export function buildReceipt({instrumentErrors, topologyFindings, meta = {}}) {
+    // Code-unit comparison, NOT `localeCompare`: AC-7 claims byte-identical receipts, and a
+    // locale-sensitive collator makes that a per-machine property — two agents diffing the same
+    // receipt could disagree about its ordering.
+    const codeUnits           = (a, b) => a < b ? -1 : a > b ? 1 : 0;
     const byClassThenIdentity = (a, b) =>
-        a.class === b.class ? a.identity.localeCompare(b.identity) : a.class.localeCompare(b.class);
+        a.class === b.class ? codeUnits(a.identity, b.identity) : codeUnits(a.class, b.class);
 
     const receipt = {
         meta,
@@ -891,6 +896,11 @@ async function main() {
         edgeDeps      = Object.fromEntries(Object.entries(rootManifest.devDependencies || {})
             .filter(([name]) => !cloudOnly.includes(name))),
         head          = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: PROJECT_ROOT, encoding: 'utf8'}).trim(),
+        // Read from git rather than re-splitting the binding error's joined key: that key is a
+        // display string, and parsing a display string back into data loses whatever the join
+        // ambiguated. Porcelain v1 is 2 status chars + a space, so the path starts at index 3.
+        dirtyPaths    = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'],
+            {cwd: PROJECT_ROOT, encoding: 'utf8'}).split('\n').filter(Boolean).map(line => line.slice(3)).sort(),
         cloudDeps     = Object.fromEntries(cloudOnly.map(name =>
             [name, JSON.parse(fs.readFileSync(BRAIN_MANIFEST, 'utf8')).devDependencies[name]]));
 
@@ -915,7 +925,12 @@ async function main() {
         // precisely the `unregistered` finding — so the population's own gaps stay visible instead
         // of defaulting to something benign.
         const
-            inventory             = buildInventory({allowDirty: true}),
+            // `allowDirty` is the inventory's development/test-only opt-in and its JSDoc says the
+            // CLI never enables it. It was enabled here, which let the static closure measure a
+            // WORKING TREE while the receipt claimed a committed SHA — an Epic-facing evidence
+            // artifact nobody could reproduce, with no indicator that anything differed.
+            inventory             = buildInventory(),
+            bindingError          = inventory.errors.find(error => error.kind === 'dirty-worktree') ?? null,
             dispositionByIdentity = new Map(inventory.rows.map(row => [row.identity, row.disposition])),
             edgeEntrypoints       = inventory.launchRoots.rows
                 .filter(row => row.disposition === 'edge')
@@ -927,6 +942,17 @@ async function main() {
                 planeRoot        : PROJECT_ROOT,
                 ledgeredEdges    : new Set(inventory.rows.filter(row => row.surface === SURFACE.closureEdge).map(row => row.identity))
             });
+
+        if (bindingError) {
+            // Reported rather than thrown, so the proof stays runnable mid-work — but the receipt
+            // below refuses to claim the SHA, because a receipt that names a commit is a promise
+            // that a reader can check out that commit and reproduce it.
+            instrumentErrors.push({
+                class   : PROOF_CLASS.dirtyWorktreeBinding,
+                identity: 'worktree',
+                detail  : `${bindingError.error} — this run measured the working tree, so the receipt carries no SHA`
+            })
+        }
 
         instrumentErrors.push(...closure.instrumentErrors);
         topologyFindings.push(...closure.topologyFindings);
@@ -961,7 +987,17 @@ async function main() {
         const receipt = buildReceipt({
             instrumentErrors,
             topologyFindings,
-            meta: {head, cloudOnlyPackages: cloudOnly, fixtureRoot: options.keepFixture ? fixtureRoot : '(cleaned)'}
+            meta: {
+                // `head` is null when the tree was dirty: a consumer keyed on it then fails loud
+                // instead of silently mis-attributing the findings to a commit that never produced
+                // them. `sourceBinding` carries the whole truth either way.
+                head         : bindingError ? null : head,
+                sourceBinding: bindingError
+                    ? {bound: false, sha: head, dirtyPaths}
+                    : {bound: true, sha: head, dirtyPaths: []},
+                cloudOnlyPackages: cloudOnly,
+                fixtureRoot      : options.keepFixture ? fixtureRoot : '(cleaned)'
+            }
         });
 
         console.log(options.json ? JSON.stringify(receipt, null, 4) : formatReceipt(receipt));

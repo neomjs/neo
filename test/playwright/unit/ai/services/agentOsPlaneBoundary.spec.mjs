@@ -335,8 +335,12 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
                 '/root/ai/e.mjs'   : "import {a} from '../src/Neo.mjs'; a();",
                 '/root/src/Neo.mjs': 'export function a() {}'
             }),
+            // Real path resolution, not string surgery. The previous form chained
+            // `.replace('../', '')`, which rewrites only the FIRST occurrence — so `../../x`
+            // resolved to `../x` and the fixture would have mis-decided which side of the region
+            // boundary a module sat on, which is the exact judgement this arm exists to test.
             resolve: (specifier, from) => specifier.startsWith('.')
-                ? `/root/${specifier.replace('../', '').replace('./', '')}`
+                ? path.resolve(path.dirname(from), specifier)
                 : null
         });
 
@@ -612,5 +616,45 @@ test.describe('C′ plane-boundary proof — computed-edge reconciliation arms (
         // only. Unscoped, the live run reported four Cloud/retired entrypoints' edges as registry
         // defects — the walk's own population boundary, dressed as a finding.
         expect(result.topologyFindings).toEqual([])
+    })
+});
+
+/**
+ * @summary The receipt's own honesty: it may not name a SHA it is not bound to, and its
+ * ordering may not depend on the machine that produced it.
+ */
+test.describe('C′ plane-boundary proof — receipt binding and ordering', () => {
+    test('RA-2: ordering is CODE-UNIT, not locale-collated — byte-identical must not be per-machine', () => {
+        // `localeCompare` orders these 'B' after 'a' in most locales; code-unit order puts 'B'
+        // first because uppercase sorts lower. If the receipt used a collator, two agents diffing
+        // the same findings could disagree about their order — and AC-7 claims byte-identity.
+        const receipt = buildReceipt({
+            instrumentErrors: [],
+            topologyFindings: [
+                {class: 'topology-x', identity: 'apple'},
+                {class: 'topology-x', identity: 'Banana'}
+            ]
+        });
+
+        expect('a'.localeCompare('B')).toBeLessThan(0);
+        expect(receipt.topologyFindings.map(finding => finding.identity)).toEqual(['Banana', 'apple'])
+    });
+
+    test('RA-1: the receipt can express NOT BOUND — a null head plus the dirty paths survive intact', () => {
+        const receipt = buildReceipt({
+            instrumentErrors: [{class: PROOF_CLASS.dirtyWorktreeBinding, identity: 'worktree', detail: 'dirty'}],
+            topologyFindings: [],
+            meta            : {
+                head         : null,
+                sourceBinding: {bound: false, sha: 'deadbeef', dirtyPaths: ['ai/x.mjs']}
+            }
+        });
+
+        // A consumer keyed on `head` fails loud instead of attributing findings to a commit that
+        // never produced them; `sourceBinding` carries the SHA that was NOT bound, so the run is
+        // still traceable without claiming reproducibility.
+        expect(receipt.meta.head).toBeNull();
+        expect(receipt.meta.sourceBinding).toEqual({bound: false, sha: 'deadbeef', dirtyPaths: ['ai/x.mjs']});
+        expect(receipt.exitCode).toBe(1)
     })
 });
