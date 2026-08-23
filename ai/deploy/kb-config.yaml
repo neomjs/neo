@@ -1,4 +1,4 @@
-# Tenant bootstrap for the containerized plane's pull-mode KB ingestion. Three repos under one
+# Tenant bootstrap for the containerized plane's pull-mode KB ingestion. Four repos under one
 # tenant (`neo-shared`), keyed as `tenantId/repoSlug` — all genuinely EXTERNAL to the maintainer
 # checkout, which is the lane's actual purpose:
 #
@@ -12,6 +12,13 @@
 #                                  MULTI-repo witness: per-repo scheduling, jitter, independent
 #                                  backoff and per-repo checkpointing had only ever been exercised
 #                                  against a single viable entry.
+#   neo-shared/devindex          — the application repo itself (app, Node service layer, 26 guide
+#                                  documents, Playwright suite). The lane's first real-content
+#                                  tenant: retrieval quality, chunking across heterogeneous file
+#                                  types, and per-repo scheduling against content a query can
+#                                  actually be WRONG about — the three entries above cannot fail
+#                                  a retrieval assertion. Whole-tree ingestion became safe by
+#                                  construction only once the generated data files left git.
 #
 # The Neo repo itself is deliberately NOT registered here. `kbSync` already ingests neo's content
 # through 10 source extractors, producing TYPED chunks (`type`, `kind`) that `query_documents` and
@@ -54,5 +61,10 @@ tenants:
       - tenantId: neo-shared
         repoSlug     : devindex-opt-out
         cloneUrl     : https://github.com/neomjs/devindex-opt-out.git
+        credentialRef: none
+        branchRef    : main
+      - tenantId: neo-shared
+        repoSlug     : devindex
+        cloneUrl     : https://github.com/neomjs/devindex.git
         credentialRef: none
         branchRef    : main
