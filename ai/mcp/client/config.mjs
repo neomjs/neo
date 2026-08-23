@@ -1,7 +1,43 @@
 import fs                              from 'fs/promises';
+import {readFileSync}                  from 'node:fs';
 import path                            from 'path';
+import {fileURLToPath}                 from 'node:url';
 import Base                            from '../../../src/core/Base.mjs';
 import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../services/fleet/mcpServers.mjs';
+
+const NEURAL_LINK_MCP_SCRIPT = 'ai:mcp-server-neural-link';
+
+/**
+ * @summary Resolves the package root owned by this built-in client configuration.
+ *
+ * The module location is stable while the caller's working directory is not: GUI launchers and
+ * absolute config-file invocations may start at `/` or any unrelated directory. Requiring the
+ * package manifest to declare the exact npm script turns the derived path into validated spawn
+ * authority rather than a plausible-looking ancestor.
+ *
+ * @returns {String}
+ * @throws {Error} When this module no longer lives under the package that owns the Neural Link MCP
+ * server script.
+ * @private
+ */
+function resolveClientPackageRoot() {
+    const candidate = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+    let   manifest;
+
+    try {
+        manifest = JSON.parse(readFileSync(path.join(candidate, 'package.json'), 'utf8'));
+    } catch {
+        throw new Error('MCP Client config: module-derived package root has no readable package.json');
+    }
+
+    if (typeof manifest.scripts?.[NEURAL_LINK_MCP_SCRIPT] !== 'string') {
+        throw new Error(`MCP Client config: module-derived package root does not declare '${NEURAL_LINK_MCP_SCRIPT}'`);
+    }
+
+    return candidate
+}
+
+const clientPackageRoot = resolveClientPackageRoot();
 
 /**
  * Default configuration object for the MCP Client.
@@ -12,7 +48,7 @@ const defaultConfig = {
      * A map of MCP server configurations.
      * The key is the logical name of the server (e.g., 'github-workflow').
      * The value is an object with transport-specific connection properties:
-     * - `transportType: 'stdio'` uses `command` + `args`.
+     * - `transportType: 'stdio'` uses `command` + `args` and may pin the child with `cwd`.
      * - `transportType: 'sse'` or `'streamable-http'` uses `url` + optional `transportOptions`.
      * - `bearerTokenEnvVar` injects a remote Bearer credential without storing its value here.
      */
@@ -48,7 +84,11 @@ const defaultConfig = {
         "neural-link": {
             transportType: "stdio",
             command      : "npm",
-            args         : ["run", "ai:mcp-server-neural-link"]
+            // One module-derived authority drives BOTH process layers. The SDK needs `cwd` to find
+            // this package's npm script; Neural Link needs the explicit flag before it may spawn or
+            // connect its Bridge. Ambient `process.cwd()` is intentionally absent from both paths.
+            cwd : clientPackageRoot,
+            args: ["run", NEURAL_LINK_MCP_SCRIPT, "--", "--cwd", clientPackageRoot]
         }
     }
 };
