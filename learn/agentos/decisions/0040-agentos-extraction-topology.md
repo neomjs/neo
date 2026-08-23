@@ -4,9 +4,10 @@
 > manifest IS the Host-Edge package: root scripts are Edge-only, `cloud/` is an independent nested
 > package that installs alone, npm workspaces are forbidden because hoisting is the falsifier of the
 > isolation this topology exists to prove, and a pure `shared/` package exists only if the inventory
-> proves a population for it. AgentOS depends on the published Engine; the Engine's production graph
-> never depends back — its test infrastructure consumes the extracted package as pinned dev-time
-> tooling only. Runtime root and target root are two authorities that never collapse into one cwd. Nothing
+> proves a population for it. AgentOS depends on the published Engine; the Engine never depends back
+> — not in `dependencies`, not in `devDependencies`: the whitebox test tier talks to an externally
+> provisioned Agent OS runtime through Engine-owned contract/client code, never through the package
+> graph. Runtime root and target root are two authorities that never collapse into one cwd. Nothing
 > relocates until two receipts exist — the zero-residue inventory and the paired isolation exercise —
 > the cut precedes the v13.2 Engine release, and no historical `neomjs/neo` SHA changes, ever.
 
@@ -18,7 +19,7 @@
 | **Graduated from** | Discussion #17489 — family-keyed quorum (Signal Ledger in the Epic #17500 body): GPT author signal + Claude `[GRADUATION_APPROVED]`, re-issued and REVALIDATED at the root-invariant correction `DC_kwDODSospM4BFFq_`; two-root authority + release sequence folded at `DC_kwDODSospM4BFJBP` (2026-08-23) |
 | **Depends on** | ADR 0039 — this ADR realizes its Brain-internal host-edge ↔ container-plane boundary as *repository and package* topology; 0039's proof semantics (two instruments, neither sufficient alone) are inherited, not replaced. ADR 0019 — realm disposition may move config files but may not create a second config authority. |
 | **Aligns with** | ADR 0018 — the extracted repository is the Brain's new home; the Body (`/src/`) stays in `neomjs/neo`, and this ADR moves nothing across that seam |
-| **Anti-anchor for** | npm workspaces anywhere in the new repository; package-omission presented as isolation; `process.cwd()` as target-repo authority; `npm run` plus one shared cwd carrying both root meanings; an orchestration-only root manifest; extracting Core or `src/ai/**`; a second Engine history rewrite; treating first-wave custody as permanent global topology |
+| **Anti-anchor for** | npm workspaces anywhere in the new repository; package-omission presented as isolation; `process.cwd()` as target-repo authority; `npm run` plus one shared cwd carrying both root meanings; **any Engine `dependencies`/`devDependencies` edge on the extracted repository, dev-time included**; an orchestration-only root manifest; extracting Core or `src/ai/**`; a second Engine history rewrite; treating first-wave custody as permanent global topology |
 
 ---
 
@@ -83,26 +84,36 @@ from the extracted repository, and `src/ai/**` (the Body-side AI surfaces) stays
 release seam already exists as the two-command protocol: `publish.mjs` owns the Engine half;
 `ai:post-release-sync` owns the Brain half with a fail-closed preflight (#17239).
 
-The covenant is **production-strict, with one explicit dev-time carve-out** — decided here because
-the measured consumer classes
-([`DC_kwDODSospM4BFJL_`](https://github.com/neomjs/neo/discussions/17489#discussioncomment-18125567))
-determine whether "Engine-only clone remains testable" and "no Engine→AgentOS dependency" can both
-stay true:
+The covenant is **absolute across both dependency fields**: the Engine carries no `dependencies`
+and no `devDependencies` edge on the extracted repository. The measured out-of-`ai/` consumer
+classes ([`DC_kwDODSospM4BFJL_`](https://github.com/neomjs/neo/discussions/17489#discussioncomment-18125567))
+are dispositioned by the **two-tier test contract** folded at
+[`DC_kwDODSospM4BFJRU`](https://github.com/neomjs/neo/discussions/17489#discussioncomment-18125908)
+— a proposed dev-time devDependency carve-out was falsified there: it would break both literal
+covenants ("Engine never imports AgentOS", "Engine-only clone builds/tests without AgentOS") and
+make the simpler-onboarding result reinstall the Brain for every Engine contributor.
 
-- **Engine test infrastructure and `apps/agentos` specs** (the whitebox-e2e fixture is the second
-  Bridge entrypoint, importing seven Neural Link services; the app specs import fleet services)
-  consume the extracted package as a **pinned devDependency, test tooling only**, with the Bridge
-  arriving as a package-owned bin per §2.5's family-1 shape. The production import graph stays
-  Engine-only and mechanically enforced: the existing engine-brain boundary checker extends to fail
-  any `dependencies`-reachable or `src/**`/`buildScripts/**` Brain import while permitting `test/**`
-  dev-time consumption. The move leaf rewires the fixture's relative imports; the Engine-only clone
-  proof (leaf 12) proves the clone **buildable without** and **testable with** the devDependency.
-- Rejected in place: relocating the NL-dependent e2e population out of the Engine (the Engine loses
-  its own component-regression loop) and vendoring the Bridge (the parallel-substrate trap §2.11
-  already names).
+- **Engine-only tier:** build, unit, component, and non-Neural-Link e2e load with **no Agent OS
+  package or implementation import**. The engine-brain boundary checker enforces zero Brain imports
+  across tracked Engine code — no carve-out to police.
+- **Cross-repository whitebox tier:** Engine-owned Neural Link contract/client code talks to an
+  **externally provisioned Agent OS runtime** whose package-owned executable/Bridge is pinned by CI
+  or Fleet provisioning through `agentosRuntimeRoot` — never by the Engine package graph. The
+  target checkout remains `targetRepoRoot`. The current `src/ai/client/*` files are App-side
+  handlers, not the seven host wrappers the fixture uses today; the reconcile leaf establishes the
+  Node test-client / served-contract seam without copying the tool vocabulary.
 
-The D#17489 body carries this fold's source measurement; its author-side mirror follows the same
-anchors. A migration PR may not widen the carve-out beyond `test/**` dev-time consumption.
+**Owners:** a dedicated pre-relocation leaf — *reconcile out-of-AgentOS consumers* — extends the
+extraction registry with every live out-of-population import edge, dispositions each (Engine
+contract/client · served-contract integration · AgentOS-owned test · generated target artifact ·
+Engine-only guard), and REDs on missing/stale edges and on any Engine package edge to Agent OS.
+Leaf 6 re-homes AgentOS-owned tests and hook sources; leaf 11 materializes hook artifacts; leaf 12
+proves the Engine-only tier without Agent OS and the whitebox tier against the pinned external
+runtime with distinct roots.
+
+Rejected in place: an Engine devDependency on the extracted package (the falsifier above);
+relocating the NL-dependent e2e population out of the Engine (the Engine loses its own
+component-regression loop); vendoring the Bridge (the parallel-substrate trap §2.11 already names).
 
 ### §2.4 Isolation is a proof-set, not a package-omission claim
 
@@ -152,7 +163,9 @@ extraction precedent, unless explicitly revalidated against this contract.
 Workflow's target binding): they run every seat turn in the target checkout and today import Brain
 lifecycle modules relatively. Post-split they resolve Brain substrate only through
 `agentosRuntimeRoot`-provisioned artifacts per §2.7's custody ruling — never relatively from
-`targetRepoRoot`.
+`targetRepoRoot`. **The whitebox test tier is the fourth:** its Bridge is pinned by CI or Fleet
+provisioning through `agentosRuntimeRoot`, never resolved from the Engine package graph or an
+ancestor npm-script walk (§2.3).
 
 ### §2.6 The two blocking receipts precede every relocation leaf (criteria 2/3, amended timing)
 
@@ -194,13 +207,18 @@ mirrors, `src/ai/**`, and the minimal Engine contributor surface. The extracted 
 Brain's executables and services per the inventory's disposition — custody follows the dispositioned
 population, not directory intuition.
 
-**Tracked seat hooks move.** The `.claude/hooks`, `.codex/hooks`, and `.kimi-code/hooks` files are
-Agent OS substrate (lane-state, wake, presence are Brain concepts) that imports `ai/scripts/lifecycle/*`
-relatively; leaving them tracked in the Engine breaks them the moment `ai/` leaves. They relocate to
-the extracted repository, and **seat provisioning materializes them into target checkouts as
-generated-not-tracked artifacts** — the same covenant shape as §2.5's seat-config re-materialization.
-The seat re-provisioning leaf (leaf 11) owns this scope explicitly, and the Engine's ignore rules
-take the generated paths.
+**Test and hook custody follows the SUBJECT, not the directory.** Lane-state, wake, presence, and
+Memory-Core context hooks under `.claude/hooks`, `.codex/hooks`, and `.kimi-code/hooks` are Agent OS
+substrate importing `ai/scripts/lifecycle/*` relatively; **their sources move by exact-identity
+census** — never a blanket directory move: Engine-only contributor guards with no Brain dependency
+stay Engine-owned. **Seat provisioning materializes the moved hooks into target checkouts as
+generated-not-tracked artifacts** (the §2.5 re-materialization covenant shape); leaf 11 owns the
+scope, and the Engine's ignore rules take the generated paths. By the same subject rule:
+`test/playwright/restoreEmptyTargetMeasurementAdapter.mjs` (a Memory Core restore meter owning real
+Chroma/SQLite reach) moves with the Agent OS tests despite its shared-root location, the whitebox
+fixture stays Engine (losing its live Brain imports per §2.3's whitebox tier), and `apps/agentos`
+specs split — pure UI/component specs stay with the Engine app, specs instantiating Fleet/MCP server
+implementations move with their service owner or become served-contract integration tests.
 
 ### §2.8 Conversion, canary, cut window
 
@@ -236,6 +254,7 @@ of scope here.)
 | Orchestration-only root manifest (packages both nested) | Inverted by the operator challenge: a root that owns the Edge surface cannot be hoist-poisoned, and an orchestration root re-creates the three-realm root-script mix the extraction exists to end |
 | Package omission presented as isolation | ADR 0039's central lesson: reachability survives omission via eager lifecycles and computed imports; only the §2.4 proof-set decides |
 | `process.cwd()` as target-root fallback | Convenience that binds the tool to wherever it was invoked; falsified by the negative-fallback requirement in the paired exercise |
+| Engine devDependency on the extracted package (even dev-only, test-tooling-only) | Falsifies both literal covenants — "Engine never imports AgentOS" and "Engine-only clone builds/tests without AgentOS" — and makes the simpler-onboarding result reinstall the Brain for every Engine contributor; the two-tier test contract (§2.3) delivers the same capability with zero package edge |
 | Extract Core or `src/ai/**` in wave one | Crosses the Body/Brain seam ADR 0018 anchors; no inventory disposition supports it; D#17247 territory |
 
 ## 3. Consequences and consumer obligations
@@ -271,9 +290,9 @@ of scope here.)
 **Revalidation triggers** — any of these reopens this record: a future physical Edge/Cloud
 repository split; custody changes to `apps/**`, `learn/agentos`, or `src/ai/**`; a new plane
 entrypoint class; a computed-import mechanism that bypasses the §2.4 disposition; any dependency
-change that reintroduces hoisting; a new out-of-`ai/` Brain-consumer class beyond the three §2.3/§2.7
-disposition (test infrastructure, app specs, tracked seat hooks); a widening of the dev-time
-carve-out beyond `test/**`; renaming the repository after creation.
+change that reintroduces hoisting; a new out-of-`ai/` Brain-consumer class beyond the §2.3/§2.7
+dispositions (test infrastructure, app specs, tracked seat hooks); **any Engine `dependencies` or
+`devDependencies` edge on the extracted repository**; renaming the repository after creation.
 
 **Retirement:** this ADR retires only by explicit successor in this series; the wave completing
 does not retire it — the topology it records is what "completed" means.
