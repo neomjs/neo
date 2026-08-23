@@ -419,9 +419,18 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
  *   (we surface "I don't know" instead of conflating it with operator-tripped state).
  * - `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
  *   present (null otherwise).
- * - `daemonRunning`: boolean. `true` when the heartbeat-liveness file mtime is within
- *   `heartbeatLivenessStaleMs()` (2× POLL_INTERVAL). `false` when missing or stale.
- * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent.
+ * - `daemonRunning`: **tri-state**, the same discipline `subscription.armed` below applies. `true`
+ *   when the heartbeat-liveness file mtime is within `heartbeatLivenessStaleMs()` (2× POLL_INTERVAL);
+ *   `false` when the file is missing or stale — a measured negative; `null` when the file could not
+ *   be READ at all, which is not an answer and must never render as "not running".
+ * - `livenessReason`: `'observed'` | `'no-pulse-file'` | `'unreadable'`. Reports the OBSERVATION,
+ *   never a configuration verdict — this block reads one file and nothing else. `'no-pulse-file'`
+ *   is exactly `ENOENT`: the liveness file is absent. It does NOT mean the lane is disabled, and
+ *   cannot: `swarmHeartbeatEnabled` is never consulted here, so a configured-off lane and an
+ *   enabled lane that has not pulsed yet are the same absent file and stay indistinguishable in
+ *   this payload. What this field DOES separate is a read that answered from a read that could not
+ *   happen — previously both rendered as a measured `false`.
+ * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent or unreadable.
  * - `secondsSinceLastPulse`: derived seconds since last pulse. Surfaces "alive but stalled" when
  *   `daemonRunning` is `false` but a previous mtime exists.
  *
@@ -433,9 +442,11 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
  * producer is the Orchestrator's swarm-heartbeat lane. Present-and-fresh means the Orchestrator
  * daemon is polling.
  *
- * **Defensive defaults:** missing files / unreadable state surfaces sensible defaults
- * (`gateState: 'unknown'`, `daemonRunning: false`, `lastPulseAt: null`) WITHOUT throwing.
- * Aligns with the "surface, don't obscure" principle.
+ * **Defensive defaults:** missing files / unreadable state degrade WITHOUT throwing, but they
+ * degrade to DISTINGUISHABLE values — `gateState: 'unknown'`, and `daemonRunning: null` with
+ * `livenessReason: 'unreadable'` rather than a measured-looking `false`. "Surface, don't obscure"
+ * is only satisfied if the surfaced value cannot be mistaken for an observation; a defensive
+ * default that reads identically to a real reading obscures precisely when it matters most.
  *
  * - `subscription`: the caller-scoped arming verdict — whether THIS identity holds a wake
  *   subscription the receiver-manifest build would accept. `armed` is tri-state: `null` means the
@@ -446,7 +457,8 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
  *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
  * @returns {Promise<{gateState: String, gateTrippedAt: String|null,
- *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
+ *     gateTrippedBy: String|null, daemonRunning: Boolean|null, livenessReason: String,
+ *     lastPulseAt: String|null,
  *     secondsSinceLastPulse: Number|null,
  *     subscription: {armed: Boolean|null, reason: String}}>}
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
@@ -476,9 +488,13 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         // healthcheck observability surface even when the gate-state read path fails.
     }
 
+    // The absent-file case: `ENOENT` and nothing more. `false` is a measured answer — the file was
+    // looked for and is not there — but it says nothing about WHY, because no configuration is read
+    // here. Do not restate this as "the lane is disabled".
     let livenessBlock = {
         daemonRunning        : false,
         lastPulseAt          : null,
+        livenessReason       : 'no-pulse-file',
         secondsSinceLastPulse: null
     };
 
@@ -489,11 +505,25 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         livenessBlock = {
             daemonRunning        : ageMs < heartbeatLivenessStaleMs(),
             lastPulseAt          : stat.mtime.toISOString(),
+            livenessReason       : 'observed',
             secondsSinceLastPulse: Math.floor(ageMs / 1000)
         };
     } catch (e) {
-        // ENOENT is the expected case when the daemon hasn't been started locally.
-        // Other errors (permission, etc.) also degrade gracefully to defaults.
+        // Only ENOENT means the file is absent. Anything else — a permission wall, a path that
+        // belongs to another container's realm — means the question could not be ASKED, and
+        // reporting that as `daemonRunning: false` is the same conflation `gateState` and
+        // `subscription.armed` already refuse: it renders an unobservable value as a measured
+        // negative. Separating "I looked and found nothing" from "I could not look" is the whole
+        // scope of this branch; WHY nothing is there needs a configuration read that does not
+        // happen in this block.
+        if (e?.code !== 'ENOENT') {
+            livenessBlock = {
+                daemonRunning        : null,
+                lastPulseAt          : null,
+                livenessReason       : 'unreadable',
+                secondsSinceLastPulse: null
+            }
+        }
     }
 
     return {...gateBlock, ...livenessBlock, subscription: await buildSubscriptionArmingBlock()};

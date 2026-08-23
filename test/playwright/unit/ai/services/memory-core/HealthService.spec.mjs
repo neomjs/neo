@@ -2424,8 +2424,41 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
 
         expect(result.gateState).toBe('enabled');
         expect(result.daemonRunning).toBe(false);
+        // `false` is the right answer here and must stay one: the file was looked for and is not
+        // there. It says nothing about WHY — no configuration is read in this block — so a
+        // configured-off lane and an enabled lane that has not pulsed are the same ENOENT. The arm
+        // below covers the case this one must NOT be confused with: a read that could not happen.
+        expect(result.livenessReason).toBe('no-pulse-file');
         expect(result.lastPulseAt).toBeNull();
         expect(result.secondsSinceLastPulse).toBeNull();
+    });
+
+    test('liveness path UNREADABLE → daemonRunning null, never a measured false', async () => {
+        const fs   = await import('fs/promises');
+        const path = await import('path');
+
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
+            state: 'enabled', reason: '', trippedAt: null, trippedBy: null
+        }));
+
+        // A path whose PARENT is a regular file raises ENOTDIR — a non-ENOENT read failure needing
+        // no permission games and portable across CI hosts. Previously this rendered identically to
+        // the absent-file arm above, so "I looked and found nothing" and "I could not look" were one
+        // payload. That ambiguity sent a live wake-noise investigation down the wrong path:
+        // `daemonRunning: false` was read as exonerating the heartbeat, from an instrument that
+        // would have said the same thing had it been unable to see the heartbeat at all.
+        const blocker = path.join(tmpDir, `not-a-dir-${Date.now()}`);
+
+        await fs.writeFile(blocker, '');
+        AiConfig.setEnvOverride('NEO_HEARTBEAT_ALIVE_PATH', path.join(blocker, 'heartbeat.alive'));
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.daemonRunning).toBeNull();
+        expect(result.livenessReason).toBe('unreadable');
+        expect(result.lastPulseAt).toBeNull();
+        // The gate still reads: one unreadable field must not collapse the rest of the block.
+        expect(result.gateState).toBe('enabled')
     });
 
     test('liveness file stalled (mtime > 10min) → daemonRunning false, lastPulseAt populated', async () => {
@@ -2457,6 +2490,11 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             gateTrippedAt        : null,
             gateTrippedBy        : null,
             daemonRunning        : false,
+            // Names what the read actually did. `no-pulse-file` is exactly ENOENT — never a claim
+            // about configuration, which this block does not consult. It separates a read that
+            // answered from one that could not happen, the same conflation the subscription note
+            // below refuses, one field over.
+            livenessReason       : 'no-pulse-file',
             lastPulseAt          : null,
             secondsSinceLastPulse: null,
             // Arming reports `null`, never `false`, when it cannot determine: a healthcheck with no
