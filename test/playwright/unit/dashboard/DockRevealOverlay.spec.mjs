@@ -159,6 +159,26 @@ test.describe('Neo.dashboard.DockRevealOverlay', () => {
         ]);
     });
 
+    test('inside mousedown focuses the programmatic root through the global listener', () => {
+        const focused = [];
+
+        overlay = Neo.create(DockRevealOverlay, {
+            edge        : 'right',
+            id          : 'dock-reveal-inside-focus',
+            revealState : 'revealed-focused',
+            revealedItem: createItem()
+        });
+
+        overlay.focus = (...args) => focused.push(args);
+
+        expect(overlay.vdom.tabIndex).toBe(-1);
+        expect(overlay.domListeners.some(listener => typeof listener.mousedown === 'function')).toBe(true);
+
+        overlay.onMouseDown({});
+
+        expect(focused).toEqual([[overlay.id, false, true, 'pointer']])
+    });
+
     test('the reveal-slide routes the motion signal: enter on hidden→visible, filtered leave on animationend', () => {
         overlay = Neo.create(DockRevealOverlay, {
             edge: 'left',

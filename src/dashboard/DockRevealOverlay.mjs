@@ -99,7 +99,16 @@ class DockRevealOverlay extends Container {
          * @member {Object|null} revealedItem_=null
          * @reactive
          */
-        revealedItem_: null
+        revealedItem_: null,
+        /**
+         * Programmatic focus carrier for pointer interactions on non-focusable pane content. It
+         * stays outside sequential keyboard navigation while preserving the overlay subtree as the
+         * focus-containment authority.
+         * @member {Object} _vdom={tabIndex:-1}
+         * @protected
+         */
+        _vdom:
+        {tabIndex: -1}
     }
 
     /**
@@ -161,6 +170,9 @@ class DockRevealOverlay extends Container {
         super.construct(config);
 
         me.addDomListeners([
+            // `mousedown` is a GLOBAL DomEvents surface: unlike a local `pointerdown` listener, it
+            // does not preventDefault(), so native text selection inside the hosted pane survives.
+            {mousedown : me.onMouseDown,    scope: me},
             {keydown   : me.onKeyDown,      scope: me},
             {mouseenter: me.onPointerEnter, scope: me},
             {mouseleave: me.onPointerLeave, scope: me},
@@ -343,6 +355,19 @@ class DockRevealOverlay extends Container {
     }
 
     /**
+     * Keeps an inside pointer interaction inside the existing focus-hold contract even when its
+     * target (prose, whitespace, a plain container) cannot receive focus. The root is tabindex -1,
+     * so this programmatic pointer focus creates no sequential tab stop; `preventScroll` preserves
+     * the reading position. This handler rides the global mousedown path, which leaves native text
+     * selection untouched.
+     * @param {Object} data
+     * @protected
+     */
+    onMouseDown(data) {
+        this.focus(this.id, false, true, 'pointer')
+    }
+
+    /**
      * `manager.Focus` containment hook: fires only when focus genuinely ENTERS this component's
      * subtree — internal focus movement never re-triggers it, which is exactly the containment
      * guard the dismiss contract needs.
@@ -356,9 +381,9 @@ class DockRevealOverlay extends Container {
 
     /**
      * `manager.Focus` containment hook: fires only when focus genuinely LEAVES the subtree —
-     * moving focus between the pin control and the hosted pane stays silent. Clicking anywhere
-     * outside a focused overlay moves focus out, so outside-click dismissal of a focused reveal
-     * is embodied here.
+     * moving focus between the programmatically focusable root, pin control, and hosted pane stays
+     * silent. Inside mousedown refocuses the root before the focus manager's leave window settles;
+     * outside click and keyboard tab-out do not, so their genuine subtree leave still dismisses.
      * @param {Object} data
      * @protected
      */
