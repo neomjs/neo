@@ -1656,11 +1656,11 @@ class WakeSubscriptionService extends Base {
             const subscription = this._loadSubscription(subscriptionId);
             if (!subscription)                           return {subscriptions: []};
             if (subscription.agentIdentity !== caller)   return {subscriptions: []};
-            return {subscriptions: [subscription]};
+            return {subscriptions: this._withRouteDelivery([subscription])};
         }
 
         const durableSubscriptions = this._listDurableSubscriptionsForOwner(caller);
-        if (durableSubscriptions) return {subscriptions: durableSubscriptions};
+        if (durableSubscriptions) return {subscriptions: this._withRouteDelivery(durableSubscriptions)};
 
         // Fallback for test environments without raw SQLite storage. The cache may be partial
         // (lazy-loaded); walk the in-memory graph when no durable scan is available.
@@ -1674,7 +1674,45 @@ class WakeSubscriptionService extends Base {
             this.subscriptionCache.set(node.id, entry);
             subscriptions.push(entry);
         }
-        return {subscriptions};
+        return {subscriptions: this._withRouteDelivery(subscriptions)};
+    }
+
+    /**
+     * @summary Delivery truth for one subscription row: whether its transport survives receiver
+     *     manifest build, and the named reason when it does not.
+     *
+     * The row's own `status` field describes the subscription lifecycle (active/degraded), never
+     * whether the transport produces a route — before this annotation the two were
+     * indistinguishable to the owner, which is the failure mode where a seat holds an id, reads it
+     * back healthy, and receives nothing. Fields are additive: `routeDeliverable` is always
+     * present; `routeWithdrawalReason` exists only on the non-deliverable case, so its absence is
+     * itself the deliverable signal.
+     *
+     * @param {String} harnessTarget The subscription row's transport value.
+     * @returns {Object} `{routeDeliverable: Boolean, routeWithdrawalReason: String?}`
+     */
+    static routeDeliveryAnnotationFor(harnessTarget) {
+        if (harnessTarget === DELIVERABLE_HARNESS_TARGET) return {routeDeliverable: true};
+        return {
+            routeDeliverable     : false,
+            routeWithdrawalReason:
+                `harnessTarget '${harnessTarget}' is not deliverable on the Shape-B path — ` +
+                `only '${DELIVERABLE_HARNESS_TARGET}' builds a receiver route`
+        };
+    }
+
+    /**
+     * @summary Maps owner rows through {@link routeDeliveryAnnotationFor} so `list` answers the
+     *     delivery question alongside the lifecycle question, in one read.
+     *
+     * @param {Object[]} subscriptions Owner-scoped subscription rows.
+     * @returns {Object[]} The same rows, each carrying its route-delivery annotation.
+     */
+    _withRouteDelivery(subscriptions) {
+        return subscriptions.map(subscription => ({
+            ...subscription,
+            ...this.constructor.routeDeliveryAnnotationFor(subscription.harnessTarget)
+        }));
     }
 
     /**

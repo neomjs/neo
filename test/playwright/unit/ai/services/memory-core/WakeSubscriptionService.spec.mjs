@@ -3591,4 +3591,73 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             await expect(WakeSubscriptionService.fleetIdentities()).rejects.toThrow(/identity/i)
         });
     });
+
+    test.describe('route delivery annotation (#17619) — a stored row answers whether its transport builds a route', () => {
+        test('a stored non-deliverable row reads back its withdrawal reason instead of a bare active', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                // The schema still accepts the value and the row stores it; what changed is that
+                // the owner can now see the transport never builds a route without reading the
+                // manifest builder's source.
+                const res = await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
+
+                expect(row.status).toBe('active');
+                expect(row.routeDeliverable).toBe(false);
+                expect(row.routeWithdrawalReason).toContain('mcp-notifications');
+                expect(row.routeWithdrawalReason).toContain('not deliverable');
+            });
+        });
+
+        test('a deliverable row carries routeDeliverable true and no withdrawal reason', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.subscribe({
+                    trigger              : 'SENT_TO_ME',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake-annotated'}
+                });
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
+
+                expect(row.routeDeliverable).toBe(true);
+                // Absence of the reason IS the deliverable signal — the annotation never carries
+                // a null placeholder that a consumer must know to ignore.
+                expect(row).not.toHaveProperty('routeWithdrawalReason');
+            });
+        });
+
+        test('the previously silent combination is now visible: subscribe succeeds, manifest omits, list says why', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+
+                const node                = GraphService.db.nodes.get(res.subscriptionId);
+                const {manifest, skipped} = buildWakeReceiverManifest({
+                    subscriptions : [{
+                        id                   : res.subscriptionId,
+                        agentIdentity        : '@alice',
+                        status               : 'active',
+                        harnessTarget        : node.properties.harnessTarget,
+                        harnessTargetMetadata: node.properties.harnessTargetMetadata
+                    }],
+                    callerIdentity: '@alice'
+                });
+
+                expect(manifest.routes[res.subscriptionId]).toBeUndefined();
+                expect(skipped.length).toBe(1);
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
+                expect(row.routeDeliverable).toBe(false);
+                expect(row.routeWithdrawalReason).toContain('not deliverable');
+            });
+        });
+    });
 });
