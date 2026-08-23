@@ -102,15 +102,26 @@ export const ALLOWLIST = Object.freeze({
     // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
     // repair, and the set empties as they land. An entry here with no scheduled repair is a regression. `resources/content/**` targets are deliberately absent: they fork a corpus, not
     // the plane, so the predicate correctly never sees them.
+    // PLANE-ROOT census 2026-08-23: eight live sites, every one a known private-plane-root fork.
+    // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
+    // repair, and the set empties as they land. An entry here with no scheduled repair is a regression.
+    // `resources/content/**` targets are deliberately absent: they fork a corpus, not the plane, so
+    // the predicate correctly never sees them.
+    //
+    // Entries are `path::<exact source text>`, NOT bare paths. A bare path would exempt the whole
+    // file, so a NINTH site appearing inside one of these eight — the files most likely to grow one,
+    // since they already do plane-root math — would be dropped in silence and the ledger would still
+    // read as eight scheduled repairs. Site identity makes the exemption name what is exempt, so
+    // anything new stays red.
     'PLANE-ROOT': new Set([
-        'ai/examples/inspectGraph.mjs',
-        'ai/scripts/lifecycle/harnessLifecycle.mjs',
-        'ai/scripts/lifecycle/inflightLock.mjs',
-        'ai/scripts/lifecycle/resumeHarness.mjs',
-        'ai/scripts/lifecycle/wakeSafetyGate.mjs',
-        'ai/services/ConceptService.mjs',
-        'ai/services/fleet/FleetManager.mjs',
-        'ai/services/ingestion/ConceptDiscoveryService.mjs'
+        "ai/examples/inspectGraph.mjs::const dbPath = path.resolve(__dirname, '../../.neo-ai-data/neo-sqlite/knowledge-graph.sqlite');",
+        "ai/scripts/lifecycle/harnessLifecycle.mjs::const STATE_DIR = path.resolve(__dirname, '../../../.neo-ai-data/harness-state');",
+        "ai/scripts/lifecycle/inflightLock.mjs::return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);",
+        "ai/scripts/lifecycle/resumeHarness.mjs::const cooldownDir  = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');",
+        "ai/scripts/lifecycle/wakeSafetyGate.mjs::return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/wake-safety-gate.json');",
+        "ai/services/ConceptService.mjs::return path.resolve(__dirname, '../../.neo-ai-data/concepts');",
+        "ai/services/fleet/FleetManager.mjs::return this.managedRoot || process.env.NEO_FLEET_MANAGED_ROOT || path.resolve(__dirname, '../../../.neo-ai-data/fleet/repos');",
+        "ai/services/ingestion/ConceptDiscoveryService.mjs::conceptsDir = ConceptService.defaultConceptsDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts'),"
     ]),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
@@ -217,7 +228,22 @@ export function findAntipatterns(content) {
  * @returns {Object[]}
  */
 export function filterAllowlistedHits(hits, file, allowlist = ALLOWLIST) {
-    return hits.filter(({rule}) => !allowlist[rule]?.has(file))
+    return hits.filter(({rule, text}) => {
+        const entries = allowlist[rule];
+
+        if (!entries) return true;
+
+        // Two entry shapes, and the difference is muting a FILE versus muting a SITE. A bare path
+        // exempts every hit of that rule anywhere in the file — tolerable for a rule with two
+        // grandfathered entries, wrong for a migration ledger: a NINTH hit appearing inside one of
+        // the listed files would be dropped in silence, and those files are the ones already doing
+        // this kind of math, so they are the likeliest place for a ninth to appear.
+        //
+        // `path::<exact source text>` exempts one site and nothing else. Text rather than a line
+        // number deliberately: a line number decays on every edit above it, while the text changes
+        // exactly when the site changes — which is when a migration ledger SHOULD demand a re-look.
+        return !entries.has(file) && !entries.has(`${file}::${text}`)
+    })
 }
 
 function main() {
@@ -302,8 +328,13 @@ function main() {
             console.error('PLANE-ROOT: never anchor a `.neo-ai-data` path on the module\'s own `__dirname` — every');
             console.error('checkout then gets its OWN data root, the copies agree so nothing goes red, and the fork is');
             console.error('invisible until two of them disagree (worktrees already carry a private');
-            console.error('`.neo-ai-data/concepts`). Take the root as an injected parameter and resolve it through');
-            console.error('`resolvePlaneDataRoot({rootDir})`, which throws rather than guessing.');
+            console.error('`.neo-ai-data/concepts`). The remedy is NOT to call the canonical default helper: it');
+            console.error('returns the pre-binding default and ignores `NEO_PLANE_DATA_ROOT`, so a runtime consumer');
+            console.error('would write to the default path while the plane lives wherever configuration put it —');
+            console.error('a SILENT divergence replacing a visible one. The composing ENTRYPOINT reads and injects');
+            console.error('the resolved owning leaf (`AiConfig.plane.dataRoot`, `AiConfig.fleet.dataDir`, or');
+            console.error('`memoryCoreConfig.wakeDaemon.dataDir`); helpers take the root as a parameter and never');
+            console.error('import AiConfig.');
             console.error(`Genuinely unavoidable: "${ESCAPE_MARKER}: <reason>".`);
         }
         process.exit(1);
