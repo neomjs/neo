@@ -1,8 +1,281 @@
 {
     "$schema": {
         "description": "Source-owned judgments for the C-prime AgentOS extraction inventory.",
-        "schemaVersion": "agentos-extraction-inventory.v1"
+        "schemaVersion": "agentos-extraction-inventory.v2",
+        "runtimeProbeEligibility": "eligible means import and eager evaluation settle safely inside the disposable denial child; ineligible rows name the exact unguarded or external-work boundary"
     },
+    "runtimeProbeEligibility": [
+        {
+            "identity": "ai/scripts/agent-preflight.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/agent-preflight.mjs:1388-1390",
+            "reason": "the direct-run guard contains the only CLI invocation; subprocess and config work stays function-scoped"
+        },
+        {
+            "identity": "ai/scripts/benchmark/gemma4-rem-benchmark.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/benchmark/gemma4-rem-benchmark.mjs:256-259",
+            "reason": "unguarded main constructs a live provider, streams model requests, writes output, and exits on failure"
+        },
+        {
+            "identity": "ai/scripts/benchmark/keep-alive-probe.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/benchmark/keep-alive-probe.mjs:163-166",
+            "reason": "unguarded main immediately runs live provider probes and may call process.exit"
+        },
+        {
+            "identity": "ai/scripts/benchmark/provider-lane-election.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/benchmark/provider-lane-election.mjs:2771-2778",
+            "reason": "the direct-run guard contains main; Docker, subprocess, timer, and wait work stays function-scoped"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/analyzeNlTelemetry.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/diagnostics/analyzeNlTelemetry.mjs:27-43",
+            "reason": "import validates argv, may exit, opens and queries SQLite, and can write output with no entry guard"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/audit-discussion-lifecycle.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/audit-discussion-lifecycle.mjs:770-779",
+            "reason": "the direct-run guard contains main and exits; filesystem and git acquisition stays function-scoped"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/bootstrapCodexSandbox.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/bootstrapCodexSandbox.mjs:263-265",
+            "reason": "the direct-run guard contains the probe; SQLite construction and filesystem mutation stay inside guarded functions"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/check-identity-facts.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/check-identity-facts.mjs:445-447",
+            "reason": "bounded constants evaluate eagerly; file reads and exits stay behind the direct-run guard"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/check-retired-primitives.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/diagnostics/check-retired-primitives.mjs:217-227,295",
+            "reason": "unguarded main synchronously spawns grep, scans repository state, and calls process.exit"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/check-substrate-size.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/diagnostics/check-substrate-size.mjs:56-137",
+            "reason": "the complete diagnostic executes at module scope and unconditionally reaches process.exit"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/defectObservations.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/diagnostics/defectObservations.mjs:140-224",
+            "reason": "top-level await connects to Fleet or initializes local graph services and then exits without an import guard"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/fleetHealthcheck.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/fleetHealthcheck.mjs:171-179",
+            "reason": "network probes, waits, and exits are direct-run guarded; eager environment loading is finite and child-local"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs:507-509",
+            "reason": "log acquisition and exits stay behind the direct-run guard; eager imports are declarative"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/genesisProbe.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/genesisProbe.mjs:1635-1642",
+            "reason": "spawn, polling, signal handling, database access, and exits occur only through guarded main"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/mcpHealthcheck.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/mcpHealthcheck.mjs:490-492",
+            "reason": "MCP connections and timers are direct-run guarded; eager environment loading is bounded in the probe child"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/providerLaneComposition.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/providerLaneComposition.mjs:783-788",
+            "reason": "stdin, file reads, dynamic config imports, output, and exit handling occur only in guarded main"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/seatCostReport.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/seatCostReport.mjs:442-497",
+            "reason": "database construction and ledger reads are lazy inside functions; main and exits are directly guarded"
+        },
+        {
+            "identity": "ai/scripts/diagnostics/structureMap.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/structureMap.mjs:331-342",
+            "reason": "filesystem traversal and dynamic lint loading occur only through guarded main; eager evaluation is constants"
+        },
+        {
+            "identity": "ai/scripts/fleet/devCockpit.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/fleet/devCockpit.mjs:576-623",
+            "reason": "HTTP probes, GitHub subprocesses, webpack and Fleet spawns, listeners, and exits stay behind guarded main"
+        },
+        {
+            "identity": "ai/scripts/lifecycle/postReleaseSync.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lifecycle/postReleaseSync.mjs:191-203; ai/services.host.mjs:110",
+            "reason": "destructive release work is guarded and the eager host barrel disables auto-connect before bounded singleton initialization"
+        },
+        {
+            "identity": "ai/scripts/lifecycle/revalidationSweep.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lifecycle/revalidationSweep.mjs:294-322",
+            "reason": "CLI and network work is guarded; eager identity, config, and logger evaluation is finite and starts no waiter"
+        },
+        {
+            "identity": "ai/scripts/lint/check-commit-authorship.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/lint/check-commit-authorship.mjs:158-306",
+            "reason": "import runs git commands, reads stdin which can wait, scans commits, and calls process.exit with no entry guard"
+        },
+        {
+            "identity": "ai/scripts/lint/check-front-door-fingerprint.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/check-front-door-fingerprint.mjs:116-142",
+            "reason": "file reads, writes, and exits occur only inside functions invoked by the direct-run guard"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-adr-seam-table.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-adr-seam-table.mjs:118-136",
+            "reason": "ADR traversal and exits are deferred behind the direct-run guard; eager state is paths and constants"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-agents.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-agents.mjs:326-328",
+            "reason": "git acquisition and process exits occur only through guarded main"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-config-template-ssot.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-config-template-ssot.mjs:2457-2459",
+            "reason": "scans, template imports, writes, and exits stay behind the guard; eager evaluation is in-memory constants"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-fleet-vocabulary-parity.mjs:310-312",
+            "reason": "eager imports are frozen vocabulary and pure helpers; comparison and exit run only from guarded main"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-guard-ci-parity.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-guard-ci-parity.mjs:430-435",
+            "reason": "top level derives path constants only; file and YAML reads plus exit stay inside guarded runLint"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-guides.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-guides.mjs:451-453",
+            "reason": "guide, OpenAPI, and script reads plus exits stay behind the direct-run guard"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-identity-engine-coherence.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-identity-engine-coherence.mjs:266-268",
+            "reason": "the imported roster generator is guarded; model reads and target exit remain behind this target guard"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-identity-vocabulary.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-identity-vocabulary.mjs:156-158",
+            "reason": "only built-ins and bounded constants evaluate eagerly; scanning runs through guarded main"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-mcp-test-locations.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-mcp-test-locations.mjs:125-127",
+            "reason": "filesystem census and exit handling are contained by the direct-entry guard"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-npm-script-entrypoints.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-npm-script-entrypoints.mjs:193-223",
+            "reason": "AST and filesystem lint execution plus exitCode assignment occur only under the isMain guard"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-openapi-service-parity.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-openapi-service-parity.mjs:877-916",
+            "reason": "parity scanning is guarded; the eager census-helper dependency is declarative and independently guarded"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-retry-bounds.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-retry-bounds.mjs:662-664",
+            "reason": "repository traversal and exits occur through guarded main; eager evaluation is finite registries and constants"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-script-plane.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-script-plane.mjs:499-501",
+            "reason": "closure and task-authority imports are declarative; scanning and exit occur only under the direct-run guard"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-skill-manifest.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-skill-manifest.mjs:1329-1334",
+            "reason": "git and filesystem scans plus exit handling stay inside guarded main"
+        },
+        {
+            "identity": "ai/scripts/lint/lint-tree-json.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-tree-json.mjs:438-443",
+            "reason": "tree and SEO generation is guarded and the imported SEO generator has its own direct-entry guard"
+        },
+        {
+            "identity": "ai/scripts/maintenance/communityBatchPushClient.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/maintenance/communityBatchPushClient.mjs:242-244",
+            "reason": "MCP construction, connection, retry, payload reads, and close occur only through guarded CLI functions"
+        },
+        {
+            "identity": "ai/scripts/maintenance/kbPushClient.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/maintenance/kbPushClient.mjs:311-313",
+            "reason": "MCP construction, connection, and payload acquisition occur only inside guarded functions"
+        },
+        {
+            "identity": "ai/scripts/maintenance/probeBusinessMetrics.mjs",
+            "eligibility": "ineligible",
+            "source": "ai/scripts/maintenance/probeBusinessMetrics.mjs:15; ai/services/memory-core/GraphService.mjs:124-151",
+            "reason": "eager Cloud barrel import constructs GraphService whose scheduled initAsync opens and loads SQLite"
+        },
+        {
+            "identity": "ai/scripts/maintenance/probeCommunityActivityShadow.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/maintenance/probeCommunityActivityShadow.mjs:106-115",
+            "reason": "GitHub acquisition and report writes are guarded; eager GraphqlService starts no external-work initializer"
+        },
+        {
+            "identity": "ai/scripts/maintenance/syncGithubWorkflow.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/maintenance/syncGithubWorkflow.mjs:38,161-163; ai/services/github-workflow/SyncService.mjs:74-89",
+            "reason": "module scope disables syncOnStartup before singleton init; CLI sync, lease, and exit work stays guarded"
+        },
+        {
+            "identity": "ai/scripts/migrations/bootstrapWorktree.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/migrations/bootstrapWorktree.mjs:147-201,1530-1784",
+            "reason": "top-level work is finite template enumeration and an in-memory invariant; mutation and subprocesses stay under isMain"
+        },
+        {
+            "identity": "ai/scripts/runners/runAgent.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/runners/runAgent.mjs:12-26",
+            "reason": "orchestration, timers, and process exit are reachable only from guarded startOrchestrator; the class is non-singleton"
+        }
+    ],
     "overrides": [
         {
             "surface": "script-module",

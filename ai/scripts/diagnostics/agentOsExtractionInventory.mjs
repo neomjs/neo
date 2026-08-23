@@ -50,16 +50,17 @@ import {censusPlaneOpeners}           from './planePlacementCensus.mjs';
  */
 
 const
-    __filename            = fileURLToPath(import.meta.url),
-    PROJECT_ROOT          = path.resolve(path.dirname(__filename), '../../..'),
-    DEFAULT_REGISTRY_PATH = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
-    SCRIPT_PATH_RE        = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
-    WORKFLOW_ARTIFACT_RE  = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
-    VALID_DISPOSITIONS    = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
-    LAUNCH_CALLEES        = new Set([
+    __filename              = fileURLToPath(import.meta.url),
+    PROJECT_ROOT            = path.resolve(path.dirname(__filename), '../../..'),
+    DEFAULT_REGISTRY_PATH   = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
+    SCRIPT_PATH_RE          = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
+    WORKFLOW_ARTIFACT_RE    = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
+    VALID_DISPOSITIONS      = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
+    VALID_PROBE_ELIGIBILITY = new Set(['eligible', 'ineligible']),
+    LAUNCH_CALLEES          = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
-    SUBPROCESS_SCAN_ROOTS = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
+    SUBPROCESS_SCAN_ROOTS   = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
 
 /**
  * Stable surface names in the machine receipt.
@@ -89,6 +90,18 @@ export const PLANE_DISPOSITIONS = Object.freeze({
     'container-plane' : 'cloud',
     'host-edge'       : 'edge',
     'shared-primitive': 'cloud'
+});
+
+/**
+ * Stable runtime-probe eligibility vocabulary consumed by the paired AgentOS boundary proof.
+ * `eligible` licenses bounded evaluation inside the disposable child, not side-effect purity:
+ * finite child-local env/config reads are allowed. Entrypoints that can run their CLI, exit, wait,
+ * spawn persistent work, or acquire durable state merely by import are `ineligible` with a reason.
+ * @type {Object}
+ */
+export const RUNTIME_PROBE_ELIGIBILITY = Object.freeze({
+    eligible  : 'eligible',
+    ineligible: 'ineligible'
 });
 
 /**
@@ -686,6 +699,108 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
 }
 
 /**
+ * @summary Derives the unique Host-Edge launch-target population governed by runtime-probe
+ * eligibility. Custody remains authoritative in the reconciled script rows; launch-root shape
+ * merely selects which owned modules the paired proof may need to evaluate.
+ * @param {Object} [options]
+ * @param {Object[]} [options.launchRoots=[]]
+ * @param {Object[]} [options.scriptRows=[]] Reconciled inventory rows.
+ * @returns {String[]}
+ */
+export function deriveRuntimeProbeTargets({launchRoots = [], scriptRows = []} = {}) {
+    const dispositionByIdentity = new Map(scriptRows
+        .filter(row => row.surface === SURFACE.scriptModule)
+        .map(row => [row.identity, row.disposition]));
+
+    return [...new Set(launchRoots.map(row => row.rel).filter(Boolean))]
+        .filter(identity => dispositionByIdentity.get(identity) === 'edge')
+        .sort()
+}
+
+/**
+ * @summary Reconciles exact Edge launch targets against identity-scoped runtime-probe judgments.
+ * No status is inferred: missing and stale identities remain distinct residue, while invalid or
+ * explanation-free authority stays visible as typed errors.
+ * @param {String[]} targets Derived unique Edge launch-target identities.
+ * @param {Object} registry Source-owned extraction registry.
+ * @returns {Object}
+ */
+export function reconcileRuntimeProbeEligibility(targets, registry) {
+    const
+        governed  = [...new Set(targets)].sort(),
+        authority = Array.isArray(registry?.runtimeProbeEligibility)
+            ? registry.runtimeProbeEligibility
+            : [],
+        errors       = [],
+        authorityMap = new Map(),
+        targetSet    = new Set(governed);
+
+    if (!Array.isArray(registry?.runtimeProbeEligibility)) {
+        errors.push({kind: 'invalid-runtime-probe-registry', key: 'runtimeProbeEligibility'})
+    }
+
+    authority.forEach(entry => {
+        const identity = entry?.identity;
+
+        if (typeof identity !== 'string' || !identity.trim()) {
+            errors.push({kind: 'missing-runtime-probe-identity', key: 'runtimeProbeEligibility'});
+            return
+        }
+
+        if (authorityMap.has(identity)) {
+            errors.push({kind: 'duplicate-runtime-probe-eligibility', key: identity});
+            return
+        }
+
+        authorityMap.set(identity, entry);
+
+        if (!VALID_PROBE_ELIGIBILITY.has(entry.eligibility)) {
+            errors.push({kind: 'invalid-runtime-probe-eligibility', key: identity})
+        }
+        if (typeof entry.reason !== 'string' || entry.reason.trim().length < 12) {
+            errors.push({kind: 'missing-runtime-probe-reason', key: identity})
+        }
+        if (typeof entry.source !== 'string' || !entry.source.trim()) {
+            errors.push({kind: 'missing-runtime-probe-source', key: identity})
+        }
+    });
+
+    const
+        targetsWithoutAuthority = governed.filter(identity => !authorityMap.has(identity)),
+        authorityWithoutTargets = [...authorityMap.keys()].filter(identity => !targetSet.has(identity)).sort(),
+        rows                    = governed.filter(identity => authorityMap.has(identity)).map(identity => {
+            const entry = authorityMap.get(identity);
+
+            return {
+                identity,
+                eligibility: VALID_PROBE_ELIGIBILITY.has(entry.eligibility) ? entry.eligibility : null,
+                reason     : typeof entry.reason === 'string' ? entry.reason : null,
+                source     : typeof entry.source === 'string' ? entry.source : null
+            }
+        });
+
+    if (governed.length === 0) {
+        errors.push({kind: 'empty-runtime-probe-population', key: 'runtimeProbeEligibility'})
+    }
+    targetsWithoutAuthority.forEach(key => errors.push({kind: 'missing-runtime-probe-eligibility', key}));
+    authorityWithoutTargets.forEach(key => errors.push({kind: 'stale-runtime-probe-eligibility', key}));
+
+    const byEligibility = {
+        eligible  : rows.filter(row => row.eligibility === RUNTIME_PROBE_ELIGIBILITY.eligible).length,
+        ineligible: rows.filter(row => row.eligibility === RUNTIME_PROBE_ELIGIBILITY.ineligible).length
+    };
+
+    return {
+        total  : governed.length,
+        byEligibility,
+        rows,
+        residue: {targetsWithoutAuthority, authorityWithoutTargets},
+        errors : errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`)),
+        ok     : errors.length === 0
+    }
+}
+
+/**
  * @summary Stable row comparator used by human and JSON outputs.
  * @param {Object} a
  * @param {Object} b
@@ -718,6 +833,14 @@ export function buildInventory({
             resolveFallback: closureResolve
         }),
         preliminary                                  = reconcileInventory(scriptRows, registry),
+        runtimeProbeTargets                          = deriveRuntimeProbeTargets({
+            launchRoots,
+            scriptRows: preliminary.rows
+        }),
+        runtimeProbeEligibility                      = reconcileRuntimeProbeEligibility(
+            runtimeProbeTargets,
+            registry
+        ),
         scriptRowsByIdentity                         = new Map(preliminary.rows
             .filter(row => row.surface === SURFACE.scriptModule)
             .map(row => [row.identity, row])),
@@ -745,6 +868,10 @@ export function buildInventory({
         ).trim(),
         counts                               = {};
 
+    reconciled.errors.push(...runtimeProbeEligibility.errors);
+    reconciled.errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`));
+    reconciled.ok &&= runtimeProbeEligibility.ok;
+
     const bindingError = sourceBindingError(status, allowDirty);
 
     if (bindingError) {
@@ -761,7 +888,7 @@ export function buildInventory({
     });
 
     return {
-        schemaVersion: 'agentos-extraction-inventory.v1',
+        schemaVersion: 'agentos-extraction-inventory.v2',
         capturedAt,
         git          : {
             sha,
@@ -773,6 +900,7 @@ export function buildInventory({
             byVia: Object.fromEntries(Object.entries(Object.groupBy(launchRoots, row => row.via))
                 .map(([via, rows]) => [via, rows.length]))
         },
+        runtimeProbeEligibility,
         counts,
         ...reconciled
     }
@@ -792,6 +920,14 @@ export function formatInventory(report) {
 
         lines.push(`${surface.padEnd(22)} ${String(data.total).padStart(4)}  ${detail}`)
     });
+
+    const probe = report.runtimeProbeEligibility;
+
+    lines.push('', `runtime-probe targets: ${probe.total} · eligible ${probe.byEligibility.eligible} · ` +
+        `ineligible ${probe.byEligibility.ineligible}`);
+    probe.rows.forEach(row => lines.push(
+        `  ${String(row.eligibility).padEnd(10)} ${row.identity} — ${row.reason}`
+    ));
 
     lines.push('', `disk - authority: ${report.residue.diskMinusAuthority.length}`);
     report.residue.diskMinusAuthority.forEach(key => lines.push(`  + ${key}`));
