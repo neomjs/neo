@@ -1858,8 +1858,9 @@ class DockZoneModel extends Base {
     }
 
     /**
-     * @summary Removes a closeable `itemId` from the tree and catalog, then activates the item at
-     * its former index or the preceding item. An explicit `closable:false` fails closed.
+     * @summary Removes a closeable `itemId` from the tree and catalog. When the item was active,
+     * activates the item at its former index or the preceding item; closing a non-active item
+     * preserves the surviving activation. An explicit `closable:false` fails closed.
      * @param {Object} document
      * @param {Object} args {itemId}
      * @returns {{document:Object, errors:String[]}}
@@ -1873,15 +1874,17 @@ class DockZoneModel extends Base {
 
         let tabsNodeId  = DockZoneModel.findContainingTabsId(document, itemId),
             closedIndex = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1,
+            wasActive   = tabsNodeId ? document.nodes[tabsNodeId].activeItemId === itemId : false,
             doc         = DockZoneModel.clone(document);
 
         DockZoneModel.detachFromTabs(doc, itemId);
 
-        if (tabsNodeId && doc.nodes[tabsNodeId]?.type === 'tabs') {
+        if (wasActive && tabsNodeId && doc.nodes[tabsNodeId]?.type === 'tabs') {
             let node = doc.nodes[tabsNodeId];
 
-            // The item now occupying the closed slot wins; closing the last item falls back to
-            // its preceding sibling. This is semantic model policy, not a projected-index guess.
+            // When the closed item owned activation, the item now occupying its slot wins;
+            // closing the last item falls back to its preceding sibling. A surviving active item
+            // is left untouched. This is semantic model policy, not a projected-index guess.
             node.activeItemId = node.items[Math.min(closedIndex, node.items.length - 1)] ?? null
         }
 

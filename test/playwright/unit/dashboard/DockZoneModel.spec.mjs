@@ -1284,12 +1284,12 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(JSON.stringify(input)).toBe(snapshot)
         });
 
-        test('closeItem selects the item at the closed index, then the preceding item, then null', () => {
-            const createCloseDocument = () => {
+        test('closeItem selects a successor only for the active item and preserves other activation', () => {
+            const createCloseDocument = (activeItemId='strategy') => {
                 const input = doc();
 
                 input.nodes['main-tabs'].items        = ['strategy', 'swarm', 'inspector'];
-                input.nodes['main-tabs'].activeItemId = 'strategy';
+                input.nodes['main-tabs'].activeItemId = activeItemId;
 
                 return input
             };
@@ -1302,12 +1302,22 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             const middle = DockZoneModel.closeItem(createCloseDocument(), {itemId: 'swarm'});
             expect(middle.errors).toEqual([]);
             expect(middle.document.nodes['main-tabs'].items).toEqual(['strategy', 'inspector']);
-            expect(middle.document.nodes['main-tabs'].activeItemId).toBe('inspector');
+            expect(middle.document.nodes['main-tabs'].activeItemId).toBe('strategy');
 
             const last = DockZoneModel.closeItem(createCloseDocument(), {itemId: 'inspector'});
             expect(last.errors).toEqual([]);
             expect(last.document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
-            expect(last.document.nodes['main-tabs'].activeItemId).toBe('swarm');
+            expect(last.document.nodes['main-tabs'].activeItemId).toBe('strategy');
+
+            const activeMiddle = DockZoneModel.closeItem(createCloseDocument('swarm'), {itemId: 'swarm'});
+            expect(activeMiddle.errors).toEqual([]);
+            expect(activeMiddle.document.nodes['main-tabs'].items).toEqual(['strategy', 'inspector']);
+            expect(activeMiddle.document.nodes['main-tabs'].activeItemId).toBe('inspector');
+
+            const activeLast = DockZoneModel.closeItem(createCloseDocument('inspector'), {itemId: 'inspector'});
+            expect(activeLast.errors).toEqual([]);
+            expect(activeLast.document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+            expect(activeLast.document.nodes['main-tabs'].activeItemId).toBe('swarm');
 
             const only = DockZoneModel.closeItem(doc(), {itemId: 'terminal'});
             expect(only.errors).toEqual([]);
