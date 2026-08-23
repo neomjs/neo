@@ -489,7 +489,17 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
                     trace    = globalThis.__workstationReexitWindowMoves = [];
 
                 main.windowMoveTo = data => {
-                    const entry = {data: {...data}, result: 'pending'};
+                    const
+                        win   = main.openWindows[data.windowName]?.win,
+                        entry = {
+                            data  : {...data},
+                            handle: {
+                                exists : Boolean(win),
+                                closed : win?.closed ?? null,
+                                movable: typeof win?.moveTo === 'function'
+                            },
+                            result: 'pending'
+                        };
 
                     trace.push(entry);
 
@@ -532,6 +542,17 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
             }).toBe(true);
 
             const openingMoveTrace = await page.evaluate(() => globalThis.__workstationReexitWindowMoves);
+
+            expect(
+                openingMoveTrace.every(entry => Number.isFinite(entry.data.x) && Number.isFinite(entry.data.y)),
+                'every native move request carries finite screen coordinates'
+            ).toBe(true);
+            expect(
+                openingMoveTrace.every(entry =>
+                    entry.handle.exists && entry.handle.closed === false && entry.handle.movable
+                ),
+                'every native move request resolves the live named popup handle'
+            ).toBe(true);
 
             test.skip(
                 openingMoveTrace.every(entry => entry.result === false),
