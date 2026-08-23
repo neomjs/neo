@@ -17,6 +17,41 @@ import {test, expect} from '../../fixtures.mjs';
  * @see apps/agentos/view/fleet/detail/Container.mjs
  * @see test/playwright/e2e/agentos/FleetCockpitDrillNL.spec.mjs (the drill pattern this extends)
  */
+/**
+ * @summary Resolves the AgentDetail tab's OWN mailbox pane, by identity rather than list position.
+ *
+ * `AgentOS.view.fleet.mailbox.Container` is used by TWO surfaces — this tab and the Operator
+ * Mailbox — so a className-only query returns more than one instance and its ordering is not a
+ * contract. Taking the first match resolved the Operator Mailbox's unmounted pane, which holds no
+ * drilled record: the assertion then read `undefined` and the injected snapshot landed in a pane
+ * nobody was looking at, so the rows never rendered. Both symptoms, one wrong object.
+ *
+ * The anchor is the DOM node inside `.fm-agent-detail`, whose element id IS the component id. That
+ * states the intent — *this tab's pane* — instead of a property that merely happens to discriminate
+ * today: filtering on `mounted` would work now only because the Operator pane is unmounted during
+ * this journey, and would silently re-break the day both are mounted.
+ *
+ * @param {Object} app Neural Link fixture app handle.
+ * @param {Object} pane Playwright locator for the tab's `.fm-mailbox-pane`.
+ * @param {String[]} properties Component properties to read back; `id` is always included.
+ * @returns {Promise<Object>} The resolved component entry.
+ */
+const resolveDetailMailboxPane = async (app, pane, properties) => {
+    const paneId     = await pane.getAttribute('id'),
+          requested  = properties.includes('id') ? properties : [...properties, 'id'],
+          candidates = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.Container'}, requested),
+          entries    = Array.isArray(candidates) ? candidates : [candidates],
+          resolved   = entries.find(entry => entry?.properties?.id === paneId);
+
+    // Fails on the exact defect this helper exists for: if resolution ever lands on another
+    // surface's pane, the id will not match and this names both the wanted and the available ids
+    // rather than surfacing later as `undefined` three assertions downstream.
+    expect(resolved, `the AgentDetail tab's own pane '${paneId}' must resolve; saw ` +
+        JSON.stringify(entries.map(entry => entry?.properties?.id))).toBeTruthy();
+
+    return resolved
+};
+
 test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#15270)', () => {
     test.setTimeout(90000);
 
@@ -71,7 +106,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // finding rather than a coincidence.)
         await page.waitForTimeout(500);
 
-        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.Container'}, ['record', 'snapshot', 'id']);
+        const mounted = await resolveDetailMailboxPane(app, pane, ['record', 'snapshot']);
         expect(mounted?.properties?.record?.agentId, 'the pane record follows the drill').toBe(expectedAgentId);
         expect(mounted?.properties?.snapshot ?? null, 'a fail-closed read assigns NOTHING — never a fabricated snapshot').toBe(null);
 
@@ -226,7 +261,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         const pane = detail.locator('.fm-mailbox-pane');
         await expect(pane).toBeVisible({timeout: 15000});
 
-        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.mailbox.Container'}, ['id']);
+        const mounted = await resolveDetailMailboxPane(app, pane, ['id']);
         expect(mounted?.properties?.id, 'the mailbox pane is mounted and addressable').toBeTruthy();
 
         // A FULL page. The subject lines are deliberately long: intrinsic WIDTH is what drove the
