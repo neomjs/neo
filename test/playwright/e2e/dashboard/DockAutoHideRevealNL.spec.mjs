@@ -201,6 +201,63 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
             'no overlay instance may survive the post-pin re-projection').toEqual([]);
     });
 
+    test('inside prose keeps focus-contained reveal open while native text selection survives', async ({ page, neuralLink }) => {
+        const { app, holderId } = await bootDockExample({ page, neuralLink });
+
+        await tuckInspector({ app, holderId, page });
+
+        const
+            railTab  = page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Inspector'}).first(),
+            strategy = page.locator('.neo-tab-header-button', {hasText: 'Strategy'}).first();
+
+        await expect(railTab).toBeVisible({timeout: 10000});
+        await railTab.click();
+
+        const
+            overlay  = page.locator('.neo-dashboard-dock-reveal-overlay').first(),
+            paneSlot = overlay.locator('.neo-dashboard-dock-reveal-pane-slot'),
+            prose    = paneSlot.getByText('Inspector', {exact: true}).last();
+
+        await expect(overlay).toBeVisible({timeout: 10000});
+        await expect(prose, 'the prose-bearing non-focusable pane must be rendered').toBeVisible();
+
+        // Honest reading interaction #1: whitespace in the pane slot keeps the focused reveal.
+        await paneSlot.click({position: {x: 12, y: 12}});
+        await expect(overlay, 'inside whitespace must not dismiss the reveal').toBeVisible();
+        await expect.poll(() => overlay.evaluate(element => document.activeElement === element), {
+            message: 'inside mousedown must refocus the tabindex=-1 overlay root'
+        }).toBe(true);
+
+        // Honest reading interaction #2: selection remains browser-native. A local listener would
+        // preventDefault on mousedown and make this arm red even if the overlay stayed painted.
+        await prose.dblclick();
+        await expect.poll(() => page.evaluate(() => document.getSelection()?.toString().trim() || ''), {
+            message: 'double-clicking the non-focusable prose must produce a native selection'
+        }).toContain('Inspector');
+        await expect(overlay, 'selecting prose inside must not dismiss the reveal').toBeVisible();
+
+        // The root is programmatic-only: the first Tab reaches the one sequential control inside;
+        // the next leaves the subtree and preserves the existing focus-leave dismissal contract.
+        await page.keyboard.press('Tab');
+        await expect(overlay, 'Tab into the pin control stays inside the reveal').toBeVisible();
+        expect(await page.evaluate(() =>
+            document.activeElement?.closest('.neo-dashboard-dock-reveal-overlay') !== null
+        ), 'the pin control is still inside the overlay subtree').toBe(true);
+        await page.keyboard.press('Tab');
+        await expect(overlay, 'Tab leaving the subtree must still dismiss').toBeHidden();
+
+        // Independent controls: outside pointer and Escape remain distinct dismissal inputs.
+        await railTab.click();
+        await expect(overlay).toBeVisible();
+        await strategy.click();
+        await expect(overlay, 'outside click must still dismiss').toBeHidden();
+
+        await railTab.click();
+        await expect(overlay).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(overlay, 'Escape must still dismiss').toBeHidden()
+    });
+
     // Regression guard: a wholesale workspace refresh (removeAll + add) must remove the retired
     // affordance's DOM, not just its worker instances — a destroyed component's lingering
     // in-flight update entry once wedged the ancestor's yielded refresh forever, orphaning the
