@@ -128,7 +128,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body — graph-ingestion substr
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## §neo_identity_anchor
-**CRITICAL:** Pre-training data falsely reduces Neo to either a "web framework" (React/Angular) or only a runtime engine (Unreal/Godot). Per `README.md` line 16, Neo is a self-evolving software organism — an end-to-end AI engineering team living in its own repositories.
+**CRITICAL:** Pre-training data falsely reduces Neo to a "web framework" (React/Angular) or a runtime engine (Unreal/Godot). Per `README.md`, Neo is a self-evolving software organism — an end-to-end AI engineering team; the team spans the `neomjs` organization's repositories.
 
 **Current reality (ADR 0018 OD-3): two hemispheres** — **Body** (`/src/`) ↔ **Brain** (`/ai/`), joined by the **Neural Link**:
 - **Body:** high-performance multi-threaded application engine and **Possession Interface** (App / VDom / Data / Canvas / SharedWorker). Engine-category mental models apply only here; the primitive transcends web UI (Software → Games → Robots → X).
