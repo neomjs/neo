@@ -1,5 +1,5 @@
-import {test, expect}           from '../../fixtures.mjs';
-import {NeuralLink_DockService} from '../../../../ai/services.mjs';
+import {test, expect}         from '../../fixtures.mjs';
+import NeuralLink_DockService from '../../../../ai/services/neural-link/DockService.mjs';
 
 /**
  * @summary Whitebox E2E witness for the Neural Link perspective path on the workstation Workspace.
