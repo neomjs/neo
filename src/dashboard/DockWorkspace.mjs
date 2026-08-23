@@ -631,9 +631,11 @@ class DockWorkspace extends Container {
             config = DockLayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
-                enableDockCloseAction    : me.enableDockCloseAction,
-                onDockActiveIndexChange  : me.onDockActiveIndexChange.bind(me),
-                onDockHeaderAction       : me.onDockHeaderAction.bind(me),
+                ...(me.enableDockCloseAction && {
+                    enableDockCloseAction  : true,
+                    onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
+                    onDockHeaderAction     : me.onDockHeaderAction.bind(me)
+                }),
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
