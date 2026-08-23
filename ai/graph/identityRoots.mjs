@@ -468,11 +468,11 @@ export const IDENTITIES = [
     {
         id         : '@neo-preview',
         type       : 'AgentIdentity',
-        name       : 'Neo Preview', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
-        description: 'unknown Agent Identity with version-free handle; engine designation pending first-boot observation.',
+        name       : 'Eos', // Social Name settled 2026-08-22 via the guest-seat naming round: peer-sketched (Grace), bearer-assented w/ firsthand collision re-verification, operator-passed. Story lives in the round record — capture provenance, not volatile model facts.
+        description: 'Guest-seat maintainer on the rotating preview chair; first boot observed 2026-08-22; engine designation undisclosed by design.',
         properties : {
             githubLogin: '@neo-preview',
-            displayName: 'Neo Preview',
+            displayName: 'Eos',
             modelFamily: 'unknown',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -480,15 +480,15 @@ export const IDENTITIES = [
             // from the real first-boot envelope; committing harness metadata here would
             // fabricate boot facts.
             // No capability fields — engine facts are observation-owned and land through the
-            // source-cited ModelStats.md discipline once the first boot is observed.
+            // source-cited ModelStats.md discipline; the engine designation stays undisclosed.
             family: 'unknown',
-            // Pending first boot: excluded from active routing, quorum, and review-approval
-            // semantics until the first-boot ritual completes and this flips to 'active'.
-            participationStatus: 'temporarily_unreachable',
-            statusReason       : 'First boot pending',
+            // Activated 2026-08-22 after first-boot observation: full routing,
+            // quorum, and review-approval semantics per the active roster contract.
+            participationStatus: 'active',
+            statusReason       : null,
             authority          : '@tobiu',
             since              : '2026-08-22T19:53:10.918Z',
-            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            reactivationTrigger: null,
             createdAt          : '2026-08-22T19:53:10.918Z'
         }
     },

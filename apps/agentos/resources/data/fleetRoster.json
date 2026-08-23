@@ -1,6 +1,6 @@
 {
     "_meta": {
-        "generatedAt": "2026-08-22T20:18:03.186Z",
+        "generatedAt": "2026-08-22T22:57:34.234Z",
         "authority": "ai/graph/identityRoots.mjs",
         "engineTags": "learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)",
         "generator": "ai/scripts/fleet/deriveFleetRoster.mjs",
@@ -210,13 +210,13 @@
         {
             "agentId": "neo-preview",
             "githubUsername": "neo-preview",
-            "displayName": "Neo Preview",
+            "displayName": "Eos",
             "engineTag": null,
             "family": "unknown",
-            "state": "off",
+            "state": "ok",
             "avatarUrl": "https://github.com/neo-preview.png?size=80",
-            "laneLine": "First boot pending",
-            "participationStatus": "temporarily_unreachable",
+            "laneLine": null,
+            "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
                 "roster": {
