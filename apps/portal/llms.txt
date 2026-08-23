@@ -564,6 +564,17 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17647](https://neomjs.com/raw/news/tickets/17647.md)
+- [Ticket #17646](https://neomjs.com/raw/news/tickets/17646.md)
+- [Ticket #17645](https://neomjs.com/raw/news/tickets/17645.md)
+- [Ticket #17642](https://neomjs.com/raw/news/tickets/17642.md)
+- [Ticket #17640](https://neomjs.com/raw/news/tickets/17640.md)
+- [Ticket #17635](https://neomjs.com/raw/news/tickets/17635.md)
+- [Ticket #17634](https://neomjs.com/raw/news/tickets/17634.md)
+- [Ticket #17633](https://neomjs.com/raw/news/tickets/17633.md)
+- [Ticket #17631](https://neomjs.com/raw/news/tickets/17631.md)
+- [Ticket #17630](https://neomjs.com/raw/news/tickets/17630.md)
+- [Ticket #17629](https://neomjs.com/raw/news/tickets/17629.md)
 - [Ticket #17627](https://neomjs.com/raw/news/tickets/17627.md)
 - [Ticket #17625](https://neomjs.com/raw/news/tickets/17625.md)
 - [Ticket #17621](https://neomjs.com/raw/news/tickets/17621.md)
@@ -12144,6 +12155,13 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17643](https://neomjs.com/raw/news/pulls/17643.md)
+- [Pull Request #17641](https://neomjs.com/raw/news/pulls/17641.md)
+- [Pull Request #17639](https://neomjs.com/raw/news/pulls/17639.md)
+- [Pull Request #17638](https://neomjs.com/raw/news/pulls/17638.md)
+- [Pull Request #17637](https://neomjs.com/raw/news/pulls/17637.md)
+- [Pull Request #17636](https://neomjs.com/raw/news/pulls/17636.md)
+- [Pull Request #17632](https://neomjs.com/raw/news/pulls/17632.md)
 - [Pull Request #17628](https://neomjs.com/raw/news/pulls/17628.md)
 - [Pull Request #17626](https://neomjs.com/raw/news/pulls/17626.md)
 - [Pull Request #17624](https://neomjs.com/raw/news/pulls/17624.md)
@@ -17831,6 +17849,7 @@ Here you find problem-to-solution records from Neo.mjs pull requests.
 
 Here you find Ideation Sandbox and architectural discussion records.
 
+- [Discussion #17644](https://neomjs.com/raw/news/discussions/17644.md)
 - [Discussion #17567](https://neomjs.com/raw/news/discussions/17567.md)
 - [Discussion #17521](https://neomjs.com/raw/news/discussions/17521.md)
 - [Discussion #17489](https://neomjs.com/raw/news/discussions/17489.md)
