@@ -235,16 +235,18 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
             message: 'double-clicking the non-focusable prose must produce a native selection'
         }).toContain('Inspector');
         await expect(overlay, 'selecting prose inside must not dismiss the reveal').toBeVisible();
+        await expect.poll(() => overlay.evaluate(element => document.activeElement === element), {
+            message: 'the prose mousedown must leave the programmatic root focused'
+        }).toBe(true);
 
-        // The root is programmatic-only: the first Tab reaches the one sequential control inside;
-        // the next leaves the subtree and preserves the existing focus-leave dismissal contract.
-        await page.keyboard.press('Tab');
-        await expect(overlay, 'Tab into the pin control stays inside the reveal').toBeVisible();
-        expect(await page.evaluate(() =>
-            document.activeElement?.closest('.neo-dashboard-dock-reveal-overlay') !== null
-        ), 'the pin control is still inside the overlay subtree').toBe(true);
-        await page.keyboard.press('Tab');
-        await expect(overlay, 'Tab leaving the subtree must still dismiss').toBeHidden();
+        // The root is programmatic-only. Backward sequential navigation has no earlier focusable
+        // descendant to traverse, so Shift+Tab leaves the subtree in one deterministic keyboard
+        // step without hardcoding how many controls a hosted pane may contribute.
+        await page.keyboard.press('Shift+Tab');
+        await expect.poll(() => page.evaluate(() =>
+            document.activeElement?.closest('.neo-dashboard-dock-reveal-overlay') === null
+        ), {message: 'Shift+Tab must move browser focus outside the overlay subtree'}).toBe(true);
+        await expect(overlay, 'keyboard focus leaving the subtree must still dismiss').toBeHidden();
 
         // Independent controls: outside pointer and Escape remain distinct dismissal inputs.
         await railTab.click();
