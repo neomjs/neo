@@ -5,9 +5,15 @@ import {fileURLToPath} from 'node:url';
 
 import {
     buildInventory,
+    collectLaunchRoots,
+    collectManifestDependencyRows,
+    collectPackageDependencies,
+    composeDependencyManifests,
     deriveRuntimeProbeTargets,
     discoverSubprocessLaunches,
     discoverWorkflowReferences,
+    formatInventory,
+    inspectManifestDependencies,
     listTrackedFiles,
     reconcileInventory,
     reconcileRuntimeProbeEligibility,
@@ -211,23 +217,295 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         })
     });
 
-    test('runtime-probe targets are the unique launch roots whose explicit custody is Edge', () => {
+    test('launch-root rows retain exact target identity plus their owning channel evidence', () => {
+        const rows = collectLaunchRoots({
+            launchRoots: [{
+                name: 'ai:edge', rel: 'ai/scripts/edge.mjs', via: 'npm'
+            }, {
+                name                : 'wake-daemon',
+                plane               : 'host-edge',
+                rel                 : 'ai/daemons/wake/daemon.mjs',
+                suggestedDisposition: 'edge',
+                via                 : 'task'
+            }],
+            scriptRowsByIdentity: new Map([['ai/scripts/edge.mjs', {
+                disposition: 'edge'
+            }]])
+        });
+
+        expect(rows.map(row => row.identity)).toEqual([
+            'ai/daemons/wake/daemon.mjs',
+            'ai/scripts/edge.mjs'
+        ]);
+        expect(rows).toEqual(expect.arrayContaining([expect.objectContaining({
+            surface : SURFACE.launchRoot,
+            identity: 'ai/scripts/edge.mjs',
+            source  : 'package.json#scripts.ai:edge',
+            evidence: expect.objectContaining({
+                name: 'ai:edge', target: 'ai/scripts/edge.mjs', via: 'npm', suggestedDisposition: 'edge'
+            })
+        }), expect.objectContaining({
+            surface : SURFACE.launchRoot,
+            identity: 'ai/daemons/wake/daemon.mjs',
+            source  : 'ai/daemons/orchestrator/taskDefinitions.mjs#wake-daemon',
+            evidence: expect.objectContaining({
+                name                : 'wake-daemon',
+                plane               : 'host-edge',
+                target              : 'ai/daemons/wake/daemon.mjs',
+                via                 : 'task',
+                suggestedDisposition: 'edge'
+            })
+        })]))
+    });
+
+    test('RED: same-count launch-root substitution names the missing and stale targets', () => {
+        const rows = collectLaunchRoots({
+                  launchRoots: [{
+                      name: 'replacement', rel: 'ai/scripts/replacement.mjs', via: 'workflow'
+                  }]
+              }),
+              result = reconcileInventory(rows, {
+                  custody  : [],
+                  overrides: [{
+                      surface    : SURFACE.launchRoot,
+                      identities : ['ai/scripts/original.mjs'],
+                      disposition: 'edge',
+                      source     : 'fixture original launch authority',
+                      rationale  : 'original fixture launch target belongs to Edge'
+                  }]
+              });
+
+        expect(result.residue).toEqual({
+            diskMinusAuthority: ['launch-root::ai/scripts/replacement.mjs'],
+            authorityMinusDisk: ['launch-root::ai/scripts/original.mjs']
+        })
+    });
+
+    test('dependency identity binds manifest, section, and name while version remains evidence', () => {
+        const rows = [
+            ...collectManifestDependencyRows({
+                manifest: {
+                    dependencies   : {'edge-package': '^1.0.0'},
+                    devDependencies: {'test-package': '2.0.0'}
+                },
+                manifestName: 'package.json'
+            }),
+            ...collectManifestDependencyRows({
+                manifest    : {devDependencies: {'cloud-package': '3.0.0'}},
+                manifestName: 'package.brain.json'
+            })
+        ];
+
+        expect(rows.map(row => row.identity)).toEqual([
+            'package.json::dependencies::edge-package',
+            'package.json::devDependencies::test-package',
+            'package.brain.json::devDependencies::cloud-package'
+        ]);
+        expect(rows.find(row => row.identity.endsWith('cloud-package')).evidence)
+            .toEqual(expect.objectContaining({
+                manifest            : 'package.brain.json',
+                section             : 'devDependencies',
+                name                : 'cloud-package',
+                version             : '3.0.0',
+                suggestedDisposition: 'cloud'
+            }));
+
+        const changed = collectManifestDependencyRows({
+            manifest    : {dependencies: {'edge-package': '^9.0.0'}},
+            manifestName: 'package.json'
+        })[0];
+
+        expect(changed.identity).toBe('package.json::dependencies::edge-package');
+        expect(changed.evidence.version).toBe('^9.0.0')
+    });
+
+    test('RED: root and Brain dependency additions fail independently by exact identity', () => {
+        const authority = {
+                  custody  : [],
+                  overrides: [{
+                      surface        : SURFACE.packageDependency,
+                      identities     : ['package.json::devDependencies::edge-package'],
+                      disposition    : 'edge',
+                      manifestTargets: ['edge'],
+                      source         : 'fixture Edge manifest authority',
+                      rationale      : 'fixture package belongs to the Edge root'
+                  }, {
+                      surface        : SURFACE.packageDependency,
+                      identities     : ['package.brain.json::devDependencies::cloud-package'],
+                      disposition    : 'cloud',
+                      manifestTargets: ['cloud'],
+                      source         : 'fixture Cloud manifest authority',
+                      rationale      : 'fixture package belongs to the nested Cloud root'
+                  }]
+              },
+              baseRows  = [
+                  ...collectManifestDependencyRows({
+                      manifest    : {devDependencies: {'edge-package': '1'}},
+                      manifestName: 'package.json'
+                  }),
+                  ...collectManifestDependencyRows({
+                      manifest    : {devDependencies: {'cloud-package': '1'}},
+                      manifestName: 'package.brain.json'
+                  })
+              ],
+              addedRoot = reconcileInventory([...baseRows,
+                  ...collectManifestDependencyRows({
+                      manifest    : {dependencies: {'new-edge-package': '1'}},
+                      manifestName: 'package.json'
+                  })
+              ], authority),
+              addedBrain = reconcileInventory([...baseRows,
+                  ...collectManifestDependencyRows({
+                      manifest    : {dependencies: {'new-cloud-package': '1'}},
+                      manifestName: 'package.brain.json'
+                  })
+              ], authority);
+
+        expect(addedRoot.residue.diskMinusAuthority)
+            .toContain('package-dependency::package.json::dependencies::new-edge-package');
+        expect(addedBrain.residue.diskMinusAuthority)
+            .toContain('package-dependency::package.brain.json::dependencies::new-cloud-package')
+    });
+
+    test('RED: same-count dependency substitution names the missing and stale identities', () => {
+        const rows = collectManifestDependencyRows({
+                  manifest    : {devDependencies: {'replacement-package': '1'}},
+                  manifestName: 'package.json'
+              }),
+              result = reconcileInventory(rows, {
+                  custody  : [],
+                  overrides: [{
+                      surface        : SURFACE.packageDependency,
+                      identities     : ['package.json::devDependencies::original-package'],
+                      disposition    : 'edge',
+                      manifestTargets: ['edge'],
+                      source         : 'fixture original authority',
+                      rationale      : 'original fixture package belongs to Edge'
+                  }]
+              });
+
+        expect(result.residue).toEqual({
+            diskMinusAuthority: ['package-dependency::package.json::devDependencies::replacement-package'],
+            authorityMinusDisk: ['package-dependency::package.json::devDependencies::original-package']
+        })
+    });
+
+    test('RED: missing manifests and unsupported dependency-bearing sections fail closed', () => {
+        const missing = collectPackageDependencies({
+                  manifestNames: ['package.brain.json'],
+                  projectRoot  : path.join(REPO_ROOT, 'not-a-real-project-root')
+              }),
+              unsupported = inspectManifestDependencies({
+                  manifest    : {
+                      bundledDependencies: ['hidden-package'],
+                      devDependencies    : {'visible-package': '1'}
+                  },
+                  manifestName: 'package.json'
+              });
+
+        expect(missing.rows).toEqual([]);
+        expect(missing.errors).toContainEqual({
+            kind: 'missing-dependency-manifest', key: 'package.brain.json'
+        });
+        expect(unsupported.rows.map(row => row.identity))
+            .toEqual(['package.json::devDependencies::visible-package']);
+        expect(unsupported.errors).toContainEqual({
+            kind : 'unsupported-dependency-section',
+            key  : 'package.json::bundledDependencies',
+            error: 'dependency-bearing sections must enter the exact manifest population explicitly'
+        })
+    });
+
+    test('dependency manifest composition names every target plane without a shared-custody alias', () => {
+        const result = composeDependencyManifests([{
+            evidence       : {name: 'both-planes', version: '1'},
+            manifestTargets: ['edge', 'cloud']
+        }, {
+            evidence       : {name: 'engine-only', version: '2'},
+            manifestTargets: ['engine']
+        }]);
+
+        expect(result.errors).toEqual([]);
+        expect(result.manifests).toEqual({
+            cloud : {'both-planes': '1'},
+            edge  : {'both-planes': '1'},
+            engine: {'engine-only': '2'},
+            shared: {}
+        });
+
+        const conflict = composeDependencyManifests([{
+            evidence       : {name: 'same-package', version: '1'},
+            manifestTargets: ['edge']
+        }, {
+            evidence       : {name: 'same-package', version: '2'},
+            manifestTargets: ['edge']
+        }]);
+
+        expect(conflict.errors).toContainEqual({
+            kind : 'manifest-target-version-conflict',
+            key  : 'edge::same-package',
+            error: '1 != 2'
+        })
+    });
+
+    test('RED: package authority requires valid, unique manifest targets aligned to custody', () => {
+        const row = collectManifestDependencyRows({
+                  manifest    : {devDependencies: {'edge-package': '1'}},
+                  manifestName: 'package.json'
+              })[0],
+              missing = reconcileInventory([row], {
+                  custody  : [],
+                  overrides: [{
+                      surface    : SURFACE.packageDependency,
+                      identities : [row.identity],
+                      disposition: 'edge',
+                      source     : 'fixture missing membership authority',
+                      rationale  : 'fixture deliberately omits manifest targets'
+                  }]
+              }),
+              result = reconcileInventory([row], {
+                  custody  : [],
+                  overrides: [{
+                      surface        : SURFACE.packageDependency,
+                      identities     : [row.identity],
+                      disposition    : 'edge',
+                      manifestTargets: ['cloud', 'cloud', 'unknown'],
+                      source         : 'fixture invalid membership authority',
+                      rationale      : 'fixture deliberately contradicts Edge custody'
+                  }]
+              });
+
+        expect(missing.errors).toContainEqual({
+            kind: 'missing-manifest-targets', key: `package-dependency::${row.identity}`
+        });
+        expect(result.errors.map(error => error.kind)).toEqual(expect.arrayContaining([
+            'duplicate-manifest-target',
+            'invalid-manifest-target',
+            'disposition-target-mismatch'
+        ]))
+    });
+
+    test('runtime-probe targets are every exact launch-root row whose custody is Edge', () => {
         const targets = deriveRuntimeProbeTargets({
-            launchRoots: [
-                {rel: 'ai/scripts/edge.mjs'},
-                {rel: 'ai/scripts/cloud.mjs'},
-                {rel: 'ai/scripts/edge.mjs'}
-            ],
-            scriptRows: [{
-                surface: SURFACE.scriptModule, identity: 'ai/scripts/edge.mjs', disposition: 'edge'
+            launchRootRows: [{
+                surface: SURFACE.launchRoot, identity: 'ai/scripts/edge.mjs', disposition: 'edge'
             }, {
-                surface: SURFACE.scriptModule, identity: 'ai/scripts/cloud.mjs', disposition: 'cloud'
+                surface: SURFACE.launchRoot, identity: 'ai/scripts/cloud.mjs', disposition: 'cloud'
             }, {
-                surface: SURFACE.scriptModule, identity: 'ai/scripts/unlaunched.mjs', disposition: 'edge'
+                surface: SURFACE.launchRoot, identity: 'ai/daemons/wake/daemon.mjs', disposition: 'edge'
             }]
         });
 
-        expect(targets).toEqual(['ai/scripts/edge.mjs'])
+        expect(targets).toEqual(['ai/daemons/wake/daemon.mjs', 'ai/scripts/edge.mjs'])
+    });
+
+    test('RED: schema v3 runtime-probe derivation refuses absent launch-root authority', () => {
+        expect(() => deriveRuntimeProbeTargets()).toThrow(
+            'schema v3 requires non-empty reconciled launch-root rows'
+        );
+        expect(() => deriveRuntimeProbeTargets({launchRootRows: []})).toThrow(
+            'schema v3 requires non-empty reconciled launch-root rows'
+        )
     });
 
     test('runtime-probe authority reconciles one exact judgment per target', () => {
@@ -350,6 +628,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
                       fs.readFileSync(path.join(REPO_ROOT, file), 'utf8'), file
                   ));
 
+        const packageDependencies = collectPackageDependencies({projectRoot: REPO_ROOT}).rows;
+
         expect(first).toEqual(second);
         expect(resolveTrackedConfigSpecifier(
             './config.mjs',
@@ -363,7 +643,36 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.counts[SURFACE.rootScript].total).toBe(packageScripts.length);
         expect(first.counts[SURFACE.workflowReference].total).toBe(workflowReferences.length);
         expect(first.counts[SURFACE.planeOpener].total).toBe(censusPlaneOpeners({projectRoot: REPO_ROOT}).total);
-        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v2');
+        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v3');
+        expect(first.counts[SURFACE.launchRoot].total).toBe(first.launchRoots.total);
+        expect(first.launchRoots.rows.map(row => row.identity))
+            .toEqual(first.rows.filter(row => row.surface === SURFACE.launchRoot).map(row => row.identity));
+        expect(first.launchRoots.total).toBe(
+            Object.values(first.launchRoots.byVia).reduce((total, count) => total + count, 0)
+        );
+        expect(first.counts[SURFACE.packageDependency].total).toBe(packageDependencies.length);
+        expect(first.packageDependencies.byManifest).toEqual({
+            'package.brain.json': packageDependencies.filter(
+                row => row.evidence.manifest === 'package.brain.json'
+            ).length,
+            'package.json': packageDependencies.filter(
+                row => row.evidence.manifest === 'package.json'
+            ).length
+        });
+        expect(first.packageDependencies.manifests.edge).toEqual(expect.objectContaining({
+            '@modelcontextprotocol/sdk': expect.any(String),
+            '@playwright/test'         : expect.any(String),
+            ws                         : expect.any(String)
+        }));
+        expect(first.packageDependencies.manifests.cloud).toEqual(expect.objectContaining({
+            '@modelcontextprotocol/sdk': expect.any(String),
+            chromadb                   : expect.any(String)
+        }));
+        expect(first.packageDependencies.manifests.engine).toEqual(expect.objectContaining({
+            '@playwright/test': expect.any(String),
+            'fast-glob'       : expect.any(String)
+        }));
+        expect(first.packageDependencies.manifests.cloud.ws).toBeUndefined();
         expect(first.runtimeProbeEligibility.ok).toBe(true);
         expect(first.runtimeProbeEligibility.total).toBe(
             first.runtimeProbeEligibility.rows.length
@@ -372,11 +681,31 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             first.runtimeProbeEligibility.byEligibility.ineligible).toBe(
             first.runtimeProbeEligibility.total
         );
+        expect(first.runtimeProbeEligibility.total).toBe(
+            first.launchRoots.rows.filter(row => row.disposition === 'edge').length
+        );
+        expect(first.runtimeProbeEligibility.rows).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                identity   : 'ai/daemons/wake/daemon.mjs',
+                eligibility: 'eligible'
+            }),
+            expect.objectContaining({
+                identity   : 'ai/mcp/server/neural-link/run-bridge.mjs',
+                eligibility: 'ineligible'
+            })
+        ]));
         first.runtimeProbeEligibility.rows.forEach(row => {
             expect(['eligible', 'ineligible']).toContain(row.eligibility);
             expect(row.reason).toBeTruthy();
             expect(row.source).toBeTruthy()
         });
+
+        const human = formatInventory(first);
+
+        expect(human).toContain('launch-root identities:');
+        expect(human).toContain('ai/daemons/wake/daemon.mjs — task:bridgeDaemon');
+        expect(human).toContain('package-dependency identities:');
+        expect(human).toContain('package.brain.json::devDependencies::better-sqlite3 @');
 
         const keys = first.rows.map(row => rowKey(row.surface, row.identity));
 
@@ -391,7 +720,13 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         first.rows.filter(row => row.evidence?.override).forEach(row => {
             expect(row.authoritySource).toBeTruthy()
         });
+        first.packageDependencies.rows.forEach(row => {
+            expect(row.manifestTargets.length).toBeGreaterThan(0);
+            expect(row.disposition).not.toBe('shared')
+        });
         [
+            SURFACE.launchRoot,
+            SURFACE.packageDependency,
             SURFACE.rootScript,
             SURFACE.scriptModule,
             SURFACE.subprocessLaunch,
