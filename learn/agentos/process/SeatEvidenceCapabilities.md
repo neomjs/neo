@@ -38,6 +38,17 @@ change on that seat, renders as `unknown` until re-run. Stale is never stale-pos
 may override any record. Peers may attach a counter-receipt (a fresh re-run of the same class)
 but never overwrite another seat's record.
 
+A peer may transcribe a replacement into another seat's record only when **every named seat whose
+disposition changes** supplies or endorses the bearer receipt and records durable assent. Without
+that assent the peer may attach the counter-receipt but must not change `State`. This resolves an
+ambiguity present since the record's founding (#15592 prescribed both "never overwrite" *and* "the
+seat itself or any peer re-running the class with a fresh receipt flips the record", without saying
+who may write the flip) — a grouped, multi-seat block makes the two rules collide, and one member
+cannot license a rewrite on behalf of the others.
+
+**A block header must name only canonical seats.** A stale alias makes the assent rule
+unsatisfiable, because no one can assent for a seat that does not exist.
+
 ## Advisory consumers
 
 These flows SHOULD consult this document before routing evidence-class work. The records are
@@ -60,20 +71,20 @@ expectation, not a ban; counter-receipts are how ceilings retire).
 | `headed-native-browser` | positive | 2026-07-19 | macOS, headed Chrome | QT matrix rows 4/5/7 PASS (#15552, #15589) | host change or 30d |
 | `ci-virtual-display` | positive | 2026-07-20 | GitHub Actions ubuntu | routine CI green | n/a |
 
-### @neo-gpt / @neo-gpt-emmy / @neo-gpt-euclid (shared macOS host)
+### @neo-gpt / @neo-gpt-emmy (shared macOS host)
 
 | Class | State | Observed | Grain | Receipt | Revalidation |
 |---|---|---|---|---|---|
-| `visual-render` | negative | 2026-07-19 | macOS, `ApplicationServices` registration failure aborts headless Chrome pre-page | recorded by Emmy on #15538 + #15566 headed attempt | re-run after host fix |
-| `headed-electron` | negative | 2026-07-19 | macOS, same registration failure class | #15566 AC9 witness could not produce on this host | re-run after host fix |
-| `headed-native-browser` | unknown | — | unmeasured | — | — |
+| `visual-render` | positive | 2026-08-23 | macOS, **headless** branded Chrome, and only under **explicit out-of-sandbox execution approval**. Under the default Codex command sandbox, browser subprocesses cannot register the required Mach services: branded Chrome aborts `SIGABRT`, bundled Chromium `SIGTRAP` — the latter naming the denied primitive, `bootstrap_check_in … MachPortRendezvousServer: Permission denied (1100)`. The July `ApplicationServices` symptom was real; its cause is a permission boundary, not a pending host fix | **@neo-gpt** — boundary matrix + `FleetCatchUpNL` 1/1 and two minimal Playwright projects 2/2 in 896ms: [#17595 comment 5383917794](https://github.com/neomjs/neo/issues/17595#issuecomment-5383917794). **@neo-gpt-emmy** — `FleetCockpitDrillNL` **1/1 in 3.0s** at tree `cf88381ba6`, from a minimal pair varying only the execution boundary (`--headed` absent from **both** arms), establishing permission rather than launch mode as causal: [#17605 bearer receipt 5384401126](https://github.com/neomjs/neo/issues/17605#issuecomment-5384401126) (underlying record `MESSAGE:6635c77d-60b8-4de5-9fd4-55998ed79c06`). Both bearers state in-line that this is `visual-render` evidence only | loss of out-of-sandbox approval, host change, or 30d |
+| `headed-electron` | negative | 2026-07-19 | macOS, `ApplicationServices` registration failure class | #15566 AC9 witness could not produce on this host | **a fresh headed-Electron run on this seat** — the 2026-08-23 browser receipts do not transfer: no Electron ran, and no browser result can retire a headed-Electron ceiling |
+| `headed-native-browser` | unknown | — | unmeasured for this class. The 2026-08-23 receipts are **headless** runs (`--headed` was absent from both arms of the controlling experiment), so they are `visual-render` evidence and cannot promote a headed-only class | — | a headed-native run on this seat |
 | `ci-virtual-display` | positive | 2026-07-20 | GitHub Actions ubuntu | routine CI green | n/a |
 
 ### @neo-opus-* (Claude-family seats; shared macOS host — same machine as the Kimi/GPT seats, separate checkouts)
 
 | Class | State | Observed | Grain | Receipt | Revalidation |
 |---|---|---|---|---|---|
-| `visual-render` | negative | 2026-07-18 | **harness-scoped** (Grace's in-app browser wedged, 300s timeout, on the AgentCard design evidence) — host scope unconfirmed; do not generalize to the host without a run | #15536/#15538 review thread | re-run after harness update |
+| `visual-render` | positive | 2026-08-23 | macOS, **headless** Playwright branded Chrome — host scope. The 2026-07-18 record asked for a host run before generalizing beyond its harness observation; this is that run. `toHaveScreenshot` comparisons executed and produced golden drift rather than failing to render. **The harness-scoped negative stands unchanged**: the in-app browser pane still wedges (300s, AgentCard design evidence) and is not a render surface — route render work through Playwright, never the pane | `test/playwright/e2e/agentos` directory census, 62 tests (45 passed / 17 failed), plus targeted 3/3, 2/2 and 1/1 runs the same night — [#17596](https://github.com/neomjs/neo/issues/17596), PR [#17599](https://github.com/neomjs/neo/pull/17599), PR [#17600](https://github.com/neomjs/neo/pull/17600#pullrequestreview-5001650864), PR [#17603](https://github.com/neomjs/neo/pull/17603#pullrequestreview-5001644295) | harness change or 30d |
 | `headed-electron` | unknown | — | unmeasured | — | — |
 | `headed-native-browser` | unknown | — | unmeasured | — | — |
 | `ci-virtual-display` | positive | 2026-07-20 | GitHub Actions ubuntu | routine CI green | n/a |
@@ -101,6 +112,24 @@ existing pattern) — the evidence requirement is recorded as an explicit residu
 substituted. `ci-virtual-display` output is never promoted to native/headed evidence. The
 requesting peer escalates to the operator for the hardware/VM decision, and the class carries a
 revalidation trigger for the next capable host.
+
+**When the AUTHOR's seat cannot produce a class another seat can**, the work does not park — it
+hands off, and the handoff is a contract with two halves:
+
+1. **The author declares the gap explicitly**, in the PR body, naming what did not execute and
+   refusing to infer a product verdict from it. *"The launch aborted before a browser object
+   existed; no assertion ran, so this says nothing about the specs"* is the shape. A green CI run
+   is not a substitute, because CI does not execute every class — E2E is local-only by design.
+2. **A capable reviewer reruns that class** and reports the result as review evidence.
+
+Both halves are load-bearing. On 2026-08-23 two PRs shipped with their E2E layer unexecuted; both
+authors declared it honestly, a reviewer reran, and one deterministic regression surfaced that
+neither CI nor the authors could have seen. The declaration is what tells a reviewer *which*
+experiment to run — an author who rounds the gap up to "probably fine" removes the only signal
+that the layer needs a second seat at all.
+
+A seat whose block below is stale counts as `unknown`, not as `negative`: consult `observedAt`
+before routing, and prefer producing a counter-receipt over inheriting a ceiling.
 
 ## Migration path
 
