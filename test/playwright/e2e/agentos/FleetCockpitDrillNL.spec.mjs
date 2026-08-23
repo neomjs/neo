@@ -1,9 +1,10 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary The FM cockpit card→detail drill, proven LIVE over the semantic roster item — the basic
- * "live drill" the detail-view AC requires. Selecting one resident's li reveals the auto-hidden
- * AgentDetail inspector and renders THAT resident: the whole chain — native DOM click →
+ * @summary The FM cockpit card→detail drill, proven LIVE through nested content inside the semantic
+ * roster item — the basic "live drill" the detail-view AC requires. Clicking one resident's avatar
+ * selects its li, reveals the auto-hidden AgentDetail inspector, and renders THAT resident: the
+ * whole chain — native DOM click →
  * `Neo.selection.ListModel` → roster `onRosterSelect` → `agentSelect` → cockpit `onAgentSelect` → owner-held `detailRecord`
  * → dock `setItemAutoHidden` reveal → projection — is exercised end-to-end, never via a
  * controller call. Whitebox: the DOM proves the render, the possessed component proves the engine
@@ -13,10 +14,10 @@ import {test, expect} from '../../fixtures.mjs';
  * @see apps/agentos/view/fleet/cockpit/Controller.mjs (onAgentSelect)
  * @see test/playwright/e2e/agentos/FleetActivityStreamBurstNL.spec.mjs (sibling possession pattern)
  */
-test.describe('AgentOS fleet cockpit — semantic roster item→detail live drill (#14608, #15212)', () => {
+test.describe('AgentOS fleet cockpit — semantic roster item→detail live drill (#14608, #15212, #17553)', () => {
     test.setTimeout(90000);
 
-    test('a resident list item reveals the AgentDetail inspector rendering that agent + its four panes', async ({page, neuralLink}) => {
+    test('nested avatar content selects its resident and reveals the AgentDetail inspector + four panes', async ({page, neuralLink}) => {
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
@@ -38,26 +39,21 @@ test.describe('AgentOS fleet cockpit — semantic roster item→detail live dril
               targetCardId    = target.properties.id;
 
         const
+            targetItem    = page.locator('.fm-fleet-cards > .neo-list-item', {
+                has: page.locator(`[id="${targetCardId}"]`)
+            }),
             detail        = page.locator('.fm-agent-detail'),
             readDockModel = async () => (await app.getComponent(cockpit.properties.id, ['dockModel'])).dockModel,
             dockBefore    = await readDockModel();
 
         expect(dockBefore.items.detail.autoHidden, 'the Fleet preset starts with detail auto-hidden').toBe(true);
 
-        // Negative boundary: the avatar/listitem is inert. A redundant whole-card click listener would
-        // keep the positive Button journey green while silently restoring mouse-only activation, so pin
-        // the committed dock document byte-for-byte before exercising the dedicated control.
-        await page.locator(`[id="${targetCardId}"] .fm-card-avatar`).click();
-        await page.waitForTimeout(250); // allow a wrongly-restored main→worker click route to commit
-
-        const dockAfterAvatar = await readDockModel();
-        expect(dockAfterAvatar, 'avatar activation must not mutate the committed dock document').toEqual(dockBefore);
-        await expect(detail, 'avatar activation must not reveal the inspector').not.toBeVisible();
-
-        // The positive REAL DOM click targets the semantic li containing THAT card.
-        await page.locator('.fm-fleet-cards > .neo-list-item', {
-            has: page.locator(`[id="${targetCardId}"]`)
-        }).click();
+        // The avatar is ordinary nested card content — not a lifecycle control. Its REAL DOM click
+        // bubbles to the list's delegated selection path, proving whole-card selection without a
+        // card-local click listener. The lifecycle-control carve-out has its own mounted witness.
+        await targetItem.locator('.fm-card-avatar').click();
+        await expect(targetItem, 'avatar activation selects the containing semantic item')
+            .toHaveAttribute('aria-selected', 'true');
 
         // the auto-hidden inspector reveals + renders a resident + the four SSOT panes
         await expect(detail).toBeVisible({timeout: 15000});
@@ -76,10 +72,10 @@ test.describe('AgentOS fleet cockpit — semantic roster item→detail live dril
         expect(sourceReadout, 'the inspector states the roster source fact').toMatch(/Roster:/);
 
         const dockAfterDrill = await readDockModel();
-        expect(dockAfterDrill.items.detail.autoHidden, 'the dedicated Button must commit the reveal').toBe(false);
+        expect(dockAfterDrill.items.detail.autoHidden, 'nested avatar selection must commit the reveal').toBe(false);
 
         // Engine truth: the mounted inspector holds the EXACT activated resident — equality, not
-        // set-membership. The Button routed through owner-held selection to the exact durable id.
+        // set-membership. Delegated item selection routed through owner-held state to the durable id.
         const [d] = await app.queryComponent({className: 'AgentOS.view.fleet.detail.Container'}, ['record']);
         expect(d?.properties?.record?.agentId, 'the inspector drilled into the exact activated resident').toBe(expectedAgentId)
     })
