@@ -55,6 +55,34 @@ export const A1_IMPORT_GATE = /^\s*import\s+[^;]*\b(?:AiConfig|Memory_Config)\b[
 export const A1_ENV_REDERIVATION = /^(?:const|let|var)\s[^;]*=\s*[^;]*\bprocess\.env\./;
 
 /*
+ * Rule PLANE-ROOT — a plane path re-derived from the module's OWN location. `path.resolve(__dirname, …)`
+ * landing inside `.neo-ai-data` gives every checkout a private data root: the copies agree, so
+ * nothing goes red, and the fork is invisible until two of them disagree. Nine worktrees already
+ * accumulated their own `.neo-ai-data/concepts` from exactly this shape.
+ *
+ * **The regex anchors on `path.resolve(__dirname` and NOT on the target text, and that is the whole
+ * design.** `codeMask` masks string and template contents, so a pattern anchored on `.neo-ai-data`
+ * would have its match index land inside a quoted literal and be suppressed as "not code" — the
+ * rule would be structurally unable to fire on the very sites it exists to catch. Anchoring on the
+ * call token puts the match index on executable code and lets the target test scan the rest of the
+ * line, which is also what makes TEMPLATE-LITERAL targets reachable:
+ * `path.resolve(__dirname, \`../../.neo-ai-data/wake-daemon/inflight-${mode}.txt\`)` is the one shape
+ * a string-literal predicate misses, and it is a live site (`ai/scripts/lifecycle/inflightLock.mjs`).
+ *
+ * **Why a descriptive id and not the next A-number.** ADR-0019 §3 Group A already spends A1-A9, // ticket-ref-ok: the ADR IS the naming authority this choice defers to
+ * so `A6` — the first free-looking slot — is `leaf+formula duplication` and would have given the
+ * shared catalog vocabulary two meanings. This class is genuinely absent from that catalog (it
+ * re-derives a ROOT, reading no config at all, which is why A1's two-signal rule structurally
+ * cannot see it), so naming it would be a catalog amendment — a gate this rule does not own.
+ * A descriptive id collides with nothing and survives whatever number the catalog later assigns.
+ *
+ * Ceiling, stated rather than discovered later: the target must appear on the SAME line as the
+ * call. A root assembled through an intermediate variable is out of reach for a line rule, and
+ * closing that needs AST work, not a longer regex.
+ */
+export const PLANE_ROOT_REDERIVATION = /\bpath\.(?:join|resolve)\s*\(\s*__dirname\b.*?\.neo-ai-data/;
+
+/*
  * Rule-scoped grandfathering: each rule carries its OWN set of repo-relative POSIX paths, so one
  * rule's existing-surface exemption can never widen another's — A5 keeps its zero-baseline ratchet
  * even inside files grandfathered for B3. A whole-file skip would silently exempt every rule at
@@ -70,6 +98,20 @@ export const ALLOWLIST = Object.freeze({
         'ai/services/fleet/devFleetServer.mjs'
     ]),
     A5: new Set(),
+    // PLANE-ROOT census 2026-08-23: eight live sites, every one a known private-plane-root fork.
+    // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
+    // repair, and the set empties as they land. An entry here with no scheduled repair is a regression. `resources/content/**` targets are deliberately absent: they fork a corpus, not
+    // the plane, so the predicate correctly never sees them.
+    'PLANE-ROOT': new Set([
+        'ai/examples/inspectGraph.mjs',
+        'ai/scripts/lifecycle/harnessLifecycle.mjs',
+        'ai/scripts/lifecycle/inflightLock.mjs',
+        'ai/scripts/lifecycle/resumeHarness.mjs',
+        'ai/scripts/lifecycle/wakeSafetyGate.mjs',
+        'ai/services/ConceptService.mjs',
+        'ai/services/fleet/FleetManager.mjs',
+        'ai/services/ingestion/ConceptDiscoveryService.mjs'
+    ]),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
         'ai/mcp/server/shared/logger.mjs'
@@ -78,11 +120,12 @@ export const ALLOWLIST = Object.freeze({
 
 const RULES = [
     {id: 'B3', pattern: new RegExp(B3_DEFENSIVE_CHAIN.source, 'g')},
-    {id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')}
+    {id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')},
+    {id: 'PLANE-ROOT', pattern: new RegExp(PLANE_ROOT_REDERIVATION.source, 'g')}
 ];
 
 /**
- * @summary Scans file content for the A1 / B3 / A5 config-read antipatterns whose root token sits in code.
+ * @summary Scans file content for the A1 / A5 / B3 / PLANE-ROOT antipatterns whose root token sits in code.
  *
  * Reuses the sibling guard's `codeMask` so an occurrence inside a string literal (a log message, a
  * spec title quoting the pattern) or a comment never flags — only executable defensive reads do.
@@ -256,7 +299,12 @@ function main() {
             console.error('fail loud (ADR-0019 §3/§5.1). A5: never a `hasEnvValue` helper — `leaf(default, env, type)`');
             console.error('owns the env-check (§5.2). A1: with AiConfig imported, never re-derive from process.env at');
             console.error('module level — read the resolved leaf at the use site (§5.5; pure-defaults modules WITHOUT');
-            console.error(`a config import are the sanctioned C1 shape). Genuinely unavoidable: "${ESCAPE_MARKER}: <reason>".`);
+            console.error('PLANE-ROOT: never anchor a `.neo-ai-data` path on the module\'s own `__dirname` — every');
+            console.error('checkout then gets its OWN data root, the copies agree so nothing goes red, and the fork is');
+            console.error('invisible until two of them disagree (worktrees already carry a private');
+            console.error('`.neo-ai-data/concepts`). Take the root as an injected parameter and resolve it through');
+            console.error('`resolvePlaneDataRoot({rootDir})`, which throws rather than guessing.');
+            console.error(`Genuinely unavoidable: "${ESCAPE_MARKER}: <reason>".`);
         }
         process.exit(1);
     }

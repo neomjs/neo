@@ -324,3 +324,91 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         expect(findAntipatterns(astralHeader + '/*😀 process.env.NEO_DB_PATH*/ const ok = true;\n')).toEqual([])
     })
 });
+
+/**
+ * @summary Red-proofs rule PLANE-ROOT — a plane path re-derived from the module's own `__dirname`.
+ *
+ * The template-literal arm is the load-bearing one. The census that produced this rule reported
+ * seven sites and its own stated ceiling was *"a string-target test will not catch a plane path
+ * assembled from a variable"* — the eighth site, `inflightLock.mjs`, is exactly that shape, so the
+ * caveat had a live inhabitant. A predicate that only handles quoted literals ships with a
+ * documented blind spot that is already occupied.
+ */
+test.describe('PLANE-ROOT — __dirname-derived plane roots', () => {
+    const a6 = source => findAntipatterns(source).filter(hit => hit.rule === 'PLANE-ROOT');
+
+    test('the rule id does not collide with ADR-0019 §3 Group A, which already spends A1-A9', () => {
+        // `A6` is `leaf+formula duplication` in the catalog. A lint rule reusing that letter-number
+        // for a different pattern gives the shared vocabulary two meanings.
+        const ids = findAntipatterns("const p = path.resolve(__dirname, '../.neo-ai-data/x');").map(hit => hit.rule);
+
+        expect(ids).toContain('PLANE-ROOT');
+        expect(ids.some(id => /^A[0-9]+$/.test(id))).toBe(false)
+    });
+
+    test('a STRING-literal plane target fires', () => {
+        expect(a6("const dir = path.resolve(__dirname, '../../../.neo-ai-data/harness-state');")).toHaveLength(1)
+    });
+
+    test('a TEMPLATE-literal plane target fires — the shape a string-only predicate misses', () => {
+        const source = 'return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${id}.txt`);';
+
+        expect(a6(source)).toHaveLength(1)
+    });
+
+    test('interpolation containing a CALL still fires — the target scan must not stop at a paren', () => {
+        const source = 'const p = path.resolve(__dirname, `../../.neo-ai-data/x-${slug(name)}.json`);';
+
+        expect(a6(source)).toHaveLength(1)
+    });
+
+    test('`path.join` fires as well as `path.resolve`', () => {
+        expect(a6("const p = path.join(__dirname, '../.neo-ai-data/concepts');")).toHaveLength(1)
+    });
+
+    test('the nullable-override shape fires — an UNSET override forks exactly like no override', () => {
+        const source = "const dir = Service.defaultDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts');";
+
+        expect(a6(source)).toHaveLength(1)
+    });
+
+    test('a JSDoc/comment mention never fires — the target token is masked, the call token is not', () => {
+        expect(a6(" * resolves a `__dirname`-relative `<repoRoot>/.neo-ai-data/fleet/repos` default")).toEqual([]);
+        expect(a6("// path.resolve(__dirname, '../../.neo-ai-data/concepts') is the shape we are removing")).toEqual([])
+    });
+
+    test('a `.neo-ai-data` path NOT anchored on __dirname never fires — an injected root is the sanctioned shape', () => {
+        expect(a6("const p = path.resolve(injectedRoot, '.neo-ai-data/sqlite/graph.sqlite');")).toEqual([])
+    });
+
+    test('a __dirname path that is NOT a plane target never fires — content roots fork a corpus, not the plane', () => {
+        expect(a6("const p = path.resolve(__dirname, '../../../resources/content/issues');")).toEqual([])
+    });
+
+    test('the escape marker exempts a line, as it does for every other rule', () => {
+        const source = `const p = path.resolve(__dirname, '../.neo-ai-data/x'); // ${ESCAPE_MARKER}`;
+
+        expect(a6(source)).toEqual([])
+    });
+
+    test('POSITIVE CONTROL: the allowlist is a migration ledger that currently silences all eight live sites, and nothing else', () => {
+        const sites = [...ALLOWLIST['PLANE-ROOT']];
+
+        expect(sites).toHaveLength(8);
+
+        // Every ledger entry must still be a REAL hit at head. An entry whose site was already
+        // fixed silences a slot nobody is watching — the ledger has to shrink by deletion, not rot.
+        for (const site of sites) {
+            const hits = a6(fs.readFileSync(path.join(repoRoot, site), 'utf8'));
+
+            expect(hits.length, `${site} is on the PLANE-ROOT ledger but no longer matches — delete the entry`).toBeGreaterThan(0);
+            expect(filterAllowlistedHits(hits, site)).toEqual([])
+        }
+    });
+
+    test('an unlisted file with the same shape is NOT silenced — the ledger is per-file, not a global mute', () => {
+        const hits = a6("const p = path.resolve(__dirname, '../.neo-ai-data/concepts');");
+
+        expect(filterAllowlistedHits(hits, 'ai/services/SomeNewService.mjs')).toHaveLength(1)
+    })
+});
