@@ -11,6 +11,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import Button                   from '../../../../../../src/button/Base.mjs';
+import ClockPane                from '../../../../../../examples/dashboard/choreography/ClockPane.mjs';
 import DemoAWorkspace           from '../../../../../../examples/dashboard/choreography/DemoAWorkspace.mjs';
 import DockProjectionReconciler from '../../../../../../src/dashboard/DockProjectionReconciler.mjs';
 
@@ -58,6 +59,44 @@ test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () =>
 
         expect(result.applied).toBe(true);
         expect(workspace.getDockZoneDocument().items.preview.autoHidden).toBe(true)
+    });
+
+    /**
+     * The engine base class hands every resolver `(itemId, item)`; this workspace once took a bare
+     * `componentRef`. Both spellings are one-argument-compatible at the call site, so a host that
+     * kept the old signature after adopting the base class reads an ITEM ID as a COMPONENT REF and
+     * nothing throws — the panes simply resolve to the wrong thing.
+     *
+     * These arms discriminate because the two values differ in this screenplay: item ids are the
+     * lower-cased refs (`editor` for `Editor`). Under the old signature the editor comparison fails
+     * against the id and the clock witness silently degrades to a generic pane, which is why the
+     * assertion is on the resolved MODULE rather than on the call succeeding.
+     */
+    test('panes resolve from the item record, not from the id read as a component ref', () => {
+        const
+            editorItem = {componentRef: 'Editor', title: 'Editor', kind: 'panel'},
+            logsItem   = {componentRef: 'Logs',   title: 'Logs',   kind: 'panel'};
+
+        // The witness pane: keyed off `item.componentRef`, never off the id it is filed under.
+        expect(workspace.resolvePane('editor', editorItem).module, 'the editor must resolve to the clock witness')
+            .toBe(ClockPane);
+
+        // The negative half — an id whose ref is absent must NOT masquerade as the editor.
+        expect(workspace.resolvePane('editor', {componentRef: 'Logs'}).module, 'resolution follows the ref, not the id')
+            .toBeUndefined();
+
+        // Plain panes render the ref's own casing; reading arg0 would render the lower-cased id.
+        expect(workspace.resolvePane('logs', logsItem).html).toBe('Logs')
+    });
+
+    test('the FLIP marker is stamped by the engine, keyed on the item id', () => {
+        // `resolveProjectedPane` is the resolution the projection actually consumes. The marker is
+        // the demo's own prefix, so the pane classes survive the migration byte-identical — and it
+        // is now derived from the stable identity rather than hand-written per pane.
+        const projected = workspace.resolveProjectedPane('editor', {componentRef: 'Editor'});
+
+        expect(projected.cls).toContain('agentos-dockdemo-pane-editor');
+        expect(projected.cls).toContain('agentos-dockdemo-clock-pane')
     });
 
     test('reconciliation preserves overlays and surviving chrome while a dissolved tabs node retires once', async () => {
