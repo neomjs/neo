@@ -65,17 +65,28 @@ test.describe('dock tab-overflow floating control', () => {
 
         // Partition: the visible headers + the hidden (menu) headers together are the full tab set — nothing
         // is lost or duplicated across the visible/hidden split.
-        const normalize      = values => values.map(value => value.trim()).filter(Boolean),
-              visibleHeaders = normalize(await page.locator('.neo-tab-header-button:visible').allTextContents()),
-              hiddenHeaders  = normalize(await menuItems.allTextContents());
-        expect([...visibleHeaders, ...hiddenHeaders].sort()).toEqual(
-            ['Agents', 'Alerts', 'History', 'Inspector', 'Logs', 'Metrics', 'Strategy', 'Swarm', 'Terminal', 'Timeline'].sort());
+        const normalize       = values => values.map(value => value.trim()).filter(Boolean),
+              expectedHeaders = ['Agents', 'Alerts', 'History', 'Inspector', 'Logs', 'Metrics', 'Strategy', 'Swarm', 'Terminal', 'Timeline'].sort();
+
+        await expect.poll(async () => {
+            const visibleHeaders = normalize(await page.locator('.neo-tab-header-button:visible').allTextContents()),
+                  hiddenHeaders  = normalize(await menuItems.allTextContents());
+
+            return [...visibleHeaders, ...hiddenHeaders].sort()
+        }, {
+            message: 'visible headers and the Overflow menu settle into one exact partition',
+            timeout: 10000
+        }).toEqual(expectedHeaders);
 
         // Selection: picking a hidden tab activates it and surfaces it into the header (pressed + visible),
         // via the ordinary activeIndex path (active-never-hidden), so the picked tab is never left in the menu.
-        const selectedText = (await menuItems.first().innerText()).trim();
-        await menuItems.first().click();
-        await expect(page.locator('.neo-tab-header-button.pressed:visible').filter({ hasText: selectedText })).toHaveCount(1);
+        const selectedText = (await menuItems.first().innerText()).trim(),
+              selectedItem = menuItems.filter({hasText: selectedText});
+
+        await expect(selectedItem, 'the selected semantic menu item remains unique while Overflow settles').toHaveCount(1);
+        await selectedItem.click();
+        await expect(page.locator('.neo-tab-header-button.pressed:visible').filter({hasText: selectedText}))
+            .toHaveCount(1, {timeout: 10000});
 
         // No unexpected browser errors across the journey — notably, a fixed-positioned align must NOT trip
         // `ResizeObserver.observe(null)` (offsetParent is null for `position: fixed`), which the DomAccess
