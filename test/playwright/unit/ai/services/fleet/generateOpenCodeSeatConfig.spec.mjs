@@ -96,7 +96,10 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         // Live-frozen from the pre-change origin/dev artifact. This catches remote-only prose or grammar
         // leaking into the default artifact set even when current-vs-current purity stays green.
         // Bumped 2026-08-15: the seat-layer rules gained the defect-note anti-pattern line.
-        expect(digest).toBe('3eca75f4e9c2f39ce69c75541fb6effdc32844863a85967df284a64ba5c5bad7')
+        // Bumped 2026-08-23 (#17586): the wake hook now stamps `agentIdentity` from NEO_AGENT_IDENTITY
+        // so the reader can refuse an envelope a DIFFERENT seat wrote to the same shared path. A change
+        // to hook content is precisely what this digest exists to surface, so it is bumped, not relaxed.
+        expect(digest).toBe('34d20d3a8e3a5a01dee7cf7c12ba272d912ef5ffe906a5977fe1c78a5956f9d7')
     });
 
     test('remote map replaces only selected servers with the exact OpenCode HTTP adapter grammar', () => {
