@@ -10,10 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * standalone-proof AC and its mutation control).
  *
  * A dashboard dropped into a host with ZERO application dock CSS must render fully themed in
- * both primary themes. The host is `examples/dashboard/dock` — it carries no app stylesheet at
- * all (verified by the absent-stylesheet precondition below), so every dock token resolves from
- * the engine layers alone: the structure layer's paint reading the THEME values layer
- * (theme-neo-dark + theme-neo-light `dashboard/` sheets).
+ * every shipped dashboard theme. The host is `examples/dashboard/dock` — it carries no app
+ * stylesheet at all (verified by the absent-stylesheet precondition below), so every dock token
+ * resolves from the engine layers alone: the structure layer's paint reading the THEME values
+ * layer (`dashboard/` sheets under both neo themes, both legacy themes and cyberpunk).
  *
  * The proof has two levels and a mutation half:
  *   1. TOKEN level — the theme host resolves the values-layer tokens (`--agent-dock-preview-accept`,
@@ -40,6 +40,21 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
           // [token level] values-layer token → expected resolved value per theme.
           // [paint level] the indicator chevron's resolved border-color per theme.
           EXPECTATIONS = {
+              'neo-theme-cyberpunk': {
+                  acceptToken: '#00d2ff',
+                  groundToken: 'rgba(13, 17, 23, 0.94)',
+                  acceptPaint: 'rgb(0, 210, 255)'
+              },
+              'neo-theme-dark': {
+                  acceptToken: '#64b5f6',
+                  groundToken: 'rgba(60, 63, 65, 0.92)',
+                  acceptPaint: 'rgb(100, 181, 246)'
+              },
+              'neo-theme-light': {
+                  acceptToken: '#1c60a0',
+                  groundToken: 'rgba(250, 250, 250, 0.94)',
+                  acceptPaint: 'rgb(28, 96, 160)'
+              },
               'neo-theme-neo-dark': {
                   acceptToken: '#5eead4',
                   groundToken: 'rgba(26, 33, 44, 0.92)',
@@ -51,6 +66,15 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
                   acceptPaint: 'rgb(13, 148, 136)'
               }
           },
+
+          // The original primary-theme mutation remains, and every new layer gets its own deletion
+          // control so an unobserved legacy/cyberpunk sheet cannot ship behind primary-theme green.
+          MUTATION_THEMES = [
+              'neo-theme-neo-dark',
+              'neo-theme-dark',
+              'neo-theme-light',
+              'neo-theme-cyberpunk'
+          ],
 
           // The structure layer's literal fallback for --agent-dock-preview-accept (#4493f8).
           FALLBACK_PAINT = 'rgb(68, 147, 248)';
@@ -72,7 +96,7 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
             // Fulfill with an EMPTY sheet (200, no rules) rather than aborting: the loader awaits
             // each sheet's load event, and an aborted request never fires it — a hang would model
             // nothing. The empty sheet is the faithful mutation: the layer loads and defines nothing.
-            await page.route('**/css/theme-neo-*/dashboard/**', route =>
+            await page.route('**/css/theme-*/dashboard/**', route =>
                 route.fulfill({contentType: 'text/css', body: '/* mutation: the values layer defines nothing */'})
             );
         }
@@ -147,22 +171,24 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
         });
     }
 
-    test('MUTATION control: with the values layer blocked, the specimen renders the engine literal fallback', async ({page}) => {
-        await boot(page, 'neo-theme-neo-dark', {blockValuesLayer: true});
+    for (const theme of MUTATION_THEMES) {
+        test(`MUTATION control: without the ${theme} values layer, paint uses the engine fallback`, async ({page}) => {
+            await boot(page, theme, {blockValuesLayer: true});
 
-        // The blocked layer must be observable at token level too.
-        const accept = await page.evaluate(() =>
-            getComputedStyle(document.body).getPropertyValue('--agent-dock-preview-accept').trim()
-        );
-        expect(accept, 'the values-layer token must be ABSENT when its stylesheet is blocked').toBe('');
+            // The blocked layer must be observable at token level too.
+            const accept = await page.evaluate(() =>
+                getComputedStyle(document.body).getPropertyValue('--agent-dock-preview-accept').trim()
+            );
+            expect(accept, `the ${theme} values-layer token is absent when its sheet is blocked`).toBe('');
 
-        await mountSpecimen(page);
-        const chevronColor = await page.evaluate(() => {
-            const el = document.getElementById('standalone-specimen');
-            return getComputedStyle(el, '::before').borderColor;
+            await mountSpecimen(page);
+            const chevronColor = await page.evaluate(() => {
+                const el = document.getElementById('standalone-specimen');
+                return getComputedStyle(el, '::before').borderColor;
+            });
+            expect(chevronColor, 'the chevron falls back to the structure literal (#4493f8)').toBe(FALLBACK_PAINT);
         });
-        expect(chevronColor, 'the chevron falls back to the structure literal (#4493f8)').toBe(FALLBACK_PAINT);
-    });
+    }
 });
 
 /**

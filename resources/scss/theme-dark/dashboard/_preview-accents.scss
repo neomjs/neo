@@ -1,0 +1,10 @@
+// Shared by the two dashboard values sheets. These colors are the legacy dark theme's existing
+// selection/focus and danger families, not a second dock-specific palette.
+@mixin preview-accents {
+    --agent-dock-preview-accept      : #64b5f6;
+    --agent-dock-preview-accept-fill : rgba(100, 181, 246, 0.20);
+    --agent-dock-preview-reject      : #e6adad;
+    --agent-dock-preview-reject-fill : rgba(230, 173, 173, 0.16);
+    --agent-dock-preview-signal      : #64b5f6;
+    --agent-dock-preview-signal-fill : rgba(100, 181, 246, 0.18);
+}
