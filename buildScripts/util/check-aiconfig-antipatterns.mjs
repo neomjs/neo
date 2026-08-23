@@ -55,6 +55,34 @@ export const A1_IMPORT_GATE = /^\s*import\s+[^;]*\b(?:AiConfig|Memory_Config)\b[
 export const A1_ENV_REDERIVATION = /^(?:const|let|var)\s[^;]*=\s*[^;]*\bprocess\.env\./;
 
 /*
+ * Rule PLANE-ROOT — a plane path re-derived from the module's OWN location. `path.resolve(__dirname, …)`
+ * landing inside `.neo-ai-data` gives every checkout a private data root: the copies agree, so
+ * nothing goes red, and the fork is invisible until two of them disagree. Nine worktrees already
+ * accumulated their own `.neo-ai-data/concepts` from exactly this shape.
+ *
+ * **The regex anchors on `path.resolve(__dirname` and NOT on the target text, and that is the whole
+ * design.** `codeMask` masks string and template contents, so a pattern anchored on `.neo-ai-data`
+ * would have its match index land inside a quoted literal and be suppressed as "not code" — the
+ * rule would be structurally unable to fire on the very sites it exists to catch. Anchoring on the
+ * call token puts the match index on executable code and lets the target test scan the rest of the
+ * line, which is also what makes TEMPLATE-LITERAL targets reachable:
+ * `path.resolve(__dirname, \`../../.neo-ai-data/wake-daemon/inflight-${mode}.txt\`)` is the one shape
+ * a string-literal predicate misses, and it is a live site (`ai/scripts/lifecycle/inflightLock.mjs`).
+ *
+ * **Why a descriptive id and not the next A-number.** ADR-0019 §3 Group A already spends A1-A9, // ticket-ref-ok: the ADR IS the naming authority this choice defers to
+ * so `A6` — the first free-looking slot — is `leaf+formula duplication` and would have given the
+ * shared catalog vocabulary two meanings. This class is genuinely absent from that catalog (it
+ * re-derives a ROOT, reading no config at all, which is why A1's two-signal rule structurally
+ * cannot see it), so naming it would be a catalog amendment — a gate this rule does not own.
+ * A descriptive id collides with nothing and survives whatever number the catalog later assigns.
+ *
+ * Ceiling, stated rather than discovered later: the target must appear on the SAME line as the
+ * call. A root assembled through an intermediate variable is out of reach for a line rule, and
+ * closing that needs AST work, not a longer regex.
+ */
+export const PLANE_ROOT_REDERIVATION = /\bpath\.(?:join|resolve)\s*\(\s*__dirname\b.*?\.neo-ai-data/;
+
+/*
  * Rule-scoped grandfathering: each rule carries its OWN set of repo-relative POSIX paths, so one
  * rule's existing-surface exemption can never widen another's — A5 keeps its zero-baseline ratchet
  * even inside files grandfathered for B3. A whole-file skip would silently exempt every rule at
@@ -70,6 +98,31 @@ export const ALLOWLIST = Object.freeze({
         'ai/services/fleet/devFleetServer.mjs'
     ]),
     A5: new Set(),
+    // PLANE-ROOT census 2026-08-23: eight live sites, every one a known private-plane-root fork.
+    // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
+    // repair, and the set empties as they land. An entry here with no scheduled repair is a regression. `resources/content/**` targets are deliberately absent: they fork a corpus, not
+    // the plane, so the predicate correctly never sees them.
+    // PLANE-ROOT census 2026-08-23: eight live sites, every one a known private-plane-root fork.
+    // This set is a MIGRATION LEDGER, not a grandfather list — each entry is a site scheduled for
+    // repair, and the set empties as they land. An entry here with no scheduled repair is a regression.
+    // `resources/content/**` targets are deliberately absent: they fork a corpus, not the plane, so
+    // the predicate correctly never sees them.
+    //
+    // Entries are `path::<exact source text>`, NOT bare paths. A bare path would exempt the whole
+    // file, so a NINTH site appearing inside one of these eight — the files most likely to grow one,
+    // since they already do plane-root math — would be dropped in silence and the ledger would still
+    // read as eight scheduled repairs. Site identity makes the exemption name what is exempt, so
+    // anything new stays red.
+    'PLANE-ROOT': new Set([
+        "ai/examples/inspectGraph.mjs::const dbPath = path.resolve(__dirname, '../../.neo-ai-data/neo-sqlite/knowledge-graph.sqlite');",
+        "ai/scripts/lifecycle/harnessLifecycle.mjs::const STATE_DIR = path.resolve(__dirname, '../../../.neo-ai-data/harness-state');",
+        "ai/scripts/lifecycle/inflightLock.mjs::return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);",
+        "ai/scripts/lifecycle/resumeHarness.mjs::const cooldownDir  = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');",
+        "ai/scripts/lifecycle/wakeSafetyGate.mjs::return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/wake-safety-gate.json');",
+        "ai/services/ConceptService.mjs::return path.resolve(__dirname, '../../.neo-ai-data/concepts');",
+        "ai/services/fleet/FleetManager.mjs::return this.managedRoot || process.env.NEO_FLEET_MANAGED_ROOT || path.resolve(__dirname, '../../../.neo-ai-data/fleet/repos');",
+        "ai/services/ingestion/ConceptDiscoveryService.mjs::conceptsDir = ConceptService.defaultConceptsDir || path.resolve(__dirname, '../../../.neo-ai-data/concepts'),"
+    ]),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
         'ai/mcp/server/shared/logger.mjs'
@@ -78,11 +131,12 @@ export const ALLOWLIST = Object.freeze({
 
 const RULES = [
     {id: 'B3', pattern: new RegExp(B3_DEFENSIVE_CHAIN.source, 'g')},
-    {id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')}
+    {id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')},
+    {id: 'PLANE-ROOT', pattern: new RegExp(PLANE_ROOT_REDERIVATION.source, 'g')}
 ];
 
 /**
- * @summary Scans file content for the A1 / B3 / A5 config-read antipatterns whose root token sits in code.
+ * @summary Scans file content for the A1 / A5 / B3 / PLANE-ROOT antipatterns whose root token sits in code.
  *
  * Reuses the sibling guard's `codeMask` so an occurrence inside a string literal (a log message, a
  * spec title quoting the pattern) or a comment never flags — only executable defensive reads do.
@@ -174,7 +228,22 @@ export function findAntipatterns(content) {
  * @returns {Object[]}
  */
 export function filterAllowlistedHits(hits, file, allowlist = ALLOWLIST) {
-    return hits.filter(({rule}) => !allowlist[rule]?.has(file))
+    return hits.filter(({rule, text}) => {
+        const entries = allowlist[rule];
+
+        if (!entries) return true;
+
+        // Two entry shapes, and the difference is muting a FILE versus muting a SITE. A bare path
+        // exempts every hit of that rule anywhere in the file — tolerable for a rule with two
+        // grandfathered entries, wrong for a migration ledger: a NINTH hit appearing inside one of
+        // the listed files would be dropped in silence, and those files are the ones already doing
+        // this kind of math, so they are the likeliest place for a ninth to appear.
+        //
+        // `path::<exact source text>` exempts one site and nothing else. Text rather than a line
+        // number deliberately: a line number decays on every edit above it, while the text changes
+        // exactly when the site changes — which is when a migration ledger SHOULD demand a re-look.
+        return !entries.has(file) && !entries.has(`${file}::${text}`)
+    })
 }
 
 function main() {
@@ -256,7 +325,17 @@ function main() {
             console.error('fail loud (ADR-0019 §3/§5.1). A5: never a `hasEnvValue` helper — `leaf(default, env, type)`');
             console.error('owns the env-check (§5.2). A1: with AiConfig imported, never re-derive from process.env at');
             console.error('module level — read the resolved leaf at the use site (§5.5; pure-defaults modules WITHOUT');
-            console.error(`a config import are the sanctioned C1 shape). Genuinely unavoidable: "${ESCAPE_MARKER}: <reason>".`);
+            console.error('PLANE-ROOT: never anchor a `.neo-ai-data` path on the module\'s own `__dirname` — every');
+            console.error('checkout then gets its OWN data root, the copies agree so nothing goes red, and the fork is');
+            console.error('invisible until two of them disagree (worktrees already carry a private');
+            console.error('`.neo-ai-data/concepts`). The remedy is NOT to call the canonical default helper: it');
+            console.error('returns the pre-binding default and ignores `NEO_PLANE_DATA_ROOT`, so a runtime consumer');
+            console.error('would write to the default path while the plane lives wherever configuration put it —');
+            console.error('a SILENT divergence replacing a visible one. The composing ENTRYPOINT reads and injects');
+            console.error('the resolved owning leaf (`AiConfig.plane.dataRoot`, `AiConfig.fleet.dataDir`, or');
+            console.error('`memoryCoreConfig.wakeDaemon.dataDir`); helpers take the root as a parameter and never');
+            console.error('import AiConfig.');
+            console.error(`Genuinely unavoidable: "${ESCAPE_MARKER}: <reason>".`);
         }
         process.exit(1);
     }
