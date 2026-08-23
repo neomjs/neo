@@ -235,6 +235,14 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
             capturedAt
         }]);
 
+        expect(createA2AActivityCounts({capturedAt, messages, totalCount: 1})).toEqual([{
+            source  : FLEET_COCKPIT_SOURCES.a2a,
+            scope   : 'total',
+            value   : 1,
+            complete: true,
+            capturedAt
+        }]);
+
         for (const incompletePage of [
             {pageOffset: 1},
             {truncated: true}

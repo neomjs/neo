@@ -187,7 +187,7 @@ export function createA2AActivityCounts({
               capturedAt: capturedAtIso
           }];
 
-    if (pageOffset !== 0 || truncated || messages.length < totalCount) {
+    if (pageOffset !== 0 || truncated || messages.length !== totalCount) {
         return counts
     }
 
