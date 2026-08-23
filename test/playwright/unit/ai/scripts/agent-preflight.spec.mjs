@@ -472,7 +472,10 @@ test.describe('agent-preflight utility', () => {
         expect(status).toBe(1);
         expect(stderr).toContain('agent-preflight: PR body template lint failed.');
         expect(stderr).toContain('Visible/body-closing misses:');
-        expect(stderr).toContain('Structural template anchors are missing');
+        // Stable fragments of buildStructuralAnchorMissGuidance() output — the deliberate-
+        // silence contract plus the artifact pointer, not full sentences that redden on wording.
+        expect(stderr).toContain('checked silently and deliberately');
+        expect(stderr).toContain('pull-request-workflow.md');
         expect(stderr).toContain('agent-preflight: 1 gate(s) failed: pr-body')
     })
 });
