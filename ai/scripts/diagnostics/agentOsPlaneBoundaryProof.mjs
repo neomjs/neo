@@ -7,6 +7,13 @@ import path                      from 'node:path';
 import {fileURLToPath}           from 'node:url';
 import {Command}                 from 'commander';
 
+import {
+    collectModuleFacts,
+    normalizeSpecifier,
+    resolveRelative,
+    walkCapabilityClosure
+}                                from '../lint/scriptPlaneClosure.mjs';
+
 /**
  * Pre-Flight (structural fast-path): authoring
  * `ai/scripts/diagnostics/agentOsPlaneBoundaryProof.mjs` matches the read-only, rerunnable
@@ -85,13 +92,19 @@ const
  * @type {Object}
  */
 export const PROOF_CLASS = Object.freeze({
-    ancestorNodeModules     : 'instrument-ancestor-node-modules',
-    cloudControlUnresolved  : 'instrument-cloud-positive-control-unresolved',
-    cloudControlWrongRoot   : 'instrument-cloud-positive-control-resolved-via-ancestor',
-    edgePopulationInterim   : 'topology-edge-dependency-population-derived-not-authoritative',
-    edgeResolvesCloudPackage: 'topology-edge-resolves-cloud-package',
-    emptyPopulation         : 'instrument-empty-manifest-population',
-    probeFailure            : 'instrument-resolution-probe-failure'
+    ancestorNodeModules        : 'instrument-ancestor-node-modules',
+    cloudControlUnresolved     : 'instrument-cloud-positive-control-unresolved',
+    cloudControlWrongRoot      : 'instrument-cloud-positive-control-resolved-via-ancestor',
+    closureEntrypointUnreadable: 'instrument-closure-entrypoint-unreadable',
+    closureEscapesPlaneRoot    : 'topology-edge-closure-escapes-plane-root',
+    closureImportsCloudPackage : 'topology-edge-closure-imports-cloud-package',
+    closureReachesCloudModule  : 'topology-edge-closure-reaches-cloud-module',
+    closureUnregisteredModule  : 'topology-edge-closure-unregistered-module',
+    closureUnresolvedEdge      : 'instrument-closure-unresolved-edge',
+    edgePopulationInterim      : 'topology-edge-dependency-population-derived-not-authoritative',
+    edgeResolvesCloudPackage   : 'topology-edge-resolves-cloud-package',
+    emptyPopulation            : 'instrument-empty-manifest-population',
+    probeFailure               : 'instrument-resolution-probe-failure'
 });
 
 /**
@@ -286,6 +299,176 @@ export function runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages}) {
                     class   : PROOF_CLASS.cloudControlWrongRoot,
                     identity: name,
                     detail  : `resolved to ${cloud.detail}, outside ${cloudModules}`
+                })
+            }
+        }
+    }
+
+    return {instrumentErrors, topologyFindings}
+}
+
+/**
+ * @summary Runs the static-closure layer: what an Edge entrypoint's source graph can REACH, scored
+ * against the reconciled registry authority.
+ *
+ * ## Why this layer needs no installed fixture, unlike its resolution sibling
+ *
+ * The resolution layer must materialize and `npm install` two roots, because "can this package see
+ * that dependency" is a question only a real resolver against a real tree can answer. Static
+ * closure asks a different question — "what does this source graph reach" — and source is source.
+ * Running it against the REAL current head is therefore strictly better than running it against a
+ * fixture: it reports current-head truth instead of fixture truth. The in-memory red arms live in
+ * the spec, which is exactly the testability contract `walkCapabilityClosure` was built for (its
+ * `readFile`/`resolve` are injected for this reason).
+ *
+ * ## Two instruments, because one of them cannot see half the question
+ *
+ * `walkCapabilityClosure` **treats a bare package specifier as a leaf** and never follows it — its
+ * own comment says a bare package's graph "is not ours to police". So `reached` contains relative
+ * module paths ONLY, and an arm that hunted Cloud *packages* inside `reached` could never fire: a
+ * green proving nothing. Package reach is therefore read from `collectModuleFacts().imports`, the
+ * raw specifier list, normalized through `normalizeSpecifier` so a deep import (`fs-extra/lib/json`)
+ * compares equal to its package. Module reach and package reach are two questions and they need two
+ * instruments; conflating them is the false-green this comment exists to prevent.
+ *
+ * ## The authority is consumed, never re-derived
+ *
+ * Dispositions come from the reconciled inventory rows, not from re-globbing `custody` here. A
+ * module reached from an Edge entrypoint whose registry disposition is Cloud is a topology finding;
+ * a module with NO row is `unregistered` — the plane's declared population undershooting its actual
+ * reach, which is the quiet half of the same defect.
+ *
+ * ## An unaccounted unresolved edge is an INSTRUMENT error, not a topology finding
+ *
+ * The closure reports an edge it cannot name (a computed callee, a member missing from its module).
+ * With such a hole in the graph, "this Edge entrypoint reaches no Cloud module" is **unsound** — the
+ * hole could be hiding exactly that. So an unresolved edge carrying no ledger disposition invalidates
+ * the run, the same doctrine the dead-control arm applies to the resolution layer. An edge the
+ * ledger already dispositions is accounted for and stays silent.
+ *
+ * @param {Object}   config
+ * @param {String[]} config.entrypoints          Absolute Edge entrypoint paths.
+ * @param {Map}      config.dispositionByIdentity Repo-relative identity → registry disposition.
+ * @param {String[]} config.cloudOnlyPackages    Declared Cloud-only dependency names.
+ * @param {String}   config.planeRoot            Absolute root every Edge module must stay inside.
+ * @param {Set}      [config.ledgeredEdges]      Edge identities the registry already dispositions.
+ * @param {Function} [config.readFile]           `(absPath) => String|null`; injected for the spec.
+ * @param {Function} [config.resolve]            `(specifier, fromFile) => String|null`.
+ * @returns {{instrumentErrors: Object[], topologyFindings: Object[]}}
+ */
+export function runStaticClosureProof({
+    entrypoints,
+    dispositionByIdentity,
+    cloudOnlyPackages,
+    planeRoot,
+    ledgeredEdges = new Set(),
+    readFile      = absPath => { try { return fs.readFileSync(absPath, 'utf8') } catch { return null } },
+    resolve       = resolveRelative
+}) {
+    const
+        instrumentErrors = [],
+        topologyFindings = [],
+        cloudPackages    = new Set(cloudOnlyPackages),
+        relative         = absPath => path.relative(planeRoot, absPath).split(path.sep).join('/'),
+        seen             = new Set();
+
+    for (const entrypoint of [...entrypoints].sort()) {
+        const source = readFile(entrypoint);
+
+        if (source === null) {
+            instrumentErrors.push({
+                class   : PROOF_CLASS.closureEntrypointUnreadable,
+                identity: relative(entrypoint),
+                detail  : 'an Edge entrypoint the registry declares cannot be read; its closure is unmeasured, so a plane-clean verdict would be vacuous'
+            });
+
+            continue
+        }
+
+        const
+            closure = walkCapabilityClosure({entrypoint, readFile, resolve}),
+            // A module that resolved but could not be READ is already an instrument error below.
+            // It also lands in `reached`, where it would score as `unregistered` — one defect
+            // reported twice, in two layers, and the topology half would be a lie: an unmeasurable
+            // module is not a population gap, and filing it as one points H1 at the wrong repair.
+            // The instrument layer owns it exclusively.
+            unreadable = new Set(closure.unresolved
+                .filter(edge => edge.reason === 'unreadable')
+                .map(edge => edge.module));
+
+        for (const module of closure.reached) {
+            if (unreadable.has(module)) continue;
+
+            const identity = relative(module);
+
+            // Dedupe by (entrypoint-independent) identity: the same shared module reached from
+            // twelve entrypoints is ONE topology fact, and twelve copies of it would bury the rest.
+            if (seen.has(identity)) continue;
+            seen.add(identity);
+
+            if (identity.startsWith('../') || path.isAbsolute(identity)) {
+                topologyFindings.push({
+                    class               : PROOF_CLASS.closureEscapesPlaneRoot,
+                    identity,
+                    detail              : `reached from ${relative(entrypoint)}, outside the plane root`,
+                    successorOwner      : 'the Edge manifest authority (#17645 H1)',
+                    preRelocationBlocker: true
+                });
+
+                continue
+            }
+
+            const disposition = dispositionByIdentity.get(identity);
+
+            if (disposition === undefined) {
+                topologyFindings.push({
+                    class               : PROOF_CLASS.closureUnregisteredModule,
+                    identity,
+                    detail              : `reached from ${relative(entrypoint)} with no registry row — declared population undershoots actual reach`,
+                    successorOwner      : 'the Edge manifest authority (#17645 H1)',
+                    preRelocationBlocker: true
+                })
+            } else if (disposition === 'cloud') {
+                topologyFindings.push({
+                    class               : PROOF_CLASS.closureReachesCloudModule,
+                    identity,
+                    detail              : `reached from ${relative(entrypoint)}; registry disposition is cloud`,
+                    successorOwner      : 'store-edge severance leaves (#16202 / #17627)',
+                    preRelocationBlocker: true
+                })
+            }
+
+            const facts = collectModuleFacts(readFile(module) ?? '');
+
+            for (const specifier of facts.imports) {
+                const bare = normalizeSpecifier(specifier);
+
+                if (cloudPackages.has(bare)) {
+                    topologyFindings.push({
+                        class               : PROOF_CLASS.closureImportsCloudPackage,
+                        identity            : `${identity} → ${bare}`,
+                        detail              : 'an Edge-reached module imports a declared Cloud-only package',
+                        successorOwner      : 'store-edge severance leaves (#16202 / #17627) + the Edge manifest authority',
+                        preRelocationBlocker: true
+                    })
+                }
+            }
+        }
+
+        for (const edge of closure.unresolved) {
+            // The two emitted shapes carry different fields — `{module, specifier, reason:
+            // 'unresolved-specifier'}` and `{module, reason: 'unreadable'}` (no specifier). A key
+            // guessed from one shape silently never matches the other, which would leave
+            // `ledgeredEdges` as a guard doing no work. Both forms are spelled out.
+            const identity = edge.specifier
+                ? `${relative(edge.module)} → ${edge.specifier}`
+                : `${relative(edge.module)} [${edge.reason}]`;
+
+            if (!ledgeredEdges.has(identity)) {
+                instrumentErrors.push({
+                    class : PROOF_CLASS.closureUnresolvedEdge,
+                    identity,
+                    detail: `${edge.reason}: an unaccounted hole in the graph makes this entrypoint's plane-clean verdict unsound`
                 })
             }
         }

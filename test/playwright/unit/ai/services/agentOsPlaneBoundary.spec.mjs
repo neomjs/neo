@@ -9,7 +9,8 @@ import {
     buildReceipt,
     injectDriverStub,
     materializeBoundaryFixture,
-    runResolutionProof
+    runResolutionProof,
+    runStaticClosureProof
 } from '../../../../../ai/scripts/diagnostics/agentOsPlaneBoundaryProof.mjs';
 
 /**
@@ -208,5 +209,170 @@ test.describe('C′ plane-boundary proof — every arm fires, and for its stated
 
         expect(JSON.stringify(first)).toBe(JSON.stringify(second));
         expect(first.exitCode).toBe(1)
+    })
+});
+
+/**
+ * @summary Red-proofs every arm of the static-closure layer over in-memory module graphs.
+ *
+ * No fixture, no `npm install`, no repository: `walkCapabilityClosure`'s injected `readFile`/
+ * `resolve` make the whole layer testable from a plain object, which is why this layer runs against
+ * the real head in production and against these graphs here.
+ *
+ * The first arm is the one that matters most. An instrument that only ever fires red is as useless
+ * as one that never does, so a clean graph MUST come back empty — otherwise every red below proves
+ * only that the detector is stuck on.
+ */
+test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)', () => {
+    const
+        PLANE_ROOT = '/plane',
+
+        /** Resolves `./x` inside the plane and `../x` above it; everything else is unresolvable. */
+        resolveInPlane = specifier => specifier.startsWith('./')
+            ? `${PLANE_ROOT}/${specifier.slice(2)}`
+            : (specifier.startsWith('../') ? `/${specifier.slice(3)}` : null),
+
+        /** @returns {Function} A `readFile` over a literal `{absPath: source}` map. */
+        graph = files => absPath => files[absPath] ?? null,
+
+        /** @returns {String[]} Sorted `class` values across both layers, for exact-set asserts. */
+        classesOf = result => [
+            ...result.instrumentErrors.map(entry => entry.class),
+            ...result.topologyFindings.map(finding => finding.class)
+        ].sort(),
+
+        run = overrides => runStaticClosureProof({
+            entrypoints          : [`${PLANE_ROOT}/e.mjs`],
+            planeRoot            : PLANE_ROOT,
+            cloudOnlyPackages    : [],
+            dispositionByIdentity: new Map([['e.mjs', 'edge']]),
+            resolve              : resolveInPlane,
+            ...overrides
+        });
+
+    test('POSITIVE CONTROL: a wholly Edge-dispositioned graph returns both layers empty', () => {
+        const result = run({
+            dispositionByIdentity: new Map([['e.mjs', 'edge'], ['svc.mjs', 'edge']]),
+            cloudOnlyPackages    : ['chromadb'],
+            readFile             : graph({
+                '/plane/e.mjs'  : "import {a} from './svc.mjs'; a();",
+                '/plane/svc.mjs': 'export function a() {}'
+            })
+        });
+
+        expect(result.instrumentErrors).toEqual([]);
+        expect(result.topologyFindings).toEqual([])
+    });
+
+    test('a reached module the registry dispositions as cloud is a topology finding, by exact identity', () => {
+        const result = run({
+            dispositionByIdentity: new Map([['e.mjs', 'edge'], ['svc.mjs', 'cloud']]),
+            readFile             : graph({
+                '/plane/e.mjs'  : "import {a} from './svc.mjs'; a();",
+                '/plane/svc.mjs': 'export function a() {}'
+            })
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureReachesCloudModule]);
+        expect(result.topologyFindings[0].identity).toBe('svc.mjs');
+        expect(result.topologyFindings[0].preRelocationBlocker).toBe(true)
+    });
+
+    test('a Cloud-only PACKAGE import fires even though the closure never follows bare specifiers, and a deep import normalizes to its package', () => {
+        const result = run({
+            cloudOnlyPackages: ['chromadb'],
+            readFile         : graph({'/plane/e.mjs': "import client from 'chromadb/lib/deep'; client();"})
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureImportsCloudPackage]);
+        // The identity carries the NORMALIZED package, not the deep specifier — a finding keyed on
+        // `chromadb/lib/deep` could not be reconciled against a manifest that declares `chromadb`.
+        expect(result.topologyFindings[0].identity).toBe('e.mjs → chromadb')
+    });
+
+    test('a relative import escaping the plane root is a topology finding, not an unregistered module', () => {
+        const result = run({
+            readFile: graph({
+                '/plane/e.mjs'  : "import {a} from '../outside/x.mjs'; a();",
+                '/outside/x.mjs': 'export function a() {}'
+            })
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureEscapesPlaneRoot])
+    });
+
+    test('a reached module with no registry row is unregistered — the declared population undershooting actual reach', () => {
+        const result = run({
+            readFile: graph({
+                '/plane/e.mjs'    : "import {a} from './ghost.mjs'; a();",
+                '/plane/ghost.mjs': 'export function a() {}'
+            })
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureUnregisteredModule]);
+        expect(result.topologyFindings[0].identity).toBe('ghost.mjs')
+    });
+
+    test('an unresolved SPECIFIER is an instrument error: the hole could be hiding the Cloud reach', () => {
+        const result = run({
+            readFile: graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"}),
+            resolve : () => null
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureUnresolvedEdge]);
+        expect(result.topologyFindings).toEqual([])
+    });
+
+    test('a resolved-but-UNREADABLE module is the instrument error ONLY — never also an unregistered-population finding', () => {
+        const result = run({
+            readFile: graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"})
+        });
+
+        // The unreadable module lands in `reached` too. Scoring it as `unregistered` would report
+        // one defect twice and point the population owner at a repair that would not fix it.
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureUnresolvedEdge]);
+        expect(result.topologyFindings).toEqual([])
+    });
+
+    test('the ledger silences BOTH unresolved shapes — the two emitted forms carry different fields', () => {
+        const
+            specifierForm = run({
+                ledgeredEdges: new Set(['e.mjs → ./missing.mjs']),
+                readFile     : graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"}),
+                resolve      : () => null
+            }),
+            unreadableForm = run({
+                ledgeredEdges: new Set(['missing.mjs [unreadable]']),
+                readFile     : graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"})
+            });
+
+        // A key guessed from one shape silently never matches the other, leaving `ledgeredEdges` a
+        // guard doing no work. Both forms must actually suppress.
+        expect(specifierForm.instrumentErrors).toEqual([]);
+        expect(unreadableForm.instrumentErrors).toEqual([])
+    });
+
+    test('an entrypoint the registry declares but that cannot be read invalidates the run', () => {
+        const result = run({
+            entrypoints: ['/plane/gone.mjs'],
+            readFile   : () => null
+        });
+
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureEntrypointUnreadable]);
+        expect(result.instrumentErrors[0].identity).toBe('gone.mjs')
+    });
+
+    test('one shared module reached from many entrypoints is ONE finding, not one per entrypoint', () => {
+        const result = run({
+            entrypoints          : ['/plane/e.mjs', '/plane/f.mjs'],
+            dispositionByIdentity: new Map([['e.mjs', 'edge'], ['f.mjs', 'edge'], ['svc.mjs', 'cloud']]),
+            readFile             : graph({
+                '/plane/e.mjs'  : "import {a} from './svc.mjs'; a();",
+                '/plane/f.mjs'  : "import {a} from './svc.mjs'; a();",
+                '/plane/svc.mjs': 'export function a() {}'
+            })
+        });
+
+        expect(result.topologyFindings.filter(f => f.identity === 'svc.mjs')).toHaveLength(1)
     })
 });
