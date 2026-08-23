@@ -40,8 +40,20 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
     '## Deltas'
 ];
 
-/** The artifact that actually carries the full anchor list (both layers). */
-export const PR_TEMPLATE_ASSET = '.github/PULL_REQUEST_TEMPLATE.md';
+/**
+ * The agent-facing artifact that actually carries the full anchor list (both layers): §9
+ * holds the agent PR body template and the canonical anchor-list sentence.
+ *
+ * This repo has two PR-body templates with near-identical names and opposite audiences —
+ * the external-contributor `.github/PULL_REQUEST_TEMPLATE.md` (which carries none of the
+ * anchors and must never be copied into agent PRs) and the workflow §9 body template below.
+ * Routing readers to "the template" without naming the split has a 50% chance of handing
+ * them the wrong file.
+ *
+ * ticket-ref-ok: #15141 is the recorded failure that makes naming the split load-bearing here.
+ */
+export const PR_BODY_TEMPLATE_REFERENCE =
+    '.agents/skills/pull-request/references/pull-request-workflow.md — §9 carries the agent body template';
 
 /** The workflow section mirroring the same list for hosted lint runs. */
 export const PULL_REQUEST_WORKFLOW_REFERENCE =
@@ -68,7 +80,7 @@ export function buildStructuralAnchorMissGuidance() {
         'agent-preflight: silence is an anti-Goodhart guard by operator direction: naming an',
         'agent-preflight: anchor lets an agent paste it instead of reading the template.',
         'agent-preflight: the full anchor list lives in:',
-        `agent-preflight:   - ${PR_TEMPLATE_ASSET}`,
+        `agent-preflight:   - ${PR_BODY_TEMPLATE_REFERENCE}`,
         `agent-preflight:   - ${PULL_REQUEST_WORKFLOW_REFERENCE}`,
         'agent-preflight: reread those before editing the body.'
     ];

@@ -475,7 +475,7 @@ test.describe('agent-preflight utility', () => {
         // Stable fragments of buildStructuralAnchorMissGuidance() output — the deliberate-
         // silence contract plus the artifact pointer, not full sentences that redden on wording.
         expect(stderr).toContain('checked silently and deliberately');
-        expect(stderr).toContain('.github/PULL_REQUEST_TEMPLATE.md');
+        expect(stderr).toContain('pull-request-workflow.md');
         expect(stderr).toContain('agent-preflight: 1 gate(s) failed: pr-body')
     })
 });
