@@ -168,6 +168,21 @@ class Overflow extends Plugin {
      */
     hiddenSignature = null
     /**
+     * The floating menu list whose mounted edge drains a deferred partition update.
+     * @member {Neo.menu.List|null} observedMenuList=null
+     */
+    observedMenuList = null
+    /**
+     * Latest hidden signature waiting for the open menu to unmount.
+     * @member {String|null} pendingHiddenSignature=null
+     */
+    pendingHiddenSignature = null
+    /**
+     * Latest menu records waiting for the open menu to unmount.
+     * @member {Object[]|null} pendingMenuItems=null
+     */
+    pendingMenuItems = null
+    /**
      * A project() call arrived while a measure pass was in flight; drained once the pass releases the
      * latch, so a coalesced resize / activation / tab-set change still applies against current extents.
      * @member {Boolean} projectQueued=false
@@ -765,6 +780,42 @@ class Overflow extends Plugin {
     }
 
     /**
+     * Observes one generated menu list so a changed partition cannot clear the record store while
+     * its rendered nodes are still clickable. A replacement list supersedes the old observer.
+     * @param {Neo.menu.List|null} menuList
+     * @protected
+     */
+    observeMenuListLifecycle(menuList) {
+        let me = this;
+
+        if (!menuList || me.observedMenuList === menuList) return;
+
+        me.observedMenuList = menuList;
+
+        if (Neo.typeOf(menuList) === 'NeoInstance') {
+            me.observeConfig(menuList, 'mounted', value => {
+                !value && me.observedMenuList === menuList && me.flushPendingMenuItems()
+            })
+        }
+    }
+
+    /**
+     * Applies the latest deferred menu partition once no rendered node addresses the old store.
+     * @protected
+     */
+    flushPendingMenuItems() {
+        let me       = this,
+            menuList = me.observedMenuList;
+
+        if (!menuList || menuList.mounted || !me.pendingMenuItems) return;
+
+        menuList.items            = me.pendingMenuItems;
+        me.hiddenSignature        = me.pendingHiddenSignature;
+        me.pendingHiddenSignature = null;
+        me.pendingMenuItems       = null
+    }
+
+    /**
      * Creates / updates / tears down the single overflow control. A menu selection sets the
      * tab.Container's `activeIndex` (the ordinary activation path); the follow-up measure pass then
      * surfaces the now-active tab by construction (active-never-hidden), so the selected tab is never
@@ -782,11 +833,16 @@ class Overflow extends Plugin {
 
         if (hiddenMeta.length < 1) {
             if (me.control) {
-                me.control.destroy(true);
-                me.control              = null;
-                me.hiddenSignature      = null;
+                let control = me.control;
+
+                me.control                = null;
+                me.hiddenSignature        = null;
+                me.measuredControlWidth   = null;
+                me.observedMenuList       = null;
+                me.pendingHiddenSignature = null;
+                me.pendingMenuItems       = null;
                 // The measurement belongs to the torn-down embodiment; the next control re-measures.
-                me.measuredControlWidth = null
+                control.destroy(true)
             }
             return
         }
@@ -805,15 +861,32 @@ class Overflow extends Plugin {
             };
 
         if (me.control) {
+            let {menuList} = me.control;
+
+            me.observeMenuListLifecycle(menuList);
+
             // Idempotence gate: a projection that did not change the partition must not touch the
             // menu — rewriting identical items rebuilds the dropdown and closes it mid-interaction
             // (the render-truth edges made no-op projections routine, so this is load-bearing).
-            if (signature !== me.hiddenSignature) {
-                if (me.control.menuList) {
-                    me.control.menuList.items = menuItems
+            if (signature === me.hiddenSignature) {
+                me.pendingHiddenSignature = null;
+                me.pendingMenuItems       = null
+            } else if (menuList?.mounted) {
+                // The rendered menu nodes address the current store record ids. Replacing items now
+                // clears that store before an already-emitted click reaches the worker. Keep the old
+                // records stable and let the menu's unmount edge apply only the latest partition.
+                me.pendingHiddenSignature = signature;
+                me.pendingMenuItems       = menuItems
+            } else {
+                if (menuList) {
+                    menuList.items = menuItems
                 } else {
                     me.control.menu = menuConfig
                 }
+
+                me.hiddenSignature        = signature;
+                me.pendingHiddenSignature = null;
+                me.pendingMenuItems       = null
             }
 
             // Re-arm a transiently unmounted control. A floating instance mounts once at
@@ -876,6 +949,7 @@ class Overflow extends Plugin {
                 windowId       : me.owner.windowId
             });
             me.control.addDomListeners?.({resize: me.onControlResize, scope: me});
+            me.hiddenSignature = signature;
 
             // The reservation's render-truth EDGE: the pass that creates the control computed its split
             // with the pre-creation estimate — the rendered width does not exist yet, and no external
@@ -888,8 +962,6 @@ class Overflow extends Plugin {
                 })
             }
         }
-
-        me.hiddenSignature = signature;
 
         // RA-13: re-align against the CURRENT owner rect. A floating component aligns once at mount and does
         // NOT re-align when its target moves. Re-aligning on each sync re-pins it to the current action or
@@ -924,7 +996,10 @@ class Overflow extends Plugin {
         me.appliedCaps = null;
         me.resolveProjectionIdle();
         me.sortDragZone?.un('dragEnd', me.onSortDragEnd, me);
-        me.sortDragZone = null;
+        me.sortDragZone           = null;
+        me.observedMenuList       = null;
+        me.pendingHiddenSignature = null;
+        me.pendingMenuItems       = null;
         me.control?.destroy(true);
         me.control = null;
         super.destroy(...args)

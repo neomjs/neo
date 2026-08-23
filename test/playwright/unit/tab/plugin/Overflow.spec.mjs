@@ -88,6 +88,19 @@ class MountableControl extends Neo.core.Base {
 MountableControl = Neo.setupClass(MountableControl);
 
 /**
+ * @summary Reactive menu fixture for proving that an open Overflow menu keeps its record store
+ * stable until the floating list unmounts.
+ */
+class MountableMenuList extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.MountableMenuList',
+        items_   : null,
+        mounted_ : false
+    }
+}
+MountableMenuList = Neo.setupClass(MountableMenuList);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -254,6 +267,39 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(destroyed, 'the control is destroyed when the overflow set empties').toBe(true);
         expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
+    });
+
+    test('an open menu retains its clickable record store until unmount, then receives the latest partition', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const
+            originalItems = [{text: 'Agents', handler() {}}],
+            menuList      = Neo.create(MountableMenuList, {items: originalItems, mounted: true});
+
+        plugin.control = {
+            alignTo() {},
+            destroy() {},
+            iconCls: 'fa fa-ellipsis',
+            menuList,
+            mounted: true
+        };
+        plugin.hiddenSignature = '0:Agents:fa fa-users';
+
+        plugin.syncControl([{text: 'History', iconCls: 'fa fa-history', index: 1}], {activeIndex: 0});
+        plugin.syncControl([{text: 'Metrics', iconCls: 'fa fa-chart-line', index: 2}], {activeIndex: 0});
+
+        expect(menuList.items.map(item => item.text),
+            'a mounted menu keeps the records its rendered nodes address').toEqual(['Agents']);
+
+        menuList.mounted = false;
+
+        expect(menuList.items.map(item => item.text)).toEqual(['Metrics']);
+        expect(plugin.hiddenSignature).toBe('2:Metrics:fa fa-chart-line');
+
+        menuList.destroy();
+        plugin.destroy()
     });
 
     test('an owner theme change is carried onto the live out-of-tree control', async () => {
