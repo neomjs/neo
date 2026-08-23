@@ -506,9 +506,18 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
               coalesceWindow     = wakeSchema.properties.harnessTargetMetadata.properties.coalesceWindow;
 
         expect(addMessageSchema.properties.priority.enum).toEqual(['low', 'normal', 'high']);
-        expect(addMessageSchema.properties.priority.default).toBe('normal');
-        expect(addMessageSchema.properties.wakeSuppressed.default).toBe(false);
 
+        // `priority` and `wakeSuppressed` deliberately declare NO default, unlike every other field
+        // in this test. A declared default is materialized into the parsed request, so the field
+        // never arrives absent — and both of these have a SERVICE-side default computed from sender
+        // class and target that only runs when the value is nullish. Declaring both meant the schema
+        // silently won and the contextual branch was dead code.
+        expect(addMessageSchema.properties.priority).not.toHaveProperty('default');
+        expect(addMessageSchema.properties.wakeSuppressed).not.toHaveProperty('default');
+
+        // The contrast is the point: these four have no competing service-side default, so their
+        // declared defaults are correct and must survive. A fix that stripped defaults wholesale
+        // would pass the two arms above and break the contract this test was written for.
         expect(listMessagesSchema.properties.box.enum).toEqual(['inbox', 'outbox', 'all']);
         expect(listMessagesSchema.properties.box.default).toBe('inbox');
         expect(listMessagesSchema.properties.status.enum).toEqual(['all', 'read', 'unread']);
@@ -521,6 +530,53 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(coalesceWindow.type).toBe('integer');
         expect(coalesceWindow.minimum).toBe(0);
         expect(coalesceWindow.maximum).toBe(300);
+    });
+
+    /**
+     * The defect this pins is one layer down from the schema shape: what the PARSER produces.
+     * `buildZodSchema` compiles a declared `default` through `zodSchema.default(...)`, and Zod 4
+     * applies that inner default even under `.optional()`. So an omitted field reaches the handler
+     * as its declared value, never as `undefined`, and a service that layers its own contextual
+     * default with `??` is unreachable — `false ?? true` is `false`.
+     *
+     * Asserted through the repository's own `add_message` operation rather than a hand-built Zod
+     * control. A synthetic `z.object({x: z.boolean().default(false).optional()})` reproduces the
+     * mechanism but not our document, and the contract at risk is our document's.
+     */
+    test('an omitted contextual-default field is absent after parsing, so the service can compute it', () => {
+        const
+            doc    = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            parsed = buildZodSchema(doc, doc.paths['/mailbox/messages'].post).parse({
+                body   : 'probe',
+                subject: '[lane-claim][probe] omitted-default parse',
+                to     : 'AGENT:*'
+            });
+
+        // The two fields whose default the SERVICE owns must not be materialized.
+        expect(parsed).not.toHaveProperty('wakeSuppressed');
+        expect(parsed).not.toHaveProperty('priority');
+
+        // Non-vacuity: the parse must actually have run and kept what was sent. Without this the
+        // arm above passes against a parser that returned an empty object.
+        expect(parsed.to).toBe('AGENT:*');
+        expect(parsed.subject).toContain('[lane-claim]');
+    });
+
+    test('an explicitly sent value still reaches the handler — the fix removes a default, not the field', () => {
+        const
+            doc    = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            parsed = buildZodSchema(doc, doc.paths['/mailbox/messages'].post).parse({
+                body          : 'probe',
+                priority      : 'high',
+                subject       : '[lane-claim][probe] explicit values survive',
+                to            : 'AGENT:*',
+                wakeSuppressed: false
+            });
+
+        // `false` specifically: it is the value the removed default used to inject, so a fix that
+        // stripped falsy values rather than the default would pass the previous arm and fail here.
+        expect(parsed.wakeSuppressed).toBe(false);
+        expect(parsed.priority).toBe('high');
     });
 
     test('memory-core add_memory output declares the bounded post-WAL dispositions (#16896)', () => {

@@ -2123,7 +2123,7 @@ paths:
                 priority:
                   type: string
                   enum: [low, normal, high]
-                  default: "normal"
+                  description: "Delivery priority. Omit to let the server set it from sender class: normal for an agent, high for an operator (turn-start drain ordering)."
                 partOfThread:
                   type: string
                 taggedConcepts:
@@ -2132,8 +2132,7 @@ paths:
                     type: string
                 wakeSuppressed:
                   type: boolean
-                  default: false
-                  description: "Persist + deliver the message but emit NO wake event — the recipient sees it on their next list_messages rather than via an interrupt. Use for awareness/FYI (e.g. PR-opened-you're-not-the-reviewer, lane-progress, acks) or session-sunset self-DM handovers. Do NOT suppress actionable messages (you're the reviewer, a lane was claimed on you, REQUEST_CHANGES) — those must wake. Known-actionable direct lifecycle messages are rejected when wakeSuppressed is true. In autonomous mode a suppressed message stays unseen until the recipient next lists/boots. Default: omit (= false)."
+                  description: "Persist + deliver but emit NO wake: the recipient sees it on their next list_messages, not as an interrupt — in autonomous mode, not until they next list or boot. Use for awareness/FYI (PR-opened-you're-not-the-reviewer, lane-progress, acks) and sunset self-DM handovers. Never suppress actionable messages — you're the reviewer, a lane was claimed on you, REQUEST_CHANGES; those subjects are rejected. Omit and the server decides: claim-class AGENT:* broadcasts and operator-sent messages are quiet, everything else wakes."
                 task:
                   type: object
                   additionalProperties: true

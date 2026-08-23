@@ -2414,6 +2414,14 @@ class MailboxService extends Base {
         // taxed every active seat per claim. Explicit `wakeSuppressed: false` still wakes — the
         // contested-lane escalation stays a sender election, never a default. Scoped to `AGENT:*`
         // fan-out; direct messages keep the plain default.
+        //
+        // Both this line and the `priority` one above depend on the field arriving ABSENT, and that
+        // is a contract with the tool schema, not a local property: `buildZodSchema` compiles a
+        // declared OpenAPI `default` through `zodSchema.default()`, and Zod applies it even under
+        // `.optional()`. A declared default therefore materializes into the parsed request, the
+        // value is never nullish, and `??` cannot reach either branch — silently, since the injected
+        // value is a legal one. So `add_message` declares no default for either field: a request
+        // field may carry a schema default OR a service-side contextual default, never both.
         wakeSuppressed = wakeSuppressed ?? (operatorSteering || (to === 'AGENT:*' && !!collisionPreventionTag({subject, taggedConcepts})));
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
