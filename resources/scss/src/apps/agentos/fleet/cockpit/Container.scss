@@ -16,12 +16,22 @@
     container-name: fm-cockpit;
     container-type: inline-size;
 
-    /* §04 proportion record (#17211 finding 2): the operator escalation measured the right rail and
-       every tab in it at 14px — the engine's neutral strip default — holding 18px labels, which is
-       the "cramped rotated text" that was reported. The engine now exposes that measure as
-       `--dock-edge-rail-size` (#17211); this is the cockpit's deliberate proportion decision, and
-       28px is chosen rather than derived: it clears the 18px label metric with room for the tab's
-       own padding instead of fighting it, and costs the fleet zone ~1% of a 1229px workspace.
+    /* §04 proportion record (#17211 finding 2). The engine exposes the strip's extent as
+       `--dock-edge-rail-size`; this is the cockpit's deliberate proportion decision.
+
+       Grounded in a live measurement of the label's own box, NOT in the historical "18px label"
+       figure carried by the engine comment — that number predates the 11px/1 metric floor and is
+       stale. Measured at viewport 1280: rotated text node 11px wide (`font-size: 11px`,
+       `line-height: 11px`) plus the tab's 1px+1px horizontal padding = a 13px cross-axis demand.
+
+       So the engine's 14px default CONTAINS the label, with 1px of total slack — the reported
+       "cramped" is a crowding complaint, not a clipping one: the glyphs sit hard against both
+       edges of the strip. 20px gives the label the same breathing room across the strip that the
+       tab already gives it along the strip (its `padding: 4px 1px` main axis), i.e. 11 + 4 + 4,
+       and costs the fleet zone ~0.5% of a 1229px workspace.
+
+       What this value does NOT fix, stated so nobody reads more into it: strip width changes
+       crowding, not type size. An 11px rotated label stays an 11px rotated label at any measure.
        The engine default stays 14px, so the workstation and every other consumer are untouched.
 
        Scoped to `.neo-dashboard` and not to `.fm-fleet-cockpit` on purpose. `.neo-dashboard` is a
@@ -30,7 +40,7 @@
        Overriding at the same element with higher specificity is what actually lands, and it is the
        common ancestor of BOTH readers: the rail's width and the reveal overlay's reserved inset. */
     .neo-dashboard {
-        --dock-edge-rail-size: 28px;
+        --dock-edge-rail-size: 20px;
     }
 
     /* The dock projection's tab zones are NAVIGATION vessels inside the FM tonal stack — the generic

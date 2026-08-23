@@ -53,10 +53,28 @@ test.describe('AgentOS Fleet cockpit — rail measure + drawer content fit (Neur
             // other — a proportion decision on one is not reviewable without the other's number.
             const nav = document.querySelector('.agent-shell > .neo-tab-header-toolbar');
 
+            // The label's own box, measured rather than inherited. The strip's cross-axis demand is
+            // the rotated text node's WIDTH (writing-mode: vertical-rl) plus the button's horizontal
+            // padding — that sum, not a remembered figure, is what the strip must contain.
+            const firstTab  = tabs[0],
+                  textNode  = firstTab?.querySelector('.neo-button-text'),
+                  tabStyle  = firstTab ? getComputedStyle(firstTab) : null,
+                  textStyle = textNode ? getComputedStyle(textNode) : null;
+
             return {
                 viewportWidth: window.innerWidth,
                 navWidth     : nav ? Math.round(nav.getBoundingClientRect().width) : null,
                 railWidth    : Math.round(rail.getBoundingClientRect().width),
+                label        : textNode ? {
+                    boxWidth  : Number(textNode.getBoundingClientRect().width.toFixed(2)),
+                    fontSize  : textStyle.fontSize,
+                    lineHeight: textStyle.lineHeight,
+                    padLeft   : tabStyle.paddingLeft,
+                    padRight  : tabStyle.paddingRight,
+                    demand    : Number((textNode.getBoundingClientRect().width +
+                                        (parseFloat(tabStyle.paddingLeft) || 0) +
+                                        (parseFloat(tabStyle.paddingRight) || 0)).toFixed(2))
+                } : null,
                 tabs         : tabs.map(tab => {
                     const tr = tab.getBoundingClientRect();
                     return {label: tab.innerText.trim(), w: Math.round(tr.width), h: Math.round(tr.height)}
@@ -82,7 +100,16 @@ test.describe('AgentOS Fleet cockpit — rail measure + drawer content fit (Neur
         // the app root, because `.neo-dashboard` is a PROJECTED class carrying the engine's own
         // defaults — a value set on an outer scope is shadowed by the nested projected one, so
         // this is the assertion that distinguishes "declared" from "landed".
-        expect(railMetrics.railWidth, 'the consumer value must reach the strip, not be shadowed by the projected default').toBe(28);
+        expect(railMetrics.railWidth, 'the consumer value must reach the strip, not be shadowed by the projected default').toBe(20);
+
+        // CONTAINMENT, measured rather than asserted from a remembered figure. The strip's demand is
+        // the rotated text node's width plus the tab's horizontal padding; the strip must exceed it,
+        // and the slack is what "cramped" was actually about — the engine's 14px default contains
+        // the label with 1px to spare, so the reported defect is crowding, not clipping.
+        expect(railMetrics.label, 'the rail tab must expose a measurable label box').toBeTruthy();
+        expect(railMetrics.label.demand,
+            `the label demands ${railMetrics.label.demand}px and the strip offers ${railMetrics.railWidth}px`
+        ).toBeLessThan(railMetrics.railWidth);
 
         await railTab.click();
 
@@ -160,7 +187,7 @@ test.describe('AgentOS Fleet cockpit — rail measure + drawer content fit (Neur
                 return {rail: Math.round(r.width), gap: Math.round(r.left - o.right)}
             };
 
-            const before = probe('28px'),
+            const before = probe('20px'),
                   after  = probe('48px');
 
             zone.style.removeProperty('--dock-edge-rail-size');
