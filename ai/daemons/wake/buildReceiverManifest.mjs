@@ -538,7 +538,14 @@ export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
         adapterConfigPath: read('--adapter-config'),
         attemptTimeoutMs : attemptTimeoutRaw ? Number(attemptTimeoutRaw) : undefined,
         instanceType     : read('--instance'),
-        instanceAddress  : read('--instance-address')
+        instanceAddress  : read('--instance-address'),
+        // Comma-separated canonical `@handle`s. Absent ⇒ no expectation, hence no unrouted warning:
+        // a host-edge box legitimately has no roster to compare against, and inventing one there
+        // would make this guard cry on exactly the hosts it knows least about.
+        expectedSeatIdentities: (read('--expected-seats') || '')
+            .split(',')
+            .map(entry => entry.trim())
+            .filter(Boolean)
     }
 }
 
@@ -588,8 +595,9 @@ export async function runManifestBuilder({
     attemptTimeoutMs,
     instanceType,
     instanceAddress,
-    lockOptions = {},
-    logger      = console
+    expectedSeatIdentities = [],
+    lockOptions            = {},
+    logger                 = console
 }) {
     if (!subscriptionsPath || !manifestPath) {
         throw new Error('Usage: --subscriptions <file|-> --manifest <absolute path> [--identity <@handle>] [--adapter-config <file.json>] [--attempt-timeout-ms <n>] [--instance pid|userDataDir --instance-address <value>]');
@@ -663,6 +671,34 @@ export async function runManifestBuilder({
         if (route?.harnessTargetMetadata?.addressType === 'pid') {
             logger.log(`  WARN ${id}: carried pid tuple is ephemeral — re-run with --instance userDataDir to make it durable`);
         }
+    }
+
+    // The same reasoning as the skip loop below, one scope wider. That loop surfaces a seat whose
+    // route was ATTEMPTED and produced nothing; this surfaces a seat that was never attempted at
+    // all, because no subscription for it exists. Nothing else in this process would ever say so:
+    // a manifest missing a seat is simply smaller than the roster, and a smaller set reads as
+    // information to nobody. That silence is how a live seat spent its whole existence receiving
+    // another seat's wakes and none of its own.
+    //
+    // Never fails the build. A missing route is a provisioning gap, not a manifest defect, and
+    // failing closed here would block route generation for every other seat because one is
+    // unprovisioned. It also cannot self-heal: `manage_wake_subscription` acts on the CALLER, so a
+    // seat's row can only be minted by that seat — which is why the line says so rather than
+    // sending the reader to a tool that cannot act for them.
+    //
+    // `expectedSeatIdentities` arrives as PLAIN DATA and both sides are compared as given. That is
+    // this module's graphless boundary, not an oversight: it imports nothing from the graph so
+    // host-edge tooling stays runnable without the plane, exactly as subscription records already
+    // arrive from whoever queried them. The caller derives the census (`wakeSeatIdentities` in
+    // `wakeTargetEligibility.mjs` is the canonical source) and hands it over canonical.
+    const routedIdentities = new Set(
+              Object.values(manifest.routes).map(route => route?.agentIdentity).filter(Boolean)
+          ),
+          unroutedSeats    = expectedSeatIdentities.filter(seat => seat && !routedIdentities.has(seat)).sort();
+
+    for (const seat of unroutedSeats) {
+        logger.log(`  WARN ${seat}: expected wake seat with no route — that seat must run ` +
+                   `manage_wake_subscription({action:'subscribe'}) itself; the tool acts on the caller`);
     }
 
     // Skips are printed, never swallowed: a seat that silently produces no route is indistinguishable

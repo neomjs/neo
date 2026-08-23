@@ -89,7 +89,7 @@ import {
     filterEventsByWatermark,
     maxLogId
 } from './wokenWatermark.mjs';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {isWakeTargetEligible} from './wakeTargetEligibility.mjs';
 
 // Config-derived paths + PID_FILE (below) are declared here but ASSIGNED in initConfigDerivedState()
 // (called from the guarded main(), never at module-load): a stale memory-core overlay would otherwise
@@ -112,15 +112,6 @@ const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_STA
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
 const WOKEN_MESSAGE_IDS_STATE_KEY       = '__messageIdsByIdentity';
-
-const identityParticipationById = new Map(
-    IDENTITIES
-        .filter(identity => identity.type === 'AgentIdentity')
-        .map(identity => [
-            normalizeAgentIdentityNodeId(identity.id),
-            identity.properties?.participationStatus || 'active'
-        ])
-);
 
 /**
  * @summary Loads durable GraphLog watermarks plus stable per-identity message wake claims.
@@ -685,23 +676,6 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
         default:
             return null;
     }
-}
-
-/**
- * @summary True when a wake subscription target may receive wake delivery.
- *
- * Unknown identities stay eligible for forks/local custom agents. Known repo
- * identities with non-active participationStatus are filtered before coalescing
- * so they never create delivery attempts or retries.
- * @param {String} identity Agent identity.
- * @returns {Boolean}
- */
-function isWakeTargetEligible(identity) {
-    if (!identity) return true;
-    const normalizedIdentity  = normalizeAgentIdentityNodeId(identity),
-          participationStatus = identityParticipationById.get(normalizedIdentity);
-
-    return !participationStatus || participationStatus === 'active';
 }
 
 /**
