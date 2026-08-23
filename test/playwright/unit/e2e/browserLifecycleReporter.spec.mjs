@@ -5,11 +5,13 @@ import {expect, test} from '@playwright/test';
 import BenchmarkSystemReporter, {
     classifyBrowserLaunchExit,
     readOptionalSystemFact,
+    resolveBrowserKind,
     resolveE2eProfileName
 } from '../../e2e/custom-reporter.js';
 
 const launchExit = ({
     exitCode = 'null',
+    launchCommand = null,
     pid = 4242,
     prefix = 'Error: browserType.launch: Failed to launch the browser process.',
     signal = 'SIGABRT'
@@ -17,9 +19,10 @@ const launchExit = ({
     prefix,
     'Browser logs:',
     '',
+    launchCommand ? `<launching> ${launchCommand}` : null,
     `<launched> pid=${pid}`,
     `[pid=${pid}] <process did exit: exitCode=${exitCode}, signal=${signal}>`
-].join('\n');
+].filter(Boolean).join('\n');
 
 /**
  * @summary Coverage for the bounded E2E browser-launch lifecycle receipt.
@@ -38,19 +41,25 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
 
     test('#16161 classifies SIGABRT without inventing transport state', () => {
         expect(classifyBrowserLaunchExit(launchExit(), {
-            channel: 'chrome',
-            profile: 'presenting',
-            project: 'chromium'
+            browserName: 'chromium',
+            channel    : 'chrome',
+            headless   : true,
+            profile    : 'presenting',
+            project    : 'chromium'
         })).toEqual({
             classification          : 'browser-launch-process-exit',
             project                 : 'chromium',
             channel                 : 'chrome',
+            browserKind             : 'branded-chrome',
+            launchMode              : 'headless',
             profile                 : 'presenting',
             processId               : 4242,
             exitCode                : null,
             signal                  : 'SIGABRT',
             abnormal                : true,
             browserObjectEstablished: false,
+            cause                   : 'unclassified-process-exit',
+            remedy                  : 'inspect-retained-launch-exit',
             transportState          : 'not-observable'
         });
 
@@ -58,6 +67,63 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
             exitCode: 0,
             signal  : null,
             abnormal: false
+        })
+    });
+
+    test('#17595 resolves only bounded browser kinds and launch modes', () => {
+        expect(resolveBrowserKind({browserName: 'chromium', channel: 'chrome'})).toBe('branded-chrome');
+        expect(resolveBrowserKind({browserName: 'chromium', channel: 'msedge'})).toBe('branded-edge');
+        expect(resolveBrowserKind({browserName: 'chromium'})).toBe('bundled-chromium');
+        expect(resolveBrowserKind({browserName: 'firefox'})).toBe('firefox');
+        expect(resolveBrowserKind({browserName: 'webkit'})).toBe('webkit');
+        expect(resolveBrowserKind({
+            browserName: 'chromium',
+            channel    : 'custom-browser'
+        })).toBe('unknown');
+
+        expect(classifyBrowserLaunchExit(launchExit(), {headless: false})).toMatchObject({
+            launchMode: 'headed'
+        });
+        expect(classifyBrowserLaunchExit(launchExit(), {headless: true})).toMatchObject({
+            launchMode: 'headless'
+        });
+        expect(classifyBrowserLaunchExit(launchExit())).toMatchObject({
+            launchMode: 'unknown'
+        });
+
+        expect(classifyBrowserLaunchExit(launchExit({
+            launchCommand: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless --no-sandbox'
+        }), {browserName: 'chromium', headless: false})).toMatchObject({
+            launchMode: 'headless'
+        });
+        expect(classifyBrowserLaunchExit(launchExit({
+            launchCommand: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --no-sandbox'
+        }), {browserName: 'chromium', headless: true})).toMatchObject({
+            launchMode: 'headed'
+        })
+    });
+
+    test('#17595 names Mach permission denial only from its exact token', () => {
+        const permissionDenied = [
+            launchExit({signal: 'SIGTRAP'}),
+            'bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.4242:',
+            'Permission denied (1100)'
+        ].join('\n');
+
+        expect(classifyBrowserLaunchExit(permissionDenied)).toMatchObject({
+            cause : 'macos-mach-service-permission-denied',
+            remedy: 'retry-with-approved-execution-boundary'
+        });
+
+        expect(classifyBrowserLaunchExit(launchExit())).toMatchObject({
+            cause : 'unclassified-process-exit',
+            remedy: 'inspect-retained-launch-exit'
+        });
+        expect(classifyBrowserLaunchExit(
+            permissionDenied.replace('Permission denied (1100)', 'Permission denied (1101)')
+        )).toMatchObject({
+            cause : 'unclassified-process-exit',
+            remedy: 'inspect-retained-launch-exit'
         })
     });
 
@@ -129,19 +195,23 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
 
     test('#16161 deduplicates reporter paths and persists no raw launch command', async () => {
         const
-            directory  = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-browser-lifecycle-')),
-            outputFile = path.join(directory, 'benchmark-system-info.json'),
-            reporter   = new BenchmarkSystemReporter({outputFile}),
-            project    = {name: 'chromium', use: {channel: 'chrome'}},
-            error      = {
+            directory            = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-browser-lifecycle-')),
+            outputFile           = path.join(directory, 'benchmark-system-info.json'),
+            reporter             = new BenchmarkSystemReporter({outputFile}),
+            project              = {name: 'chromium', use: {browserName: 'chromium', channel: 'chrome', headless: true}},
+            terminal             = [],
+            originalConsoleError = console.error,
+            error                = {
                 message: [
                     launchExit(),
-                    '<launching> /Applications/Google Chrome.app --user-data-dir=/private/profile',
+                    '<launching> /Applications/Google Chrome.app --headless --user-data-dir=/private/profile',
                     'https://private.example.test secret-window-title'
                 ].join('\n')
             };
 
         try {
+            console.error = (...args) => terminal.push(args.join(' '));
+
             reporter.onBegin(
                 {projects: [project]},
                 {allTests: () => [{id: 'launch-test'}]}
@@ -161,16 +231,25 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
             expect(exits[0]).toMatchObject({
                 project       : 'chromium',
                 channel       : 'chrome',
+                browserKind   : 'branded-chrome',
+                launchMode    : 'headless',
                 profile       : 'presenting',
                 processId     : 4242,
+                cause         : 'unclassified-process-exit',
+                remedy        : 'inspect-retained-launch-exit',
                 observedVia   : ['reporter-error', 'test-result'],
                 transportState: 'not-observable'
             });
+            expect(terminal).toHaveLength(1);
+            expect(terminal[0]).toContain('channel=chrome browserKind=branded-chrome launchMode=headless');
+            expect(terminal[0]).toContain('failure=before-browser-object cause=unclassified-process-exit');
+            expect(terminal[0]).toContain('remedy=inspect-retained-launch-exit');
             expect(raw).not.toContain('<launching>');
             expect(raw).not.toContain('user-data-dir');
             expect(raw).not.toContain('private.example.test');
             expect(raw).not.toContain('secret-window-title')
         } finally {
+            console.error = originalConsoleError;
             await fs.remove(directory)
         }
     })

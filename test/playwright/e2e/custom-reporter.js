@@ -6,7 +6,47 @@ import {isEngineProfile} from './utils/gpuIntent.mjs';
 
 const
   ANSI_ESCAPE_PATTERN = /\u001B\[[0-?]*[ -/]*[@-~]/g,
+  HEADLESS_TOKEN_PATTERN = /(?:^|\s)-{1,2}headless(?:=[^\s]+)?(?=\s|$)/,
+  LAUNCH_COMMAND_PATTERN = /^<launching>\s+(.+)$/m,
+  MACH_SERVICE_PERMISSION_TOKEN = 'Permission denied (1100)',
   PROCESS_EXIT_PATTERN = /\[pid=(\d+)]\s+<process did exit: exitCode=([^,>]+), signal=([^>]+)>/;
+
+/**
+ * @summary Resolves a bounded browser-kind enum without persisting arbitrary executable paths.
+ * @param {Object} [context]
+ * @param {String|null} [context.browserName=null]
+ * @param {String|null} [context.channel=null]
+ * @returns {'branded-chrome'|'branded-edge'|'bundled-chromium'|'firefox'|'webkit'|'unknown'}
+ */
+export function resolveBrowserKind({browserName = null, channel = null} = {}) {
+  if (/^chrome(?:-(?:beta|dev|canary))?$/.test(channel)) return 'branded-chrome';
+  if (/^msedge(?:-(?:beta|dev|canary))?$/.test(channel)) return 'branded-edge';
+  if (channel) return 'unknown';
+
+  return {
+    chromium: 'bundled-chromium',
+    firefox : 'firefox',
+    webkit  : 'webkit'
+  }[browserName] || 'unknown'
+}
+
+/**
+ * @summary Resolves launch mode from the observed command without retaining its path or arguments.
+ * @param {String} text ANSI-free Playwright error text.
+ * @param {Boolean|null} [headless=null]
+ * @param {String} [browserKind='unknown']
+ * @returns {'headed'|'headless'|'unknown'}
+ */
+function resolveLaunchMode(text, headless = null, browserKind = 'unknown') {
+  const launchCommand = text.match(LAUNCH_COMMAND_PATTERN)?.[1];
+
+  if (launchCommand) {
+    if (HEADLESS_TOKEN_PATTERN.test(launchCommand)) return 'headless';
+    if (browserKind !== 'unknown') return 'headed'
+  }
+
+  return headless === true ? 'headless' : headless === false ? 'headed' : 'unknown'
+}
 
 /**
  * @summary Resolves the Neo browser launch profile without conflating film run mode with launch policy.
@@ -34,13 +74,17 @@ export function readOptionalSystemFact(read, fallback=null) {
  * @summary Extracts the bounded launch-process receipt Playwright already carries in a rejected browser launch.
  * @param {Error|Object|String} error
  * @param {Object} [context]
+ * @param {String|null} [context.browserName=null]
  * @param {String|null} [context.channel=null]
+ * @param {Boolean|null} [context.headless=null]
  * @param {String|null} [context.profile=resolveE2eProfileName()]
  * @param {String|null} [context.project=null]
  * @returns {Object|null}
  */
 export function classifyBrowserLaunchExit(error, {
+  browserName = null,
   channel = null,
+  headless = null,
   profile = resolveE2eProfileName(),
   project = null
 } = {}) {
@@ -61,18 +105,29 @@ export function classifyBrowserLaunchExit(error, {
     exitCode  = exitValue === 'null'
       ? null
       : /^-?\d+$/.test(exitValue) ? Number(exitValue) : exitValue,
-    exitSignal = signal === 'null' ? null : signal;
+    exitSignal = signal === 'null' ? null : signal,
+    permissionDenied = text.includes(MACH_SERVICE_PERMISSION_TOKEN),
+    cause = permissionDenied
+      ? 'macos-mach-service-permission-denied'
+      : 'unclassified-process-exit',
+    browserKind = resolveBrowserKind({browserName, channel});
 
   return {
     classification          : 'browser-launch-process-exit',
     project,
     channel,
+    browserKind,
+    launchMode              : resolveLaunchMode(text, headless, browserKind),
     profile,
     processId               : Number(match[1]),
     exitCode,
     signal                  : exitSignal,
     abnormal                : exitCode !== 0 || exitSignal !== null,
     browserObjectEstablished: false,
+    cause,
+    remedy                  : permissionDenied
+      ? 'retry-with-approved-execution-boundary'
+      : 'inspect-retained-launch-exit',
     // Playwright may construct a pipe before connectToTransport() rejects. Reporter callbacks do
     // not expose that boundary, so a Boolean here would manufacture certainty.
     transportState          : 'not-observable'
@@ -147,17 +202,21 @@ export default class BenchmarkSystemReporter {
    * @summary Deduplicates one Playwright launch exit across reporter error and test-result delivery.
    * @param {Error|Object|String} error
    * @param {Object} [context]
+   * @param {String|null} [context.browserName=null]
    * @param {String|null} [context.channel=null]
+   * @param {Boolean|null} [context.headless=null]
    * @param {String} [context.observedVia='reporter-error']
    * @param {String|null} [context.project=null]
    * @returns {Object|null}
    */
   captureBrowserLaunchExit(error, {
+    browserName = null,
     channel = null,
+    headless = null,
     observedVia = 'reporter-error',
     project = null
   } = {}) {
-    const incident = classifyBrowserLaunchExit(error, {channel, project});
+    const incident = classifyBrowserLaunchExit(error, {browserName, channel, headless, project});
 
     if (!incident) return null;
 
@@ -169,6 +228,16 @@ export default class BenchmarkSystemReporter {
       if (!existing.observedVia.includes(observedVia)) existing.observedVia.push(observedVia);
       if (!existing.project && project) existing.project = project;
       if (!existing.channel && channel) existing.channel = channel;
+      if (existing.browserKind === 'unknown' && incident.browserKind !== 'unknown') {
+        existing.browserKind = incident.browserKind
+      }
+      if (existing.launchMode === 'unknown' && incident.launchMode !== 'unknown') {
+        existing.launchMode = incident.launchMode
+      }
+      if (existing.cause === 'unclassified-process-exit' && incident.cause !== existing.cause) {
+        existing.cause  = incident.cause;
+        existing.remedy = incident.remedy
+      }
       this.flushReceipt();
 
       return existing
@@ -188,8 +257,11 @@ export default class BenchmarkSystemReporter {
 
     console.error(
       `[browser-lifecycle] project=${project ?? 'unknown'} profile=${incident.profile} ` +
+      `channel=${incident.channel ?? 'unknown'} browserKind=${incident.browserKind} ` +
+      `launchMode=${incident.launchMode} ` +
       `pid=${incident.processId} exitCode=${incident.exitCode ?? 'null'} ` +
-      `signal=${incident.signal ?? 'null'} browserObjectEstablished=false ` +
+      `signal=${incident.signal ?? 'null'} failure=before-browser-object ` +
+      `cause=${incident.cause} remedy=${incident.remedy} browserObjectEstablished=false ` +
       'transportState=not-observable'
     );
 
@@ -206,7 +278,9 @@ export default class BenchmarkSystemReporter {
     const project = workerInfo?.project;
 
     this.captureBrowserLaunchExit(error, {
+      browserName: project?.use?.browserName ?? null,
       channel    : project?.use?.channel ?? null,
+      headless   : project?.use?.headless ?? null,
       observedVia: 'reporter-error',
       project    : project?.name ?? null
     })
@@ -223,7 +297,9 @@ export default class BenchmarkSystemReporter {
 
     for (const error of result.errors || (result.error ? [result.error] : [])) {
       this.captureBrowserLaunchExit(error, {
+        browserName: project?.use?.browserName ?? null,
         channel    : project?.use?.channel ?? null,
+        headless   : project?.use?.headless ?? null,
         observedVia: 'test-result',
         project    : project?.name ?? null
       })
