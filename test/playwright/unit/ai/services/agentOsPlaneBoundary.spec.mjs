@@ -9,6 +9,7 @@ import {
     buildReceipt,
     injectDriverStub,
     materializeBoundaryFixture,
+    runComputedEdgeReconciliation,
     runResolutionProof,
     runRuntimeDenialProof,
     runStaticClosureProof
@@ -528,5 +529,88 @@ test.describe('C′ plane-boundary proof — runtime-denial layer arms (#17533)'
         expect(probed).toBe(false);
         expect(result.topologyFindings.find(finding => finding.class === PROOF_CLASS.edgeProbeIneligible).detail)
             .toContain('starts a persistent listener on import')
+    })
+});
+
+/**
+ * @summary Red-proofs the computed-edge reconciliation, whose whole reason for existing is the one
+ * case a count-based ratchet cannot see.
+ */
+test.describe('C′ plane-boundary proof — computed-edge reconciliation arms (#17533)', () => {
+    const
+        edges     = (...identities) => new Set(identities),
+        reconcile = (observed, registry) => runComputedEdgeReconciliation({
+            observedEdges: observed,
+            registryEdges: registry
+        }),
+        idsOf = result => result.topologyFindings.map(finding => `${finding.class}::${finding.identity}`).sort();
+
+    test('POSITIVE CONTROL: identical populations reconcile clean in both directions', () => {
+        const result = reconcile(edges('a.mjs::dynamic-import::load'), edges('a.mjs::dynamic-import::load'));
+
+        expect(result.topologyFindings).toEqual([]);
+        expect(result.instrumentErrors).toEqual([])
+    });
+
+    test('an observed edge with no registry row is an ADDITION', () => {
+        const result = reconcile(
+            edges('a.mjs::dynamic-import::load', 'b.mjs::dynamic-import::boot'),
+            edges('a.mjs::dynamic-import::load')
+        );
+
+        expect(idsOf(result)).toEqual([`${PROOF_CLASS.computedEdgeAdded}::b.mjs::dynamic-import::boot`])
+    });
+
+    test('a registry row the walk no longer observes is reported, not silently dropped', () => {
+        const result = reconcile(
+            edges('a.mjs::dynamic-import::load'),
+            edges('a.mjs::dynamic-import::load', 'b.mjs::dynamic-import::boot')
+        );
+
+        // A ratchet that "may only ever SHRINK" cannot express this: a shrinking count is
+        // indistinguishable from a shrinking closure, so a coverage regression reads as progress.
+        expect(idsOf(result)).toEqual([`${PROOF_CLASS.computedEdgeStale}::b.mjs::dynamic-import::boot`])
+    });
+
+    test('RED: a SAME-COUNT substitution fires both directions — the case a count check waves through', () => {
+        const
+            observed = edges('a.mjs::dynamic-import::load', 'b.mjs::dynamic-import::AFTER'),
+            registry = edges('a.mjs::dynamic-import::load', 'b.mjs::dynamic-import::BEFORE'),
+            result   = reconcile(observed, registry);
+
+        // The counts are equal and the populations are not. This is the whole layer.
+        expect(observed.size).toBe(registry.size);
+        expect(idsOf(result)).toEqual([
+            `${PROOF_CLASS.computedEdgeStale}::b.mjs::dynamic-import::BEFORE`,
+            `${PROOF_CLASS.computedEdgeAdded}::b.mjs::dynamic-import::AFTER`
+        ])
+    });
+
+    test('substitution is caught at MEMBER granularity, not just per module', () => {
+        // Two dynamic imports in one module: swapping which member carries it keeps the module set
+        // AND the count identical. Only the member half of the identity discriminates.
+        const result = reconcile(
+            edges('a.mjs::dynamic-import::loadOverlay'),
+            edges('a.mjs::dynamic-import::loadDefaults')
+        );
+
+        expect(idsOf(result)).toEqual([
+            `${PROOF_CLASS.computedEdgeStale}::a.mjs::dynamic-import::loadDefaults`,
+            `${PROOF_CLASS.computedEdgeAdded}::a.mjs::dynamic-import::loadOverlay`
+        ])
+    })
+;
+
+    test('a registry edge OUTSIDE the walked region is not reported — a complement is not a measurement', () => {
+        const result = runComputedEdgeReconciliation({
+            observedEdges : edges('ai/walked.mjs::dynamic-import::load'),
+            registryEdges : edges('ai/walked.mjs::dynamic-import::load', 'ai/never-opened.mjs::dynamic-import::boot'),
+            reachedModules: new Set(['ai/walked.mjs'])
+        });
+
+        // The registry dispositions edges across every plane; this walk visits Edge launch roots
+        // only. Unscoped, the live run reported four Cloud/retired entrypoints' edges as registry
+        // defects — the walk's own population boundary, dressed as a finding.
+        expect(result.topologyFindings).toEqual([])
     })
 });

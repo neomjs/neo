@@ -108,6 +108,8 @@ export const PROOF_CLASS = Object.freeze({
     closureOutOfRegistryRegion : 'topology-edge-closure-reaches-out-of-registry-region',
     closureUnregisteredModule  : 'topology-edge-closure-unregistered-module',
     closureUnresolvedEdge      : 'instrument-closure-unresolved-edge',
+    computedEdgeAdded               : 'topology-computed-edge-unregistered-addition',
+    computedEdgeStale               : 'topology-computed-edge-authority-without-observation',
     denialCloudControlSurvived      : 'instrument-runtime-denial-cloud-control-survived',
     denialEdgePackageControlSurvived: 'instrument-runtime-denial-edge-package-control-survived',
     denialProbeFailure              : 'instrument-runtime-denial-probe-failure',
@@ -592,6 +594,8 @@ export function runStaticClosureProof({
     const
         instrumentErrors = [],
         topologyFindings = [],
+        observedEdges    = new Set(),
+        reachedModules   = new Set(),
         cloudPackages    = new Set(cloudOnlyPackages),
         undispositioned  = [],
         outOfRegion      = [],
@@ -629,6 +633,8 @@ export function runStaticClosureProof({
 
             // Dedupe by (entrypoint-independent) identity: the same shared module reached from
             // twelve entrypoints is ONE topology fact, and twelve copies of it would bury the rest.
+            reachedModules.add(identity);
+
             if (seen.has(identity)) continue;
             seen.add(identity);
 
@@ -688,6 +694,8 @@ export function runStaticClosureProof({
             // `{module}` alone — and that function already discriminates all of them.
             const identity = edgeIdentity(edge, planeRoot);
 
+            observedEdges.add(identity);
+
             if (!ledgeredEdges.has(identity)) {
                 instrumentErrors.push({
                     class : PROOF_CLASS.closureUnresolvedEdge,
@@ -722,7 +730,76 @@ export function runStaticClosureProof({
         })
     }
 
-    return {instrumentErrors, topologyFindings}
+    return {instrumentErrors, topologyFindings, observedEdges, reachedModules}
+}
+
+/**
+ * @summary Reconciles the computed-edge population in BOTH directions against the registry.
+ *
+ * ## Why a count is not a reconciliation
+ *
+ * The registry's `closure-edge` surface is a ratchet over edges a static walk cannot resolve —
+ * dynamic imports, computed callees. The tempting check is "did the number go up", and it is
+ * exactly wrong: **a same-count substitution passes it unchanged.** Swap one dynamic import for a
+ * different one in the same module and the count is identical while the dispositioned population
+ * silently is not the observed one — which is the case this layer exists to catch, and the reason
+ * both sets are compared by IDENTITY rather than by size.
+ *
+ * Both directions are reported, because they are different defects with different repairs:
+ *
+ * - **addition** — an observed edge the registry never dispositioned. New unresolvable reach
+ *   entered the tree without an authority decision.
+ * - **authority-without-observation** — the registry claims an edge the walk no longer sees. Either
+ *   the edge was genuinely resolved (delete the row) or the walk stopped reaching it (a coverage
+ *   regression wearing the shape of progress). The row cannot tell which, so it names both.
+ *
+ * The second direction is the one a ratchet that "may only ever SHRINK" cannot express: a shrinking
+ * count is indistinguishable from a shrinking closure.
+ *
+ * @param {Object} config
+ * ## The stale direction is scoped to the WALKED region, and must be
+ *
+ * The registry dispositions edges across every plane; this walk visits Edge launch roots only. So
+ * "the registry claims an edge I did not observe" is only evidence when the walk actually visited
+ * that edge's owning module — otherwise it reports the walk's own population boundary as a registry
+ * defect. Unscoped, the live run produced four such findings, every one of them an edge owned by a
+ * Cloud or retired entrypoint this layer never opens. A complement is not a measurement.
+ *
+ * @param {Set}    config.observedEdges  Edge identities the closure walk actually produced.
+ * @param {Set}    config.registryEdges  Edge identities the registry dispositions.
+ * @param {Set}    config.reachedModules Repo-relative modules the walk actually visited.
+ * @returns {{instrumentErrors: Object[], topologyFindings: Object[]}}
+ */
+export function runComputedEdgeReconciliation({observedEdges, registryEdges, reachedModules = null}) {
+    const
+        topologyFindings = [],
+        // An identity is `<rel>::<reason>::<detail>`; its first segment is the owning module.
+        inWalkedRegion   = identity => reachedModules === null || reachedModules.has(identity.split('::')[0]),
+        added            = [...observedEdges].filter(identity => !registryEdges.has(identity)).sort(),
+        stale            = [...registryEdges]
+            .filter(identity => !observedEdges.has(identity) && inWalkedRegion(identity))
+            .sort();
+
+    for (const [bucket, proofClass, detail, owner] of [
+        [added, PROOF_CLASS.computedEdgeAdded,
+            'observed by the closure walk with no registry disposition — unresolvable reach entered the tree without an authority decision',
+            'the computed-edge registry'],
+        [stale, PROOF_CLASS.computedEdgeStale,
+            'dispositioned by the registry but no longer observed — either the edge resolved (delete the row) or the walk stopped reaching it (a coverage regression)',
+            'the computed-edge registry']
+    ]) {
+        for (const identity of bucket) {
+            topologyFindings.push({
+                class               : proofClass,
+                identity,
+                detail,
+                successorOwner      : owner,
+                preRelocationBlocker: true
+            })
+        }
+    }
+
+    return {instrumentErrors: [], topologyFindings}
 }
 
 /**
@@ -853,6 +930,16 @@ async function main() {
 
         instrumentErrors.push(...closure.instrumentErrors);
         topologyFindings.push(...closure.topologyFindings);
+
+        const reconciliation = runComputedEdgeReconciliation({
+            observedEdges : closure.observedEdges,
+            reachedModules: closure.reachedModules,
+            registryEdges : new Set(inventory.rows
+                .filter(row => row.surface === SURFACE.closureEdge)
+                .map(row => row.identity))
+        });
+
+        topologyFindings.push(...reconciliation.topologyFindings);
 
         if (!options.skipRuntime) {
             // The Cloud control is a Cloud-DISPOSITIONED launch root, taken from the registry rather
