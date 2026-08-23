@@ -1,5 +1,6 @@
 import {test, expect}           from '../../fixtures.mjs';
 import {NeuralLink_DataService} from '../../../../ai/services.mjs';
+import {createFleetWireOffer}   from '../../../../apps/agentos/config/fleetWireMethods.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -312,12 +313,21 @@ test.describe('AgentOS fleet roster — semantic list selection + stable animate
             selectedDisplay       = focusedRecord.displayName,
             bravoToggle           = bravoCard.locator('.fm-card-control-verbs button').first();
 
+        // ── LIFECYCLE ISOLATION: activating a control Button fires its lifecycle intent WITHOUT drilling ──
+        // Bravo is 'ok' → its toggle is the STOP verb. The test-owned bridge records exactly one
+        // minimal stop request and rejects it with a named reason; the detail must stay on the
+        // record selected before the control ran (no drill leakage), while Bravo renders the honest
+        // terminal rejection.
+        //
+        // Minimal is about the PAYLOAD: one agent id, no drill-shaped extras. The browser-mode
+        // envelope carries this realm's versioned protocol offer, asserted through the exported
+        // builder, so exact equality keeps rejecting stray keys without freezing a contract literal.
         await bravoToggle.focus();
         await page.keyboard.press('Enter');
         await expect.poll(
             () => fleet.requests.filter(request => ['startAgent', 'stopAgent', 'restartAgent'].includes(request.method)),
             {message: 'the lifecycle Button emits exactly one minimal Stop request'}
-        ).toEqual([{method: 'stopAgent', params: 'a11y-b'}]);
+        ).toEqual([{method: 'stopAgent', params: 'a11y-b', protocol: createFleetWireOffer()}]);
         expect((await selectionState()).selectedAgentId, 'control activation cannot change selection').toBe(selectedBeforeControl);
         await expect(page.locator('.fm-agent-detail')).toContainText(selectedDisplay);
         await expect(bravoCard.locator('.fm-card-control-status')).toContainText(
