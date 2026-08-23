@@ -10,7 +10,7 @@ import {test, expect}          from '@playwright/test';
 import Neo                     from '../../../../../../../src/Neo.mjs';
 import * as core               from '../../../../../../../src/core/_export.mjs';
 import MissionControlWorkspace from '../../../../../../../apps/agentos/childapps/missioncontrol/view/MissionControlWorkspace.mjs';
-import cockpitDockDocument     from '../../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
+import CockpitDockDocument     from '../../../../../../../apps/agentos/util/CockpitDockDocument.mjs';
 import {fusionTourScript}      from '../../../../../../../apps/agentos/tour/fusionFlagship.mjs';
 
 /**
@@ -249,7 +249,7 @@ test.describe('Mission-control demo host — tour hosting seam over the composed
         expect(commits).toHaveLength(1);
         expect(commits[0]).toBe(returned);
         // the committed stage IS the screenplay's opening document (fresh clone, never the frozen original)
-        expect(returned).toEqual(cockpitDockDocument());
+        expect(returned).toEqual(CockpitDockDocument.create());
         expect(Object.isFrozen(returned)).toBe(false)
     });
 });

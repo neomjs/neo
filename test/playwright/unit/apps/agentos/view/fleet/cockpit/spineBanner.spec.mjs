@@ -1,5 +1,11 @@
-import {test, expect}      from '@playwright/test';
-import {deriveSpineBanner} from '../../../../../../../../apps/agentos/util/spineBanner.mjs';
+import {setup} from '../../../../../../setup.mjs';
+
+setup({appConfig: {name: 'FleetSpineBannerTest'}});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../../src/core/_export.mjs';
+import SpineBanner    from '../../../../../../../../apps/agentos/util/SpineBanner.mjs';
 
 /**
  * The full derivation matrix for the cockpit's per-SPINE honesty line: a sample GRID (cold — the
@@ -23,10 +29,10 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         test('a stopped and a degraded daemon each speak, and `running` stays silent', () => {
             // `running` must earn zero pixels like every other nominal state.
-            expect(deriveSpineBanner({...live, daemon: {state: 'running'}})).toEqual({hidden: true, kind: 'live', text: ''});
+            expect(SpineBanner.deriveSpineBanner({...live, daemon: {state: 'running'}})).toEqual({hidden: true, kind: 'live', text: ''});
 
             for (const state of ['degraded', 'stopped']) {
-                const result = deriveSpineBanner({...live, daemon: {state}});
+                const result = SpineBanner.deriveSpineBanner({...live, daemon: {state}});
 
                 expect(result.hidden, state).toBe(false);
                 expect(result.kind, state).toBe('degraded');
@@ -41,7 +47,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
             // false alarm; claiming health from it is the fabrication. Both are wrong, so it stays
             // quiet — and the transport line already speaks when the server is silent.
             for (const daemon of [undefined, null, {}, {state: null}, {state: 'unknown'}, {state: ''}]) {
-                const result = deriveSpineBanner({...live, daemon});
+                const result = SpineBanner.deriveSpineBanner({...live, daemon});
 
                 expect(result.hidden, JSON.stringify(daemon)).toBe(true);
                 expect(result.text, JSON.stringify(daemon)).toBe('')
@@ -51,7 +57,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         test('⭐ a dead daemon OUTRANKS a stale feed — the diagnosis, not the symptom', () => {
             // A dead daemon is usually what made the feed stale. Reporting the feed alone would name
             // the symptom and drop the pointer the spec asks for.
-            const result = deriveSpineBanner({
+            const result = SpineBanner.deriveSpineBanner({
                 grid  : {state: 'stale', reason: 'feed went quiet'},
                 stream: {state: 'stale'},
                 daemon: {state: 'stopped', reason: 'orchestrator exited'}
@@ -61,13 +67,13 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
             expect(result.text).not.toContain('last-known data');
             // Control: remove the daemon fault and the SAME input must fall back to the stale line,
             // which is what proves the daemon branch is doing the ranking rather than the text.
-            expect(deriveSpineBanner({
+            expect(SpineBanner.deriveSpineBanner({
                 grid: {state: 'stale', reason: 'feed went quiet'}, stream: {state: 'stale'}
             }).text).toContain('last-known data')
         });
 
         test('an unreachable transport still wins — it cannot have answered a daemon pull', () => {
-            const result = deriveSpineBanner({
+            const result = SpineBanner.deriveSpineBanner({
                 grid: {state: 'sample'}, stream: {state: 'live'}, daemon: {state: 'stopped'}
             });
 
@@ -79,7 +85,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
             // The spec's "never a popup storm" is about episodes. The derivation is total and returns
             // exactly one line whatever the fault breadth, so the storm is unrepresentable rather than
             // debounced — and a caller cannot turn three dead daemons into three banners.
-            const episode = deriveSpineBanner({
+            const episode = SpineBanner.deriveSpineBanner({
                 ...live,
                 daemon: {state: 'stopped', reason: 'orchestrator, fleet and chroma all exited'}
             });
@@ -90,14 +96,14 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
             // And it is IDEMPOTENT across re-derivation: a polling consumer re-deriving the same
             // episode produces an identical line, so nothing accumulates per poll.
-            expect(deriveSpineBanner({...live, daemon: {state: 'stopped', reason: 'orchestrator, fleet and chroma all exited'}}))
+            expect(SpineBanner.deriveSpineBanner({...live, daemon: {state: 'stopped', reason: 'orchestrator, fleet and chroma all exited'}}))
                 .toEqual(episode)
         });
 
         test('a daemon reason cannot be supplied OR silenced by a transport sibling', () => {
             // The module's per-surface-reason doctrine, applied to the new surface: a `stale` grid
             // carrying a reason must not lend it to the daemon line.
-            const result = deriveSpineBanner({
+            const result = SpineBanner.deriveSpineBanner({
                 grid  : {state: 'stale', reason: 'grid-owned cause'},
                 stream: {state: 'live'},
                 daemon: {state: 'degraded'}
@@ -114,7 +120,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         // stale grid outranks it (last-known roster data is the operator-actionable fact).
         for (const gridAdapterState of STATES) {
             for (const streamAdapterState of STATES) {
-                const result     = deriveSpineBanner({grid: {state: gridAdapterState}, stream: {state: streamAdapterState}}),
+                const result     = SpineBanner.deriveSpineBanner({grid: {state: gridAdapterState}, stream: {state: streamAdapterState}}),
                       gridCold   = gridAdapterState === 'sample',
                       anyStale   = gridAdapterState === 'stale' || streamAdapterState === 'stale',
                       streamCold = streamAdapterState === 'sample',
@@ -127,7 +133,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
     });
 
     test('cold with NO retained reason names the cause AND a remedy that EXISTS at this head', () => {
-        const {text} = deriveSpineBanner({grid: {state: 'sample'}, stream: {state: 'live'}});
+        const {text} = SpineBanner.deriveSpineBanner({grid: {state: 'sample'}, stream: {state: 'live'}});
 
         expect(text).toContain('Fleet server offline');
         expect(text).toContain('the static roster');
@@ -144,7 +150,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         // the stream honestly held its seed. The partition makes the misclaim unrepresentable:
         // only a sample GRID reaches the cold family; the stream's verdict names the stream, and
         // states the roster fact that falsified the old copy.
-        const reasoned = deriveSpineBanner({
+        const reasoned = SpineBanner.deriveSpineBanner({
             grid  : {state: 'live'},
             stream: {state: 'sample', reason: 'fleet activity source not wired'}
         });
@@ -159,7 +165,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         // The reasonless variant — tonight's exact live rendering — must carry the same honesty
         // without a cause to lean on.
-        const bare = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'sample'}});
+        const bare = SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'sample'}});
 
         expect(bare.kind).toBe('degraded');
         expect(bare.text).toBe('Activity feed pending — roster is live')
@@ -169,7 +175,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         // Diagnosis over symptom (a dead daemon is usually why a feed never went live), and the
         // stale ROSTER is the operator-actionable fact when both are degraded — the stream-pending
         // line only ever renders over a roster that is provably live.
-        const daemonWins = deriveSpineBanner({
+        const daemonWins = SpineBanner.deriveSpineBanner({
             grid  : {state: 'live'},
             stream: {state: 'sample'},
             daemon: {state: 'stopped', reason: 'orchestrator exited'}
@@ -178,7 +184,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         expect(daemonWins.text).toContain('orchestrator exited');
         expect(daemonWins.text).not.toContain('Activity feed pending');
 
-        const staleWins = deriveSpineBanner({
+        const staleWins = SpineBanner.deriveSpineBanner({
             grid  : {state: 'stale', reason: 'poll timed out'},
             stream: {state: 'sample'}
         });
@@ -194,21 +200,21 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         // is no reason to name and the generic remedy is the honest guess. An empty-ish reason must
         // not sneak through as a "cause" either.
         ['', '   ', null, undefined].forEach(degradedReason => {
-            const {text} = deriveSpineBanner({grid: {state: 'sample', reason: degradedReason}, stream: {state: 'live'}});
+            const {text} = SpineBanner.deriveSpineBanner({grid: {state: 'sample', reason: degradedReason}, stream: {state: 'live'}});
 
             expect(text, JSON.stringify(degradedReason)).toContain('Fleet server offline')
         })
     });
 
     test('degraded names the honest data state', () => {
-        const {text} = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}});
+        const {text} = SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}});
 
         expect(text).toContain('degraded');
         expect(text).toContain('last-known')
     });
 
     test('a fully live spine renders NOTHING — zero nominal pixels', () => {
-        const result = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}});
+        const result = SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}});
 
         expect(result).toEqual({hidden: true, kind: 'live', text: ''})
     });
@@ -223,7 +229,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         test('no shell fact (plain browser, or an unreachable shell) keeps the classic offline copy', () => {
             for (const transport of [undefined, null]) {
-                const {text} = deriveSpineBanner({...coldSpine, transport});
+                const {text} = SpineBanner.deriveSpineBanner({...coldSpine, transport});
 
                 expect(text, JSON.stringify(transport)).toContain('Fleet server offline');
                 expect(text, JSON.stringify(transport)).toContain('npm run ai:fleet-server')
@@ -231,7 +237,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         });
 
         test('a boot in flight names itself — and never advises a manual start', () => {
-            const {kind, text} = deriveSpineBanner({...coldSpine, transport: {phase: 'starting'}});
+            const {kind, text} = SpineBanner.deriveSpineBanner({...coldSpine, transport: {phase: 'starting'}});
 
             expect(kind).toBe('cold');
             expect(text).toContain('Fleet transport starting');
@@ -240,7 +246,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         test('foreign-listener renders the named refusal, the port, and the Reconnect remedy', () => {
             // The exact case the old copy inverted: "start it" is what CREATES this state.
-            const {text} = deriveSpineBanner({...coldSpine, transport: {
+            const {text} = SpineBanner.deriveSpineBanner({...coldSpine, transport: {
                 fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', reason: 'viewer mismatch on the reuse probe', up: false
             }});
 
@@ -251,15 +257,15 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         });
 
         test('foreign-listener without a carried reason falls back to the generic refusal line', () => {
-            const {text} = deriveSpineBanner({...coldSpine, transport: {fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', up: false}});
+            const {text} = SpineBanner.deriveSpineBanner({...coldSpine, transport: {fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', up: false}});
 
             expect(text).toContain('another fleet server holds port 8083');
             expect(text).toContain('listener did not prove canonical Fleet identity')
         });
 
         test('a settled failed boot names the failure — with and without an error detail', () => {
-            const withDetail = deriveSpineBanner({...coldSpine, transport: {mode: 'spawn', phase: 'settled', up: false, error: 'fleet readiness timed out'}}),
-                  bareFail   = deriveSpineBanner({...coldSpine, transport: {mode: 'spawn', phase: 'settled', up: false}});
+            const withDetail = SpineBanner.deriveSpineBanner({...coldSpine, transport: {mode: 'spawn', phase: 'settled', up: false, error: 'fleet readiness timed out'}}),
+                  bareFail   = SpineBanner.deriveSpineBanner({...coldSpine, transport: {mode: 'spawn', phase: 'settled', up: false}});
 
             expect(withDetail.text).toContain('Fleet transport failed to start');
             expect(withDetail.text).toContain('fleet readiness timed out');
@@ -269,7 +275,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         test('a ready transport with cold surfaces points at Reconnect — the server just answered', () => {
             for (const mode of ['spawn', 'reuse']) {
-                const {text} = deriveSpineBanner({...coldSpine, transport: {fleetPort: 8083, mode, phase: 'settled', up: true}});
+                const {text} = SpineBanner.deriveSpineBanner({...coldSpine, transport: {fleetPort: 8083, mode, phase: 'settled', up: true}});
 
                 expect(text, mode).toContain('Fleet transport ready');
                 expect(text, mode).toContain('Reconnect');
@@ -280,7 +286,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         test('⭐ a retained surface reason OUTRANKS the fact — the producer spoke, the topology only guesses', () => {
             // The roster's answered-empty retention (loadRoster's empty-unselected path) must win
             // over any transport-derived guess: what the producer SAID beats what the boot implies.
-            const {text} = deriveSpineBanner({
+            const {text} = SpineBanner.deriveSpineBanner({
                 grid     : {state: 'sample', reason: 'server connected · fleet registry empty — define agents to go live'},
                 stream   : {state: 'live'},
                 transport: {mode: 'foreign-listener', phase: 'settled', up: false}
@@ -294,10 +300,10 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         test('the fact never reaches non-cold branches: stale, daemon, stream-pending and live verdicts ignore it', () => {
             const transport = {mode: 'foreign-listener', phase: 'settled', up: false};
 
-            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}, transport}).text).toContain('last-known');
-            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, daemon: {state: 'stopped'}, transport}).text).toContain('Agent OS stopped');
-            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'sample'}, transport}).text).toBe('Activity feed pending — roster is live');
-            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, transport})).toEqual({hidden: true, kind: 'live', text: ''})
+            expect(SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}, transport}).text).toContain('last-known');
+            expect(SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, daemon: {state: 'stopped'}, transport}).text).toContain('Agent OS stopped');
+            expect(SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'sample'}, transport}).text).toBe('Activity feed pending — roster is live');
+            expect(SpineBanner.deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, transport})).toEqual({hidden: true, kind: 'live', text: ''})
         })
     })
 });

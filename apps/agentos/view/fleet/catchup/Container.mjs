@@ -1,8 +1,8 @@
-import Button                              from '../../../../../src/button/Base.mjs';
-import Component                           from '../../../../../src/component/Base.mjs';
-import Container                           from '../../../../../src/container/Base.mjs';
-import CatchUpEntries                      from '../../../store/CatchUpEntries.mjs';
-import {formatViewerTime, viewerTimeTitle} from '../../../util/viewerTime.mjs';
+import Button         from '../../../../../src/button/Base.mjs';
+import Component      from '../../../../../src/component/Base.mjs';
+import Container      from '../../../../../src/container/Base.mjs';
+import CatchUpEntries from '../../../store/CatchUpEntries.mjs';
+import ViewerTime     from '../../../util/ViewerTime.mjs';
 
 /**
  * @summary Resolve a citation to a canonical public drill target. Only the source-owned PR
@@ -253,7 +253,7 @@ class CatchUpPane extends Container {
 
         // T5 receipt on the containing line. Falsy removes, so a refusal or a cleared outcome cannot
         // keep the previous advance's instant hovering behind unrelated copy.
-        target.changeVdomRootKey('title', value?.status === 'advanced' ? viewerTimeTitle(value.lastSeen) : null)
+        target.changeVdomRootKey('title', value?.status === 'advanced' ? ViewerTime.viewerTimeTitle(value.lastSeen) : null)
     }
 
     /** @summary Request a daily first-use window. */
@@ -335,7 +335,7 @@ class CatchUpPane extends Container {
 
             // Both bounds ride the receipt, in the order the sentence reads them — a catch-up window
             // is only citable as a PAIR, and a hover naming one end would be worse than naming none.
-            windowEl.changeVdomRootKey('title', window ? viewerTimeTitle(window.windowStart, window.windowEnd) : null)
+            windowEl.changeVdomRootKey('title', window ? ViewerTime.viewerTimeTitle(window.windowStart, window.windowEnd) : null)
         }
 
         firstEl && (firstEl.hidden = !firstUse);
@@ -407,7 +407,7 @@ class CatchUpPane extends Container {
             // Built as config rather than assigned, so the receipt rides `vdom` here — same rule, the
             // other construction shape. This line is the one an agent quotes when citing a source
             // envelope, which makes its instant the least affordable one to lose.
-            ...(envelope && viewerTimeTitle(envelope.generatedAt) ? {vdom: {title: viewerTimeTitle(envelope.generatedAt)}} : {})
+            ...(envelope && ViewerTime.viewerTimeTitle(envelope.generatedAt) ? {vdom: {title: ViewerTime.viewerTimeTitle(envelope.generatedAt)}} : {})
         }, {
             module: Component,
             cls   : ['fm-catch-up-source-body'],
@@ -463,7 +463,7 @@ class CatchUpPane extends Container {
      * @returns {String}
      */
     formatStamp(value) {
-        return formatViewerTime(value)?.text ?? 'unknown time'
+        return ViewerTime.formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 

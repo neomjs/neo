@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 import '../../../../../../../../src/manager/Instance.mjs';
-import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from '../../../../../../../../apps/agentos/util/configIntentRoundTrip.mjs';
+import ConfigIntentRoundTrip from '../../../../../../../../apps/agentos/util/ConfigIntentRoundTrip.mjs';
 
 /**
  * @summary The shared configure round-trip's CROSS-OWNER contracts: both the Accounts keeper-view
@@ -47,7 +47,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
         // two OWNERS — separate identity tokens, separate sinks, the same shared record. Under
         // per-owner generation maps each response believed itself latest; the shared authority must not.
-        const older = runConfigIntentRoundTrip({
+        const older = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'claude-code'},
             owner        : accountsOwner,
@@ -55,7 +55,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             store
         });
 
-        const newer = runConfigIntentRoundTrip({
+        const newer = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'native-neo'},
             owner        : detailOwner,
@@ -81,7 +81,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
         expect(accountsStatuses.map(entry => entry[1])).toEqual(['pending', 'superseded']);
 
         // RE-ENTRY: the losing surface is not dead — its next intent runs a full round-trip
-        const retry = runConfigIntentRoundTrip({
+        const retry = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'antigravity'},
             owner        : accountsOwner,
@@ -109,7 +109,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             bridgeResolver = () => ({configureAgent: intent => new Promise(resolve => deferred.push({intent, resolve}))}),
             statuses       = [];
 
-        const older = runConfigIntentRoundTrip({
+        const older = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'claude-code'},
             owner,
@@ -117,7 +117,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             store
         });
 
-        const newer = runConfigIntentRoundTrip({
+        const newer = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'native-neo'},
             owner,
@@ -150,7 +150,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             olderStatuses  = [],
             newerStatuses  = [];
 
-        const older = runConfigIntentRoundTrip({
+        const older = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'claude-code'},
             owner        : {},
@@ -163,7 +163,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
         store.clear();
         store.add({id: 'ada', githubUsername: 'ada', harnessType: 'antigravity'});
 
-        const newer = runConfigIntentRoundTrip({
+        const newer = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'native-neo'},
             owner        : {},
@@ -197,7 +197,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             olderStatuses  = [],
             newerStatuses  = [];
 
-        const older = runConfigIntentRoundTrip({
+        const older = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'claude-code'},
             owner        : {},
@@ -208,7 +208,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
         store.clear();
         store.add({id: 'ada', githubUsername: 'ada', harnessType: 'antigravity'});
 
-        const newer = runConfigIntentRoundTrip({
+        const newer = ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver,
             intent       : {id: 'ada', harnessType: 'native-neo'},
             owner        : {},
@@ -237,10 +237,10 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
         ]);
 
-        const before = getDefinitionsWriteGeneration(store);
+        const before = ConfigIntentRoundTrip.getDefinitionsWriteGeneration(store);
 
         // a rejected outcome writes nothing — the generation must not move
-        await runConfigIntentRoundTrip({
+        await ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver: () => ({configureAgent: async () => ({status: 'rejected', reason: 'no'})}),
             intent        : {id: 'ada', harnessType: 'claude-code'},
             owner         : {},
@@ -248,10 +248,10 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             store
         });
 
-        expect(getDefinitionsWriteGeneration(store)).toBe(before);
+        expect(ConfigIntentRoundTrip.getDefinitionsWriteGeneration(store)).toBe(before);
 
         // an accepted readback is newer canonical truth — any in-flight boot list is now stale
-        await runConfigIntentRoundTrip({
+        await ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver: () => ({configureAgent: async () => ({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}})}),
             intent        : {id: 'ada', harnessType: 'native-neo'},
             owner         : {},
@@ -259,7 +259,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
             store
         });
 
-        expect(getDefinitionsWriteGeneration(store)).toBe(before + 1);
+        expect(ConfigIntentRoundTrip.getDefinitionsWriteGeneration(store)).toBe(before + 1);
 
         store.destroy()
     })
@@ -270,7 +270,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
         ]);
         let received;
 
-        await runConfigIntentRoundTrip({
+        await ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             bridgeResolver: () => ({configureAgent: async intent => {
                 received = intent;
 

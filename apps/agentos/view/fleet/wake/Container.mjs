@@ -1,8 +1,8 @@
-import AgentWakeRoutes                     from '../../../store/AgentWakeRoutes.mjs';
-import Button                              from '../../../../../src/button/Base.mjs';
-import Component                           from '../../../../../src/component/Base.mjs';
-import Container                           from '../../../../../src/container/Base.mjs';
-import {formatViewerTime, viewerTimeTitle} from '../../../util/viewerTime.mjs';
+import AgentWakeRoutes from '../../../store/AgentWakeRoutes.mjs';
+import Button          from '../../../../../src/button/Base.mjs';
+import Component       from '../../../../../src/component/Base.mjs';
+import Container       from '../../../../../src/container/Base.mjs';
+import ViewerTime      from '../../../util/ViewerTime.mjs';
 
 /**
  * The invoked Fleet wake-routes surface: can each seat be woken right now — and if not, WHICH leg
@@ -189,7 +189,7 @@ class WakeRoutePane extends Container {
             // The T5 receipt for the meta line. `changeVdomRootKey` DELETES on a falsy value, so the
             // unavailable branch — which renders no stamp — drops any title a previous snapshot left
             // behind, rather than carrying a stale instant beside fresh copy.
-            metaEl.changeVdomRootKey('title', wired || partial ? viewerTimeTitle(snapshot.capability.capturedAt) : null)
+            metaEl.changeVdomRootKey('title', wired || partial ? ViewerTime.viewerTimeTitle(snapshot.capability.capturedAt) : null)
         }
 
         me.renderRows(snapshot, wired || partial)
@@ -280,7 +280,7 @@ class WakeRoutePane extends Container {
     axisConfig(label, state, reason, instant = null) {
         const
             stateWord = state || 'unreported',
-            title     = viewerTimeTitle(instant);
+            title     = ViewerTime.viewerTimeTitle(instant);
 
         return {
             module: Component,
@@ -295,13 +295,13 @@ class WakeRoutePane extends Container {
     }
 
     /**
-     * @summary Viewer-local stamp via the shared cockpit formatter — see `viewerTime.mjs` for why
+     * @summary Viewer-local stamp via the shared cockpit formatter — see `ViewerTime.mjs` for why
      * format is single-sourced while this pane keeps its own "unknown time" miss-copy.
      * @param {Date|String|Number|null} value
      * @returns {String}
      */
     formatStamp(value) {
-        return formatViewerTime(value)?.text ?? 'unknown time'
+        return ViewerTime.formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 

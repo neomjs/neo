@@ -17,12 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
-import {
-    createControlReason,
-    handleFleetLifecycleIntent,
-    sanitizeControlReason,
-    writeLifecycleControlState
-} from '../../../../../../../../apps/agentos/util/fleetLifecycleIntentAdapter.mjs';
+import FleetLifecycleIntentAdapter from '../../../../../../../../apps/agentos/util/FleetLifecycleIntentAdapter.mjs';
 
 // a record double: bulk `set()` like a Neo.data record (the C2 write seam), fields readable as
 // plain properties — mirrors AgentOS.model.FleetAgent's pendingAction/controlReason contract.
@@ -49,9 +44,9 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
                 restartAgent: async id => { calls.push(['restartAgent', id]); return {state: 'running'} }
             };
 
-        await handleFleetLifecycleIntent({action: 'start', agentId: 'vega'}, record, {bridge});
-        await handleFleetLifecycleIntent({action: 'stop', agentId: 'vega'}, record, {bridge});
-        await handleFleetLifecycleIntent({action: 'restart', agentId: 'vega'}, record, {bridge});
+        await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'start', agentId: 'vega'}, record, {bridge});
+        await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'stop', agentId: 'vega'}, record, {bridge});
+        await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'restart', agentId: 'vega'}, record, {bridge});
 
         expect(calls).toEqual([
             ['startAgent', 'vega'],
@@ -68,7 +63,7 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
         const
             record       = createRecord({controlReason: {action: 'start', kind: 'rejected', reason: 'old'}}),
             bridge       = {startAgent: () => Promise.resolve({state: 'running'})},
-            settleResult = await handleFleetLifecycleIntent({action: 'start', agentId: 'vega'}, record, {bridge});
+            settleResult = await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'start', agentId: 'vega'}, record, {bridge});
 
         expect(record.writes[0]).toEqual({controlReason: null, pendingAction: 'start'});
         expect(record.writes.at(-1)).toEqual({controlReason: null, pendingAction: null});
@@ -79,7 +74,7 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
         const
             record = createRecord(),
             bridge = {restartAgent: async () => { throw new Error('PAT: github_pat_secretvalue') }},
-            result = await handleFleetLifecycleIntent({action: 'restart', agentId: 'vega'}, record, {bridge});
+            result = await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'restart', agentId: 'vega'}, record, {bridge});
 
         expect(record.pendingAction).toBeNull();
         expect(record.controlReason).toEqual({
@@ -93,7 +88,7 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
     test('missing bridge fails closed as unauthorized without accepting a pending action', async () => {
         const
             record = createRecord(),
-            result = await handleFleetLifecycleIntent({action: 'stop', agentId: 'vega'}, record, {bridge: null});
+            result = await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'stop', agentId: 'vega'}, record, {bridge: null});
 
         expect(record.writes).toEqual([{
             pendingAction: null,
@@ -106,7 +101,7 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
         const
             record = createRecord(),
             bridge = {startAgent: async () => { throw new Error('must not call') }},
-            result = await handleFleetLifecycleIntent({action: 'remove', agentId: 'vega'}, record, {bridge});
+            result = await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'remove', agentId: 'vega'}, record, {bridge});
 
         expect(record.pendingAction).toBeNull();
         expect(record.controlReason).toEqual({
@@ -126,7 +121,7 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
                 return 'timeout-id'
             },
             clearCalls   = [],
-            result       = await handleFleetLifecycleIntent({action: 'start', agentId: 'vega'}, record, {
+            result       = await FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'start', agentId: 'vega'}, record, {
                 bridge,
                 clearTimeoutFn: id => clearCalls.push(id),
                 setTimeoutFn,
@@ -146,8 +141,8 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
     test('the record writer supports record-style set() and the plain field-bag fallback (dock snapshot)', () => {
         const record = createRecord();
 
-        writeLifecycleControlState(record, {
-            controlReason: createControlReason('start', 'rejected', 'no slot'),
+        FleetLifecycleIntentAdapter.writeLifecycleControlState(record, {
+            controlReason: FleetLifecycleIntentAdapter.createControlReason('start', 'rejected', 'no slot'),
             pendingAction: null
         });
 
@@ -155,12 +150,12 @@ test.describe('fleetLifecycleIntentAdapter — lifecycleIntent → registry brid
 
         // a plain field bag (the dock-blueprint snapshot shape) is mutated in place
         const bag = {pendingAction: 'stop', controlReason: null};
-        writeLifecycleControlState(bag, {pendingAction: null});
+        FleetLifecycleIntentAdapter.writeLifecycleControlState(bag, {pendingAction: null});
         expect(bag.pendingAction).toBeNull()
     });
 
     test('reason sanitization redacts token-shaped strings', () => {
-        expect(sanitizeControlReason('token: ghp_abc123 should not render')).toBe('[redacted] should not render');
-        expect(sanitizeControlReason('plain lifecycle failure')).toBe('plain lifecycle failure')
+        expect(FleetLifecycleIntentAdapter.sanitizeControlReason('token: ghp_abc123 should not render')).toBe('[redacted] should not render');
+        expect(FleetLifecycleIntentAdapter.sanitizeControlReason('plain lifecycle failure')).toBe('plain lifecycle failure')
     });
 });

@@ -1,9 +1,7 @@
 import Component from '../../../../../src/component/Base.mjs';
 import NeoArray  from '../../../../../src/util/Array.mjs';
 
-import {familyClass, isKnownFamily} from '../../../util/familyTokens.mjs';
-
-export {familyClass, familyToken, isKnownFamily} from '../../../util/familyTokens.mjs';
+import FamilyTokens from '../../../util/FamilyTokens.mjs';
 
 /**
  * The family-accent rail on the leading edge of a resident's card. Its color binds DATA-DRIVEN
@@ -57,13 +55,13 @@ class FamilyRail extends Component {
     afterSetFamily(value, oldValue) {
         let me       = this,
             cls      = me.cls,
-            oldClass = familyClass(oldValue),
-            newClass = familyClass(value);
+            oldClass = FamilyTokens.familyClass(oldValue),
+            newClass = FamilyTokens.familyClass(value);
 
         oldClass && NeoArray.remove(cls, oldClass);
         newClass && NeoArray.add(cls, newClass);
 
-        NeoArray[isKnownFamily(value) ? 'remove' : 'add'](cls, 'fm-family-unclassified');
+        NeoArray[FamilyTokens.isKnownFamily(value) ? 'remove' : 'add'](cls, 'fm-family-unclassified');
 
         me.cls = cls
     }

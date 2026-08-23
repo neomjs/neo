@@ -1,14 +1,14 @@
-import Controller                   from '../../../../../src/controller/Component.mjs';
-import {handleFleetLifecycleIntent} from '../../../util/fleetLifecycleIntentAdapter.mjs';
+import Controller                  from '../../../../../src/controller/Component.mjs';
+import FleetLifecycleIntentAdapter from '../../../util/FleetLifecycleIntentAdapter.mjs';
 
-import {partitionFleetStart, renderFleetStartSummary, summarizeFleetStart} from '../../../util/fleetStartPlan.mjs';
+import FleetStartPlan from '../../../util/FleetStartPlan.mjs';
 
 /**
  * Controller for {@link AgentOS.view.fleet.cockpit.Container} — the cockpit is the **composition root** of
  * the B4÷C2 seam: the one place that knows both the resident cards and the fleet bridge, so the wire
  * lives here (the cards themselves stay intent-only and never touch transport).
  *
- * Two entry points, both driving the C2 adapter (`handleFleetLifecycleIntent`) → the registry bridge →
+ * Two entry points, both driving the C2 adapter (`FleetLifecycleIntentAdapter.handleFleetLifecycleIntent`) → the registry bridge →
  * honest per-record round-trip state, never an optimistic success:
  * - `onAgentLifecycleIntent` — catches a single card's `lifecycleIntent` (resolved up the controller
  *   chain via the card's listener) and dispatches it for that card's record.
@@ -68,7 +68,7 @@ class FleetCockpitController extends Controller {
      * (`fleet-start-summary`): started / UNKNOWN / rejected / excluded counts with per-member reasons
      * reachable from it — and the roster is re-polled ONCE so every resident that actually
      * started advances to live runtime truth ({@link #refreshRosterOnSettle}).
-     * @returns {Promise<Object>} The outcome summary (see `summarizeFleetStart`) — for tests and
+     * @returns {Promise<Object>} The outcome summary (see `FleetStartPlan.summarizeFleetStart`) — for tests and
      *     callers; the chrome render is the operator-facing half.
      * @protected
      */
@@ -76,15 +76,15 @@ class FleetCockpitController extends Controller {
         const
             me      = this,
             records = me.getRosterRecords(),
-            plan    = partitionFleetStart(records);
+            plan    = FleetStartPlan.partitionFleetStart(records);
 
         me.renderStartSummary(null);
 
         const results = await Promise.all(plan.eligible.map(record =>
-            handleFleetLifecycleIntent({action: 'start', agentId: record.agentId}, record)
+            FleetLifecycleIntentAdapter.handleFleetLifecycleIntent({action: 'start', agentId: record.agentId}, record)
         ));
 
-        const summary = summarizeFleetStart(plan, results);
+        const summary = FleetStartPlan.summarizeFleetStart(plan, results);
 
         me.renderStartSummary(summary);
 
@@ -110,7 +110,7 @@ class FleetCockpitController extends Controller {
      * @summary Write the fleet-start outcome into the chrome summary slot: the compact counts
      * line as the element text, the per-member reasons as its title (hover-reachable), hidden
      * again when cleared (`null` — a new run starts with no stale outcome showing).
-     * @param {Object|null} summary From `summarizeFleetStart`, or null to clear.
+     * @param {Object|null} summary From `FleetStartPlan.summarizeFleetStart`, or null to clear.
      */
     renderStartSummary(summary) {
         const slot = this.getReference('fleet-start-summary');
@@ -122,7 +122,7 @@ class FleetCockpitController extends Controller {
             return
         }
 
-        const {detail, text} = renderFleetStartSummary(summary);
+        const {detail, text} = FleetStartPlan.renderFleetStartSummary(summary);
 
         slot.set({hidden: false, html: text});
         slot.vdom.title = detail;
@@ -145,7 +145,7 @@ class FleetCockpitController extends Controller {
      * A card's control cluster fires an intent-only `lifecycleIntent {action, agentId}` and never
      * touches transport. The cockpit is the composition root that knows both the cards and the fleet
      * bridge: it resolves the firing card from the event `source`, then hands the intent + that card's
-     * roster record to the C2 adapter (`handleFleetLifecycleIntent`). The adapter calls the registry
+     * roster record to the C2 adapter (`FleetLifecycleIntentAdapter.handleFleetLifecycleIntent`). The adapter calls the registry
      * bridge and writes honest pending / settled / rejected state onto the record via `record.set()`;
      * the store's `recordChange` re-renders the card — never an optimistic success.
      * @param {Object} data The `lifecycleIntent` payload `{action, agentId, source}` — Neo stamps `source`.
@@ -154,7 +154,7 @@ class FleetCockpitController extends Controller {
         const card = Neo.getComponent(data.source);
 
         return card && this.refreshRosterOnSettle(
-            handleFleetLifecycleIntent(data, card.record).then(result => Boolean(result?.ok))
+            FleetLifecycleIntentAdapter.handleFleetLifecycleIntent(data, card.record).then(result => Boolean(result?.ok))
         )
     }
 

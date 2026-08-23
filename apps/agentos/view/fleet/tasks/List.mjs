@@ -1,6 +1,6 @@
-import BaseList                            from '../../../../../src/list/Base.mjs';
-import NeoArray                            from '../../../../../src/util/Array.mjs';
-import {formatViewerTime, viewerTimeTitle} from '../../../util/viewerTime.mjs';
+import BaseList   from '../../../../../src/list/Base.mjs';
+import NeoArray   from '../../../../../src/util/Array.mjs';
+import ViewerTime from '../../../util/ViewerTime.mjs';
 
 /**
  * @summary Provenance words per source axis — the pill every task row carries. Exported because
@@ -146,7 +146,7 @@ class List extends BaseList {
             progress = record.progressKind && Number.isInteger(record.progressDone) && Number.isInteger(record.progressTotal) && record.progressTotal > 0
                 ? {kind: record.progressKind, done: Math.min(record.progressDone, record.progressTotal), total: record.progressTotal}
                 : null,
-            title    = viewerTimeTitle(record.at),
+            title    = ViewerTime.viewerTimeTitle(record.at),
             cn       = [{
                 tag : 'span',
                 id  : `${id}__time`,
@@ -208,7 +208,7 @@ class List extends BaseList {
      * @returns {String}
      */
     formatStamp(value) {
-        return value ? (formatViewerTime(value)?.text ?? 'unknown time') : '—'
+        return value ? (ViewerTime.formatViewerTime(value)?.text ?? 'unknown time') : '—'
     }
 }
 

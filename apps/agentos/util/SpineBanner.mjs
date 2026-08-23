@@ -1,5 +1,7 @@
+import Base from '../../../src/core/Base.mjs';
+
 /**
- * @module apps/agentos/util/spineBanner
+ * @module apps/agentos/util/SpineBanner
  * @summary The cockpit's per-SPINE honesty line: derives ONE shell-level status from the
  * owner-held surface truths, so the surface names WHY it shows static (derived, offline) or
  * last-known data instead of failing silent. Render-only over existing truth — this module
@@ -83,7 +85,7 @@ function reasonFor(surfaces, state) {
  * header's aggregate attention fold reads the SAME fault set — one authority, two consumers.
  * @type {String[]}
  */
-export const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
+const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
 
 /**
  * @summary Picks the cold-case fallback line for SILENCE, from the topology that owns the truth.
@@ -122,100 +124,117 @@ function coldFallbackFor(transport) {
 }
 
 /**
- * @summary Derives the spine banner from the owner-held surface truths.
- * @param {Object} options
- * @param {{state: String, reason: ?String}} options.grid The roster surface: `'sample'|'stale'|'live'`
- *     plus the safe cause the owner retained for THAT surface, if it learned one.
- * @param {{state: String, reason: ?String}} options.stream The activity surface, same shape.
- * @param {{state: String, reason: ?String}} [options.daemon] Brain daemon health:
- *     `'running'|'degraded'|'stopped'`, with the diagnosis pointer as its reason. Optional — a caller
- *     that has not pulled daemon truth passes nothing rather than guessing `running`.
- * @param {Object|null} [options.transport] The shell transport-boot fact (see {@link coldFallbackFor}).
- *     Optional and `null`-safe — only the cold fallback consults it, so a retained surface reason
- *     still outranks any topology guess.
- * @returns {{hidden: Boolean, kind: String, text: String}} `kind` is `'live'|'cold'|'degraded'`
- *     — the class hook; `hidden` is `true` only for the fully live spine.
+ * Static derivation for the Fleet Cockpit spine honesty banner.
+ * @class AgentOS.util.SpineBanner
+ * @extends Neo.core.Base
  */
-export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
-    const surfaces = [grid, stream],
-          states   = surfaces.map(surface => surface?.state);
+class SpineBanner extends Base {
+    static DAEMON_FAULT_STATES = DAEMON_FAULT_STATES
 
-    // Only a sample GRID enters the cold family: its copy asserts roster + server facts, and a
-    // sample sibling stream has no standing to make either claim over a live roster.
-    // Both-sample keeps the exact pre-partition behavior — the reason scan still covers both
-    // surfaces, so a stream-retained cause surfaces when the grid learned none.
-    if (grid?.state === 'sample') {
-        const reason = reasonFor(surfaces, 'sample');
-
-        return {
-            hidden: false,
-            kind  : 'cold',
-            // Same discipline the `stale` line follows: name the retained cause when the owner HAS
-            // one, guess only when it does not. A reachable server whose source is unconfigured
-            // answers `not-wired` — the seed stays, so the data really is sample, but "start the
-            // server" would be advice to restart a process that just replied. The fallback for
-            // SILENCE is topology-owned: the shell's transport fact picks the honest line, and
-            // only the plain-browser flow keeps the classic "start the server" advice.
-            text: reason
-                ? `Fleet data unavailable — showing the static roster · ${reason}`
-                : coldFallbackFor(transport)
-        }
+    static config = {
+        /**
+         * @member {String} className='AgentOS.util.SpineBanner'
+         * @protected
+         */
+        className: 'AgentOS.util.SpineBanner'
     }
 
-    // ABOVE `stale` deliberately: a dead daemon is usually what MADE the feed stale, so reporting the
-    // feed alone would name the symptom and drop the diagnosis pointer the spec requires. Read from
-    // its own surface via the same helper, so the daemon's cause can never be supplied or silenced by
-    // a transport sibling.
-    if (DAEMON_FAULT_STATES.includes(daemon?.state)) {
-        const reason = reasonFor([daemon], daemon.state),
+    /**
+     * @summary Derives the spine banner from the owner-held surface truths.
+     * @param {Object} options
+     * @param {{state: String, reason: ?String}} options.grid The roster surface: `'sample'|'stale'|'live'`
+     *     plus the safe cause the owner retained for THAT surface, if it learned one.
+     * @param {{state: String, reason: ?String}} options.stream The activity surface, same shape.
+     * @param {{state: String, reason: ?String}} [options.daemon] Brain daemon health:
+     *     `'running'|'degraded'|'stopped'`, with the diagnosis pointer as its reason. Optional — a caller
+     *     that has not pulled daemon truth passes nothing rather than guessing `running`.
+     * @param {Object|null} [options.transport] The shell transport-boot fact (see {@link coldFallbackFor}).
+     *     Optional and `null`-safe — only the cold fallback consults it, so a retained surface reason
+     *     still outranks any topology guess.
+     * @returns {{hidden: Boolean, kind: String, text: String}} `kind` is `'live'|'cold'|'degraded'`
+     *     — the class hook; `hidden` is `true` only for the fully live spine.
+     */
+    static deriveSpineBanner({daemon, grid, stream, transport = null}) {
+        const surfaces = [grid, stream],
+              states   = surfaces.map(surface => surface?.state);
+
+        // Only a sample GRID enters the cold family: its copy asserts roster + server facts, and a
+        // sample sibling stream has no standing to make either claim over a live roster.
+        // Both-sample keeps the exact pre-partition behavior — the reason scan still covers both
+        // surfaces, so a stream-retained cause surfaces when the grid learned none.
+        if (grid?.state === 'sample') {
+            const reason = reasonFor(surfaces, 'sample');
+
+            return {
+                hidden: false,
+                kind  : 'cold',
+                // Same discipline the `stale` line follows: name the retained cause when the owner HAS
+                // one, guess only when it does not. A reachable server whose source is unconfigured
+                // answers `not-wired` — the seed stays, so the data really is sample, but "start the
+                // server" would be advice to restart a process that just replied. The fallback for
+                // SILENCE is topology-owned: the shell's transport fact picks the honest line, and
+                // only the plain-browser flow keeps the classic "start the server" advice.
+                text: reason
+                    ? `Fleet data unavailable — showing the static roster · ${reason}`
+                    : coldFallbackFor(transport)
+            }
+        }
+
+        // ABOVE `stale` deliberately: a dead daemon is usually what MADE the feed stale, so reporting the
+        // feed alone would name the symptom and drop the diagnosis pointer the spec requires. Read from
+        // its own surface via the same helper, so the daemon's cause can never be supplied or silenced by
+        // a transport sibling.
+        if (SpineBanner.DAEMON_FAULT_STATES.includes(daemon?.state)) {
+            const reason = reasonFor([daemon], daemon.state),
               // The state is part of the sentence, not just the class: `stopped` and `degraded` are
               // different operator situations (nothing running vs something wrong), and a banner that
               // said only "degraded" for both would make the tray the sole place that distinction
               // exists — unreachable to a screen reader.
               label  = daemon.state === 'stopped' ? 'stopped' : 'degraded';
 
-        return {
-            hidden: false,
-            kind  : 'degraded',
-            // Same reason-or-fallback discipline as the transport lines. The fallback names WHERE to
-            // look rather than what to run: unlike the fleet server there is no single restart verb
-            // that is right for every daemon, and printing a confident wrong command is worse than
-            // pointing at the surface that knows which daemon died.
-            text: reason
-                ? `Agent OS ${label} — showing the cockpit over a partial organism · ${reason}`
-                : `Agent OS ${label} — showing the cockpit over a partial organism · check the tray state and the daemon log`
+            return {
+                hidden: false,
+                kind  : 'degraded',
+                // Same reason-or-fallback discipline as the transport lines. The fallback names WHERE to
+                // look rather than what to run: unlike the fleet server there is no single restart verb
+                // that is right for every daemon, and printing a confident wrong command is worse than
+                // pointing at the surface that knows which daemon died.
+                text: reason
+                    ? `Agent OS ${label} — showing the cockpit over a partial organism · ${reason}`
+                    : `Agent OS ${label} — showing the cockpit over a partial organism · check the tray state and the daemon log`
+            }
         }
-    }
 
-    if (states.includes('stale')) {
-        const reason = reasonFor(surfaces, 'stale');
+        if (states.includes('stale')) {
+            const reason = reasonFor(surfaces, 'stale');
 
-        return {
-            hidden: false,
-            kind  : 'degraded',
-            text  : reason
-                ? `Fleet feed degraded — showing last-known data · ${reason}`
-                : 'Fleet feed degraded — showing last-known data'
+            return {
+                hidden: false,
+                kind  : 'degraded',
+                text  : reason
+                    ? `Fleet feed degraded — showing last-known data · ${reason}`
+                    : 'Fleet feed degraded — showing last-known data'
+            }
         }
-    }
 
-    // The stream's own verdict: reachable here only with a LIVE grid (sample/stale grids returned
-    // above), so "roster is live" is true by construction — the fact that falsifies the old cold
-    // copy this case used to render. A pending feed is not an incident: `degraded` skin, and the
-    // transport fact is deliberately not consulted (it belongs to the cold family alone).
-    if (stream?.state === 'sample') {
-        const reason = reasonFor([stream], 'sample');
+        // The stream's own verdict: reachable here only with a LIVE grid (sample/stale grids returned
+        // above), so "roster is live" is true by construction — the fact that falsifies the old cold
+        // copy this case used to render. A pending feed is not an incident: `degraded` skin, and the
+        // transport fact is deliberately not consulted (it belongs to the cold family alone).
+        if (stream?.state === 'sample') {
+            const reason = reasonFor([stream], 'sample');
 
-        return {
-            hidden: false,
-            kind  : 'degraded',
-            text  : reason
-                ? `Activity feed pending — roster is live · ${reason}`
-                : 'Activity feed pending — roster is live'
+            return {
+                hidden: false,
+                kind  : 'degraded',
+                text  : reason
+                    ? `Activity feed pending — roster is live · ${reason}`
+                    : 'Activity feed pending — roster is live'
+            }
         }
-    }
 
-    return {hidden: true, kind: 'live', text: ''}
+        return {hidden: true, kind: 'live', text: ''}
+    }
 }
 
-export default deriveSpineBanner;
+export default Neo.setupClass(SpineBanner);

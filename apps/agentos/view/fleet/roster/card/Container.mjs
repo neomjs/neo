@@ -26,10 +26,9 @@ const PRESENCE_BAND_LABEL = Object.freeze({
     idle  : 'idle'
 });
 
-import {normalizeFleetSources, resolveFleetDisplayState, summarizeAnsweredAbnormal} from '../../../../util/sourceHealth.mjs';
-
-import {describeNameProvenance, resolveNameSlot} from '../../../../util/nameSlot.mjs';
-import {describeTelltale}                        from '../../../../util/telltale.mjs';
+import NameSlot     from '../../../../util/NameSlot.mjs';
+import SourceHealth from '../../../../util/SourceHealth.mjs';
+import Telltale     from '../../../../util/Telltale.mjs';
 
 /**
  * The resident card: the cockpit's atom — the evolved-D/synthesis composition (operator SELECT
@@ -345,8 +344,8 @@ class AgentCard extends Container {
         const
             controlReason = record.controlReason ?? null,
             pendingAction = record.pendingAction ?? null,
-            sources       = normalizeFleetSources(record.sources),
-            summary       = summarizeAnsweredAbnormal(record.sources),
+            sources       = SourceHealth.normalizeFleetSources(record.sources),
+            summary       = SourceHealth.summarizeAnsweredAbnormal(record.sources),
             // the runtime fact gates a resolved session state: a wired runtime renders the row's
             // state as session truth; without one, an explicit `off` stays the operator-benched
             // participation fact it is, while every other state renders `unobserved` — never a
@@ -355,7 +354,7 @@ class AgentCard extends Container {
             // fact (we sent the intent) and takes precedence with no runtime-source gate
             runtimeWired  = sources.runtime.state === 'wired',
             recordState   = record.state ?? 'off',
-            resolvedState = resolveFleetDisplayState({state: record.state, sources: record.sources}),
+            resolvedState = SourceHealth.resolveFleetDisplayState({state: record.state, sources: record.sources}),
             displayState  = pendingAction === 'stop'
                 ? 'stopping'
                 : pendingAction // 'start' | 'restart' both transition toward running
@@ -396,10 +395,10 @@ class AgentCard extends Container {
 
         // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id
         const
-            nameSlot   = resolveNameSlot(record),
+            nameSlot   = NameSlot.resolveNameSlot(record),
             nameButton = me.getReference('card-name'),
             provenance = me.getReference('name-provenance'),
-            chip       = describeNameProvenance(nameSlot.provenance.state);
+            chip       = NameSlot.describeNameProvenance(nameSlot.provenance.state);
 
         nameButton.text = nameSlot.text;
         nameButton[nameSlot.isFallback ? 'addCls' : 'removeCls']('fm-card-name-id');
@@ -443,7 +442,7 @@ class AgentCard extends Container {
         // the S2 telltale: both axes passed WHOLE (unknown ≠ null — the card never collapses the two)
         const
             telltale                         = me.getReference('card-telltale'),
-            {ariaLabel, hidden, text, title} = describeTelltale({throttle: record.throttle, wake: record.wake});
+            {ariaLabel, hidden, text, title} = Telltale.describeTelltale({throttle: record.throttle, wake: record.wake});
 
         telltale.set({hidden, text});
         telltale.changeVdomRootKey('aria-label', ariaLabel);

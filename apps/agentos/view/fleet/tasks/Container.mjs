@@ -3,7 +3,7 @@ import Button                                         from '../../../../../src/b
 import FleetTasks                                     from '../../../store/FleetTasks.mjs';
 import TasksController                                from './Controller.mjs';
 import TasksList, {SOURCE_LABELS, SOURCE_STATE_WORDS} from './List.mjs';
-import {formatViewerTime, viewerTimeTitle}            from '../../../util/viewerTime.mjs';
+import ViewerTime                                     from '../../../util/ViewerTime.mjs';
 
 /**
  * @summary The three sections, in the order the operator asks: what is in flight, what comes
@@ -234,7 +234,7 @@ class Container extends BaseContainer {
 
             // T5 receipt; falsy removes, so the unobserved and unavailable branches — which render
             // no stamp — cannot leave a previous read's instant hovering behind their copy
-            metaEl.changeVdomRootKey('title', wired ? viewerTimeTitle(snapshot.capability.capturedAt) : null)
+            metaEl.changeVdomRootKey('title', wired ? ViewerTime.viewerTimeTitle(snapshot.capability.capturedAt) : null)
         }
     }
 
@@ -260,7 +260,7 @@ class Container extends BaseContainer {
      * @returns {String}
      */
     formatStamp(value) {
-        return value ? (formatViewerTime(value)?.text ?? 'unknown time') : '—'
+        return value ? (ViewerTime.formatViewerTime(value)?.text ?? 'unknown time') : '—'
     }
 }
 

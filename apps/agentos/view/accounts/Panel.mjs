@@ -1,19 +1,14 @@
-import AgentConfigCard                                           from '../fleet/detail/AgentConfigComponent.mjs';
-import {
-    createDefineAgentIntent,
-    isShellCredentialIngress,
-    resolveRegistryBridge,
-    validateDefinePayload
-}                                                                from '../../util/addAgentFlow.mjs';
-import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from '../../util/configIntentRoundTrip.mjs';
-import Button                                                    from '../../../../src/button/Base.mjs';
-import DashboardPanel                                            from '../../../../src/dashboard/Panel.mjs';
-import FormContainer                                             from '../../../../src/form/Container.mjs';
-import {listHarnessTypes}                                        from '../../config/harnessTypes.mjs';
-import PasswordField                                             from '../../../../src/form/field/Password.mjs';
-import Radio                                                     from '../../../../src/form/field/Radio.mjs';
-import TextField                                                 from '../../../../src/form/field/Text.mjs';
-import Toolbar                                                   from '../../../../src/toolbar/Base.mjs';
+import AgentConfigCard       from '../fleet/detail/AgentConfigComponent.mjs';
+import AddAgentFlow          from '../../util/AddAgentFlow.mjs';
+import ConfigIntentRoundTrip from '../../util/ConfigIntentRoundTrip.mjs';
+import Button                from '../../../../src/button/Base.mjs';
+import DashboardPanel        from '../../../../src/dashboard/Panel.mjs';
+import FormContainer         from '../../../../src/form/Container.mjs';
+import {listHarnessTypes}    from '../../config/harnessTypes.mjs';
+import PasswordField         from '../../../../src/form/field/Password.mjs';
+import Radio                 from '../../../../src/form/field/Radio.mjs';
+import TextField             from '../../../../src/form/field/Text.mjs';
+import Toolbar               from '../../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.accounts.Panel
@@ -223,7 +218,7 @@ class Accounts extends DashboardPanel {
 
         const
             me         = this,
-            bridge     = resolveRegistryBridge(),
+            bridge     = AddAgentFlow.resolveRegistryBridge(),
             form       = me.getReference('agent-form'),
             credential = form?.items.find(item => item.name === 'credential');
 
@@ -232,7 +227,7 @@ class Accounts extends DashboardPanel {
         card?.on({configIntent: me.onAgentConfigIntent, scope: me});
         if (card) card.tenantStore = me.fleetTenantsStore;
 
-        if (isShellCredentialIngress(bridge)) {
+        if (AddAgentFlow.isShellCredentialIngress(bridge)) {
             credential && form.remove(credential);
             me.updateBridgeStatus(
                 'is-live',
@@ -328,7 +323,7 @@ class Accounts extends DashboardPanel {
     async onAgentConfigIntent(intent={}) {
         const me = this;
 
-        return runConfigIntentRoundTrip({
+        return ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             intent,
             owner        : me,
             setSaveStatus: me.setAgentConfigSaveStatus.bind(me),
@@ -370,7 +365,7 @@ class Accounts extends DashboardPanel {
         // the SHARED write recency: an accepted configure readback from ANY owner (this view's
         // card OR the AgentDetail tab) bumps the store's write generation — a list snapshot older
         // than that write must never regress the store
-        const writeGeneration = getDefinitionsWriteGeneration(store);
+        const writeGeneration = ConfigIntentRoundTrip.getDefinitionsWriteGeneration(store);
 
         try {
             const agents = await bridge.listAgents();
@@ -381,7 +376,7 @@ class Accounts extends DashboardPanel {
             if (
                 generation !== me.agentDefinitionsLoadGeneration ||
                 store      !== me.agentDefinitionsStore          ||
-                getDefinitionsWriteGeneration(store) !== writeGeneration
+                ConfigIntentRoundTrip.getDefinitionsWriteGeneration(store) !== writeGeneration
             ) {
                 return false
             }
@@ -520,10 +515,10 @@ class Accounts extends DashboardPanel {
      */
     async onLoadSampleClick() {
         const
-            bridge = resolveRegistryBridge(),
+            bridge = AddAgentFlow.resolveRegistryBridge(),
             form   = this.getReference('agent-form');
 
-        await form.setValues(createDefineAgentIntent({
+        await form.setValues(AddAgentFlow.createDefineAgentIntent({
             credential    : '',
             githubUsername: 'neo-gpt',
             harnessType   : 'codex'
@@ -531,7 +526,7 @@ class Accounts extends DashboardPanel {
 
         this.updateBridgeStatus(
             'is-waiting',
-            isShellCredentialIngress(bridge)
+            AddAgentFlow.isShellCredentialIngress(bridge)
                 ? 'Sample loaded. The native shell will supply the credential when you add the agent.'
                 : 'Sample loaded. Enter a PAT to add the agent; the value clears after the attempt.'
         )
@@ -548,13 +543,13 @@ class Accounts extends DashboardPanel {
      */
     async onSubmitAgentClick() {
         const
-            bridge     = resolveRegistryBridge(),
-            shellOwned = isShellCredentialIngress(bridge),
+            bridge     = AddAgentFlow.resolveRegistryBridge(),
+            shellOwned = AddAgentFlow.isShellCredentialIngress(bridge),
             form       = this.getReference('agent-form'),
             valid      = await form.validate(),
             values     = await form.getSubmitValues(),
-            payload    = createDefineAgentIntent(values, bridge),
-            validation = validateDefinePayload(payload, {credentialRequired: !shellOwned});
+            payload    = AddAgentFlow.createDefineAgentIntent(values, bridge),
+            validation = AddAgentFlow.validateDefinePayload(payload, {credentialRequired: !shellOwned});
 
         if (!valid || !validation.valid) {
             this.updateBridgeStatus('is-error', `Agent setup incomplete. ${validation.reason}`);
@@ -624,13 +619,13 @@ class Accounts extends DashboardPanel {
      *     `{status:'rejected', reason}` domain outcome.
      */
     async submitToFleetRegistryBridge(payload) {
-        const bridge = resolveRegistryBridge();
+        const bridge = AddAgentFlow.resolveRegistryBridge();
 
         if (!bridge?.defineAgent) {
             throw new Error('Fleet Registry bridge unavailable')
         }
 
-        return bridge.defineAgent(createDefineAgentIntent(payload, bridge))
+        return bridge.defineAgent(AddAgentFlow.createDefineAgentIntent(payload, bridge))
     }
 
     /**

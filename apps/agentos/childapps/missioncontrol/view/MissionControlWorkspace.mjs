@@ -2,7 +2,7 @@ import Component                  from '../../../../../src/component/Base.mjs';
 import Container                  from '../../../../../src/container/Base.mjs';
 import FleetCockpit               from '../../../view/fleet/cockpit/Container.mjs';
 import TourRunner                 from '../../../../../src/ai/client/TourRunner.mjs';
-import cockpitDockDocument        from '../../../util/cockpitDockDocument.mjs';
+import CockpitDockDocument        from '../../../util/CockpitDockDocument.mjs';
 import {fusionTourScript}         from '../../../tour/fusionFlagship.mjs';
 import {missionControlTourScript} from '../../../tour/missionControlWalkthrough.mjs';
 import '../../../../../src/button/Base.mjs';  // registers the `button` ntype the tour bar composes
@@ -282,7 +282,7 @@ class MissionControlWorkspace extends Container {
      * @returns {Object} The freshly committed opening document.
      */
     resetTourStage() {
-        let document = cockpitDockDocument();
+        let document = CockpitDockDocument.create();
 
         this.cockpit?.onDockZoneDocumentChange(document);
         return document

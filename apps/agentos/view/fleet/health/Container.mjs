@@ -1,6 +1,6 @@
-import Container                                                            from '../../../../../src/container/Base.mjs';
-import HealthSwatch                                                         from './SwatchComponent.mjs';
-import {FLEET_SOURCE_KEYS, normalizeFleetSources, resolveFleetDisplayState} from '../../../util/sourceHealth.mjs';
+import Container    from '../../../../../src/container/Base.mjs';
+import HealthSwatch from './SwatchComponent.mjs';
+import SourceHealth from '../../../util/SourceHealth.mjs';
 
 /**
  * Canonical category order for the health summary — the seven session-state buckets in the SSOT
@@ -22,7 +22,7 @@ const ATTENTION_STATES = Object.freeze(['wedged', 'limited']);
 
 /**
  * @summary Pure fleet → per-category counts — the scale-to-a-glance tally.
- * Buckets each agent through {@link resolveFleetDisplayState} — the SAME resolver the AgentCard
+ * Buckets each agent through {@link SourceHealth.resolveFleetDisplayState} — the SAME resolver the AgentCard
  * renders from, so the glance tally and every card can never diverge: a roster-only active row
  * counts as `unobserved` here exactly as the card displays it, while an explicit operator-benched
  * `off` counts as benched in both. Unknown/guest rows fold into `off` (never a 7th key). Every
@@ -39,7 +39,7 @@ export function healthCounts(agents) {
         // canonical display state → its own bucket; a non-bucket value (transitional
         // starting/stopping never reaches the tally, but fail closed anyway) → external, matching
         // the resolver's own outside-supervision fold — never an invented benched verdict
-        const resolved = resolveFleetDisplayState({state: agent?.state, sources: agent?.sources}),
+        const resolved = SourceHealth.resolveFleetDisplayState({state: agent?.state, sources: agent?.sources}),
               key      = Object.hasOwn(counts, resolved) ? resolved : 'external';
 
         counts[key] += 1
@@ -84,11 +84,11 @@ export function deriveAttention({counts, rows = [], daemonFault = false, presenc
     }
 
     return (Array.isArray(rows) ? rows : []).some(row => {
-        const sources = normalizeFleetSources(row?.sources);
+        const sources = SourceHealth.normalizeFleetSources(row?.sources);
 
         // missing (a producer answered something is gone) and invalid (a present answer the
         // contract rejected) both carry weight; only genuine absence stays calm
-        return FLEET_SOURCE_KEYS.some(key => sources[key].state === 'missing' || sources[key].state === 'invalid')
+        return SourceHealth.FLEET_SOURCE_KEYS.some(key => sources[key].state === 'missing' || sources[key].state === 'invalid')
     })
 }
 

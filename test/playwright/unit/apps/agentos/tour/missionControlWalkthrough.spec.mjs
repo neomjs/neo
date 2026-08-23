@@ -15,7 +15,7 @@ import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import {validateTourScript}                        from '../../../../../../src/ai/client/tourScript.mjs';
 import {missionControlTourScript, initialDocument} from '../../../../../../apps/agentos/tour/missionControlWalkthrough.mjs';
-import cockpitDockDocument                         from '../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
+import CockpitDockDocument                         from '../../../../../../apps/agentos/util/CockpitDockDocument.mjs';
 
 /**
  * @summary Verifies the mission-control walkthrough screenplay as reviewed content: it
@@ -75,7 +75,7 @@ test.describe.serial('apps/agentos/tour/missionControlWalkthrough', () => {
     });
 
     test('the opening stage IS the shipped cockpit default — imported, never forked', () => {
-        expect(initialDocument).toEqual(cockpitDockDocument())
+        expect(initialDocument).toEqual(CockpitDockDocument.create())
     });
 
     test('the recorded close uses the time-neutral Start fleet contract', () => {

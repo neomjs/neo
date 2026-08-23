@@ -1,9 +1,9 @@
-import AgentSessionSummaries               from '../../../store/AgentSessionSummaries.mjs';
-import AgentSessionTurns                   from '../../../store/AgentSessionTurns.mjs';
-import Button                              from '../../../../../src/button/Base.mjs';
-import Component                           from '../../../../../src/component/Base.mjs';
-import Container                           from '../../../../../src/container/Base.mjs';
-import {formatViewerTime, viewerTimeTitle} from '../../../util/viewerTime.mjs';
+import AgentSessionSummaries from '../../../store/AgentSessionSummaries.mjs';
+import AgentSessionTurns     from '../../../store/AgentSessionTurns.mjs';
+import Button                from '../../../../../src/button/Base.mjs';
+import Component             from '../../../../../src/component/Base.mjs';
+import Container             from '../../../../../src/container/Base.mjs';
+import ViewerTime            from '../../../util/ViewerTime.mjs';
 
 /**
  * The invoked Fleet memories surface: what one agent has been doing, session by session.
@@ -404,7 +404,7 @@ class MemoriesPane extends Container {
 
             // T5 receipt; falsy removes, so the pending and unavailable branches — which render no
             // stamp — cannot leave a previous read's instant hovering behind their copy.
-            metaEl.changeVdomRootKey('title', !pending && adopted && wired ? viewerTimeTitle(adopted.capability.capturedAt) : null)
+            metaEl.changeVdomRootKey('title', !pending && adopted && wired ? ViewerTime.viewerTimeTitle(adopted.capability.capturedAt) : null)
         }
 
         // the actions bar is summary-owned chrome: while the drill is open its affordances hide
@@ -561,7 +561,7 @@ class MemoriesPane extends Container {
                 // T5 receipt, config shape. A session summary's own timestamp is the field an agent
                 // cites when pointing at a session, so losing its exact instant to a local-only
                 // rendering would cost more here than on any other pane.
-                ...(viewerTimeTitle(record.timestamp) ? {vdom: {title: viewerTimeTitle(record.timestamp)}} : {})
+                ...(ViewerTime.viewerTimeTitle(record.timestamp) ? {vdom: {title: ViewerTime.viewerTimeTitle(record.timestamp)}} : {})
             }];
 
         if (coAuthors.length > 0) {
@@ -688,7 +688,7 @@ class MemoriesPane extends Container {
                 module: Component,
                 cls   : ['fm-memories-turn-meta'],
                 text  : metaBits.join(' · '),
-                ...(viewerTimeTitle(record.timestamp) ? {vdom: {title: viewerTimeTitle(record.timestamp)}} : {})
+                ...(ViewerTime.viewerTimeTitle(record.timestamp) ? {vdom: {title: ViewerTime.viewerTimeTitle(record.timestamp)}} : {})
             }, {
                 module: Component,
                 cls   : ['fm-memories-turn-response'],
@@ -730,13 +730,13 @@ class MemoriesPane extends Container {
     }
 
     /**
-     * @summary Viewer-local stamp via the shared cockpit formatter — see `viewerTime.mjs` for why
+     * @summary Viewer-local stamp via the shared cockpit formatter — see `ViewerTime.mjs` for why
      * format is single-sourced while this pane keeps its own "unknown time" miss-copy.
      * @param {Date|String|Number|null} value
      * @returns {String}
      */
     formatStamp(value) {
-        return formatViewerTime(value)?.text ?? 'unknown time'
+        return ViewerTime.formatViewerTime(value)?.text ?? 'unknown time'
     }
 }
 

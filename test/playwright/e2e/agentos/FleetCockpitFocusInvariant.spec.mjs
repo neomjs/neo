@@ -23,7 +23,7 @@ import {test, expect} from '../../fixtures.mjs';
  * so without proof the tree was really there, "no overrides" is a vacuous pass.
  *
  * @see apps/agentos/view/fleet/cockpit/Container.mjs
- * @see apps/agentos/util/cockpitDockDocument.mjs
+ * @see apps/agentos/util/CockpitDockDocument.mjs
  * @see test/playwright/e2e/agentos/FleetGridKeyboardA11y.spec.mjs — AC2(b)/(d), the drill path
  * @see test/playwright/unit/apps/agentos/cockpitDockDocument.spec.mjs — AC2(c), the autoHidden zones
  */

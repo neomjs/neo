@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
-import {describeTelltale, describeTelltaleReadout, TELLTALE_CARD_DEVIANT, TELLTALE_NOMINAL} from '../../../../../../../../apps/agentos/util/telltale.mjs';
+import Telltale from '../../../../../../../../apps/agentos/util/Telltale.mjs';
 
 /**
  * @summary The S2 telltale contract.
@@ -22,14 +22,14 @@ import {describeTelltale, describeTelltaleReadout, TELLTALE_CARD_DEVIANT, TELLTA
  */
 test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound chip', () => {
     test('nominal on both axes earns ZERO card pixels', () => {
-        expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'none'}}))
+        expect(Telltale.describeTelltale({wake: {state: 'on'}, throttle: {state: 'none'}}))
             .toEqual({ariaLabel: null, hidden: true, text: '', title: null})
     });
 
     test('the nominal vocabulary is the producers\', not this module\'s invention', () => {
         // If a producer's nominal value ever drifts, this fails here rather than silently rendering
         // every healthy agent as an exception.
-        expect(TELLTALE_NOMINAL).toEqual({throttle: 'none', wake: 'on'})
+        expect(Telltale.TELLTALE_NOMINAL).toEqual({throttle: 'none', wake: 'on'})
     });
 
     test('`unknown` is card-SILENT and detail-visible — the ledger\'s density resolution', () => {
@@ -41,14 +41,14 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         //
         // Measured against the default adapter: 3 agents, 3 `unknown`s, 3 chips. "The producers
         // landed" was true and did not imply the producers can see.
-        expect(describeTelltale({wake: {state: 'unknown'}, throttle: {state: 'none'}}))
+        expect(Telltale.describeTelltale({wake: {state: 'unknown'}, throttle: {state: 'none'}}))
             .toEqual({ariaLabel: null, hidden: true, text: '', title: null});
 
-        expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'unknown'}}))
+        expect(Telltale.describeTelltale({wake: {state: 'on'}, throttle: {state: 'unknown'}}))
             .toEqual({ariaLabel: null, hidden: true, text: '', title: null});
 
         // …and the fact still reaches the operator, unhidden, where there is room for it
-        expect(describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'unknown', reason: 'no reader'}}))
+        expect(Telltale.describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'unknown', reason: 'no reader'}}))
             .toContainEqual({axis: 'throttle', state: 'unknown', nominal: false, reported: true, reason: 'no reader'})
     });
 
@@ -57,24 +57,24 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // new or out-of-contract producer value straight onto every card at once, which is precisely
         // how `unknown` got there. Silent on the card, loud in the detail, is the right way round for
         // a surface whose budget is pixels.
-        expect(TELLTALE_CARD_DEVIANT).toEqual({throttle: ['overage', 'rate-limited'], wake: ['off', 'suppressed']});
+        expect(Telltale.TELLTALE_CARD_DEVIANT).toEqual({throttle: ['overage', 'rate-limited'], wake: ['off', 'suppressed']});
 
         // an out-of-contract answer earns no card pixels — but is still stated verbatim in the detail
-        expect(describeTelltale({wake: {state: 'wat'}, throttle: {state: 'none'}})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
-        expect(describeTelltaleReadout({wake: {state: 'wat'}, throttle: null})[0].state).toBe('wat')
+        expect(Telltale.describeTelltale({wake: {state: 'wat'}, throttle: {state: 'none'}})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
+        expect(Telltale.describeTelltaleReadout({wake: {state: 'wat'}, throttle: null})[0].state).toBe('wat')
     });
 
     test('`null` is the ABSENCE of an observation — no chip, and no manufactured unknown', () => {
         // The row carried no axis. Defaulting to 'unknown' here would report blindness the producer
         // never claimed — an invented observation, which is the inverse defect of hiding a real one.
-        expect(describeTelltale({wake: null, throttle: null})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
-        expect(describeTelltale({})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
-        expect(describeTelltale()).toEqual({ariaLabel: null, hidden: true, text: '', title: null})
+        expect(Telltale.describeTelltale({wake: null, throttle: null})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
+        expect(Telltale.describeTelltale({})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
+        expect(Telltale.describeTelltale()).toEqual({ariaLabel: null, hidden: true, text: '', title: null})
     });
 
     test('a null axis alongside a non-nominal one reports ONLY what was observed', () => {
         // The un-stamped axis contributes nothing — it is not 'unknown', it is absent.
-        expect(describeTelltale({wake: {state: 'suppressed'}, throttle: null}))
+        expect(Telltale.describeTelltale({wake: {state: 'suppressed'}, throttle: null}))
             .toEqual({
                 ariaLabel: 'Telltale: wake suppressed',
                 hidden   : false,
@@ -92,7 +92,7 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // BOTH deviations name their axis. The first cut emitted a bare `rate-limited`: six characters
         // saved, and the reader left to know which of two disjoint vocabularies the word came from —
         // on the one surface that exists to be read at a glance.
-        expect(describeTelltale({wake: {state: 'off'}, throttle: {state: 'rate-limited'}}))
+        expect(Telltale.describeTelltale({wake: {state: 'off'}, throttle: {state: 'rate-limited'}}))
             .toEqual({
                 ariaLabel: 'Telltale: wake off, throttle rate-limited',
                 hidden   : false,
@@ -106,11 +106,11 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // and if the unactionable ones cannot silently flood. Both halves are asserted here, because
         // the first half alone is what put `unknown` on every card in the fleet.
         ['off', 'suppressed'].forEach(state => {
-            expect(describeTelltale({wake: {state}}).hidden, `wake ${state} must chip`).toBe(false)
+            expect(Telltale.describeTelltale({wake: {state}}).hidden, `wake ${state} must chip`).toBe(false)
         });
 
         ['overage', 'rate-limited'].forEach(state => {
-            expect(describeTelltale({throttle: {state}}).hidden, `throttle ${state} must chip`).toBe(false)
+            expect(Telltale.describeTelltale({throttle: {state}}).hidden, `throttle ${state} must chip`).toBe(false)
         });
 
         // the other half of the matrix: nominal, blind and absent all cost zero pixels, for three
@@ -118,7 +118,7 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         [{wake: {state: 'on'}}, {wake: {state: 'unknown'}}, {wake: null},
          {throttle: {state: 'none'}}, {throttle: {state: 'unknown'}}, {throttle: null}
         ].forEach(record => {
-            expect(describeTelltale(record).hidden, `${JSON.stringify(record)} must cost zero card pixels`).toBe(true)
+            expect(Telltale.describeTelltale(record).hidden, `${JSON.stringify(record)} must cost zero card pixels`).toBe(true)
         })
     });
 
@@ -126,7 +126,7 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // The chip reads `state` only. `confidence`/`reason` are the producer's evidence and belong in
         // the detail readout; a chip that changed with confidence would make two different producers'
         // 'unknown' render differently for no operator-visible reason.
-        expect(describeTelltale({wake: {state: 'on', confidence: 'none', reason: 'noisy'}}))
+        expect(Telltale.describeTelltale({wake: {state: 'on', confidence: 'none', reason: 'noisy'}}))
             .toEqual({ariaLabel: null, hidden: true, text: '', title: null})
     })
 
@@ -134,19 +134,19 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // The card is exception-based: 20 cards cannot spend a line each on "fine". The detail shows
         // ONE resident, so omitting a nominal axis leaves the operator unable to tell "wake is on"
         // from "nobody looked at wake". Same data, opposite rule.
-        const readout = describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'none'}});
+        const readout = Telltale.describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'none'}});
 
         expect(readout.map(row => [row.axis, row.state, row.nominal]))
             .toEqual([['wake', 'on', true], ['throttle', 'none', true]]);
 
         // and the card says nothing at all for that same record
-        expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'none'}}).hidden).toBe(true)
+        expect(Telltale.describeTelltale({wake: {state: 'on'}, throttle: {state: 'none'}}).hidden).toBe(true)
     });
 
     test('`reported: false` is not a state — an unobserved axis never borrows `unknown`', () => {
         // 'unknown' means the producer LOOKED and could not see. An absent axis means nobody looked.
         // Collapsing them makes the detail claim an observation that was never made.
-        const [wake] = describeTelltaleReadout({wake: null, throttle: {state: 'none'}});
+        const [wake] = Telltale.describeTelltaleReadout({wake: null, throttle: {state: 'none'}});
 
         expect(wake.reported).toBe(false);
         expect(wake.state).toBeNull();
@@ -155,14 +155,14 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
 
     test('the producer\'s reason travels to the detail — the chip has no room for it', () => {
         // This is what makes a degraded chip a prompt to drill in rather than a dead end.
-        const [, throttle] = describeTelltaleReadout({
+        const [, throttle] = Telltale.describeTelltaleReadout({
             throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}
         });
 
         expect(throttle.reason).toBe('session cap reached 01:12Z');
 
         // the chip carries the AXIS + state, and nothing the producer wrote
-        const chip = describeTelltale({throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}});
+        const chip = Telltale.describeTelltale({throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}});
 
         expect(chip.text).toBe('throttle rate-limited');
 
@@ -174,7 +174,7 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
     });
 
     test('an observed `unknown` is reported and NOT nominal — blindness is not health', () => {
-        const [wake] = describeTelltaleReadout({wake: {state: 'unknown', reason: 'daemon pid-file unreadable'}});
+        const [wake] = Telltale.describeTelltaleReadout({wake: {state: 'unknown', reason: 'daemon pid-file unreadable'}});
 
         expect(wake.reported).toBe(true);
         expect(wake.nominal).toBe(false);
@@ -184,7 +184,7 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
     test('the readout is ALWAYS both axes, wake first — a stable shape the view can render blind', () => {
         [{}, {wake: {state: 'off'}}, {throttle: {state: 'overage'}}, {wake: {state: 'on'}, throttle: {state: 'none'}}]
             .forEach(input => {
-                const readout = describeTelltaleReadout(input);
+                const readout = Telltale.describeTelltaleReadout(input);
                 expect(readout).toHaveLength(2);
                 expect(readout.map(row => row.axis)).toEqual(['wake', 'throttle'])
             })

@@ -1,7 +1,9 @@
-import {expect, test}                                            from '../../fixtures.mjs';
-// the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
-// the expectation imports it instead of hard-coding the UTC wire form or a zone-dependent literal
-import {formatViewerTime} from '../../../../apps/agentos/util/viewerTime.mjs';
+import {expect, test} from '../../fixtures.mjs';
+// The human-facing instant renders viewer-local through the ONE shared class (TOKENS.md T5) —
+// the expectation imports it instead of hard-coding the UTC wire form or a zone-dependent literal.
+import Neo        from '../../../../src/Neo.mjs';
+import * as core  from '../../../../src/core/_export.mjs';
+import ViewerTime from '../../../../apps/agentos/util/ViewerTime.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -210,7 +212,7 @@ test.describe('AgentOS Fleet memories — authenticated resident-tab journey (#1
             // the in-flight response lands in the REBUILT pane (write-time pane resolve), with
             // the selection attached — variant B's "renders with activeAgent: null" is dead
             await expect(paneB.locator('.fm-memories-card')).toHaveCount(2, {timeout: 10000});
-            await expect(pane).toContainText(`@neo-opus-ada · 2 of 3 sessions · captured ${formatViewerTime(CAPTURED_AT).text}`);
+            await expect(pane).toContainText(`@neo-opus-ada · 2 of 3 sessions · captured ${ViewerTime.formatViewerTime(CAPTURED_AT).text}`);
             await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('Wake transport and integrity contracts');
             await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('feature · 61 memories · quality 95');
             // multi-agent session: attribution beyond the selected target renders explicitly
