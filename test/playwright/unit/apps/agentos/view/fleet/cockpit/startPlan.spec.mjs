@@ -17,7 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
-import {partitionFleetStart, renderFleetStartSummary, summarizeFleetStart} from '../../../../../../../../apps/agentos/util/fleetStartPlan.mjs';
+import FleetStartPlan from '../../../../../../../../apps/agentos/util/FleetStartPlan.mjs';
 
 /**
  * @summary Tests for the fleet-start plan helpers — the pure half of the fleet-level
@@ -44,7 +44,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
             {state: 'off'}                                                              // guest — no definition
         ];
 
-        const {eligible, excluded} = partitionFleetStart(records);
+        const {eligible, excluded} = FleetStartPlan.partitionFleetStart(records);
 
         expect(eligible.map(record => record.agentId)).toEqual(['vega']);
         expect(excluded.map(({agentId, reason}) => ({agentId, hasReason: reason.length > 0}))).toEqual([
@@ -60,7 +60,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
     });
 
     test('tri-state honesty: launchable null (not read back) stays ELIGIBLE — the bridge owns the real refusal', () => {
-        const {eligible, excluded} = partitionFleetStart([
+        const {eligible, excluded} = FleetStartPlan.partitionFleetStart([
             {agentId: 'vega', state: 'off', launchable: null, sources: wiredRuntime()},
             {agentId: 'ada',  state: 'off', sources: wiredRuntime()}   // launchable absent entirely
         ]);
@@ -70,7 +70,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
     });
 
     test('authority rule: every KNOWN non-active participationStatus is excluded — the wake/heartbeat hard-gate reading; null stays eligible (open set)', () => {
-        const {eligible, excluded} = partitionFleetStart([
+        const {eligible, excluded} = FleetStartPlan.partitionFleetStart([
             // the live-registry shape: defined, launchable, wired, down — and benched
             {agentId: 'gemini', state: 'off', launchable: true, sources: wiredRuntime(), participationStatus: 'operator_benched'},
             // active passes; null (no identity root) passes — unknown/custom residents are the
@@ -94,7 +94,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
     });
 
     test("authority rule: unusable runtime provenance fails a start closed — projected 'off' is display fallback, not a stopped runtime", () => {
-        const partitionOne = record => partitionFleetStart([record]);
+        const partitionOne = record => FleetStartPlan.partitionFleetStart([record]);
 
         // the direct probe shape: not-wired/none must never be eligible
         let {eligible, excluded} = partitionOne({
@@ -140,7 +140,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
     });
 
     test('unknown timeout state is not silently retried by a later fleet activation; explicit non-timeout failures remain eligible', () => {
-        const {eligible, excluded} = partitionFleetStart([
+        const {eligible, excluded} = FleetStartPlan.partitionFleetStart([
             {
                 agentId      : 'euclid',
                 controlReason: {action: 'start', kind: 'timeout', reason: 'start timed out after 30000ms'},
@@ -163,7 +163,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
     });
 
     test('mixed settle/reject: the summary counts honestly and keeps every terminal kind visible', () => {
-        const partition = partitionFleetStart([
+        const partition = FleetStartPlan.partitionFleetStart([
             {agentId: 'vega',   state: 'off', sources: wiredRuntime()},
             {agentId: 'ada',    state: 'off', sources: wiredRuntime()},
             {agentId: 'euclid', state: 'off', sources: wiredRuntime()},
@@ -171,7 +171,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
         ]);
 
         // index-aligned per-eligible results in the C2 adapter's vocabulary
-        const summary = summarizeFleetStart(partition, [
+        const summary = FleetStartPlan.summarizeFleetStart(partition, [
             {ok: true,  status: 'settled'},
             {ok: false, status: 'rejected', controlReason: {reason: 'missing credential'}},
             {ok: false, status: 'timeout',  controlReason: {reason: 'start timed out after 30000ms'}}
@@ -188,12 +188,12 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
     });
 
     test('all-reject: zero started renders honestly — partial success is the normal case, total failure is too', () => {
-        const partition = partitionFleetStart([
+        const partition = FleetStartPlan.partitionFleetStart([
             {agentId: 'vega', state: 'off', sources: wiredRuntime()},
             {agentId: 'ada',  state: 'off', sources: wiredRuntime()}
         ]);
 
-        const summary = summarizeFleetStart(partition, [
+        const summary = FleetStartPlan.summarizeFleetStart(partition, [
             {ok: false, status: 'unauthorized', controlReason: {reason: 'Fleet Registry bridge unavailable'}},
             {ok: false, status: 'unauthorized', controlReason: {reason: 'Fleet Registry bridge unavailable'}}
         ]);
@@ -204,8 +204,8 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
         expect(summary.rejected[0].reason).toContain('unauthorized:')
     });
 
-    test('renderFleetStartSummary: the at-a-glance counts line + every reason reachable in the detail', () => {
-        const {text, detail} = renderFleetStartSummary({
+    test('FleetStartPlan.renderFleetStartSummary: the at-a-glance counts line + every reason reachable in the detail', () => {
+        const {text, detail} = FleetStartPlan.renderFleetStartSummary({
             attempted: 3,
             excluded : [{agentId: null, reason: 'guest — no fleet definition to start'}],
             rejected : [{agentId: 'ada', reason: 'missing credential'}],
@@ -220,7 +220,7 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
         expect(detail).toContain('(guest): guest — no fleet definition to start');
 
         // the quiet batch: everything started, nothing to explain
-        const clean = renderFleetStartSummary({attempted: 2, excluded: [], rejected: [], started: 2, total: 2, unknown: []});
+        const clean = FleetStartPlan.renderFleetStartSummary({attempted: 2, excluded: [], rejected: [], started: 2, total: 2, unknown: []});
 
         expect(clean.text).toBe('2 started');
         expect(clean.detail).toBe('')

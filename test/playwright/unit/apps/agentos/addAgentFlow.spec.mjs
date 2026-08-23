@@ -12,14 +12,7 @@ import * as core      from '../../../../../src/core/_export.mjs';
 import Instance       from '../../../../../src/manager/Instance.mjs';
 import AddAgentForm   from '../../../../../apps/agentos/view/fleet/instances/AddAgentForm.mjs';
 
-import {
-    ADD_AGENT_STATES,
-    createDefineAgentIntent,
-    isShellCredentialIngress,
-    submitDefineAgent,
-    validateDefinePayload,
-    validateReadback
-} from '../../../../../apps/agentos/util/addAgentFlow.mjs';
+import AddAgentFlow from '../../../../../apps/agentos/util/AddAgentFlow.mjs';
 
 const CREDENTIAL = 'github_pat_11TESTSECRET_shouldNeverEscape';
 
@@ -38,63 +31,63 @@ const cleanReadback = () => ({
 
 test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)', () => {
     test('payload validation names every missing ingredient and passes a complete one', () => {
-        expect(validateDefinePayload({}).valid).toBe(false);
-        expect(validateDefinePayload({credential: 'x', githubUsername: '   ', harnessType: 'codex'}).valid).toBe(false);
-        expect(validateDefinePayload({credential: '',  githubUsername: 'user', harnessType: 'codex'}).valid).toBe(false);
-        expect(validateDefinePayload({credential: 'x', githubUsername: 'user', harnessType: ''}).valid).toBe(false);
-        expect(validateDefinePayload(cleanPayload())).toEqual({valid: true, reason: ''})
+        expect(AddAgentFlow.validateDefinePayload({}).valid).toBe(false);
+        expect(AddAgentFlow.validateDefinePayload({credential: 'x', githubUsername: '   ', harnessType: 'codex'}).valid).toBe(false);
+        expect(AddAgentFlow.validateDefinePayload({credential: '',  githubUsername: 'user', harnessType: 'codex'}).valid).toBe(false);
+        expect(AddAgentFlow.validateDefinePayload({credential: 'x', githubUsername: 'user', harnessType: ''}).valid).toBe(false);
+        expect(AddAgentFlow.validateDefinePayload(cleanPayload())).toEqual({valid: true, reason: ''})
     });
 
     test('shell credential ingress validates and projects public intent only', () => {
         const bridge = {credentialIngress: 'shell'};
 
-        expect(isShellCredentialIngress(bridge)).toBe(true);
-        expect(validateDefinePayload(
+        expect(AddAgentFlow.isShellCredentialIngress(bridge)).toBe(true);
+        expect(AddAgentFlow.validateDefinePayload(
             {githubUsername: 'neo-kimi-phoebe', harnessType: 'opencode'},
             {credentialRequired: false}
         )).toEqual({valid: true, reason: ''});
-        expect(createDefineAgentIntent({...cleanPayload(), command: 'must-not-cross'}, bridge)).toEqual({
+        expect(AddAgentFlow.createDefineAgentIntent({...cleanPayload(), command: 'must-not-cross'}, bridge)).toEqual({
             githubUsername: 'neo-kimi-phoebe',
             harnessType   : 'opencode'
         });
-        expect(createDefineAgentIntent(cleanPayload(), {})).toEqual(cleanPayload())
+        expect(AddAgentFlow.createDefineAgentIntent(cleanPayload(), {})).toEqual(cleanPayload())
     });
 
     test('the readback guard fails closed on every poisoned shape and passes the canonical one', () => {
         // missing public identity
-        expect(validateReadback({githubUsername: 'x', harnessType: 'y'}, CREDENTIAL).valid).toBe(false);
+        expect(AddAgentFlow.validateReadback({githubUsername: 'x', harnessType: 'y'}, CREDENTIAL).valid).toBe(false);
         // top-level secret key
-        expect(validateReadback({...cleanReadback(), token: 'leak'}, CREDENTIAL).valid).toBe(false);
-        expect(validateReadback({...cleanReadback(), credential: 'leak'}, CREDENTIAL).valid).toBe(false);
+        expect(AddAgentFlow.validateReadback({...cleanReadback(), token: 'leak'}, CREDENTIAL).valid).toBe(false);
+        expect(AddAgentFlow.validateReadback({...cleanReadback(), credential: 'leak'}, CREDENTIAL).valid).toBe(false);
         // serialized credential echo, arbitrarily nested
-        expect(validateReadback({...cleanReadback(), meta: {note: `echo ${CREDENTIAL}`}}, CREDENTIAL).valid).toBe(false);
+        expect(AddAgentFlow.validateReadback({...cleanReadback(), meta: {note: `echo ${CREDENTIAL}`}}, CREDENTIAL).valid).toBe(false);
         // non-serializable
         const circular = cleanReadback();
         circular.self  = circular;
-        expect(validateReadback(circular, CREDENTIAL).valid).toBe(false);
+        expect(AddAgentFlow.validateReadback(circular, CREDENTIAL).valid).toBe(false);
         // canonical
-        expect(validateReadback(cleanReadback(), CREDENTIAL)).toEqual({valid: true, reason: ''})
+        expect(AddAgentFlow.validateReadback(cleanReadback(), CREDENTIAL)).toEqual({valid: true, reason: ''})
     });
 
     test('no bridge → gated, nothing attempted; a bridge without defineAgent is equally gated', async () => {
-        const gated = await submitDefineAgent({bridgeResolver: () => null, payload: cleanPayload()});
+        const gated = await AddAgentFlow.submitDefineAgent({bridgeResolver: () => null, payload: cleanPayload()});
 
         expect(gated.state).toBe('gated');
         expect(gated.reason).toContain('fails closed');
 
-        const wrongShape = await submitDefineAgent({bridgeResolver: () => ({}), payload: cleanPayload()});
+        const wrongShape = await AddAgentFlow.submitDefineAgent({bridgeResolver: () => ({}), payload: cleanPayload()});
         expect(wrongShape.state).toBe('gated')
     });
 
     test('a controlled domain rejection passes its reason through; a transport throw stays sanitized', async () => {
-        const rejected = await submitDefineAgent({
+        const rejected = await AddAgentFlow.submitDefineAgent({
             bridgeResolver: () => ({defineAgent: async () => ({status: 'rejected', reason: 'duplicate handle'})}),
             payload       : cleanPayload()
         });
 
         expect(rejected).toEqual({state: 'rejected', reason: 'duplicate handle'});
 
-        const thrown = await submitDefineAgent({
+        const thrown = await AddAgentFlow.submitDefineAgent({
             bridgeResolver: () => ({defineAgent: async () => { throw new Error(`boom ${CREDENTIAL}`) }}),
             payload       : cleanPayload()
         });
@@ -105,14 +98,14 @@ test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)',
     });
 
     test('an invalid readback resolves rejected; the canonical readback is the ONLY confirmed shape', async () => {
-        const echoing = await submitDefineAgent({
+        const echoing = await AddAgentFlow.submitDefineAgent({
             bridgeResolver: () => ({defineAgent: async () => ({...cleanReadback(), note: CREDENTIAL})}),
             payload       : cleanPayload()
         });
 
         expect(echoing.state).toBe('rejected');
 
-        const confirmed = await submitDefineAgent({
+        const confirmed = await AddAgentFlow.submitDefineAgent({
             bridgeResolver: () => ({defineAgent: async payload => {
                 expect(payload.githubUsername).toBe('neo-kimi-phoebe');
                 return cleanReadback()
@@ -122,13 +115,13 @@ test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)',
 
         expect(confirmed.state).toBe('readback-confirmed');
         expect(confirmed.definition).toEqual(cleanReadback());
-        expect(ADD_AGENT_STATES).toContain(confirmed.state)
+        expect(AddAgentFlow.ADD_AGENT_STATES).toContain(confirmed.state)
     });
 
     test('shell submit crosses the generic bridge with public intent only', async () => {
         let received;
 
-        const confirmed = await submitDefineAgent({
+        const confirmed = await AddAgentFlow.submitDefineAgent({
             bridgeResolver: () => ({
                 credentialIngress: 'shell',
                 defineAgent      : async payload => {

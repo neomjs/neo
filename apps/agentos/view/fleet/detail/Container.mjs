@@ -1,14 +1,14 @@
-import AgentConfigCard                                   from './AgentConfigComponent.mjs';
-import Container                                         from '../../../../../src/container/Base.mjs';
-import FamilyRail                                        from '../shared/FamilyRailComponent.mjs';
-import Image                                             from '../../../../../src/component/Image.mjs';
-import MailboxPane                                       from '../mailbox/Container.mjs';
-import StateDot                                          from '../shared/StateDotComponent.mjs';
-import TabContainer                                      from '../../../../../src/tab/Container.mjs';
-import {runConfigIntentRoundTrip}                        from '../../../util/configIntentRoundTrip.mjs';
-import {describeTelltaleReadout}                         from '../../../util/telltale.mjs';
-import {classifyPaneFreshness, describePaneFreshness}    from '../../../util/agentFreshness.mjs';
-import {normalizeFleetSources, resolveFleetDisplayState} from '../../../util/sourceHealth.mjs';
+import AgentConfigCard       from './AgentConfigComponent.mjs';
+import Container             from '../../../../../src/container/Base.mjs';
+import FamilyRail            from '../shared/FamilyRailComponent.mjs';
+import Image                 from '../../../../../src/component/Image.mjs';
+import MailboxPane           from '../mailbox/Container.mjs';
+import StateDot              from '../shared/StateDotComponent.mjs';
+import TabContainer          from '../../../../../src/tab/Container.mjs';
+import AgentFreshness        from '../../../util/AgentFreshness.mjs';
+import ConfigIntentRoundTrip from '../../../util/ConfigIntentRoundTrip.mjs';
+import SourceHealth          from '../../../util/SourceHealth.mjs';
+import Telltale              from '../../../util/Telltale.mjs';
 
 /**
  * The SSOT drill-in panes (design §B3: "thought-stream, lane, repo, and PRs"), each with the honest
@@ -249,7 +249,7 @@ class AgentDetail extends Container {
                     // ONE honest word-line. The card names only the abnormal source(s) (20 compact cards
                     // cannot each spend three lines on provenance); the resident detail states all three
                     // unconditionally, each with the producer that reported it — the evidence the summary
-                    // had no room for. Reads the SAME normalizeFleetSources output as the card's strip, so
+                    // had no room for. Reads the SAME SourceHealth.normalizeFleetSources output as the card's strip, so
                     // detail and card can never disagree about a source's health. Sibling to the telltale
                     // by design: both are resident identity state, not freshness-gated pane content.
                     ntype    : 'component',
@@ -589,7 +589,7 @@ class AgentDetail extends Container {
     onConfigIntent(intent={}) {
         const me = this;
 
-        return runConfigIntentRoundTrip({
+        return ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             intent,
             owner        : me,
             setSaveStatus: (agentId, state, reason) => me.getReference('config-pane')?.setSaveStatus(agentId, state, reason),
@@ -633,12 +633,12 @@ class AgentDetail extends Container {
         }
 
         const
-            sources = normalizeFleetSources(record.sources),
+            sources = SourceHealth.normalizeFleetSources(record.sources),
             runtime = sources.runtime,
             // the drill-in dot renders the SAME resolved truth as the card and the health tally —
             // one resolver, three surfaces: a roster-only active resident reads `unobserved` here
             // exactly as the grid displays it, never a contradictory `off`
-            state        = resolveFleetDisplayState({state: record.state, sources: record.sources}),
+            state        = SourceHealth.resolveFleetDisplayState({state: record.state, sources: record.sources}),
             agentId      = record.agentId ?? '';
 
         me.getReference('family-rail').family = record.family ?? null;
@@ -666,7 +666,7 @@ class AgentDetail extends Container {
         // so (an operator who drilled in needs "wake: on" confirmed, not omitted), an observed
         // `unknown` carries the producer's reason, and an axis nobody reported says "not reported"
         // rather than borrowing 'unknown' — which would claim someone looked.
-        const readout = describeTelltaleReadout({throttle: record.throttle, wake: record.wake});
+        const readout = Telltale.describeTelltaleReadout({throttle: record.throttle, wake: record.wake});
 
         // Built as VDOM nodes carrying `text`, never an `html` string. `reason` is the PRODUCER's
         // sentence — it crosses a process boundary before it reaches here — and Neo routes `html` to
@@ -754,7 +754,7 @@ class AgentDetail extends Container {
             const
                 ledger       = ledgers[pane.key] ?? null,
                 merged       = ledger ? {freshnessTtl: pane.freshnessTtl, ...ledger} : null,
-                {cls, label} = describePaneFreshness(classifyPaneFreshness(merged, now));
+                {cls, label} = AgentFreshness.describePaneFreshness(AgentFreshness.classifyPaneFreshness(merged, now));
 
             // .text (never .html): the label is ours but the pane body is record-derived
             // (laneLine), so it must be escaped text, never interpreted markup — no injection surface

@@ -1,8 +1,8 @@
-import ActorChip          from './ActorChipComponent.mjs';
-import Component          from '../../../../../src/component/Base.mjs';
-import Container          from '../../../../../src/container/Base.mjs';
-import EventChip          from './EventChipComponent.mjs';
-import {formatViewerTime} from '../../../util/viewerTime.mjs';
+import ActorChip  from './ActorChipComponent.mjs';
+import Component  from '../../../../../src/component/Base.mjs';
+import Container  from '../../../../../src/container/Base.mjs';
+import EventChip  from './EventChipComponent.mjs';
+import ViewerTime from '../../../util/ViewerTime.mjs';
 
 /**
  * @summary Resolves the producer-owned object/message carried by one activity event.
@@ -132,7 +132,7 @@ class RowContainer extends Container {
             facts   = agentId
                 ? me.actorDirectory?.[agentId] ?? me.actorDirectory?.[String(agentId).replace(/^@/, '')] ?? {}
                 : {},
-            time      = formatViewerTime(event?.occurredAt),
+            time      = ViewerTime.formatViewerTime(event?.occurredAt),
             recipient = me.getRecipient(event),
             timeCell  = me.getReference('time'),
             kindCell  = me.getReference('kind'),

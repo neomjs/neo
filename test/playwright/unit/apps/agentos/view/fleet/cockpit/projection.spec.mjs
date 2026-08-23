@@ -27,7 +27,7 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
  * docking design's pane contract, and owner-held pane state surviving re-projection.
  */
 test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)', () => {
-    let ActivityStream, AgentDetail, CatchUpPane, DockProjectionReconciler, DockZoneModel, FleetCockpit, FleetGrid, MemoriesPane, OperatorMailbox, cockpitDockDocument;
+    let ActivityStream, AgentDetail, CatchUpPane, DockProjectionReconciler, DockZoneModel, FleetCockpit, FleetGrid, MemoriesPane, OperatorMailbox, CockpitDockDocument;
 
     // a projection-capable spy owner: the REAL prototype methods over controlled state, without
     // provider/store/bridge wiring (their routing has its own suite in fleetCockpit.spec.mjs)
@@ -43,7 +43,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
                 // host projects no tree and owns no controller — null is that honest answer
                 getController     : () => null,
                 getReference      : () => null,
-                dockModel         : cockpitDockDocument(),
+                dockModel         : CockpitDockDocument.create(),
                 gridAdapterState  : 'sample',
                 isDestroyed       : false,
                 refreshPromise    : null,
@@ -79,7 +79,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         DockZoneModel       = (await import('../../../../../../../../src/dashboard/DockZoneModel.mjs')).default;
         FleetCockpit        = (await import('../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs')).default;
         FleetGrid           = (await import('../../../../../../../../apps/agentos/view/fleet/roster/Container.mjs')).default;
-        cockpitDockDocument = (await import('../../../../../../../../apps/agentos/util/cockpitDockDocument.mjs')).default
+        CockpitDockDocument = (await import('../../../../../../../../apps/agentos/util/CockpitDockDocument.mjs')).default
     });
 
     test('the reducer is pure and fail-closed: a commit advances a NEW document, the held one never mutates', () => {
@@ -130,7 +130,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
         const host = makeHost({refreshDockWorkspace() { refreshed++ }});
 
-        FleetCockpit.prototype.onDockZoneDocumentChange.call(host, cockpitDockDocument());
+        FleetCockpit.prototype.onDockZoneDocumentChange.call(host, CockpitDockDocument.create());
         host.isDestroyed = true;
 
         await host.refreshPromise;
@@ -139,7 +139,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
     test('two rapid commits serialize their captured document snapshots instead of overlapping shells', async () => {
         const
-            first = DockZoneModel.applyOperation(cockpitDockDocument(), {
+            first = DockZoneModel.applyOperation(CockpitDockDocument.create(), {
                 operation: 'resizeSplit', splitNodeId: 'primary-split', sizes: [0.3, 0.7]
             }).document,
             second = DockZoneModel.applyOperation(first, {
@@ -170,7 +170,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
     test('refresh reconciles shell index 1, preserves flex, and decorates a genuinely absent pane', async () => {
         const
-            document = cockpitDockDocument(),
+            document = CockpitDockDocument.create(),
             original = DockProjectionReconciler.reconcileProjection,
             preset   = {reference: 'fleet-preset-overview', set(values) { Object.assign(this, values) }},
             error    = {set(values) { Object.assign(this, values) }},
@@ -323,11 +323,11 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
  * control bar derives from store state.
  */
 test.describe('Fleet cockpit — perspective presets (the switch through the commit loop)', () => {
-    let DockPerspectiveStore, DockZoneModel, FleetCockpit, cockpitPresetCollection, Neo;
+    let DockPerspectiveStore, DockZoneModel, FleetCockpit, CockpitPresets, Neo;
 
     const makePresetHost = async (overrides = {}) => {
         const
-            store  = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()}),
+            store  = Neo.create(DockPerspectiveStore, {collection: CockpitPresets.create()}),
             host   = Object.create(FleetCockpit.prototype),
             values = {
                 // the stream resolver joins roster actor facts; the preset host owns no roster,
@@ -338,7 +338,7 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
                 // host projects no tree and owns no controller — null is that honest answer
                 getController     : () => null,
                 getReference      : () => null,
-                dockModel         : (await import('../../../../../../../../apps/agentos/util/cockpitDockDocument.mjs')).default(),
+                dockModel         : (await import('../../../../../../../../apps/agentos/util/CockpitDockDocument.mjs')).default.create(),
                 gridAdapterState  : 'sample',
                 isDestroyed       : false,
                 perspectiveStore  : store,
@@ -364,11 +364,11 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
         DockPerspectiveStore    = (await import('../../../../../../../../src/dashboard/DockPerspectiveStore.mjs')).default;
         DockZoneModel           = (await import('../../../../../../../../src/dashboard/DockZoneModel.mjs')).default;
         FleetCockpit            = (await import('../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs')).default;
-        cockpitPresetCollection = (await import('../../../../../../../../apps/agentos/util/cockpitPresets.mjs')).default
+        CockpitPresets = (await import('../../../../../../../../apps/agentos/util/CockpitPresets.mjs')).default
     });
 
     test('the seeded library validates whole and lists the three duty presets, Overview active', () => {
-        const collection = cockpitPresetCollection();
+        const collection = CockpitPresets.create();
 
         expect(DockZoneModel.validateSavedLayoutCollection(collection)).toEqual([]);
         expect(collection.activeLayoutId).toBe('overview');

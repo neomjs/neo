@@ -1,7 +1,7 @@
-import AgentMailboxStore                              from '../../../store/AgentMailbox.mjs';
-import Button                                         from '../../../../../src/button/Base.mjs';
-import Container                                      from '../../../../../src/container/Base.mjs';
-import {classifyPaneFreshness, describePaneFreshness} from '../../../util/agentFreshness.mjs';
+import AgentMailboxStore from '../../../store/AgentMailbox.mjs';
+import Button            from '../../../../../src/button/Base.mjs';
+import Container         from '../../../../../src/container/Base.mjs';
+import AgentFreshness    from '../../../util/AgentFreshness.mjs';
 
 /**
  * @summary Is this payload the mirror adapter's own envelope?
@@ -392,7 +392,7 @@ class MailboxPane extends Container {
             pageCmp      = me.getReference('mailbox-page'),
             now          = me.now ?? Date.now(),
             ledger       = snapshot ? {freshnessTtl: me.freshnessTtl, observedAt: snapshot.capability?.capturedAt} : null,
-            {cls, label} = describePaneFreshness(classifyPaneFreshness(ledger, now));
+            {cls, label} = AgentFreshness.describePaneFreshness(AgentFreshness.classifyPaneFreshness(ledger, now));
 
         me.getReference('mailbox-freshness').set({cls, text: label});
 

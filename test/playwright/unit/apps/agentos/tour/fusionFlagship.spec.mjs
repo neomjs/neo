@@ -15,7 +15,7 @@ import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import {validateTourScript}                from '../../../../../../src/ai/client/tourScript.mjs';
 import {fusionTourScript, initialDocument} from '../../../../../../apps/agentos/tour/fusionFlagship.mjs';
-import cockpitDockDocument                 from '../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
+import CockpitDockDocument                 from '../../../../../../apps/agentos/util/CockpitDockDocument.mjs';
 
 /**
  * @summary Verifies the flagship fusion screenplay as reviewed content: it validates
@@ -77,7 +77,7 @@ test.describe.serial('apps/agentos/tour/fusionFlagship', () => {
     test('the opening stage IS the shipped cockpit default — imported, never forked', () => {
         // the strongest form of the flagship claim: the tour runs on the real product surface,
         // so a cockpit-document change that would break the tour breaks THIS witness first
-        expect(initialDocument).toEqual(cockpitDockDocument())
+        expect(initialDocument).toEqual(CockpitDockDocument.create())
     });
 
     test('the full tour plays green on the real reducers from the real cockpit document', async () => {

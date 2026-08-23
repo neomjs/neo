@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
-import {describeViewerWakeTelltale} from '../../../../../../../../apps/agentos/util/viewerWakeTelltale.mjs';
+import ViewerWakeTelltale from '../../../../../../../../apps/agentos/util/ViewerWakeTelltale.mjs';
 
 /**
  * The per-viewer wake-push telltale derivation. The load-bearing properties: the
@@ -22,7 +22,7 @@ test.describe('viewerWakeTelltale — the quiet chrome readout of MY push lane',
     const NOW = 1_000_000;
 
     test('live stream with a fresh signal: one quiet token plus the relative receipt age', () => {
-        const {ariaLabel, cls, text, title} = describeViewerWakeTelltale({
+        const {ariaLabel, cls, text, title} = ViewerWakeTelltale.describeViewerWakeTelltale({
             stream : {alive: true, reason: 'composed wake stream connected · armed for this viewer', capturedAt: NOW},
             catchUp: {state: 'fresh', at: NOW - 5_000, pending: 3},
             signals: [{kind: 'wake/digest', emittedAt: '2026-08-16T19:00:00.000Z', receivedAt: NOW - 12_000}],
@@ -38,7 +38,7 @@ test.describe('viewerWakeTelltale — the quiet chrome readout of MY push lane',
     });
 
     test('live with no signals yet: the token stands alone and the title says so honestly', () => {
-        const {text, title} = describeViewerWakeTelltale({
+        const {text, title} = ViewerWakeTelltale.describeViewerWakeTelltale({
             stream: {alive: true, reason: 'composed wake stream connected · armed for this viewer', capturedAt: NOW},
             nowMs : NOW
         });
@@ -51,7 +51,7 @@ test.describe('viewerWakeTelltale — the quiet chrome readout of MY push lane',
     test("the consumer's absence-of-signal reason renders VERBATIM — disconnected", () => {
         const reason = 'wake stream disconnected (stream refused: HTTP 401) — poll remains the truth lane';
 
-        const {cls, text} = describeViewerWakeTelltale({
+        const {cls, text} = ViewerWakeTelltale.describeViewerWakeTelltale({
             stream: {alive: 'unknown', reason, capturedAt: NOW},
             nowMs : NOW
         });
@@ -61,7 +61,7 @@ test.describe('viewerWakeTelltale — the quiet chrome readout of MY push lane',
     });
 
     test('the not-wired composition renders the stamped reason, never a fabricated stream', () => {
-        const {text, title} = describeViewerWakeTelltale({
+        const {text, title} = ViewerWakeTelltale.describeViewerWakeTelltale({
             stream: {alive: 'unknown', reason: 'wake push not wired — this composition carries no direct-browser wake capability', capturedAt: NOW},
             nowMs : NOW
         });
@@ -73,16 +73,16 @@ test.describe('viewerWakeTelltale — the quiet chrome readout of MY push lane',
     test('catch-up keeps failed ≠ empty apart, and absence is absence', () => {
         const stream = {alive: true, reason: 'composed wake stream connected · armed for this viewer', capturedAt: NOW};
 
-        expect(describeViewerWakeTelltale({stream, catchUp: {state: 'failed', at: NOW - 1_000, pending: null}, nowMs: NOW}).title)
+        expect(ViewerWakeTelltale.describeViewerWakeTelltale({stream, catchUp: {state: 'failed', at: NOW - 1_000, pending: null}, nowMs: NOW}).title)
             .toContain('catch-up: failed · 1s ago');
-        expect(describeViewerWakeTelltale({stream, catchUp: {state: 'empty', at: NOW - 2_000, pending: 0}, nowMs: NOW}).title)
+        expect(ViewerWakeTelltale.describeViewerWakeTelltale({stream, catchUp: {state: 'empty', at: NOW - 2_000, pending: 0}, nowMs: NOW}).title)
             .toContain('catch-up: empty · 2s ago');
-        expect(describeViewerWakeTelltale({stream, catchUp: null, nowMs: NOW}).title)
+        expect(ViewerWakeTelltale.describeViewerWakeTelltale({stream, catchUp: null, nowMs: NOW}).title)
             .toContain('catch-up: no observation')
     });
 
     test('no stream observation at all stays inside the closed vocabulary', () => {
-        const {cls, text} = describeViewerWakeTelltale({nowMs: NOW});
+        const {cls, text} = ViewerWakeTelltale.describeViewerWakeTelltale({nowMs: NOW});
 
         expect(text).toBe('wake: no stream observation');
         expect(cls).toEqual(['fm-viewer-wake', 'fm-viewer-wake-degraded'])
@@ -91,7 +91,7 @@ test.describe('viewerWakeTelltale — the quiet chrome readout of MY push lane',
     test('the title carries at most five signals — the feed is the archive bound, the title is the glance bound', () => {
         const signals = [1, 2, 3, 4, 5, 6, 7].map(n => ({kind: `wake/k${n}`, receivedAt: NOW - n * 1000}));
 
-        const {title} = describeViewerWakeTelltale({
+        const {title} = ViewerWakeTelltale.describeViewerWakeTelltale({
             stream: {alive: true, reason: 'composed wake stream connected', capturedAt: NOW},
             signals,
             nowMs : NOW

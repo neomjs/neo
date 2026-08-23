@@ -12,7 +12,7 @@ import * as core            from '../../../../../../../../src/core/_export.mjs';
 import DockPerspectiveStore from '../../../../../../../../src/dashboard/DockPerspectiveStore.mjs';
 import DockZoneModel        from '../../../../../../../../src/dashboard/DockZoneModel.mjs';
 import FleetCockpit         from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
-import cockpitDockDocument  from '../../../../../../../../apps/agentos/util/cockpitDockDocument.mjs';
+import CockpitDockDocument  from '../../../../../../../../apps/agentos/util/CockpitDockDocument.mjs';
 
 /**
  * Covers the cockpit's perspective-SHARE product verbs in isolation — export serializes the stored
@@ -26,7 +26,7 @@ test.describe('Fleet cockpit — perspective share round-trip', () => {
 
     test('the share round-trip on the REAL store: export serializes the stored layout, import re-admits it through validation, fingerprint-stable', () => {
         const store    = Neo.create(DockPerspectiveStore, {}),
-              captured = DockZoneModel.capturePerspective(cockpitDockDocument(), {layoutId: 'tour-shared-session', perspectiveName: 'Shared Session', title: 'Shared Session'});
+              captured = DockZoneModel.capturePerspective(CockpitDockDocument.create(), {layoutId: 'tour-shared-session', perspectiveName: 'Shared Session', title: 'Shared Session'});
 
         expect(captured.errors).toEqual([]);
         expect(store.savePerspective(captured.layout).saved).toBe(true);

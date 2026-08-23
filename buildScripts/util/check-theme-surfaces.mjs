@@ -138,7 +138,7 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
           // A future pane lands in the inventory first (that is how it becomes a drawer pane at
           // all), so the guard fails on it mechanically instead of waiting for a reviewer.
           inventory: {
-              file     : 'apps/agentos/util/cockpitDockDocument.mjs',
+              file     : 'apps/agentos/util/CockpitDockDocument.mjs',
               refToRoot: {
                   'agent-detail'    : '.fm-agent-detail',
                   'catch-up'        : '.fm-catch-up-pane',

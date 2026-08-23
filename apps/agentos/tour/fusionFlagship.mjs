@@ -1,4 +1,4 @@
-import cockpitDockDocument from '../util/cockpitDockDocument.mjs';
+import CockpitDockDocument from '../util/CockpitDockDocument.mjs';
 
 /**
  * @summary The flagship fusion screenplay: cockpit → docked panel → OS window → share — the
@@ -37,7 +37,7 @@ import cockpitDockDocument from '../util/cockpitDockDocument.mjs';
  * cockpit's own data leaf so the tour can never drift from the shipped surface.
  * @type {Object}
  */
-export const initialDocument = Object.freeze(cockpitDockDocument());
+export const initialDocument = Object.freeze(CockpitDockDocument.create());
 
 /**
  * The fusion tour script. Document mutations are executable `op` steps with expects; every

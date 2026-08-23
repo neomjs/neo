@@ -1,6 +1,6 @@
-import Component              from '../../../../../src/component/Base.mjs';
-import NeoArray               from '../../../../../src/util/Array.mjs';
-import {kindClass, kindLabel} from '../../../util/kindRegistry.mjs';
+import Component    from '../../../../../src/component/Base.mjs';
+import NeoArray     from '../../../../../src/util/Array.mjs';
+import KindRegistry from '../../../util/KindRegistry.mjs';
 
 /**
  * The event-kind chip: a small uppercase mono plate colored by event kind, composed by the
@@ -60,8 +60,8 @@ class EventChip extends Component {
         let me  = this,
             cls = me.cls;
 
-        oldValue !== undefined && NeoArray.remove(cls, kindClass(oldValue));
-        NeoArray.add(cls, kindClass(value));
+        oldValue !== undefined && NeoArray.remove(cls, KindRegistry.kindClass(oldValue));
+        NeoArray.add(cls, KindRegistry.kindClass(value));
         me.cls = cls;
 
         me.updateChipText()
@@ -82,7 +82,7 @@ class EventChip extends Component {
      * @protected
      */
     updateChipText() {
-        this.vdom.text = this.label ?? kindLabel(this.kind);
+        this.vdom.text = this.label ?? KindRegistry.kindLabel(this.kind);
         this.update()
     }
 }

@@ -1,34 +1,34 @@
-import ActivityStream                           from '../activity/Container.mjs';
-import AddAgentForm                             from '../instances/AddAgentForm.mjs';
-import AgentDetail                              from '../detail/Container.mjs';
-import Button                                   from '../../../../../src/button/Base.mjs';
-import CatchUpPane                              from '../catchup/Container.mjs';
-import Component                                from '../../../../../src/component/Base.mjs';
-import Container                                from '../../../../../src/container/Base.mjs';
-import DockLayoutAdapter                        from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                         from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore                     from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreviewProducer                      from '../../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler                 from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                              from '../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel                            from '../../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpitController                   from './Controller.mjs';
-import FleetGrid                                from '../roster/Container.mjs';
-import FleetActivityEvents                      from '../../../store/FleetActivityEvents.mjs';
-import FleetRoster                              from '../../../store/FleetRoster.mjs';
-import MemoriesPane                             from '../memories/Container.mjs';
-import OperatorMailbox                          from '../mailbox/OperatorContainer.mjs';
-import TasksPane                                from '../tasks/Container.mjs';
-import ViewerWakeFeed                           from '../../../store/ViewerWakeFeed.mjs';
-import WakeRoutePane                            from '../wake/Container.mjs';
-import StateProvider                            from '../../../../../src/state/Provider.mjs';
-import cockpitDockDocument                      from '../../../util/cockpitDockDocument.mjs';
-import cockpitPresetCollection                  from '../../../util/cockpitPresets.mjs';
-import {createDockTearOutHandlers}              from '../../../../../src/dashboard/DockTearOut.mjs';
-import {DAEMON_FAULT_STATES, deriveSpineBanner} from '../../../util/spineBanner.mjs';
-import {describeViewerWakeTelltale}             from '../../../util/viewerWakeTelltale.mjs';
-import {mapFleetSessionHealth}                  from '../../../util/sourceHealth.mjs';
-import {previewToOperation}                     from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import ActivityStream              from '../activity/Container.mjs';
+import AddAgentForm                from '../instances/AddAgentForm.mjs';
+import AgentDetail                 from '../detail/Container.mjs';
+import Button                      from '../../../../../src/button/Base.mjs';
+import CatchUpPane                 from '../catchup/Container.mjs';
+import Component                   from '../../../../../src/component/Base.mjs';
+import Container                   from '../../../../../src/container/Base.mjs';
+import DockLayoutAdapter           from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal            from '../../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore        from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreviewProducer         from '../../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler    from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                 from '../../../../../src/ai/client/DockService.mjs';
+import DockZoneModel               from '../../../../../src/dashboard/DockZoneModel.mjs';
+import FleetCockpitController      from './Controller.mjs';
+import FleetGrid                   from '../roster/Container.mjs';
+import FleetActivityEvents         from '../../../store/FleetActivityEvents.mjs';
+import FleetRoster                 from '../../../store/FleetRoster.mjs';
+import MemoriesPane                from '../memories/Container.mjs';
+import OperatorMailbox             from '../mailbox/OperatorContainer.mjs';
+import TasksPane                   from '../tasks/Container.mjs';
+import ViewerWakeFeed              from '../../../store/ViewerWakeFeed.mjs';
+import WakeRoutePane               from '../wake/Container.mjs';
+import StateProvider               from '../../../../../src/state/Provider.mjs';
+import CockpitDockDocument         from '../../../util/CockpitDockDocument.mjs';
+import CockpitPresets              from '../../../util/CockpitPresets.mjs';
+import {createDockTearOutHandlers} from '../../../../../src/dashboard/DockTearOut.mjs';
+import SourceHealth                from '../../../util/SourceHealth.mjs';
+import SpineBanner                 from '../../../util/SpineBanner.mjs';
+import ViewerWakeTelltale          from '../../../util/ViewerWakeTelltale.mjs';
+import {previewToOperation}        from '../../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -806,8 +806,8 @@ class FleetCockpit extends Container {
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
         me.dockService         = Neo.create(DockService, {});
-        me.perspectiveStore    = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()});
-        me.dockModel           = me.dockModel || cockpitDockDocument();
+        me.perspectiveStore    = Neo.create(DockPerspectiveStore, {collection: CockpitPresets.create()});
+        me.dockModel           = me.dockModel || CockpitDockDocument.create();
 
         // The gesture tear-out choreography — the epic seam's product consumption: the admission
         // machine holds the one vessel slot; this cockpit supplies the platform seams. The
@@ -1440,8 +1440,8 @@ class FleetCockpit extends Container {
                         counts: 'activityCounts',
                         store : 'stores.fleetActivityEvents'
                     },
-                    cls           : [marker],
-                    reference     : 'activity-stream'
+                    cls      : [marker],
+                    reference: 'activity-stream'
                 };
             case 'agent-detail':
                 // the pane lives in its vessel window — a preset restore (or an NL-driven addTab)
@@ -3664,7 +3664,7 @@ class FleetCockpit extends Container {
                 emittedAt : record.emittedAt,
                 receivedAt: record.receivedAt
             })),
-            {ariaLabel, cls, text, title} = describeViewerWakeTelltale({
+            {ariaLabel, cls, text, title} = ViewerWakeTelltale.describeViewerWakeTelltale({
                 stream : viewerWake.stream ?? null,
                 catchUp: viewerWake.catchUp?.state ? viewerWake.catchUp : null,
                 signals
@@ -3761,7 +3761,7 @@ class FleetCockpit extends Container {
         // the header's aggregate fold reads the SAME fault set the banner renders from — one
         // lifecycle authority, plumbed as a boolean; the grid derives nothing about daemons
         const grid = me.getReference('fleet-grid');
-        grid && (grid.daemonFault = DAEMON_FAULT_STATES.includes(state));
+        grid && (grid.daemonFault = SpineBanner.DAEMON_FAULT_STATES.includes(state));
 
         me.syncSpineBanner()
     }
@@ -3873,7 +3873,7 @@ class FleetCockpit extends Container {
         if (banner) {
             // each state travels WITH its own cause: the derivation reports the reason of the
             // surface that decided the verdict, and no sibling can supply or silence it
-            let {hidden, kind, text} = deriveSpineBanner({
+            let {hidden, kind, text} = SpineBanner.deriveSpineBanner({
                 // Daemon health ranks above a stale feed: a dead daemon is usually what MADE the feed
                 // stale, so the transport line alone would name the symptom and drop the diagnosis.
                 // Silent while `daemonState` is null — absence is unknown, never nominal.
@@ -3968,7 +3968,7 @@ class FleetCockpit extends Container {
      * @returns {Object} FleetAgent record field values.
      */
     mapRosterRow(row) {
-        const sessionHealth = mapFleetSessionHealth(row.lifecycle, row.sources);
+        const sessionHealth = SourceHealth.mapFleetSessionHealth(row.lifecycle, row.sources);
 
         return {
             agentId    : row.id,

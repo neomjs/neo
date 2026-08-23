@@ -35,7 +35,7 @@ import {WAKE_SOURCE_LABEL}     from '../../../../../../ai/services/fleet/fleetWa
 // chain. The never-launched-reads-benched defect was invisible to every single-layer test because each
 // layer was correct on its own terms — the producer reported what it was asked, the assembler wired
 // what it was handed, the display rendered its input faithfully. Only the composition was a lie.
-import {mapFleetSessionHealth, resolveFleetDisplayState} from '../../../../../../apps/agentos/util/sourceHealth.mjs'
+import SourceHealth from '../../../../../../apps/agentos/util/SourceHealth.mjs';
 
 test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
     test('passes identity display facts through from assembler-enriched agents — nulls when un-enriched (never guessed)', () => {
@@ -148,8 +148,8 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         })
 
         const row     = snapshot.rows[0],
-              session = mapFleetSessionHealth(row.lifecycle, row.sources),
-              display = resolveFleetDisplayState({state: session.state, sources: session.sources})
+              session = SourceHealth.mapFleetSessionHealth(row.lifecycle, row.sources),
+              display = SourceHealth.resolveFleetDisplayState({state: session.state, sources: session.sources})
 
         // The operator's witnessed defect, as one assertion: `off` is the state that renders the
         // "benched / offline" card text, and it is a participation verdict the fleet has no standing
@@ -174,8 +174,8 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         })
 
         const row     = snapshot.rows[0],
-              session = mapFleetSessionHealth(row.lifecycle, row.sources),
-              display = resolveFleetDisplayState({state: session.state, sources: session.sources})
+              session = SourceHealth.mapFleetSessionHealth(row.lifecycle, row.sources),
+              display = SourceHealth.resolveFleetDisplayState({state: session.state, sources: session.sources})
 
         // Without this control the fix could pass by making EVERY row external — which would delete
         // the one honest benched/offline signal instead of correcting its scope.

@@ -3,14 +3,7 @@ import FormContainer      from '../../../../../src/form/Container.mjs';
 import PasswordField      from '../../../../../src/form/field/Password.mjs';
 import TextField          from '../../../../../src/form/field/Text.mjs';
 import {listHarnessTypes} from '../../../config/harnessTypes.mjs';
-
-import {
-    createDefineAgentIntent,
-    isShellCredentialIngress,
-    resolveRegistryBridge,
-    submitDefineAgent,
-    validateDefinePayload
-} from '../../../util/addAgentFlow.mjs';
+import AddAgentFlow       from '../../../util/AddAgentFlow.mjs';
 
 /**
  * @class AgentOS.view.fleet.instances.AddAgentForm
@@ -163,8 +156,8 @@ class AddAgentForm extends FormContainer {
 
         const
             me          = this,
-            bridge      = resolveRegistryBridge(me.bridgeResolver),
-            shellOwned  = isShellCredentialIngress(bridge),
+            bridge      = AddAgentFlow.resolveRegistryBridge(me.bridgeResolver),
+            shellOwned  = AddAgentFlow.isShellCredentialIngress(bridge),
             secretField = me.getReference('field-credential');
 
         me.harnessType ??= listHarnessTypes()[0]?.type ?? null;
@@ -230,7 +223,7 @@ class AddAgentForm extends FormContainer {
      * @returns {String}
      */
     statusLineFor(state) {
-        const shellOwned = isShellCredentialIngress(resolveRegistryBridge(this.bridgeResolver));
+        const shellOwned = AddAgentFlow.isShellCredentialIngress(AddAgentFlow.resolveRegistryBridge(this.bridgeResolver));
 
         return {
             'idle'              : shellOwned
@@ -271,9 +264,9 @@ class AddAgentForm extends FormContainer {
         const
             me         = this,
             values     = await me.getSubmitValues(),
-            bridge     = resolveRegistryBridge(me.bridgeResolver),
-            shellOwned = isShellCredentialIngress(bridge),
-            payload    = createDefineAgentIntent({
+            bridge     = AddAgentFlow.resolveRegistryBridge(me.bridgeResolver),
+            shellOwned = AddAgentFlow.isShellCredentialIngress(bridge),
+            payload    = AddAgentFlow.createDefineAgentIntent({
                 credential    : values.credential,
                 githubUsername: values.githubUsername,
                 harnessType   : me.harnessType
@@ -282,7 +275,7 @@ class AddAgentForm extends FormContainer {
         me.flowStatus = {state: 'validating', reason: ''};
 
         try {
-            const validation = validateDefinePayload(payload, {credentialRequired: !shellOwned});
+            const validation = AddAgentFlow.validateDefinePayload(payload, {credentialRequired: !shellOwned});
 
             // an incomplete definition never renders `submitting` — nothing is in flight
             if (!validation.valid) {
@@ -292,7 +285,7 @@ class AddAgentForm extends FormContainer {
 
             me.flowStatus = {state: 'submitting', reason: ''};
 
-            const outcome = await submitDefineAgent({bridgeResolver: me.bridgeResolver, payload});
+            const outcome = await AddAgentFlow.submitDefineAgent({bridgeResolver: me.bridgeResolver, payload});
 
             me.flowStatus = {state: outcome.state, reason: outcome.reason};
 

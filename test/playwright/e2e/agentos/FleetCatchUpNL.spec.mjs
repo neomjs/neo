@@ -1,14 +1,16 @@
-import {expect, test}                                            from '../../fixtures.mjs';
+import {expect, test} from '../../fixtures.mjs';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import ViewerTime     from '../../../../apps/agentos/util/ViewerTime.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
     fleetE2ESuccess,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
-// the human-facing instant renders viewer-local through the ONE shared helper (TOKENS.md T5) —
-// the expectation imports the same helper instead of hard-coding either the UTC wire form or a
-// zone-dependent literal (browser and runner share the host zone)
-import {formatViewerTime} from '../../../../apps/agentos/util/viewerTime.mjs';
+
+// The human-facing instant renders viewer-local through the ONE shared class (TOKENS.md T5) —
+// the expectation imports it instead of hard-coding either the UTC wire form or a zone-dependent literal.
 
 const WINDOW = {
     semantics  : 'half-open',
@@ -171,7 +173,7 @@ test.describe('AgentOS Fleet catch-up — authenticated resident-tab journey (#1
             await expect(pane.locator('.fm-catch-up-source').nth(0)).toContainText('Memory history for @neo-opus-ada');
 
             await pane.getByRole('button', {name: 'Mark caught up'}).click();
-            await expect(pane).toContainText(`Caught up through ${formatViewerTime(WINDOW.windowEnd).text}`);
+            await expect(pane).toContainText(`Caught up through ${ViewerTime.formatViewerTime(WINDOW.windowEnd).text}`);
 
             await pane.getByRole('button', {name: 'Live activity'}).click();
             await expect.poll(() => page.locator('.fm-activity-stream').evaluate(element => document.activeElement === element))

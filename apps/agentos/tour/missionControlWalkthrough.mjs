@@ -1,4 +1,4 @@
-import cockpitDockDocument from '../util/cockpitDockDocument.mjs';
+import CockpitDockDocument from '../util/CockpitDockDocument.mjs';
 
 /**
  * @summary The mission-control walkthrough: "watch a real AI engineering team run" — the
@@ -42,7 +42,7 @@ import cockpitDockDocument from '../util/cockpitDockDocument.mjs';
  * own data leaf so the walkthrough can never drift from the shipped surface.
  * @type {Object}
  */
-export const initialDocument = Object.freeze(cockpitDockDocument());
+export const initialDocument = Object.freeze(CockpitDockDocument.create());
 
 /**
  * The walkthrough script. Every transition is a cue on a pacing step; document truth stays

@@ -1,3 +1,5 @@
+import Base from '../../../src/core/Base.mjs';
+
 /**
  * The fleet event-kind registry: a data-driven kind → {token, label} map plus a resolver with a
  * neutral fallback. Kept as its own module — pure data, no component coupling — so kind-set growth
@@ -51,37 +53,54 @@ const KIND_LABEL = {
 };
 
 /**
- * Pure kind → color-token resolver — the single source of truth for chip color, on the --fm-kind-*
- * axis. Unknown kinds degrade to the neutral kind token, so the chip absorbs kind-set growth
- * without a broken color. Uses an `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key
- * (`toString`, `constructor`, `__proto__`) degrades to neutral instead of leaking an inherited value.
- * @param {String} kind
- * @returns {String} the color custom-property name (e.g. `--fm-kind-pr`)
+ * Static Fleet activity-kind presentation registry.
+ * @class AgentOS.util.KindRegistry
+ * @extends Neo.core.Base
  */
-export function kindToken(kind) {
-    return Object.hasOwn(KIND_TOKEN, kind) ? KIND_TOKEN[kind] : '--fm-kind-neutral'
+class KindRegistry extends Base {
+    static config = {
+        /**
+         * @member {String} className='AgentOS.util.KindRegistry'
+         * @protected
+         */
+        className: 'AgentOS.util.KindRegistry'
+    }
+
+    /**
+     * Pure kind → color-token resolver — the single source of truth for chip color, on the --fm-kind-*
+     * axis. Unknown kinds degrade to the neutral kind token, so the chip absorbs kind-set growth
+     * without a broken color. Uses an `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key
+     * (`toString`, `constructor`, `__proto__`) degrades to neutral instead of leaking an inherited value.
+     * @param {String} kind
+     * @returns {String} the color custom-property name (e.g. `--fm-kind-pr`)
+     */
+    static kindToken(kind) {
+        return Object.hasOwn(KIND_TOKEN, kind) ? KIND_TOKEN[kind] : '--fm-kind-neutral'
+    }
+
+    /**
+     * Pure kind → CSS-class resolver — the kind token minus its `--` custom-property prefix (e.g.
+     * `fm-kind-pr`). The class binds `--fm-chip` in the chip SCSS, so color stays entirely in the
+     * token/skin layer: the chip swaps a class, never writes a style. Shares `kindToken`'s
+     * unknown → neutral degrade.
+     * @param {String} kind
+     * @returns {String} the kind class name (e.g. `fm-kind-pr`)
+     */
+    static kindClass(kind) {
+        return KindRegistry.kindToken(kind).slice(2)
+    }
+
+    /**
+     * Pure kind → short-label resolver. Unknown kinds fall back to the kind string itself, so a new
+     * kind still renders a readable (if verbose) chip until it earns a short label here. Uses an
+     * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,
+     * `__proto__`) falls back to its literal string instead of leaking an inherited Object.prototype value.
+     * @param {String} kind
+     * @returns {String}
+     */
+    static kindLabel(kind) {
+        return Object.hasOwn(KIND_LABEL, kind) ? KIND_LABEL[kind] : (kind ?? 'event')
+    }
 }
 
-/**
- * Pure kind → CSS-class resolver — the kind token minus its `--` custom-property prefix (e.g.
- * `fm-kind-pr`). The class binds `--fm-chip` in the chip SCSS, so color stays entirely in the
- * token/skin layer: the chip swaps a class, never writes a style. Shares `kindToken`'s
- * unknown → neutral degrade.
- * @param {String} kind
- * @returns {String} the kind class name (e.g. `fm-kind-pr`)
- */
-export function kindClass(kind) {
-    return kindToken(kind).slice(2)
-}
-
-/**
- * Pure kind → short-label resolver. Unknown kinds fall back to the kind string itself, so a new
- * kind still renders a readable (if verbose) chip until it earns a short label here. Uses an
- * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,
- * `__proto__`) falls back to its literal string instead of leaking an inherited Object.prototype value.
- * @param {String} kind
- * @returns {String}
- */
-export function kindLabel(kind) {
-    return Object.hasOwn(KIND_LABEL, kind) ? KIND_LABEL[kind] : (kind ?? 'event')
-}
+export default Neo.setupClass(KindRegistry);

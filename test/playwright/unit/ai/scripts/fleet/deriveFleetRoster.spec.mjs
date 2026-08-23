@@ -1,12 +1,15 @@
+import {setup} from '../../../../setup.mjs';
+
+const appName = 'DeriveFleetRosterTest';
+
+setup({appConfig: {name: appName}});
+
 import {expect, test}      from '@playwright/test';
 import fs                  from 'node:fs';
+import Neo                 from '../../../../../../src/Neo.mjs';
+import * as core           from '../../../../../../src/core/_export.mjs';
 import {deriveFleetRoster} from '../../../../../../ai/scripts/fleet/deriveFleetRoster.mjs';
-import {
-    normalizeFleetSources,
-    normalizeSourceFact,
-    resolveFleetDisplayState,
-    summarizeAnsweredAbnormal
-} from '../../../../../../apps/agentos/util/sourceHealth.mjs';
+import SourceHealth        from '../../../../../../apps/agentos/util/SourceHealth.mjs';
 
 // Pure derivation — imported directly (the module's main-execution guard makes import side-effect-free).
 // The committed seed is also checked against a fresh derivation so hand-painting fails in CI, not in film.
@@ -63,14 +66,14 @@ test.describe('deriveFleetRoster (registry-derived cockpit roster, #15621)', () 
 
         for (const row of committed) {
             // the offline first-run defect: every card alarmed "Roster not nominal · malformed source fact"
-            expect(summarizeAnsweredAbnormal(row.sources).level, `${row.agentId} source strip`).toBe('ok');
-            expect(normalizeFleetSources(row.sources).roster.state, `${row.agentId} roster axis`).toBe('not-wired');
+            expect(SourceHealth.summarizeAnsweredAbnormal(row.sources).level, `${row.agentId} source strip`).toBe('ok');
+            expect(SourceHealth.normalizeFleetSources(row.sources).roster.state, `${row.agentId} roster axis`).toBe('not-wired');
             // display truth unchanged: participation-active with no session observation, or external
-            expect(resolveFleetDisplayState({state: row.state, sources: row.sources}), row.agentId).toMatch(/^unobserved$|^external$/);
+            expect(SourceHealth.resolveFleetDisplayState({state: row.state, sources: row.sources}), row.agentId).toMatch(/^unobserved$|^external$/);
         }
 
         // the validator itself is correct and STAYS: a present non-object fact remains rejected evidence
-        expect(normalizeSourceFact('identityRoots-snapshot'))
+        expect(SourceHealth.normalizeSourceFact('identityRoots-snapshot'))
             .toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'malformed source fact'});
     });
 

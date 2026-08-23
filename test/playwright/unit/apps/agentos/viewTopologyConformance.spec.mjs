@@ -8,12 +8,15 @@ import {fileURLToPath} from 'url';
  * `apps/agentos/view/**` must (a) be PascalCase — pure-function modules live in
  * `apps/agentos/util/`, never inside the view tree — (b) carry a suffix that names its base
  * FAMILY (resolved by following the `extends` import chain down to the owning `src/` class),
- * and (c) declare a `className` that mirrors its file path exactly. Precedent-following is how
- * the flat fleet folder happened; this witness makes the law a failing test instead of prose.
+ * and (c) declare a `className` that mirrors its file path exactly. Utility files are PascalCase,
+ * registered `Neo.core.Base` classes with the same exact path identity, but deliberately do not
+ * inherit the UI-family suffix law. Precedent-following is how the flat fleet folder happened;
+ * this witness makes the law a failing test instead of prose.
  */
 const
     ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..'),
     VIEW = path.join(ROOT, 'apps/agentos/view'),
+    UTIL = path.join(ROOT, 'apps/agentos/util'),
 
     // src base → the family word a subclass suffix must end with
     FAMILIES = [
@@ -69,11 +72,31 @@ function resolveBase(file, depth = 0) {
 
 test.describe('AgentOS view topology conformance (#17559 laws 1 + 3)', () => {
 
-    const files = [...walk(VIEW)];
+    const
+        files     = [...walk(VIEW)],
+        utilFiles = [...walk(UTIL)];
 
     test('the view tree carries no camelCase modules', () => {
         const offenders = files.filter(f => !/^[A-Z]/.test(path.basename(f)));
         expect(offenders.map(f => path.relative(ROOT, f))).toEqual([])
+    });
+
+    test('the util tree is PascalCase, class-only, and registered from core.Base', () => {
+        const offenders = [];
+
+        for (const file of utilFiles) {
+            const relative = path.relative(ROOT, file),
+                  source   = fs.readFileSync(file, 'utf8'),
+                  resolved = resolveBase(file);
+
+            /^[A-Z]/.test(path.basename(file)) || offenders.push(`${relative} — filename must be PascalCase`);
+            resolved.error && offenders.push(`${relative} — base chain unresolved: ${resolved.error}`);
+            resolved.base === 'src/core/Base.mjs' || offenders.push(`${relative} — utility base must resolve to src/core/Base.mjs`);
+            /export default Neo\.setupClass\(\w+\);/.test(source) || offenders.push(`${relative} — missing default Neo.setupClass registration`);
+            /^export\s+(?:const|function|class)\s/m.test(source) && offenders.push(`${relative} — named module export remains`)
+        }
+
+        expect(offenders).toEqual([])
     });
 
     test('every class suffix names its base family — unresolved chains fail closed', () => {
@@ -102,7 +125,7 @@ test.describe('AgentOS view topology conformance (#17559 laws 1 + 3)', () => {
     test('every className exists and mirrors its file path', () => {
         const offenders = [];
 
-        for (const file of files) {
+        for (const file of [...files, ...utilFiles]) {
             const src = fs.readFileSync(file, 'utf8');
             const cn  = src.match(/className: '([^']+)'/)?.[1];
 

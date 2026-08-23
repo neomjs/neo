@@ -11,22 +11,22 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 
 test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default layout', () => {
-    let DockZoneModel, cockpitDockDocument;
+    let CockpitDockDocument, DockZoneModel;
 
     test.beforeAll(async () => {
-        DockZoneModel       = (await import('../../../../../src/dashboard/DockZoneModel.mjs')).default;
-        cockpitDockDocument = (await import('../../../../../apps/agentos/util/cockpitDockDocument.mjs')).default
+        CockpitDockDocument = (await import('../../../../../apps/agentos/util/CockpitDockDocument.mjs')).default;
+        DockZoneModel       = (await import('../../../../../src/dashboard/DockZoneModel.mjs')).default
     });
 
     test('validates against DockZoneModel with the v1 schema (zero invariant violations)', () => {
-        const doc = cockpitDockDocument();
+        const doc = CockpitDockDocument.create();
 
         expect(doc.schema).toBe('neo.harness.dockZone.v1');
         expect(DockZoneModel.validate(doc)).toEqual([])
     });
 
     test('expresses the SSOT ~1.55fr / 1fr fleet-over-activity vertical split (activity docks to the bottom)', () => {
-        const split = cockpitDockDocument().nodes['primary-split'];
+        const split = CockpitDockDocument.create().nodes['primary-split'];
 
         expect(split.type).toBe('split');
         expect(split.orientation).toBe('vertical');
@@ -37,7 +37,7 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
     });
 
     test('declares the inspector + tool chrome autoHidden (the #14617 rail input); primaries and reading surfaces are not', () => {
-        const {items} = cockpitDockDocument();
+        const {items} = CockpitDockDocument.create();
 
         const autoHidden = Object.entries(items).filter(([, i]) => i.autoHidden === true).map(([id]) => id);
         expect(autoHidden.sort()).toEqual(['defineAgent', 'detail', 'perspectives', 'wakeRoutes']);
@@ -52,7 +52,7 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
     });
 
     test('carries the S5 define-agent zone: rail-resident, invoked-not-ambient tool chrome (the design ruling)', () => {
-        const doc = cockpitDockDocument();
+        const doc = CockpitDockDocument.create();
 
         expect(doc.items.defineAgent).toEqual({
             componentRef: 'define-agent',
@@ -69,7 +69,7 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
     });
 
     test('carries the south reading-surface family: resident tabs beside Activity, Activity active', () => {
-        const doc = cockpitDockDocument();
+        const doc = CockpitDockDocument.create();
 
         expect(doc.items.tasks).toEqual({componentRef: 'tasks',               title: 'Tasks',    kind: 'panel'});
         expect(doc.items.memories).toEqual({componentRef: 'memories',         title: 'Memories', kind: 'panel'});
@@ -86,15 +86,15 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
     });
 
     test('is pure data — a fresh, equal document each call (no shared mutable singleton)', () => {
-        const a = cockpitDockDocument(),
-              b = cockpitDockDocument();
+        const a = CockpitDockDocument.create(),
+              b = CockpitDockDocument.create();
 
         expect(a).not.toBe(b);   // fresh instance
         expect(a).toEqual(b)     // deterministic content
     });
 
     test('the pane inventory covers the two primary zones and every tabs item resolves to a record', () => {
-        const doc = cockpitDockDocument();
+        const doc = CockpitDockDocument.create();
 
         expect(doc.items.fleet.componentRef).toBe('fleet-grid');
         expect(doc.items.stream.componentRef).toBe('activity-stream');

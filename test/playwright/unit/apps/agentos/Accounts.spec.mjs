@@ -15,7 +15,7 @@ import * as core       from '../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../src/manager/Instance.mjs';
 import Accounts        from '../../../../../apps/agentos/view/accounts/Panel.mjs';
 
-import {runConfigIntentRoundTrip} from '../../../../../apps/agentos/util/configIntentRoundTrip.mjs';
+import ConfigIntentRoundTrip from '../../../../../apps/agentos/util/ConfigIntentRoundTrip.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -1117,7 +1117,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
 
         // …and the DETAIL owner (a different surface — Accounts' own onAcceptedReadback hook
         // never runs) lands an accepted configure readback meanwhile
-        await runConfigIntentRoundTrip({
+        await ConfigIntentRoundTrip.runConfigIntentRoundTrip({
             intent       : {id: 'ada', harnessType: 'native-neo'},
             owner        : {},
             setSaveStatus: () => {},

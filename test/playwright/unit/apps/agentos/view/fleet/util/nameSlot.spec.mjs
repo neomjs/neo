@@ -1,18 +1,24 @@
-import {test, expect} from '@playwright/test';
+import {setup} from '../../../../../../setup.mjs';
 
-import {describeNameProvenance, NAME_PROVENANCE_STATES, resolveNameSlot} from '../../../../../../../../apps/agentos/util/nameSlot.mjs';
+setup({appConfig: {name: 'FleetNameSlotTest'}});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../../src/core/_export.mjs';
+
+import NameSlot from '../../../../../../../../apps/agentos/util/NameSlot.mjs';
 
 /**
- * Contract specs for the name-slot module — the pure render-correctness rule at name grain:
+ * Contract specs for the NameSlot class — the pure render-correctness rule at name grain:
  * display name as mutable display state over the durable id, provenance stated honestly
  * (`declared-proxy` · `durable-id` live; `naming-layer` RESERVED until the record contract
- * carries a trail the render can surface). Pure module — no Neo runtime needed; the Brain-side
+ * carries a trail the render can surface). No instance is needed; Neo/Core above only registers the class. The Brain-side
  * fold order it consumes is pinned in the assembler's own spec (`fleetCockpitStatus.spec.mjs`),
  * deliberately NOT re-implemented here.
  */
 test.describe('nameSlot — display state over the durable id, provenance-honest', () => {
     test('a folded display name renders as display state, declared-proxy until a trail wires', () => {
-        const slot = resolveNameSlot({agentId: 'neo-fable', displayName: 'Mnemosyne'});
+        const slot = NameSlot.resolveNameSlot({agentId: 'neo-fable', displayName: 'Mnemosyne'});
 
         expect(slot.text).toBe('Mnemosyne');
         expect(slot.isFallback).toBe(false);
@@ -38,7 +44,7 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
         ];
 
         shapes.forEach(nameProvenance => {
-            const slot = resolveNameSlot({agentId: 'neo-fable', displayName: 'Mnemosyne', nameProvenance});
+            const slot = NameSlot.resolveNameSlot({agentId: 'neo-fable', displayName: 'Mnemosyne', nameProvenance});
 
             expect(slot.provenance.state).toBe('declared-proxy');
             expect(slot.text).toBe('Mnemosyne');
@@ -47,7 +53,7 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
     });
 
     test('no display name → the durable id renders in its place, flagged for the mono register', () => {
-        const slot = resolveNameSlot({agentId: 'guest-agent-7'});
+        const slot = NameSlot.resolveNameSlot({agentId: 'guest-agent-7'});
 
         expect(slot.text).toBe('guest-agent-7');
         expect(slot.isFallback).toBe(true);
@@ -56,13 +62,13 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
     });
 
     test('blank-string names are not names; a trail on a nameless record cannot fabricate one', () => {
-        expect(resolveNameSlot({agentId: 'x', displayName: '   '}).isFallback).toBe(true);
+        expect(NameSlot.resolveNameSlot({agentId: 'x', displayName: '   '}).isFallback).toBe(true);
         // no name → durable-id even when a stray trail object is present (a trail grounds a NAME)
-        expect(resolveNameSlot({agentId: 'x', nameProvenance: {sketchedBy: 'y'}}).provenance.state).toBe('durable-id')
+        expect(NameSlot.resolveNameSlot({agentId: 'x', nameProvenance: {sketchedBy: 'y'}}).provenance.state).toBe('durable-id')
     });
 
     test('null-everything renders the explicit empty marker, never a blank slot', () => {
-        const slot = resolveNameSlot(null);
+        const slot = NameSlot.resolveNameSlot(null);
 
         expect(slot.text).toBe('—');
         expect(slot.isFallback).toBe(true);
@@ -70,23 +76,23 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
     });
 
     test('an array is not a trail (plain-object discipline)', () => {
-        expect(resolveNameSlot({agentId: 'x', displayName: 'X', nameProvenance: []}).provenance.state).toBe('declared-proxy')
+        expect(NameSlot.resolveNameSlot({agentId: 'x', displayName: 'X', nameProvenance: []}).provenance.state).toBe('declared-proxy')
     });
 
     test('the chip rendering is density-calibrated: word only for the divergent state, glyph for the uniform one, nothing beside the mono id', () => {
-        expect(NAME_PROVENANCE_STATES).toEqual(['naming-layer', 'declared-proxy', 'durable-id']);
+        expect(NameSlot.NAME_PROVENANCE_STATES).toEqual(['naming-layer', 'declared-proxy', 'durable-id']);
 
         // naming-layer (RESERVED — the activation leaf's future divergent state) already maps to
         // the word, so activating it changes no presentation code
-        expect(describeNameProvenance('naming-layer')).toMatchObject({hidden: false, text: 'named'});
+        expect(NameSlot.describeNameProvenance('naming-layer')).toMatchObject({hidden: false, text: 'named'});
         // declared-proxy (today's uniform reality) renders the quiet outline glyph
-        expect(describeNameProvenance('declared-proxy')).toMatchObject({hidden: false, text: '◇'});
+        expect(NameSlot.describeNameProvenance('declared-proxy')).toMatchObject({hidden: false, text: '◇'});
         // durable-id renders NO chip — the name slot's mono register already states it
-        expect(describeNameProvenance('durable-id').hidden).toBe(true);
+        expect(NameSlot.describeNameProvenance('durable-id').hidden).toBe(true);
 
         // every chip carries the base class + its state class (the SCSS register contract)
-        NAME_PROVENANCE_STATES.forEach(state => {
-            const chip = describeNameProvenance(state);
+        NameSlot.NAME_PROVENANCE_STATES.forEach(state => {
+            const chip = NameSlot.describeNameProvenance(state);
 
             expect(chip.cls).toContain('fm-name-provenance');
             expect(chip.cls).toContain(`is-${state}`)
