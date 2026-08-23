@@ -94,6 +94,39 @@ export const DEFAULT_CONTEXT_GATE = Object.freeze({
 export const DELIVERABLE_HARNESS_TARGET = 'a2a-webhook';
 
 /**
+ * @summary The one skip decision for a subscription row: why no route will be published for it,
+ *     or null when the builder will publish one.
+ *
+ * Both the manifest build and the owner-facing `list` annotation call this, so the two surfaces
+ * cannot disagree about a row — the defect class where a seat is told its route is fine at the
+ * moment it was withdrawn. Absent `status` resolves through the shared status policy rather than
+ * being compared here: the durable lister and hydrator preserve absence, while lifecycle and
+ * fleet consumers default the same row to active — a strict comparison here once produced a row
+ * counted as live elsewhere and silently dropped at publication.
+ *
+ * Reason strings are the builder's published skip reasons and must stay byte-stable: consumers
+ * assert on their content.
+ *
+ * @param {Object} opts
+ * @param {String} [opts.status] The row's lifecycle status.
+ * @param {String} opts.harnessTarget The row's transport value.
+ * @returns {String|null} The named withdrawal reason, or null when the row builds a route.
+ */
+export function wakeRouteWithdrawalReasonFor({status, harnessTarget} = {}) {
+    if (!isActiveWakeSubscriptionStatus(status)) {
+        return `status is '${status}', not '${WAKE_SUBSCRIPTION_DEFAULT_STATUS}'`;
+    }
+
+    if (harnessTarget !== DELIVERABLE_HARNESS_TARGET) {
+        return `harnessTarget '${harnessTarget}' is not deliverable on the Shape-B path ` +
+            `(only '${DELIVERABLE_HARNESS_TARGET}' is); this seat cannot receive a container wake ` +
+            'until it is migrated';
+    }
+
+    return null
+}
+
+/**
  * Shortest string accepted as a server-issued signing key.
  * @type {Number}
  */
@@ -200,22 +233,10 @@ export function buildWakeReceiverManifest({
         // Skipping only the input left a retired or retargeted seat's old route published — the
         // subscription was gone and the route kept accepting wakes for it. Reconciliation is scoped
         // to ids the caller actually presented, so a peer's route is never touched.
-        // Absent `status` resolves through the shared policy rather than being compared here. The
-        // durable lister and hydrator preserve absence, but this builder used to compare strictly
-        // while lifecycle and fleet consumers defaulted that same row to active. The result was a
-        // row counted as live elsewhere and silently dropped at publication.
-        if (!isActiveWakeSubscriptionStatus(status)) {
-            withdrawOwnedRoute(routes, id, skipped, `status is '${status}', not '${WAKE_SUBSCRIPTION_DEFAULT_STATUS}'`);
-            continue
-        }
+        const withdrawalReason = wakeRouteWithdrawalReasonFor({status, harnessTarget});
 
-        if (harnessTarget !== DELIVERABLE_HARNESS_TARGET) {
-            withdrawOwnedRoute(
-                routes, id, skipped,
-                `harnessTarget '${harnessTarget}' is not deliverable on the Shape-B path ` +
-                `(only '${DELIVERABLE_HARNESS_TARGET}' is); this seat cannot receive a container wake ` +
-                'until it is migrated'
-            );
+        if (withdrawalReason) {
+            withdrawOwnedRoute(routes, id, skipped, withdrawalReason);
             continue
         }
 

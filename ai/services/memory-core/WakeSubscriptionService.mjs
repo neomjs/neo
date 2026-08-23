@@ -9,7 +9,7 @@ import logger                                                                   
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
-import {DELIVERABLE_HARNESS_TARGET}                                                             from '../../daemons/wake/buildReceiverManifest.mjs';
+import {DELIVERABLE_HARNESS_TARGET, wakeRouteWithdrawalReasonFor}                               from '../../daemons/wake/buildReceiverManifest.mjs';
 import {buildWakeDigest, getHighestWakePriority}                                                from '../../daemons/wake/wakeDigestBuilder.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
@@ -1678,27 +1678,28 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * @summary Delivery truth for one subscription row: whether its transport survives receiver
-     *     manifest build, and the named reason when it does not.
+     * @summary Delivery truth for one subscription row: whether it survives receiver manifest
+     *     build, and the builder's own named reason when it does not.
      *
-     * The row's own `status` field describes the subscription lifecycle (active/degraded), never
-     * whether the transport produces a route — before this annotation the two were
-     * indistinguishable to the owner, which is the failure mode where a seat holds an id, reads it
-     * back healthy, and receives nothing. Fields are additive: `routeDeliverable` is always
-     * present; `routeWithdrawalReason` exists only on the non-deliverable case, so its absence is
-     * itself the deliverable signal.
+     * This is a PROJECTION of the builder's skip decision, not a second authority: both surfaces
+     * call `wakeRouteWithdrawalReasonFor`, so they cannot drift apart when a new skip condition is
+     * added. The row's `status` field describes the subscription lifecycle (active/degraded) and
+     * IS one of the axes — a degraded row is withdrawn at build time even on the deliverable
+     * transport, which is exactly the state a seat is likeliest to be in when it goes looking for
+     * why nothing arrives. Fields are additive: `routeDeliverable` is always present;
+     * `routeWithdrawalReason` exists only on the non-deliverable case, so its absence is itself
+     * the deliverable signal.
      *
-     * @param {String} harnessTarget The subscription row's transport value.
+     * @param {Object} opts
+     * @param {String} [opts.status] The row's lifecycle status.
+     * @param {String} opts.harnessTarget The row's transport value.
      * @returns {Object} `{routeDeliverable: Boolean, routeWithdrawalReason: String?}`
      */
-    static routeDeliveryAnnotationFor(harnessTarget) {
-        if (harnessTarget === DELIVERABLE_HARNESS_TARGET) return {routeDeliverable: true};
-        return {
-            routeDeliverable     : false,
-            routeWithdrawalReason:
-                `harnessTarget '${harnessTarget}' is not deliverable on the Shape-B path — ` +
-                `only '${DELIVERABLE_HARNESS_TARGET}' builds a receiver route`
-        };
+    static routeDeliveryAnnotationFor({status, harnessTarget} = {}) {
+        const withdrawalReason = wakeRouteWithdrawalReasonFor({status, harnessTarget});
+
+        if (withdrawalReason) return {routeDeliverable: false, routeWithdrawalReason: withdrawalReason};
+        return {routeDeliverable: true};
     }
 
     /**
@@ -1711,7 +1712,10 @@ class WakeSubscriptionService extends Base {
     _withRouteDelivery(subscriptions) {
         return subscriptions.map(subscription => ({
             ...subscription,
-            ...this.constructor.routeDeliveryAnnotationFor(subscription.harnessTarget)
+            ...this.constructor.routeDeliveryAnnotationFor({
+                status       : subscription.status,
+                harnessTarget: subscription.harnessTarget
+            })
         }));
     }
 

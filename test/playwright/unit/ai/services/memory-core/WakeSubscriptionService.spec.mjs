@@ -3631,6 +3631,35 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         });
 
+        test('a degraded a2a row reads back not-deliverable with the status named — an active same-transport row is the control', async () => {
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const degradedRes = await WakeSubscriptionService.subscribe({
+                    trigger              : 'SENT_TO_ME',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake-degraded'}
+                });
+                const activeRes = await WakeSubscriptionService.subscribe({
+                    trigger              : 'TASK_STATE_CHANGED',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'https://example.com/wake-active'}
+                });
+
+                // The lifecycle's own durable mutation: degradation writes status onto the node
+                // (resume() clears it through the same call), so the test degrades through the
+                // production path rather than hand-crafting a row shape.
+                GraphService.upsertNode({id: degradedRes.subscriptionId, properties: {status: 'degraded'}});
+
+                const {subscriptions} = await WakeSubscriptionService.list();
+                const degraded        = subscriptions.find(entry => entry.id === degradedRes.subscriptionId);
+                const active          = subscriptions.find(entry => entry.id === activeRes.subscriptionId);
+
+                expect(degraded.status).toBe('degraded');
+                expect(degraded.routeDeliverable).toBe(false);
+                expect(degraded.routeWithdrawalReason).toContain("status is 'degraded'");
+                expect(active.routeDeliverable).toBe(true);
+            });
+        });
+
         test('the previously silent combination is now visible: subscribe succeeds, manifest omits, list says why', async () => {
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 const res = await WakeSubscriptionService.subscribe({
@@ -3667,7 +3696,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 const {subscriptions} = await WakeSubscriptionService.list();
                 const row             = subscriptions.find(entry => entry.id === res.subscriptionId);
                 expect(row.routeDeliverable).toBe(false);
-                expect(row.routeWithdrawalReason).toContain('not deliverable');
+                // Byte-equality is the point: the annotation and the builder's skip list are the
+                // same predicate's output, so the two surfaces cannot disagree about a row.
+                expect(row.routeWithdrawalReason).toBe(skipped[0].reason);
             });
         });
     });
