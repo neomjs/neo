@@ -16,6 +16,33 @@
     container-name: fm-cockpit;
     container-type: inline-size;
 
+    /* §04 proportion record (#17211 finding 2). The engine exposes the strip's extent as
+       `--dock-edge-rail-size`; this is the cockpit's deliberate proportion decision.
+
+       Grounded in a live measurement of the label's own box, NOT in the historical "18px label"
+       figure carried by the engine comment — that number predates the 11px/1 metric floor and is
+       stale. Measured at viewport 1280: rotated text node 11px wide (`font-size: 11px`,
+       `line-height: 11px`) plus the tab's 1px+1px horizontal padding = a 13px cross-axis demand.
+
+       So the engine's 14px default CONTAINS the label, with 1px of total slack — the reported
+       "cramped" is a crowding complaint, not a clipping one: the glyphs sit hard against both
+       edges of the strip. 20px gives the label the same breathing room across the strip that the
+       tab already gives it along the strip (its `padding: 4px 1px` main axis), i.e. 11 + 4 + 4,
+       and costs the fleet zone ~0.5% of a 1229px workspace.
+
+       What this value does NOT fix, stated so nobody reads more into it: strip width changes
+       crowding, not type size. An 11px rotated label stays an 11px rotated label at any measure.
+       The engine default stays 14px, so the workstation and every other consumer are untouched.
+
+       Scoped to `.neo-dashboard` and not to `.fm-fleet-cockpit` on purpose. `.neo-dashboard` is a
+       PROJECTED class the adapter stamps onto every zone, and the engine re-declares its `--dock-*`
+       defaults there — so a value set on an outer scope is shadowed by the nested projected one.
+       Overriding at the same element with higher specificity is what actually lands, and it is the
+       common ancestor of BOTH readers: the rail's width and the reveal overlay's reserved inset. */
+    .neo-dashboard {
+        --dock-edge-rail-size: 20px;
+    }
+
     /* The dock projection's tab zones are NAVIGATION vessels inside the FM tonal stack — the generic
        tab body must not leak the stock theme's surface + borders (stock rgb(14,15,13) + rgb(69,75,66)
        against --fm-ground). The pane owns the visible boundary; the tab body stays a layout/overflow
@@ -45,6 +72,14 @@
         --dock-rail-tab-color           : var(--fm-ink-dim);
         --dock-rail-tab-color-hover     : var(--fm-ink);
         --dock-transition-duration-fast : var(--fm-motion-fast);
+
+        /* The REVEALED tab. Deliberately NOT the bar's `.pressed` idiom (panel ground + full ink):
+           that pair is byte-identical to this rail's hover, so reusing it would make "open" and
+           "under the pointer" the same picture — and the rail's whole job is answering which pane
+           is showing. The ground stays the quiet panel lift, and the SIGNAL ink carries the state,
+           which is FM's existing vocabulary for "this is the one" without reaching for a slab. */
+        --dock-rail-tab-background-active: var(--fm-panel);
+        --dock-rail-tab-color-active     : var(--fm-signal);
 
         /* Voice stays app-side: mono, tracking and case are the FM chrome role, not dock
            capability. The engine owns the 11px/1 metric floor; this speaks the role on top. */

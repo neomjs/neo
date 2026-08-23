@@ -502,6 +502,7 @@ class DockRail extends Container {
         });
 
         me.syncRevealOverlay();
+        me.syncRevealedTabState(next.revealedItemId);
 
         // Embodied focus-hold: a click-born reveal moves REAL browser focus into the overlay.
         // Focus-rescue transitions (revealed / dismiss-pending -> focused) already hold focus
@@ -509,6 +510,31 @@ class DockRail extends Container {
         if (next.state === 'revealed-focused' && previous.state !== 'revealed' && previous.state !== 'dismiss-pending') {
             me.revealOverlay?.focusReveal?.()
         }
+    }
+
+    /**
+     * @summary Projects the reveal machine's current target back onto the rail's own tabs, so the
+     * tab that opened a reveal reads as the active one.
+     *
+     * Without this the rail is a set of buttons with no memory of which one is showing: the overlay
+     * knows what it hosts and the tab that summoned it looks identical to the four that did not.
+     * The state travels through the button's own `pressed` config rather than a bespoke class, so a
+     * consumer skins it with the same idiom it already uses for every other pressed button, and the
+     * engine supplies only a neutral affordance floor.
+     *
+     * Runtime-only, exactly like the reveal machine that drives it — a revealed tab is a view state,
+     * never a document mutation, so nothing here touches `dockZoneDocument`. Tabs are matched by
+     * `dockItemId`, which also excludes the bound overlay: it is a sibling item and carries none.
+     *
+     * @param {String|null} revealedItemId The machine's current target, or `null` once dismissed.
+     * @protected
+     */
+    syncRevealedTabState(revealedItemId) {
+        this.items?.forEach(item => {
+            if (item.dockItemId) {
+                item.pressed = item.dockItemId === revealedItemId
+            }
+        })
     }
 
     /**
