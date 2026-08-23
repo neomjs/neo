@@ -58,6 +58,12 @@ class Client extends Base {
          */
         command: null,
         /**
+         * Working directory for a stdio child process. Named built-ins may supply an explicit package
+         * root; `null` preserves the SDK's inherited-cwd behavior for existing definitions.
+         * @member {String|null} cwd=null
+         */
+        cwd: null,
+        /**
          * Path to a custom client configuration file.
          * @member {String|null} configFile=null
          */
@@ -163,7 +169,8 @@ class Client extends Base {
             return new StdioClientTransport({
                 command: me.command,
                 args   : me.args,
-                env    : me.env
+                env    : me.env,
+                cwd    : me.cwd ?? undefined
             });
 
         case 'sse':
@@ -388,6 +395,7 @@ class Client extends Base {
             throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
         }
         me.command           = serverConfig.command           || null;
+        me.cwd               = serverConfig.cwd               ?? null;
         me.args              = serverConfig.args              || null;
         me.bearerTokenEnvVar = serverConfig.bearerTokenEnvVar || null;
         me.openApiFilePath   = serverConfig.openApiFilePath   || null;

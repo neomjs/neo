@@ -13,6 +13,10 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import crypto         from 'crypto';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
+import {spawnSync}    from 'node:child_process';
 
 import {SSEClientTransport}            from '@modelcontextprotocol/sdk/client/sse.js';
 import {StdioClientTransport}          from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -63,7 +67,12 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
         expect(client.transportType).toBe('stdio');
         expect(client.command).toBe('npm');
         expect(client.args).toEqual(['run', 'ai:mcp-server-github-workflow']);
-        expect(client.createTransport()).toBeInstanceOf(StdioClientTransport);
+        expect(client.cwd).toBe(null);
+
+        const transport = client.createTransport();
+
+        expect(transport).toBeInstanceOf(StdioClientTransport);
+        expect(transport._serverParams.cwd).toBeUndefined();
 
         client.destroy();
     });
@@ -98,6 +107,7 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
             expect(client.bearerTokenEnvVar).toBe(REMOTE_MCP_CREDENTIAL_ENV_VAR);
             expect(client.bearerTokenEnvVar).not.toBe('GH_TOKEN');
             expect(client.command).toBe(null);
+            expect(client.cwd).toBe(null);
             expect(client.args).toBe(null);
 
             client.destroy();
@@ -113,10 +123,59 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
 
         expect(client.transportType).toBe('stdio');
         expect(client.command).toBe('npm');
-        expect(client.args).toEqual(['run', 'ai:mcp-server-neural-link']);
+        expect(path.isAbsolute(client.cwd)).toBe(true);
+        expect(client.args).toEqual([
+            'run',
+            'ai:mcp-server-neural-link',
+            '--',
+            '--cwd',
+            client.cwd
+        ]);
         expect(client.bearerTokenEnvVar).toBe(null);
 
+        const transport = client.createTransport();
+
+        expect(transport).toBeInstanceOf(StdioClientTransport);
+        expect(transport._serverParams.cwd).toBe(client.cwd);
+
         client.destroy();
+    });
+
+    test('Neural Link derives both cwd inputs from the client module, never the invoking directory', () => {
+        const
+            foreignCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-client-cwd-')),
+            neoUrl     = new URL('../../../../../../src/Neo.mjs', import.meta.url).href,
+            coreUrl    = new URL('../../../../../../src/core/_export.mjs', import.meta.url).href,
+            configUrl  = new URL('../../../../../../ai/mcp/client/config.mjs', import.meta.url).href,
+            probe      = `
+                await import(${JSON.stringify(neoUrl)});
+                await import(${JSON.stringify(coreUrl)});
+                const {default: config} = await import(${JSON.stringify(configUrl)});
+                process.stdout.write(JSON.stringify(config.mcpServers['neural-link']));
+            `;
+
+        try {
+            const result = spawnSync(process.execPath, ['--input-type=module', '--eval', probe], {
+                cwd     : foreignCwd,
+                encoding: 'utf8'
+            });
+
+            expect(result.status, result.stderr).toBe(0);
+
+            const neuralLink = JSON.parse(result.stdout);
+
+            expect(neuralLink.cwd).toBe(ClientConfig.mcpServers['neural-link'].cwd);
+            expect(neuralLink.cwd).not.toBe(foreignCwd);
+            expect(neuralLink.args).toEqual([
+                'run',
+                'ai:mcp-server-neural-link',
+                '--',
+                '--cwd',
+                neuralLink.cwd
+            ]);
+        } finally {
+            fs.rmSync(foreignCwd, {recursive: true, force: true});
+        }
     });
 
     test('creates streamable HTTP transports from remote endpoint config', () => {
