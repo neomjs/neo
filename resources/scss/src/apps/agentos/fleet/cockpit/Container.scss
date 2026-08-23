@@ -16,6 +16,23 @@
     container-name: fm-cockpit;
     container-type: inline-size;
 
+    /* §04 proportion record (#17211 finding 2): the operator escalation measured the right rail and
+       every tab in it at 14px — the engine's neutral strip default — holding 18px labels, which is
+       the "cramped rotated text" that was reported. The engine now exposes that measure as
+       `--dock-edge-rail-size` (#17211); this is the cockpit's deliberate proportion decision, and
+       28px is chosen rather than derived: it clears the 18px label metric with room for the tab's
+       own padding instead of fighting it, and costs the fleet zone ~1% of a 1229px workspace.
+       The engine default stays 14px, so the workstation and every other consumer are untouched.
+
+       Scoped to `.neo-dashboard` and not to `.fm-fleet-cockpit` on purpose. `.neo-dashboard` is a
+       PROJECTED class the adapter stamps onto every zone, and the engine re-declares its `--dock-*`
+       defaults there — so a value set on an outer scope is shadowed by the nested projected one.
+       Overriding at the same element with higher specificity is what actually lands, and it is the
+       common ancestor of BOTH readers: the rail's width and the reveal overlay's reserved inset. */
+    .neo-dashboard {
+        --dock-edge-rail-size: 28px;
+    }
+
     /* The dock projection's tab zones are NAVIGATION vessels inside the FM tonal stack — the generic
        tab body must not leak the stock theme's surface + borders (stock rgb(14,15,13) + rgb(69,75,66)
        against --fm-ground). The pane owns the visible boundary; the tab body stays a layout/overflow

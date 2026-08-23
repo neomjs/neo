@@ -67,6 +67,23 @@
     --dock-rail-tab-color           : inherit;
     --dock-rail-tab-color-hover     : inherit;
     --dock-rail-tab-font-family     : inherit;
+
+    // ── Edge-rail measure ────────────────────────────────────────────────────────────────
+    // The strip's cross-axis extent, and the ONE source for it. This value was a `14px`
+    // literal in six places — the four `-left`/`-right`/`-top`/`-bottom` rail rules and the
+    // reveal overlay's four per-edge `inset` rules — which coupled two elements through a
+    // magic number: the overlay reserves exactly the rail's extent, so moving one and not the
+    // other opens a gap or an overlap with nothing to catch it. They now read the same token
+    // and cannot drift (asserted by the mutation coupling control in
+    // `agentos/FleetCockpitRailDrawerErgonomicsNL`).
+    //
+    // The default is unchanged at 14px on purpose: this promotion is a capability, not a
+    // redesign, so every existing consumer renders byte-identically. #17522 gave this element
+    // its paint tokens and left its measure a literal — a consumer could restyle the tab and
+    // not resize it, which is the reported defect (#17211 finding 2: an 18px label in a 14px
+    // strip, rendering as cramped rotated text). What the strip should measure is a per-consumer
+    // decision, which is exactly why it is a value and not a constant.
+    --dock-edge-rail-size           : 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -278,7 +295,7 @@
 
     &-left,
     &-right {
-        width: 14px;
+        width: var(--dock-edge-rail-size);
 
         .neo-dashboard-dock-rail-tab {
             writing-mode: vertical-rl;
@@ -287,7 +304,7 @@
 
     &-top,
     &-bottom {
-        height: 14px;
+        height: var(--dock-edge-rail-size);
     }
 }
 
@@ -295,7 +312,7 @@
 // physical `height: var(--button-height)` (= 48px, at 0,1,0) and to
 // `min-width: var(--cmp-button-height)` through `:root .neo-theme-* .neo-button` — a 0,3,0
 // selector. That floor clamps a vertical rail tab to a 48px hit box (68-99px labels overflow and
-// overlap their neighbors) and defeats the 14px cross-axis stretch on every edge; the generic
+// overlap their neighbors) and defeats the `--dock-edge-rail-size` cross-axis stretch on every edge; the generic
 // button margin and padding (0,1,0 source-order tie the rail always lost) shrink or inflate the
 // strip anatomy, and the label span carries its own token'd font-size/line-height — consumer
 // text metrics set the vertical label's line-box cross extent (production AgentOS measured an
@@ -380,10 +397,13 @@
         display: none;
     }
 
-    &-left   { inset: 0 auto 0 14px; }
-    &-right  { inset: 0 14px 0 auto; }
-    &-top    { inset: 14px 0 auto 0; }
-    &-bottom { inset: auto 0 14px 0; }
+    // The reserved edge is the RAIL's extent, read from the rail's own token rather than
+    // restated — the overlay must start exactly where the strip ends, and a second literal
+    // here is how those two silently disagree.
+    &-left   { inset: 0 auto 0 var(--dock-edge-rail-size); }
+    &-right  { inset: 0 var(--dock-edge-rail-size) 0 auto; }
+    &-top    { inset: var(--dock-edge-rail-size) 0 auto 0; }
+    &-bottom { inset: auto 0 var(--dock-edge-rail-size) 0; }
 }
 
 .neo-dashboard-dock-reveal-header {
