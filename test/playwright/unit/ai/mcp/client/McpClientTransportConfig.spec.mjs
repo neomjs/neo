@@ -202,6 +202,24 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
         client.destroy();
     });
 
+    test('#17719 close clears connection truth even when transport teardown rejects', async () => {
+        const client = Neo.create(TransportConfigClient);
+
+        client.connected = true;
+        client.transport = {
+            async close() {
+                throw new Error('transport close rejected')
+            }
+        };
+
+        await expect(client.close()).rejects.toThrow('transport close rejected');
+        expect(client.connected).toBe(false);
+
+        // Prevent destroy() from re-driving the deliberately rejecting fixture transport.
+        client.transport = null;
+        client.destroy()
+    });
+
     test('resolves remote Bearer auth without mutating shared client config', () => {
         const
             serverName = addServerConfig({
