@@ -13,7 +13,22 @@ import VDomUtil           from '../../util/VDom.mjs';
  * which would read `1oops` as a length.
  * @type {RegExp}
  */
-const CSS_FLEX_BASIS = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:%|px|em|rem|ex|ch|cap|ic|lh|rlh|vw|vh|vi|vb|vmin|vmax|cm|mm|q|in|pt|pc)$/;
+const CSS_FLEX_BASIS = /^(?:auto|content|0|\+?(?:\d+\.?\d*|\.\d+)(?:%|px|em|rem|ex|ch|cap|ic|lh|rlh|vw|vh|vi|vb|vmin|vmax|cm|mm|q|in|pt|pc))$/;
+
+/**
+ * @summary Reads a `flex` token that must be a non-negative number — the grow and shrink positions.
+ *
+ * CSS rejects a negative grow or shrink, and a rejected token invalidates the **whole declaration**,
+ * so such an item is not flexible at all rather than flexible by its leading number.
+ * @param {String} token
+ * @returns {Number|null} The value, or `null` when the token cannot hold that position.
+ * @private
+ */
+function toFlexFactor(token) {
+    const factor = Number(token);
+
+    return Number.isFinite(factor) && factor >= 0 ? factor : null
+}
 
 /**
  * @class Neo.draggable.dashboard.SortZone
@@ -307,10 +322,24 @@ class DashboardSortZone extends SortZone {
             return null
         }
 
-        const grow = Number(tokens[0]);
+        const grow = toFlexFactor(tokens[0]);
 
-        if (!Number.isFinite(grow)) {
+        // A lone token that is not a factor must be a basis, and CSS grows a lone basis by 1.
+        if (grow === null) {
             return tokens.length === 1 && CSS_FLEX_BASIS.test(tokens[0]) ? 1 : null
+        }
+
+        // `<grow> <shrink>? <basis>?` — EVERY remaining token is validated, not skipped. A browser
+        // drops the entire declaration on one bad token, so `1 oops`, `1 -1 auto`, `1 2 3` and
+        // `1 1 none` leave the item not flexible; reading grow off token 0 and trusting the rest
+        // would invent weight 1 for all four. Validating position 0 alone was the same defect this
+        // method exists to remove, one position further along.
+        if (tokens.length === 3 && (toFlexFactor(tokens[1]) === null || !CSS_FLEX_BASIS.test(tokens[2]))) {
+            return null
+        }
+
+        if (tokens.length === 2 && toFlexFactor(tokens[1]) === null && !CSS_FLEX_BASIS.test(tokens[1])) {
+            return null
         }
 
         return grow > 0 ? grow : null

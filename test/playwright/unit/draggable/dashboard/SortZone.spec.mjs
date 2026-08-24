@@ -970,6 +970,28 @@ test.describe('Neo.draggable.dashboard.SortZone expanded-layout flex distributio
         expect(zone.resolveFlexWeight('px')).toBe(null);
         expect(zone.resolveFlexWeight('1 2 3 4')).toBe(null);
 
+        zone.destroy()
+    });
+
+    test('a bad token anywhere invalidates the declaration, not just a bad first one', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // @neo-gpt-emmy's round-2 RA. A browser drops the WHOLE declaration on one invalid token,
+        // so each of these leaves the item not flexible. Validating only position 0 would have read
+        // grow 1 off every one of them — the same invent-a-weight defect one position further along.
+        expect(zone.resolveFlexWeight('1 oops')).toBe(null);      // shrink is not a number or a basis
+        expect(zone.resolveFlexWeight('1 -1 auto')).toBe(null);   // a negative shrink is rejected
+        expect(zone.resolveFlexWeight('-1 1 auto')).toBe(null);   // and so is a negative grow
+        expect(zone.resolveFlexWeight('1 2 3')).toBe(null);       // a bare 3 is not a basis
+        expect(zone.resolveFlexWeight('1 1 none')).toBe(null);    // `none` is not a basis either
+
+        // The valid neighbours, which must survive the same validation.
+        expect(zone.resolveFlexWeight('1 2 3px')).toBe(1);
+        expect(zone.resolveFlexWeight('1 2')).toBe(1);            // <grow> <shrink>
+        expect(zone.resolveFlexWeight('1 auto')).toBe(1);         // <grow> <basis>
+        expect(zone.resolveFlexWeight('1 1 0')).toBe(1);          // unitless zero IS a valid basis
+        expect(zone.resolveFlexWeight('1 0 content')).toBe(1);
+
         // Non-string, non-number inputs never reach Number()'s coercions.
         expect(zone.resolveFlexWeight(true)).toBe(null);
         expect(zone.resolveFlexWeight([2])).toBe(null);
