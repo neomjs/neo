@@ -478,9 +478,13 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
         // EVERY submitted review, not just approvals: a hold is cleared by a newer submitted review
         // from the same reviewer in ANY state, so filtering to APPROVED here would leave a
         // CHANGES_REQUESTED-then-re-review sequence reading as still held.
+        //
+        // `state` rides along because the hold reader needs BOTH halves of the timeline: any
+        // submission clears a hold, but only an APPROVED one grants the standing to raise one.
+        // Dropping it here is what let a commenter with no review read as an active holder.
         reviewSubmissions: (reviewsConnection?.nodes || [])
             .filter(node => node?.author?.login && node?.submittedAt)
-            .map(node => ({login: node.author.login, submittedAt: node.submittedAt}))
+            .map(node => ({login: node.author.login, state: node.state ?? null, submittedAt: node.submittedAt}))
             .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.login.localeCompare(b.login)),
         reviewRequests  : {
             available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),

@@ -43,11 +43,34 @@ const MERGE_HOLD_TOKENS = new Set([
  *
  * Multi-line bodies are scanned per line, because a hold is normally a heading above its rationale.
  *
+ * **CODE IS EXAMPLE, NEVER ISSUANCE.** A token inside a fenced block or an indented code block is
+ * being SHOWN, not emitted — and mid-sentence backticks were already the only quoted form this
+ * caught. The documentation for this very feature opens a fence with `[MERGE_HOLD]` in it, so
+ * without this a reviewer who quotes the docs to explain the convention blocks the PR they are
+ * explaining it on. Found by @neo-gpt-emmy at review: the original negative control exercised the
+ * inline-backtick shape the matcher already handled and never the fenced shape it did not.
+ *
  * @param {String} body Comment body.
  * @returns {String|null} the matched token name (lower-case), or `null`.
  */
 export function mergeHoldToken(body = '') {
+    let fenced = false;
+
     for (const line of String(body).split('\n')) {
+        // Toggle on any fence marker. An opening fence may carry an info string (```js); a closing
+        // one is bare. Treating both as a toggle is enough — an UNCLOSED fence then swallows the
+        // rest of the body, which fails toward "no hold" and is the correct direction: a body whose
+        // markdown does not terminate is not an unambiguous issuance.
+        if (/^\s{0,3}(?:```|~~~)/.test(line)) {
+            fenced = !fenced;
+            continue;
+        }
+
+        // Four spaces is a markdown code block by the same reasoning as the fence.
+        if (fenced || /^\s{4,}\S/.test(line)) {
+            continue;
+        }
+
         const run = line.match(/^\s*[#`\s]*(?:\[[^\]]*\]\s*`?\s*)+/);
 
         if (!run) {
@@ -69,9 +92,13 @@ export function mergeHoldToken(body = '') {
 /**
  * @summary Decides whether an ACTIVE reviewer hold stands against a PR.
  *
- * A hold is active when a reviewer's hold comment is NEWER than that same reviewer's latest
- * submitted review. The two clearing rules are the whole design and both are deliberate:
+ * A hold is a reviewer WITHDRAWING THEIR OWN APPROVAL. That is one rule about standing and two
+ * about clearing, and all three are deliberate:
  *
+ * - **Only a prior approver can hold.** The token confers no authority by itself: a commenter with
+ *   no approving review has no approval to retract, and admitting them would let any drive-by
+ *   comment block any PR. The approval must be strictly OLDER than the hold — approving after your
+ *   own hold is the approval speaking last.
  * - **Only a newer submitted review from the SAME reviewer clears it.** A later comment does not —
  *   a hold cleared by a comment would let the holder's own "thanks, looking now" retract their stop.
  * - **Another peer never clears it.** A hold cleared by a third party would read as deliberately
@@ -82,14 +109,24 @@ export function mergeHoldToken(body = '') {
  * truncated window is missing evidence rather than evidence of absence — the same existential
  * asymmetry the cross-family mandate hits on its bounded approvals list. The caller fails closed.
  *
+ * **The persistence boundary, stated rather than implied.** Comments are mutable and this reader
+ * sees only the CURRENT body, so editing the token out of a hold comment does erase the hold
+ * without any newer review. Recovering that needs issuance history the comment API does not carry
+ * in this projection. So "only a newer review clears it" governs the REVIEW timeline; it is not a
+ * claim about an editable source, and a reader who takes it for one is owed this paragraph.
+ *
  * @param {Object}   args
  * @param {Object[]} [args.comments=[]] `{login, createdAt, token, commentId}` — pre-classified.
- * @param {Object[]} [args.reviews=[]]  `{login, submittedAt}` — submitted reviews only.
+ * @param {Object[]} [args.reviews=[]]  `{login, submittedAt, state}` — submitted reviews only.
  * @param {Boolean}  [args.truncated=false] Whether the comment window was bounded away.
  * @returns {{held: (Boolean|null), holders: Object[]}} `held: null` means it could not be decided.
  */
 export function resolveMergeHold({comments = [], reviews = [], truncated = false} = {}) {
-    const latestReviewByLogin = new Map();
+    const
+        // Two indices, because standing and clearing ask different questions of the same timeline:
+        // an APPROVED review grants the right to hold, any submitted review spends it.
+        latestApprovalByLogin = new Map(),
+        latestReviewByLogin   = new Map();
 
     for (const review of reviews) {
         const login = review?.login;
@@ -103,6 +140,14 @@ export function resolveMergeHold({comments = [], reviews = [], truncated = false
         if (!current || review.submittedAt > current) {
             latestReviewByLogin.set(login, review.submittedAt);
         }
+
+        if (review.state === 'APPROVED') {
+            const approved = latestApprovalByLogin.get(login);
+
+            if (!approved || review.submittedAt > approved) {
+                latestApprovalByLogin.set(login, review.submittedAt);
+            }
+        }
     }
 
     const holders = comments.filter(comment => {
@@ -110,11 +155,19 @@ export function resolveMergeHold({comments = [], reviews = [], truncated = false
             return false;
         }
 
-        const clearedAt = latestReviewByLogin.get(comment.login);
+        const approvedAt = latestApprovalByLogin.get(comment.login);
 
-        // Strictly newer: a review submitted at the same instant as the hold cannot be assumed to
-        // supersede it, and an equality that guessed would guess in the permissive direction.
-        return !clearedAt || comment.createdAt > clearedAt
+        // STANDING. No approval to withdraw, no hold — and an approval at-or-after the token means
+        // the reviewer's latest word is the approval itself.
+        if (!approvedAt || approvedAt >= comment.createdAt) {
+            return false;
+        }
+
+        // CLEARING. Strictly newer: a review submitted at the same instant as the hold cannot be
+        // assumed to supersede it, and an equality that guessed would guess in the permissive
+        // direction. `clearedAt` is always defined here — the approval that granted standing is
+        // itself a submitted review.
+        return comment.createdAt > latestReviewByLogin.get(comment.login)
     });
 
     return {
