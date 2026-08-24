@@ -4,7 +4,7 @@ import {
     findAgreementMismatches,
     findStackedParent,
     parseDeclaredTickets
-} from '../../../../buildScripts/util/prStackingGuard.mjs';
+} from '../../../../../../ai/scripts/lint/prStackingGuard.mjs';
 
 /**
  * Arms for the stacked-PR guard's pure decision helpers. The guard previously used one

@@ -1,4 +1,5 @@
 import {execFileSync}             from 'node:child_process';
+import {COMMIT_TICKET_PATTERN, DECLARED_TICKET_LINE_PATTERN} from './lint/prStackingGuard.mjs';
 import {existsSync, readFileSync} from 'node:fs';
 import {Command}                  from 'commander';
 import path                       from 'node:path';
@@ -129,11 +130,12 @@ const
     ACCEPTANCE_CRITERIA_H2        = /^##[ \t]+Acceptance Criteria[ \t]*$/im,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
-    DECLARED_TICKET_PATTERN       = /\b(?:Resolves|Refs|Related):?\s+#(\d+)/gi,
-    COMMIT_TICKET_PATTERN         = /\(#(\d+)\)\s*$/,
     CONVENTIONAL_TYPE_PATTERN     = /^([a-z][a-z0-9-]*)(?:\([^()\r\n]+\))?!?:\s+\S/;
 
-export {COMMIT_TICKET_PATTERN, DECLARED_TICKET_PATTERN};
+export {
+    COMMIT_TICKET_PATTERN,
+    DECLARED_TICKET_LINE_PATTERN as DECLARED_TICKET_PATTERN
+} from './lint/prStackingGuard.mjs';
 
 export const CHANGE_CLASS_TO_TYPES = Object.freeze({
     capability : Object.freeze(['feat']),
@@ -944,7 +946,8 @@ export function getPrBranchCommits({base, cwd, execFileSyncImpl = execFileSync})
 export function validateStackedPrTickets(body, commits = []) {
     const
         declaredTickets = new Set(
-            [...body.matchAll(DECLARED_TICKET_PATTERN)].map(match => match[1])
+            [...body.matchAll(DECLARED_TICKET_LINE_PATTERN)]
+                .flatMap(match => [...match[0].matchAll(/#(\d+)/g)].map(idMatch => idMatch[1]))
         ),
         foreignCommits = [];
 

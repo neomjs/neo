@@ -21,6 +21,20 @@
  */
 
 /**
+ * One declaring LINE of a PR body: the keyword, then every ticket id to end-of-line. Shared with
+ * `ai/scripts/agent-preflight.mjs` so author-side and hosted lint cannot drift on what counts as
+ * declared.
+ * @type {RegExp}
+ */
+export const DECLARED_TICKET_LINE_PATTERN = /\b(?:Resolves|Refs|Related)\b[^\n]*/gi;
+
+/**
+ * A trailing `(#N)` on a commit subject. Shared with the same consumer pair.
+ * @type {RegExp}
+ */
+export const COMMIT_TICKET_PATTERN = /\(#(\d+)\)\s*$/;
+
+/**
  * @summary Collects every ticket id a PR body declares, honoring the house multi-id convention.
  *
  * `Related: epic <id1> · <id2> · <id3>` declares all three — the keyword opens the line and
@@ -33,7 +47,7 @@
 export function parseDeclaredTickets(body) {
     const declared = new Set();
 
-    for (const match of String(body || '').matchAll(/\b(?:Resolves|Refs|Related)\s*(?:#|:)[^\n]*/gi)) {
+    for (const match of String(body || '').matchAll(DECLARED_TICKET_LINE_PATTERN)) {
         for (const id of match[0].matchAll(/#(\d+)/g)) {
             declared.add(id[1])
         }
@@ -57,7 +71,7 @@ export function findAgreementMismatches(commits, declared) {
     return (Array.isArray(commits) ? commits : [])
         .map(commit => {
             const subject = String(commit?.subject || '');
-            const ticket  = subject.match(/\(#(\d+)\)\s*$/);
+            const ticket  = subject.match(COMMIT_TICKET_PATTERN);
 
             return ticket && !declared.has(ticket[1])
                 ? {sha: String(commit?.sha || '').slice(0, 10), ticket: ticket[1], subject: subject.slice(0, 72)}

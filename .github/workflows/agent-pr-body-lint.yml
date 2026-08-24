@@ -214,7 +214,7 @@ jobs:
             let stackedVerdict;
             try {
               const { execSync } = require("child_process");
-              execSync("node ./buildScripts/util/lintPrStacking.mjs", {
+              execSync("node ./ai/scripts/lint/lintPrStacking.mjs", {
                 input: stackingInput,
                 encoding: "utf8",
                 stdio: ["pipe", "pipe", "pipe"],
