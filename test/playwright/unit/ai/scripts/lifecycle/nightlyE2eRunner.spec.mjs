@@ -71,3 +71,122 @@ test.describe('nightlyE2eRunner.runConfig — stale-report suppression guard (#1
         expect(outcome.failures[0].title).toBe('boom');
     });
 });
+
+/**
+ * The delivery paths, which is where the reporting silences lived. Every collaborator is injected,
+ * so each arm asserts a decision the runner made rather than a service's availability.
+ */
+test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake tier (#17691)', () => {
+    let runNightlyE2e, cwd, tmpDir;
+
+    const
+        stateFile  = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
+        readState  = async () => fs.readJson(stateFile()),
+        redOutcome = entry => ({
+            config  : entry.config,
+            failures: [{title: 'a failing spec', file: 'x.spec.mjs', error: 'boom'}],
+            note    : '',
+            output  : '',
+            ran     : true
+        }),
+        greenOutcome = entry => ({config: entry.config, failures: [], note: '', output: '', ran: true});
+
+    test.beforeAll(async () => {
+        runNightlyE2e = (await import('../../../../../../ai/scripts/lifecycle/nightlyE2eRunner.mjs')).runNightlyE2e;
+    });
+
+    test.beforeEach(async () => {
+        cwd    = process.cwd();
+        tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nightly-e2e-delivery-'));
+        process.chdir(tmpDir)
+    });
+
+    test.afterEach(async () => {
+        process.chdir(cwd);
+        await fs.remove(tmpDir)
+    });
+
+    test('a RED digest opts OUT of wake suppression — a red suite is action-required, not drain-class', async () => {
+        // `AGENT:*` defaults to suppressed, so inheriting that default would land a red suite
+        // silently in mailboxes carrying thousands unread.
+        const sent = [];
+
+        const result = await runNightlyE2e({
+            addMessage    : async options => { sent.push(options) },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        });
+
+        expect(result).toMatchObject({red: true, sent: true});
+        expect(sent).toHaveLength(1);
+        expect(sent[0].wakeSuppressed).toBe(false);
+        expect(sent[0].to).toBe('AGENT:*');
+        expect(sent[0].subject).toContain('[nightly-e2e][RED]')
+    });
+
+    test('a GREEN run sends nothing and wakes nobody', async () => {
+        const sent = [];
+
+        const result = await runNightlyE2e({
+            addMessage    : async options => { sent.push(options) },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : greenOutcome
+        });
+
+        expect(result).toMatchObject({red: false, sent: false});
+        expect(sent).toEqual([]);
+        expect(await readState()).toMatchObject({red: false, digest: 'not-required'})
+    });
+
+    test('delivery is RECORDED, not derived: a successful send writes `sent`', async () => {
+        await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        });
+
+        expect(await readState()).toMatchObject({red: true, digest: 'sent'})
+    });
+
+    test('a THROWING send records `failed` durably and rethrows — the red is not lost', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('mailbox unreachable') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('mailbox unreachable');
+
+        expect(await readState()).toMatchObject({
+            red        : true,
+            digest     : 'failed',
+            digestError: 'mailbox unreachable'
+        })
+    });
+
+    test('a crash BEFORE the send leaves `pending` standing, never `sent`', async () => {
+        // The state that used to be indistinguishable from success: the receipt is written before
+        // the attempt, so an undelivered digest cannot be re-derived as delivered.
+        await expect(runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => { throw new Error('graph never became ready') },
+            runOne        : redOutcome
+        })).rejects.toThrow('graph never became ready');
+
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+    });
+
+    test('the lock is released on the failure path too', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('nope') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('nope');
+
+        expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
+    })
+});

@@ -5,8 +5,16 @@
  * e2e lives OUTSIDE CI by design (failing-honest discipline — a whitebox proof may be legitimately red without
  * blocking a merge), but nothing runs it on a schedule, so red states sit undiscovered (the 3-week middleware
  * staleness failure mode). This is the unattended quality heartbeat: run the declared e2e configs, and on ANY
- * red, push ONE mailbox-drain-class A2A digest naming the failing specs + first-error lines + the run-log path.
+ * red, push ONE A2A digest naming the failing specs + first-error lines + the run-log path.
  * Green runs are SILENT — red-as-pointer made push, not pull.
+ *
+ * The RED digest WAKES, deliberately. A broadcast is suppressed by default, so a red suite would
+ * otherwise arrive drain-class into mailboxes carrying thousands unread — silence inherited rather
+ * than chosen. Green never reaches the send, so routine success still wakes nobody.
+ *
+ * Delivery disposition is RECORDED, never derived: the receipt carries `pending` before the attempt
+ * and `sent` or `failed` after it. A crash between the two leaves `pending` standing, so an
+ * undelivered digest can never read as delivered.
  *
  * Hardening (the middleware-scheduler LaunchAgent precedent): an exclusive PID lockfile with stale-steal, a run log,
  * structured stderr, and finally-hygiene that always releases the lock. LaunchAgent-staged (not auto-installed);
@@ -105,10 +113,26 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
 
 /**
  * @summary Executes the nightly run: hold the lock, run each declared config, and on ANY red push exactly one
- * normal-priority (mailbox-drain, never a wake storm) A2A digest. Green = silence. Always releases the lock.
+ * WAKING A2A digest. Green = silence. Always releases the lock, including on a delivery failure.
+ *
+ * Delivery moves through explicit receipt states — `pending` before the attempt, then `sent` or
+ * `failed` — so an undelivered digest can never be re-derived as delivered.
+ *
+ * Every collaborator is injectable for the same reason `runConfig` takes its spawn: the delivery
+ * paths are the ones worth proving, and a module-level import cannot be driven from a test.
+ * @param {Object}   [options]
+ * @param {Function} [options.addMessage] A2A send seam.
+ * @param {Function} [options.graphReady] Graph readiness seam.
+ * @param {Function} [options.lifecycleReady] Lifecycle readiness seam.
+ * @param {Function} [options.runOne] Per-config execution seam.
  * @returns {Promise<Object>} run outcome `{red, sent, reason?}`.
  */
-export async function runNightlyE2e() {
+export async function runNightlyE2e({
+    addMessage     = options => MailboxService.addMessage(options),
+    graphReady     = () => GraphService.ready(),
+    lifecycleReady = () => LifecycleService.ready(),
+    runOne         = runConfig
+} = {}) {
     const nowIso  = new Date().toISOString(),
           logPath = `${STATE_DIR}/logs/run-${nowIso.replace(/[:.]/g, '-')}.log`;
 
@@ -117,7 +141,7 @@ export async function runNightlyE2e() {
     }
 
     try {
-        const outcomes = E2E_CONFIGS.map(entry => runConfig(entry)),
+        const outcomes = E2E_CONFIGS.map(entry => runOne(entry)),
               red      = isRed(outcomes);
 
         // Back the digest's `Run log:` pointer with a real file: ensure the logs dir, write the captured
@@ -125,12 +149,10 @@ export async function runNightlyE2e() {
         fs.ensureDirSync(path.dirname(logPath));
         fs.writeFileSync(logPath, buildRunLog(outcomes, nowIso), 'utf8');
 
-        await fs.writeJson(STATE_PATH, {
-            at     : nowIso,
-            red,
-            configs: outcomes.map(o => ({config: o.config, failing: o.failures.length, ran: o.ran, note: o.note})),
-            logPath
-        }, {spaces: 2});
+        // A red receipt starts as `pending`, never as an absent field. Inferring delivery from
+        // `red` alone would publish "sent" for a digest that never left: a crash between this write
+        // and the send is indistinguishable from success unless the state exists BEFORE the attempt.
+        await writeRunReceipt({digest: red ? 'pending' : 'not-required', logPath, nowIso, outcomes, red});
 
         if (!red) {
             console.error('[nightlyE2eRunner] All declared e2e configs green — staying silent.');
@@ -138,23 +160,71 @@ export async function runNightlyE2e() {
         }
 
         const sender = process.env.NEO_AGENT_IDENTITY || '@system';
-        await LifecycleService.ready();
-        await GraphService.ready();
 
-        await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-            await MailboxService.addMessage({
-                to      : 'AGENT:*',
-                subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
-                body    : formatDigest(outcomes, logPath),
-                priority: 'normal'   // mailbox-drain class (wake-tier compliant) — never a wake storm
+        try {
+            await lifecycleReady();
+            await graphReady();
+
+            await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
+                await addMessage({
+                    to      : 'AGENT:*',
+                    subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
+                    body    : formatDigest(outcomes, logPath),
+                    priority: 'normal',
+                    // A red suite is action-required BY DEFINITION, and a broadcast defaults to
+                    // suppressed, so silence here would be inherited rather than chosen. This is the
+                    // only per-message lever: the wake tier is one boolean on the message, so it
+                    // wakes every seat or none. Green never reaches this call and stays un-woken.
+                    wakeSuppressed: false
+                });
             });
-        });
+        } catch (error) {
+            // The reporter failing is not the suite passing. `pending` already stands on disk, so
+            // the red survives even if THIS write also fails — the receipt degrades from `failed`
+            // to `pending`, never to `sent`.
+            console.error(`[nightlyE2eRunner] RED digest delivery FAILED: ${error?.message ?? error}`);
+            await writeRunReceipt({
+                digest     : 'failed',
+                digestError: String(error?.message ?? error),
+                logPath, nowIso, outcomes, red
+            }).catch(() => {});
+            throw error
+        }
 
-        console.error('[nightlyE2eRunner] RED digest sent to AGENT:* (normal priority).');
+        // Written only after delivery RESOLVED. `sent` is recorded, never derived.
+        await writeRunReceipt({digest: 'sent', logPath, nowIso, outcomes, red});
+        console.error('[nightlyE2eRunner] RED digest sent to AGENT:* (wakeSuppressed: false).');
         return {red: true, sent: true};
     } finally {
         await fs.remove(LOCK_PATH).catch(() => {});
     }
+}
+
+/**
+ * @summary Writes the run receipt with an explicit delivery disposition.
+ *
+ * `digest` is always present and always recorded rather than inferred: `not-required` for green,
+ * then `pending` → `sent` | `failed` across the delivery attempt. A reader can therefore separate
+ * "no digest was owed", "one is owed and unresolved", and "one failed" — where a missing field
+ * would have collapsed all three into whatever the reader chose to assume.
+ * @param {Object}   options
+ * @param {String}   options.digest `not-required` | `pending` | `sent` | `failed`.
+ * @param {String}   [options.digestError] Delivery failure message, when `digest` is `failed`.
+ * @param {String}   options.logPath
+ * @param {String}   options.nowIso
+ * @param {Object[]} options.outcomes
+ * @param {Boolean}  options.red
+ * @returns {Promise<void>}
+ */
+async function writeRunReceipt({digest, digestError, logPath, nowIso, outcomes, red}) {
+    await fs.writeJson(STATE_PATH, {
+        at     : nowIso,
+        red,
+        digest,
+        ...(digestError ? {digestError} : {}),
+        configs: outcomes.map(o => ({config: o.config, failing: o.failures.length, ran: o.ran, note: o.note})),
+        logPath
+    }, {spaces: 2})
 }
 
 async function main() {
