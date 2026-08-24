@@ -19,15 +19,20 @@
         {
             "identity": ".github/workflows/adr-seam-table-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 wave-one custody plus Epic #17500 leaf 7",
             "rationale": "the Engine retains learn/agentos decisions, so its ADR seam gate stays here and consumes the pinned AgentOS validator"
         },
         {
+            "identity": ".github/workflows/adr-status-lint.yml",
+            "disposition": "pin-fetch",
+            "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
+            "source": "ADR 0040 §2.7 wave-one decision custody plus Epic #17500 leaf 7",
+            "rationale": "the Engine retains learn/agentos decisions, so its status gate stays here and consumes the pinned AgentOS validator"
+        },
+        {
             "identity": ".github/workflows/agent-pr-body-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 minimal Engine contributor surface plus Epic #17500 leaf 7",
             "rationale": "Engine pull requests retain their admission gate while the AgentOS-owned preflight implementation is fetched at a pinned revision"
@@ -42,7 +47,6 @@
         {
             "identity": ".github/workflows/commit-authorship-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 minimal Engine contributor surface plus Epic #17500 leaf 7",
             "rationale": "the Engine owns its commit-history policy while the implementation script moves with AgentOS and is consumed at a pin"
@@ -64,7 +68,6 @@
         {
             "identity": ".github/workflows/discussion-lifecycle-audit.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 retained skills and content custody plus Epic #17500 leaf 7",
             "rationale": "the Engine retains the ideation skill and mirrored Discussion corpus, so its lifecycle audit fetches the AgentOS diagnostic at a pin"
@@ -72,7 +75,6 @@
         {
             "identity": ".github/workflows/front-door-fingerprint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 retained published learn content plus Epic #17500 leaf 7",
             "rationale": "the guarded Introduction stays Engine-owned, so the Engine workflow retains ownership and pins its AgentOS validator"
@@ -80,7 +82,6 @@
         {
             "identity": ".github/workflows/guard-ci-parity-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "Epic #17500 leaf 7 per-file workflow ownership",
             "rationale": "the Engine owns its workflow and package-hook parity while consuming the moved guard registry and validator from one pinned AgentOS revision"
@@ -88,7 +89,6 @@
         {
             "identity": ".github/workflows/identity-engine-coherence-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 retained learn content plus explicit cross-repository pinning",
             "rationale": "the public Engine-owned ModelStats document remains the guarded target and compares against identity authority from a pinned AgentOS revision"
@@ -110,7 +110,6 @@
         {
             "identity": ".github/workflows/npm-script-entrypoint-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.1 independent manifests plus Epic #17500 leaf 7",
             "rationale": "the Engine retains its root script and entrypoint guard while fetching the shared AgentOS validator at the compatibility pin"
@@ -125,7 +124,6 @@
         {
             "identity": ".github/workflows/retry-bound-classification-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 retained Engine source and app custody plus Epic #17500 leaf 7",
             "rationale": "the Engine keeps retry-bound enforcement over src and apps while consuming the moved registry and validator from a pinned AgentOS revision"
@@ -140,7 +138,6 @@
         {
             "identity": ".github/workflows/skill-manifest-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 minimal contributor and published guide custody",
             "rationale": "the Engine retains the skill manifests and published guidance while fetching the moved AgentOS manifest validators at a pin"
@@ -148,7 +145,6 @@
         {
             "identity": ".github/workflows/substrate-size-guard.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 minimal Engine contributor surface plus Epic #17500 leaf 7",
             "rationale": "the Engine-retained instruction and skill payloads remain the measured subject while the AgentOS size diagnostic is consumed at a pin"
@@ -156,7 +152,6 @@
         {
             "identity": ".github/workflows/tree-json-lint.yml",
             "disposition": "pin-fetch",
-            "targetRepository": "neomjs/neo-agent-brain",
             "pinAuthority": "ADR 0040 §2.3 CI or Fleet provisioning pins one immutable AgentOS runtime revision",
             "source": "ADR 0040 §2.7 retained learn, Portal, SEO, and tree-input custody",
             "rationale": "the Engine owns every guarded content and Portal output, so its workflow stays and pins the moved AgentOS validator"

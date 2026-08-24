@@ -51,17 +51,17 @@ import {censusPlaneOpeners}           from './planePlacementCensus.mjs';
  */
 
 const
-    __filename              = fileURLToPath(import.meta.url),
-    PROJECT_ROOT            = path.resolve(path.dirname(__filename), '../../..'),
-    DEFAULT_REGISTRY_PATH   = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
-    SCRIPT_PATH_RE          = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
-    WORKFLOW_ARTIFACT_RE    = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
+    __filename                = fileURLToPath(import.meta.url),
+    PROJECT_ROOT              = path.resolve(path.dirname(__filename), '../../..'),
+    DEFAULT_REGISTRY_PATH     = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
+    SCRIPT_PATH_RE            = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
+    WORKFLOW_ARTIFACT_RE      = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
     AGENTOS_TARGET_REPOSITORY = 'neomjs/neo-agent-brain',
     VALID_DISPOSITIONS        = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
     VALID_MANIFEST_TARGETS    = new Set(['cloud', 'edge', 'engine', 'shared']),
     VALID_PROBE_ELIGIBILITY   = new Set(['eligible', 'ineligible']),
     VALID_SUCCESSOR_PHASES    = new Set(['engine-continuity', 'move', 'seat-reprovisioning']),
-    LAUNCH_CALLEES          = new Set([
+    LAUNCH_CALLEES            = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
     SUBPROCESS_SCAN_ROOTS   = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
@@ -882,12 +882,10 @@ export function reconcileWorkflowFileDispositions(workflowRows, registry) {
             Object.hasOwn(entry, 'pinAuthority') && unexpected.push('pinAuthority');
             Object.hasOwn(entry, 'retirementEvidence') && unexpected.push('retirementEvidence')
         } else if (entry.disposition === WORKFLOW_FILE_DISPOSITION.pinFetch) {
-            if (entry.targetRepository !== AGENTOS_TARGET_REPOSITORY) {
-                errors.push({kind: 'invalid-workflow-pin-target', key: identity})
-            }
             if (typeof entry.pinAuthority !== 'string' || entry.pinAuthority.trim().length < 12) {
                 errors.push({kind: 'missing-workflow-pin-authority', key: identity})
             }
+            Object.hasOwn(entry, 'targetRepository') && unexpected.push('targetRepository');
             Object.hasOwn(entry, 'retirementEvidence') && unexpected.push('retirementEvidence')
         } else if (entry.disposition === WORKFLOW_FILE_DISPOSITION.retire) {
             if (typeof entry.retirementEvidence !== 'string'

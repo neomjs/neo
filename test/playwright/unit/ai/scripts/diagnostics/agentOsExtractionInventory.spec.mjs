@@ -94,12 +94,11 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             population = deriveWorkflowFilePopulation(rows),
             result     = reconcileWorkflowFileDispositions(rows, {
                 workflowFileDispositions: [{
-                    identity        : workflowA,
-                    disposition     : WORKFLOW_FILE_DISPOSITION.pinFetch,
-                    targetRepository: 'neomjs/neo-agent-brain',
-                    pinAuthority    : 'fixture immutable compatibility receipt',
-                    source          : 'fixture authority',
-                    rationale       : 'mixed target custody does not choose the file action'
+                    identity    : workflowA,
+                    disposition : WORKFLOW_FILE_DISPOSITION.pinFetch,
+                    pinAuthority: 'fixture immutable compatibility receipt',
+                    source      : 'fixture authority',
+                    rationale   : 'mixed target custody does not choose the file action'
                 }, {
                     identity        : workflowB,
                     disposition     : WORKFLOW_FILE_DISPOSITION.move,
@@ -209,7 +208,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(result.errors.map(error => error.kind)).toEqual(expect.arrayContaining([
             'invalid-workflow-move-target',
             'missing-workflow-pin-authority',
-            'missing-workflow-retirement-evidence'
+            'missing-workflow-retirement-evidence',
+            'unexpected-workflow-file-metadata'
         ]))
     });
 
@@ -1111,11 +1111,18 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.agentOsToOutside]).toBeGreaterThan(0);
         expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.outsideToAgentOs]).toBeGreaterThan(0);
         expect(first.consumerEdges.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
-        expect(first.workflowFiles.total).toBe(19);
-        expect(first.workflowFiles.occurrenceTotal).toBe(69);
-        expect(first.workflowFiles.byDisposition).toEqual({move: 7, 'pin-fetch': 12, retire: 0});
+        expect(first.workflowFiles.total).toBe(20);
+        expect(first.workflowFiles.occurrenceTotal).toBe(72);
+        expect(first.workflowFiles.byDisposition).toEqual({move: 7, 'pin-fetch': 13, retire: 0});
         expect(first.workflowFiles.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
         expect(first.workflowFiles.rows.map(row => row.identity)).toEqual(workflowFiles.sort());
+        expect(first.workflowFiles.rows
+            .filter(row => row.disposition === WORKFLOW_FILE_DISPOSITION.move)
+            .every(row => row.targetRepository === 'neomjs/neo-agent-brain')).toBe(true);
+        expect(first.workflowFiles.rows
+            .filter(row => row.disposition === WORKFLOW_FILE_DISPOSITION.pinFetch)
+            .every(row => !Object.hasOwn(row, 'targetRepository') && typeof row.pinAuthority === 'string'))
+            .toBe(true);
         expect(first.consumerEdges.sourceClasses).toContainEqual(expect.objectContaining({
             identity   : 'test/playwright/unit/ai/**',
             disposition: 'moves-agentos-test',
@@ -1209,8 +1216,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(human).toContain('package.brain.json::devDependencies::better-sqlite3 @');
         expect(human).toContain('consumer-edge identities:');
         expect(human).toContain('preclassified source classes:');
-        expect(human).toContain('workflow-file identities: 19 · occurrences 69');
-        expect(human).toContain('pin-fetch: 12');
+        expect(human).toContain('workflow-file identities: 20 · occurrences 72');
+        expect(human).toContain('pin-fetch: 13');
         expect(human).toContain('Engine→AgentOS forbidden packages:');
 
         const keys = first.rows.map(row => rowKey(row.surface, row.identity));
