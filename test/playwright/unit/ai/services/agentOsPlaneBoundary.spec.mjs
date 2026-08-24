@@ -14,6 +14,7 @@ import {
     runRuntimeDenialProof,
     runStaticClosureProof
 } from '../../../../../ai/scripts/diagnostics/agentOsPlaneBoundaryProof.mjs';
+import {SURFACE, rowKey} from '../../../../../ai/scripts/diagnostics/agentOsExtractionInventory.mjs';
 
 /**
  * @summary Red-proofs every detector arm of the C′ plane-boundary proof's resolution layer.
@@ -246,20 +247,26 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
             ...result.topologyFindings.map(finding => finding.class)
         ].sort(),
 
+        /** @returns {Map<String,String>} Surface-qualified module-custody authority. */
+        moduleDispositions = entries => new Map(entries.map(([identity, disposition]) => [
+            rowKey(SURFACE.scriptModule, identity),
+            disposition
+        ])),
+
         run = overrides => runStaticClosureProof({
-            entrypoints          : [`${PLANE_ROOT}/e.mjs`],
-            planeRoot            : PLANE_ROOT,
-            cloudOnlyPackages    : [],
-            dispositionByIdentity: new Map([['e.mjs', 'edge']]),
-            resolve              : resolveInPlane,
+            entrypoints                 : [`${PLANE_ROOT}/e.mjs`],
+            planeRoot                   : PLANE_ROOT,
+            cloudOnlyPackages           : [],
+            dispositionBySurfaceIdentity: moduleDispositions([['e.mjs', 'edge']]),
+            resolve                     : resolveInPlane,
             ...overrides
         });
 
     test('POSITIVE CONTROL: a wholly Edge-dispositioned graph returns both layers empty', () => {
         const result = run({
-            dispositionByIdentity: new Map([['e.mjs', 'edge'], ['svc.mjs', 'edge']]),
-            cloudOnlyPackages    : ['chromadb'],
-            readFile             : graph({
+            dispositionBySurfaceIdentity: moduleDispositions([['e.mjs', 'edge'], ['svc.mjs', 'edge']]),
+            cloudOnlyPackages           : ['chromadb'],
+            readFile                    : graph({
                 '/plane/e.mjs'  : "import {a} from './svc.mjs'; a();",
                 '/plane/svc.mjs': 'export function a() {}'
             })
@@ -271,8 +278,8 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
 
     test('a reached module the registry dispositions as cloud is a topology finding, by exact identity', () => {
         const result = run({
-            dispositionByIdentity: new Map([['e.mjs', 'edge'], ['svc.mjs', 'cloud']]),
-            readFile             : graph({
+            dispositionBySurfaceIdentity: moduleDispositions([['e.mjs', 'edge'], ['svc.mjs', 'cloud']]),
+            readFile                    : graph({
                 '/plane/e.mjs'  : "import {a} from './svc.mjs'; a();",
                 '/plane/svc.mjs': 'export function a() {}'
             })
@@ -281,6 +288,36 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
         expect(classesOf(result)).toEqual([PROOF_CLASS.closureReachesCloudModule]);
         expect(result.topologyFindings[0].identity).toBe('svc.mjs');
         expect(result.topologyFindings[0].preRelocationBlocker).toBe(true)
+    });
+
+    test('#17707 a same-path non-module surface cannot classify module custody', () => {
+        const inventoryRows = [{
+                  surface    : 'script-module',
+                  identity   : 'ai/e.mjs',
+                  disposition: 'edge'
+              }, {
+                  surface    : 'plane-opener',
+                  identity   : 'ai/svc.mjs',
+                  disposition: 'cloud'
+              }],
+              result = run({
+                  planeRoot  : '/root',
+                  entrypoints: ['/root/ai/e.mjs'],
+                  // Mirrors the production bug: dropping `surface` lets the plane-opener row
+                  // impersonate module custody solely because the strings collide.
+                  dispositionBySurfaceIdentity: new Map(inventoryRows.map(row => [
+                      rowKey(row.surface, row.identity),
+                      row.disposition
+                  ])),
+                  readFile                   : graph({
+                      '/root/ai/e.mjs'  : "import {a} from './svc.mjs'; a();",
+                      '/root/ai/svc.mjs': 'export function a() {}'
+                  }),
+                  resolve: specifier => specifier.startsWith('./') ? `/root/ai/${specifier.slice(2)}` : null
+              });
+
+        expect(result.instrumentErrors).toEqual([]);
+        expect(result.topologyFindings).toEqual([])
     });
 
     test('a Cloud-only PACKAGE import fires even though the closure never follows bare specifiers, and a deep import normalizes to its package', () => {
@@ -306,12 +343,12 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
         expect(classesOf(result)).toEqual([PROOF_CLASS.closureEscapesPlaneRoot])
     });
 
-    test('unregistered modules AGGREGATE into one finding carrying the identity list, not one row each', () => {
+    test('#17707 reached dependencies without a script-module row are not missing inventory authority', () => {
         const result = run({
-            planeRoot            : '/root',
-            entrypoints          : ['/root/ai/e.mjs'],
-            dispositionByIdentity: new Map([['ai/e.mjs', 'edge']]),
-            readFile: graph({
+            planeRoot                   : '/root',
+            entrypoints                 : ['/root/ai/e.mjs'],
+            dispositionBySurfaceIdentity: moduleDispositions([['ai/e.mjs', 'edge']]),
+            readFile                    : graph({
                 '/root/ai/e.mjs'     : "import {a} from './ghost.mjs'; import {b} from './wraith.mjs'; a(); b();",
                 '/root/ai/ghost.mjs' : 'export function a() {}',
                 '/root/ai/wraith.mjs': 'export function b() {}'
@@ -319,19 +356,18 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
             resolve: specifier => specifier.startsWith('./') ? `/root/ai/${specifier.slice(2)}` : null
         });
 
-        // Two undispositioned modules, ONE finding. At current head this class runs to the
-        // hundreds; a row each would bury the exact-identity cloud classes that carry the signal.
-        expect(classesOf(result)).toEqual([PROOF_CLASS.closureUnregisteredModule]);
-        expect(result.topologyFindings[0].identity).toBe('2 module(s)');
-        expect(result.topologyFindings[0].identities).toEqual(['ai/ghost.mjs', 'ai/wraith.mjs'])
+        // Proof 1 owns exact surface membership. These are reached dependencies, not executable
+        // surfaces the inventory forgot; treating absence as custody manufactures authority from reach.
+        expect(result.instrumentErrors).toEqual([]);
+        expect(result.topologyFindings).toEqual([])
     });
 
     test('a module OUTSIDE the registry region gets its own class and owner — the authority never claimed that region', () => {
         const result = run({
-            planeRoot            : '/root',
-            entrypoints          : ['/root/ai/e.mjs'],
-            dispositionByIdentity: new Map([['ai/e.mjs', 'edge']]),
-            readFile             : graph({
+            planeRoot                   : '/root',
+            entrypoints                 : ['/root/ai/e.mjs'],
+            dispositionBySurfaceIdentity: moduleDispositions([['ai/e.mjs', 'edge']]),
+            readFile                    : graph({
                 '/root/ai/e.mjs'   : "import {a} from '../src/Neo.mjs'; a();",
                 '/root/src/Neo.mjs': 'export function a() {}'
             }),
@@ -365,8 +401,8 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
             readFile: graph({'/plane/e.mjs': "import {a} from './missing.mjs'; a();"})
         });
 
-        // The unreadable module lands in `reached` too. Scoring it as `unregistered` would report
-        // one defect twice and point the population owner at a repair that would not fix it.
+        // The unreadable module lands in `reached` too. Scoring it as topology would report one
+        // defect twice and point a custody owner at a repair that would not fix the instrument.
         expect(classesOf(result)).toEqual([PROOF_CLASS.closureUnresolvedEdge]);
         expect(result.topologyFindings).toEqual([])
     });
@@ -402,9 +438,11 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
 
     test('one shared module reached from many entrypoints is ONE finding, not one per entrypoint', () => {
         const result = run({
-            entrypoints          : ['/plane/e.mjs', '/plane/f.mjs'],
-            dispositionByIdentity: new Map([['e.mjs', 'edge'], ['f.mjs', 'edge'], ['svc.mjs', 'cloud']]),
-            readFile             : graph({
+            entrypoints                 : ['/plane/e.mjs', '/plane/f.mjs'],
+            dispositionBySurfaceIdentity: moduleDispositions([
+                ['e.mjs', 'edge'], ['f.mjs', 'edge'], ['svc.mjs', 'cloud']
+            ]),
+            readFile                   : graph({
                 '/plane/e.mjs'  : "import {a} from './svc.mjs'; a();",
                 '/plane/f.mjs'  : "import {a} from './svc.mjs'; a();",
                 '/plane/svc.mjs': 'export function a() {}'
