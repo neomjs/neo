@@ -1,6 +1,6 @@
 {
     "_meta": {
-        "generatedAt": "2026-08-22T22:57:34.234Z",
+        "generatedAt": "2026-08-24T08:13:04.436Z",
         "authority": "ai/graph/identityRoots.mjs",
         "engineTags": "learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)",
         "generator": "ai/scripts/fleet/deriveFleetRoster.mjs",
@@ -173,10 +173,10 @@
             "displayName": "Phoebe",
             "engineTag": "kimi-k3",
             "family": "kimi",
-            "state": "ok",
+            "state": "off",
             "avatarUrl": "https://github.com/neo-kimi-phoebe.png?size=80",
-            "laneLine": null,
-            "participationStatus": "active",
+            "laneLine": "Operator-benched 2026-08-17: flatrate cancelled after the provider reduced the effective weekly allowance ~3-5x without announcement; no fault attaches to the seat",
+            "participationStatus": "operator_benched",
             "openLaneCount": null,
             "sources": {
                 "roster": {
@@ -193,10 +193,10 @@
             "displayName": "Iris",
             "engineTag": "kimi-k3",
             "family": "kimi",
-            "state": "ok",
+            "state": "off",
             "avatarUrl": "https://github.com/neo-kimi-iris.png?size=80",
-            "laneLine": null,
-            "participationStatus": "active",
+            "laneLine": "Operator-benched 2026-08-17: flatrate cancelled after the provider reduced the effective weekly allowance ~3-5x without announcement; no fault attaches to the seat",
+            "participationStatus": "operator_benched",
             "openLaneCount": null,
             "sources": {
                 "roster": {
