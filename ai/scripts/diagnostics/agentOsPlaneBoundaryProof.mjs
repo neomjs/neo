@@ -14,8 +14,8 @@ import {
     resolveRelative,
     walkCapabilityClosure
 }                                from '../lint/scriptPlaneClosure.mjs';
-import {SURFACE, buildInventory} from './agentOsExtractionInventory.mjs';
-import {edgeIdentity}            from '../lint/lint-script-plane.mjs';
+import {SURFACE, buildInventory, rowKey} from './agentOsExtractionInventory.mjs';
+import {edgeIdentity}                    from '../lint/lint-script-plane.mjs';
 
 /**
  * Pre-Flight (structural fast-path): authoring
@@ -69,12 +69,12 @@ import {edgeIdentity}            from '../lint/lint-script-plane.mjs';
  */
 
 const
-    __filename     = fileURLToPath(import.meta.url),
-    PROJECT_ROOT   = path.resolve(path.dirname(__filename), '../../..'),
-    BRAIN_MANIFEST = path.join(PROJECT_ROOT, 'package.brain.json'),
+    __filename       = fileURLToPath(import.meta.url),
+    PROJECT_ROOT     = path.resolve(path.dirname(__filename), '../../..'),
+    BRAIN_MANIFEST   = path.join(PROJECT_ROOT, 'package.brain.json'),
     DENIAL_LOADER    = path.join(path.dirname(__filename), 'denyCloudPlanePackages.loader.mjs'),
-    PROBE_BASENAME = 'resolve-probe.cjs',
-    REGISTRY_REGION = 'ai',
+    PROBE_BASENAME   = 'resolve-probe.cjs',
+    REGISTRY_REGION  = 'ai',
     PROBE_TIMEOUT_MS = 30000,
 
     /**
@@ -98,16 +98,16 @@ const
  * @type {Object}
  */
 export const PROOF_CLASS = Object.freeze({
-    ancestorNodeModules        : 'instrument-ancestor-node-modules',
-    cloudControlUnresolved     : 'instrument-cloud-positive-control-unresolved',
-    cloudControlWrongRoot      : 'instrument-cloud-positive-control-resolved-via-ancestor',
-    closureEntrypointUnreadable: 'instrument-closure-entrypoint-unreadable',
-    closureEscapesPlaneRoot    : 'topology-edge-closure-escapes-plane-root',
-    closureImportsCloudPackage : 'topology-edge-closure-imports-cloud-package',
-    closureReachesCloudModule  : 'topology-edge-closure-reaches-cloud-module',
-    closureOutOfRegistryRegion : 'topology-edge-closure-reaches-out-of-registry-region',
-    closureUnregisteredModule  : 'topology-edge-closure-unregistered-module',
-    closureUnresolvedEdge      : 'instrument-closure-unresolved-edge',
+    ancestorNodeModules             : 'instrument-ancestor-node-modules',
+    cloudControlUnresolved          : 'instrument-cloud-positive-control-unresolved',
+    cloudControlWrongRoot           : 'instrument-cloud-positive-control-resolved-via-ancestor',
+    closureEntrypointUnreadable     : 'instrument-closure-entrypoint-unreadable',
+    closureEscapesPlaneRoot         : 'topology-edge-closure-escapes-plane-root',
+    closureImportsCloudPackage      : 'topology-edge-closure-imports-cloud-package',
+    closureReachesCloudModule       : 'topology-edge-closure-reaches-cloud-module',
+    closureReachedWithoutCustody    : 'topology-edge-closure-reaches-module-without-custody',
+    closureOutOfRegistryRegion      : 'topology-edge-closure-reaches-out-of-registry-region',
+    closureUnresolvedEdge           : 'instrument-closure-unresolved-edge',
     computedEdgeAdded               : 'topology-computed-edge-unregistered-addition',
     computedEdgeStale               : 'topology-computed-edge-authority-without-observation',
     denialCloudControlSurvived      : 'instrument-runtime-denial-cloud-control-survived',
@@ -116,10 +116,10 @@ export const PROOF_CLASS = Object.freeze({
     dirtyWorktreeBinding            : 'instrument-source-binding-dirty-worktree',
     edgeDeniedAtRuntime             : 'topology-edge-entrypoint-denied-under-cloud-denial',
     edgeProbeIneligible             : 'topology-edge-entrypoint-runtime-probe-ineligible',
-    edgePopulationInterim      : 'topology-edge-dependency-population-derived-not-authoritative',
-    edgeResolvesCloudPackage   : 'topology-edge-resolves-cloud-package',
-    emptyPopulation            : 'instrument-empty-manifest-population',
-    probeFailure               : 'instrument-resolution-probe-failure'
+    edgePopulationInterim           : 'topology-edge-dependency-population-derived-not-authoritative',
+    edgeResolvesCloudPackage        : 'topology-edge-resolves-cloud-package',
+    emptyPopulation                 : 'instrument-empty-manifest-population',
+    probeFailure                    : 'instrument-resolution-probe-failure'
 });
 
 /**
@@ -348,10 +348,12 @@ export function runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages}) {
  *
  * ## The authority is consumed, never re-derived
  *
- * Dispositions come from the reconciled inventory rows, not from re-globbing `custody` here. A
- * module reached from an Edge entrypoint whose registry disposition is Cloud is a topology finding;
- * a module with NO row is `unregistered` — the plane's declared population undershooting its actual
- * reach, which is the quiet half of the same defect.
+ * Dispositions come from the reconciled inventory rows, scoped by BOTH surface and identity. Only a
+ * `script-module` row answers module custody; a same-path plane-opener/config/workflow row answers a
+ * different question and cannot classify the module by collision. Proof 1 owns exact membership and
+ * residue for its DECLARED surfaces, so a reached dependency with no `script-module` row is not a
+ * missing-inventory blocker. Proof 1 cannot observe that reach-derived null, though, so this layer
+ * retains it as a non-blocking custody observation rather than turning absence into silence.
  *
  * ## An unaccounted unresolved edge is an INSTRUMENT error, not a topology finding
  *
@@ -363,7 +365,7 @@ export function runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages}) {
  *
  * @param {Object}   config
  * @param {String[]} config.entrypoints          Absolute Edge entrypoint paths.
- * @param {Map}      config.dispositionByIdentity Repo-relative identity → registry disposition.
+ * @param {Map}      config.dispositionBySurfaceIdentity `rowKey(surface, identity)` → disposition.
  * @param {String[]} config.cloudOnlyPackages    Declared Cloud-only dependency names.
  * @param {String}   config.planeRoot            Absolute root every Edge module must stay inside.
  * @param {Set}      [config.ledgeredEdges]      Edge identities the registry already dispositions.
@@ -585,7 +587,7 @@ export function runRuntimeDenialProof({
 
 export function runStaticClosureProof({
     entrypoints,
-    dispositionByIdentity,
+    dispositionBySurfaceIdentity,
     cloudOnlyPackages,
     planeRoot,
     ledgeredEdges = new Set(),
@@ -598,7 +600,7 @@ export function runStaticClosureProof({
         observedEdges    = new Set(),
         reachedModules   = new Set(),
         cloudPackages    = new Set(cloudOnlyPackages),
-        undispositioned  = [],
+        withoutCustody   = [],
         outOfRegion      = [],
         relative         = absPath => path.relative(planeRoot, absPath).split(path.sep).join('/'),
         seen             = new Set();
@@ -651,14 +653,19 @@ export function runStaticClosureProof({
                 continue
             }
 
-            const disposition = dispositionByIdentity.get(identity);
+            const disposition = dispositionBySurfaceIdentity.get(rowKey(SURFACE.scriptModule, identity));
 
             if (disposition === undefined) {
-                // Collected, not emitted per-module. Two regions with two different owners, and at
-                // current head they run to the hundreds — one finding each keeps the exact-identity
-                // classes below readable, which is the whole point of a receipt. Full identity
-                // lists ride in the finding's `identities` array for the machine reader.
-                (identity.startsWith(`${REGISTRY_REGION}/`) ? undispositioned : outOfRegion).push(identity)
+                if (identity.startsWith(`${REGISTRY_REGION}/`)) {
+                    // Proof 1 reconciles DECLARED surfaces, not every module the closure reaches.
+                    // Preserve that distinct null as cut context without promoting it into a
+                    // missing-inventory blocker or letting an unrelated surface classify custody.
+                    withoutCustody.push(identity)
+                } else {
+                    // The inventory never claims the Engine-side region, so proof 2 carries that
+                    // crossing to its dedicated owner.
+                    outOfRegion.push(identity)
+                }
             } else if (disposition === 'cloud') {
                 topologyFindings.push({
                     class               : PROOF_CLASS.closureReachesCloudModule,
@@ -707,26 +714,30 @@ export function runStaticClosureProof({
         }
     }
 
-    // The registry's population is `ai/**`. A reached module OUTSIDE it is not "unregistered" —
-    // the authority never claimed that region, and scoring it as a population gap would point the
-    // inventory owner at a repair that is not theirs. The two get separate classes and separate
-    // successor owners for exactly that reason.
-    for (const [bucket, proofClass, owner, detail] of [
-        [undispositioned, PROOF_CLASS.closureUnregisteredModule, 'the AgentOS extraction inventory (#17525 / #17645 lineage)',
-            'reached from an Edge entrypoint with no registry disposition — the declared population undershoots actual reach'],
-        [outOfRegion, PROOF_CLASS.closureOutOfRegistryRegion, 'reconcile out-of-AgentOS consumers (#17631)',
-            `reached from an Edge entrypoint but outside the registry's \`${REGISTRY_REGION}/\` region — post-cut these cross a package boundary`]
-    ]) {
-        if (bucket.length === 0) continue;
-
-        const identities = [...new Set(bucket)].sort();
+    if (withoutCustody.length > 0) {
+        const identities = [...new Set(withoutCustody)].sort();
 
         topologyFindings.push({
-            class               : proofClass,
+            class               : PROOF_CLASS.closureReachedWithoutCustody,
             identity            : `${identities.length} module(s)`,
-            detail,
+            detail              : 'reached from an Edge entrypoint with no `script-module` custody row — recorded from reach as cut context, not a proof-1 membership gap',
             identities,
-            successorOwner      : owner,
+            successorOwner      : 'the AgentOS extraction inventory (#17525 / #17645 lineage)',
+            preRelocationBlocker: false
+        })
+    }
+
+    // The inventory's governed surfaces live in `ai/**`; reached Engine source is a real
+    // cross-repository boundary with a separate owner, not a module-membership gap.
+    if (outOfRegion.length > 0) {
+        const identities = [...new Set(outOfRegion)].sort();
+
+        topologyFindings.push({
+            class               : PROOF_CLASS.closureOutOfRegistryRegion,
+            identity            : `${identities.length} module(s)`,
+            detail              : `reached from an Edge entrypoint but outside the registry's \`${REGISTRY_REGION}/\` region — post-cut these cross a package boundary`,
+            identities,
+            successorOwner      : 'reconcile out-of-AgentOS consumers (#17631)',
             preRelocationBlocker: true
         })
     }
@@ -919,11 +930,10 @@ async function main() {
 
         const {instrumentErrors, topologyFindings} = runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages: cloudOnly});
 
-        // The static-closure layer consumes H1's reconciled authority rather than re-deriving it:
-        // Edge launch roots are the entrypoint population, and every reconciled row's disposition
-        // is the classifier. A row the registry never dispositioned is `undefined` here, which is
-        // precisely the `unregistered` finding — so the population's own gaps stay visible instead
-        // of defaulting to something benign.
+        // The static-closure layer consumes H1's reconciled authority rather than re-deriving it.
+        // Surface stays in the key: only `script-module` rows classify module custody. Proof 1
+        // remains the sole authority for whether each declared surface reconciles against disk;
+        // this proof separately records reached modules with no custody row as non-blocking context.
         const
             // `allowDirty` is the inventory's development/test-only opt-in and its JSDoc says the
             // CLI never enables it. It was enabled here, which let the static closure measure a
@@ -931,13 +941,16 @@ async function main() {
             // artifact nobody could reproduce, with no indicator that anything differed.
             inventory             = buildInventory(),
             bindingError          = inventory.errors.find(error => error.kind === 'dirty-worktree') ?? null,
-            dispositionByIdentity = new Map(inventory.rows.map(row => [row.identity, row.disposition])),
+            dispositionBySurfaceIdentity = new Map(inventory.rows.map(row => [
+                rowKey(row.surface, row.identity),
+                row.disposition
+            ])),
             edgeEntrypoints       = inventory.launchRoots.rows
                 .filter(row => row.disposition === 'edge')
                 .map(row => path.join(PROJECT_ROOT, row.identity)),
             closure               = runStaticClosureProof({
                 entrypoints      : edgeEntrypoints,
-                dispositionByIdentity,
+                dispositionBySurfaceIdentity,
                 cloudOnlyPackages: cloudOnly,
                 planeRoot        : PROJECT_ROOT,
                 ledgeredEdges    : new Set(inventory.rows.filter(row => row.surface === SURFACE.closureEdge).map(row => row.identity))
