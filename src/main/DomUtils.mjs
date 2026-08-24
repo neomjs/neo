@@ -43,6 +43,73 @@ class DomUtils extends Base {
         }
     }
 
+    /**
+     * @summary Builds a circular-reveal animation in units the pseudo-element itself resolves.
+     *
+     * The values are percentages on purpose. A view transition pseudo-element resolves a percentage
+     * against its own box, while a pixel length depends on the coordinate space the browser resolves
+     * lengths in — one browser resolved them in device pixels while the box stayed in CSS pixels,
+     * halving both the origin and the radius on a HiDPI display. A percentage radius for `circle()`
+     * resolves against `sqrt(width² + height²) / sqrt(2)`, which is what lets the end radius be
+     * *derived* from the origin rather than guessed: the reveal ends exactly at its farthest corner.
+     * An over-large fixed radius covers the box too, but only by finishing off-screen — the
+     * predecessor here used a hardcoded 3000 and spent roughly half its duration outside the
+     * viewport, which is invisible motion the easing curve still budgets time for.
+     *
+     * **Assumption, stated because it is not universal:** the incoming coordinates are viewport
+     * relative, and the percentages are resolved against the pseudo-element's own box, so this is
+     * exact only while that box is viewport-aligned. It is on desktop — measured identical to
+     * `innerWidth`/`innerHeight` for `::view-transition`, `-group`, `-image-pair` and `-new`. It is
+     * NOT guaranteed on mobile, where the snapshot containing block spans area the retractable
+     * browser UI can occupy and its origin can sit above the layout viewport. Percentages remove the
+     * unit hazard; they do not by themselves reconcile two different boxes. A caller that needs
+     * exactness there has to map the snapshot box rather than pass `innerWidth`/`innerHeight`.
+     * @param {Object} [reveal]
+     * @param {Number} [reveal.duration=500]
+     * @param {String} [reveal.easing='ease-in']
+     * @param {Number} [reveal.x] Viewport x coordinate to grow the new state from
+     * @param {Number} [reveal.y] Viewport y coordinate to grow the new state from
+     * @param {Number} [width=globalThis.innerWidth]
+     * @param {Number} [height=globalThis.innerHeight]
+     * @returns {Object|null} An `Element.animate()` payload, or null when there is no usable origin
+     */
+    static createRevealAnimation(reveal, width=globalThis.innerWidth, height=globalThis.innerHeight) {
+        // `x` and `y` are compared to null, not tested for truthiness: 0 is a coordinate on the
+        // viewport edge, not a missing one. A zero-sized viewport is a different miss — a hidden or
+        // unrendered document reports 0 for every dimension, and dividing by it yields Infinity,
+        // which is an accepted keyframe that renders nothing rather than a parse error.
+        if (reveal?.x == null || reveal.y == null || !width || !height) {
+            return null
+        }
+
+        // The circle has to reach whichever corner is farthest from the origin — no more, or the
+        // tail of the animation plays outside the viewport where nothing can see it.
+        const distance = Math.max(
+                  Math.hypot(reveal.x,         reveal.y),
+                  Math.hypot(width - reveal.x, reveal.y),
+                  Math.hypot(reveal.x,         height - reveal.y),
+                  Math.hypot(width - reveal.x, height - reveal.y)
+              ),
+              radius   = distance / (Math.hypot(width, height) / Math.SQRT2) * 100,
+              x        = reveal.x / width  * 100,
+              y        = reveal.y / height * 100;
+
+        return {
+            keyframes: [
+                {clipPath: `circle(0% at ${x}% ${y}%)`},
+                {clipPath: `circle(${radius}% at ${x}% ${y}%)`}
+            ],
+            options: {
+                // `??`, not `||`: a caller asking for `duration: 0` wants an instant swap — the
+                // reduced-motion answer — and a truthiness guard would silently rewrite it to 500.
+                // The same class of bug as reading `x: 0` as "no coordinate", one object over.
+                duration     : reveal.duration ?? 500,
+                easing       : reveal.easing   ?? 'ease-in',
+                pseudoElement: '::view-transition-new(root)'
+            }
+        }
+    }
+
     static isFocusable(e) {
         // May be used as a scopeless callback, so use "DomUtils", not "this"
         return DomUtils.isTabbable(e) || Number(e.getAttribute('tabIndex')) < 0

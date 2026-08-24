@@ -101,40 +101,50 @@ export function setup(options = {}) {
         Neo.ns('Neo.Main', true).setRoute ??= () => {};
     }
 
-    Neo.main ??= {
-        addon: {
-            DragDrop : {},
-            Navigator: {
-                subscribe  : () => {},
-                unsubscribe: () => {},
-                navigateTo : () => {}
-            },
-            ResizeObserver: {
-                register  : () => {},
-                unregister: () => {}
+    // Filled in per LEAF rather than as one `Neo.main ??= {...}`. A spec which imports anything from
+    // `src/main/` registers `Neo.main` at class-setup time, before this runs — a whole-namespace
+    // `??=` then finds it non-null and skips, leaving `Neo.main.addon` undefined and crashing the
+    // Stylesheet default below.
+    //
+    // The same reasoning applies one level down, and guarding only the outer branch would rebuild
+    // the bug where it is harder to see: an import that registers a single addon makes
+    // `Neo.main.addon` non-null, and a container-level `??=` would then suppress every sibling
+    // default. Each leaf carries its own guard, so partial occupancy fills the gaps instead of
+    // vetoing them — while the "never clobber what a spec already installed" intent survives.
+    Neo.main       ??= {};
+    Neo.main.addon ??= {};
+
+    Neo.main.addon.DragDrop  ??= {};
+    Neo.main.addon.Navigator ??= {
+        subscribe  : () => {},
+        unsubscribe: () => {},
+        navigateTo : () => {}
+    };
+    Neo.main.addon.ResizeObserver ??= {
+        register  : () => {},
+        unregister: () => {}
+    };
+
+    Neo.main.DomAccess ??= {
+        focus                : () => {},
+        getBoundingClientRect: async ({id}) => {
+            const rect = {width: 1000, height: 1000, x: 0, y: 0};
+            if (Array.isArray(id)) {
+                return id.map(() => rect);
             }
+            return rect;
         },
-        DomAccess: {
-            focus                : () => {},
-            getBoundingClientRect: async ({id}) => {
-                const rect = {width: 1000, height: 1000, x: 0, y: 0};
-                if (Array.isArray(id)) {
-                    return id.map(() => rect);
-                }
-                return rect;
-            },
-            // The single-thread simulation has no transforms, so the layout box equals the
-            // visual box: the transform-immune variant mirrors getBoundingClientRect here.
-            getLayoutRect: async ({id}) => {
-                const rect = {width: 1000, height: 1000, x: 0, y: 0};
-                if (Array.isArray(id)) {
-                    return id.map(() => rect);
-                }
-                return rect;
-            },
-            scrollIntoView: async () => {},
-            scrollTo      : async () => {}
-        }
+        // The single-thread simulation has no transforms, so the layout box equals the
+        // visual box: the transform-immune variant mirrors getBoundingClientRect here.
+        getLayoutRect: async ({id}) => {
+            const rect = {width: 1000, height: 1000, x: 0, y: 0};
+            if (Array.isArray(id)) {
+                return id.map(() => rect);
+            }
+            return rect;
+        },
+        scrollIntoView: async () => {},
+        scrollTo      : async () => {}
     };
 
     // Production's App Worker always exposes the Stylesheet addon. Component-composition unit
