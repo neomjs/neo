@@ -99,5 +99,29 @@ test.describe('prStackingGuard — stacking via open-sibling detection', () => {
     test('no open PRs at all means nothing names a parent \u2014 clean, and honestly so', () => {
         expect(findStackedParent({rangeCommits: ['aaa111'], openPullRequests: []}))
             .toEqual({stacked: false, parent: null})
+    });
+
+    test('the PR under review never counts as its own stacking parent', () => {
+        // Lived bug: the first CI run of this very guard detected \u201cstacked on myself\u201d because
+        // the PR\u2019s own head is trivially the newest commit in its exclusive range.
+        const verdict = findStackedParent({
+            rangeCommits    : ['aaa111', 'fc2e727ea5'],
+            openPullRequests: [{number: 42, headSha: 'fc2e727ea5', headRefName: 'origin/this-pr'}],
+            excludePrNumber : 42
+        });
+
+        expect(verdict).toEqual({stacked: false, parent: null});
+
+        const stillCatchesSibling = findStackedParent({
+            rangeCommits    : ['aaa111', 'bbb222'],
+            openPullRequests: [
+                {number: 42, headSha: 'fc2e727ea5', headRefName: 'origin/this-pr'},
+                {number: 43, headSha: 'bbb222', headRefName: 'origin/feature/parent'}
+            ],
+            excludePrNumber  : 42
+        });
+
+        expect(stillCatchesSibling.stacked).toBe(true);
+        expect(stillCatchesSibling.parent.number).toBe(43)
     })
 });

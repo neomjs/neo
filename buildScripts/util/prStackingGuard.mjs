@@ -114,11 +114,17 @@ export function buildAgreementWarning({mismatches, deliveredList}) {
  * @param {String[]} params.rangeCommits Commit shas in `origin/base..HEAD`, oldest first.
  * @param {Array<{number: Number, headSha: String, headRefName: String}>} params.openPullRequests
  *   All open PRs in the repository.
+ * @param {Number|String} [params.excludePrNumber] The PR under review — excluded so a run never
+ *   detects “stacked on myself”.
  * @returns {{stacked: Boolean, parent: {number: Number, headRefName: String}|null}}
  */
-export function findStackedParent({rangeCommits, openPullRequests}) {
+export function findStackedParent({rangeCommits, openPullRequests, excludePrNumber}) {
+    const selfNumber = excludePrNumber != null ? String(excludePrNumber) : null;
+    // The PR under review is itself an open PR whose head sits at the top of its own range;
+    // without this exclusion every run detects "stacked on myself".
     const inRange = new Set(Array.isArray(rangeCommits) ? rangeCommits : []);
-    const opens   = Array.isArray(openPullRequests) ? openPullRequests : [];
+    const opens   = (Array.isArray(openPullRequests) ? openPullRequests : [])
+        .filter(pull => selfNumber === null || String(pull?.number) !== selfNumber);
 
     for (const pull of opens) {
         if (pull?.headSha && inRange.has(pull.headSha)) {
