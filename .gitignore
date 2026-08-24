@@ -108,7 +108,11 @@ resources/data/reports/
 
 # Agent OS Local Data
 .env
-.neo-ai-data
+# Contents, NOT the directory — the same rule the /docs/output/* block below records. A bare
+# `.neo-ai-data` makes the negation unreachable, and the two tracked concept files would go on
+# looking fine because git grandfathers already-tracked paths: only the NEXT one added would
+# vanish, reported by nothing. #17697
+.neo-ai-data/*
 !.neo-ai-data/concepts/
 .neo-ai-secrets
 # Parity-plane runtime root (docker-compose.dev.yml relocated plane) — runtime data, never tracked
