@@ -513,8 +513,8 @@ class Gallery extends Component {
     getItemId(vnodeId) {
         let itemId = vnodeId.split('__')[1];
 
-        if (!this.useInternalId && this.store.getKeyType()?.includes('int')) {
-            itemId = parseInt(itemId)
+        if (!this.useInternalId) {
+            itemId = this.store.getCanonicalKey(itemId)
         }
 
         return itemId
