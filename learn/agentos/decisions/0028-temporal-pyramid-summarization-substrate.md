@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-02 (transitions to Accepted on approved, green PR merge at the human merge gate, per ADR 0005 §2.3) |
+| **Status** | Accepted — 2026-07-02 (PR #14428) |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5), grounded in live V-B-A at `dev` (epic + Discussion re-read; `learn/agentos/decisions/` number sweep; PR `#12676` merge-state check; ADR 0017/0023/0024 reconciliation reads) |
 | **ADR classification** | `ADR_REQUIRED` — durable storage/schema/lifecycle decisions that multiple future implementation tickets consume; without one authority, future V-B-A requires archaeology across a Discussion, an epic, and session memories (the drift this ADR ends had already propagated: on 2026-07-02 `ask_knowledge_base` synthesized the substrate's ADR as "ADR 0020" — an unrelated accepted record) |
 | **Resolves** | #14427 — *"Author ADR 0028: temporal-pyramid summarization substrate"* (foundational sub of Epic #12679) |

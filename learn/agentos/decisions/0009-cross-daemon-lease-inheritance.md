@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-17 (awaiting #11519 PR merge to establish empirical substrate before transition to Accepted, per ADR 0005 lifecycle) |
+| **Status** | Accepted — 2026-05-17 (the awaited empirical substrate landed: #11519 closed at merge; this record published by PR #11527) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.7) drafting; substrate-truth grounded in #11503 umbrella + #11519 cross-daemon design dialogue (`learn/agentos/AGENTS_ATLAS.md` §6.5 peer-role substrate-validation conventions) |
 | **Implementation ticket** | #11519 — *"Cross-daemon lease coverage: orchestrator-side shared-lease adoption + env-var child inheritance"* |
 | **Companion implementation PR** | PR resolving #11519 (this ADR's §2 contract becomes live substrate only after that PR merges) |

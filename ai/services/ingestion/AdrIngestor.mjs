@@ -21,6 +21,10 @@ const
     SESSION_REF_REGEX  = /\bOrigin Session ID:\s*`?([A-Za-z0-9_.:-]+)`?/gi,
     STATUS_ROW_REGEX   = /^\|\s*\*\*Status\*\*\s*\|\s*([^|]+?)\s*\|/mi,
     STATUS_BOLD_REGEX  = /^\s*\*\*Status\*\*:\s*(.+)$/mi,
+    // Third spelling, colon inside the bold. Without it the composition record's status matched
+    // nothing and the `|| 'Draft'` fallback below turned a parse failure into a status claim — a
+    // record the graph then reported as pending for weeks on the strength of a regex that missed it.
+    STATUS_INNER_REGEX = /^\s*\*\*Status:\*\*\s*(.+)$/mi,
     SUPERSEDES_ROW_REGEX = /^\|\s*\*\*Supersedes\*\*\s*\|\s*([^|]+?)\s*\|/mi;
 
 /**
@@ -115,7 +119,7 @@ class AdrIngestor extends Base {
             id           = `adr-${adrNumber}`,
             headingMatch = content.match(/^#\s+ADR\s+\d{4}:?\s*(.+)$/mi),
             title        = headingMatch?.[1]?.trim() || path.basename(fileName, '.md'),
-            statusMatch  = content.match(STATUS_ROW_REGEX) || content.match(STATUS_BOLD_REGEX),
+            statusMatch  = content.match(STATUS_ROW_REGEX) || content.match(STATUS_BOLD_REGEX) || content.match(STATUS_INNER_REGEX),
             rawStatus    = (statusMatch?.[1] || 'Draft').replace(/\s+/g, ' ').trim(),
             status       = /^Accepted\b/i.test(rawStatus) ? 'Accepted' : 'Draft',
             supersedes   = this.parseSupersedes(content);

@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-18 (transitions to Accepted on approved, green PR merge by the human operator) |
+| **Status** | Accepted — 2026-05-19 (PR #11606) |
 | **Author** | @neo-opus-4-7 drafting; architecture confirmed by operator (substrate-wide scope) |
 | **Graduated from** | Discussion #11598 OQ on missing model-stats substrate — operator-direction in 2026-05-18 session ("requires in-depth web search. should include gemma4-31b too") |
 | **Implementation ticket** | #11601 — *"Substrate decision: Model-Stats ADR — capability/limit/sunset/promotion framework"* |

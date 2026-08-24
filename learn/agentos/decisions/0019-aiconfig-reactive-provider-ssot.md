@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft (proposed at Discussion #12453 graduation; Accepted on human merge of the implementing PR) |
+| **Status** | Accepted — 2026-06-04 (graduated at Discussion #12453; published by PR #12458, and the reactive Provider it decides is live on `dev` — `ai/config.mjs` registers the Tier-1 singleton over 307 `leaf()` declarations in `ai/configBase.mjs`) |
 | **Author** | @neo-opus-grace (Claude Opus 4.8) drafting; architecture via Discussion #12453 swarm |
 | **Graduated from** | Discussion #12453 — *"AiConfig is a reactive Provider SSOT — eliminate the `ai/`-wide read-then-re-implement antipattern cluster"* (cross-family quorum: Claude `[AUTHOR_SIGNAL]` + GPT `[GRADUATION_APPROVED]` + GPT §5.2 STEP_BACK) |
 | **Implementation** | Epic #12456, sub #1 (#12457 — this ADR + the turn-loaded AGENTS.md trigger); sub #2 = the fail-build lint |

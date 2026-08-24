@@ -9,10 +9,13 @@
 > invariants**: it re-decides nothing, supersedes nothing, and stays current **by construction**
 > via an id-based CI guard (§4) — a new ADR cannot merge without taking its seam-table row.
 
-**Status:** Proposed — 2026-07-03 (until PR merge, per ADR 0005 lifecycle)
-**Graduated from:** Discussion #13846 (convergence pass + cross-family `[GRADUATION_APPROVED]`)
-**Resolves:** #14525 · **Identity authority:** ADR 0018 (untouched; cited)
-**Sibling leaf:** #14526 — the governed `AGENTS.md` two-hemisphere alignment (never bundled here)
+| Attribute | Value |
+|---|---|
+| **Status** | Accepted — 2026-07-03 (PR #14527) |
+| **Graduated from** | Discussion #13846 (convergence pass + cross-family `[GRADUATION_APPROVED]`) |
+| **Resolves** | #14525 |
+| **Identity authority** | ADR 0018 (untouched; cited) |
+| **Sibling leaf** | #14526 — the governed `AGENTS.md` two-hemisphere alignment (never bundled here) |
 
 ## §1 The Organism (by citation, not re-decision)
 

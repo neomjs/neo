@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-29 (transitions to Accepted on approved, green PR merge at the human merge gate) |
+| **Status** | Accepted — 2026-05-29 (PR #12159) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.8), grounded in a 6-agent plan stress-test of Epic #12153 + a live store / daemon / cloud-compose audit |
 | **ADR classification** | ADR_REQUIRED: governs the physical Chroma persistence layout, the KB-release privacy boundary, and cross-deployment parity — future agents need a graph-queryable decision record |
 | **Resolves** | #12154 — *"Author amending ADR"* (sub of Epic #12153) |

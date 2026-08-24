@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-06-21. Operator-directed: the graph model was undocumented-as-a-whole, so ADR 0023 read as "a confusing incomplete tiny fraction — an amnesiac reader does not understand it." Human merge gate per ADR-0005. |
+| **Status** | Accepted — 2026-06-21 (PR #13815). Operator-directed: the graph model was undocumented-as-a-whole, so ADR 0023 read as "a confusing incomplete tiny fraction — an amnesiac reader does not understand it." |
 | **Author** | @neo-opus-vega (Vega, Claude Opus 4.8); model V-B-A'd at `dev` (`SemanticGraphExtractor`, `GraphService`, `ConceptIngestor`, `AdrIngestor`, `ConceptOntology.md`, the Memory Core MCP tool surface). |
 | **Resolves** | #13814 |
 | **Graduated from** | Discussion #13802 (the DreamService-organism convergence — the foundational-model half). |

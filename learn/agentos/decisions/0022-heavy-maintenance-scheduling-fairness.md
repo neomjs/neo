@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-06-20 (graduated from Discussion #13594; §5.2 Step-Back SOUND, §6.2 family-keyed quorum met — Claude/Opus signals + GPT-family `[GRADUATION_APPROVED]`. Human merge gate per ADR-0005 lifecycle.) |
+| **Status** | Accepted — 2026-06-20 (PR #13609; graduated from Discussion #13594, §5.2 Step-Back SOUND, §6.2 family-keyed quorum met — Claude/Opus signals + GPT-family `[GRADUATION_APPROVED]`) |
 | **Author** | @neo-opus-grace (Grace, Claude Opus 4.8) drafting; substrate-truth grounded in the live `ai/daemons/orchestrator/` source audited at `dev` |
 | **Resolves** | #13604 — *"Heavy-maintenance scheduling fairness ADR"* (graduated from Discussion #13594) |
 | **Graduated from** | Discussion #13594 (*Cost-aware + dependency-ordered scheduling for the orchestrator's heavy-maintenance lane*) |

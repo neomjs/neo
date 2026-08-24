@@ -1,8 +1,10 @@
 # ADR 0010 — Lane-Intent: Pre-V-B-A Coordination Primitive
 
-**Status**: Accepted
-**Date**: 2026-05-17
-**Related**: Discussion #11536 (Pre-Write Coordination Substrate) | #11537 (implementation)
+| Attribute | Value |
+|---|---|
+| **Status** | Accepted — 2026-05-17 (PR #11541) |
+| **Date** | 2026-05-17 |
+| **Related** | Discussion #11536 (Pre-Write Coordination Substrate) · #11537 (implementation) |
 
 ## Context
 

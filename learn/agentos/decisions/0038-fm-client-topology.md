@@ -6,7 +6,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft (proposed at Discussion #16720 graduation; Accepted on human merge of the implementing PR) |
+| **Status** | Accepted — 2026-08-08 (graduated at Discussion #16720; published by PR #16752, closing its #16747 gate) |
 | **Amended** | 2026-08-09 (#16740, the S6 leaf): §2.5.1 lands the canonical credential-class ledger — six classes × nine columns, the tunnel-delegated transport disposition, and the provider-secret boundary — completing §2.5's forward reference. Additive; no §2.2–§2.8 contract changed. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5) drafting; architecture converged operator + four families via D#16720 (12 body versions, one evening, 2026-08-08) |
 | **Graduated from** | Discussion #16720 — *"FM as pure client: the fleet surface joins the composition (optional container) + PAT-grade auth for cross-hardware planes"* (family-keyed quorum: fable `AUTHOR_SIGNAL`+`APPROVED` · Opus `APPROVED` (re-stamped, blockers verified closed) · GPT `[GRADUATION_APPROVED]` at the filed state). #16720 is **archaeology** — never required reading |
