@@ -171,6 +171,9 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
  * @param {Object}   [options]
  * @param {Function} [options.connect] Memory Core client seam — resolves to `{callTool, close}`.
  * @param {Number}   [options.connectDeadlineMs=CONNECT_DEADLINE_MS] Failure deadline for the seam.
+ * @param {Function} [options.createClient=defaultCreateClient] Client construction seam handed to
+ *     the connect seam, so a caller can prove the guard by intercepting construction itself.
+ * @param {Object}   [options.env=process.env] Credential source handed to the connect seam.
  * @param {Function} [options.runOne] Per-config execution seam.
  * @param {String}   [options.stateDir=STATE_DIR] Plane directory seam — an explicit value makes a run's
  *     plane independent of `process.cwd()` entirely, which a caller sharing a process needs.
@@ -179,6 +182,8 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
 export async function runNightlyE2e({
     connect           = connectMemoryCore,
     connectDeadlineMs = CONNECT_DEADLINE_MS,
+    createClient      = defaultCreateClient,
+    env               = process.env,
     runOne            = runConfig,
     stateDir          = STATE_DIR
 } = {}) {
@@ -246,7 +251,7 @@ export async function runNightlyE2e({
             // Core must be distinguishable from a rejected message, and both must be distinguishable
             // from success. The client throws here on a missing credential, which is the property
             // that makes an unattended run's misconfiguration loud instead of nightly-silent.
-            client = await connectWithinDeadline(connect, connectDeadlineMs, lateRejection);
+            client = await connectWithinDeadline(() => connect(env, createClient), connectDeadlineMs, lateRejection);
 
             // MCP has TWO success boundaries and only the first one throws. The protocol request
             // resolving means the server answered; whether it ACCEPTED is carried in the result, and
@@ -308,6 +313,14 @@ export async function runNightlyE2e({
 }
 
 /**
+ * @summary Builds the real Memory Core client. Isolated so the construction step itself is
+ * interceptable — the guard's proof depends on observing that this is never reached.
+ * @param {Object} env Credential source, forwarded so the client prefers it over the ambient process.
+ * @returns {Object}
+ */
+const defaultCreateClient = env => Neo.create(Client, {env, serverName: 'memory-core'});
+
+/**
  * @summary Opens an authenticated MCP client against the containerized Memory Core.
  *
  * The `memory-core` client entry is already declared (`ai/mcp/client/config.mjs`) as
@@ -325,17 +338,41 @@ export async function runNightlyE2e({
  * never resolves. An unattended run would then HANG until the 6h stale-lock steal instead of
  * recording a failed delivery, which is a strictly worse failure than the silent one this leaf
  * exists to remove. Validating first keeps the loud path loud.
+ * @param {Object}   [env=process.env] Credential source.
+ * @param {Function} [createClient=defaultCreateClient] Client construction seam. Separate from `env`
+ *     because `Client` resolves `requiredEnv` and its Bearer against `process.env` when its own `env`
+ *     lacks the key (`Client.mjs:225`, `:326`) — so injecting an env object alone does NOT stop a real
+ *     host token being consumed. A caller proving the guard must be able to intercept CONSTRUCTION,
+ *     not merely the value the guard reads. Injected so a caller can assert this
+ *     function's own contract without mutating the real process environment — a test that deletes a
+ *     live variable is green only while the ambient environment agrees with it, and its failure mode
+ *     is a write to production rather than a red test.
  * @returns {Promise<Object>} A connected client exposing `callTool` and `close`.
  */
-async function connectMemoryCore() {
-    if (!process.env[REMOTE_MCP_CREDENTIAL_ENV_VAR]?.trim()) {
+async function connectMemoryCore(env=process.env, createClient=defaultCreateClient) {
+    if (!env[REMOTE_MCP_CREDENTIAL_ENV_VAR]?.trim()) {
         throw new Error(
             `nightlyE2eRunner: ${REMOTE_MCP_CREDENTIAL_ENV_VAR} is missing or empty — the RED digest cannot reach Memory Core. ` +
             `An unattended run needs it in the LaunchAgent's EnvironmentVariables; see ai/scripts/lifecycle/nightly-e2e/README.md.`
         );
     }
 
-    const client = Neo.create(Client, {serverName: 'memory-core'});
+    // A unit process must never reach the live fleet. Every arm in the runner's suite is supposed to
+    // inject a `connect` stub, but that is DISCIPLINE, and discipline failed: on a host carrying a
+    // valid credential, arms that omitted the stub sent nine real `AGENT:*` digests — each one
+    // `wakeSuppressed: false`, so each woke every seat. A safety property the caller must remember is
+    // not a safety property.
+    //
+    // This was invisible until delivery started working. Before the MCP-client conversion these sends
+    // went to a host store nobody serves, so the suite's side effect existed and reached no one.
+    if (process.env.UNIT_TEST_MODE === 'true') {
+        throw new Error(
+            'nightlyE2eRunner: refusing to open a live Memory Core connection under UNIT_TEST_MODE. ' +
+            'Inject a `connect` seam in the spec; the real transport is not reachable from a unit run.'
+        );
+    }
+
+    const client = createClient(env);
 
     await client.ready();
 

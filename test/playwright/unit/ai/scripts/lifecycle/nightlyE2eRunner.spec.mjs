@@ -78,7 +78,7 @@ test.describe('nightlyE2eRunner.runConfig — stale-report suppression guard (#1
  * so each arm asserts a decision the runner made rather than a service's availability.
  */
 test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake tier (#17691)', () => {
-    let runNightlyE2e, cwd, tmpDir;
+    let collectFailures, runNightlyE2e, cwd, tmpDir;
 
     const
         stateFile = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
@@ -91,9 +91,28 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
             callTool: async (name, args) => onCall(name, args),
             close   : async () => {}
         }),
+        // The failure shape is DERIVED from production's own `collectFailures`, never hand-written.
+        // A hand-written fixture drifted: it carried `{file, error}` while `formatDigest` reads
+        // `{location, firstError}`, so every digest-content assertion was checking a shape production
+        // cannot emit — and the digest rendered `undefined`. That was invisible until nine real
+        // digests reached the swarm and showed the rendered text. Derivation makes the drift
+        // impossible rather than caught. Found by @neo-opus-vega.
+        productionFailures = () => collectFailures({
+            suites: [{
+                title: 'root',
+                file : 'x.spec.mjs',
+                specs: [{
+                    title: 'a failing spec',
+                    file : 'x.spec.mjs',
+                    line : 3,
+                    ok   : false,
+                    tests: [{results: [{status: 'failed', errors: [{message: 'Error: boom\n  at x.spec.mjs:3:1'}]}]}]
+                }]
+            }]
+        }),
         redOutcome = entry => ({
             config  : entry.config,
-            failures: [{title: 'a failing spec', file: 'x.spec.mjs', error: 'boom'}],
+            failures: productionFailures(),
             note    : '',
             output  : '',
             ran     : true
@@ -102,6 +121,7 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test.beforeAll(async () => {
         runNightlyE2e = (await import('../../../../../../ai/scripts/lifecycle/nightlyE2eRunner.mjs')).runNightlyE2e;
+        ({collectFailures} = await import('../../../../../../ai/scripts/lifecycle/nightlyE2eDigest.mjs'));
     });
 
     test.beforeEach(async () => {
@@ -445,27 +465,46 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         expect(observation.unhandled).toHaveLength(1)
     });
 
+    test('#17725 the suite CANNOT open a live Memory Core connection, stub or no stub', async () => {
+        // The guard that makes every other arm's isolation structural instead of remembered. An arm
+        // omitting the `connect` stub on a credentialed host used to reach the live fleet and broadcast
+        // a wake-bearing digest to every seat.
+        //
+        // CONSTRUCTION is intercepted, not just the credential value. `Client` resolves `requiredEnv`
+        // and its Bearer against `process.env` when its own `env` lacks the key, so an injected env
+        // alone would still let a real host token be consumed — and the arm would then go red for an
+        // ambient missing-token error rather than for the transition it exists to protect. With the
+        // factory seam the assertion is exact: the guard fires BEFORE construction is attempted, and
+        // no real client is ever built. (@neo-gpt-emmy, RA-1.)
+        expect(process.env.UNIT_TEST_MODE).toBe('true');
+
+        let constructionAttempts = 0;
+
+        await expect(runNightlyE2e({
+            createClient: () => { constructionAttempts++; throw new Error('CLIENT CONSTRUCTION ATTEMPTED') },
+            env         : {NEO_MCP_REMOTE_TOKEN: 'a-valid-looking-credential'},
+            runOne      : redOutcome
+        })).rejects.toThrow(/UNIT_TEST_MODE/);
+
+        // The load-bearing assertion: the guard short-circuits ahead of the client entirely.
+        expect(constructionAttempts, 'the guard must fire before any client is constructed').toBe(0);
+
+        // A refused connection is a recorded failure, not a silent success.
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'})
+    });
+
     test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
-        // The production context that no other arm reaches. Every test above injects `connect`, and an
-        // interactive shell exports the credential — so the one environment where this breaks is the
-        // unattended `launchd` session, which is the only environment the runner actually runs in.
-        const original = process.env.NEO_MCP_REMOTE_TOKEN;
+        // The credential source is INJECTED, not deleted from the real environment. The previous shape
+        // mutated `process.env` and was therefore green only while the ambient environment agreed with
+        // it: on a host carrying a live credential the arm's premise was false, the real transport was
+        // reached, and the failure mode was a write to production rather than a red test. Caught by
+        // @neo-opus-vega after his full-suite run put nine wake-bearing digests into every mailbox.
+        //
+        // No `connect` injection: this drives the real `connectMemoryCore` against an empty env.
+        await expect(runNightlyE2e({env: {}, runOne: redOutcome})).rejects.toThrow(/NEO_MCP_REMOTE_TOKEN/);
 
-        delete process.env.NEO_MCP_REMOTE_TOKEN;
-
-        try {
-            // No `connect` injection: this exercises the real client, which validates `requiredEnv`
-            // before opening any transport, so the arm asserts a configuration failure and never
-            // reaches the network.
-            await expect(runNightlyE2e({runOne: redOutcome})).rejects.toThrow(/NEO_MCP_REMOTE_TOKEN/);
-        } finally {
-            if (original === undefined) delete process.env.NEO_MCP_REMOTE_TOKEN;
-            else process.env.NEO_MCP_REMOTE_TOKEN = original;
-        }
-
-        // The red is not lost to the misconfiguration: it stands as an explicitly failed delivery,
-        // which is the whole difference from a host-local write that would have reported success.
-        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+        // The red is not lost to the misconfiguration: it stands as an explicitly failed delivery.
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'})
     });
 
     test('an UNREADABLE prior receipt fails closed — a broken chain is not a clean one', async () => {
