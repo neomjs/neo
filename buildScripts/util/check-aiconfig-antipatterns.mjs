@@ -83,6 +83,45 @@ export const A1_ENV_REDERIVATION = /^(?:const|let|var)\s[^;]*=\s*[^;]*\bprocess\
 export const PLANE_ROOT_REDERIVATION = /\bpath\.(?:join|resolve)\s*\(\s*__dirname\b.*?\.neo-ai-data/;
 
 /*
+ * Rule PLANE-LITERAL — the sibling class PLANE-ROOT is structurally unable to see. A bare
+ * `'.neo-ai-data/…'` assigned straight to a name resolves against `process.cwd()`, so the fork is
+ * per LAUNCH DIRECTORY rather than per checkout: two runs of the SAME checkout disagree when one is
+ * started from a subdirectory, a worktree, an editor, or a scheduler with its own cwd. PLANE-ROOT
+ * requires the `path.join|resolve(__dirname` prefix by design, so no amount of ledger discipline on
+ * its population would ever surface these — the migration ledger empties, the rule reports clean,
+ * and the class survives.
+ *
+ * **Anchored on the ASSIGNMENT, not on the literal, for the reason PLANE-ROOT documents above.**
+ * Measured rather than assumed: across every `.neo-ai-data` occurrence in `ai/` + `buildScripts/`,
+ * the mask reports the opening quote as string in 100% of cases, so a predicate anchored on the
+ * quote or on the target text can never fire. The declaration keyword or the assigned name is the
+ * nearest preceding token that is real code.
+ *
+ * **Why the trailing slash is required.** It is the line between the plane's NAME and a plane PATH.
+ * `PLANE_DIR_NAME = '.neo-ai-data'` and `dataRootRelative: '.neo-ai-data'` are the canonical
+ * definitions this rule defers to — they are the authority, not a re-derivation of it. Requiring
+ * the separator excludes both by construction rather than by grandfathering, which keeps the ledger
+ * holding only genuine exceptions.
+ *
+ * **What it deliberately does NOT convict**, verified against the live population: anything joined
+ * onto an already-resolved root (`path.join(PROJECT_ROOT, …)`, `path.resolve(neoRoot, …)`,
+ * `os.homedir()`) — the literal is a fragment under an explicit anchor, which is the sanctioned
+ * shape; ignore-pattern list elements and classifier prefixes, which are not paths at all.
+ *
+ * **Ownership decides, not shape** — the one judgment this predicate cannot make. A cwd-relative
+ * path is CORRECT when the state it addresses is checkout-owned: `nightlyE2eRunner` is bound to one
+ * checkout by its own LaunchAgent plist, and moving its lock into a shared plane member would
+ * couple independent test runs across revisions. Those sites carry exact-site ledger entries with
+ * their reason, because the alternative — widening the predicate until it acquits them — would
+ * acquit the defects too.
+ *
+ * Ceiling, stated rather than discovered later: the literal must be the direct right-hand side of
+ * an assignment or default parameter. A literal reaching the filesystem through an object property,
+ * an array element, or a function argument is out of reach for this shape.
+ */
+export const PLANE_LITERAL_ASSIGNMENT = /(?:\b(?:const|let|var)\s+[\w$]+|[\w$]+\s*)=\s*['"`]\.neo-ai-data\//;
+
+/*
  * Rule-scoped grandfathering: each rule carries its OWN set of repo-relative POSIX paths, so one
  * rule's existing-surface exemption can never widen another's — A5 keeps its zero-baseline ratchet
  * even inside files grandfathered for B3. A whole-file skip would silently exempt every rule at
@@ -98,9 +137,30 @@ export const ALLOWLIST = Object.freeze({
         'ai/services/fleet/devFleetServer.mjs'
     ]),
     A5: new Set(),
-    // Zero baseline: all measured sites are repaired. A future migration may add only temporary,
-    // exact-site entries (`path::<source text>`), never a whole-file mute.
+    // Zero baseline for THIS rule's population — the `__dirname`-derived roots, and nothing wider.
+    // An empty set here is not evidence that the plane is unforked; PLANE-LITERAL below covers a
+    // class this rule is structurally unable to see, and neither rule reaches a root assembled
+    // through an intermediate variable. A future migration may add only temporary, exact-site
+    // entries (`path::<source text>`), never a whole-file mute.
     'PLANE-ROOT': new Set(),
+    // NOT a migration ledger — these three are PERMANENT acquittals, and the distinction matters
+    // because a shrinking ledger is a progress signal while these must never shrink to zero. Each
+    // addresses checkout-owned or explicitly-injected state, where a cwd-relative default is the
+    // correct shape; the entries are exact-site so the surrounding file keeps full coverage.
+    'PLANE-LITERAL': new Set([
+        // Bound to ONE checkout by `com.neomjs.nightly-e2e.plist` (`__NEO_REPO_ROOT__/.neo-ai-data/
+        // nightly-e2e/…`), its activation README's `git rev-parse --show-toplevel`, and repo-relative
+        // Playwright config + reporter outputs. Two checkouts hold different code and different
+        // results, so a shared plane lock would couple independent test runs across revisions.
+        "ai/scripts/lifecycle/nightlyE2eRunner.mjs::const STATE_DIR     = '.neo-ai-data/nightly-e2e',",
+        // A relative FRAGMENT under an explicit root, not an ambient path: `buildProbePaths` throws
+        // `Missing projectRoot.` when the root is absent and resolves via `path.resolve(projectRoot,
+        // sqliteDir)`; the CLI passes `resolveCliProjectRoot()`.
+        "ai/scripts/diagnostics/bootstrapCodexSandbox.mjs::export const DEFAULT_SQLITE_DIR = '.neo-ai-data/sqlite';",
+        // Documented-deliberate: the configured builder injects the resolved `engines.chroma.dataDir`
+        // leaf (JSDoc at the parameter), and the literal default keeps direct callers launch-resilient.
+        "ai/daemons/orchestrator/taskDefinitions.mjs::chromaDataDir = '.neo-ai-data/chroma/unified',"
+    ]),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
         'ai/mcp/server/shared/logger.mjs'
@@ -110,11 +170,12 @@ export const ALLOWLIST = Object.freeze({
 const RULES = [
     {id: 'B3', pattern: new RegExp(B3_DEFENSIVE_CHAIN.source, 'g')},
     {id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')},
-    {id: 'PLANE-ROOT', pattern: new RegExp(PLANE_ROOT_REDERIVATION.source, 'g')}
+    {id: 'PLANE-ROOT', pattern: new RegExp(PLANE_ROOT_REDERIVATION.source, 'g')},
+    {id: 'PLANE-LITERAL', pattern: new RegExp(PLANE_LITERAL_ASSIGNMENT.source, 'g')}
 ];
 
 /**
- * @summary Scans file content for the A1 / A5 / B3 / PLANE-ROOT antipatterns whose root token sits in code.
+ * @summary Scans file content for the A1 / A5 / B3 / PLANE-ROOT / PLANE-LITERAL antipatterns whose root token sits in code.
  *
  * Reuses the sibling guard's `codeMask` so an occurrence inside a string literal (a log message, a
  * spec title quoting the pattern) or a comment never flags — only executable defensive reads do.
