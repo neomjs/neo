@@ -346,6 +346,7 @@
         "orchestrator.deploymentRuntimeAccess.timeoutMs",
         "orchestrator.deploymentStateBridge",
         "orchestrator.deploymentStateBridge.allowedServices",
+        "orchestrator.deploymentStateBridge.bearerTokenFile",
         "orchestrator.deploymentStateBridge.directProbeExpectedStatus",
         "orchestrator.deploymentStateBridge.directProbeTimeoutMs",
         "orchestrator.deploymentStateBridge.directProbeUrls",

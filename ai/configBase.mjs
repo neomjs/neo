@@ -1579,6 +1579,20 @@ class ConfigBase extends ConfigProvider {
                      */
                     directProbeUrls             : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS', 'csv'),
                     /**
+                     * Bearer-token FILE the direct probes authenticate with. The probe targets
+                     * (`kb-server`, `mc-server`) reject unauthenticated healthchecks, so a probe
+                     * without this credential can never produce service evidence — it fails as
+                     * `invalid_token` every sweep while reading like a transport problem.
+                     *
+                     * Empty by default: deployments whose probe targets accept anonymous reads are
+                     * unaffected. When set, the file must exist and be readable at probe time; an
+                     * unreadable configured file is a loud, named warn on the bridge log rather than
+                     * a silent skip, because evidence that cannot authenticate and evidence that was
+                     * never collected look identical downstream.
+                     * @type {string}
+                     */
+                    bearerTokenFile             : leaf('', 'NEO_DEPLOYMENT_STATE_BRIDGE_BEARER_TOKEN_FILE', 'string'),
+                    /**
                      * Statuses the direct probe accepts as SERVING. `degraded` is included deliberately and
                      * is the whole reason this leaf is not hardcoded: a Memory Core answering correctly
                      * while its provider-dependent canary fails reports `degraded`, and a probe that

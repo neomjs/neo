@@ -544,13 +544,27 @@ export class DeploymentStateBridgeService extends Base {
 
         const probe = this.directProbeFn || runHealthcheck;
 
+        // The probe targets reject unauthenticated healthchecks. A configured-but-unreadable
+        // token file is a loud, NAMED warn — evidence that cannot authenticate must not render
+        // identically to a transport failure downstream, and the file's contents never reach the log.
+        let bearerToken = null;
+        if (bridgeConfig.bearerTokenFile) {
+            try {
+                bearerToken = (await fs.readFile(bridgeConfig.bearerTokenFile, 'utf8')).trim();
+                if (!bearerToken) throw new Error('bearer-token file contains no credential');
+            } catch (error) {
+                this.writeLog?.('WARN', `[DeploymentStateBridge] bearer-token file '${bridgeConfig.bearerTokenFile}' unusable for ${serviceKey}: ${error.message}`);
+            }
+        }
+
         try {
             await probe({
                 url,
                 clientName    : 'neo-orchestrator-direct-probe',
                 expectedStatus: bridgeConfig.directProbeExpectedStatus,
                 identity      : 'neo-orchestrator-direct-probe',
-                timeoutMs     : bridgeConfig.directProbeTimeoutMs
+                timeoutMs     : bridgeConfig.directProbeTimeoutMs,
+                bearerToken
             });
 
             return {ok: true, name: 'direct-endpoint-probe', message: null};
