@@ -539,6 +539,19 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(health.database.connection[LOOPBACK_PROBE_HEALTH_KEY]).toBeUndefined();
     })
 
+    test('the public healthcheck carries backup observation polarity (#17495)', async () => {
+        const health = await HealthService.healthcheck();
+
+        expect(['observed', 'unavailable', 'unreadable'])
+            .toContain(health.backup.observationStatus);
+
+        if (health.backup.observationStatus === 'observed') {
+            expect(Number.isInteger(health.backup.count)).toBe(true)
+        } else {
+            expect(health.backup.count).toBeNull()
+        }
+    });
+
     test('a THROWING loopback diagnostic cannot escape the already-unhealthy healthcheck', async () => {
         // A diagnostic that can fail the boot it is diagnosing is worse than no diagnostic. The probe
         // degrades to `inconclusive` and the healthcheck still resolves with its real verdict.
@@ -2035,22 +2048,56 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
         buildBackupStateBlock = mod.buildBackupStateBlock;
     });
 
-    test('returns null if backupPath does not exist', async () => {
-        const mockFs = { pathExists: async () => false };
-        const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0 });
-    });
-
-    test('returns null if no backup directories exist', async () => {
-        const mockFs = {
+    test('distinguishes an unavailable backup root from an observed-empty one (#17495)', async () => {
+        const unavailable = await buildBackupStateBlock('/fake/path', {
+            pathExists: async () => false
+        }, mockPath);
+        const observedEmpty = await buildBackupStateBlock('/fake/path', {
             pathExists: async () => true,
             readdir   : async () => [
-                { isDirectory: () => false, name: 'backup-2023' },
-                { isDirectory: () => true, name: 'other-dir' }
+                {isDirectory: () => false, name: 'backup-2023'},
+                {isDirectory: () => true,  name: 'other-dir'}
             ]
-        };
-        const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0 });
+        }, mockPath);
+
+        expect(unavailable).toEqual({
+            observationStatus: 'unavailable',
+            lastSuccessful   : null,
+            lastCompleted    : null,
+            count            : null,
+            unusableCount    : null,
+            unverifiedCount  : null
+        });
+        expect(observedEmpty).toEqual({
+            observationStatus: 'observed',
+            lastSuccessful   : null,
+            lastCompleted    : null,
+            count            : 0,
+            unusableCount    : 0,
+            unverifiedCount  : 0
+        });
+        expect(unavailable).not.toEqual(observedEmpty)
+    });
+
+    test('an unreadable backup root carries null counts instead of measured-looking zeros (#17495)', async () => {
+        const result = await buildBackupStateBlock('/fake/path', {
+            pathExists: async () => true,
+            readdir   : async () => {
+                const error = new Error('fixture root read refused');
+                error.code  = 'EACCES';
+                throw error
+            }
+        }, mockPath);
+
+        expect(result).toEqual({
+            observationStatus: 'unreadable',
+            lastSuccessful   : null,
+            lastCompleted    : null,
+            count            : null,
+            unusableCount    : null,
+            unverifiedCount  : null,
+            error            : 'fixture root read refused'
+        })
     });
 
     test('returns timestamp of most recent backup with completedAt marker', async () => {
@@ -2077,7 +2124,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
         };
 
         const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: '2023-10-02T12:00:00Z', lastCompleted: '2023-10-02T12:00:00Z', count: 3, unusableCount: 0, unverifiedCount: 2 });
+        expect(result).toEqual({observationStatus: 'observed', lastSuccessful: '2023-10-02T12:00:00Z', lastCompleted: '2023-10-02T12:00:00Z', count: 3, unusableCount: 0, unverifiedCount: 2});
     });
 
     test('returns null if all backups lack completedAt marker', async () => {
@@ -2094,7 +2141,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
         };
 
         const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 1, unusableCount: 0, unverifiedCount: 0 });
+        expect(result).toEqual({observationStatus: 'observed', lastSuccessful: null, lastCompleted: null, count: 1, unusableCount: 0, unverifiedCount: 0});
     });
 });
 

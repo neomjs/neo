@@ -647,6 +647,9 @@ async function buildSubscriptionArmingBlock() {
  *   `lastSuccessful: null` with a non-zero `count` cannot be misread as "runs that never finished".
  * - `unverifiedCount` — completed bundles carrying **no** integrity block, so "eligible" is never
  *   silently reported as "verified".
+ * - `observationStatus` — `observed` when the root was read, `unavailable` when this plane has no
+ *   root, and `unreadable` when the root exists but the read failed. The latter two carry `null`
+ *   counts because no measurement occurred; only a readable empty root may report zero.
  *
  * A bundle with no integrity block stays **eligible**: absent evidence is not evidence of
  * emptiness, and disqualifying it would condemn any series predating the block — worse than the
@@ -658,14 +661,31 @@ async function buildSubscriptionArmingBlock() {
  * @param {String} backupPath The path to the root backup directory.
  * @param {Object} fs The fs-extra module (dependency injected for testing).
  * @param {Object} path The path module (dependency injected for testing).
- * @returns {Promise<{lastSuccessful: String|null, lastCompleted: String|null, count: Number, unusableCount: Number, error: String|undefined}>}
+ * @returns {Promise<{observationStatus: 'observed'|'unavailable'|'unreadable',
+ *     lastSuccessful: String|null, lastCompleted: String|null, count: Number|null,
+ *     unusableCount: Number|null, unverifiedCount: Number|null, error: String|undefined}>}
  */
 export async function buildBackupStateBlock(backupPath, fs, path) {
-    const empty = {lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0};
+    const
+        unavailable = {
+            observationStatus: 'unavailable',
+            lastSuccessful   : null,
+            lastCompleted    : null,
+            count            : null,
+            unusableCount    : null,
+            unverifiedCount  : null
+        },
+        observedEmpty = {
+            ...unavailable,
+            observationStatus: 'observed',
+            count            : 0,
+            unusableCount    : 0,
+            unverifiedCount  : 0
+        };
 
     try {
         if (!await fs.pathExists(backupPath)) {
-            return {...empty};
+            return {...unavailable};
         }
 
         const entries = await fs.readdir(backupPath, { withFileTypes: true });
@@ -675,7 +695,7 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
             .map(e => e.name);
 
         if (backupDirs.length === 0) {
-            return {...empty};
+            return {...observedEmpty};
         }
 
         backupDirs.sort((a, b) => b.localeCompare(a));
@@ -733,6 +753,7 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
         }
 
         return {
+            observationStatus: 'observed',
             lastSuccessful,
             lastCompleted,
             count        : backupDirs.length,
@@ -741,8 +762,9 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
         };
     } catch (e) {
         return {
-            ...empty,
-            error: e.message
+            ...unavailable,
+            observationStatus: 'unreadable',
+            error            : e.message
         };
     }
 }
