@@ -10,12 +10,12 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 import '../../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import Container     from '../../../../../../../../src/container/Base.mjs';
-import DockZoneModel from '../../../../../../../../src/dashboard/DockZoneModel.mjs';
+import Container           from '../../../../../../../../src/container/Base.mjs';
+import DockZoneModel       from '../../../../../../../../src/dashboard/DockZoneModel.mjs';
 import FleetActivityEvents from '../../../../../../../../apps/agentos/store/FleetActivityEvents.mjs';
-import FleetCockpit  from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
-import FleetRoster   from '../../../../../../../../apps/agentos/store/FleetRoster.mjs';
-import StateProvider from '../../../../../../../../src/state/Provider.mjs';
+import FleetCockpit        from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
+import FleetRoster         from '../../../../../../../../apps/agentos/store/FleetRoster.mjs';
+import StateProvider       from '../../../../../../../../src/state/Provider.mjs';
 
 /**
  * @summary Installs deterministic popup-vessel seams — the same call grammar the pop-out suite
@@ -134,6 +134,9 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         const config    = cockpit.projectDockModel(),
               sortZones = [];
 
+        expect(cockpit.baseCls).toContain('neo-dock-workspace');
+        expect(cockpit.cls).toContain('fm-fleet-cockpit');
+
         (function walk(node) {
             if (!node || typeof node !== 'object') return;
             node.sortZoneConfig && sortZones.push(node.sortZoneConfig);
@@ -213,8 +216,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         expect(cockpit.tearOutPanes.stream).toMatchObject({windowId: null});
 
         // the vessel connects AFTER the terminal: the connect branch reparents the captured pane
+        const popupUrl = new URL(vessel.openCalls[0].url, 'https://unit.test/').href;
+
         vessel.restore();
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=stream&cockpitId=${cockpit.id}`});
+        vessel = installWindowVessel({popupUrl});
 
         const mainView = Neo.create(Container, {});
         Neo.apps ??= {};
@@ -227,7 +232,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
     });
 
     test('connect-first order: a vessel connecting mid-gesture is recorded and adopted at the terminal', async () => {
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=fleet&cockpitId=WILL-BE-SET`});
+        vessel = installWindowVessel();
 
         const fleetPane = cockpit.getReference('fleet-grid');
         const zone      = await tearOutExit('fleet');
@@ -235,8 +240,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         expect(vessel.openCalls).toHaveLength(1);
 
         // the vessel connects BEFORE the terminal (long drag)
+        const popupUrl = new URL(vessel.openCalls[0].url, 'https://unit.test/').href;
+
         vessel.restore();
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=fleet&cockpitId=${cockpit.id}`});
+        vessel = installWindowVessel({popupUrl});
 
         const mainView = Neo.create(Container, {});
         Neo.apps ??= {};
@@ -318,8 +325,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         // capture rode the detach commit: 'fleet' lived alone in fleet-tabs at index 0
         expect(cockpit.tearOutPlacements.fleet).toEqual({tabsNodeId: 'fleet-tabs', index: 0});
 
+        const popupUrl = new URL(vessel.openCalls[0].url, 'https://unit.test/').href;
+
         vessel.restore();
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=fleet&cockpitId=${cockpit.id}`});
+        vessel = installWindowVessel({popupUrl});
 
         const mainView = Neo.create(Container, {});
         Neo.apps ??= {};
@@ -329,7 +338,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         expect(cockpit.tearOutPanes.fleet.windowId).toBe('tearout-win-3');
         expect(mainView.items).toContain(fleetPane);
 
-        cockpit.onWindowDisconnect({windowId: 'tearout-win-3'});
+        await cockpit.onWindowDisconnect({windowId: 'tearout-win-3'});
         await cockpit.refreshPromise;
 
         // A window disconnect does NOT destroy the popup application or its view tree — the
@@ -375,7 +384,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         expect(vessel.closeCalls[0].names).toEqual([`fm-tearout-detail-${cockpit.id}`]);
 
         // vessel death completes the return: the SAME live instance lands back in the tree
-        cockpit.onWindowDisconnect({windowId: 'recall-win-1'});
+        await cockpit.onWindowDisconnect({windowId: 'recall-win-1'});
         await cockpit.refreshPromise;
 
         expect(detailPane.isDestroyed, 'same-instance return: the pane is never destroyed').toBeFalsy();
@@ -397,7 +406,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['tasks', 'memories', 'operator', 'catchUp']);
 
         cockpit.tearOutPanes.stream = {windowName: `fm-tearout-stream-${cockpit.id}`, windowId: 'tearout-win-5'};
-        cockpit.onWindowDisconnect({windowId: 'tearout-win-5'});
+        await cockpit.onWindowDisconnect({windowId: 'tearout-win-5'});
         await cockpit.refreshPromise;
 
         expect(cockpit.dockModel.nodes['stream-tabs'].items, 'identical order, not append order').toEqual(['stream', 'tasks', 'memories', 'operator', 'catchUp'])
@@ -411,8 +420,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
 
         cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
 
+        const popupUrl = new URL(vessel.openCalls[0].url, 'https://unit.test/').href;
+
         vessel.restore();
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=stream&cockpitId=${cockpit.id}`});
+        vessel = installWindowVessel({popupUrl});
 
         const mainView = Neo.create(Container, {});
         Neo.apps ??= {};
@@ -429,7 +440,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
         await cockpit.refreshPromise;
         expect(cockpit.dockModel.items.stream).toBeUndefined();
 
-        cockpit.onWindowDisconnect({windowId: 'tearout-win-6'});
+        await cockpit.onWindowDisconnect({windowId: 'tearout-win-6'});
 
         // the fallback terminal: ownership settles by destruction — nothing orphans, nothing returns
         expect(streamPane.isDestroyed).toBeTruthy();
@@ -446,8 +457,10 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — gesture tear-out 
 
         cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
 
+        const popupUrl = new URL(vessel.openCalls[0].url, 'https://unit.test/').href;
+
         vessel.restore();
-        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=stream&cockpitId=${cockpit.id}`});
+        vessel = installWindowVessel({popupUrl});
 
         const mainView = Neo.create(Container, {});
         Neo.apps ??= {};

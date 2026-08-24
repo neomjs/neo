@@ -122,10 +122,80 @@ class HostedWorkspace extends DockWorkspace {
     }
 }
 
+/**
+ * The minimal tear-out consumer: platform open/close, optional grant and pane embodiment are
+ * hooks; every admission, document, connection, return and teardown transition stays inherited.
+ */
+class TearOutWorkspace extends DockWorkspace {
+    static config = {
+        className                 : 'Test.Unit.Dashboard.DockWorkspace.TearOutWorkspace',
+        enableDockTearOutLifecycle: true,
+        layout                    : {ntype: 'vbox', align: 'stretch'},
+        tearOutConnectWindowMs    : 20
+    }
+
+    closeRequests     = []
+    closeResult       = true
+    grant             = null
+    lifecycleEvents   = []
+    openDeferred      = null
+    openRequests      = []
+    unhandledConnects = []
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    admitTearOutConnection(context) {
+        return this.grant ? this.grant(context) : true
+    }
+
+    afterTearOutPaneReturn(data) {
+        const landed = data.returned && this.getReference(`tearout-pane-${data.itemId}`) === data.pane;
+
+        this.lifecycleEvents.push(`return:${data.returned}:${Boolean(landed)}`)
+    }
+
+    afterTearOutWindowDisconnect() {
+        this.lifecycleEvents.push('disconnect')
+    }
+
+    closeTearOutVessel(vessel) {
+        this.closeRequests.push(vessel);
+        this.onClose?.(vessel);
+        return this.closeResult
+    }
+
+    onUnhandledWindowConnect(data) {
+        this.unhandledConnects.push(data)
+    }
+
+    openTearOutVessel(request) {
+        this.openRequests.push(request);
+
+        return this.openDeferred || {
+            admissionToken: request.admissionToken,
+            popupHeight   : 360,
+            popupWidth    : 480,
+            windowName    : `tearout-${request.itemId}-${this.id}`
+        }
+    }
+
+    resolvePane(itemId) {
+        return {module: Container, reference: `tearout-pane-${itemId}`}
+    }
+
+    resolveTearOutPane(itemId) {
+        return this.tearOutPaneHandles[itemId] || this.getReference(`tearout-pane-${itemId}`)
+    }
+}
+
 Neo.setupClass(PlainWorkspace);
 Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
+Neo.setupClass(TearOutWorkspace);
 
 const
     tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
@@ -159,6 +229,350 @@ test.describe('Neo.dashboard.DockWorkspace', () => {
         expect(workspace.getDockZoneDocument()).toBe(document);
         expect(workspace.getDockHost()).toBe(workspace);
         expect(tabsOf(workspace.items[0]).size).toBe(2)
+    });
+
+    test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {
+        for (const method of [
+            'adoptTearOutPane',
+            'applyTearOutOperation',
+            'onWindowConnect',
+            'onWindowDisconnect',
+            'reintegrateTearOutItem',
+            'reparentTearOutPane'
+        ]) {
+            expect(typeof DockWorkspace.prototype[method], `${method} is engine-owned`).toBe('function')
+        }
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+        expect(workspace.tearOutHandlers).toBeNull();
+        expect(workspace.getDockProjectionOptions()).toEqual({})
+    });
+
+    test.describe('#17681 engine tear-out lifecycle matrix', () => {
+        let previousApps, previousGetByPath, urls;
+
+        const createSortZone = () => {
+            const calls = {ended: 0, started: []};
+
+            return {
+                calls,
+                endWindowDrag  : () => calls.ended++,
+                startWindowDrag: data => calls.started.push(data)
+            }
+        };
+
+        const vesselUrl = (request, itemId, {
+            flow  = 'tear-out',
+            hostId = workspace.id,
+            token = request.admissionToken
+        } = {}) => {
+            const url = new URL('https://unit.test/widget/index.html');
+
+            url.searchParams.set('tearout', itemId);
+            url.searchParams.set('hostId', hostId);
+            flow !== null && url.searchParams.set('vesselFlow', flow);
+            token !== null && url.searchParams.set('vesselAdmission', String(token));
+
+            return url.href
+        };
+
+        const addWindow = (windowId, url) => {
+            const mainView = Neo.create(Container, {});
+
+            Neo.apps[windowId] = {mainView};
+            urls[windowId] = url;
+
+            return mainView
+        };
+
+        const beginExit = async itemId => {
+            const zone = createSortZone();
+
+            await workspace.tearOutHandlers.onDockTearOutExit({
+                itemId,
+                proxyRect: {x: 20, y: 30, width: 480, height: 360},
+                sortZone : zone
+            });
+
+            return {request: workspace.openRequests.at(-1), zone}
+        };
+
+        test.beforeEach(() => {
+            previousApps      = Neo.apps;
+            previousGetByPath = Neo.Main.getByPath;
+            urls              = {};
+            Neo.apps          = {};
+            Neo.Main.getByPath = async ({windowId}) => urls[windowId]
+        });
+
+        test.afterEach(() => {
+            workspace?.destroy?.();
+            workspace = null;
+            Neo.apps = previousApps;
+            Neo.Main.getByPath = previousGetByPath
+        });
+
+        test('terminal-first connect lands one admitted live pane, then returns it before observers fire', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                pane            = workspace.getReference('tearout-pane-preview'),
+                {request, zone} = await beginExit('preview');
+
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+            expect(workspace.tearOutPanes.preview).toMatchObject({windowId: null});
+            expect(workspace.tearOutPaneHandles.preview).toBe(pane);
+            await workspace.refreshPromise;
+
+            const mainView = addWindow('terminal-first', vesselUrl(request, 'preview'));
+
+            await workspace.onWindowConnect({windowId: 'terminal-first'});
+
+            expect(mainView.items).toContain(pane);
+            expect(workspace.tearOutPanes.preview.windowId).toBe('terminal-first');
+            expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+
+            await workspace.onWindowDisconnect({windowId: 'terminal-first'});
+
+            expect(mainView.items).not.toContain(pane);
+            expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
+            expect(workspace.dockModel.nodes['side-tabs'].items).toEqual(['preview', 'terminal']);
+            expect(workspace.lifecycleEvents).toEqual(['return:true:true', 'disconnect'])
+        });
+
+        test('connect-first keeps exact admission identity until the detached terminal consumes it', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                pane            = workspace.getReference('tearout-pane-preview'),
+                {request, zone} = await beginExit('preview'),
+                mainView        = addWindow('connect-first', vesselUrl(request, 'preview'));
+
+            await workspace.onWindowConnect({windowId: 'connect-first'});
+
+            expect(workspace.tearOutConnects.preview).toMatchObject({windowId: 'connect-first'});
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true, timerId: null});
+            expect(mainView.items).not.toContain(pane);
+
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+
+            expect(mainView.items).toContain(pane);
+            expect(workspace.tearOutPanes.preview.windowId).toBe('connect-first');
+            expect(workspace.tearOutAdmissions.has('preview')).toBe(false)
+        });
+
+        test('a worker may connect before platform-open settlement without being misclosed as stale', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            let resolveOpen;
+
+            workspace.openDeferred = new Promise(resolve => {resolveOpen = resolve});
+
+            const zone = createSortZone(),
+                  exit = workspace.tearOutHandlers.onDockTearOutExit({
+                      itemId: 'preview', proxyRect: {}, sortZone: zone
+                  });
+
+            await expect.poll(() => workspace.openRequests.length).toBe(1);
+
+            const
+                request  = workspace.openRequests[0],
+                mainView = addWindow('early-connect', vesselUrl(request, 'preview'));
+
+            await workspace.onWindowConnect({windowId: 'early-connect'});
+            expect(workspace.tearOutAdmissions.get('preview')).toMatchObject({connected: true});
+
+            resolveOpen({
+                admissionToken: request.admissionToken,
+                popupHeight   : 360,
+                popupWidth    : 480,
+                windowName    : `tearout-preview-${workspace.id}`
+            });
+            await exit;
+
+            expect(workspace.closeRequests).toEqual([]);
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone})).toBe(true);
+            expect(mainView.items).toContain(workspace.tearOutPaneHandles.preview)
+        });
+
+        test('wrong host, missing/wrong flow and wrong token never reach product continuation or ownership', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const {request} = await beginExit('preview'),
+                  cases     = [
+                      ['wrong-host', vesselUrl(request, 'preview', {hostId: 'other'})],
+                      ['missing-flow', vesselUrl(request, 'preview', {flow: null})],
+                      ['wrong-flow', vesselUrl(request, 'preview', {flow: 'transfer'})],
+                      ['wrong-token', vesselUrl(request, 'preview', {token: request.admissionToken + 1})]
+                  ];
+
+            for (const [windowId, url] of cases) {
+                addWindow(windowId, url);
+                await workspace.onWindowConnect({windowId})
+            }
+
+            expect(workspace.unhandledConnects).toEqual([]);
+            expect(workspace.tearOutConnects.preview).toBeUndefined();
+            expect(workspace.tearOutAdmissions.get('preview').token).toBe(request.admissionToken);
+
+            await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('an async grant cannot publish a connection after its exact admission was retired', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            let releaseGrant;
+
+            workspace.grant = () => new Promise(resolve => {releaseGrant = resolve});
+
+            const {request} = await beginExit('preview'),
+                  mainView  = addWindow('grant-race', vesselUrl(request, 'preview')),
+                  connect   = workspace.onWindowConnect({windowId: 'grant-race'});
+
+            await expect.poll(() => typeof releaseGrant).toBe('function');
+
+            workspace.clearTearOutAdmission('preview', workspace.tearOutAdmissions.get('preview'));
+            releaseGrant(true);
+            await connect;
+
+            expect(workspace.tearOutConnects.preview).toBeUndefined();
+            expect(mainView.items).toEqual([]);
+
+            await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('a refused detach retires the vessel and leaves no placement or pane ownership', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                before          = JSON.stringify(workspace.dockModel),
+                {request, zone} = await beginExit('preview');
+
+            workspace.applyDockZoneOperation = () => ({document: null, errors: ['refused']});
+
+            await workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+
+            expect(JSON.stringify(workspace.dockModel)).toBe(before);
+            expect(workspace.closeRequests).toHaveLength(1);
+            expect(workspace.closeRequests[0].admissionToken).toBe(request.admissionToken);
+            expect(workspace.tearOutPlacements.preview).toBeUndefined();
+            expect(workspace.tearOutPaneHandles.preview).toBeUndefined()
+        });
+
+        test('a pre-terminal disconnect retires only provisional ownership with zero document mutation', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                before          = JSON.stringify(workspace.dockModel),
+                {request, zone} = await beginExit('preview');
+
+            addWindow('preterminal-disconnect', vesselUrl(request, 'preview'));
+            await workspace.onWindowConnect({windowId: 'preterminal-disconnect'});
+            await workspace.onWindowDisconnect({windowId: 'preterminal-disconnect'});
+
+            expect(JSON.stringify(workspace.dockModel)).toBe(before);
+            expect(workspace.tearOutConnects.preview).toBeUndefined();
+            expect(workspace.tearOutAdmissions.has('preview')).toBe(false);
+            expect(workspace.tearOutHandlers.activeVessel).toBeNull();
+            expect(zone.calls.ended).toBe(1);
+            expect(workspace.lifecycleEvents).toEqual(['disconnect'])
+        });
+
+        test('connect timeout closes and ends the in-window embodiment, while explicit close refusal retains authority', async () => {
+            workspace = Neo.create(TearOutWorkspace, {
+                dockModel: createDocument(), tearOutConnectWindowMs: 1
+            });
+
+            let observeClose;
+
+            const closed = new Promise(resolve => {observeClose = resolve});
+
+            workspace.onClose = observeClose;
+
+            const {zone} = await beginExit('preview');
+
+            await closed;
+            await expect.poll(() => workspace.tearOutAdmissions.has('preview')).toBe(false);
+
+            expect(zone.calls.ended).toBe(1);
+            expect(workspace.tearOutHandlers.activeVessel).toBeNull();
+
+            workspace.destroy();
+            workspace = Neo.create(TearOutWorkspace, {
+                dockModel: createDocument(), tearOutConnectWindowMs: 1
+            });
+            workspace.closeResult = false;
+
+            const refused = new Promise(resolve => {workspace.onClose = resolve});
+            const second  = await beginExit('preview');
+
+            await refused;
+
+            expect(workspace.tearOutAdmissions.has('preview')).toBe(true);
+            expect(workspace.tearOutHandlers.activeVessel).toBeTruthy();
+            expect(second.zone.calls.ended).toBe(0);
+
+            workspace.closeResult = true;
+            await workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'preview'})
+        });
+
+        test('stale-open close refusal remains tracked and blocks a successor until exact retry succeeds', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+            workspace.closeResult = false;
+            workspace.openTearOutVessel = request => ({
+                admissionToken: request.admissionToken + 1,
+                popupHeight   : 360,
+                popupWidth    : 480,
+                windowName    : `stale-preview-${workspace.id}`
+            });
+
+            const vessel = await workspace.acquireTearOutVessel({admissionToken: 7, itemId: 'preview'});
+
+            expect(vessel).toBeNull();
+            expect(workspace.tearOutRetirements.size).toBe(1);
+            expect(workspace.tearOutAdmissions.has('preview')).toBe(true);
+
+            const closeCount = workspace.closeRequests.length;
+
+            expect(await workspace.acquireTearOutVessel({admissionToken: 8, itemId: 'preview'})).toBeNull();
+            expect(workspace.closeRequests.length).toBe(closeCount + 1);
+
+            workspace.closeResult = true;
+            expect(await workspace.retryTearOutRetirements('preview')).toBe(true);
+            expect(workspace.tearOutRetirements.size).toBe(0);
+            expect(workspace.tearOutAdmissions.has('preview')).toBe(false)
+        });
+
+        test('failed reparent rejects loudly, retracts vessel ownership and returns the live pane', async () => {
+            workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
+
+            const
+                pane            = workspace.getReference('tearout-pane-preview'),
+                {request, zone} = await beginExit('preview');
+
+            workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'preview', sortZone: zone});
+            await workspace.refreshPromise;
+
+            const mainView = addWindow('reparent-failure', vesselUrl(request, 'preview'));
+
+            mainView.add = () => {throw new Error('reparent refused')};
+            workspace.closeResult = false;
+
+            await expect(workspace.onWindowConnect({windowId: 'reparent-failure'})).rejects.toThrow(/could not enter/);
+            await expect.poll(() => workspace.dockModel.nodes['side-tabs'].items.includes('preview')).toBe(true);
+            await workspace.refreshPromise;
+            await expect.poll(() => workspace.tearOutRetirements.size).toBe(1);
+
+            expect(workspace.tearOutPanes.preview).toBeUndefined();
+            expect(workspace.getReference('tearout-pane-preview')).toBe(pane);
+            expect(pane.isDestroyed).toBeFalsy();
+            expect(workspace.closeRequests).toHaveLength(1);
+
+            workspace.closeResult = true;
+            expect(await workspace.retryTearOutRetirements('preview')).toBe(true);
+            expect(workspace.tearOutRetirements.size).toBe(0);
+            expect(workspace.closeRequests).toHaveLength(2)
+        })
     });
 
     test('DockService resolves the class as a holder without any service change', async () => {

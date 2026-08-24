@@ -27,7 +27,7 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
  * docking design's pane contract, and owner-held pane state surviving re-projection.
  */
 test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)', () => {
-    let ActivityStream, AgentDetail, CatchUpPane, DockProjectionReconciler, DockZoneModel, FleetCockpit, FleetGrid, MemoriesPane, OperatorMailbox, CockpitDockDocument;
+    let ActivityStream, AgentDetail, CatchUpPane, DockProjectionReconciler, DockWorkspace, DockZoneModel, FleetCockpit, FleetGrid, MemoriesPane, OperatorMailbox, CockpitDockDocument;
 
     // a projection-capable spy owner: the REAL prototype methods over controlled state, without
     // provider/store/bridge wiring (their routing has its own suite in fleetCockpit.spec.mjs)
@@ -41,15 +41,21 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
                 // the resident reading surfaces resolve their option lists through the
                 // projected tree and bind their listener scope to the owning controller; this
                 // host projects no tree and owns no controller — null is that honest answer
-                getController     : () => null,
-                getReference      : () => null,
-                dockModel         : CockpitDockDocument.create(),
-                gridAdapterState  : 'sample',
-                isDestroyed       : false,
-                refreshPromise    : null,
-                streamAdapterState: 'sample',
-                streamEvents      : [],
-                timeout           : ms => new Promise(resolve => setTimeout(resolve, ms)),
+                getController        : () => null,
+                getReference         : () => null,
+                dockModel            : CockpitDockDocument.create(),
+                gridAdapterState     : 'sample',
+                isDestroyed          : false,
+                refreshPromise       : null,
+                returningTearOutPanes: {},
+                streamAdapterState   : 'sample',
+                streamEvents         : [],
+                tearOutAdmissions    : new Map(),
+                tearOutConnects      : {},
+                tearOutPaneHandles   : {},
+                tearOutPanes         : {},
+                tearOutPlacements    : {},
+                timeout              : ms => new Promise(resolve => setTimeout(resolve, ms)),
                 ...overrides
             };
 
@@ -76,10 +82,34 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         MemoriesPane        = (await import('../../../../../../../../apps/agentos/view/fleet/memories/Container.mjs')).default;
         OperatorMailbox     = (await import('../../../../../../../../apps/agentos/view/fleet/mailbox/OperatorContainer.mjs')).default;
         DockProjectionReconciler = (await import('../../../../../../../../src/dashboard/DockProjectionReconciler.mjs')).default;
+        DockWorkspace       = (await import('../../../../../../../../src/dashboard/DockWorkspace.mjs')).default;
         DockZoneModel       = (await import('../../../../../../../../src/dashboard/DockZoneModel.mjs')).default;
         FleetCockpit        = (await import('../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs')).default;
         FleetGrid           = (await import('../../../../../../../../apps/agentos/view/fleet/roster/Container.mjs')).default;
         CockpitDockDocument = (await import('../../../../../../../../apps/agentos/util/CockpitDockDocument.mjs')).default
+    });
+
+    test('#17681 consumes the engine host without shadowing its holder or tear-out lifecycle', () => {
+        expect(Object.getPrototypeOf(FleetCockpit.prototype) === DockWorkspace.prototype).toBe(true);
+
+        for (const method of [
+            'adoptTearOutPane',
+            'applyDockZoneOperation',
+            'applyTearOutOperation',
+            'captureTearOutPane',
+            'getDockZoneDocument',
+            'onDockCrossZoneDrop',
+            'onDockZoneDocumentChange',
+            'onWindowConnect',
+            'onWindowDisconnect',
+            'projectDockModel',
+            'refreshDockWorkspace',
+            'reintegrateTearOutItem',
+            'releaseTearOutPane',
+            'reparentTearOutPane'
+        ]) {
+            expect(Object.hasOwn(FleetCockpit.prototype, method), `${method} is inherited`).toBe(false)
+        }
     });
 
     test('the reducer is pure and fail-closed: a commit advances a NEW document, the held one never mutates', () => {
@@ -148,7 +178,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
             starts   = [],
             releases = [],
             host     = makeHost({
-                refreshDockWorkspace(document) {
+                refreshDockWorkspace(tabInsertDescriptor, document) {
                     starts.push(document);
                     return new Promise(resolve => releases.push(resolve))
                 }
@@ -191,7 +221,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         };
 
         try {
-            await FleetCockpit.prototype.refreshDockWorkspace.call(host, document);
+            await FleetCockpit.prototype.refreshDockWorkspace.call(host, null, document);
 
             expect(options.host).toBe(host);
             expect(options.shellIndex).toBe(1);
