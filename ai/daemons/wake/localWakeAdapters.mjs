@@ -15,7 +15,6 @@ import {spawn, spawnSync} from 'node:child_process';
 import {applyHarnessMetadataDefaults} from './hostHarnessMetadata.mjs';
 import {COURIER_ADAPTER, deliverClaudeCourier} from './claudeCourierTransport.mjs';
 import {
-
     getDefaultInstanceTarget,
     resolveGuiInstancePid
 } from './instanceResolver.mjs';
@@ -277,7 +276,7 @@ async function performDispatch({adapter, adapterConfig, digest, meta, record, si
         return 'delivered';
     }
     if (adapter === 'osascript') {
-        return deliverOsascript({digest, effects, meta, record});
+        return deliverOsascript({adapterConfig, digest, effects, meta, record});
     }
 
     return 'skipped';
@@ -627,9 +626,16 @@ function buildDialogGateArgs({appName, instancePid}) {
 
 /**
  * @summary Delivers through the existing draft-preserving, frontmost-verified macOS path.
+ *
+ * The dialog gate is armed by default; `adapterConfig.dialogProbe === false` is the documented
+ * off-switch for real-harness rigs — there is no production writer or config leaf for the field,
+ * so a host operator's route to it is hand-authoring the subscription's `route.adapterConfig`,
+ * and no doc should imply a wider knob exists. Every other value — including an absent one —
+ * keeps the gate armed.
+ *
  * @private
  */
-async function deliverOsascript({digest, effects, meta, record}) {
+async function deliverOsascript({adapterConfig, digest, effects, meta, record}) {
     if (effects.platform !== 'darwin') return 'skipped';
 
     const resolvedMeta = applyHarnessMetadataDefaults(meta);
@@ -663,16 +669,19 @@ async function deliverOsascript({digest, effects, meta, record}) {
     // Dialog gate — read before writing. A readable non-text focus means a pending
     // interactive prompt owns the input path: defer (the receiver parks and reschedules under a
     // bound) rather than type the wake into the operator's dialog. Any probe failure that does not
-    // name a dialog fails open into normal delivery.
-    try {
-        await effects.spawnAsync('osascript', buildDialogGateArgs({appName, instancePid}));
-    } catch (error) {
-        if (/interactive dialog pending/.test(String(error?.message || ''))) {
-            return {outcome: 'deferred', outcomeReason: 'interactive-dialog-pending'};
+    // name a dialog fails open into normal delivery. `adapterConfig.dialogProbe === false` disarms
+    // the gate entirely — the off-switch real-harness rigs use to prove the pre-gate behavior.
+    if (adapterConfig.dialogProbe !== false) {
+        try {
+            await effects.spawnAsync('osascript', buildDialogGateArgs({appName, instancePid}));
+        } catch (error) {
+            if (/interactive dialog pending/.test(String(error?.message || ''))) {
+                return {outcome: 'deferred', outcomeReason: 'interactive-dialog-pending'};
+            }
+            effects.log.warn?.(
+                `[Wake Receiver] dialog gate could not probe ${record.subscriptionId}; delivering fail-open`
+            );
         }
-        effects.log.warn?.(
-            `[Wake Receiver] dialog gate could not probe ${record.subscriptionId}; delivering fail-open`
-        );
     }
 
     const args = buildOsascriptArgs({
