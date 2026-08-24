@@ -101,40 +101,46 @@ export function setup(options = {}) {
         Neo.ns('Neo.Main', true).setRoute ??= () => {};
     }
 
-    Neo.main ??= {
-        addon: {
-            DragDrop : {},
-            Navigator: {
-                subscribe  : () => {},
-                unsubscribe: () => {},
-                navigateTo : () => {}
-            },
-            ResizeObserver: {
-                register  : () => {},
-                unregister: () => {}
-            }
+    // Filled in per branch rather than as one `Neo.main ??= {...}`. A spec which imports anything
+    // from `src/main/` registers `Neo.main` at class-setup time, before this runs — a single
+    // whole-namespace `??=` then finds it non-null and skips, leaving `Neo.main.addon` undefined
+    // and crashing the Stylesheet default below. Guarding each branch keeps the "never clobber what
+    // a spec already installed" intent while surviving an unrelated occupant of the namespace.
+    Neo.main ??= {};
+
+    Neo.main.addon ??= {
+        DragDrop : {},
+        Navigator: {
+            subscribe  : () => {},
+            unsubscribe: () => {},
+            navigateTo : () => {}
         },
-        DomAccess: {
-            focus                : () => {},
-            getBoundingClientRect: async ({id}) => {
-                const rect = {width: 1000, height: 1000, x: 0, y: 0};
-                if (Array.isArray(id)) {
-                    return id.map(() => rect);
-                }
-                return rect;
-            },
-            // The single-thread simulation has no transforms, so the layout box equals the
-            // visual box: the transform-immune variant mirrors getBoundingClientRect here.
-            getLayoutRect: async ({id}) => {
-                const rect = {width: 1000, height: 1000, x: 0, y: 0};
-                if (Array.isArray(id)) {
-                    return id.map(() => rect);
-                }
-                return rect;
-            },
-            scrollIntoView: async () => {},
-            scrollTo      : async () => {}
+        ResizeObserver: {
+            register  : () => {},
+            unregister: () => {}
         }
+    };
+
+    Neo.main.DomAccess ??= {
+        focus                : () => {},
+        getBoundingClientRect: async ({id}) => {
+            const rect = {width: 1000, height: 1000, x: 0, y: 0};
+            if (Array.isArray(id)) {
+                return id.map(() => rect);
+            }
+            return rect;
+        },
+        // The single-thread simulation has no transforms, so the layout box equals the
+        // visual box: the transform-immune variant mirrors getBoundingClientRect here.
+        getLayoutRect: async ({id}) => {
+            const rect = {width: 1000, height: 1000, x: 0, y: 0};
+            if (Array.isArray(id)) {
+                return id.map(() => rect);
+            }
+            return rect;
+        },
+        scrollIntoView: async () => {},
+        scrollTo      : async () => {}
     };
 
     // Production's App Worker always exposes the Stylesheet addon. Component-composition unit
