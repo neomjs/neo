@@ -36,6 +36,16 @@ export const DEFAULT_CONTAINED_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h
 export const DEFAULT_FLAP_WINDOW_MS = DEFAULT_CONTAINED_COOLDOWN_MS; // 6h
 
 /**
+ * The escalation a SERVING FENCE publishes on its `freeze` ledger row — deliberately not one of
+ * `FUTILITY_ESCALATIONS`. A fenced collection is waiting on the autonomous re-probe, which will either
+ * lift the fence or escalate it to `contained`; there is nothing for a human to do at this transition. The
+ * futility escalations mean the opposite (a remedy that does not work, or a class with no remedy at all), so
+ * borrowing one here would ask a reader to go fix a remedy that was never invoked.
+ * @type {String}
+ */
+export const FREEZE_ESCALATION_SERVING_FENCED = 'serving-fenced-pending-reprobe';
+
+/**
  * @summary Builds the SYMMETRIC store-level fence/unfence pair. A store-level fault (e.g. `mc-server`) fences
  * every served collection in the store (memory + session) via `expand` (`storeFenceTargets`); the matching
  * unfence MUST lift exactly that expanded set. Co-locating both in one factory makes them symmetric by
@@ -88,10 +98,15 @@ export function createStoreFenceOperations({quarantine, unquarantine, expand, se
  * @param {Object} options
  * @param {String} options.freezeRecordsDir Durable freeze-record state directory.
  * @param {Function} options.fence `async ({collection, reason, now}) => fencedTargets` — lifts the collection out of serving.
+ * @param {String|null} [options.healLedgerDir=null] Durable heal-event ledger directory. Supplying it is what makes
+ * the freeze OBSERVABLE — see the asymmetry note below. Omitted ⇒ the fence and the record still happen and no
+ * ledger row is written (the unit seams that inject no ledger).
+ * @param {{maxEvents: Number, triggerBytes: Number}|null} [options.healLedgerRetention=null] Explicit retention pair
+ * from the AiConfig leaves, forwarded to the append so the observability sink stays self-bounding.
  * @param {Number} [options.flapWindowMs=DEFAULT_FLAP_WINDOW_MS] How recently a release must precede this freeze to count as a flap (inherit the count) vs a fresh fault (reset).
  * @returns {Function} The `async ({collection, evidence, now}) => {status, detail}` heal-operation.
  */
-export function createFreezeHealOperation({freezeRecordsDir, fence, flapWindowMs = DEFAULT_FLAP_WINDOW_MS}) {
+export function createFreezeHealOperation({freezeRecordsDir, fence, healLedgerDir = null, healLedgerRetention = null, flapWindowMs = DEFAULT_FLAP_WINDOW_MS}) {
     if (typeof fence !== 'function') {
         throw new TypeError('createFreezeHealOperation: a fence function is required');
     }
@@ -117,6 +132,36 @@ export function createFreezeHealOperation({freezeRecordsDir, fence, flapWindowMs
             containedAt     : null,
             unfreezeAttempts: flap ? undefined : null
         });
+
+        // LEDGER THE TRANSITION. This op previously fenced the collection, persisted the record, returned
+        // `frozen` — and wrote nothing to the heal ledger, while its partner `runFreezeReprobe` DID ledger the
+        // matching `unfreeze`. Both readers of the frozen set (`summarizeHealLedger.currentlyFrozen` and
+        // `foldFutilityFreezeState`) ADD on `freeze` and REMOVE on `unfreeze`, so the set could only ever be
+        // empty: the add was never written and the remove was. That is strictly worse than no surface at all,
+        // because an empty `currentlyFrozen` reads as healthy — it is why the 2026-08-13 incident reported
+        // `currentlyFrozen: []` through 4,692 heal events while real fences were up, and why
+        // `fleetTasksSource` could never raise a frozen-target task.
+        //
+        // `at: now` is load-bearing, not decoration: `foldFutilityFreezeState` requires a FINITE `at` on a
+        // freeze row and silently drops the row without one, so a freeze stamped from a missing clock would
+        // reproduce the same invisible-freeze bug one layer down.
+        //
+        // A failing append THROWS rather than being swallowed, matching the `unfreeze` partner. Both the fence
+        // and `upsertFreezeRecord` are idempotent, so the caller's retry is safe — and a silently missing
+        // freeze row is the exact defect this block repairs, so failing loudly is the correct bias here.
+        if (typeof healLedgerDir === 'string' && healLedgerDir.length > 0) {
+            await appendHealEvent({
+                type  : 'freeze',
+                collection,
+                status: 'frozen',
+                at    : now,
+                // `escalation` and `verdict` are the two fields `foldFutilityFreezeState` surfaces to an
+                // operator. A serving fence needs no human yet — the autonomous re-probe lifts it or escalates
+                // to `contained` — so it says so, rather than borrowing a futility escalation that would ask
+                // someone to go fix a remedy nothing invoked.
+                detail    : {escalation: FREEZE_ESCALATION_SERVING_FENCED, verdict: faultFingerprint, fenced, reactivated: flap}
+            }, {dir: healLedgerDir, now, ...(healLedgerRetention ?? {})});
+        }
 
         return {status: 'frozen', detail: {collection, fenced, faultFingerprint, reactivated: flap}};
     };

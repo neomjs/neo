@@ -21,7 +21,12 @@ import {
     readRecentRecoveryRunStatesWithCompleteness
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {RECOVERY_OVERRIDE_FILENAME} from '../../../../../../../ai/services/memory-core/helpers/recoveryOverrideStore.mjs';
-import {readHealLedger}             from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {
+    foldFutilityFreezeState,
+    readHealLedger,
+    summarizeHealLedger
+} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {FUTILITY_ESCALATIONS} from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
 
 const DEFAULT_RUNTIME_ACCESS_CONFIG = {
     allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
@@ -58,6 +63,11 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                   maxAttemptsWindowMs        : 60_000,
                   verifyCooldownMs           : 5_000,
                   healthyObservationThreshold: 1,
+                  // `maxIdenticalVerdicts` is deliberately far above anything the older specs produce, so the
+                  // futility breaker is present-but-unreached here and those specs keep asserting the unfrozen
+                  // behaviour they were written for (AC-6: no change for heals that resolve within the threshold).
+                  // The breaker's own arms override it down to a reachable value.
+                  futility                   : {maxIdenticalVerdicts: 50, windowMs: 3_600_000, baseThawQuietMs: 1_800_000, tierMultiplier: 2, maxThawQuietMs: 86_400_000},
                   ...overrides.actuatorConfig
               },
               service = Neo.create(RecoveryActuatorService, {
@@ -2074,6 +2084,257 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
             expect(result.error).toContain('missing context');
             expect(runtimeCalls).toEqual([]);
+        });
+    });
+
+    test.describe('the futility breaker, WIRED — a heal that cannot work must stop, not slow down', () => {
+        // SCOPE OF THESE ARMS. The DECISION belongs to `decideFutilityFreeze`, which has its own suite covering
+        // streak arithmetic, verdict identity, per-target scoping and fail-open behaviour. An earlier change landed
+        // that decider — and nothing ever called it. So these arms test the WIRING, which is the part that was missing and
+        // the part no spec of a pure function can notice is absent: is a verdict stream actually fed to it, is its
+        // verdict published as an observable transition, and do both actuator terminals honour the result.
+        const BASE = 1_800_000,
+              // Small enough to reach in three calls; the harness fixture's 50 keeps every OTHER spec unfrozen.
+              FUTILITY = {maxIdenticalVerdicts: 3, windowMs: 3_600_000, baseThawQuietMs: BASE, tierMultiplier: 2, maxThawQuietMs: 86_400_000};
+
+        function createWedgedProvider(overrides = {}) {
+            const warmCalls                 = [],
+                  {service, actuatorConfig} = createService({
+                      actuatorConfig: {maxAttemptsPerWindow: 10, futility: FUTILITY, ...overrides},
+                      serviceConfig : {
+                          // The 2026-08-13 incident's exact shape: the provider is structurally wedged, so every warm
+                          // ends `executor-failed` and each attempt is itself load on the wedge.
+                          async providerResidencyRepair() {
+                              warmCalls.push({});
+                              return {ready: false, warning: 'provider cannot hold chat and embedding together'};
+                          }
+                      }
+                  });
+
+            return {service, actuatorConfig, warmCalls};
+        }
+
+        const warm = (service, now) => service.apply('local-model', 'warm-provider', {
+                  now,
+                  targetIdentity: {kind: 'compose-service', id: 'local-model'}
+              }),
+              freezeRows = async service =>
+                  (await readHealLedger({dir: service.healEventLedgerDir})).filter(event => event.type === 'freeze');
+
+        async function warmUntilFrozen(service, {from = 10_000, count = 3, step = 1_000} = {}) {
+            const results = [];
+
+            for (let index = 0; index < count; index++) {
+                results.push(await warm(service, from + index * step));
+            }
+
+            return results;
+        }
+
+        test('AC-1: repeated identical verdicts reach the decider and publish a freeze', async () => {
+            const {service} = createWedgedProvider();
+
+            const results = await warmUntilFrozen(service);
+
+            expect(results.map(entry => entry.reasonCode)).toEqual(['executor-failed', 'executor-failed', 'executor-failed']);
+
+            const rows = await freezeRows(service);
+
+            expect(rows).toHaveLength(1);
+            expect(rows[0]).toMatchObject({
+                collection: 'local-model',
+                status    : 'frozen',
+                detail    : {escalation: FUTILITY_ESCALATIONS.REMEDY_INEFFECTIVE, streak: 3}
+            });
+            // A finite `at` is what makes the row visible to the fold; without it the freeze is written and unseen.
+            expect(Number.isFinite(rows[0].at)).toBe(true);
+        });
+
+        test('AC-1: while frozen there is NO further evaluation — no executor call, no attempt consumed, no new row', async () => {
+            const {service, warmCalls, actuatorConfig} = createWedgedProvider();
+
+            await warmUntilFrozen(service);
+
+            const callsAtFreeze  = warmCalls.length,
+                  runsAtFreeze   = (await readdir(actuatorConfig.recoveryRunStateDir)).length,
+                  eventsAtFreeze = (await readHealLedger({dir: service.healEventLedgerDir})).length;
+
+            const refused = await warm(service, 20_000);
+
+            expect(refused).toMatchObject({status: 'declined', reasonCode: 'futility-frozen'});
+            expect(refused.frozen).toMatchObject({target: 'local-model', tier: 1});
+
+            // The three things the incident actually cost: executor load, ledger volume, and a loop that looked busy.
+            expect(warmCalls).toHaveLength(callsAtFreeze);
+            expect(await readdir(actuatorConfig.recoveryRunStateDir)).toHaveLength(runsAtFreeze);
+            expect(await readHealLedger({dir: service.healEventLedgerDir})).toHaveLength(eventsAtFreeze);
+        });
+
+        test('AC-1: a frozen target reached through an UNGATED terminal does not append a second freeze row', async () => {
+            // The decider is stateless and keeps returning `freeze` for as long as the run stays identical, so a
+            // second evaluation while already frozen would append another row — the ledger flood this mechanism
+            // exists to end, wearing a new costume.
+            //
+            // Reaching that second evaluation takes care, and the first version of this arm did not: simply warming
+            // again is refused BY THE GATE, so `finishAction` is never re-entered and the arm passed with the dedup
+            // check deleted (mutation-verified — it proved nothing). The reachable paths are the ones that return
+            // through `rejectAction` or the uncertain-restart reconciliation, both of which sit ABOVE the gate in
+            // `apply` and still reach `finishAction`. `unsupported-action` is the cheapest of them.
+            const {service} = createWedgedProvider();
+
+            await warmUntilFrozen(service);
+            expect(await freezeRows(service)).toHaveLength(1);
+
+            const rejected = await service.apply('local-model', 'exec', {
+                now           : 20_000,
+                targetIdentity: {kind: 'compose-service', id: 'local-model'}
+            });
+
+            expect(rejected).toMatchObject({status: 'rejected', reasonCode: 'unsupported-action'});
+            // The rejection itself is filtered out of the verdict stream, so the run still ends on the three warm
+            // failures and the decider still says `freeze`. Only the already-frozen check stops the duplicate.
+            expect(await freezeRows(service)).toHaveLength(1);
+        });
+
+        test('AC-1 non-vacuity: a CHANGED state fingerprint breaks the run, so identical verdicts about new facts do not freeze', async () => {
+            // This is the arm that proves the fingerprint is really plumbed through the run ledger into the decider.
+            // Without it the decider's state-change run-breaker compares null to null forever and silently degrades to
+            // verdict-identity alone — a breaker that freezes targets whose evidence is visibly moving.
+            const {service} = createWedgedProvider();
+
+            for (let index = 0; index < 4; index++) {
+                await service.apply('local-model', 'warm-provider', {
+                    now           : 10_000 + index * 1_000,
+                    targetIdentity: {kind: 'compose-service', id: 'local-model'},
+                    // Same class, same rung, same reasonCode — only the EVIDENCE differs each round.
+                    diagnosisEvent: createRecoveryDiagnosisEvent({
+                        diagnosisId   : `evidence-moves-${index}`,
+                        recoveryClass : 'exhaustion',
+                        confidence    : 1,
+                        targetIdentity: createRecoveryTargetIdentity({kind: 'compose-service', id: 'local-model'}),
+                        evidenceFacts : [{type: 'provider-residency', observedRound: index}],
+                        observedAt    : 10_000 + index * 1_000,
+                        source        : 'recovery-actuator',
+                        details       : {action: 'warm-provider'}
+                    })
+                });
+            }
+
+            expect(await freezeRows(service)).toEqual([]);
+            await expect(warm(service, 30_000)).resolves.toMatchObject({reasonCode: 'executor-failed'});
+        });
+
+        test('AC-2 + AC-3: the record-only terminal freezes too, and its escalation names a SUBSTRATE GAP', async () => {
+            // The half that matters most: `recordDiagnosis` never reaches `evaluateEnvelope`, and the
+            // `actuatorAction: null` routes are 2,495 of 5,000 live events against 10 `failed`. A breaker keyed on
+            // executor failures counted 10 of 5,000 and never engaged.
+            // ONE service, TWO targets — not two services. Every `createService` in this file shares the per-test
+            // `tmpDir`, so a second instance reads the first's ledgers; the first version of this arm compared a
+            // freeze row against itself and reported the wrong escalation for the actuated path. Two targets inside
+            // one ledger is also the real shape, since the decider scopes per-target.
+            const {service} = createWedgedProvider();
+
+            for (let index = 0; index < 3; index++) {
+                await service.recordDiagnosis(backupEscalationDiagnosis(), {now: 500_000 + index * 1_000});
+            }
+
+            await warmUntilFrozen(service);
+
+            const rows     = await freezeRows(service),
+                  recorded = rows.find(row => row.collection === 'backup'),
+                  actuated = rows.find(row => row.collection === 'local-model');
+
+            expect(recorded).toMatchObject({detail: {escalation: FUTILITY_ESCALATIONS.NO_ADMITTED_REMEDY}});
+            expect(actuated).toMatchObject({detail: {escalation: FUTILITY_ESCALATIONS.REMEDY_INEFFECTIVE}});
+
+            // THE DISTINCTION IS THE ASSERTION, not either value alone: collapsing the two would report thousands of
+            // missing-remedy gaps as remedy failures and send every reader hunting a bug inside a remedy that was
+            // never invoked.
+            expect(actuated.detail.escalation).not.toBe(recorded.detail.escalation);
+
+            // ...and a frozen unactionable class stops re-recording the same gap on every cadence.
+            const refused = await service.recordDiagnosis(backupEscalationDiagnosis(), {now: 520_000});
+
+            expect(refused).toMatchObject({status: 'declined', reasonCode: 'futility-frozen', action: 'record'});
+        });
+
+        test('AC-4: the freeze reaches `currentlyFrozen` and the snapshot freeze state, from a PRODUCTION path', async () => {
+            // Every pre-existing spec for these two folds hand-writes its own `{type: 'freeze'}` fixture, so all of
+            // them were green while nothing in production emitted that type. This arm reads the ledger the actuator
+            // itself wrote, which is the only version of this assertion that could have failed before.
+            const {service} = createWedgedProvider();
+
+            await warmUntilFrozen(service);
+
+            const events   = await readHealLedger({dir: service.healEventLedgerDir}),
+                  {frozen} = foldFutilityFreezeState(events, {now: 20_000, bounds: FUTILITY});
+
+            expect(summarizeHealLedger(events).currentlyFrozen).toEqual(['local-model']);
+            expect(frozen[0]).toMatchObject({
+                target         : 'local-model',
+                tier           : 1,
+                escalation     : FUTILITY_ESCALATIONS.REMEDY_INEFFECTIVE,
+                requiredQuietMs: BASE,
+                thawEligible   : false
+            });
+        });
+
+        test('AC-5: the declared thaw condition re-admits the target and ledgers the unfreeze', async () => {
+            const {service, warmCalls} = createWedgedProvider();
+
+            await warmUntilFrozen(service);
+
+            const frozenAt      = (await freezeRows(service))[0].at,
+                  callsAtFreeze = warmCalls.length;
+
+            // One millisecond short of the declared window is still frozen. Asserting the boundary is what makes a
+            // thaw that fires early — or a deadline computed from the wrong base — red.
+            await expect(warm(service, frozenAt + BASE - 1)).resolves.toMatchObject({reasonCode: 'futility-frozen'});
+            expect(warmCalls).toHaveLength(callsAtFreeze);
+
+            const thawed = await warm(service, frozenAt + BASE);
+
+            expect(thawed).toMatchObject({reasonCode: 'executor-failed'});   // evaluated again, and still wedged
+            expect(warmCalls).toHaveLength(callsAtFreeze + 1);
+
+            const unfreezes = (await readHealLedger({dir: service.healEventLedgerDir})).filter(event => event.type === 'unfreeze');
+
+            expect(unfreezes).toHaveLength(1);
+            expect(unfreezes[0]).toMatchObject({collection: 'local-model', status: 'unfrozen', detail: {operatorThaw: false}});
+        });
+
+        test('AC-5: an operator thaw lifts the freeze early and is marked as a judgement, not a failure', async () => {
+            const {service} = createWedgedProvider();
+
+            await warmUntilFrozen(service);
+
+            const lifted = await service.thawFutilityFreeze({serviceKey: 'local-model', now: 20_000});
+
+            expect(lifted).toMatchObject({target: 'local-model', tier: 1});
+
+            const unfreezes = (await readHealLedger({dir: service.healEventLedgerDir})).filter(event => event.type === 'unfreeze');
+
+            // `operatorThaw: true` is what the fold reads to LOWER the tier — a human judging a target healthy is
+            // evidence, so it must not make the next freeze stricter the way a failure does.
+            expect(unfreezes[0]).toMatchObject({detail: {operatorThaw: true}});
+            expect(summarizeHealLedger(await readHealLedger({dir: service.healEventLedgerDir})).currentlyFrozen).toEqual([]);
+
+            // ...and the target is actionable again immediately, without waiting out the window.
+            await expect(warm(service, 21_000)).resolves.toMatchObject({reasonCode: 'executor-failed'});
+        });
+
+        test('AC-1 boundary: a verdict about OUR configuration never freezes the target', async () => {
+            // `actuator-disabled` repeated forever is not evidence about the target — it is an operator's own setting.
+            // Freezing on it would report a deliberate blocklist entry as a target pathology and escalate it as one,
+            // which is how a breaker becomes noise nobody reads. The `rejected` disposition carries a distinct
+            // reasonCode, so the verdict identity differs from any real heal verdict.
+            const {service} = createService({actuatorConfig: {enabled: false, futility: FUTILITY}});
+
+            for (let index = 0; index < 5; index++) {
+                await service.apply('mc-server', 'restart', {now: 10_000 + index * 1_000});
+            }
+
+            expect(await freezeRows(service)).toEqual([]);
         });
     });
 

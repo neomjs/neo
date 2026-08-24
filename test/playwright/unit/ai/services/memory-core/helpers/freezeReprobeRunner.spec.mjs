@@ -4,9 +4,20 @@ import * as core                                                                
 import fs                                                                           from 'fs/promises';
 import os                                                                           from 'os';
 import path                                                                         from 'path';
-import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}    from '../../../../../../../ai/services/memory-core/helpers/freezeReprobeRunner.mjs';
+import {
+    createFreezeHealOperation,
+    createStoreFenceOperations,
+    FREEZE_ESCALATION_SERVING_FENCED,
+    runFreezeReprobe
+} from '../../../../../../../ai/services/memory-core/helpers/freezeReprobeRunner.mjs';
 import {getFreezeRecord, readFreezeRecords, removeFreezeRecord, upsertFreezeRecord} from '../../../../../../../ai/services/memory-core/helpers/freezeRecordStore.mjs';
-import {readHealLedger}                                                             from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {
+    appendHealEvent,
+    foldFutilityFreezeState,
+    readHealLedger,
+    summarizeHealLedger
+} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {FUTILITY_ESCALATIONS} from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
 
 async function tmpDir() {
     return await fs.mkdtemp(path.join(os.tmpdir(), 'freeze-reprobe-runner-'));
@@ -36,6 +47,76 @@ test.describe('freezeReprobeRunner — createFreezeHealOperation (#14166)', () =
 
     test('requires a fence function (fail fast on a mis-wired op)', () => {
         expect(() => createFreezeHealOperation({freezeRecordsDir: '/x'})).toThrow(/fence function is required/);
+    });
+
+    test('the freeze is LEDGERED, so the frozen set can finally hold a member', async () => {
+        // THE ASYMMETRY THIS REPAIRS. `runFreezeReprobe` has always appended `{type: 'unfreeze'}` on a successful
+        // thaw, and this op appended nothing — while both readers of the frozen set (`summarizeHealLedger`'s
+        // `currentlyFrozen` and `foldFutilityFreezeState`) ADD on `freeze` and REMOVE on `unfreeze`. The add was
+        // never written and the remove was, so the set could only ever be empty: the 2026-08-13 incident reported
+        // `currentlyFrozen: []` through 4,692 heal events with real fences up, and `fleetTasksSource` could never
+        // raise a frozen-target task. An empty frozen set reads as HEALTHY, which is why this was worse than
+        // having no surface at all.
+        //
+        // Every pre-existing spec for those folds hand-writes its own `{type: 'freeze'}` fixture, so all of them
+        // were green throughout. This arm reads what the production op actually emits.
+        const dir = await tmpDir();
+
+        try {
+            const freezeOp = createFreezeHealOperation({
+                freezeRecordsDir: dir,
+                healLedgerDir   : dir,
+                fence           : async ({collection}) => [collection]
+            });
+
+            await freezeOp({collection: 'c1', evidence: {reasonCode: 'dimension-systemic'}, now: 4_000});
+
+            const events = await readHealLedger({dir});
+
+            expect(events).toHaveLength(1);
+            expect(events[0]).toMatchObject({
+                type      : 'freeze',
+                collection: 'c1',
+                status    : 'frozen',
+                at        : 4_000,   // finite `at` is REQUIRED: foldFutilityFreezeState drops an untimed freeze row
+                detail    : {escalation: FREEZE_ESCALATION_SERVING_FENCED, verdict: 'dimension-systemic'}
+            });
+
+            expect(summarizeHealLedger(events).currentlyFrozen).toEqual(['c1']);
+            expect(foldFutilityFreezeState(events, {now: 4_000}).frozen).toHaveLength(1);
+
+            // A serving fence must NOT borrow a futility escalation: nothing here asks a human to go fix a remedy,
+            // because no remedy was invoked — the autonomous re-probe either lifts this or escalates it.
+            expect(events[0].detail.escalation).not.toBe(FUTILITY_ESCALATIONS.REMEDY_INEFFECTIVE);
+            expect(events[0].detail.escalation).not.toBe(FUTILITY_ESCALATIONS.NO_ADMITTED_REMEDY);
+
+            // ...and the remove half still balances the add, on the same vocabulary the reprobe runner writes.
+            await appendHealEvent({type: 'unfreeze', collection: 'c1', status: 'unfrozen'}, {dir, now: 5_000});
+
+            expect(summarizeHealLedger(await readHealLedger({dir})).currentlyFrozen).toEqual([]);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('with no ledger injected the fence still happens and no row is written', async () => {
+        // The seam the pre-existing specs above rely on — and the honest boundary: observability is optional,
+        // the fence is not.
+        const dir = await tmpDir();
+
+        try {
+            const freezeOp = createFreezeHealOperation({
+                freezeRecordsDir: dir,
+                fence           : async ({collection}) => [collection]
+            });
+
+            const result = await freezeOp({collection: 'c1', evidence: {reasonCode: 'x'}, now: 4_000});
+
+            expect(result).toMatchObject({status: 'frozen'});
+            expect(await readHealLedger({dir})).toEqual([]);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
     });
 });
 

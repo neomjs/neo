@@ -2256,7 +2256,12 @@ export class DeploymentStateBridgeService extends Base {
                 // `summary.currentlyFrozen` is a bare target list; this carries each freeze's escalation,
                 // verdict evidence and thaw condition, so an operator can see WHY a target is frozen and
                 // what clears it without reading the ledger.
-                freezeState : foldFutilityFreezeState(events, {now: Date.now()}),
+                //
+                // The bounds are read from the SAME AiConfig leaves the actuator enforces with, not
+                // left to the helper's defaults: this surface publishes `thawEligibleAt`, and a deadline that
+                // disagrees with the one the loop acts on is worse than none — it reads as authoritative while
+                // the breaker thaws on its own schedule.
+                freezeState : foldFutilityFreezeState(events, {now: Date.now(), bounds: AiConfig.orchestrator.recoveryActuator.futility}),
                 recentEvents: queryHealLedger(events, {limit}), // validated >= 0; limit 0 → [] (queryHealLedger caps)
                 errors      : []
             };

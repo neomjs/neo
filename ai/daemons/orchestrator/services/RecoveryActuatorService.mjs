@@ -12,13 +12,17 @@ import {
     createRecoveryReobserveRequest,
     createRecoveryRunStateEntry,
     createRecoveryTargetIdentity,
-    readActiveRecoveryRunStates
+    readActiveRecoveryRunStates,
+    readRecentRecoveryRunStates
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     appendHealEvent,
+    foldFutilityFreezeState,
     HEAL_LEDGER_DIR_NAME,
+    readHealLedger,
     validateHealLedgerRetention
 } from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {decideFutilityFreeze} from '../../../services/memory-core/helpers/healActionDispatch.mjs';
 import {
     requiredContextForKnob,
     writeKnobOverride
@@ -31,6 +35,30 @@ import {
 import {isStoreBackedService} from './ContainerHealthDiagnosisService.mjs';
 
 const DEFAULT_ACTIONS         = Object.freeze(['reconfigure', 'restart', 'redeploy', 'warm-provider', 'raise-ceiling']);
+
+/**
+ * @summary Fingerprints the OBSERVED STATE behind one diagnosis, for the futility breaker's run-breaker.
+ *
+ * `decideFutilityFreeze` ends a streak when `stateFingerprint` changes: an identical verdict about a CHANGED subject
+ * means the loop is observing something new, so it is not futile. That check is the difference between "this target is
+ * stuck" and "this target keeps producing the same class of complaint about different facts", and it is inert unless
+ * something writes the fingerprint — so it is written here, at the source, rather than reconstructed downstream from
+ * whatever a ledger row happens to carry.
+ *
+ * The evidence facts are the subject, deliberately not the `diagnosisId`: a repeating diagnosis mints a fresh id every
+ * cadence, so an id-based fingerprint would break every run and leave the breaker permanently unreachable — failing
+ * open in the direction that looks safe and removes the mechanism.
+ *
+ * No evidence resolves to one stable marker rather than to `null`: two evidence-free diagnoses genuinely describe the
+ * same (unobserved) state, and mapping them to `null` would make every pair of them read as a state CHANGE.
+ * @param {Object|null} diagnosisEvent
+ * @returns {String}
+ */
+function fingerprintDiagnosisState(diagnosisEvent) {
+    const facts = Array.isArray(diagnosisEvent?.evidenceFacts) ? diagnosisEvent.evidenceFacts : [];
+
+    return facts.length === 0 ? 'no-evidence' : JSON.stringify(facts);
+}
 const DEFAULT_DEPLOY_TARGETS  = Object.freeze(['cloud-deploy']);
 const COMPOSE_RESTART_ACTIONS = Object.freeze(['reconfigure', 'restart']);
 
@@ -342,6 +370,29 @@ export class RecoveryActuatorService extends Base {
                     isAuthorityHeld
                 });
             }
+        }
+
+        // FUTILITY GATE, above the anti-thrash envelope. A frozen target is not rate-limited — it is not being acted
+        // on at all, so it must not reach an executor, must not consume an attempt, and must not add load to the
+        // target it is failing to heal.
+        //
+        // The refusal returns DIRECTLY rather than through `finishAction`, and that is deliberate: `finishAction`
+        // appends a recovery-run entry, and one row per snapshot cadence per frozen target would reproduce the exact
+        // ledger flood the freeze exists to end (4,690 events on one target). A freeze trades that flood for ONE
+        // durable transition row plus a standing `currentlyFrozen` state the snapshot carries continuously — the
+        // operator loses nothing and stops drowning. This mirrors the `authority-lost` early returns above, which
+        // also decline without writing.
+        const futilityGate = await this.admitPastFutilityFreeze({serviceKey, now, isAuthorityHeld});
+
+        if (!futilityGate.admitted) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'futility-frozen',
+                serviceKey,
+                action,
+                targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                frozen        : futilityGate.entry
+            };
         }
 
         const attempts = await this.readHealAttempts();
@@ -756,6 +807,28 @@ export class RecoveryActuatorService extends Base {
                   id  : serviceKey
               },
               reasonCode = diagnosis.details.reasonCode || reason || 'diagnosis-record';
+
+        // THE SAME FUTILITY GATE THE ACTUATED TERMINAL PASSES — and this is the half that matters most.
+        //
+        // This terminal serves every `actuatorAction: null` route, which live evidence makes the MAJORITY
+        // disposition: 2,495 `recorded` of 5,000 events, against 10 `failed`. It never calls `evaluateEnvelope`, so
+        // before this it had no envelope of any kind and every invocation was `attempt: 1` forever. A breaker keyed on
+        // executor failures would have counted 10 of 5,000 and never engaged.
+        //
+        // Freezing an unactionable class is how the loop stops re-recording the same substrate gap on every cadence
+        // once it has been escalated once.
+        const futilityGate = await this.admitPastFutilityFreeze({serviceKey, now, isAuthorityHeld});
+
+        if (!futilityGate.admitted) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'futility-frozen',
+                serviceKey,
+                action        : 'record',
+                targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
+                frozen        : futilityGate.entry
+            };
+        }
 
         // Record-with-diagnosis: durable async-audit to the shared heal-event ledger, never a blocking
         // page (an operatorless cloud has no human to page). The lifecycle and data worlds share this
@@ -1623,6 +1696,244 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary The futility policy — ONE leaf group feeding two pure consumers.
+     *
+     * `decideFutilityFreeze` destructures `{maxIdenticalVerdicts, windowMs}`; `foldFutilityFreezeState` destructures
+     * `{baseThawQuietMs, tierMultiplier, maxThawQuietMs}`. Each merges over its own defaults and ignores the other's
+     * keys, so one object is handed to both — the breaker and the thaw schedule are one policy, and an operator who
+     * can tune only half of it is tuning half a mechanism.
+     * @returns {Object}
+     */
+    get futilityBounds() {
+        return this.cfg.futility;
+    }
+
+    /**
+     * @summary Projects recovery-run ledger entries into the verdict rows `decideFutilityFreeze` consumes.
+     *
+     * The run ledger is the verdict stream, not the heal ledger: it is where EVERY disposition lands with the four
+     * fields the verdict identity needs (`recoveryClass`, `rung`, `reasonCode`, plus the target), which is exactly the
+     * shape the incident evidence was read in. The heal ledger holds only the record-terminal rows, so folding it
+     * instead would have made the breaker blind to the actuated failures it most needs to see.
+     *
+     * `stateFingerprint` is read from `details` — see the note at the `finishAction` write. Absent, it resolves to
+     * `null`, which makes the decider's state-change run-breaker inert rather than wrong; that is why the fingerprint
+     * is written at the source instead of being reconstructed here from whatever happens to be on the row.
+     *
+     * @param {Object[]} entries Recovery-run state entries.
+     * @returns {Object[]} Verdict rows, oldest → newest (the order the decider walks backwards from).
+     */
+    projectRunEntriesToVerdicts(entries = []) {
+        return (Array.isArray(entries) ? entries : [])
+            .filter(entry => entry && typeof entry === 'object')
+            .map(entry => ({
+                target          : entry.details?.serviceKey ?? entry.targetIdentity?.id ?? null,
+                recoveryClass   : entry.recoveryClass ?? null,
+                rung            : entry.rung ?? null,
+                reasonCode      : entry.details?.reasonCode ?? null,
+                disposition     : entry.details?.status ?? entry.status ?? null,
+                stateFingerprint: entry.details?.stateFingerprint ?? null,
+                // `startedAt`, NOT `updatedAt`. Two reasons, and they agree: semantically the verdict belongs to the
+                // moment the attempt was observed, and mechanically `startedAt` is the CALLER's clock while
+                // `updatedAt` is a wall-clock read taken inside this service. The decider windows verdicts with
+                // `at >= now - windowMs && at <= now` against that same caller clock, so projecting `updatedAt` puts
+                // every row in the future of `now` under any injected clock and silently empties the stream — a
+                // breaker that reads no verdicts never fires.
+                at              : Number.isFinite(entry.startedAt) ? entry.startedAt : null
+            }))
+            .filter(verdict => verdict.target !== null && Number.isFinite(verdict.at))
+            // A VERDICT ABOUT OUR CONFIGURATION IS NOT EVIDENCE ABOUT THE TARGET, and this is the only place that
+            // distinction can be drawn: the decider counts every verdict it is handed, by design — deciding what
+            // COUNTS as a verdict belongs to whoever assembles the stream.
+            //
+            // `rejected` is what `rejectAction` writes, and every one of its reason codes describes this actuator's
+            // own settings or wiring: `unsupported-action`, `actuator-disabled`, `target-not-recoverable`,
+            // `action-not-allowed-for-target`. Counting them would freeze a target because an operator had disabled
+            // healing or blocklisted it, then escalate that deliberate choice as a target pathology — measured, not
+            // theorised: a disabled actuator froze its target in three cadences before this filter existed. Caller
+            // mis-wires are already owned by `detectChronicUnsafeInput`.
+            .filter(verdict => verdict.disposition !== 'rejected')
+            .sort((left, right) => left.at - right.at);
+    }
+
+    /**
+     * @summary The futility gate both terminals pass through: refuse a frozen target, or thaw one whose declared
+     * quiet condition is now met.
+     *
+     * **This is the "no further evaluation while frozen" guarantee.** It runs before the anti-thrash
+     * envelope and before any executor, so a frozen target does not merely skip its effect — it is not evaluated,
+     * consumes no attempt, and adds no load to the target. That distinction is the point: in the 2026-08-13 incident
+     * every retry was itself demand on the wedged component it was trying to heal.
+     *
+     * Freeze state is read from the heal ledger through `foldFutilityFreezeState` — the same fold the deployment
+     * snapshot publishes — so there is no second source of truth about what is frozen, and the `thawEligibleAt` an
+     * operator reads is the one enforced here.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Stable target key.
+     * @param {Number} options.now Epoch milliseconds.
+     * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle.
+     * @returns {Promise<{admitted: Boolean, thawed: Boolean, entry: Object|null}>}
+     */
+    async admitPastFutilityFreeze({serviceKey, now, isAuthorityHeld = null}) {
+        const events   = await this.readHealEvents(),
+              {frozen} = foldFutilityFreezeState(events, {now, bounds: this.futilityBounds}),
+              entry    = frozen.find(row => row.target === serviceKey) || null;
+
+        if (!entry) {
+            return {admitted: true, thawed: false, entry: null};
+        }
+
+        if (!entry.thawEligible) {
+            return {admitted: false, thawed: false, entry};
+        }
+
+        // The declared condition is met, so the freeze is lifted before this attempt proceeds. Ledgering the
+        // transition is what makes the thaw real: `foldFutilityFreezeState` clears a target on `unfreeze` and on
+        // nothing else, so a silent thaw would leave the snapshot reporting a frozen target the loop is acting on.
+        await this.appendFreezeTransition({
+            type  : 'unfreeze',
+            target: serviceKey,
+            status: 'unfrozen',
+            now,
+            detail: {operatorThaw: false, tier: entry.tier, verdict: entry.evidence ?? null},
+            isAuthorityHeld
+        });
+
+        return {admitted: true, thawed: true, entry};
+    }
+
+    /**
+     * @summary The OPERATOR thaw: lift a futility freeze on human judgement, ahead of its declared quiet window.
+     *
+     * A freeze is containment, not a verdict on the operator's knowledge. Someone who has just fixed the upstream
+     * cause should not wait out a window sized for the case where nobody looked — and without a reachable entry
+     * point, "thaw by operator action" would be a capability the code has and nobody can use.
+     *
+     * `operatorThaw: true` is read by `foldFutilityFreezeState`, which LOWERS the refreeze tier by one: a human
+     * judging a target healthy is evidence, so it must not make the next freeze stricter the way a failure does.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Stable target key.
+     * @param {Number} [options.now=Date.now()] Epoch milliseconds.
+     * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle.
+     * @returns {Promise<Object|null>} The lifted freeze entry, or `null` when the target was not frozen.
+     */
+    async thawFutilityFreeze({serviceKey, now = Date.now(), isAuthorityHeld = null}) {
+        const events   = await this.readHealEvents(),
+              {frozen} = foldFutilityFreezeState(events, {now, bounds: this.futilityBounds}),
+              entry    = frozen.find(row => row.target === serviceKey) || null;
+
+        if (!entry) {
+            return null;
+        }
+
+        await this.appendFreezeTransition({
+            type  : 'unfreeze',
+            target: serviceKey,
+            status: 'unfrozen',
+            now,
+            detail: {operatorThaw: true, tier: entry.tier, verdict: entry.evidence ?? null},
+            isAuthorityHeld
+        });
+
+        return entry;
+    }
+
+    /**
+     * @summary Asks `decideFutilityFreeze` whether this target has become futile, and ledgers the freeze if so.
+     *
+     * The DECISION is not made here — it belongs to the tested pure decider, which owns the verdict identity, the
+     * state-change run-breaker, the per-target scoping and the fail-OPEN behaviour on bad input. This method's whole
+     * job is to feed it a verdict stream and to publish its verdict as an observable transition. That split is why
+     * there is no second threshold, no second escalation vocabulary and no new persisted state anywhere in this class.
+     *
+     * Called from `finishAction`, the ONE point every terminal converges on — each of `apply`'s paths and
+     * `recordDiagnosis` alike. That is what finally reaches the record-only routes: they never touch
+     * `evaluateEnvelope`, so an envelope-keyed breaker counted 10 of 5,000 live events and never engaged.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Stable target key.
+     * @param {Number} options.now Epoch milliseconds.
+     * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle.
+     * @returns {Promise<Object|null>} The decider's verdict, or `null` when nothing was evaluated.
+     */
+    async evaluateFutility({serviceKey, now, isAuthorityHeld = null}) {
+        // A DISPLACED HOLDER DECIDES NOTHING. The append below is authority-fenced and would refuse anyway, but
+        // refusing there arrives as a THROW — and this runs after `finishAction` has already recorded the outcome,
+        // so letting it propagate would destroy a correctly-recorded dispatched-effect audit over a bookkeeping
+        // refusal. Declining up front is the same verdict without the wreckage.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return null;
+        }
+
+        const entries  = await readRecentRecoveryRunStates({dir: this.recoveryRunStateDir, limit: this.cfg.recoveryRunRetentionLimit}),
+              verdicts = this.projectRunEntriesToVerdicts(entries).filter(verdict => verdict.target === serviceKey),
+              decision = decideFutilityFreeze({verdicts, bounds: this.futilityBounds, now});
+
+        if (!decision.freeze) {
+            return decision;
+        }
+
+        // Already frozen ⇒ nothing to publish. The decider is stateless and keeps returning `freeze` for as long as
+        // the run stays identical, so without this check every cadence would append another freeze row for a target
+        // already contained — the ledger flood this mechanism exists to end, in a new costume.
+        const {frozen} = foldFutilityFreezeState(await this.readHealEvents(), {now, bounds: this.futilityBounds});
+
+        if (frozen.some(row => row.target === serviceKey)) {
+            return decision;
+        }
+
+        await this.appendFreezeTransition({
+            type  : 'freeze',
+            target: serviceKey,
+            status: 'frozen',
+            now,
+            detail: {escalation: decision.escalation, verdict: decision.reason, streak: decision.streak, subject: decision.verdict},
+            isAuthorityHeld
+        });
+
+        this.writeLog?.('WARN', `[RecoveryActuator] ${serviceKey} frozen as futile: ${decision.reason} (${decision.escalation}).`);
+
+        return decision;
+    }
+
+    /**
+     * @summary Reads the heal-event ledger, degrading to an empty stream rather than breaking a heal.
+     *
+     * The ledger is observability and never a gate — an unreadable one must not stop the immune system. The cost of
+     * degrading is that the freeze gate fails OPEN, which matches the decider's own fail-open stance: a breaker that
+     * engaged because it could not read its evidence would silence healing on an I/O fault.
+     * @returns {Promise<Object[]>}
+     */
+    async readHealEvents() {
+        try {
+            return await readHealLedger({dir: this.healEventLedgerDir});
+        } catch (error) {
+            this.writeLog?.('WARN', `[RecoveryActuator] heal-event ledger unreadable; futility gate fails open: ${error.message}`);
+
+            return [];
+        }
+    }
+
+    /**
+     * @summary Appends one freeze/unfreeze transition — the observable half of the frozen state.
+     * @param {Object} options
+     * @returns {Promise<void>}
+     */
+    async appendFreezeTransition({type, target, status, now, detail, isAuthorityHeld = null}) {
+        // `at: now` is required, not decorative: `foldFutilityFreezeState` only records a freeze row whose `at` is
+        // finite, so a transition stamped from a missing clock would be silently dropped and reproduce the very
+        // invisible-freeze bug this work removes.
+        await appendHealEvent({type, collection: target, status, at: now, detail}, {
+            dir: this.healEventLedgerDir,
+            now,
+            ...this.healLedgerRetention,
+            isAuthorityHeld
+        });
+    }
+
+    /**
      * @summary Persists a post-action attempt state.
      * @param {Object} options
      * @returns {void}
@@ -1710,7 +2021,10 @@ export class RecoveryActuatorService extends Base {
                   completedAt  : updatedAt,
                   backoffUntil,
                   reobserveRequest,
-                  details      : finalOutcome
+                  // The fingerprint rides the run ledger because that ledger IS the futility breaker's verdict
+                  // stream (`projectRunEntriesToVerdicts`). Without it the decider's state-change run-breaker has
+                  // nothing to compare and silently degrades to verdict-identity alone.
+                  details      : {...finalOutcome, stateFingerprint: fingerprintDiagnosisState(diagnosisEvent)}
               });
 
         await this.appendRecoveryRunEntry(entry, {
@@ -1737,6 +2051,25 @@ export class RecoveryActuatorService extends Base {
             backoffUntil,
             ledgerStatus
         });
+
+        // FUTILITY EVALUATION, here because this method is the ONE point every terminal converges on: each of
+        // `apply`'s paths and `recordDiagnosis` alike. Evaluating here is what finally reaches the record-only routes,
+        // which never touch `evaluateEnvelope` and are the majority of live heal events. It runs AFTER the run entry
+        // is appended, so the verdict it just produced is part of the stream the decider reads.
+        //
+        // `startedAt`, not `updatedAt`: `startedAt` is the CALLER's clock, the same one the freeze gate compares thaw
+        // deadlines against, while `updatedAt` is a fresh wall-clock read taken inside this service. Stamping a freeze
+        // from a different clock than the gate reads makes its own thaw arithmetic incoherent.
+        //
+        // NON-FATAL for the same reason `recordTaskOutcome` is: by this line the outcome is already recorded, and this
+        // is bookkeeping ABOUT that record rather than part of it. A throw here would erase a dispatched effect's
+        // audit — exactly the "no effect is not no write" hazard this method is careful about elsewhere. A breaker
+        // degrading to "this verdict was not evaluated" is a bounded loss; losing the audit is not.
+        try {
+            await this.evaluateFutility({serviceKey, now: startedAt, isAuthorityHeld});
+        } catch (error) {
+            this.writeLog?.('WARN', `[RecoveryActuator] Futility evaluation for ${serviceKey} failed; the outcome record stands: ${error.message}`);
+        }
 
         return {
             ...outcome,
