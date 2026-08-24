@@ -387,7 +387,7 @@ async function main() {
  * @private
  */
 async function dispatch({subscriptionId, dialogProbe, pid, awaitDelivery = false}) {
-    const {dispatchLocalWake} = await import('./localWakeAdapters.mjs');
+    const {dispatchLocalWake} = await import('../../daemons/wake/localWakeAdapters.mjs');
 
     const route = {
         agentIdentity        : '@dialog-rig',

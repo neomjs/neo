@@ -437,6 +437,12 @@
             "reason": "top-level await connects to Fleet or initializes local graph services and then exits without an import guard"
         },
         {
+            "identity": "ai/scripts/diagnostics/dialogGateRig.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/diagnostics/dialogGateRig.mjs:448-454",
+            "reason": "osascript spawns, argv reads, and exits occur only through the tail main() dispatch; eager state is constants and pure helper definitions"
+        },
+        {
             "identity": "ai/scripts/diagnostics/fleetHealthcheck.mjs",
             "eligibility": "eligible",
             "source": "ai/scripts/diagnostics/fleetHealthcheck.mjs:171-179",
@@ -664,6 +670,7 @@
                 "ai/scripts/diagnostics/check-retired-primitives.mjs",
                 "ai/scripts/diagnostics/check-substrate-size.mjs",
                 "ai/scripts/diagnostics/defectObservations.mjs",
+                "ai/scripts/diagnostics/dialogGateRig.mjs",
                 "ai/scripts/diagnostics/fleetHealthcheck.mjs",
                 "ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs",
                 "ai/scripts/diagnostics/genesisProbe.mjs",
@@ -904,6 +911,7 @@
                 "ai/scripts/diagnostics/detectTruncatedTimelines.mjs",
                 "ai/scripts/diagnostics/devDependencyCensus.mjs",
                 "ai/scripts/diagnostics/diagnoseMcpConcurrency.mjs",
+                "ai/scripts/diagnostics/dialogGateRig.mjs",
                 "ai/scripts/diagnostics/fleetHealthcheck.mjs",
                 "ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs",
                 "ai/scripts/diagnostics/genesisProbe.mjs",
@@ -1282,6 +1290,7 @@
                 "ai:post-release-sync",
                 "ai:probe-business-metrics",
                 "ai:probe-community-activity-shadow",
+                "ai:probe-dialog-gate",
                 "ai:probe-keep-alive",
                 "ai:provider-lane-composition",
                 "ai:provider-lane-election",
