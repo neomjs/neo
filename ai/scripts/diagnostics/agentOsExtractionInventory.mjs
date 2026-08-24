@@ -12,6 +12,7 @@ import {
     readEntrypoints
 }                                    from '../lint/lint-script-plane.mjs';
 import {
+    collectModuleFacts,
     FINDING,
     resolveEntrypointPlane,
     resolveRelative,
@@ -58,6 +59,7 @@ const
     VALID_DISPOSITIONS      = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
     VALID_MANIFEST_TARGETS  = new Set(['cloud', 'edge', 'engine', 'shared']),
     VALID_PROBE_ELIGIBILITY = new Set(['eligible', 'ineligible']),
+    VALID_SUCCESSOR_PHASES  = new Set(['engine-continuity', 'move', 'seat-reprovisioning']),
     LAUNCH_CALLEES          = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
@@ -74,17 +76,54 @@ const
  * @type {Object}
  */
 export const SURFACE = Object.freeze({
-    closureEdge      : 'closure-edge',
-    configAuthority  : 'config-authority',
-    custodyBoundary  : 'custody-boundary',
-    launchRoot       : 'launch-root',
-    packageDependency: 'package-dependency',
-    planeOpener      : 'plane-opener',
-    rootScript       : 'root-script',
-    scriptModule     : 'script-module',
-    subprocessLaunch : 'subprocess-launch',
-    workflowReference: 'workflow-reference'
+    closureEdge        : 'closure-edge',
+    configAuthority    : 'config-authority',
+    consumerEdge       : 'consumer-edge',
+    consumerSourceClass: 'consumer-source-class',
+    custodyBoundary    : 'custody-boundary',
+    launchRoot         : 'launch-root',
+    packageDependency  : 'package-dependency',
+    planeOpener        : 'plane-opener',
+    rootScript         : 'root-script',
+    scriptModule       : 'script-module',
+    subprocessLaunch   : 'subprocess-launch',
+    workflowReference  : 'workflow-reference'
 });
+
+/**
+ * Stable direction vocabulary for package-boundary consumer edges.
+ * @type {Object}
+ */
+export const CONSUMER_EDGE_DIRECTION = Object.freeze({
+    agentOsToOutside: 'agentos-to-outside',
+    outsideToAgentOs: 'outside-to-agentos'
+});
+
+/**
+ * Direction-specific closure vocabulary. These values describe the cut action, not present-day
+ * execution-plane custody, so they intentionally do not enter `VALID_DISPOSITIONS`.
+ * @type {Object<String, Set<String>>}
+ */
+export const CONSUMER_EDGE_DISPOSITIONS = Object.freeze({
+    [CONSUMER_EDGE_DIRECTION.agentOsToOutside]: new Set([
+        'moves-agentos-source',
+        'published-engine-package',
+        'retire-boundary-edge'
+    ]),
+    [CONSUMER_EDGE_DIRECTION.outsideToAgentOs]: new Set([
+        'engine-contract-client',
+        'generated-target-artifact',
+        'moves-agentos-test',
+        'served-contract-integration',
+        'stays-engine-guard'
+    ])
+});
+
+const PRECLASSIFIED_CONSUMER_DISPOSITIONS = new Set([
+    'generated-target-artifact',
+    'moves-agentos-source',
+    'moves-agentos-test'
+]);
 
 /**
  * Maps the existing execution-authority vocabulary onto the extraction registry vocabulary.
@@ -344,7 +383,7 @@ export function discoverWorkflowReferences(source, file) {
  * @param {String} [options.projectRoot=PROJECT_ROOT]
  * @param {Function} [options.resolveFallback=resolveRelative] Filesystem resolver wrapped by the
  * tracked-config resolver.
- * @returns {{rows: Object[], closureRows: Object[], launchRoots: Object[]}}
+ * @returns {{rows: Object[], closureRows: Object[], launchRoots: Object[], closureByLaunchRoot: Map<String,String[]>}}
  */
 export function collectScriptModules({
     projectRoot = PROJECT_ROOT,
@@ -357,7 +396,8 @@ export function collectScriptModules({
         files             = listTrackedFiles({projectRoot, pathspecs: ['ai/scripts']})
             .filter(file => file.endsWith('.mjs')),
         reachedBy         = new Map(files.map(file => [file, new Set()])),
-        closureRows       = new Map();
+        closureRows       = new Map(),
+        closureByLaunchRoot = new Map();
 
     launchRoots.forEach(entry => {
         const
@@ -374,6 +414,10 @@ export function collectScriptModules({
                 entrypoint    : entry.rel
             }),
             plane    = resolved.plane ?? 'unresolved';
+
+        const priorReach = closureByLaunchRoot.get(entry.rel) ?? new Set();
+        closure.reached.forEach(file => priorReach.add(file));
+        closureByLaunchRoot.set(entry.rel, priorReach);
 
         // Keep the owning closure/authority classifier's result on the exact launch population.
         // H1 later promotes these objects into registry rows; retaining the result here lets task
@@ -423,7 +467,15 @@ export function collectScriptModules({
         }
     });
 
-    return {rows, closureRows: [...closureRows.values()].sort(compareRows), launchRoots}
+    return {
+        rows,
+        closureRows        : [...closureRows.values()].sort(compareRows),
+        launchRoots,
+        closureByLaunchRoot: new Map([...closureByLaunchRoot.entries()].map(([identity, reached]) => [
+            identity,
+            [...reached].sort()
+        ]))
+    }
 }
 
 /**
@@ -822,6 +874,387 @@ export function collectConfigAuthorities({projectRoot = PROJECT_ROOT} = {}) {
 }
 
 /**
+ * @summary Returns the stable identity for one directed package-boundary import edge.
+ *
+ * Line numbers are deliberately evidence, not identity: inserting an unrelated line above an
+ * import must not manufacture missing+stale registry residue. The ordinal discriminates duplicate
+ * equal edges inside one source file while preserving stability across unrelated line movement.
+ * @param {Object} edge
+ * @returns {String}
+ */
+export function consumerEdgeIdentity({direction, sourcePath, kind, specifier, targetPath, ordinal}) {
+    return [direction, sourcePath, kind, specifier, targetPath, ordinal].join('::')
+}
+
+/**
+ * @summary Materializes registry-owned source classes that are already AgentOS by an independent
+ * project/custody authority even though their physical path sits outside `ai/**`.
+ *
+ * This is intentionally source-class authority, not a broad ignore list. The canonical example is
+ * Playwright's `unit-brain` project: registering each of its internal imports as an Engine→AgentOS
+ * crossing would create thousands of rows for a population whose owner is already explicit.
+ * Ambiguous app/e2e/hook sources stay in the edge-exact population.
+ *
+ * @param {Object} registry
+ * @param {String[]} trackedFiles Repository-relative tracked JS files.
+ * @returns {Object}
+ */
+export function reconcileConsumerSourceClasses(registry, trackedFiles = []) {
+    const authority = Array.isArray(registry?.consumerSourceClasses) ? registry.consumerSourceClasses : [],
+          errors    = [],
+          prefixes  = new Set(),
+          rows      = [];
+
+    if (!Array.isArray(registry?.consumerSourceClasses)) {
+        errors.push({kind: 'invalid-consumer-source-class-registry', key: 'consumerSourceClasses'})
+    }
+
+    authority.forEach(entry => {
+        const {identity, pathPrefix} = entry;
+
+        if (typeof identity !== 'string' || !identity.trim()) {
+            errors.push({kind: 'missing-consumer-source-class-identity', key: 'consumerSourceClasses'});
+            return
+        }
+        if (typeof pathPrefix !== 'string' || !pathPrefix.trim() || pathPrefix === '/' || pathPrefix === '.') {
+            errors.push({kind: 'invalid-consumer-source-class-prefix', key: identity});
+            return
+        }
+        if (prefixes.has(pathPrefix)) {
+            errors.push({kind: 'duplicate-consumer-source-class-prefix', key: pathPrefix});
+            return
+        }
+
+        prefixes.add(pathPrefix);
+
+        if (!PRECLASSIFIED_CONSUMER_DISPOSITIONS.has(entry.disposition)) {
+            errors.push({kind: 'invalid-consumer-source-class-disposition', key: identity})
+        }
+        if (typeof entry.rationale !== 'string' || entry.rationale.trim().length < 12) {
+            errors.push({kind: 'missing-consumer-source-class-rationale', key: identity})
+        }
+        if (typeof entry.source !== 'string' || !entry.source.trim()) {
+            errors.push({kind: 'missing-consumer-source-class-source', key: identity})
+        }
+        if (!VALID_SUCCESSOR_PHASES.has(entry.successorPhase)) {
+            errors.push({kind: 'invalid-consumer-source-class-successor-phase', key: identity})
+        }
+
+        const files = trackedFiles.filter(file => normalizePath(file).startsWith(pathPrefix)).sort();
+
+        if (files.length === 0) {
+            errors.push({kind: 'stale-consumer-source-class', key: identity})
+        }
+
+        rows.push({
+            surface        : SURFACE.consumerSourceClass,
+            identity,
+            source         : entry.source,
+            authoritySource: entry.source,
+            disposition    : entry.disposition,
+            rationale      : entry.rationale,
+            successorPhase : entry.successorPhase,
+            evidence       : {fileCount: files.length, pathPrefix, files, override: true}
+        })
+    });
+
+    const orderedPrefixes = [...prefixes].sort();
+
+    for (let i = 0; i < orderedPrefixes.length; i++) {
+        for (let j = i + 1; j < orderedPrefixes.length; j++) {
+            if (orderedPrefixes[j].startsWith(orderedPrefixes[i])) {
+                errors.push({
+                    kind: 'overlapping-consumer-source-class-prefix',
+                    key : `${orderedPrefixes[i]}::${orderedPrefixes[j]}`
+                })
+            }
+        }
+    }
+
+    return {
+        prefixes: orderedPrefixes,
+        rows    : rows.sort(compareRows),
+        errors  : errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`)),
+        ok      : errors.length === 0
+    }
+}
+
+/**
+ * @summary Derives every tracked import crossing between the moving AgentOS `ai/**` population and
+ * source outside that region.
+ *
+ * The shared `collectModuleFacts()` AST parser supplies static imports, named/export-all re-exports,
+ * and literal dynamic imports. This function only classifies resolved tracked-tree edges; it does
+ * not parse syntax a second time and it never treats a grep match as an import.
+ *
+ * Inbound edges scan every tracked JS module outside `ai/**`. Outbound edges are narrower by
+ * authority: their source must be inside the union of the reconciled Host-Edge launch closures, so
+ * an unrelated Cloud module importing Engine source cannot be mislabeled as an Edge cut blocker.
+ *
+ * @param {Object} [options]
+ * @param {String[]} [options.edgeReachedFiles=[]] Absolute or repository-relative files reached by
+ *     reconciled Edge launch roots.
+ * @param {String} [options.projectRoot=PROJECT_ROOT]
+ * @param {Function} [options.readFile] `(absolutePath) => String|null`.
+ * @param {Function} [options.resolve] `(specifier, fromFile) => absolutePath|null`.
+ * @param {String[]} [options.preclassifiedSourcePrefixes=[]] Registry-reconciled source classes
+ *     already owned by AgentOS and therefore not outside consumers.
+ * @param {String[]} [options.trackedFiles] Injectable tracked source population.
+ * @returns {{rows: Object[], errors: Object[]}}
+ */
+export function collectConsumerEdges({
+    edgeReachedFiles = [],
+    preclassifiedSourcePrefixes = [],
+    projectRoot = PROJECT_ROOT,
+    readFile = absolutePath => fs.readFileSync(absolutePath, 'utf8'),
+    resolve = (specifier, fromFile) => resolveTrackedConfigSpecifier(specifier, fromFile),
+    trackedFiles = listTrackedFiles({projectRoot})
+        .filter(file => /\.(?:mjs|js)$/.test(file))
+} = {}) {
+    const
+        errors          = [],
+        rows            = [],
+        edgeSourceSet   = new Set(edgeReachedFiles.map(file => path.resolve(projectRoot, file))),
+        isAgentOsPath   = file => file === 'ai' || file.startsWith('ai/'),
+        isInsideProject = file => file && file !== '..' && !file.startsWith('../') && !path.isAbsolute(file);
+
+    trackedFiles.map(normalizePath).sort().forEach(sourcePath => {
+        if (preclassifiedSourcePrefixes.some(prefix => sourcePath.startsWith(prefix))) return;
+
+        const absoluteSource = path.resolve(projectRoot, sourcePath);
+
+        let source;
+
+        try {
+            source = readFile(absoluteSource)
+        } catch (error) {
+            errors.push({kind: 'consumer-edge-read-failure', key: sourcePath, error: error.message});
+            return
+        }
+
+        if (source === null || source === undefined) {
+            errors.push({kind: 'consumer-edge-read-failure', key: sourcePath, error: 'source unavailable'});
+            return
+        }
+
+        const facts = collectModuleFacts(source);
+
+        if (!facts.parsed) {
+            errors.push({kind: 'consumer-edge-parse-failure', key: sourcePath});
+            return
+        }
+
+        const ordinals = new Map();
+
+        facts.importEdges.forEach(edge => {
+            const specifier = normalizePath(edge.specifier);
+
+            if (!specifier.startsWith('.') && !specifier.startsWith('/')) return;
+
+            const absoluteTarget = resolve(edge.specifier, absoluteSource);
+
+            if (!absoluteTarget) return;
+
+            const targetPath = normalizePath(path.relative(projectRoot, absoluteTarget));
+
+            if (!isInsideProject(targetPath)) return;
+
+            const
+                sourceIsAgentOs = isAgentOsPath(sourcePath),
+                targetIsAgentOs = isAgentOsPath(targetPath);
+
+            let direction = null;
+
+            if (!sourceIsAgentOs && targetIsAgentOs) {
+                direction = CONSUMER_EDGE_DIRECTION.outsideToAgentOs
+            } else if (sourceIsAgentOs && !targetIsAgentOs && edgeSourceSet.has(absoluteSource)) {
+                direction = CONSUMER_EDGE_DIRECTION.agentOsToOutside
+            }
+
+            if (!direction) return;
+
+            const ordinalKey = [edge.kind, specifier, targetPath].join('::'),
+                  ordinal    = (ordinals.get(ordinalKey) ?? 0) + 1;
+
+            ordinals.set(ordinalKey, ordinal);
+
+            const identity = consumerEdgeIdentity({
+                direction,
+                sourcePath,
+                kind: edge.kind,
+                specifier,
+                targetPath,
+                ordinal
+            });
+
+            rows.push({
+                surface    : SURFACE.consumerEdge,
+                identity,
+                source     : `${sourcePath}:${edge.line ?? '?'}`,
+                disposition: null,
+                rationale  : null,
+                evidence   : {
+                    direction,
+                    importKind: edge.kind,
+                    line      : edge.line ?? null,
+                    ordinal,
+                    sourcePath,
+                    specifier,
+                    targetPath
+                }
+            })
+        })
+    });
+
+    return {
+        rows  : rows.sort(compareRows),
+        errors: errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`))
+    }
+}
+
+/**
+ * @summary Reconciles derived consumer crossings against direction-specific cut dispositions in
+ * the source-owned extraction registry.
+ * @param {Object[]} derivedRows
+ * @param {Object} registry
+ * @param {Object[]} [derivationErrors=[]]
+ * @returns {Object}
+ */
+export function reconcileConsumerEdges(derivedRows, registry, derivationErrors = []) {
+    const
+        errors       = [...derivationErrors],
+        authorityMap = new Map(),
+        derivedKeys  = new Set(derivedRows.map(row => row.identity)),
+        authority    = (Array.isArray(registry?.consumerEdges) ? registry.consumerEdges : [])
+            .flatMap(entry => {
+                const identities = Array.isArray(entry.identities) ? entry.identities : [entry.identity];
+
+                return identities.map(identity => ({
+                    ...Object.fromEntries(Object.entries(entry).filter(([key]) => key !== 'identities')),
+                    identity
+                }))
+            });
+
+    if (!Array.isArray(registry?.consumerEdges)) {
+        errors.push({kind: 'invalid-consumer-edge-registry', key: 'consumerEdges'})
+    }
+
+    authority.forEach(entry => {
+        const {identity} = entry;
+
+        if (typeof identity !== 'string' || !identity.trim()) {
+            errors.push({kind: 'missing-consumer-edge-identity', key: 'consumerEdges'});
+            return
+        }
+
+        if (authorityMap.has(identity)) {
+            errors.push({kind: 'duplicate-consumer-edge-authority', key: identity});
+            return
+        }
+
+        authorityMap.set(identity, entry);
+
+        if (!Object.values(CONSUMER_EDGE_DIRECTION).includes(entry.direction)) {
+            errors.push({kind: 'invalid-consumer-edge-direction', key: identity})
+        }
+        if (!CONSUMER_EDGE_DISPOSITIONS[entry.direction]?.has(entry.disposition)) {
+            errors.push({kind: 'invalid-consumer-edge-disposition', key: identity})
+        }
+        if (typeof entry.rationale !== 'string' || entry.rationale.trim().length < 12) {
+            errors.push({kind: 'missing-consumer-edge-rationale', key: identity})
+        }
+        if (typeof entry.source !== 'string' || !entry.source.trim()) {
+            errors.push({kind: 'missing-consumer-edge-source', key: identity})
+        }
+        if (!VALID_SUCCESSOR_PHASES.has(entry.successorPhase)) {
+            errors.push({kind: 'invalid-consumer-edge-successor-phase', key: identity})
+        }
+        if (!identity.startsWith(`${entry.direction}::`)) {
+            errors.push({kind: 'consumer-edge-direction-identity-mismatch', key: identity})
+        }
+    });
+
+    const rows = derivedRows.map(row => {
+        const entry = authorityMap.get(row.identity);
+
+        if (!entry) return row;
+
+        const derivedDirection = row.evidence?.direction;
+
+        if (entry.direction !== derivedDirection) {
+            errors.push({kind: 'consumer-edge-direction-mismatch', key: row.identity})
+        }
+
+        return {
+            ...row,
+            authoritySource: entry.source,
+            disposition    : entry.disposition,
+            rationale      : entry.rationale,
+            successorPhase : entry.successorPhase,
+            evidence       : {...row.evidence, override: true}
+        }
+    });
+
+    const
+        diskMinusAuthority = rows.filter(row => !authorityMap.has(row.identity)).map(row => row.identity).sort(),
+        authorityMinusDisk = [...authorityMap.keys()].filter(identity => !derivedKeys.has(identity)).sort();
+
+    diskMinusAuthority.forEach(key => errors.push({kind: 'missing-consumer-edge-authority', key}));
+    authorityMinusDisk.forEach(key => errors.push({kind: 'stale-consumer-edge-authority', key}));
+
+    return {
+        rows   : rows.sort(compareRows),
+        residue: {diskMinusAuthority, authorityMinusDisk},
+        errors : errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`)),
+        ok     : diskMinusAuthority.length === 0 && authorityMinusDisk.length === 0 && errors.length === 0
+    }
+}
+
+/**
+ * @summary Enforces the absolute Engine→AgentOS package-direction covenant against both dependency
+ * maps that could reinstall the Brain for Engine contributors.
+ * @param {Object} options
+ * @param {String[]} options.forbiddenPackages Exact AgentOS package identities from the registry.
+ * @param {Object} options.manifest Parsed Engine package manifest.
+ * @returns {Object}
+ */
+export function inspectEngineAgentOsDependencies({forbiddenPackages = [], manifest = {}} = {}) {
+    const errors = [], violations = [];
+
+    if (!Array.isArray(forbiddenPackages) || forbiddenPackages.length === 0) {
+        errors.push({kind: 'empty-engine-agentos-package-covenant', key: 'engineDependencyCovenant.forbiddenPackages'})
+    }
+
+    const uniquePackages = [...new Set(forbiddenPackages.filter(name => typeof name === 'string' && name.trim()))].sort();
+
+    if (uniquePackages.length !== forbiddenPackages.length) {
+        errors.push({kind: 'invalid-engine-agentos-package-covenant', key: 'engineDependencyCovenant.forbiddenPackages'})
+    }
+
+    ['dependencies', 'devDependencies'].forEach(section => {
+        const declarations = manifest?.[section] ?? {};
+
+        uniquePackages.filter(name => Object.hasOwn(declarations, name)).forEach(name => {
+            const violation = {section, name, version: declarations[name]};
+
+            violations.push(violation);
+            errors.push({
+                kind : 'engine-agentos-package-edge',
+                key  : `${section}::${name}`,
+                error: String(declarations[name])
+            })
+        })
+    });
+
+    return {
+        forbiddenPackages: uniquePackages,
+        violations,
+        errors,
+        ok               : errors.length === 0
+    }
+}
+
+/**
  * @summary Applies explicit overrides, validates registry shape, and computes both residue
  * directions. Overrides are conscious judgments over derived rows; stale overrides are authority
  * without disk, while rows with no derived or explicit disposition are disk without authority.
@@ -1093,7 +1526,12 @@ export function buildInventory({
 } = {}) {
     const
         registry                                     = readRegistry(registryPath),
-        {rows: scriptRows, closureRows, launchRoots} = collectScriptModules({
+        {
+            rows: scriptRows,
+            closureRows,
+            launchRoots,
+            closureByLaunchRoot
+        }                                            = collectScriptModules({
             projectRoot,
             resolveFallback: closureResolve
         }),
@@ -1116,6 +1554,32 @@ export function buildInventory({
             runtimeProbeTargets,
             registry
         ),
+        edgeReachedFiles                     = [...new Set(manifestPreliminary.rows
+            .filter(row => row.surface === SURFACE.launchRoot && row.disposition === 'edge')
+            .flatMap(row => closureByLaunchRoot.get(row.identity) ?? []))].sort(),
+        consumerTrackedFiles                 = listTrackedFiles({projectRoot})
+            .filter(file => /\.(?:mjs|js)$/.test(file)),
+        consumerSourceClasses                = reconcileConsumerSourceClasses(
+            registry,
+            consumerTrackedFiles
+        ),
+        consumerPopulation                    = collectConsumerEdges({
+            edgeReachedFiles,
+            preclassifiedSourcePrefixes: consumerSourceClasses.prefixes,
+            projectRoot,
+            resolve                    : (specifier, fromFile) =>
+                resolveTrackedConfigSpecifier(specifier, fromFile, closureResolve),
+            trackedFiles: consumerTrackedFiles
+        }),
+        consumerEdges                         = reconcileConsumerEdges(
+            consumerPopulation.rows,
+            registry,
+            consumerPopulation.errors
+        ),
+        engineDependencyCovenant              = inspectEngineAgentOsDependencies({
+            forbiddenPackages: registry?.engineDependencyCovenant?.forbiddenPackages,
+            manifest         : JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'))
+        }),
         rootRows                             = collectRootScripts({projectRoot, scriptRowsByIdentity}),
         workflowRows                         = collectWorkflowReferences({projectRoot, scriptRowsByIdentity}),
         subprocess                           = collectSubprocessLaunches({projectRoot, scriptRowsByIdentity}),
@@ -1144,8 +1608,26 @@ export function buildInventory({
 
     reconciled.errors.push(...runtimeProbeEligibility.errors);
     reconciled.errors.push(...dependencyPopulation.errors);
+    reconciled.errors.push(...consumerEdges.errors);
+    reconciled.errors.push(...consumerSourceClasses.errors);
+    reconciled.errors.push(...engineDependencyCovenant.errors);
+    reconciled.rows.push(...consumerEdges.rows);
+    reconciled.rows.push(...consumerSourceClasses.rows);
+    reconciled.residue.diskMinusAuthority.push(...consumerEdges.residue.diskMinusAuthority.map(
+        identity => rowKey(SURFACE.consumerEdge, identity)
+    ));
+    reconciled.residue.authorityMinusDisk.push(...consumerEdges.residue.authorityMinusDisk.map(
+        identity => rowKey(SURFACE.consumerEdge, identity)
+    ));
+    reconciled.rows.sort(compareRows);
+    reconciled.residue.diskMinusAuthority.sort();
+    reconciled.residue.authorityMinusDisk.sort();
     reconciled.errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`));
-    reconciled.ok &&= runtimeProbeEligibility.ok && dependencyPopulation.errors.length === 0;
+    reconciled.ok &&= runtimeProbeEligibility.ok
+        && dependencyPopulation.errors.length === 0
+        && consumerEdges.ok
+        && consumerSourceClasses.ok
+        && engineDependencyCovenant.ok;
 
     const bindingError = sourceBindingError(status, allowDirty);
 
@@ -1172,7 +1654,7 @@ export function buildInventory({
     reconciled.ok &&= dependencyManifests.errors.length === 0;
 
     return {
-        schemaVersion: 'agentos-extraction-inventory.v3',
+        schemaVersion: 'agentos-extraction-inventory.v4',
         capturedAt,
         git          : {
             sha,
@@ -1194,6 +1676,17 @@ export function buildInventory({
             manifests: dependencyManifests.manifests,
             rows     : reconciledDependencies
         },
+        consumerEdges: {
+            total      : consumerEdges.rows.length,
+            byDirection: Object.fromEntries(Object.entries(Object.groupBy(
+                consumerEdges.rows,
+                row => row.evidence.direction
+            )).map(([direction, rows]) => [direction, rows.length])),
+            rows         : consumerEdges.rows,
+            residue      : consumerEdges.residue,
+            sourceClasses: consumerSourceClasses.rows
+        },
+        engineDependencyCovenant,
         runtimeProbeEligibility,
         counts,
         ...reconciled
@@ -1226,6 +1719,22 @@ export function formatInventory(report) {
     report.packageDependencies.rows.forEach(row => lines.push(
         `  ${String(row.disposition).padEnd(12)} ${row.identity} @ ${row.evidence.version} ` +
         `→ ${(row.manifestTargets ?? []).join('+')}`
+    ));
+
+    lines.push('', `consumer-edge identities: ${report.consumerEdges.total}`);
+    Object.entries(report.consumerEdges.byDirection).sort(([a], [b]) => a.localeCompare(b))
+        .forEach(([direction, count]) => lines.push(`  ${direction}: ${count}`));
+    report.consumerEdges.rows.forEach(row => lines.push(
+        `  ${String(row.disposition).padEnd(28)} ${row.identity} → ${row.successorPhase}`
+    ));
+    lines.push('  preclassified source classes:');
+    report.consumerEdges.sourceClasses.forEach(row => lines.push(
+        `    ${row.identity} — ${row.evidence.fileCount} tracked files → ${row.successorPhase}`
+    ));
+
+    lines.push('', `Engine→AgentOS forbidden packages: ${report.engineDependencyCovenant.forbiddenPackages.join(', ')}`);
+    report.engineDependencyCovenant.violations.forEach(row => lines.push(
+        `  ! ${row.section}.${row.name} @ ${row.version}`
     ));
 
     lines.push('', `runtime-probe targets: ${probe.total} · eligible ${probe.byEligibility.eligible} · ` +
