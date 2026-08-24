@@ -82,6 +82,105 @@ const executeScript = async(script, runtime) => {
     );
 };
 
+/**
+ * @summary Builds one live REST pull-request observation for the review-admission workflow.
+ * @param {Boolean|null} mergeable GitHub mergeability value.
+ * @param {Object} [options]
+ * @returns {Object}
+ */
+const mergeabilityPull = (mergeable, {head = 'pr-head', base = 'dev-head'} = {}) => ({
+    number: 42,
+    mergeable,
+    head  : {sha: head},
+    base  : {sha: base}
+});
+
+/**
+ * @summary Creates mocked GitHub/core surfaces for discovery and exact-head status publication.
+ * @param {Object} [options]
+ * @param {Object[]} [options.targets] Open PR rows returned by discovery.
+ * @param {(Object|Error)[]} [options.reads] Ordered live PR reads; the final value repeats on exhaustion.
+ * @returns {Object}
+ */
+const createReviewAdmissionRuntime = ({targets = [], reads = [mergeabilityPull(true)]} = {}) => {
+    const failures    = [],
+          errors      = [],
+          outputs     = new Map(),
+          statusCalls = [],
+          listCalls   = [],
+          pullReads   = [];
+    let   readIndex = 0;
+    const runtime   = {
+        context: {repo: {owner: 'neomjs', repo: 'neo'}},
+        core   : {
+            error    : message => errors.push(message),
+            setFailed: message => failures.push(message),
+            setOutput: (name, value) => outputs.set(name, value)
+        },
+        github: {
+            paginate: async(method, args) => {
+                listCalls.push({method, args});
+                return targets;
+            },
+            rest: {
+                pulls: {
+                    list: () => {},
+                    get : async args => {
+                        pullReads.push(args);
+                        const value = reads[Math.min(readIndex++, reads.length - 1)];
+
+                        if (value instanceof Error) throw value;
+
+                        return {data: value};
+                    }
+                },
+                repos: {
+                    createCommitStatus: async args => {
+                        statusCalls.push(args);
+                        return {data: args};
+                    }
+                }
+            }
+        },
+        errors,
+        failures,
+        listCalls,
+        outputs,
+        pullReads,
+        statusCalls
+    };
+
+    return runtime;
+};
+
+/**
+ * @summary Executes the workflow publisher with zero-cost polling while restoring process env.
+ * @param {String} script Extracted actions/github-script source.
+ * @param {Object} runtime Mock runtime.
+ * @returns {Promise<void>}
+ */
+const executeReviewAdmissionPublisher = async(script, runtime) => {
+    const keys = {
+        PR_NUMBER                 : '42',
+        MERGEABILITY_POLL_ATTEMPTS: '4',
+        MERGEABILITY_POLL_DELAY_MS: '0',
+        MERGEABILITY_MAX_RESTARTS : '3',
+        GITHUB_SERVER_URL         : 'https://github.com',
+        GITHUB_RUN_ID             : '32700000000'
+    };
+    const previous = Object.fromEntries(Object.keys(keys).map(key => [key, process.env[key]]));
+
+    Object.assign(process.env, keys);
+
+    try {
+        await executeScript(script, runtime);
+    } finally {
+        for (const [key, value] of Object.entries(previous)) {
+            value === undefined ? delete process.env[key] : process.env[key] = value;
+        }
+    }
+};
+
 test.describe('GitHub workflow concurrency (#15593)', () => {
     test('every canceling pull-request workflow isolates reruns from the initial ref stream', () => {
         const protectedWorkflows  = [],
@@ -273,5 +372,142 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         await expect(executeScript(script, runtime)).rejects.toThrow('live head unavailable');
         expect(runtime.calls.listFiles).toBe(0);
         expect(runtime.outputs.size).toBe(0);
+    });
+});
+
+test.describe('review-admission mergeability controller (#17692)', () => {
+    const workflowName = 'review-admission-mergeability.yml';
+
+    test('uses conflict-capable trusted triggers, least permissions, and no checkout', () => {
+        const workflow = readWorkflow(workflowName),
+              steps    = Object.values(workflow.jobs).flatMap(job => job.steps || []);
+
+        expect(workflow.on.pull_request_target).toMatchObject({
+            branches: ['dev'],
+            types   : ['opened', 'reopened', 'synchronize', 'ready_for_review']
+        });
+        expect(workflow.on.push).toEqual({branches: ['dev']});
+        expect(workflow.on).toHaveProperty('workflow_dispatch');
+        expect(workflow.permissions).toEqual({
+            'pull-requests': 'read',
+            statuses       : 'write'
+        });
+        expect(steps.some(step => String(step.uses || '').startsWith('actions/checkout@'))).toBe(false);
+        expect(workflow.jobs.publish.concurrency).toEqual({
+            group               : 'review-admission-mergeability-${{ matrix.pr }}',
+            'cancel-in-progress': true
+        });
+    });
+
+    test('discovers the complete open dev-target set and rejects matrix overflow', async () => {
+        const workflow = readWorkflow(workflowName),
+              script   = workflow.jobs.discover.steps.find(step => step.id === 'targets').with.script,
+              normal   = createReviewAdmissionRuntime({targets: [{number: 9}, {number: 3}, {number: 9}]}),
+              overflow = createReviewAdmissionRuntime({
+                  targets: Array.from({length: 257}, (_, index) => ({number: index + 1}))
+              });
+
+        await executeScript(script, normal);
+        await executeScript(script, overflow);
+
+        expect(normal.listCalls[0].args).toMatchObject({state: 'open', base: 'dev', per_page: 100});
+        expect(Object.fromEntries(normal.outputs)).toEqual({prs: '[3,9]'});
+        expect(normal.failures).toEqual([]);
+        expect(Object.fromEntries(overflow.outputs)).toEqual({prs: '[]'});
+        expect(overflow.failures.join(' ')).toContain('Refusing partial publication');
+    });
+
+    test('conflict publishes pending then failure on the PR head, never the base', async () => {
+        const workflow = readWorkflow(workflowName),
+              script   = workflow.jobs.publish.steps[0].with.script,
+              runtime  = createReviewAdmissionRuntime({
+                  reads: [
+                      mergeabilityPull(null,  {head: 'conflicting-head', base: 'moved-dev'}),
+                      mergeabilityPull(false, {head: 'conflicting-head', base: 'moved-dev'}),
+                      mergeabilityPull(false, {head: 'conflicting-head', base: 'moved-dev'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => call.state)).toEqual(['pending', 'failure']);
+        expect(runtime.statusCalls.every(call => call.sha === 'conflicting-head')).toBe(true);
+        expect(runtime.statusCalls.every(call => call.sha !== 'moved-dev')).toBe(true);
+        expect(runtime.statusCalls.every(call => call.context === 'review-admission/mergeability')).toBe(true);
+        expect(runtime.failures).toEqual([]);
+    });
+
+    test('a later dev movement can turn the same formerly-green head red', async () => {
+        const script = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              green  = createReviewAdmissionRuntime({
+                  reads: [mergeabilityPull(true), mergeabilityPull(true), mergeabilityPull(true)]
+              }),
+              red    = createReviewAdmissionRuntime({
+                  reads: [
+                      mergeabilityPull(false, {base: 'next-dev'}),
+                      mergeabilityPull(false, {base: 'next-dev'}),
+                      mergeabilityPull(false, {base: 'next-dev'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, green);
+        await executeReviewAdmissionPublisher(script, red);
+
+        expect(green.statusCalls.map(call => [call.sha, call.state])).toEqual([
+            ['pr-head', 'pending'],
+            ['pr-head', 'success']
+        ]);
+        expect(red.statusCalls.map(call => [call.sha, call.state])).toEqual([
+            ['pr-head', 'pending'],
+            ['pr-head', 'failure']
+        ]);
+    });
+
+    test('null exhaustion becomes error, never success', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({reads: [mergeabilityPull(null)]});
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => call.state)).toEqual(['pending', 'error']);
+        expect(runtime.statusCalls.some(call => call.state === 'success')).toBe(false);
+        expect(runtime.failures.join(' ')).toContain('stayed null after 4 bounded polls');
+    });
+
+    test('head/base movement restarts and cannot publish an obsolete success', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({
+                  reads: [
+                      mergeabilityPull(null, {head: 'old-head', base: 'old-dev'}),
+                      mergeabilityPull(null, {head: 'new-head', base: 'new-dev'}),
+                      mergeabilityPull(null, {head: 'new-head', base: 'new-dev'}),
+                      mergeabilityPull(true, {head: 'new-head', base: 'new-dev'}),
+                      mergeabilityPull(true, {head: 'new-head', base: 'new-dev'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => [call.sha, call.state])).toEqual([
+            ['old-head', 'pending'],
+            ['new-head', 'pending'],
+            ['new-head', 'success']
+        ]);
+        expect(runtime.statusCalls).not.toContainEqual(expect.objectContaining({
+            sha  : 'old-head',
+            state: 'success'
+        }));
+    });
+
+    test('a source-read exception converts the pending coordinate to error', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({
+                  reads: [mergeabilityPull(null), new Error('mergeability source unavailable')]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => call.state)).toEqual(['pending', 'error']);
+        expect(runtime.failures).toEqual(['mergeability source unavailable']);
     });
 });

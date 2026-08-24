@@ -1,0 +1,202 @@
+name: Review Admission Mergeability
+
+on:
+  # Ordinary `pull_request` workflows do NOT run when the PR is conflicted. This controller runs
+  # trusted `dev` workflow code, never checks out the PR, and publishes only a source-read status.
+  pull_request_target:
+    branches: [dev]
+    types: [opened, reopened, synchronize, ready_for_review]
+  # Mergeability is a head+base relation. A `dev` merge can invalidate an unchanged PR head, so
+  # every base movement must re-evaluate the whole open dev-target set.
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+  statuses: write
+
+jobs:
+  discover:
+    name: Discover open dev pull requests
+    runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.targets.outputs.prs }}
+    steps:
+      - name: Read complete target set
+        id: targets
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner   : context.repo.owner,
+              repo    : context.repo.repo,
+              state   : 'open',
+              base    : 'dev',
+              per_page: 100
+            });
+            const prs = [...new Set(pulls.map(pull => pull.number))].sort((a, b) => a - b);
+
+            // GitHub caps one matrix at 256 jobs. A partial target set would certify whichever PRs
+            // happened to fit and silently omit the rest, so overflow is an explicit unavailable
+            // verdict for the controller rather than a slice.
+            if (prs.length > 256) {
+              core.setOutput('prs', '[]');
+              core.setFailed(`Review-admission target set has ${prs.length} PRs; matrix cap is 256. Refusing partial publication.`);
+              return;
+            }
+
+            core.setOutput('prs', JSON.stringify(prs));
+
+  publish:
+    name: PR #${{ matrix.pr }} mergeability
+    needs: discover
+    if: ${{ needs.discover.result == 'success' && needs.discover.outputs.prs != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.discover.outputs.prs) }}
+    concurrency:
+      # All triggers converge on the same per-PR stream. A stale event can cancel, but its successor
+      # still reads live head/base state; no event payload is trusted as the terminal coordinate.
+      group: review-admission-mergeability-${{ matrix.pr }}
+      cancel-in-progress: true
+    steps:
+      - name: Publish live head mergeability
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+          MERGEABILITY_POLL_ATTEMPTS: '4'
+          MERGEABILITY_POLL_DELAY_MS: '250'
+          MERGEABILITY_MAX_RESTARTS: '3'
+        with:
+          script: |
+            const prNumber   = Number(process.env.PR_NUMBER);
+            const contextKey = 'review-admission/mergeability';
+            const maxPolls   = Number(process.env.MERGEABILITY_POLL_ATTEMPTS);
+            const delayMs    = Number(process.env.MERGEABILITY_POLL_DELAY_MS);
+            const maxRestarts = Number(process.env.MERGEABILITY_MAX_RESTARTS);
+            const sleep      = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const runUrl     = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            let lastCoordinate = null;
+
+            const readPull = async() => (await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: prNumber
+            })).data;
+
+            const coordinateOf = pull => {
+              const coordinate = {head: pull?.head?.sha, base: pull?.base?.sha};
+
+              if (typeof coordinate.head !== 'string' || typeof coordinate.base !== 'string') {
+                throw new Error(`PR #${prNumber} response omitted head/base coordinates.`);
+              }
+
+              return coordinate;
+            };
+
+            const sameCoordinate = (left, right) => left.head === right.head && left.base === right.base;
+            const short          = sha => sha.slice(0, 10);
+            const publish        = (state, coordinate, description) => github.rest.repos.createCommitStatus({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              sha        : coordinate.head,
+              state,
+              context    : contextKey,
+              description,
+              target_url : runUrl
+            });
+
+            try {
+              for (let restart = 0; restart <= maxRestarts; restart++) {
+                const seed       = await readPull();
+                const coordinate = coordinateOf(seed);
+
+                lastCoordinate = coordinate;
+                await publish('pending', coordinate, `Computing against dev@${short(coordinate.base)}`);
+
+                let coordinateMoved = false;
+
+                for (let poll = 0; poll < maxPolls; poll++) {
+                  if (poll > 0) {
+                    await sleep(delayMs * (2 ** (poll - 1)));
+                  }
+
+                  const observed           = await readPull();
+                  const observedCoordinate = coordinateOf(observed);
+
+                  if (!sameCoordinate(coordinate, observedCoordinate)) {
+                    lastCoordinate = observedCoordinate;
+                    coordinateMoved = true;
+                    break;
+                  }
+
+                  if (observed.mergeable === null) {
+                    continue;
+                  }
+
+                  if (typeof observed.mergeable !== 'boolean') {
+                    throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(observed.mergeable)}.`);
+                  }
+
+                  // Re-read immediately before the terminal write. A head/base movement between the
+                  // poll and status publication restarts on the new coordinate rather than certifying
+                  // the old one.
+                  const verified           = await readPull();
+                  const verifiedCoordinate = coordinateOf(verified);
+
+                  if (!sameCoordinate(coordinate, verifiedCoordinate)) {
+                    lastCoordinate = verifiedCoordinate;
+                    coordinateMoved = true;
+                    break;
+                  }
+
+                  if (verified.mergeable === null) {
+                    continue;
+                  }
+
+                  if (typeof verified.mergeable !== 'boolean') {
+                    throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(verified.mergeable)}.`);
+                  }
+
+                  const state       = verified.mergeable ? 'success' : 'failure';
+                  const description = verified.mergeable
+                    ? `Mergeable with dev@${short(coordinate.base)}`
+                    : `Conflicts with dev@${short(coordinate.base)}; author rebase required`;
+
+                  await publish(state, coordinate, description);
+                  return;
+                }
+
+                if (coordinateMoved) {
+                  continue;
+                }
+
+                const finalPull       = await readPull();
+                const finalCoordinate = coordinateOf(finalPull);
+
+                if (!sameCoordinate(coordinate, finalCoordinate)) {
+                  lastCoordinate = finalCoordinate;
+                  continue;
+                }
+
+                await publish('error', coordinate, `Mergeability unresolved against dev@${short(coordinate.base)}`);
+                core.setFailed(`PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`);
+                return;
+              }
+
+              await publish('error', lastCoordinate, 'Head/base moved throughout the bounded mergeability probe');
+              core.setFailed(`PR #${prNumber} head/base moved through ${maxRestarts + 1} bounded coordinates.`);
+            } catch (error) {
+              if (lastCoordinate) {
+                try {
+                  await publish('error', lastCoordinate, 'Mergeability source read failed; retry controller');
+                } catch (publishError) {
+                  core.error(`Could not publish the source-read failure: ${publishError.message}`);
+                }
+              }
+
+              core.setFailed(error.message);
+            }
