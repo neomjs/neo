@@ -56,10 +56,11 @@ const
     DEFAULT_REGISTRY_PATH   = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
     SCRIPT_PATH_RE          = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
     WORKFLOW_ARTIFACT_RE    = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
-    VALID_DISPOSITIONS      = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
-    VALID_MANIFEST_TARGETS  = new Set(['cloud', 'edge', 'engine', 'shared']),
-    VALID_PROBE_ELIGIBILITY = new Set(['eligible', 'ineligible']),
-    VALID_SUCCESSOR_PHASES  = new Set(['engine-continuity', 'move', 'seat-reprovisioning']),
+    AGENTOS_TARGET_REPOSITORY = 'neomjs/neo-agent-brain',
+    VALID_DISPOSITIONS        = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
+    VALID_MANIFEST_TARGETS    = new Set(['cloud', 'edge', 'engine', 'shared']),
+    VALID_PROBE_ELIGIBILITY   = new Set(['eligible', 'ineligible']),
+    VALID_SUCCESSOR_PHASES    = new Set(['engine-continuity', 'move', 'seat-reprovisioning']),
     LAUNCH_CALLEES          = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
@@ -87,8 +88,23 @@ export const SURFACE = Object.freeze({
     rootScript         : 'root-script',
     scriptModule       : 'script-module',
     subprocessLaunch   : 'subprocess-launch',
+    workflowFile       : 'workflow-file',
     workflowReference  : 'workflow-reference'
 });
+
+/**
+ * Repository-cut actions for workflows that currently reach AgentOS-owned artifacts.
+ * These are deliberately separate from Edge/Cloud execution custody: one answers where a
+ * referenced target runs, the other answers which repository owns the workflow after the cut.
+ * @type {Object<String, String>}
+ */
+export const WORKFLOW_FILE_DISPOSITION = Object.freeze({
+    move    : 'move',
+    pinFetch: 'pin-fetch',
+    retire  : 'retire'
+});
+
+const VALID_WORKFLOW_FILE_DISPOSITIONS = new Set(Object.values(WORKFLOW_FILE_DISPOSITION));
 
 /**
  * Stable direction vocabulary for package-boundary consumer edges.
@@ -742,11 +758,190 @@ export function collectWorkflowReferences({projectRoot = PROJECT_ROOT, scriptRow
             rationale  : null,
             evidence   : {
                 target              : row.target,
+                workflowFile        : row.identity.split('::', 1)[0],
                 suggestedDisposition: target?.disposition ?? null,
                 suggestedRationale  : target?.disposition ? `follows ${row.target}` : null
             }
         }
     }).sort(compareRows)
+}
+
+/**
+ * @summary Folds exact workflow occurrences into the file population that needs one repository-cut
+ * action. Occurrence custody remains evidence; it never chooses the file action.
+ * @param {Object[]} workflowRows Reconciled workflow-reference rows.
+ * @returns {{rows: Object[], errors: Object[]}}
+ */
+export function deriveWorkflowFilePopulation(workflowRows = []) {
+    const
+        errors = [],
+        files  = new Map();
+
+    if (!Array.isArray(workflowRows)) {
+        return {
+            rows  : [],
+            errors: [{kind: 'invalid-workflow-reference-population', key: 'workflowRows'}]
+        }
+    }
+
+    workflowRows.forEach(row => {
+        const workflowFile = row?.evidence?.workflowFile ?? row?.identity?.split('::', 1)[0];
+
+        if (typeof workflowFile !== 'string'
+            || !/^\.github\/workflows\/[^/]+\.ya?ml$/.test(workflowFile)) {
+            errors.push({
+                kind: 'invalid-workflow-file-identity',
+                key : String(workflowFile ?? row?.identity ?? 'missing')
+            });
+            return
+        }
+
+        const file = files.get(workflowFile) ?? {
+            dispositions   : new Set(),
+            occurrenceCount: 0,
+            targets        : new Set()
+        };
+
+        file.occurrenceCount++;
+        row.disposition && file.dispositions.add(row.disposition);
+        row.evidence?.target && file.targets.add(row.evidence.target);
+        files.set(workflowFile, file)
+    });
+
+    const rows = [...files.entries()].map(([identity, file]) => ({
+        surface    : SURFACE.workflowFile,
+        identity,
+        source     : identity,
+        disposition: null,
+        rationale  : null,
+        evidence   : {
+            occurrenceCount       : file.occurrenceCount,
+            occurrenceDispositions: [...file.dispositions].sort(),
+            targets               : [...file.targets].sort()
+        }
+    })).sort(compareRows);
+
+    return {
+        rows,
+        errors: errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`))
+    }
+}
+
+/**
+ * @summary Reconciles the source-derived workflow-file population against one explicit cut action
+ * per file. The action registry is separate from Edge/Cloud custody by construction.
+ * @param {Object[]} workflowRows Reconciled workflow-reference rows.
+ * @param {Object} registry Source-owned extraction registry.
+ * @returns {Object}
+ */
+export function reconcileWorkflowFileDispositions(workflowRows, registry) {
+    const
+        population   = deriveWorkflowFilePopulation(workflowRows),
+        errors       = [...population.errors],
+        authorityMap = new Map(),
+        derivedKeys  = new Set(population.rows.map(row => row.identity)),
+        authority    = Array.isArray(registry?.workflowFileDispositions)
+            ? registry.workflowFileDispositions
+            : [];
+
+    if (!Array.isArray(registry?.workflowFileDispositions)) {
+        errors.push({kind: 'invalid-workflow-file-registry', key: 'workflowFileDispositions'})
+    }
+
+    authority.forEach(entry => {
+        const {identity} = entry ?? {};
+
+        if (typeof identity !== 'string' || !identity.trim()) {
+            errors.push({kind: 'missing-workflow-file-identity', key: 'workflowFileDispositions'});
+            return
+        }
+
+        if (authorityMap.has(identity)) {
+            errors.push({kind: 'duplicate-workflow-file-authority', key: identity});
+            return
+        }
+
+        authorityMap.set(identity, entry);
+
+        if (!VALID_WORKFLOW_FILE_DISPOSITIONS.has(entry.disposition)) {
+            errors.push({kind: 'invalid-workflow-file-disposition', key: identity})
+        }
+        if (typeof entry.rationale !== 'string' || entry.rationale.trim().length < 12) {
+            errors.push({kind: 'missing-workflow-file-rationale', key: identity})
+        }
+        if (typeof entry.source !== 'string' || !entry.source.trim()) {
+            errors.push({kind: 'missing-workflow-file-source', key: identity})
+        }
+
+        const unexpected = [];
+
+        if (entry.disposition === WORKFLOW_FILE_DISPOSITION.move) {
+            if (entry.targetRepository !== AGENTOS_TARGET_REPOSITORY) {
+                errors.push({kind: 'invalid-workflow-move-target', key: identity})
+            }
+            Object.hasOwn(entry, 'pinAuthority') && unexpected.push('pinAuthority');
+            Object.hasOwn(entry, 'retirementEvidence') && unexpected.push('retirementEvidence')
+        } else if (entry.disposition === WORKFLOW_FILE_DISPOSITION.pinFetch) {
+            if (entry.targetRepository !== AGENTOS_TARGET_REPOSITORY) {
+                errors.push({kind: 'invalid-workflow-pin-target', key: identity})
+            }
+            if (typeof entry.pinAuthority !== 'string' || entry.pinAuthority.trim().length < 12) {
+                errors.push({kind: 'missing-workflow-pin-authority', key: identity})
+            }
+            Object.hasOwn(entry, 'retirementEvidence') && unexpected.push('retirementEvidence')
+        } else if (entry.disposition === WORKFLOW_FILE_DISPOSITION.retire) {
+            if (typeof entry.retirementEvidence !== 'string'
+                || entry.retirementEvidence.trim().length < 12) {
+                errors.push({kind: 'missing-workflow-retirement-evidence', key: identity})
+            }
+            Object.hasOwn(entry, 'targetRepository') && unexpected.push('targetRepository');
+            Object.hasOwn(entry, 'pinAuthority') && unexpected.push('pinAuthority')
+        }
+
+        unexpected.forEach(field => errors.push({
+            kind: 'unexpected-workflow-file-metadata', key: `${identity}::${field}`
+        }))
+    });
+
+    const rows = population.rows.map(row => {
+        const entry = authorityMap.get(row.identity);
+
+        if (!entry) return row;
+
+        return {
+            ...row,
+            disposition    : entry.disposition,
+            rationale      : entry.rationale,
+            authoritySource: entry.source,
+            ...(entry.targetRepository ? {targetRepository: entry.targetRepository} : {}),
+            ...(entry.pinAuthority ? {pinAuthority: entry.pinAuthority} : {}),
+            ...(entry.retirementEvidence ? {retirementEvidence: entry.retirementEvidence} : {}),
+            evidence       : {...row.evidence, override: true}
+        }
+    });
+
+    const
+        diskMinusAuthority = rows.filter(row => !authorityMap.has(row.identity))
+            .map(row => row.identity).sort(),
+        authorityMinusDisk = [...authorityMap.keys()].filter(identity => !derivedKeys.has(identity)).sort();
+
+    diskMinusAuthority.forEach(key => errors.push({kind: 'missing-workflow-file-authority', key}));
+    authorityMinusDisk.forEach(key => errors.push({kind: 'stale-workflow-file-authority', key}));
+
+    const byDisposition = Object.fromEntries(Object.values(WORKFLOW_FILE_DISPOSITION)
+        .map(disposition => [disposition, rows.filter(row => row.disposition === disposition).length]));
+
+    return {
+        total          : rows.length,
+        occurrenceTotal: rows.reduce((total, row) => total + row.evidence.occurrenceCount, 0),
+        byDisposition,
+        rows           : rows.sort(compareRows),
+        residue        : {diskMinusAuthority, authorityMinusDisk},
+        errors         : errors.sort((a, b) => `${a.kind}:${a.key}`.localeCompare(`${b.kind}:${b.key}`)),
+        ok             : diskMinusAuthority.length === 0
+            && authorityMinusDisk.length === 0
+            && errors.length === 0
+    }
 }
 
 /**
@@ -1597,6 +1792,10 @@ export function buildInventory({
             ...configRows
         ],
         reconciled                           = reconcileInventory(allDerived, registry, subprocess.parseFailures),
+        workflowFiles                        = reconcileWorkflowFileDispositions(
+            reconciled.rows.filter(row => row.surface === SURFACE.workflowReference),
+            registry
+        ),
         sha                                  = execFileSync('git', ['-C', projectRoot, 'rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
         status                               = execFileSync(
             'git', ['-C', projectRoot, 'status', '--porcelain=v1', '--untracked-files=all'], {encoding: 'utf8'}
@@ -1611,13 +1810,21 @@ export function buildInventory({
     reconciled.errors.push(...consumerEdges.errors);
     reconciled.errors.push(...consumerSourceClasses.errors);
     reconciled.errors.push(...engineDependencyCovenant.errors);
+    reconciled.errors.push(...workflowFiles.errors);
     reconciled.rows.push(...consumerEdges.rows);
     reconciled.rows.push(...consumerSourceClasses.rows);
+    reconciled.rows.push(...workflowFiles.rows);
     reconciled.residue.diskMinusAuthority.push(...consumerEdges.residue.diskMinusAuthority.map(
         identity => rowKey(SURFACE.consumerEdge, identity)
     ));
     reconciled.residue.authorityMinusDisk.push(...consumerEdges.residue.authorityMinusDisk.map(
         identity => rowKey(SURFACE.consumerEdge, identity)
+    ));
+    reconciled.residue.diskMinusAuthority.push(...workflowFiles.residue.diskMinusAuthority.map(
+        identity => rowKey(SURFACE.workflowFile, identity)
+    ));
+    reconciled.residue.authorityMinusDisk.push(...workflowFiles.residue.authorityMinusDisk.map(
+        identity => rowKey(SURFACE.workflowFile, identity)
     ));
     reconciled.rows.sort(compareRows);
     reconciled.residue.diskMinusAuthority.sort();
@@ -1627,7 +1834,8 @@ export function buildInventory({
         && dependencyPopulation.errors.length === 0
         && consumerEdges.ok
         && consumerSourceClasses.ok
-        && engineDependencyCovenant.ok;
+        && engineDependencyCovenant.ok
+        && workflowFiles.ok;
 
     const bindingError = sourceBindingError(status, allowDirty);
 
@@ -1654,7 +1862,7 @@ export function buildInventory({
     reconciled.ok &&= dependencyManifests.errors.length === 0;
 
     return {
-        schemaVersion: 'agentos-extraction-inventory.v4',
+        schemaVersion: 'agentos-extraction-inventory.v5',
         capturedAt,
         git          : {
             sha,
@@ -1686,6 +1894,7 @@ export function buildInventory({
             residue      : consumerEdges.residue,
             sourceClasses: consumerSourceClasses.rows
         },
+        workflowFiles,
         engineDependencyCovenant,
         runtimeProbeEligibility,
         counts,
@@ -1730,6 +1939,16 @@ export function formatInventory(report) {
     lines.push('  preclassified source classes:');
     report.consumerEdges.sourceClasses.forEach(row => lines.push(
         `    ${row.identity} — ${row.evidence.fileCount} tracked files → ${row.successorPhase}`
+    ));
+
+    const workflowFiles = report.workflowFiles;
+
+    lines.push('', `workflow-file identities: ${workflowFiles.total} · ` +
+        `occurrences ${workflowFiles.occurrenceTotal}`);
+    Object.entries(workflowFiles.byDisposition).sort(([a], [b]) => a.localeCompare(b))
+        .forEach(([disposition, count]) => lines.push(`  ${disposition}: ${count}`));
+    workflowFiles.rows.forEach(row => lines.push(
+        `  ${String(row.disposition).padEnd(10)} ${row.identity} — ${row.evidence.occurrenceCount} occurrences`
     ));
 
     lines.push('', `Engine→AgentOS forbidden packages: ${report.engineDependencyCovenant.forbiddenPackages.join(', ')}`);
