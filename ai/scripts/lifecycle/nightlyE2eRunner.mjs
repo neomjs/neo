@@ -335,6 +335,21 @@ async function connectMemoryCore() {
         );
     }
 
+    // A unit process must never reach the live fleet. Every arm in the runner's suite is supposed to
+    // inject a `connect` stub, but that is DISCIPLINE, and discipline failed: on a host carrying a
+    // valid credential, arms that omitted the stub sent nine real `AGENT:*` digests — each one
+    // `wakeSuppressed: false`, so each woke every seat. A safety property the caller must remember is
+    // not a safety property.
+    //
+    // This was invisible until delivery started working. Before the MCP-client conversion these sends
+    // went to a host store nobody serves, so the suite's side effect existed and reached no one.
+    if (process.env.UNIT_TEST_MODE === 'true') {
+        throw new Error(
+            'nightlyE2eRunner: refusing to open a live Memory Core connection under UNIT_TEST_MODE. ' +
+            'Inject a `connect` seam in the spec; the real transport is not reachable from a unit run.'
+        );
+    }
+
     const client = Neo.create(Client, {serverName: 'memory-core'});
 
     await client.ready();

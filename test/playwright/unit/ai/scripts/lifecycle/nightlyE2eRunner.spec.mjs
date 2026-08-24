@@ -338,6 +338,30 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
     // lifetime rather than on the runner's behaviour — red for the wrong reason, which is exactly what
     // an arm must never be. The abandoned-transport leak is real and separately owned.
 
+    test('#17725 the suite CANNOT open a live Memory Core connection, stub or no stub', async () => {
+        // The guard that makes the other arms' isolation structural instead of remembered. On a host
+        // with a valid credential, an arm that omits the `connect` stub used to reach the live fleet
+        // and broadcast a wake-bearing digest to every seat. This asserts the real transport refuses
+        // under UNIT_TEST_MODE, so forgetting a stub is a failed test rather than nine woken peers.
+        expect(process.env.UNIT_TEST_MODE).toBe('true');
+
+        // No `connect` injection AND a credential present — the exact shape that leaked.
+        const original = process.env.NEO_MCP_REMOTE_TOKEN;
+
+        process.env.NEO_MCP_REMOTE_TOKEN = 'a-valid-looking-credential';
+
+        try {
+            await expect(runNightlyE2e({runOne: redOutcome})).rejects.toThrow(/UNIT_TEST_MODE/)
+        } finally {
+            if (original === undefined) delete process.env.NEO_MCP_REMOTE_TOKEN;
+            else process.env.NEO_MCP_REMOTE_TOKEN = original;
+        }
+
+        // Still a recorded failure, not a silent one — the guard refuses the connection, it does not
+        // pretend the digest was delivered.
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'})
+    });
+
     test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
         // The production context that no other arm reaches. Every test above injects `connect`, and an
         // interactive shell exports the credential — so the one environment where this breaks is the
