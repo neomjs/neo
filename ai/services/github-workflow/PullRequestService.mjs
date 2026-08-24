@@ -9,6 +9,7 @@ import aiConfig             from '../../mcp/server/github-workflow/config.mjs';
 import logger               from '../../mcp/server/github-workflow/logger.mjs';
 import RepositoryService    from './RepositoryService.mjs';
 import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
+import {mergeHoldToken, resolveMergeHold} from './shared/mergeHoldTokens.mjs';
 import {
     groupReviewsByFamily,
     parseSelfIdLogin,
@@ -421,7 +422,8 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
     // with SOURCE_CHANGED_DURING_READ every time a peer left a comment mid-read, for a change that
     // moves no readiness. A CHANGES_REQUESTED landing mid-read still trips the comparison, through
     // `reviewDecision`, which is where that state actually lives.
-    const reviewsConnection = pullRequest.reviews;
+    const reviewsConnection  = pullRequest.reviews;
+    const commentsConnection = pullRequest.comments;
     const approvals         = (reviewsConnection?.nodes || [])
         .filter(node => node?.state === 'APPROVED' && node?.commit?.oid && node?.submittedAt)
         // `login` rides along because the cross-family mandate is a question about WHO approved,
@@ -456,6 +458,30 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
         // only the declared author login points the drift signal at what matters: a change to the
         // declared author invalidates the read, a typo fix in the description does not.
         authorSelfIdLogin: parseSelfIdLogin(pullRequest.body ?? '') ?? null,
+        // DERIVED hold facts, never raw comment bodies. Same reasoning as `authorSelfIdLogin`: this
+        // snapshot is compared by `stableStringify` across two reads, so carrying comment text would
+        // make any peer's unrelated comment invalidate the observation. Only comments bearing a
+        // recognised token survive, reduced to who/when/which — so a hold appearing or clearing moves
+        // the value and ordinary chatter does not.
+        holdComments     : {
+            available: Boolean(commentsConnection && Array.isArray(commentsConnection.nodes)),
+            truncated: Boolean(commentsConnection?.pageInfo?.hasPreviousPage),
+            nodes    : (commentsConnection?.nodes || [])
+                .map(node => ({
+                    login    : node?.author?.login ?? null,
+                    createdAt: node?.createdAt ?? null,
+                    commentId: node?.databaseId ?? null,
+                    token    : mergeHoldToken(node?.body ?? '')
+                }))
+                .filter(node => node.token && node.login && node.createdAt)
+        },
+        // EVERY submitted review, not just approvals: a hold is cleared by a newer submitted review
+        // from the same reviewer in ANY state, so filtering to APPROVED here would leave a
+        // CHANGES_REQUESTED-then-re-review sequence reading as still held.
+        reviewSubmissions: (reviewsConnection?.nodes || [])
+            .filter(node => node?.author?.login && node?.submittedAt)
+            .map(node => ({login: node.author.login, submittedAt: node.submittedAt}))
+            .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt) || a.login.localeCompare(b.login)),
         reviewRequests  : {
             available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),
             hasNextPage: Boolean(reviewConnection?.pageInfo?.hasNextPage),
@@ -816,6 +842,17 @@ async function buildMergeReadinessProjection({
         }
         : undefined;
 
+    // The reviewer-hold gate. Unavailable comments yield `undefined` rather than an empty verdict:
+    // "the comments were not fetched" and "nobody is holding" are different facts, and only the
+    // first should read as unresolved.
+    const holdVerdict = snapshot.holdComments.available
+        ? resolveMergeHold({
+            comments : snapshot.holdComments.nodes,
+            reviews  : snapshot.reviewSubmissions,
+            truncated: snapshot.holdComments.truncated
+        })
+        : undefined;
+
     const predicate = validateMergeReady({
         state           : snapshot.state,
         mergedAt        : snapshot.mergedAt,
@@ -824,6 +861,7 @@ async function buildMergeReadinessProjection({
         mergeStateStatus: snapshot.mergeStateStatus,
         reviewRequests,
         crossFamilyVerdict,
+        holdVerdict,
         approvedAtOid,
         headRefOid      : snapshot.headRefOid
     });

@@ -64,6 +64,12 @@ export const GET_CONVERSATION = `
  * bounded list. This paragraph used to say truncation could change no decision this query feeds —
  * true until the mandate became one of them.
  *
+ * `comments` is fetched `last` for the same reason and gates the same way: a reviewer HOLD is the
+ * latest state of that reviewer's position, and a hold found inside the window is decisive while a
+ * negative over a truncated one is unresolved. Bodies are read only to classify a hold token and are
+ * NOT carried onto the snapshot — the snapshot is drift-compared, so raw comment text would make any
+ * peer's unrelated comment invalidate the observation.
+ *
  * Variables required:
  * - $owner: String! - Repository owner
  * - $repo: String! - Repository name
@@ -117,6 +123,19 @@ export const GET_MERGE_READINESS = `
             commit {
               oid
             }
+          }
+        }
+        comments(last: 100) {
+          pageInfo {
+            hasPreviousPage
+          }
+          nodes {
+            databaseId
+            createdAt
+            author {
+              login
+            }
+            body
           }
         }
         commits(last: 1) {

@@ -396,6 +396,11 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         body = 'Authored by Vega (Claude Opus 5, Claude Code).',
         reviews = [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}}],
         reviewsHasPreviousPage = false,
+        // A fetched-and-empty comment connection: the default fixture models a PR nobody has held,
+        // which is what arms about other rules need. `null` models a connection GitHub did not
+        // return, and the fail-closed arm uses that explicitly rather than relying on this default.
+        comments = [],
+        commentsHasPreviousPage = false,
         state = 'OPEN'
     } = {}) => ({
         number        : 16029,
@@ -416,6 +421,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         reviews: reviews === null ? null : {
             pageInfo: {hasPreviousPage: reviewsHasPreviousPage},
             nodes   : reviews
+        },
+        comments: comments === null ? null : {
+            pageInfo: {hasPreviousPage: commentsHasPreviousPage},
+            nodes   : comments
         },
         commits: {
             nodes: [{
@@ -648,6 +657,78 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         const result = await project(dependencies({snapshots: [witnessed(), witnessed()]}));
 
         expect(result.predicate.blockers.filter(entry => entry.includes('cross-family'))).toEqual([]);
+    });
+
+    /**
+     * @summary The T1 window from the live incident: approved, then held, still reporting green.
+     *
+     * A reviewer approved, then posted `[MERGE_HOLD]` stating the prior approval was not a current
+     * merge authorization. `reviewDecision` stayed APPROVED — it is a flattened snapshot with no
+     * notion of supersession — and merge-readiness reported true while the owner had said stop. The
+     * author had already broadcast merge-ready inside that window.
+     */
+    const withHold = ({token = 'MERGE_HOLD', holdAt = '2026-07-29T09:00:00.000Z', reviewAt = '2026-07-29T07:00:00.000Z', holder = 'neo-gpt-emmy', ...rest} = {}) => pullRequest({
+        reviews : [{state: 'APPROVED', submittedAt: reviewAt, commit: {oid: HEAD}, author: {login: holder}}],
+        comments: [{databaseId: 5301580683, createdAt: holdAt, author: {login: holder}, body: `## \`[${token}]\`\n\nMy prior approval is not a current merge authorization.`}],
+        ...rest
+    });
+
+    test('a reviewer hold posted AFTER their approval blocks readiness, and names the holder', async () => {
+        const result = await project(dependencies({snapshots: [withHold(), withHold()]}));
+
+        expect(result.predicate.strictMergeReady).toBe(false);
+        expect(result.predicate.blockers.some(entry => entry.includes('reviewer hold outstanding') && entry.includes('@neo-gpt-emmy'))).toBe(true);
+    });
+
+    test('only a NEWER submitted review from the SAME reviewer clears a hold', async () => {
+        // Cleared: the holder reviews again after holding.
+        const cleared = () => pullRequest({
+            reviews : [
+                {state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}},
+                {state: 'APPROVED', submittedAt: '2026-07-29T11:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}}
+            ],
+            comments: [{databaseId: 1, createdAt: '2026-07-29T09:00:00.000Z', author: {login: 'neo-gpt-emmy'}, body: '## `[MERGE_HOLD]`'}]
+        });
+
+        expect((await project(dependencies({snapshots: [cleared(), cleared()]}))).predicate.blockers.some(e => e.includes('reviewer hold'))).toBe(false);
+
+        // NOT cleared by another peer's later review — a third party dispositioning someone else's
+        // stop would read as deliberate while the holder still objects.
+        const otherPeer = () => pullRequest({
+            reviews : [
+                {state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}},
+                {state: 'APPROVED', submittedAt: '2026-07-29T11:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-opus-vega'}}
+            ],
+            comments: [{databaseId: 1, createdAt: '2026-07-29T09:00:00.000Z', author: {login: 'neo-gpt-emmy'}, body: '## `[MERGE_HOLD]`'}]
+        });
+
+        expect((await project(dependencies({snapshots: [otherPeer(), otherPeer()]}))).predicate.blockers.some(e => e.includes('reviewer hold'))).toBe(true);
+    });
+
+    test('prose containing the word hold is NOT a hold, and an unrecognised token is not one either', async () => {
+        // Reviewers write "hold" constantly, including while declining to. Blocking on that would be
+        // worse than the gap, because the reason would read as deliberate.
+        const prose = () => withHold({token: 'NOT_A_REAL_TOKEN'});
+        expect((await project(dependencies({snapshots: [prose(), prose()]}))).predicate.blockers.some(e => e.includes('reviewer hold'))).toBe(false);
+
+        const chatty = () => pullRequest({
+            reviews : [{state: 'APPROVED', submittedAt: '2026-07-29T07:00:00.000Z', commit: {oid: HEAD}, author: {login: 'neo-gpt-emmy'}}],
+            comments: [{databaseId: 2, createdAt: '2026-07-29T09:00:00.000Z', author: {login: 'neo-gpt-emmy'}, body: 'No reason to hold this one — [MERGE_HOLD] would be overkill here.'}]
+        });
+        expect((await project(dependencies({snapshots: [chatty(), chatty()]}))).predicate.blockers.some(e => e.includes('reviewer hold'))).toBe(false);
+    });
+
+    test('an unfetched comment connection fails closed, and a truncated one is unresolved not "no hold"', async () => {
+        const unfetched = () => pullRequest({comments: null});
+        const a         = await project(dependencies({snapshots: [unfetched(), unfetched()]}));
+
+        expect(a.predicate.blockers.some(e => e.includes('holdVerdict was not resolved'))).toBe(true);
+
+        const truncated = () => pullRequest({commentsHasPreviousPage: true});
+        const b         = await project(dependencies({snapshots: [truncated(), truncated()]}));
+
+        expect(b.predicate.blockers.some(e => e.includes('could not be evaluated'))).toBe(true);
+        expect(b.predicate.blockers.some(e => e.includes('reviewer hold outstanding'))).toBe(false);
     });
 
     test('#16902: query carries exact workflow-run coordinates instead of inferring attempts by job name', () => {
