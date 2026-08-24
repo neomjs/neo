@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 
 import {DEFERENCE_PHRASES,
         DEFERENCE_REMINDER,
+        INDEFINITE_DEFERENCE_OBJECTS,
         buildDeferenceReminder,
         detectDeferencePhrase,
         matchDeferencePhrase} from '../../../../ai/scripts/lifecycle/deferencePhraseMatch.mjs';
@@ -31,6 +32,49 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         // Reporting the phrase is not using it - this ticket's own body does exactly that.
         expect(matchDeferencePhrase("The phrase unless you'd rather is part of the deference register."))
             .toBeNull();
+    });
+
+    test('unless you want matches only the closed indefinite-object vocabulary', () => {
+        expect(INDEFINITE_DEFERENCE_OBJECTS).toEqual([
+            'something',
+            'anything',
+            'otherwise',
+            'another'
+        ]);
+
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want something else first.'))
+            .toBe('unless you want');
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want anything else.'))
+            .toBe('unless you want');
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want otherwise.'))
+            .toBe('unless you want');
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want another option.'))
+            .toBe('unless you want');
+        expect(matchDeferencePhrase('Taking the parser lane next UNLESS YOU WANT ANYTHING else.'))
+            .toBe('unless you want');
+
+        expect(matchDeferencePhrase('The default is fine unless you want deterministic isolation.')).toBeNull();
+        expect(matchDeferencePhrase('Keep the current plan unless you want a smaller batch size.')).toBeNull();
+        expect(matchDeferencePhrase('Use the first parser unless you want the other parser.')).toBeNull();
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want.')).toBeNull();
+
+        // The longer existing entry stays independently reachable rather than being shadowed by
+        // the new prefix phrase.
+        expect(matchDeferencePhrase('I can take it unless you want me elsewhere.')).toBe('unless you want me')
+    });
+
+    test('indefinite-object matching reads grammar rather than Markdown layout', () => {
+        expect(matchDeferencePhrase('Taking the parser lane next **unless you want** something else first.'))
+            .toBe('unless you want');
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want\n    anything else first.'))
+            .toBe('unless you want');
+
+        // A concrete object remains ordinary prose across the same soft-wrap path.
+        expect(matchDeferencePhrase('Keep the default unless you want\n    deterministic isolation.')).toBeNull();
+
+        // A paragraph break ends the clause. The next paragraph cannot be recruited as the object.
+        expect(matchDeferencePhrase('Taking the parser lane next unless you want\n\nsomething else is available.'))
+            .toBeNull()
     });
 
     test('matches each tight phrase case-insensitively', () => {

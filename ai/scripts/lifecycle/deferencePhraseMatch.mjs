@@ -19,6 +19,7 @@
 export const DEFERENCE_PHRASES = [
     'would you like me to',
     'unless you want me',
+    'unless you want',
     'want me to',
     'do you want me',
     'Your steer on',
@@ -43,6 +44,23 @@ export const DEFERENCE_PHRASES = [
     // after a reviewer EXECUTED those sentences against this matcher rather than arguing about them.
     'if you want it'
 ];
+
+/**
+ * The closed object vocabulary that makes `unless you want` a lane handback rather than ordinary
+ * technical prose. Each token is an indefinite pro-form: it offers an unspecified alternative to
+ * an action the agent already chose. Concrete noun phrases stay available to authors, because an
+ * enforcing Stop hook that reserved them would become a leash rather than a mirror.
+ *
+ * Kept as exported data rather than hidden in a regex so every semantic expansion is a reviewable
+ * list change with a bidirectional falsifier corpus.
+ * @type {String[]}
+ */
+export const INDEFINITE_DEFERENCE_OBJECTS = Object.freeze([
+    'something',
+    'anything',
+    'otherwise',
+    'another'
+]);
 
 /**
  * Phrases whose gate-forming reading depends on clause POSITION, not presence.
@@ -97,6 +115,31 @@ function isClauseTerminal(text, endIndex) {
 
     // Soft wrap folds to whitespace; judge what actually follows the wrap.
     return /^[.,:;!?)\]}"'’”]/.test(rest.replace(/^\r?\n[ \t]*/, ''))
+}
+
+/**
+ * @summary Reports whether a matched phrase takes one closed indefinite object token.
+ *
+ * Spaces/tabs and one soft wrap are layout, not grammar, so they are transparent. A paragraph
+ * break ends the clause and cannot manufacture an object continuation. Only the first lexical
+ * token is inspected; the closed data set above owns the semantic decision.
+ * @param {String} text Searchable assistant-turn text.
+ * @param {Number} endIndex Index one past the matched phrase.
+ * @returns {Boolean}
+ * @private
+ */
+function hasIndefiniteDeferenceObject(text, endIndex) {
+    let rest = text.slice(endIndex).replace(/^[ \t]+/, '');
+
+    if (/^\r?\n[ \t]*\r?\n/.test(rest)) {
+        return false
+    }
+
+    rest = rest.replace(/^\r?\n[ \t]*/, '');
+
+    const token = /^([a-z]+)/i.exec(rest)?.[1]?.toLowerCase();
+
+    return token != null && INDEFINITE_DEFERENCE_OBJECTS.includes(token)
 }
 
 /**
@@ -228,7 +271,7 @@ function isAttributiveCitationContext(phrase, text, startIndex) {
         return false;
     }
 
-    const prefix  = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase(),
+    const prefix   = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase(),
           anchored = CITATION_ANCHOR.exec(prefix);
 
     return anchored !== null && isCitationBridge(anchored[1]);
@@ -261,6 +304,11 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
                 endIndex   = startIndex + match[0].length - match[1].length;
 
             if (CLAUSE_TERMINAL_PHRASES.has(phrase) && !isClauseTerminal(searchableText, endIndex)) {
+                continue;
+            }
+
+            if (phrase === 'unless you want' &&
+                !hasIndefiniteDeferenceObject(searchableText, endIndex)) {
                 continue;
             }
 
