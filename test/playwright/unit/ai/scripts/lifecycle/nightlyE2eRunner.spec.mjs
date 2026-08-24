@@ -339,50 +339,33 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
     // an arm must never be. The abandoned-transport leak is real and separately owned.
 
     test('#17725 the suite CANNOT open a live Memory Core connection, stub or no stub', async () => {
-        // The guard that makes the other arms' isolation structural instead of remembered. On a host
-        // with a valid credential, an arm that omits the `connect` stub used to reach the live fleet
-        // and broadcast a wake-bearing digest to every seat. This asserts the real transport refuses
-        // under UNIT_TEST_MODE, so forgetting a stub is a failed test rather than nine woken peers.
+        // The guard that makes every other arm's isolation structural instead of remembered. An arm
+        // that omits the `connect` stub on a host with a credential used to reach the live fleet and
+        // broadcast a wake-bearing digest to every seat. The credential is injected here so the arm
+        // asserts the guard rather than the machine it happens to run on.
         expect(process.env.UNIT_TEST_MODE).toBe('true');
 
-        // No `connect` injection AND a credential present — the exact shape that leaked.
-        const original = process.env.NEO_MCP_REMOTE_TOKEN;
+        await expect(runNightlyE2e({
+            env   : {NEO_MCP_REMOTE_TOKEN: 'a-valid-looking-credential'},
+            runOne: redOutcome
+        })).rejects.toThrow(/UNIT_TEST_MODE/);
 
-        process.env.NEO_MCP_REMOTE_TOKEN = 'a-valid-looking-credential';
-
-        try {
-            await expect(runNightlyE2e({runOne: redOutcome})).rejects.toThrow(/UNIT_TEST_MODE/)
-        } finally {
-            if (original === undefined) delete process.env.NEO_MCP_REMOTE_TOKEN;
-            else process.env.NEO_MCP_REMOTE_TOKEN = original;
-        }
-
-        // Still a recorded failure, not a silent one — the guard refuses the connection, it does not
-        // pretend the digest was delivered.
+        // A refused connection is a recorded failure, not a silent success.
         expect(await readState()).toMatchObject({red: true, digest: 'failed'})
     });
 
     test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
-        // The production context that no other arm reaches. Every test above injects `connect`, and an
-        // interactive shell exports the credential — so the one environment where this breaks is the
-        // unattended `launchd` session, which is the only environment the runner actually runs in.
-        const original = process.env.NEO_MCP_REMOTE_TOKEN;
+        // The credential source is INJECTED, not deleted from the real environment. The previous shape
+        // mutated `process.env` and was therefore green only while the ambient environment agreed with
+        // it: on a host carrying a live credential the arm's premise was false, the real transport was
+        // reached, and the failure mode was a write to production rather than a red test. Caught by
+        // @neo-opus-vega after his full-suite run put nine wake-bearing digests into every mailbox.
+        //
+        // No `connect` injection: this drives the real `connectMemoryCore` against an empty env.
+        await expect(runNightlyE2e({env: {}, runOne: redOutcome})).rejects.toThrow(/NEO_MCP_REMOTE_TOKEN/);
 
-        delete process.env.NEO_MCP_REMOTE_TOKEN;
-
-        try {
-            // No `connect` injection: this exercises the real client, which validates `requiredEnv`
-            // before opening any transport, so the arm asserts a configuration failure and never
-            // reaches the network.
-            await expect(runNightlyE2e({runOne: redOutcome})).rejects.toThrow(/NEO_MCP_REMOTE_TOKEN/);
-        } finally {
-            if (original === undefined) delete process.env.NEO_MCP_REMOTE_TOKEN;
-            else process.env.NEO_MCP_REMOTE_TOKEN = original;
-        }
-
-        // The red is not lost to the misconfiguration: it stands as an explicitly failed delivery,
-        // which is the whole difference from a host-local write that would have reported success.
-        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+        // The red is not lost to the misconfiguration: it stands as an explicitly failed delivery.
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'})
     });
 
     test('an UNREADABLE prior receipt fails closed — a broken chain is not a clean one', async () => {

@@ -171,6 +171,7 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
  * @param {Object}   [options]
  * @param {Function} [options.connect] Memory Core client seam — resolves to `{callTool, close}`.
  * @param {Number}   [options.connectDeadlineMs=CONNECT_DEADLINE_MS] Failure deadline for the seam.
+ * @param {Object}   [options.env=process.env] Credential source handed to the connect seam.
  * @param {Function} [options.runOne] Per-config execution seam.
  * @param {String}   [options.stateDir=STATE_DIR] Plane directory seam — an explicit value makes a run's
  *     plane independent of `process.cwd()` entirely, which a caller sharing a process needs.
@@ -179,6 +180,7 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
 export async function runNightlyE2e({
     connect           = connectMemoryCore,
     connectDeadlineMs = CONNECT_DEADLINE_MS,
+    env               = process.env,
     runOne            = runConfig,
     stateDir          = STATE_DIR
 } = {}) {
@@ -246,7 +248,7 @@ export async function runNightlyE2e({
             // Core must be distinguishable from a rejected message, and both must be distinguishable
             // from success. The client throws here on a missing credential, which is the property
             // that makes an unattended run's misconfiguration loud instead of nightly-silent.
-            client = await connectWithinDeadline(connect, connectDeadlineMs, lateRejection);
+            client = await connectWithinDeadline(() => connect(env), connectDeadlineMs, lateRejection);
 
             // MCP has TWO success boundaries and only the first one throws. The protocol request
             // resolving means the server answered; whether it ACCEPTED is carried in the result, and
@@ -325,10 +327,14 @@ export async function runNightlyE2e({
  * never resolves. An unattended run would then HANG until the 6h stale-lock steal instead of
  * recording a failed delivery, which is a strictly worse failure than the silent one this leaf
  * exists to remove. Validating first keeps the loud path loud.
+ * @param {Object} [env=process.env] Credential source. Injected so a caller can assert this
+ *     function's own contract without mutating the real process environment — a test that deletes a
+ *     live variable is green only while the ambient environment agrees with it, and its failure mode
+ *     is a write to production rather than a red test.
  * @returns {Promise<Object>} A connected client exposing `callTool` and `close`.
  */
-async function connectMemoryCore() {
-    if (!process.env[REMOTE_MCP_CREDENTIAL_ENV_VAR]?.trim()) {
+async function connectMemoryCore(env=process.env) {
+    if (!env[REMOTE_MCP_CREDENTIAL_ENV_VAR]?.trim()) {
         throw new Error(
             `nightlyE2eRunner: ${REMOTE_MCP_CREDENTIAL_ENV_VAR} is missing or empty — the RED digest cannot reach Memory Core. ` +
             `An unattended run needs it in the LaunchAgent's EnvironmentVariables; see ai/scripts/lifecycle/nightly-e2e/README.md.`
