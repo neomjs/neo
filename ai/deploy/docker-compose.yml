@@ -464,6 +464,11 @@ services:
       # them would be a fault in this configuration reported as a fault in the service. They therefore
       # get no direct probe and are never restarted on the runtime's verdict alone — the safe default.
       - NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS=http://kb-server:3000,http://mc-server:3001
+      # The direct probes authenticate against kb/mc like any MCP client; without the carrier they
+      # fail `invalid_token` on every sweep while reading like a transport fault.
+      - NEO_DEPLOYMENT_STATE_BRIDGE_BEARER_TOKEN_FILE=/run/secrets/mcp-auth-token
+    secrets:
+      - mcp-auth-token
     volumes:
       # Scheduler cadence, tenant-repo revisions, recovery ledgers, logs, and
       # process-epoch files share AiConfig.orchestrator.dataDir. Persist the

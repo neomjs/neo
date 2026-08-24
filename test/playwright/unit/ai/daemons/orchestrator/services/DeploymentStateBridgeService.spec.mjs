@@ -37,6 +37,8 @@ const OBSERVED_AT = 1710000000000;
  */
 const BRIDGE_CONFIG_PATHS = [
     'orchestrator.deploymentStateBridge.allowedServices',
+    'orchestrator.deploymentStateBridge.bearerTokenFile',
+    'orchestrator.deploymentStateBridge.directProbeUrls',
     'orchestrator.deploymentStateBridge.includeLogs',
     'orchestrator.deploymentStateBridge.logTail',
     'orchestrator.deploymentStateBridge.logMaxBytes',
@@ -110,6 +112,7 @@ function createService({
     taskStateService = null,
     tenantRepoSyncService = null,
     tenantRepoSyncEnabledReader = null,
+    writeLog = null,
     nowFn = () => OBSERVED_AT
 } = {}) {
     return Neo.create(DeploymentStateBridgeService, {
@@ -119,6 +122,7 @@ function createService({
         tenantRepoSyncService,
         tenantRepoSyncEnabledReader,
         directProbeFn,
+        writeLog,
         providerResidencyProbe,
         providerLaneShapeProbe,
         providerModelIdentityProbe,
@@ -4644,5 +4648,107 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — resolved
         }));
 
         expect(JSON.stringify(withSecret)).not.toContain(SECRET);
+    });
+});
+
+test.describe('direct-probe bearer credential — evidence that cannot authenticate must name why (#17668)', () => {
+    const PROBE_URLS = ['http://kb-server:3000'];
+
+    let restoreConfig;
+
+    test.beforeEach(() => {
+        restoreConfig = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
+        AiConfig.orchestrator.deploymentStateBridge.directProbeUrls = [...PROBE_URLS];
+    });
+
+    test.afterEach(() => {
+        restoreConfig?.();
+    });
+
+    test('a configured token file is threaded into the probe and NEVER disclosed to any log sink', async () => {
+        const dir  = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-token-'));
+        const file = path.join(dir, 'token');
+        const TOKEN = 'secret-token-value-high-entropy-material';
+        fs.writeFileSync(file, `  ${TOKEN}\n`);
+
+        const logged = [];
+        let captured;
+        const bridge = createService({
+            writeLog     : (level, message) => { logged.push(level + ': ' + message); },
+            directProbeFn: async options => {
+                captured = options;
+                return {ok: true, name: 'direct-endpoint-probe', message: null};
+            }
+        });
+        AiConfig.orchestrator.deploymentStateBridge.bearerTokenFile = file;
+
+        const outcome = await bridge.collectDirectProbe({serviceKey: 'kb-server'});
+
+        expect(outcome.ok).toBe(true);
+        expect(captured.bearerToken).toBe(TOKEN);
+        // Privacy-negative arm with REAL material flowing: a success path that logs the credential
+        // must turn this red (mutation: log the successfully read token).
+        expect(logged.some(l => l.includes(TOKEN)), 'credential must never reach any log sink').toBe(false);
+    });
+
+    test('a configured-but-unreadable token file fails open, warns with the path, never leaks contents', async () => {
+        const logged  = [];
+        const missing = path.join(os.tmpdir(), `bridge-token-missing-${Date.now()}`);
+
+        let captured;
+        const bridge = createService({
+            writeLog     : (level, message) => { if (level === 'WARN') logged.push(message); },
+            directProbeFn: async options => {
+                captured = options;
+                throw new Error('invalid_token: Missing Authorization header');
+            }
+        });
+        AiConfig.orchestrator.deploymentStateBridge.bearerTokenFile = missing;
+
+        const outcome = await bridge.collectDirectProbe({serviceKey: 'kb-server'});
+
+        // Fail-open at the AUTH layer: the probe still ran, unauthenticated, so downstream sees the
+        // real transport verdict instead of a silently withheld channel.
+        expect(outcome).toBeNull();
+        expect(captured.bearerToken).toBeNull();
+        expect(logged.some(l => l.includes(missing) && l.includes('unusable'))).toBe(true);
+        expect(logged.some(l => l.toLowerCase().includes('secret-token'))).toBe(false);
+    });
+
+    test('an unset leaf changes nothing: no credential, and NO token-related warn through an observed sink', async () => {
+        // Observed sink is load-bearing: without it, a mutant that emits a bearer-token WARN on
+        // every unset sweep passes silently while re-noising the channel this fix silences.
+        const logged = [];
+
+        let captured;
+        const bridge = createService({
+            writeLog     : (level, message) => { logged.push(level + ': ' + message); },
+            directProbeFn: async options => {
+                captured = options;
+                throw new Error('invalid_token: Missing Authorization header');
+            }
+        });
+        delete AiConfig.orchestrator.deploymentStateBridge.bearerTokenFile;
+
+        await bridge.collectDirectProbe({serviceKey: 'kb-server'});
+
+        expect(captured.bearerToken).toBeNull();
+        expect(logged.filter(l => l.toLowerCase().includes('bearer-token'))).toEqual([]);
+    });
+
+    test('compose wires the orchestrator to the same secret carrier fleet-server uses — BOTH halves', () => {
+        // Paired-contract assertion scoped to the ORCHESTRATOR BLOCK ONLY. A whole-file match is
+        // decorative here: fleet-server carries the identical secret, so a global regex stays green
+        // even when the orchestrator's own mount is deleted (measured — that false-green shipped).
+        const compose = readFileSync(new URL('../../../../../../../ai/deploy/docker-compose.yml', import.meta.url), 'utf8');
+
+        const orchestratorBlock = compose
+            .split(/^ {2}(?=\w[\w-]*:[ \t]*$)/m)
+            .find(chunk => chunk.startsWith('orchestrator:'));
+
+        expect(orchestratorBlock, 'orchestrator service block found').toBeTruthy();
+
+        expect(orchestratorBlock).toMatch(/NEO_DEPLOYMENT_STATE_BRIDGE_BEARER_TOKEN_FILE=\/run\/secrets\/mcp-auth-token/);
+        expect(orchestratorBlock).toMatch(/^ {4}secrets:\n {6}- mcp-auth-token$/m);
     });
 });
