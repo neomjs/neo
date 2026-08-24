@@ -1021,7 +1021,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {adapter: 'opencode-serve'}
-            })).rejects.toThrow("Invalid adapter 'opencode-serve'. Must be one of: osascript, tmux, codex-app-server, opencode-server");
+            })).rejects.toThrow("Invalid adapter 'opencode-serve'. Must be one of: osascript, tmux, claude-courier, codex-app-server, opencode-server");
         });
     });
 

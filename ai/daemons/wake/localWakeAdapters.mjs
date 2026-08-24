@@ -13,6 +13,7 @@ import path               from 'node:path';
 import {spawn, spawnSync} from 'node:child_process';
 
 import {applyHarnessMetadataDefaults} from './hostHarnessMetadata.mjs';
+import {COURIER_ADAPTER, deliverClaudeCourier} from './claudeCourierTransport.mjs';
 import {
     getDefaultInstanceTarget,
     resolveGuiInstancePid
@@ -250,6 +251,9 @@ async function performDispatch({adapter, adapterConfig, digest, meta, record, si
     if (adapter === 'opencode-server') {
         await deliverOpenCode({digest, effects, meta, record, signal});
         return 'delivered';
+    }
+    if (adapter === COURIER_ADAPTER) {
+        return deliverClaudeCourier({digest, effects, meta, record});
     }
     if (adapter === 'kimi-server') {
         await deliverKimiServer({digest, effects, meta, signal});

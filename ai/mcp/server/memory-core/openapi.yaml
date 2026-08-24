@@ -2622,7 +2622,7 @@ paths:
                     url:              {type: string}
                     coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
                     daemonSocketPath: {type: string}
-                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server, opencode-server, kimi-server, kimi-pull-bridge]}
+                    adapter:          {type: string, enum: [osascript, tmux, claude-courier, codex-app-server, opencode-server, kimi-server, kimi-pull-bridge]}
                     appName:          {type: string}
                     envelopePath:     {type: string}
                     lockPath:         {type: string}

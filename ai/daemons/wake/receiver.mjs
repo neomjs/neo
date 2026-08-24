@@ -63,6 +63,7 @@ const DRAIN_RETRY_INTERVAL_MS = 60 * 1000;
 const PRODUCTION_ADAPTERS     = new Set([
     'osascript',
     'tmux',
+    'claude-courier',
     'codex-app-server',
     'opencode-server',
     'kimi-server',
