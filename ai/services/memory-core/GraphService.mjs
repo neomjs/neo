@@ -1873,6 +1873,46 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Lists deployment-shared persisted graph nodes for exact labels without relying on
+     * the lazy in-memory vicinity cache. Projection reconciliation uses this system-owned view to
+     * find rows removed from the source corpus while refusing tenant-scoped rows (`user_id IS NULL`).
+     * @param {String[]} labels Exact graph labels.
+     * @returns {Object[]} Plain persisted node records, ordered by id.
+     */
+    listSharedNodeRecordsByLabels(labels) {
+        const db = this.requireDb('GraphService.listSharedNodeRecordsByLabels');
+
+        if (!Array.isArray(labels) || labels.length === 0 || labels.some(label => typeof label !== 'string' || !label)) {
+            throw new TypeError('[GraphService] listSharedNodeRecordsByLabels requires non-empty string labels')
+        }
+
+        const sqlite = db.storage?.db;
+
+        if (sqlite?.open) {
+            const placeholders = labels.map(() => '?').join(',');
+
+            return sqlite.prepare(`
+                SELECT data
+                FROM Nodes
+                WHERE user_id IS NULL
+                  AND json_extract(data, '$.label') IN (${placeholders})
+                ORDER BY id
+            `).all(...labels).map(row => JSON.parse(row.data))
+        }
+
+        return (db.nodes?.items || [])
+            .map(node => node?.isRecord
+                ? {
+                    id        : node.get('id'),
+                    label     : node.get('label'),
+                    properties: node.get('properties')
+                }
+                : node)
+            .filter(node => labels.includes(node?.label) && node?.properties?.userId == null)
+            .sort((a, b) => a.id.localeCompare(b.id))
+    }
+
+    /**
      * @summary Count SESSION-labeled graph nodes (deployment-wide, untenanted).
      * This is **Axis B** of the 5-axis REM observability model: the count of
      * sessions actually committed to the Semantic Graph by the REM digest pipeline.

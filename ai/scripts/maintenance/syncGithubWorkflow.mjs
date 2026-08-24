@@ -30,12 +30,6 @@ import GH_Config      from '../../mcp/server/github-workflow/config.mjs';
 import GH_SyncService from '../../services/github-workflow/SyncService.mjs';
 import AiConfig       from '../../config.mjs';
 
-// Also normally supplied by the barrel, at `ai/services.mjs`. NOT redundant with the config leaf's
-// own `false` default: this is a forced override that holds regardless of env or overlay, and
-// `SyncService` branches on it (`if (aiConfig.syncOnStartup)`). Dropping it would let an overlay
-// turn a read-only emission run into a bi-directional sync — a behaviour change disguised as an
-// import cleanup.
-GH_Config.data.syncOnStartup = false;
 import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
@@ -48,7 +42,7 @@ import {
 
 /**
  * @module ai/scripts/maintenance/syncGithubWorkflow
- * @summary CLI wrapper for full manual GitHub Workflow sync and pull-only
+ * @summary CLI wrapper for full manual GitHub Workflow emission/delivery and pull-only
  * scheduled corpus emission into `resources/content/`.
  *
  * **Why this operator CLI is the canonical manual entry point:**
@@ -56,7 +50,8 @@ import {
  * The scheduled Data Sync pipeline invokes this CLI with `--emit-only`, delegating to
  * `GH_SyncService.emitGeneratedContentAndDerive({pushLocalChanges: false})`. Operators
  * retain the default `GH_SyncService.runFullSync()` mode, including its intentional
- * local-to-GitHub issue push. The long-running sync is deliberately absent from the
+ * local-to-GitHub issue push. Native Graph projection is absent: the container-plane
+ * core-corpus projection owner is its only admitted writer. The long-running emission is absent from the
  * agent MCP surface: clean-slate emission can span
  * ~8.5k issues + ~2.8k PRs + ~165 discussions + ~166 release notes and must stay
  * behind the shared heavy-maintenance lease rather than an MCP request timeout.
@@ -68,12 +63,10 @@ import {
  * - keeps scheduled CI read-only at the GitHub API boundary while preserving the
  *   operator's full bi-directional mode
  *
- * **SDK boundary**: imports route through `ai/services.mjs` (the canonical SDK
- * entry point per `Neo.ai.services`), which handles Neo namespace bootstrap +
- * auto-disables sync-on-startup side-effects + applies Zod validation at the
- * service boundary. Mirrors the pattern established by `backup.mjs`,
- * `defragChromaDB.mjs`, and other operator-runnable CLI scripts. No direct
- * `ai/mcp/server/...` or `ai/services/...` deep imports.
+ * **SDK boundary exception:** the file header owns the temporary direct-import rationale and its
+ * self-expiring test. Neo/core imports preserve namespace bootstrap. There is no sync-on-startup
+ * override anymore: that config leaf and its service branch were retired with the exclusive
+ * container-plane projection owner.
  *
  * The authority boundary is the regeneratable-cache model: this script exists
  * to rebuild workflow mirrors outside the MCP request-timeout envelope.

@@ -104,22 +104,22 @@ const taskRegistry = [
         }
     },
     {
-        taskName        : 'githubWorkflowSync',
+        taskName        : 'core-corpus-projection',
         executionKind   : 'supervised-child-process',
         maintenanceClass: 'heavy',
         backpressure    : 'exclusive-heavy',
         dependencies    : [],
         getDueTask({state, now, intervals, enables}) {
-            if (!enables.githubWorkflowSync) return null;
-            const taskState     = state.githubWorkflowSync || {};
+            if (!enables.corpusProjection) return null;
+            const taskState     = state['core-corpus-projection'] || {};
             const terminalAt    = getLatestTimestampMs(taskState.lastSuccessAt, taskState.lastErrorAt);
             const cadenceAnchor = terminalAt ?? toTimestampMs(taskState.lastRunAt) ?? 0;
-            const intervalMs    = intervals.githubWorkflowSync;
+            const intervalMs    = intervals.corpusProjection;
             if (intervalMs > 0 && now - cadenceAnchor >= intervalMs) {
                 return {
-                    taskName: 'githubWorkflowSync',
-                    source  : 'periodic-sync',
-                    reason  : `periodic-sync:${intervalMs}`
+                    taskName: 'core-corpus-projection',
+                    source  : 'periodic-projection',
+                    reason  : `periodic-projection:${intervalMs}`
                 };
             }
             return null;

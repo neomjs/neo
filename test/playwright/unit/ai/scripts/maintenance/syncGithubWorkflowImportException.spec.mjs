@@ -92,7 +92,7 @@ test.describe('syncGithubWorkflow SDK-boundary exception — self-expiring', () 
             'ai/services.mjs NO LONGER reaches chromadb, so the Body tier can import the barrel again. ' +
             'The SDK-boundary exception at the top of ai/scripts/maintenance/syncGithubWorkflow.mjs is ' +
             'now unnecessary: restore `import {GH_Config, GH_SyncService} from "../../services.mjs"`, ' +
-            'drop the Neo bootstrap and the syncOnStartup override the barrel supplies, and delete ' +
+            'drop the direct Neo/core bootstrap, and delete ' +
             'this spec. This failure is the exception expiring on schedule, not a regression.'
         ).toBe(true);
 
@@ -134,10 +134,10 @@ test.describe('syncGithubWorkflow SDK-boundary exception — self-expiring', () 
         ).toBe(false);
     });
 
-    test('the exception still carries BOTH guarantees the barrel used to supply', () => {
-        // Half-deleting the exception is the quiet failure: an import cleanup that removes the
-        // bootstrap or the override leaves a script that either throws on Neo or silently gains a
-        // bi-directional sync. Neither is visible in a diff that only looks like it tidied imports.
+    test('the exception retains namespace bootstrap while the retired startup projection fork stays absent', () => {
+        // The direct-import exception still owes the namespace bootstrap. The former syncOnStartup
+        // override is now forbidden: the leaf and SyncService branch were retired with the one-writer
+        // projection cut, so reintroducing either recreates an unleased second entry path.
         const source = readFileSync(EXCEPTION_SITE, 'utf8');
 
         // Matched on symbol + path rather than exact text: the block-alignment lint owns the spacing
@@ -149,12 +149,7 @@ test.describe('syncGithubWorkflow SDK-boundary exception — self-expiring', () 
         expect(source, 'core/_export augmentation missing — Neo globals will be absent at setupClass time')
             .toMatch(/import\s+\*\s+as\s+core\s+from\s+'\.\.\/\.\.\/\.\.\/src\/core\/_export\.mjs'/);
 
-        expect(
-            source,
-            'syncOnStartup override missing. The config leaf defaults to false, but this is a FORCED ' +
-            'override that holds regardless of env or overlay, and SyncService branches on it. Without ' +
-            'it an overlay can turn a read-only emission run into a bi-directional sync.'
-        ).toContain('GH_Config.data.syncOnStartup = false;');
+        expect(source).not.toContain('syncOnStartup');
 
         // The exception must stay narrow: it exists for this one barrel-avoidance, not as licence.
         expect(source).not.toContain("from '../../services.mjs'");

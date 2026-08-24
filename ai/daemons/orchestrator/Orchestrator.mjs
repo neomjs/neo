@@ -1287,7 +1287,7 @@ export class Orchestrator extends Base {
     }
 
     get kbSyncEnabled()                  { return resolveCloudOnlyEnabled('kbSyncEnabled');                   }
-    get githubWorkflowSyncEnabled()      { return resolveDeploymentEnabled('githubWorkflowSyncEnabled');      }
+    get corpusProjectionEnabled()        { return AiConfig.orchestrator.corpusProjection.enabled;             }
     get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get composeServiceRecoveryEnabled()  { return resolveCloudOnlyEnabled('composeServiceRecoveryEnabled');   }

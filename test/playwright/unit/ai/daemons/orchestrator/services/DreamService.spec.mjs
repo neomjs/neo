@@ -19,6 +19,12 @@ import * as core                         from '../../../../../../../src/core/_ex
 import fs                                from 'fs';
 import {snapshotAiConfig}                from '../../../services/memory-core/util.mjs';
 import {computeSessionTurnInputRevision} from '../../../../../../../ai/services/memory-core/helpers/turnDocumentText.mjs';
+import {
+    beginCorpusProjection,
+    commitCorpusProjectionFacet,
+    CORPUS_PROJECTION_FACETS,
+    createCorpusProjectionReceipt
+} from '../../../../../../../ai/services/graph/corpusProjectionContract.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let aiConfig;
@@ -1359,6 +1365,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         let triVectorDocument;
+        let corpusCommitOptions;
         let topologyArgs;
         let ingestedSnapshot;
         let sessionUpdate;
@@ -1406,8 +1413,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph = async () => {};
-            SemanticGraphExtractor.executeTriVectorExtraction = async session => {
+            SemanticGraphExtractor.executeTriVectorExtraction = async (session, {beforeCommit}) => {
                 triVectorDocument = session.document;
+                corpusCommitOptions = await beforeCommit();
                 return {session_artifact: {graph: {nodes: [], edges: []}}};
             };
             TopologyInferenceEngine.extractTopology = async (contextText, sessionId, options) => {
@@ -1421,6 +1429,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             });
 
             expect(triVectorDocument).toBe(rawTurns.join('\n\n---\n\n'));
+            expect(corpusCommitOptions).toEqual({excludedNodeTypes: []});
             expect(topologyArgs).toMatchObject({
                 contextText: rawTurns.join('\n\n---\n\n'),
                 sessionId  : 'agent-session-raw-turns',
@@ -1477,6 +1486,42 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             StorageRouter.getMemoryCollection                 = orig.getMemory;
             DreamService.isProcessing                         = orig.isProcessing;
         }
+    });
+
+    test('REM admission maps only the issues facet and fails closed without freezing sibling phases (#17627)', async () => {
+        let receipt = createCorpusProjectionReceipt({
+            sourceRepository: 'https://github.com/neomjs/neo.git',
+            sourceRef       : 'refs/heads/dev',
+            freshnessSlaMs  : 4 * 60 * 60 * 1000
+        });
+        receipt = beginCorpusProjection({receipt, availableRevision: 'a'.repeat(40)});
+
+        for (const facet of CORPUS_PROJECTION_FACETS) {
+            receipt = commitCorpusProjectionFacet({receipt, facet})
+        }
+
+        receipt = beginCorpusProjection({
+            receipt,
+            availableRevision: 'b'.repeat(40),
+            facets           : ['issues']
+        });
+
+        const admission = await DreamService.getCorpusProjectionAdmission({
+            config: {
+                enabled         : true,
+                receiptPath     : '/shared/deployment-state/core-corpus-projection.json',
+                sourceRepository: 'https://github.com/neomjs/neo.git',
+                sourceRef       : 'refs/heads/dev'
+            },
+            readReceipt: async () => receipt
+        });
+
+        expect(admission).toMatchObject({
+            admitted      : false,
+            reasonCode    : 'required-facet-stale',
+            requiredFacets: ['issues'],
+            staleFacets   : ['issues']
+        })
     });
 
     test('TopologyInferenceEngine chunks complete memory turns and bounds topology output (#12073)', async () => {

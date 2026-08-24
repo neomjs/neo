@@ -1092,4 +1092,34 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             clearAggregatedFrictions();
         }
     });
+
+    test('D2 commit exclusion drops ISSUE nodes and direct issue edges while preserving sibling entities (#17627)', async () => {
+        const payload = {
+            session_artifact: {
+                graph: {
+                    nodes: [
+                        {id: 'issue-17627', type: 'ISSUE', name: 'Projection issue', description: 'withheld'},
+                        {id: 'CLASS:ProjectionSafe', type: 'CLASS', name: 'ProjectionSafe', description: 'admitted'}
+                    ],
+                    edges: [
+                        {source: 'issue-17627', target: 'CLASS:ProjectionSafe', relationship: 'RELATES_TO'},
+                        {source: 'issue-99999', target: 'CLASS:ProjectionSafe', relationship: 'RELATES_TO'}
+                    ]
+                }
+            }
+        };
+
+        await SemanticGraphExtractor.commitTriVectorPayload(payload, {
+            id  : 'summary-projection-safe',
+            meta: {sessionId: 'projection-safe-session'}
+        }, {excludedNodeTypes: ['ISSUE']});
+
+        expect(GraphService.db.nodes.get('issue-17627')).toBeFalsy();
+        expect(GraphService.db.nodes.items.some(node =>
+            node.label === 'CLASS' && node.properties?.name === 'ProjectionSafe'
+        )).toBe(true);
+        expect(GraphService.db.edges.items.some(edge =>
+            /^issue[-:]/i.test(edge.source) || /^issue[-:]/i.test(edge.target)
+        )).toBe(false)
+    });
 });

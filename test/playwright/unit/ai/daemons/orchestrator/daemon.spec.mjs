@@ -114,9 +114,10 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.kbSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')]);
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
 
-        expect(tasks.githubWorkflowSync.command).toBe('/test/node');
-        expect(tasks.githubWorkflowSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncGithubWorkflow.mjs')]);
-        expect(tasks.githubWorkflowSync.expectedCommand).toBe('syncGithubWorkflow.mjs');
+        expect(tasks['core-corpus-projection'].command).toBe('/test/node');
+        expect(tasks['core-corpus-projection'].args).toEqual([path.join(scriptDir, 'maintenance', 'projectCoreCorpus.mjs')]);
+        expect(tasks['core-corpus-projection'].expectedCommand).toBe('projectCoreCorpus.mjs');
+        expect(tasks['core-corpus-projection'].captureStdoutJson).toBe(true);
 
         expect(tasks.backup.command).toBe('/test/node');
         expect(tasks.backup.args).toEqual([path.join(scriptDir, 'maintenance', 'backup.mjs')]);

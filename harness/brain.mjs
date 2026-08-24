@@ -257,9 +257,9 @@ export function buildBrainProfile({isolationRoot, chromaPort, fleetPort}) {
         // Every other port-bearing or shared-state lane → OFF. The smoke proves the harness can
         // OWN the organism's lifecycle; it must not double-run swarm lanes or reap live listeners.
         NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED                 : '0',
+        NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED          : '0',
         NEO_ORCHESTRATOR_DEV_SERVER_ENABLED                 : '0',
         NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED               : '0',
-        NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED       : '0',
         NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: '0',
         NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_ENABLED        : '0',
         NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : '0',
@@ -316,7 +316,7 @@ export function resolveRealPath(value) {
  * dir). Lane gates encode what an INSTALLED organism can honestly run — each OFF names the
  * resource the artifact does not carry:
  * - devServer: no webpack/build tooling ships; `app://` serves the bundled source graph.
- * - kbSync / githubWorkflowSync / primaryDevSync / goldenPathRepoEnrichment: git-checkout
+ * - corpusProjection / kbSync / primaryDevSync / goldenPathRepoEnrichment: git-checkout
  *   semantics; the bundle carries the source graph but is not a repository.
  * - mlx / ollama / lms: external model servers belong to the MACHINE, not the artifact — a
  *   packaged supervisor must never adopt or reap a stranger's local AI runtimes.
@@ -352,8 +352,8 @@ export function buildPackagedBrainEnv({dataRoot}) {
 
         // The artifact's lane closure (reasons in the summary above)
         NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED                 : '0',
+        NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED          : '0',
         NEO_ORCHESTRATOR_DEV_SERVER_ENABLED                 : '0',
-        NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED       : '0',
         NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: '0',
         NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : '0',
         NEO_ORCHESTRATOR_LMS_ENABLED                        : '0',

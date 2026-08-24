@@ -551,7 +551,6 @@ test.describe('data-plane profile election — base and integration-fixture disp
             'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED',
             'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
-            'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED',
             'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED'
         ]) {

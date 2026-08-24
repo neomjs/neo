@@ -269,6 +269,23 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(unproduced).toEqual([]);
     });
 
+    test('healthcheck declares the source-bound projection freshness surface (#17627)', async () => {
+        const {tools}  = await toolService.listTools();
+        const declared = tools.find(item => item.name === 'healthcheck')
+            .outputSchema.properties.corpusProjectionFreshness;
+
+        expect(declared.properties.status.enum).toEqual([
+            'current', 'lagging', 'breached', 'unavailable', 'disabled'
+        ]);
+        expect(declared.properties.posture.enum).toEqual([
+            'healthy', 'pending', 'degraded', 'disabled'
+        ]);
+        expect(declared.properties.freshnessSlaMs.type).toBe('number');
+        expect(declared.properties.sourceCheckAgeMs.type).toBe('number');
+        expect(declared.properties.projectionLagAgeMs.type).toBe('number');
+        expect(declared.properties.staleFacets.items.enum).toEqual(['issues', 'pulls', 'discussions'])
+    });
+
     test('healthcheck composition consumes a memory ceiling from the deployment snapshot (#17121)', () => {
         // The WIRING, not the fold. The first implementation folded the disposition into the
         // bridge's own nested service record and called that "the composed surface" — so a correct
@@ -379,6 +396,41 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
         expect(unobservable.status).toBe('unhealthy');
         expect(unobservable.memoryWalDrain.state).toBe('unobservable');
+    });
+
+    test('healthcheck exposes projection-disabled state and degrades only an observed SLA breach (#17627)', () => {
+        const health         = {status: 'healthy', details: ['All features are operational']};
+        const memoryWalDrain = {
+            state           : 'caught-up', pendingDrainDepth: 0, oldestPendingAgeMs: null,
+            stallThresholdMs: 1000, allWritesSemanticallyQueryable: true
+        };
+        const plane = {id: 'test-plane', dataRoot: '/test-data'};
+
+        const disabled = toolService.composeMemoryCoreHealthcheck({
+            health,
+            memoryWalDrain,
+            plane,
+            corpusProjectionFreshness: {
+                status: 'disabled', posture: 'disabled', reasonCodes: ['projection-disabled'], staleFacets: []
+            }
+        });
+
+        expect(disabled.status).toBe('healthy');
+        expect(disabled.corpusProjectionFreshness.status).toBe('disabled');
+
+        const breached = toolService.composeMemoryCoreHealthcheck({
+            health,
+            memoryWalDrain,
+            plane,
+            corpusProjectionFreshness: {
+                status     : 'breached', posture: 'degraded',
+                reasonCodes: ['source-check-overdue'], staleFacets: ['issues']
+            }
+        });
+
+        expect(breached.status).toBe('degraded');
+        expect(breached.details).not.toContain('All features are operational');
+        expect(breached.details.at(-1)).toContain('source-check-overdue')
     });
 
     test('healthcheck projects current degraded backup maintenance without trusting stale bridge state (#17068)', async () => {

@@ -192,10 +192,42 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
     test('expected scheduling lanes are registered (#11862 Prescription parity)', () => {
         const names = TASK_REGISTRY.map(d => d.taskName);
         expect(names).toEqual(expect.arrayContaining([
-            'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction',
+            'summary', 'memory-summary-backfill', 'kbSync', 'core-corpus-projection', 'backup', 'graphlog-compaction',
             'primary-dev-sync', 'tenant-repo-sync', 'dream',
             'message-concept-harvest', 'golden-path', 'swarm-heartbeat'
         ]));
+    });
+
+    test('core-corpus-projection is one exclusive-heavy container writer, inert until enabled (#17627)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'core-corpus-projection');
+
+        expect(descriptor, 'core-corpus-projection is registered').toBeTruthy();
+        expect(descriptor).toMatchObject({
+            executionKind   : 'supervised-child-process',
+            maintenanceClass: 'heavy',
+            backpressure    : 'exclusive-heavy',
+            authorityClass  : 'container-plane',
+            dependencies    : []
+        });
+        expect(descriptor.getDueTask({
+            state: {}, now: 1e12, intervals: {corpusProjection: 1000}, enables: {corpusProjection: false}
+        })).toBeNull();
+        expect(descriptor.getDueTask({
+            state    : {'core-corpus-projection': {lastRunAt: 0}},
+            now      : 6000,
+            intervals: {corpusProjection: 5000},
+            enables  : {corpusProjection: true}
+        })).toEqual({
+            taskName: 'core-corpus-projection',
+            source  : 'periodic-projection',
+            reason  : 'periodic-projection:5000'
+        });
+        expect(descriptor.getDueTask({
+            state    : {'core-corpus-projection': {lastSuccessAt: '1970-01-01T00:00:02.000Z'}},
+            now      : 6000,
+            intervals: {corpusProjection: 5000},
+            enables  : {corpusProjection: true}
+        })).toBeNull()
     });
 
     test('message-concept-harvest is registered as an exclusive-heavy scheduled graph-writing lane (#13840)', () => {
@@ -322,79 +354,66 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         }
     });
 
-    test('githubWorkflowSync getDueTask gates on enables + fires on elapsed cadence (#13626)', () => {
-        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync');
-        expect(descriptor, 'githubWorkflowSync is registered').toBeTruthy();
-        // Gated off (cloud profile) → never due, even when long overdue.
-        expect(descriptor.getDueTask({state: {}, now: 1e12, intervals: {githubWorkflowSync: 1000}, enables: {githubWorkflowSync: false}})).toBeNull();
-        // Enabled (local) + cadence elapsed → due.
-        expect(descriptor.getDueTask({
-            state    : {githubWorkflowSync: {lastRunAt: 0}}, now: 2000,
-            intervals: {githubWorkflowSync: 1000}, enables: {githubWorkflowSync: true}
-        })).toMatchObject({taskName: 'githubWorkflowSync', source: 'periodic-sync'});
-        // Enabled but within cadence → not yet due.
-        expect(descriptor.getDueTask({
-            state    : {githubWorkflowSync: {lastRunAt: 1500}}, now: 2000,
-            intervals: {githubWorkflowSync: 1000}, enables: {githubWorkflowSync: true}
-        })).toBeNull();
+    test('the scheduled githubWorkflowSync writer is retired rather than left dormant (#17627)', () => {
+        expect(TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync')).toBeUndefined()
     });
 
-    test('githubWorkflowSync cadence uses terminal timestamp before start timestamp (#13832)', () => {
-        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync');
-        expect(descriptor, 'githubWorkflowSync is registered').toBeTruthy();
+    test('core-corpus-projection cadence uses terminal timestamp before start timestamp (#17627)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'core-corpus-projection');
+        expect(descriptor, 'core-corpus-projection is registered').toBeTruthy();
 
         expect(descriptor.getDueTask({
             state: {
-                githubWorkflowSync: {
+                'core-corpus-projection': {
                     lastRunAt    : 0,
                     lastSuccessAt: new Date(1200).toISOString()
                 }
             },
             now      : 1800,
-            intervals: {githubWorkflowSync: 1000},
-            enables  : {githubWorkflowSync: true}
+            intervals: {corpusProjection: 1000},
+            enables  : {corpusProjection: true}
         })).toBeNull();
 
         expect(descriptor.getDueTask({
             state: {
-                githubWorkflowSync: {
+                'core-corpus-projection': {
                     lastRunAt    : 0,
                     lastSuccessAt: new Date(1200).toISOString()
                 }
             },
             now      : 2200,
-            intervals: {githubWorkflowSync: 1000},
-            enables  : {githubWorkflowSync: true}
-        })).toMatchObject({taskName: 'githubWorkflowSync', source: 'periodic-sync'});
+            intervals: {corpusProjection: 1000},
+            enables  : {corpusProjection: true}
+        })).toMatchObject({taskName: 'core-corpus-projection', source: 'periodic-projection'});
     });
 
-    test('githubWorkflowSync failed terminal attempts also cool down retries (#13832)', () => {
-        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'githubWorkflowSync');
-        expect(descriptor, 'githubWorkflowSync is registered').toBeTruthy();
+    test('core-corpus-projection failed terminal attempts also cool down retries (#17627)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'core-corpus-projection');
+        expect(descriptor, 'core-corpus-projection is registered').toBeTruthy();
 
         expect(descriptor.getDueTask({
             state: {
-                githubWorkflowSync: {
+                'core-corpus-projection': {
                     lastRunAt  : 0,
                     lastErrorAt: new Date(1200).toISOString()
                 }
             },
             now      : 1800,
-            intervals: {githubWorkflowSync: 1000},
-            enables  : {githubWorkflowSync: true}
+            intervals: {corpusProjection: 1000},
+            enables  : {corpusProjection: true}
         })).toBeNull();
 
         expect(descriptor.getDueTask({
             state: {
-                githubWorkflowSync: {
+                'core-corpus-projection': {
                     lastRunAt  : 0,
                     lastErrorAt: new Date(1200).toISOString()
                 }
             },
             now      : 2200,
-            intervals: {githubWorkflowSync: 1000},
-            enables  : {githubWorkflowSync: true}
-        })).toMatchObject({taskName: 'githubWorkflowSync', source: 'periodic-sync'});
+            intervals: {corpusProjection: 1000},
+            enables  : {corpusProjection: true}
+        })).toMatchObject({taskName: 'core-corpus-projection', source: 'periodic-projection'});
     });
 
     test('continuous tasks (chroma/bridgeDaemon/mlx) are intentionally NOT in registry', () => {

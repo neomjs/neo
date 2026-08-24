@@ -20,6 +20,12 @@ import MemoryService         from '../../../../../../ai/services/memory-core/Mem
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 import {drainMemoryWal}      from './util.mjs';
+import {
+    beginCorpusProjection,
+    commitCorpusProjectionFacet,
+    CORPUS_PROJECTION_FACETS,
+    createCorpusProjectionReceipt
+} from '../../../../../../ai/services/graph/corpusProjectionContract.mjs';
 
 /**
  * Tenant isolation across `MemoryService.addMemory` / `listMemories` / `queryMemories`.
@@ -33,7 +39,7 @@ import {drainMemoryWal}      from './util.mjs';
  * side-effects, and the graph write path is not this spec's concern.
  */
 function createSpyCollection() {
-    const rows = new Map();
+    const rows       = new Map();
     const addCalls   = [];
     const getCalls   = [];
     const queryCalls = [];
@@ -225,9 +231,9 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         });
 
         const result = await MemoryService.listMemories({
-            sessionId       : 'session-hung-chroma',
-            limit           : 10,
-            chromaTimeoutMs : 5
+            sessionId      : 'session-hung-chroma',
+            limit          : 10,
+            chromaTimeoutMs: 5
         });
 
         expect(result).toMatchObject({
@@ -444,7 +450,7 @@ test.describe('MemoryService — raw-memory trust-tier filtering (#10292)', () =
 
     test('queryMemories filters by minTrustTier and returns provenance fields', async () => {
         spyCollection.rows.set('m-owner', {
-            id: 'm-owner',
+            id      : 'm-owner',
             metadata: {
                 agentIdentity: '@tobiu',
                 prompt       : 'owner',
@@ -454,7 +460,7 @@ test.describe('MemoryService — raw-memory trust-tier filtering (#10292)', () =
             document: 'owner'
         });
         spyCollection.rows.set('m-peer', {
-            id: 'm-peer',
+            id      : 'm-peer',
             metadata: {
                 agentIdentity: '@neo-gpt',
                 prompt       : 'peer',
@@ -464,7 +470,7 @@ test.describe('MemoryService — raw-memory trust-tier filtering (#10292)', () =
             document: 'peer'
         });
         spyCollection.rows.set('m-unclassified', {
-            id: 'm-unclassified',
+            id      : 'm-unclassified',
             metadata: {
                 prompt   : 'legacy',
                 sessionId: 's',
@@ -514,6 +520,30 @@ test.describe('MemoryService — context frontier trust-tier weighting (#10292)'
     let originalGetContextFrontier;
     let originalGetSummaryCollection;
     let spyCollection;
+    const projectionHeadA = 'a'.repeat(40);
+    const projectionHeadB = 'b'.repeat(40);
+
+    const createCurrentProjectionReceipt = () => {
+        let receipt = createCorpusProjectionReceipt({
+            sourceRepository: 'https://github.com/neomjs/neo.git',
+            sourceRef       : 'refs/heads/dev',
+            freshnessSlaMs  : 4 * 60 * 60 * 1000
+        });
+        receipt = beginCorpusProjection({receipt, availableRevision: projectionHeadA});
+
+        for (const facet of CORPUS_PROJECTION_FACETS) {
+            receipt = commitCorpusProjectionFacet({receipt, facet})
+        }
+
+        return receipt
+    };
+
+    const projectionConfig = {
+        enabled         : true,
+        receiptPath     : '/shared/deployment-state/core-corpus-projection.json',
+        sourceRepository: 'https://github.com/neomjs/neo.git',
+        sourceRef       : 'refs/heads/dev'
+    };
 
     test.beforeAll(async () => {
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -527,7 +557,7 @@ test.describe('MemoryService — context frontier trust-tier weighting (#10292)'
 
         originalGetContextFrontier = GraphService.getContextFrontier;
         GraphService.getContextFrontier = () => ({
-            frontier: {id: 'frontier'},
+            frontier          : {id: 'frontier'},
             strategicNeighbors: [
                 {
                     id              : 'external-node',
@@ -561,7 +591,7 @@ test.describe('MemoryService — context frontier trust-tier weighting (#10292)'
 
     test('getContextFrontier projects summary trust tiers and sorts by weighted score', async () => {
         spyCollection.rows.set('summary-external', {
-            id: 'summary-external',
+            id      : 'summary-external',
             metadata: {
                 sourceTrustTier: 'external',
                 timestamp      : 100
@@ -569,7 +599,7 @@ test.describe('MemoryService — context frontier trust-tier weighting (#10292)'
             document: 'external summary'
         });
         spyCollection.rows.set('summary-owner', {
-            id: 'summary-owner',
+            id      : 'summary-owner',
             metadata: {
                 sourceTrustTier: 'owner',
                 timestamp      : 200
@@ -577,7 +607,7 @@ test.describe('MemoryService — context frontier trust-tier weighting (#10292)'
             document: 'owner summary'
         });
         spyCollection.rows.set('summary-legacy', {
-            id: 'summary-legacy',
+            id      : 'summary-legacy',
             metadata: {
                 timestamp: 300
             },
@@ -609,5 +639,83 @@ test.describe('MemoryService — context frontier trust-tier weighting (#10292)'
             trustWeight  : 0.125,
             weightedScore: 0.1125
         });
+    });
+
+    test('D2 discards a Context Frontier view when the receipt changes during hydration', async () => {
+        const current = createCurrentProjectionReceipt();
+        const moved   = beginCorpusProjection({
+            receipt          : current,
+            availableRevision: projectionHeadB,
+            facets           : ['issues']
+        });
+        let reads = 0;
+
+        const view = await MemoryService.getContextFrontierWithProjection({
+            projectionConfig,
+            projectionCache      : new Map(),
+            readProjectionReceipt: async () => ++reads === 1 ? current : moved
+        });
+
+        expect(view).toMatchObject({
+            status             : 'withheld',
+            code               : 'CORPUS_PROJECTION_NOT_CURRENT',
+            projectionStatus   : 'unavailable',
+            projectionAdmission: {
+                admitted  : false,
+                reasonCode: 'required-facet-stale'
+            }
+        });
+        expect(view.topology).toBeUndefined()
+    });
+
+    test('D2 serves only the same tenant/source last-known-good Context Frontier while projection is stale', async () => {
+        const current = createCurrentProjectionReceipt();
+        const cache   = new Map();
+
+        const first = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.getContextFrontierWithProjection({
+                projectionConfig,
+                projectionCache      : cache,
+                readProjectionReceipt: async () => current
+            })
+        );
+
+        expect(first.projectionStatus).toBe('current');
+
+        const moved = beginCorpusProjection({
+            receipt          : current,
+            availableRevision: projectionHeadB,
+            facets           : ['issues']
+        });
+        const fallback = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.getContextFrontierWithProjection({
+                projectionConfig,
+                projectionCache      : cache,
+                readProjectionReceipt: async () => moved
+            })
+        );
+
+        expect(fallback).toMatchObject({
+            projectionStatus   : 'last-known-good',
+            topology           : first.topology,
+            projectionAdmission: {
+                admitted  : false,
+                reasonCode: 'required-facet-stale'
+            }
+        });
+
+        const otherTenant = await RequestContextService.run({userId: 'u-bob'}, () =>
+            MemoryService.getContextFrontierWithProjection({
+                projectionConfig,
+                projectionCache      : cache,
+                readProjectionReceipt: async () => moved
+            })
+        );
+
+        expect(otherTenant).toMatchObject({
+            status          : 'withheld',
+            projectionStatus: 'unavailable'
+        });
+        expect(otherTenant.topology).toBeUndefined()
     });
 });

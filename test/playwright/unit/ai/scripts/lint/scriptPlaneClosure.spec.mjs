@@ -618,14 +618,14 @@ export default {run() { try { return spawn('git', []); } catch (e) { return null
             expect(result.findings.map(f => f.kind)).toContain(FINDING.authorityConflictHost);
         });
 
-        test('AC-3 — githubWorkflowSync shape: authority host-edge AND a host closure AGREE', () => {
-            // The false negative the retired per-file classifier produced. Agreement must be silent:
-            // a rule that fires on the correct case has no teeth left for the wrong one.
+        test('AC-3 — core-corpus projection shape: container authority and clean closure agree', () => {
+            // The current one-writer lane. Agreement must be silent: a rule that fires on the
+            // correct case has no teeth left for the wrong one.
             const result = resolveEntrypointPlane({
-                closure: hostClosure, authorityClass: 'host-edge', taskName: 'githubWorkflowSync'
+                closure: cleanClosure, authorityClass: 'container-plane', taskName: 'core-corpus-projection'
             });
 
-            expect(result.plane).toBe('host-edge');
+            expect(result.plane).toBe('container-plane');
             expect(result.findings).toHaveLength(0);
         });
 

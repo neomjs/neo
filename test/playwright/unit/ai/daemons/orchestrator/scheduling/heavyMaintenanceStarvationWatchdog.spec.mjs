@@ -42,6 +42,30 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
         });
     });
 
+    test('a deferred core-corpus projection becomes a named starvation breach rather than silent staleness (#17627)', () => {
+        const now           = 10 * HOUR;
+        const deferredSince = new Date(now - 5 * HOUR).toISOString();
+        const evaluation    = evaluateWaiterStarvation({
+            ledgerReading: {
+                waiters   : [waiterEntry({taskName: 'core-corpus-projection', deferredSince})],
+                unreadable: []
+            },
+            now,
+            degradeAfterMs: 4 * HOUR,
+            leaseHolder   : 'backup'
+        });
+
+        expect(evaluation).toMatchObject({
+            posture : 'degraded',
+            breaches: [{
+                taskName    : 'core-corpus-projection',
+                deferredSince,
+                starvedForMs: 5 * HOUR,
+                leaseHolder : 'backup'
+            }]
+        });
+    });
+
     test('the degrade clears on acquisition — recomputed from the live ledger, never latched (#17049 AC3)', () => {
         const now      = 10 * HOUR;
         const breacher = waiterEntry({taskName: 'backup', deferredSince: new Date(now - 2 * HOUR).toISOString(), priorityZero: true});

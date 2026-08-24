@@ -3503,6 +3503,52 @@ components:
                     type: string
                     nullable: true
                     example: "dream"
+        corpusProjectionFreshness:
+          type: object
+          description: "Source-bound core-corpus projection freshness. `disabled` is explicit and non-degrading; `lagging` is inside the declared SLA; `breached` or enabled-but-`unavailable` degrades the aggregate healthcheck without blocking unrelated MCP tools."
+          properties:
+            status:
+              type: string
+              enum: [current, lagging, breached, unavailable, disabled]
+            posture:
+              type: string
+              enum: [healthy, pending, degraded, disabled]
+            reasonCodes:
+              type: array
+              items:
+                type: string
+            freshnessSlaMs:
+              type: number
+              nullable: true
+            sourceCheckAgeMs:
+              type: number
+              nullable: true
+            projectionLagAgeMs:
+              type: number
+              nullable: true
+            staleFacets:
+              type: array
+              items:
+                type: string
+                enum: [issues, pulls, discussions]
+            sourceRepository:
+              type: string
+              nullable: true
+            sourceRef:
+              type: string
+              nullable: true
+            availableCorpusRevision:
+              type: string
+              nullable: true
+            expectedSourceRepository:
+              type: string
+              nullable: true
+            expectedSourceRef:
+              type: string
+              nullable: true
+            error:
+              type: string
+              nullable: true
         memoryWalDrain:
           type: object
           description: "Memory WAL EMBED-drain backlog — the instrument `add_memory`'s `visibility` envelope tells callers to poll. Scoped to semantic recall: recency reads (`query_recent_turns`) are served from the WAL overlay and never wait on this backlog, so a non-zero depth does NOT mean recent turns are unreadable. Always present."

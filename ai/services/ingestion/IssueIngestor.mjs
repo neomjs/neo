@@ -8,17 +8,26 @@ import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
 import { Memory_GraphService as GraphService }   from '../../services.mjs';
 import logger                                    from '../../mcp/server/memory-core/logger.mjs';
 import {IDENTITIES}                              from '../../graph/identityRoots.mjs';
+import {CORPUS_PROJECTION_OWNER}                 from '../graph/corpusProjectionContract.mjs';
 import {
     normalizeDiscussionRoutingProjection as normalizeSourceDiscussionRoutingProjection
 } from '../github-workflow/shared/discussionRoutingDisposition.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __filename           = fileURLToPath(import.meta.url);
+const __dirname            = path.dirname(__filename);
+const DEFAULT_CONTENT_ROOT = path.resolve(__dirname, '../../../resources/content');
+const PULL_GAP_LABELS      = Object.freeze(['KB_GAP', 'TOOLING_GAP', 'RETROSPECTIVE']);
 
-const loadIndexMap = async (neoRootDir, type) => {
+/**
+ * @summary Loads the source revision's exact path→provider-id map for one corpus facet.
+ * @param {String} contentRoot Materialized `resources/content` root.
+ * @param {String} type Facet name.
+ * @returns {Promise<Map<String, *>>}
+ */
+const loadIndexMap = async (contentRoot, type) => {
     const map       = new Map();
-    const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
-    const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
+    const typeIndex = path.resolve(contentRoot, `${type}/_index.json`);
+    const rootIndex = path.resolve(contentRoot, '_index.json');
 
     let entries = [];
     if (fs.existsSync(typeIndex)) {
@@ -36,6 +45,138 @@ const loadIndexMap = async (neoRootDir, type) => {
 
     return map;
 };
+
+/**
+ * @summary Reads one field from a plain or Neo-record graph node.
+ * @param {Object} node Graph node.
+ * @param {String} field Field name.
+ * @returns {*}
+ */
+function readNodeField(node, field) {
+    return node?.isRecord ? node.get(field) : node?.[field]
+}
+
+/**
+ * @summary Validates and normalizes the exact source identity stamped on projection-owned rows.
+ * @param {Object|null} value Candidate projection context.
+ * @param {Boolean} [required=false] True refuses an absent context.
+ * @returns {Object|null}
+ */
+function normalizeProjectionContext(value, required = false) {
+    if (value == null && !required) return null;
+
+    if (!value || value.owner !== CORPUS_PROJECTION_OWNER ||
+        typeof value.sourceRepository !== 'string' || !value.sourceRepository.trim() ||
+        typeof value.sourceRef !== 'string' || !value.sourceRef.trim() ||
+        typeof value.sourceRevision !== 'string' || !/^[0-9a-f]{40}$/i.test(value.sourceRevision)) {
+        throw new Error('Projection reconciliation requires an exact source-bound projectionContext')
+    }
+
+    return {
+        owner           : value.owner,
+        sourceRepository: value.sourceRepository.trim(),
+        sourceRef       : value.sourceRef.trim(),
+        sourceRevision  : value.sourceRevision
+    }
+}
+
+/**
+ * @summary Converts a source-bound projection context into graph/vector metadata fields.
+ * @param {Object|null} projectionContext Normalized projection context.
+ * @returns {Object}
+ */
+function getProjectionMetadata(projectionContext) {
+    return projectionContext ? {
+        corpusProjectionOwner           : projectionContext.owner,
+        corpusProjectionSourceRepository: projectionContext.sourceRepository,
+        corpusProjectionSourceRef       : projectionContext.sourceRef,
+        corpusProjectionSourceRevision  : projectionContext.sourceRevision
+    } : {}
+}
+
+/**
+ * @summary Accepts this writer's rows plus pre-contract shared legacy rows, while excluding any
+ * explicitly foreign owner or tenant/user-stamped vector.
+ * @param {Object|null} metadata Graph properties or vector metadata.
+ * @param {Object} projectionContext Normalized projection context.
+ * @returns {Boolean}
+ */
+function isProjectionOwnedMetadata(metadata, projectionContext) {
+    const owner = metadata?.corpusProjectionOwner;
+
+    if (owner != null) return owner === projectionContext.owner;
+
+    return metadata?.userId == null &&
+        metadata?.user_id == null &&
+        metadata?.tenantId == null &&
+        metadata?.tenant == null &&
+        metadata?.sourceInstanceId == null &&
+        metadata?.sourceAssociation == null
+}
+
+/**
+ * @summary Reconciles source-removed rows from both structural and semantic graph stores.
+ * Every candidate is first enumerated without mutation; a failed vector census therefore cannot
+ * delete SQLite alone. If vector deletion fails after structural deletion, the surviving vector is
+ * rediscovered on retry and the facet cursor remains held.
+ * @param {Object} options
+ * @param {Set<String>} options.expectedGraphNodeIds Exact structural ids produced by the materialized facet.
+ * @param {Set<String>} [options.expectedVectorIds=options.expectedGraphNodeIds] Exact semantic ids
+ * retained by the materialized facet; CLOSED issues deliberately drop out here while their graph row remains.
+ * @param {String[]} options.graphLabels Structural labels owned by the facet.
+ * @param {Function} options.isOwnedGraphNode Predicate excluding foreign nodes sharing a label.
+ * @param {Object|null} [options.nodesCollection=null] Graph-vector collection.
+ * @param {String|null} [options.vectorType=null] Vector metadata type owned by the facet.
+ * @param {RegExp|null} [options.vectorIdPattern=null] Vector id ownership boundary.
+ * @param {Object} options.projectionContext Exact source-bound writer context.
+ * @returns {Promise<{removedGraphIds: String[], removedVectorIds: String[]}>}
+ */
+async function reconcileProjectionFacet({
+    expectedGraphNodeIds,
+    expectedVectorIds = expectedGraphNodeIds,
+    graphLabels,
+    isOwnedGraphNode,
+    nodesCollection = null,
+    vectorType = null,
+    vectorIdPattern = null,
+    projectionContext
+}) {
+    const persistedNodes  = GraphService.listSharedNodeRecordsByLabels(graphLabels);
+    const removedGraphIds = persistedNodes
+        .filter(node =>
+            isOwnedGraphNode(node) &&
+            isProjectionOwnedMetadata(readNodeField(node, 'properties'), projectionContext)
+        )
+        .map(node => readNodeField(node, 'id'))
+        .filter(id => !expectedGraphNodeIds.has(id));
+
+    let removedVectorIds = [];
+
+    if (nodesCollection && vectorType) {
+        const result = await nodesCollection.get({
+            where  : {type: vectorType},
+            include: ['metadatas']
+        });
+
+        const ids       = (result?.ids || []).flat();
+        const metadatas = (result?.metadatas || []).flat();
+
+        removedVectorIds = ids.filter((id, index) =>
+            typeof id === 'string' &&
+            (!vectorIdPattern || vectorIdPattern.test(id)) &&
+            isProjectionOwnedMetadata(metadatas[index], projectionContext) &&
+            !expectedVectorIds.has(id)
+        )
+    }
+
+    GraphService.removeNodes(removedGraphIds);
+
+    if (removedVectorIds.length > 0) {
+        await nodesCollection.delete({ids: removedVectorIds})
+    }
+
+    return {removedGraphIds, removedVectorIds}
+}
 
 /**
  * @class Neo.ai.daemons.services.IssueIngestor
@@ -138,12 +279,25 @@ class IssueIngestor extends Base {
      * into the Native Graph database. Re-asserts edge weights for OPEN issues, heavily discounting
      * any nodes structurally blocked via BLOCKED_BY relationships to prevent GraphRAG hallucinations.
      * Upserts textual issue embeddings into the localized `neo_graph_nodes` SQLite vector collection.
+     * @param {Object} [options]
+     * @param {String} [options.contentRoot=DEFAULT_CONTENT_ROOT] Exact-revision materialized corpus root.
+     * @param {Boolean} [options.strict=false] True rejects any otherwise-swallowed facet error so a
+     * projection receipt can advance only after error-free completion.
+     * @param {Boolean} [options.reconcile=false] True deletes source-absent ISSUE rows/vectors.
+     * @param {Object|null} [options.projectionContext=null] Exact source identity stamped on produced rows.
      * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
      */
-    async ingestIssueStates() {
-        const targetPaths = [
-            path.resolve(__dirname, '../../../resources/content/issues'),
-            path.resolve(__dirname, '../../../resources/content/archive/issues')
+    async ingestIssueStates({
+        contentRoot = DEFAULT_CONTENT_ROOT,
+        strict = false,
+        reconcile = false,
+        projectionContext = null
+    } = {}) {
+        projectionContext = normalizeProjectionContext(projectionContext, reconcile);
+        const projectionMetadata = getProjectionMetadata(projectionContext);
+        const targetPaths        = [
+            path.resolve(contentRoot, 'issues'),
+            path.resolve(contentRoot, 'archive/issues')
         ];
 
         const filesRaw = [];
@@ -154,11 +308,12 @@ class IssueIngestor extends Base {
                     filesRaw.push(...files.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Error reading issues from ${targetPath}`, e);
             }
         }
 
-        if (filesRaw.length === 0) {
+        if (filesRaw.length === 0 && !reconcile) {
             return [];
         }
 
@@ -166,9 +321,7 @@ class IssueIngestor extends Base {
         const openIssues   = [];
         const parsedIssues = [];
 
-        const neoRootDir  = path.resolve(__dirname, '../../..');
-        const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap    = await loadIndexMap(neoRootDir, 'issues');
+        const indexMap = await loadIndexMap(contentRoot, 'issues');
 
         let nodesCollection = null;
         if (StorageRouter) {
@@ -197,7 +350,8 @@ class IssueIngestor extends Base {
                             state     : meta.state,
                             properties: {
                                 state : meta.state,
-                                labels: Array.isArray(meta.labels) ? meta.labels : []
+                                labels: Array.isArray(meta.labels) ? meta.labels : [],
+                                ...projectionMetadata
                             },
                             updatedAt: meta.updatedAt || meta.createdAt
                         });
@@ -205,6 +359,7 @@ class IssueIngestor extends Base {
                         parsedIssues.push({ issueId, meta, content, filePath });
                     }
                 } catch (e) {
+                    if (strict) throw e;
                     logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
                 }
             }
@@ -306,9 +461,18 @@ class IssueIngestor extends Base {
                                 const exMeta = existing.metadatas[0] || {};
                                 if (exMeta.hash === contentHash) {
                                     needsEmbedding = false;
+
+                                    if (projectionContext && Object.entries(projectionMetadata)
+                                        .some(([key, value]) => exMeta[key] !== value)) {
+                                        await nodesCollection.update({
+                                            ids      : [issueId],
+                                            metadatas: [{...exMeta, hash: contentHash, title: meta.title, type: 'ISSUE', ...projectionMetadata}]
+                                        })
+                                    }
                                 }
                             }
                         } catch (e) {
+                            if (strict) throw e;
                             console.error("IssueIngestor GET error:", e);
                         }
 
@@ -317,7 +481,7 @@ class IssueIngestor extends Base {
                             await nodesCollection.upsert({
                                 ids      : [issueId],
                                 documents: [titleAndBody],
-                                metadatas: [{ hash: contentHash, title: meta.title, type: 'ISSUE' }]
+                                metadatas: [{hash: contentHash, title: meta.title, type: 'ISSUE', ...projectionMetadata}]
                             });
                         }
                     }
@@ -331,8 +495,24 @@ class IssueIngestor extends Base {
                     });
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Failed to link edges for ${filePath}`, e);
             }
+        }
+
+        if (reconcile) {
+            await reconcileProjectionFacet({
+                expectedGraphNodeIds: new Set(parsedIssues.map(item => item.issueId)),
+                expectedVectorIds   : new Set(openIssues.map(item => item.issueId)),
+                graphLabels         : ['ISSUE'],
+                isOwnedGraphNode(node) {
+                    return /^issue-\d+$/.test(readNodeField(node, 'id'))
+                },
+                nodesCollection,
+                vectorType     : 'ISSUE',
+                vectorIdPattern: /^issue-\d+$/,
+                projectionContext
+            })
         }
 
         return openIssues;
@@ -341,12 +521,24 @@ class IssueIngestor extends Base {
     /**
      * @summary Extracts Ideation Sandbox Discussion content to drive semantic and structural context.
      * Searches both active and archived discussion directories recursively.
+     * @param {Object} [options]
+     * @param {String} [options.contentRoot=DEFAULT_CONTENT_ROOT] Exact-revision materialized corpus root.
+     * @param {Boolean} [options.strict=false] True rejects directory/frontmatter errors for truthful facet completion.
+     * @param {Boolean} [options.reconcile=false] True deletes source-absent DISCUSSION rows/vectors.
+     * @param {Object|null} [options.projectionContext=null] Exact source identity stamped on produced rows.
      * @returns {Promise<void>}
      */
-    async ingestDiscussionStates() {
-        const targetPaths = [
-            path.resolve(__dirname, '../../../resources/content/discussions'),
-            path.resolve(__dirname, '../../../resources/content/archive/discussions')
+    async ingestDiscussionStates({
+        contentRoot = DEFAULT_CONTENT_ROOT,
+        strict = false,
+        reconcile = false,
+        projectionContext = null
+    } = {}) {
+        projectionContext = normalizeProjectionContext(projectionContext, reconcile);
+        const projectionMetadata = getProjectionMetadata(projectionContext);
+        const targetPaths        = [
+            path.resolve(contentRoot, 'discussions'),
+            path.resolve(contentRoot, 'archive/discussions')
         ];
 
         const files = [];
@@ -357,13 +549,12 @@ class IssueIngestor extends Base {
                     files.push(...items.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Error reading discussions from ${targetPath}`, e);
             }
         }
 
-        const neoRootDir  = path.resolve(__dirname, '../../..');
-        const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap    = await loadIndexMap(neoRootDir, 'discussions');
+        const indexMap = await loadIndexMap(contentRoot, 'discussions');
 
         const nodesCollection = await StorageRouter.getGraphCollection();
         const discussions     = new Map();
@@ -379,6 +570,7 @@ class IssueIngestor extends Base {
             try {
                 meta = yaml.load(match[1]);
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
                 continue;
             }
@@ -436,7 +628,8 @@ class IssueIngestor extends Base {
                     routingDispositionSchemaVersion,
                     routingDisposition,
                     routingDispositionReason,
-                    routingDispositionEvidence
+                    routingDispositionEvidence,
+                    ...projectionMetadata
                 }
             });
 
@@ -462,6 +655,20 @@ class IssueIngestor extends Base {
                 const exMeta = existing.metadatas[0] || {};
                 if (exMeta.hash === contentHash) {
                     needsEmbedding = false;
+
+                    if (projectionContext && Object.entries(projectionMetadata)
+                        .some(([key, value]) => exMeta[key] !== value)) {
+                        await nodesCollection.update({
+                            ids      : [discussionId],
+                            metadatas: [{
+                                ...exMeta,
+                                hash : contentHash,
+                                title: meta.title,
+                                type : 'DISCUSSION',
+                                ...projectionMetadata
+                            }]
+                        })
+                    }
                 }
             }
 
@@ -481,22 +688,49 @@ class IssueIngestor extends Base {
                         routingDispositionSchemaVersion,
                         routingDisposition,
                         routingDispositionReason,
-                        routingDispositionEvidence: JSON.stringify(routingDispositionEvidence)
+                        routingDispositionEvidence: JSON.stringify(routingDispositionEvidence),
+                        ...projectionMetadata
                     }]
                 });
             }
+        }
+
+        if (reconcile) {
+            await reconcileProjectionFacet({
+                expectedGraphNodeIds: new Set(discussions.keys()),
+                graphLabels         : ['DISCUSSION'],
+                isOwnedGraphNode(node) {
+                    return /^discussion-\d+$/.test(readNodeField(node, 'id'))
+                },
+                nodesCollection,
+                vectorType     : 'DISCUSSION',
+                vectorIdPattern: /^discussion-\d+$/,
+                projectionContext
+            })
         }
     }
 
     /**
      * @summary Performs dual-path semantic mining on active and archived PR review documents to extract heuristic tags.
      * Parses `[KB_GAP]`, `[TOOLING_GAP]`, and `[RETROSPECTIVE]` tags.
+     * @param {Object} [options]
+     * @param {String} [options.contentRoot=DEFAULT_CONTENT_ROOT] Exact-revision materialized corpus root.
+     * @param {Boolean} [options.strict=false] True rejects directory/frontmatter errors for truthful facet completion.
+     * @param {Boolean} [options.reconcile=false] True deletes source-absent PR and PR-gap graph rows.
+     * @param {Object|null} [options.projectionContext=null] Exact source identity stamped on produced rows.
      * @returns {Promise<void>}
      */
-    async ingestPullRequestFeedback() {
-        const targetPaths = [
-            path.resolve(__dirname, '../../../resources/content/pulls'),
-            path.resolve(__dirname, '../../../resources/content/archive/pulls')
+    async ingestPullRequestFeedback({
+        contentRoot = DEFAULT_CONTENT_ROOT,
+        strict = false,
+        reconcile = false,
+        projectionContext = null
+    } = {}) {
+        projectionContext = normalizeProjectionContext(projectionContext, reconcile);
+        const projectionMetadata = getProjectionMetadata(projectionContext);
+        const targetPaths        = [
+            path.resolve(contentRoot, 'pulls'),
+            path.resolve(contentRoot, 'archive/pulls')
         ];
 
         const files = [];
@@ -507,13 +741,13 @@ class IssueIngestor extends Base {
                     files.push(...items.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Error reading pull requests from ${targetPath}`, e);
             }
         }
 
-        const neoRootDir  = path.resolve(__dirname, '../../..');
-        const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap    = await loadIndexMap(neoRootDir, 'pulls');
+        const indexMap        = await loadIndexMap(contentRoot, 'pulls');
+        const expectedNodeIds = new Set();
 
         for (const filePath of files) {
             const content = fs.readFileSync(filePath, 'utf8');
@@ -528,14 +762,16 @@ class IssueIngestor extends Base {
                             id = meta.number || path.basename(filePath).replace(/\.md$/, '').replace(/^pr-/, '');
                         }
                         const prId = `pr-${id}`;
+                        expectedNodeIds.add(prId);
 
                         // Upsert the PR node structurally
                         GraphService.upsertNode({
-                            id       : prId,
-                            type     : 'PULL_REQUEST',
-                            name     : meta.title || prId,
-                            state    : meta.state,
-                            updatedAt: meta.updatedAt || meta.createdAt
+                            id        : prId,
+                            type      : 'PULL_REQUEST',
+                            name      : meta.title || prId,
+                            state     : meta.state,
+                            updatedAt : meta.updatedAt || meta.createdAt,
+                            properties: projectionMetadata
                         });
 
                         // Lexical scanning for tags
@@ -551,6 +787,7 @@ class IssueIngestor extends Base {
                                 // Generate deterministic ID based on PR and Gap Content
                                 const gapHash = crypto.createHash('md5').update(`${prId}-${gapType}-${gapContent}`).digest('hex');
                                 const gapNodeId = `GAP:${gapType}-${gapHash.substring(0, 8)}`;
+                                expectedNodeIds.add(gapNodeId);
 
                                 // Upsert Gap Node
                                 GraphService.upsertNode({
@@ -559,8 +796,9 @@ class IssueIngestor extends Base {
                                     name: `${gapType} from PR #${id}`,
                                     description: gapContent,
                                     properties: {
-                                        sourcePr: prId,
-                                        discoveredAt: meta.updatedAt || meta.createdAt
+                                        sourcePr    : prId,
+                                        discoveredAt: meta.updatedAt || meta.createdAt,
+                                        ...projectionMetadata
                                     }
                                 });
 
@@ -591,9 +829,28 @@ class IssueIngestor extends Base {
                         }
                     }
                 } catch (e) {
+                    if (strict) throw e;
                     logger.warn(`[IssueIngestor] Failed to process pull request feedback for ${filePath}`, e);
                 }
             }
+        }
+
+        if (reconcile) {
+            await reconcileProjectionFacet({
+                expectedGraphNodeIds: expectedNodeIds,
+                graphLabels         : ['PULL_REQUEST', ...PULL_GAP_LABELS],
+                isOwnedGraphNode(node) {
+                    const
+                        id         = readNodeField(node, 'id'),
+                        label      = readNodeField(node, 'label'),
+                        properties = readNodeField(node, 'properties');
+
+                    return label === 'PULL_REQUEST'
+                        ? /^pr-\d+$/.test(id)
+                        : PULL_GAP_LABELS.includes(label) && /^pr-\d+$/.test(properties?.sourcePr)
+                },
+                projectionContext
+            })
         }
     }
 }

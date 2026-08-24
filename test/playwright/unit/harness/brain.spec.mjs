@@ -119,7 +119,22 @@ test.describe('harness brain lifecycle', () => {
         // (ProcessSupervisorService.reconcileSingletonPort), so this list is a safety contract.
         const gates = Object.entries(profile).filter(([name]) => name.endsWith('_ENABLED'));
 
-        expect(gates.length).toBeGreaterThanOrEqual(14);
+        expect(gates.map(([name]) => name).sort()).toEqual([
+            'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED',
+            'NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED',
+            'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED',
+            'NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
+            'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_ENABLED',
+            'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_LMS_ENABLED',
+            'NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_MLX_ENABLED',
+            'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED',
+            'NEO_ORCHESTRATOR_OLLAMA_ENABLED',
+            'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED'
+        ]);
         gates.forEach(([, value]) => expect(value).toBe('0'))
     });
 

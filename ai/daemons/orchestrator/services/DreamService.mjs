@@ -16,7 +16,6 @@ import ConceptIngestor                                         from '../../../se
 import FileSystemIngestor                                      from '../../../services/memory-core/FileSystemIngestor.mjs';
 import GapInferenceEngine                                      from '../../../services/graph/GapInferenceEngine.mjs';
 import GraphMaintenanceService                                 from '../../../services/graph/GraphMaintenanceService.mjs';
-import IssueIngestor                                           from '../../../services/ingestion/IssueIngestor.mjs';
 import MemorySessionIngestor                                   from '../../../services/ingestion/MemorySessionIngestor.mjs';
 import SemanticGraphExtractor                                  from '../../../services/graph/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine                                 from '../../../services/graph/TopologyInferenceEngine.mjs';
@@ -43,6 +42,11 @@ import {
     computeSessionTurnInputRevision,
     resolveTurnDocumentForRead
 } from '../../../services/memory-core/helpers/turnDocumentText.mjs';
+import {
+    CORPUS_PROJECTION_CONSUMER,
+    evaluateCorpusProjectionAdmission
+} from '../../../services/graph/corpusProjectionContract.mjs';
+import {readCorpusProjectionReceipt} from '../../../services/graph/corpusProjectionReceiptStore.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -411,6 +415,45 @@ class DreamService extends Base {
     }
 
     /**
+     * @summary Resolves the D2 issues-facet admission at the REM graph-commit boundary.
+     * A failed admission excludes only ISSUE nodes/edges; the session's independent deterministic
+     * and semantic phases continue so projection lag cannot freeze the REM pipeline.
+     * @param {Object} [options]
+     * @param {Object} [options.config=AiConfig.orchestrator.corpusProjection]
+     * @param {Function} [options.readReceipt=readCorpusProjectionReceipt]
+     * @returns {Promise<Object>}
+     */
+    async getCorpusProjectionAdmission({
+        config = AiConfig.orchestrator.corpusProjection,
+        readReceipt = readCorpusProjectionReceipt
+    } = {}) {
+        if (!config.enabled) {
+            return {
+                admitted      : true,
+                fallback      : 'current',
+                reasonCode    : 'projection-gate-disabled',
+                requiredFacets: ['issues'],
+                staleFacets   : []
+            }
+        }
+
+        let receipt = null;
+
+        try {
+            receipt = await readReceipt(config.receiptPath)
+        } catch (error) {
+            logger.warn(`[DreamService] Corpus projection receipt unavailable at REM commit: ${error.message}`)
+        }
+
+        return evaluateCorpusProjectionAdmission({
+            consumer                : CORPUS_PROJECTION_CONSUMER.dreamRem,
+            receipt,
+            expectedSourceRepository: config.sourceRepository,
+            expectedSourceRef       : config.sourceRef
+        })
+    }
+
+    /**
      * @summary Runs the REM digest pipeline for sessions that are not yet marked graph-digested.
      *
      * The DreamService REM pipeline hydrates raw episodic memories, syncs deterministic
@@ -597,16 +640,17 @@ class DreamService extends Base {
                     logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
 
                     const sessionState = {
-                        sessionId          : session.meta.sessionId,
-                        payloadSizeTokens  : estimatePayloadTokens(session.document),
-                        memorySessionIngest: {status: 'skipped', errorReasons: []},
-                        triVector          : {status: 'skipped', attempts: 0},
-                        topology           : {status: 'skipped', conflictCount: 0},
-                        gapSession         : {status: 'skipped'},
-                        graphDigestedFlag  : false,
-                        dreamInputRevision : selectedDreamInputRevision,
+                        sessionId                : session.meta.sessionId,
+                        payloadSizeTokens        : estimatePayloadTokens(session.document),
+                        memorySessionIngest      : {status: 'skipped', errorReasons: []},
+                        triVector                : {status: 'skipped', attempts: 0},
+                        topology                 : {status: 'skipped', conflictCount: 0},
+                        gapSession               : {status: 'skipped'},
+                        corpusProjectionAdmission: null,
+                        graphDigestedFlag        : false,
+                        dreamInputRevision       : selectedDreamInputRevision,
                         processedInputRevision,
-                        failureReasons     : []
+                        failureReasons           : []
                     };
                     perSessionStates.push(sessionState);
 
@@ -674,7 +718,33 @@ class DreamService extends Base {
                     const startTime = Date.now();
                     let extractionResult;
                     try {
-                        extractionResult = await SemanticGraphExtractor.executeTriVectorExtraction(session);
+                        extractionResult = await SemanticGraphExtractor.executeTriVectorExtraction(session, {
+                            beforeCommit: async () => {
+                                const admissionStartedAt = Date.now();
+                                const admission          = await this.getCorpusProjectionAdmission();
+
+                                sessionState.corpusProjectionAdmission = admission;
+                                perPhaseStates.push(finishPhase(
+                                    'corpusProjectionAdmission',
+                                    admissionStartedAt,
+                                    admission.admitted ? 'completed' : 'skipped',
+                                    {
+                                        sessionId  : session.meta.sessionId,
+                                        reasonCode : admission.reasonCode,
+                                        staleFacets: admission.staleFacets
+                                    }
+                                ));
+
+                                if (!admission.admitted) {
+                                    logger.warn(
+                                        `[DreamService] REM continuing without ISSUE projection for ` +
+                                        `${session.meta.sessionId}: ${admission.reasonCode}`
+                                    )
+                                }
+
+                                return {excludedNodeTypes: admission.admitted ? [] : ['ISSUE']}
+                            }
+                        });
                     } catch (e) {
                         sessionState.triVector = {
                             status   : 'failed',
@@ -1299,33 +1369,6 @@ class DreamService extends Base {
      */
     async runMessageConceptHarvest() {
         return ConceptDiscoveryService.runMessageConceptHarvest();
-    }
-
-    /**
-     * @summary Parses the local file system for markdown files and explicitly syncs their state
-     * into the Native Graph database. Re-asserts edge weights for OPEN issues, heavily discounting
-     * any nodes structurally blocked via BLOCKED_BY relationships to prevent GraphRAG hallucinations.
-     * Upserts textual issue embeddings into the localized `neo_graph_nodes` SQLite vector collection.
-     * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
-     */
-    async ingestIssueStates() {
-        return IssueIngestor.ingestIssueStates();
-    }
-
-    /**
-     * Parses the local file system for markdown discussions and syncs their state
-     * into the Native Graph database as OPEN items so they can surface mathematically.
-     */
-    async ingestDiscussionStates() {
-        return IssueIngestor.ingestDiscussionStates();
-    }
-
-    /**
-     * Parses the local file system for pull request reviews and syncs their embedded
-     * gap signals ([KB_GAP], [TOOLING_GAP], [RETROSPECTIVE]) into the Native Graph database.
-     */
-    async ingestPullRequestFeedback() {
-        return IssueIngestor.ingestPullRequestFeedback();
     }
 
     /**

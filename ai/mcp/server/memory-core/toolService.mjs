@@ -31,7 +31,9 @@ import {
     projectVectorGenerationHealth,
     resolveVectorGenerationElectionDir
 }                                    from '../../../services/shared/vector/generationElectionStore.mjs';
-import MemoryCoreConfig     from './config.mjs';
+import {evaluateCorpusProjectionFreshness} from '../../../services/graph/corpusProjectionContract.mjs';
+import {readCorpusProjectionReceipt}       from '../../../services/graph/corpusProjectionReceiptStore.mjs';
+import MemoryCoreConfig                    from './config.mjs';
 import {
     admitCommunityBatch,
     areHostedCommunityToolsVisible,
@@ -200,6 +202,63 @@ const explorePullRequestHistoryOp = args => PullRequestHistoryService.explorePul
 
 const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
 
+/**
+ * @summary Reads the shared projection receipt and classifies its declared SLA for MC health.
+ * Disabled remains explicit but non-degrading; enabled missing/mismatched receipts are degraded.
+ * @param {Number} [now=Date.now()] Evaluation clock.
+ * @returns {Promise<Object>}
+ */
+async function readCorpusProjectionFreshness(now = Date.now()) {
+    const config = AiConfig.orchestrator.corpusProjection;
+
+    if (!config.enabled) {
+        return {
+            status                 : 'disabled',
+            posture                : 'disabled',
+            reasonCodes            : ['projection-disabled'],
+            staleFacets            : [],
+            sourceRepository       : config.sourceRepository || null,
+            sourceRef              : config.sourceRef || null,
+            availableCorpusRevision: null
+        }
+    }
+
+    try {
+        const receipt = await readCorpusProjectionReceipt(config.receiptPath);
+
+        if (!receipt) {
+            return evaluateCorpusProjectionFreshness({receipt, now})
+        }
+
+        if (receipt?.sourceRepository !== config.sourceRepository || receipt?.sourceRef !== config.sourceRef) {
+            return {
+                status                  : 'unavailable',
+                posture                 : 'degraded',
+                reasonCodes             : ['source-identity-mismatch'],
+                staleFacets             : ['issues', 'pulls', 'discussions'],
+                sourceRepository        : receipt?.sourceRepository ?? null,
+                sourceRef               : receipt?.sourceRef ?? null,
+                availableCorpusRevision : receipt?.availableCorpusRevision ?? null,
+                expectedSourceRepository: config.sourceRepository,
+                expectedSourceRef       : config.sourceRef
+            }
+        }
+
+        return evaluateCorpusProjectionFreshness({receipt, now})
+    } catch (error) {
+        return {
+            status                 : 'unavailable',
+            posture                : 'degraded',
+            reasonCodes            : ['receipt-read-failed'],
+            staleFacets            : ['issues', 'pulls', 'discussions'],
+            sourceRepository       : null,
+            sourceRef              : null,
+            availableCorpusRevision: null,
+            error                  : error.message
+        }
+    }
+}
+
 
 /**
  * @summary Reconciles base Memory Core health with measured WAL and orchestrator maintenance state.
@@ -217,6 +276,7 @@ const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
  * @param {Object} options.plane Observed Memory Core plane identity.
  * @param {Object|null} [options.vectorGeneration=null] Vector-generation election health.
  * @param {Object|null} [options.deploymentInspection=null] Current orchestrator bridge inspection.
+ * @param {Object|null} [options.corpusProjectionFreshness=null] Shared receipt SLA classification.
  * @param {Number} [options.starvationNow=Date.now()] Receipt-freshness clock.
  * @param {Number|null} [options.starvationStaleAfterMs=null] Receipt-freshness bound.
  * @returns {Object}
@@ -227,6 +287,7 @@ export function composeMemoryCoreHealthcheck({
     plane,
     vectorGeneration = null,
     deploymentInspection = null,
+    corpusProjectionFreshness = null,
     starvationNow = Date.now(),
     starvationStaleAfterMs = null
 }) {
@@ -238,13 +299,14 @@ export function composeMemoryCoreHealthcheck({
             observationStatus: deploymentInspection?.status ?? 'unavailable',
             backup           : backupHealth
         },
-        response       = {...health, memoryWalDrain, plane, vectorGeneration, maintenance},
+        response       = {...health, memoryWalDrain, plane, vectorGeneration, maintenance, corpusProjectionFreshness},
         drainStalled   = memoryWalDrain.state === 'stalled',
-        backupDegraded = backupHealth?.status === 'degraded';
+        backupDegraded = backupHealth?.status === 'degraded',
+        projectionDegraded = corpusProjectionFreshness?.posture === 'degraded';
 
     let composed = response;
 
-    if (drainStalled || backupDegraded) {
+    if (drainStalled || backupDegraded || projectionDegraded) {
         const details = Array.isArray(health.details)
             ? health.details.filter(detail => detail !== ALL_FEATURES_OPERATIONAL_DETAIL)
             : [];
@@ -263,6 +325,15 @@ export function composeMemoryCoreHealthcheck({
                 : 'see maintenance.backup';
 
             details.push(`Backup maintenance is degraded: ${reasonCodes}.`)
+        }
+
+        if (projectionDegraded) {
+            const reasonCodes = Array.isArray(corpusProjectionFreshness.reasonCodes) &&
+                corpusProjectionFreshness.reasonCodes.length > 0
+                ? corpusProjectionFreshness.reasonCodes.join(', ')
+                : 'see corpusProjectionFreshness';
+
+            details.push(`Core corpus projection freshness is degraded: ${reasonCodes}.`)
         }
 
         composed = {
@@ -387,9 +458,10 @@ const serviceMapping = {
     // would only relocate the uncertainty: a caller told "queryability is deferred" needs somewhere
     // to CONFIRM visibility rather than a caveat and no instrument.
     healthcheck                 : async args => composeMemoryCoreHealthcheck({
-        health        : await HealthService.healthcheck(args),
-        memoryWalDrain: await MemoryService.describeDrainState(),
-        plane         : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot},
+        health                   : await HealthService.healthcheck(args),
+        memoryWalDrain           : await MemoryService.describeDrainState(),
+        plane                    : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot},
+        corpusProjectionFreshness: await readCorpusProjectionFreshness(),
         // Fresh bridge truth only. `composeMemoryCoreHealthcheck` keeps stale/unavailable
         // observations explicit but prevents either from authorizing a backup degradation.
         deploymentInspection: await readDeploymentInspection(),

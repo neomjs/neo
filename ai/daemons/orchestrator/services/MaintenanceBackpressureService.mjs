@@ -67,7 +67,7 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'memory-summary-backfill',
     'kbSync',
-    'githubWorkflowSync',
+    'core-corpus-projection',
     'backup',
     'graphlog-compaction',
     'primary-dev-sync',

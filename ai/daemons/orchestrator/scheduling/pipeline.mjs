@@ -32,7 +32,7 @@ export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
     summary                  : 'summarySweep',
     'memory-summary-backfill': 'summarySweep',
     kbSync                   : 'kbSync',
-    githubWorkflowSync       : 'githubWorkflowSync',
+    'core-corpus-projection' : 'corpusProjection',
     backup                   : 'backup',
     'graphlog-compaction'    : 'graphLogCompaction',
     'primary-dev-sync'       : 'primaryDevSync',
@@ -117,7 +117,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             intervals: {
                 summarySweep                           : config.orchestrator.intervals.summarySweepMs,
                 kbSync                                 : config.orchestrator.intervals.kbSyncMs,
-                githubWorkflowSync                     : config.orchestrator.intervals.githubWorkflowSyncMs,
+                corpusProjection                       : config.orchestrator.intervals.corpusProjectionMs,
                 backup                                 : config.orchestrator.intervals.backupMs,
                 backupRetryDelay                       : config.orchestrator.intervals.backupRetryDelayMs,
                 backupRetryWindow                      : config.orchestrator.intervals.backupRetryWindowMs,
@@ -142,7 +142,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
-                githubWorkflowSync: orchestrator.githubWorkflowSyncEnabled,
+                corpusProjection  : orchestrator.corpusProjectionEnabled,
                 graphLogCompaction: orchestrator.graphLogCompactionEnabled,
                 primaryDevSync    : orchestrator.primaryDevSyncEnabled,
                 tenantRepoSync    : orchestrator.tenantRepoSyncEnabled,

@@ -83,7 +83,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
             'dream',
-            'githubWorkflowSync',
+            'core-corpus-projection',
             'graphlog-compaction',
             'kbSync',
             'memory-summary-backfill',

@@ -13,15 +13,15 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
-import fs                    from 'fs';
-import path                  from 'path';
-import os                    from 'os';
-import child_process         from 'child_process';
+import {test, expect}              from '@playwright/test';
+import Neo                         from '../../../../../../src/Neo.mjs';
+import * as core                   from '../../../../../../src/core/_export.mjs';
+import fs                          from 'fs';
+import path                        from 'path';
+import os                          from 'os';
+import child_process               from 'child_process';
 import {resolveCrossFamilyVerdict} from '../../../../../../ai/services/graph/agentFamilyResolution.mjs';
-import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {TestLifecycleHelper}       from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.describe.configure({mode: 'serial'});
@@ -616,6 +616,54 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('### @neo-gpt');
         expect(handoffContent).not.toContain('### @neo-opus-grace');
         expect(handoffContent).not.toContain('stale author-grouped PR entry');
+    });
+
+    test('D2 publish recheck discards a pass whose receipt fingerprint moves after live-store reads (#17627)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalAdmission            = GoldenPathSynthesizer.constructor.getCorpusProjectionAdmission;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-path-projection-race-'));
+        let   admissionReads               = 0;
+
+        aiConfig.vectorDimension = 2;
+        fs.writeFileSync(tmpHandoffFile, '# Last-known-good race handoff\n', 'utf8');
+        StorageRouter.getGraphCollection = async () => ({query: async () => ({ids: [[]], distances: [[]]})});
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['mock document']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        GoldenPathSynthesizer.constructor.getCorpusProjectionAdmission = async () => ({
+            admitted      : true,
+            fallback      : 'current',
+            reasonCode    : 'projection-current',
+            requiredFacets: ['issues', 'discussions'],
+            staleFacets   : [],
+            fingerprint   : ++admissionReads === 1 ? 'receipt-A' : 'receipt-B'
+        });
+
+        try {
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, repoEnrichmentEnabled: false});
+
+            expect(outcome).toMatchObject({
+                status      : 'withheld',
+                reasonCode  : 'corpus-projection-changed-during-read',
+                wroteHandoff: false,
+                admission   : {
+                    admitted  : false,
+                    reasonCode: 'projection-changed-during-read'
+                }
+            });
+            expect(admissionReads).toBe(2);
+            expect(fs.readFileSync(tmpHandoffFile, 'utf8')).toBe('# Last-known-good race handoff\n')
+        } finally {
+            GoldenPathSynthesizer.constructor.getCorpusProjectionAdmission = originalAdmission;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText = originalEmbedText;
+            fs.rmSync(issuesDir, {recursive: true, force: true})
+        }
     });
 
     test('synthesizeGoldenPath splits the Concept Slice to a fresh idempotent companion, incl. the degraded path (#14885)', async () => {
@@ -2023,6 +2071,188 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain(`${readyId}**: Score 13.50 (Semantic: 5.00, Structural: 3.50)`);
         expect(handoffContent).not.toContain(notReadyId);
         expect(handoffContent).not.toContain(blockedId);
+    });
+
+    test('D2 admission withholds before both stores and preserves the last-known-good handoff (#17627)', async () => {
+        const originalEnabled             = aiConfig.orchestrator.corpusProjection.enabled;
+        const originalReceiptPathOverride = aiConfig.orchestrator.corpusProjection.receiptPathOverride;
+        const originalSourceRepository    = aiConfig.orchestrator.corpusProjection.sourceRepository;
+        const originalSourceRef           = aiConfig.orchestrator.corpusProjection.sourceRef;
+        const originalGetGraphCollection  = StorageRouter.getGraphCollection;
+        const receiptDir                  = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-path-projection-gate-'));
+        const receiptPath                 = path.join(receiptDir, 'projection.json');
+        const HEAD_A                      = 'a'.repeat(40);
+        const HEAD_B                      = 'b'.repeat(40);
+        const {
+            beginCorpusProjection,
+            commitCorpusProjectionFacet,
+            createCorpusProjectionReceipt
+        } = await import('../../../../../../ai/services/graph/corpusProjectionContract.mjs');
+        const {writeCorpusProjectionReceipt} = await import('../../../../../../ai/services/graph/corpusProjectionReceiptStore.mjs');
+
+        let receipt = createCorpusProjectionReceipt({
+            sourceRepository: 'https://github.com/neomjs/neo.git',
+            sourceRef       : 'refs/heads/dev',
+            freshnessSlaMs  : 4 * 60 * 60 * 1000
+        });
+        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_A});
+        for (const facet of ['issues', 'pulls', 'discussions']) {
+            receipt = commitCorpusProjectionFacet({receipt, facet})
+        }
+        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_B});
+        receipt = commitCorpusProjectionFacet({receipt, facet: 'discussions'});
+        await writeCorpusProjectionReceipt(receiptPath, receipt);
+
+        aiConfig.orchestrator.corpusProjection.enabled = true;
+        aiConfig.orchestrator.corpusProjection.receiptPathOverride = receiptPath;
+        aiConfig.orchestrator.corpusProjection.sourceRepository = 'https://github.com/neomjs/neo.git';
+        aiConfig.orchestrator.corpusProjection.sourceRef = 'refs/heads/dev';
+        StorageRouter.getGraphCollection = async () => {
+            throw new Error('D2 gate read Chroma despite a stale required facet')
+        };
+        fs.writeFileSync(tmpHandoffFile, '# Last-known-good handoff\n', 'utf8');
+
+        try {
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+
+            expect(outcome).toMatchObject({
+                status      : 'withheld',
+                reasonCode  : 'corpus-projection-not-current',
+                wroteHandoff: false,
+                admission   : {
+                    fallback   : 'last-known-good',
+                    staleFacets: ['issues']
+                }
+            });
+            expect(fs.readFileSync(tmpHandoffFile, 'utf8')).toBe('# Last-known-good handoff\n')
+        } finally {
+            aiConfig.orchestrator.corpusProjection.enabled = originalEnabled;
+            aiConfig.orchestrator.corpusProjection.receiptPathOverride = originalReceiptPathOverride;
+            aiConfig.orchestrator.corpusProjection.sourceRepository = originalSourceRepository;
+            aiConfig.orchestrator.corpusProjection.sourceRef = originalSourceRef;
+            StorageRouter.getGraphCollection = originalGetGraphCollection;
+            fs.rmSync(receiptDir, {recursive: true, force: true})
+        }
+    });
+
+    test('Decision-D witness: Golden Path publishes from SQLite after same-facet Chroma rejection (#17627)', async () => {
+        const originalExistsSync           = fs.existsSync;
+        const originalReadFile             = fs.promises.readFile;
+        const originalReaddir              = fs.promises.readdir;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const IssueIngestor                = (await import('../../../../../../ai/services/ingestion/IssueIngestor.mjs')).default;
+        const issueNumber                  = 980000 + (Date.now() % 10000);
+        const issueId                      = `issue-${issueNumber}`;
+        const fileName                     = `issue-${issueNumber}.md`;
+        const currentTitle                 = 'Current SQLite title after rejected semantic projection';
+        const issueSource                  = [
+            '---',
+            `id: ${issueNumber}`,
+            `title: '${currentTitle}'`,
+            'state: OPEN',
+            'labels:',
+            '  - bug',
+            '  - ai',
+            "createdAt: '2026-08-24T00:00:00Z'",
+            "updatedAt: '2026-08-24T01:00:00Z'",
+            '---',
+            '# Current corpus body',
+            '',
+            'This replacement should require a fresh semantic vector.'
+        ].join('\n');
+        const staleSemanticCollection = {
+            count: async () => 1,
+            get  : async () => ({
+                ids      : [issueId],
+                metadatas: [{hash: 'stale-generation', title: 'Stale semantic title', type: 'ISSUE'}]
+            }),
+            query : async () => ({ids: [[issueId]], distances: [[0.1]]}),
+            upsert: async () => {
+                throw new Error('Decision-D injected Chroma rejection')
+            }
+        };
+
+        StorageRouter.getGraphCollection = async () => staleSemanticCollection;
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async config => Array.isArray(config?.ids)
+                ? {ids: ['summary-decision-d'], documents: ['Stale semantic route still points at the issue']}
+                : {ids: ['summary-decision-d'], metadatas: [{timestamp: '2026-08-24T01:00:00.000Z', graphDigested: true}]}
+        });
+        TextEmbeddingService.embedText = async () => buildConfiguredEmbedding();
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"Decision-D witness"}'});
+
+        fs.existsSync = candidate => {
+            const normalized = String(candidate).replace(/\\/g, '/');
+
+            if (normalized.endsWith('/resources/content/archive/issues')) return false;
+            if (normalized.endsWith('/resources/content/issues')) return true;
+
+            return originalExistsSync(candidate)
+        };
+        fs.promises.readdir = async (directory, options) => {
+            const normalized = String(directory).replace(/\\/g, '/');
+
+            if (normalized.endsWith('/resources/content/issues')) return [fileName];
+            if (normalized.endsWith('/resources/content/archive/issues')) return [];
+
+            return originalReaddir.call(fs.promises, directory, options)
+        };
+        fs.promises.readFile = async (filePath, encoding) => String(filePath).endsWith(fileName)
+            ? issueSource
+            : originalReadFile.call(fs.promises, filePath, encoding);
+
+        try {
+            // Real IssueIngestor control flow: SQLite commits first, the Chroma write rejects later,
+            // the per-item catch swallows it, and the facet returns normally without this open issue.
+            const projected = await IssueIngestor.ingestIssueStates();
+            const persisted = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(issueId);
+
+            expect(projected).toEqual([]);
+            expect(JSON.parse(persisted.data)).toMatchObject({
+                id        : issueId,
+                label     : 'ISSUE',
+                properties: {
+                    labels: ['bug', 'ai'],
+                    name  : currentTitle,
+                    state : 'OPEN'
+                }
+            });
+
+            // Stop intercepting corpus reads before the consumer probe. The injected semantic
+            // collection intentionally still exposes the stale candidate id from the failed facet.
+            fs.existsSync          = originalExistsSync;
+            fs.promises.readdir    = originalReaddir;
+            fs.promises.readFile   = originalReadFile;
+
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({
+                now                  : new Date('2026-08-24T01:05:00.000Z'),
+                repoEnrichmentEnabled: false
+            });
+            const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf8');
+
+            expect(outcome.status).toBe('completed');
+            expect(handoffContent).toContain(`${issueId}**:`);
+            expect(handoffContent).toContain(currentTitle);
+        } finally {
+            fs.existsSync                         = originalExistsSync;
+            fs.promises.readdir                   = originalReaddir;
+            fs.promises.readFile                  = originalReadFile;
+            StorageRouter.getGraphCollection      = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection    = originalGetSummaryCollection;
+            TextEmbeddingService.embedText        = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs    = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate   = originalGenerate;
+
+            if (GraphService.db?.nodes?.get(issueId)) {
+                GraphService.db.removeNode(issueId)
+            }
+        }
     });
 
     test('synthesizeGoldenPath renders degraded diagnostics when semantic vector query fails (#13978)', async () => {
