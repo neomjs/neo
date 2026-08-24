@@ -843,7 +843,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-24T10:30:05Z</lastmod>
+    <lastmod>2026-08-24T11:47:12Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2199,6 +2199,14 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/17701</loc>
+    <lastmod>2026-08-24T11:46:03Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17699</loc>
+    <lastmod>2026-08-24T11:46:03Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/17697</loc>
     <lastmod>2026-08-24T10:55:35Z</lastmod>
   </url>
@@ -2588,7 +2596,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17500</loc>
-    <lastmod>2026-08-24T09:06:33Z</lastmod>
+    <lastmod>2026-08-24T11:46:03Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17499</loc>
@@ -3752,7 +3760,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16992</loc>
-    <lastmod>2026-08-11T17:17:36Z</lastmod>
+    <lastmod>2026-08-24T11:46:03Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16991</loc>
@@ -11204,7 +11212,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13376</loc>
-    <lastmod>2026-07-05T11:29:38Z</lastmod>
+    <lastmod>2026-08-24T11:46:03Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13373</loc>
@@ -11924,7 +11932,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13012</loc>
-    <lastmod>2026-07-16T07:29:40Z</lastmod>
+    <lastmod>2026-08-24T11:46:09Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13011</loc>
@@ -48621,6 +48629,11 @@
   <url>
     <loc>https://neomjs.com/news/tickets/1</loc>
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/17700</loc>
+    <lastmod>2026-08-24T11:46:13Z</lastmod>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17698</loc>
