@@ -71,3 +71,240 @@ test.describe('nightlyE2eRunner.runConfig — stale-report suppression guard (#1
         expect(outcome.failures[0].title).toBe('boom');
     });
 });
+
+/**
+ * The delivery paths, which is where the reporting silences lived. Every collaborator is injected,
+ * so each arm asserts a decision the runner made rather than a service's availability.
+ */
+test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake tier (#17691)', () => {
+    let runNightlyE2e, cwd, tmpDir;
+
+    const
+        stateFile  = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
+        readState  = async () => fs.readJson(stateFile()),
+        redOutcome = entry => ({
+            config  : entry.config,
+            failures: [{title: 'a failing spec', file: 'x.spec.mjs', error: 'boom'}],
+            note    : '',
+            output  : '',
+            ran     : true
+        }),
+        greenOutcome = entry => ({config: entry.config, failures: [], note: '', output: '', ran: true});
+
+    test.beforeAll(async () => {
+        runNightlyE2e = (await import('../../../../../../ai/scripts/lifecycle/nightlyE2eRunner.mjs')).runNightlyE2e;
+    });
+
+    test.beforeEach(async () => {
+        cwd    = process.cwd();
+        tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nightly-e2e-delivery-'));
+        process.chdir(tmpDir)
+    });
+
+    test.afterEach(async () => {
+        process.chdir(cwd);
+        await fs.remove(tmpDir)
+    });
+
+    test('a RED digest opts OUT of wake suppression — a red suite is action-required, not drain-class', async () => {
+        // `AGENT:*` defaults to suppressed, so inheriting that default would land a red suite
+        // silently in mailboxes carrying thousands unread.
+        const sent = [];
+
+        const result = await runNightlyE2e({
+            addMessage    : async options => { sent.push(options) },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        });
+
+        expect(result).toMatchObject({red: true, sent: true});
+        expect(sent).toHaveLength(1);
+        expect(sent[0].wakeSuppressed).toBe(false);
+        expect(sent[0].to).toBe('AGENT:*');
+        expect(sent[0].subject).toContain('[nightly-e2e][RED]')
+    });
+
+    test('a GREEN run sends nothing and wakes nobody', async () => {
+        const sent = [];
+
+        const result = await runNightlyE2e({
+            addMessage    : async options => { sent.push(options) },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : greenOutcome
+        });
+
+        expect(result).toMatchObject({red: false, sent: false});
+        expect(sent).toEqual([]);
+        expect(await readState()).toMatchObject({red: false, digest: 'not-required'})
+    });
+
+    test('delivery is RECORDED, not derived: a successful send writes `sent`', async () => {
+        await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        });
+
+        expect(await readState()).toMatchObject({red: true, digest: 'sent'})
+    });
+
+    test('a THROWING send records `failed` durably and rethrows — the red is not lost', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('mailbox unreachable') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('mailbox unreachable');
+
+        expect(await readState()).toMatchObject({
+            red        : true,
+            digest     : 'failed',
+            digestError: 'mailbox unreachable'
+        })
+    });
+
+    test('a crash BEFORE the send leaves `pending` standing, never `sent`', async () => {
+        // The state that used to be indistinguishable from success: the receipt is written before
+        // the attempt, so an undelivered digest cannot be re-derived as delivered.
+        await expect(runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => { throw new Error('graph never became ready') },
+            runOne        : redOutcome
+        })).rejects.toThrow('graph never became ready');
+
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+    });
+
+    test('the lock is released on the failure path too', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('nope') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('nope');
+
+        expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
+    });
+
+    // ── across-run preservation ──────────────────────────────────────────────────────────────────
+    // Every arm above proves a single invocation records its own disposition honestly. None of them
+    // can fail when the NEXT run overwrites the receipt, because none of them runs twice — which is
+    // exactly how an undelivered red survived review while every per-run assertion stayed green.
+
+    test('a GREEN run cannot erase an unsent red — the undelivered digest is carried forward', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('mailbox unreachable') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('mailbox unreachable');
+
+        const afterRed = await readState();
+
+        expect(afterRed).toMatchObject({red: true, digest: 'failed'});
+
+        // The night after: suite recovers, nothing to report. Before the carry existed this write
+        // replaced the document above and the unreported red left no trace on any surface.
+        const result = await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : greenOutcome
+        });
+
+        expect(result).toMatchObject({red: false, sent: false});
+
+        const afterGreen = await readState();
+
+        expect(afterGreen).toMatchObject({red: false, digest: 'not-required'});
+        expect(afterGreen.unresolvedRed).toMatchObject({digest: 'failed', at: afterRed.at});
+    });
+
+    test('a green run after a DELIVERED red carries nothing — the carry is conditional, not decorative', async () => {
+        await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        });
+
+        expect(await readState()).toMatchObject({red: true, digest: 'sent'});
+
+        await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : greenOutcome
+        });
+
+        // A field that is always populated stops being read. This is the control that keeps the arm
+        // above honest: it fails if the carry is written unconditionally.
+        expect(await readState()).not.toHaveProperty('unresolvedRed');
+    });
+
+    test('the EARLIEST unreported red survives a chain of later runs', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('first miss') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('first miss');
+
+        const firstAt = (await readState()).at;
+
+        for (const note of ['second night', 'third night']) {
+            await runNightlyE2e({
+                addMessage    : async () => {},
+                graphReady    : async () => {},
+                lifecycleReady: async () => {},
+                runOne        : greenOutcome
+            });
+            expect(await readState(), note).toBeTruthy()
+        }
+
+        // Not the most recent miss — the FIRST one. A chain that re-stamps the carry each night would
+        // report the latest green's predecessor and quietly lose the run that actually went unreported.
+        expect((await readState()).unresolvedRed).toMatchObject({digest: 'failed', at: firstAt});
+    });
+
+    test('a DELIVERED digest clears the carry — reporting the suite discharges the earlier miss', async () => {
+        await expect(runNightlyE2e({
+            addMessage    : async () => { throw new Error('missed') },
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        })).rejects.toThrow('missed');
+
+        await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : redOutcome
+        });
+
+        const state = await readState();
+
+        expect(state).toMatchObject({red: true, digest: 'sent'});
+        expect(state).not.toHaveProperty('unresolvedRed');
+    });
+
+    test('an UNREADABLE prior receipt fails closed — a broken chain is not a clean one', async () => {
+        await fs.ensureDir(path.dirname(stateFile()));
+        await fs.writeFile(stateFile(), '{ this is not json', 'utf8');
+
+        await runNightlyE2e({
+            addMessage    : async () => {},
+            graphReady    : async () => {},
+            lifecycleReady: async () => {},
+            runOne        : greenOutcome
+        });
+
+        // Absent and unparseable are different facts. Collapsing them to `null` would let a corrupt
+        // receipt read as a clean first run — the reader would inherit a green it never earned.
+        expect((await readState()).unresolvedRed).toMatchObject({digest: 'unknown', reason: 'prior receipt unreadable'});
+    });
+});
