@@ -2025,6 +2025,126 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain(blockedId);
     });
 
+    test('Decision-D witness: Golden Path publishes from SQLite after same-facet Chroma rejection (#17627)', async () => {
+        const originalExistsSync           = fs.existsSync;
+        const originalReadFile             = fs.promises.readFile;
+        const originalReaddir              = fs.promises.readdir;
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const IssueIngestor                = (await import('../../../../../../ai/services/ingestion/IssueIngestor.mjs')).default;
+        const issueNumber                  = 980000 + (Date.now() % 10000);
+        const issueId                      = `issue-${issueNumber}`;
+        const fileName                     = `issue-${issueNumber}.md`;
+        const currentTitle                 = 'Current SQLite title after rejected semantic projection';
+        const issueSource                  = [
+            '---',
+            `id: ${issueNumber}`,
+            `title: '${currentTitle}'`,
+            'state: OPEN',
+            'labels:',
+            '  - bug',
+            '  - ai',
+            "createdAt: '2026-08-24T00:00:00Z'",
+            "updatedAt: '2026-08-24T01:00:00Z'",
+            '---',
+            '# Current corpus body',
+            '',
+            'This replacement should require a fresh semantic vector.'
+        ].join('\n');
+        const staleSemanticCollection = {
+            count: async () => 1,
+            get  : async () => ({
+                ids      : [issueId],
+                metadatas: [{hash: 'stale-generation', title: 'Stale semantic title', type: 'ISSUE'}]
+            }),
+            query : async () => ({ids: [[issueId]], distances: [[0.1]]}),
+            upsert: async () => {
+                throw new Error('Decision-D injected Chroma rejection')
+            }
+        };
+
+        StorageRouter.getGraphCollection = async () => staleSemanticCollection;
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async config => Array.isArray(config?.ids)
+                ? {ids: ['summary-decision-d'], documents: ['Stale semantic route still points at the issue']}
+                : {ids: ['summary-decision-d'], metadatas: [{timestamp: '2026-08-24T01:00:00.000Z', graphDigested: true}]}
+        });
+        TextEmbeddingService.embedText = async () => buildConfiguredEmbedding();
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"Decision-D witness"}'});
+
+        fs.existsSync = candidate => {
+            const normalized = String(candidate).replace(/\\/g, '/');
+
+            if (normalized.endsWith('/resources/content/archive/issues')) return false;
+            if (normalized.endsWith('/resources/content/issues')) return true;
+
+            return originalExistsSync(candidate)
+        };
+        fs.promises.readdir = async (directory, options) => {
+            const normalized = String(directory).replace(/\\/g, '/');
+
+            if (normalized.endsWith('/resources/content/issues')) return [fileName];
+            if (normalized.endsWith('/resources/content/archive/issues')) return [];
+
+            return originalReaddir.call(fs.promises, directory, options)
+        };
+        fs.promises.readFile = async (filePath, encoding) => String(filePath).endsWith(fileName)
+            ? issueSource
+            : originalReadFile.call(fs.promises, filePath, encoding);
+
+        try {
+            // Real IssueIngestor control flow: SQLite commits first, the Chroma write rejects later,
+            // the per-item catch swallows it, and the facet returns normally without this open issue.
+            const projected = await IssueIngestor.ingestIssueStates();
+            const persisted = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(issueId);
+
+            expect(projected).toEqual([]);
+            expect(JSON.parse(persisted.data)).toMatchObject({
+                id        : issueId,
+                label     : 'ISSUE',
+                properties: {
+                    labels: ['bug', 'ai'],
+                    name  : currentTitle,
+                    state : 'OPEN'
+                }
+            });
+
+            // Stop intercepting corpus reads before the consumer probe. The injected semantic
+            // collection intentionally still exposes the stale candidate id from the failed facet.
+            fs.existsSync          = originalExistsSync;
+            fs.promises.readdir    = originalReaddir;
+            fs.promises.readFile   = originalReadFile;
+
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({
+                now                  : new Date('2026-08-24T01:05:00.000Z'),
+                repoEnrichmentEnabled: false
+            });
+            const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf8');
+
+            expect(outcome.status).toBe('completed');
+            expect(handoffContent).toContain(`${issueId}**:`);
+            expect(handoffContent).toContain(currentTitle);
+        } finally {
+            fs.existsSync                         = originalExistsSync;
+            fs.promises.readdir                   = originalReaddir;
+            fs.promises.readFile                  = originalReadFile;
+            StorageRouter.getGraphCollection      = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection    = originalGetSummaryCollection;
+            TextEmbeddingService.embedText        = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs    = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate   = originalGenerate;
+
+            if (GraphService.db?.nodes?.get(issueId)) {
+                GraphService.db.removeNode(issueId)
+            }
+        }
+    });
+
     test('synthesizeGoldenPath renders degraded diagnostics when semantic vector query fails (#13978)', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
