@@ -26,9 +26,9 @@ name base PR / merge order / retarget-CI, then request primary cross-family
 review only after dev-rebase/full CI. Full-CI stacked heads still name base
 state.
 
-On `neomjs/neo` `dev`, require `review-admission/mergeability=success` before
-assignment; base movement can change it. Other repos use the
-`manage_pr_reviewers(add)` preflight until they install the controller.
+Where installed, require `review-admission/mergeability=success` before
+assignment; base moves can change it. Activation uses a named live
+`mergeable` read; elsewhere `manage_pr_reviewers(add)` gates.
 
 ## 3. Outcome Branches
 
