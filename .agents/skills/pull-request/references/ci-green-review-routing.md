@@ -26,9 +26,9 @@ name base PR / merge order / retarget-CI, then request primary cross-family
 review only after dev-rebase/full CI. Full-CI stacked heads still name base
 state.
 
-Where installed, require `review-admission/mergeability=success` before
-assignment; base moves can change it. Activation uses a named live
-`mergeable` read; elsewhere `manage_pr_reviewers(add)` gates.
+Require installed `review-admission/mergeability=success`; base moves can
+change it. Activation uses live `mergeable`; elsewhere
+`manage_pr_reviewers(add)` gates.
 
 ## 3. Outcome Branches
 
@@ -80,7 +80,7 @@ CI status: failing on current head <sha-or-short-sha>
 
 ### No Checks Returned
 
-If GitHub reports no checks, document that and proceed only where no mergeability controller is installed. On `neomjs/neo` `dev`, a missing mergeability context holds assignment.
+If no checks, proceed only without a controller. Otherwise a missing context holds the seat until the next base event or `workflow_dispatch`; park that recheck and drive another lane.
 
 ## 4. Re-Review Requests
 
