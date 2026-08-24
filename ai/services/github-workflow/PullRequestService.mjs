@@ -11,6 +11,8 @@ import RepositoryService    from './RepositoryService.mjs';
 import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
 import {
     groupReviewsByFamily,
+    parseSelfIdLogin,
+    resolveAuthorFamilyFromLogins,
     resolveCrossFamilyVerdict,
     resolveReviewerFamily
 }                           from '../graph/agentFamilyResolution.mjs';
@@ -448,6 +450,12 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
         mergeStateStatus: pullRequest.mergeStateStatus,
         reviewDecision  : pullRequest.reviewDecision,
         authorLogin     : pullRequest.author?.login ?? null,
+        // The DERIVED self-id, never the body itself. This snapshot is compared by
+        // `stableStringify` across two reads to detect source drift, so carrying the raw `body`
+        // would make any prose edit mid-read invalidate the observation. Parsing once and keeping
+        // only the declared author login points the drift signal at what matters: a change to the
+        // declared author invalidates the read, a typo fix in the description does not.
+        authorSelfIdLogin: parseSelfIdLogin(pullRequest.body ?? '') ?? null,
         reviewRequests  : {
             available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),
             hasNextPage: Boolean(reviewConnection?.pageInfo?.hasNextPage),
@@ -786,13 +794,25 @@ async function buildMergeReadinessProjection({
     // Unavailable approvals yield `undefined`, NOT an empty verdict: "the reviews were not fetched"
     // and "nobody from another family approved" are different facts, and only the first should read
     // as an unresolved gate. Collapsing them would report a mandate breach for a connection error.
+    //
+    // The author family resolves from the CANONICAL self-id first, opener login only as fallback.
+    // The GitHub opener can mis-resolve — an MCP `@me` drift stamps a different agent's login on the
+    // PR — and a gate reading the opener would let that drift decide merge eligibility: a body
+    // declaring a Claude author, opened under a GPT login, would certify on a same-family approval.
+    //
+    // `approvalsTruncated` rides along because the connection is bounded: a positive witness inside
+    // the window is decisive, a negative over a truncated one is missing evidence.
     const crossFamilyVerdict = snapshot.approvals.available
         ? {
             ...resolveCrossFamilyVerdict({
-                author : {login: snapshot.authorLogin},
-                reviews: snapshot.approvals.nodes.map(node => ({state: 'APPROVED', author: {login: node.login}}))
+                authorFamily      : resolveAuthorFamilyFromLogins({
+                    selfIdLogin: snapshot.authorSelfIdLogin,
+                    openerLogin: snapshot.authorLogin
+                }) ?? null,
+                approvalsTruncated: snapshot.approvals.hasPreviousPage,
+                reviews           : snapshot.approvals.nodes.map(node => ({state: 'APPROVED', author: {login: node.login}}))
             }),
-            authorLogin: snapshot.authorLogin
+            authorLogin: snapshot.authorSelfIdLogin || snapshot.authorLogin
         }
         : undefined;
 

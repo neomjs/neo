@@ -49,12 +49,20 @@ export const GET_CONVERSATION = `
  * it feeds the approval ANCHOR — which commit earned `reviewDecision: APPROVED` — and only the most
  * recent approval can answer that. Fetching the oldest 100 would truncate away exactly the reviews
  * the question is about. `hasPreviousPage` is fetched to bound the connection and **deliberately
- * neither gates nor surfaces**: an approval found inside the most-recent window IS the latest one
- * however many older reviews exist, and an empty window already yields silence rather than a claim —
- * so truncation cannot change any decision this query feeds. It is carried on the normalized
- * snapshot so the bound is visible to a maintainer reading the shape, and for no other reason; do
- * not add a consumer that treats it as evidence, and do not describe it as "reported" to a caller
- * who has no way to see it.
+ * neither gates nor surfaces the APPROVAL ANCHOR**: an approval found inside the most-recent window
+ * IS the latest one however many older reviews exist, so truncation cannot change the anchor.
+ *
+ * It DOES gate the cross-family mandate, and that is a later addition rather than an exception. The
+ * mandate asks whether ANY approval came from a differing family, which is a question about the
+ * whole population rather than the most recent member: a qualifying older approval can sit outside
+ * the retained suffix. So a positive witness inside the window is decisive, while a negative over a
+ * truncated connection is missing evidence rather than evidence of absence, and degrades to an
+ * unresolved verdict the consumer fails closed on.
+ *
+ * The distinction is worth holding: the same flag is inert for one consumer and load-bearing for
+ * another, because "the latest approval" and "any approval" are different questions over the same
+ * bounded list. This paragraph used to say truncation could change no decision this query feeds —
+ * true until the mandate became one of them.
  *
  * Variables required:
  * - $owner: String! - Repository owner
@@ -72,6 +80,7 @@ export const GET_MERGE_READINESS = `
         headRefOid
         mergeStateStatus
         reviewDecision
+        body
         author {
           login
         }
