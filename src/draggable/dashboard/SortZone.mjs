@@ -113,7 +113,10 @@ class DashboardSortZone extends SortZone {
      *     and the gaps between items, ensuring the new layout respects the original design tokens.
      * 2.  **Identifies Remaining Items:** Filters out the dragged component and its placeholder.
      * 3.  **Distributes Space:** Calculates the available space (Total Size - Offsets - Gaps - Fixed Items) and distributes
-     *     it among flex items proportional to their flex values.
+     *     it among flex items proportional to their flex values. Membership of that set is decided by
+     *     {@link Neo.draggable.dashboard.SortZone#resolveFlexWeight resolveFlexWeight} rather than by a truthiness test,
+     *     because `flex` here is app-supplied and `'none'` is a legal truthy value — see that method for why the
+     *     distinction is load-bearing.
      * 4.  **Generates Styles:** Returns a list of style objects (`top`, `left`, `width`, `height`) to be applied to the remaining items.
      *
      * @returns {Object[]} Array of objects containing the `item` reference and the calculated `style` object.
@@ -178,12 +181,13 @@ class DashboardSortZone extends SortZone {
                 continue
             }
 
-            let rect = me.itemRects[i];
+            let rect = me.itemRects[i],
+                flex = me.resolveFlexWeight(item.flex);
 
-            items.push({item, rect});
+            items.push({item, rect, flex});
 
-            if (item.flex) {
-                totalFlex += item.flex
+            if (flex) {
+                totalFlex += flex
             } else {
                 let size = isHorizontal ? rect.width : rect.height;
                 usedSize += size
@@ -197,11 +201,11 @@ class DashboardSortZone extends SortZone {
         // 4. Distribute space
         let currentPos = startOffset;
 
-        items.forEach(({item, rect}, index) => {
+        items.forEach(({item, rect, flex}, index) => {
             let itemSize, style = {};
 
-            if (item.flex) {
-                itemSize = (item.flex / totalFlex) * availableSpace
+            if (flex) {
+                itemSize = (flex / totalFlex) * availableSpace
             } else {
                 itemSize = isHorizontal ? rect.width : rect.height
             }
@@ -235,6 +239,34 @@ class DashboardSortZone extends SortZone {
     destroy() {
         DragCoordinator.unregister(this);
         super.destroy()
+    }
+
+    /**
+     * @summary Resolves an item's `flex` config into the numeric weight the expanded layout divides by.
+     *
+     * **`flex` is app-supplied on this path.** The sole caller reaching
+     * {@link Neo.draggable.dashboard.SortZone#calculateExpandedLayout} is `Neo.dashboard.Container`'s widget
+     * sorting, so the value is whatever an application put on its widgets — every CSS-legal spelling can
+     * arrive, and **`'none'` is a legal one that is also truthy**. A truthiness test therefore does not
+     * identify a flex item: `'none'` passes it, `totalFlex += 'none'` concatenates into `'0none'`, and the
+     * division yields `NaN` — written straight into `style.width` as `'NaNpx'`. Nothing throws, so the
+     * geometry is simply wrong.
+     *
+     * Resolving `'none'` to *not flexible* is also what CSS means by it — `flex: none` is `0 0 auto` — so
+     * such an item correctly keeps its measured rect. Zero and negative weights are fixed for the same
+     * reason: they grow nothing, which preserves the behaviour a falsy `0` already had.
+     *
+     * `'auto'` is deliberately treated as fixed rather than guessed at `1`. No caller uses it, and where a
+     * measured rect is a safe wrong answer, an invented weight is not.
+     *
+     * @param {Number|String|null} flex The item's `flex` config, unvalidated.
+     * @returns {Number|null} A positive finite weight, or `null` when the item does not participate in the
+     * flex distribution.
+     */
+    resolveFlexWeight(flex) {
+        const weight = parseFloat(flex);
+
+        return Number.isFinite(weight) && weight > 0 ? weight : null
     }
 
     /**
