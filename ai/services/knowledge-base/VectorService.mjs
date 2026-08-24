@@ -1882,9 +1882,13 @@ class VectorService extends Base {
                     // is deliberately preserved — it is the one re-offer that graduates the durable
                     // fence, and it is a single call rather than a budget.
                     //
-                    // Deferrable classes (timeout, transport closure, circuit open) keep their full
-                    // budget: only OUR OWN deliberate refusals are non-retryable, and inference about
-                    // another process is never a basis for discarding a corpus.
+                    // The contrast case is a RETRY-ELIGIBLE failure — an unclassified provider error is
+                    // the clean example — which keeps every attempt, because only our own deliberate
+                    // refusals are futile and inference about another process is never a basis for
+                    // discarding a corpus. Timeout and circuit-open are deliberately NOT that contrast:
+                    // both leave this loop through earlier mechanisms of their own and never spend the
+                    // full budget either, so citing them here would describe a behaviour the code does
+                    // not have.
                     if (classifyEmbedDisposition(classifyEmbedFailureError(err)) === EMBED_DISPOSITION.rejected) {
                         console.error(`Embedding batch ${batchNumber} was refused as ${classifyEmbedFailureError(err)}; ending the retry budget after one dispatch — a later attempt cannot change this verdict.`, err.message);
                         retries = maxRetries;

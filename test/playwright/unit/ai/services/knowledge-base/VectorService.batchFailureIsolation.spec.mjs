@@ -141,58 +141,70 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         expect(result).toEqual({embedded: 0, settled: 0, remaining: 0, skipped: 0, yielded: false});
     });
 
-    test('#16972 a rejected-class refusal costs ONE batch dispatch, not the whole retry budget', async () => {
+    test('#16972 a rejected-class refusal costs ONE batch dispatch, and isolation still runs', async () => {
         // The defect: `REJECTED_EMBED_ERROR_CODES` already documented `KB_VECTOR_EMBED_INPUT_TRUNCATED`
-        // as "a later attempt is either futile or unsafe" — and this dispatch site never asked. So a
-        // deterministic provider refusal spent every retry re-proving a verdict the first response
-        // already carried. Measured in production: an 18,832-token input against a 16,384 ceiling,
-        // five identical dispatches per batch, 47 such batches in one repository.
+        // as "a later attempt is either futile or unsafe" — and this dispatch site never asked, so a
+        // deterministic refusal spent every retry re-proving a verdict the first response carried.
+        // Measured in production: an 18,832-token input against a 16,384 ceiling, five identical
+        // dispatches per batch, 47 such batches in one repository.
         //
-        // Counted by input WIDTH deliberately. Retry exhaustion still enters poison isolation, which
-        // re-offers a suspect ALONE on purpose — that single dispatch is what graduates the durable
-        // fence and is NOT what this ticket removes. Only full-width attempts are the retry budget.
-        Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 4});
+        // The fixture carries an independent embeddable TAIL on purpose. Retry exhaustion is followed
+        // by paired isolation, and isolation can only PROVE a poison when a control outside the failed
+        // batch exists — without one it returns `unproved` and the first-batch abort raises, which
+        // would let this arm pass while the isolation path was never exercised at all.
+        Object.assign(KB_Config.data, {batchSize: 2, batchDelay: 0, maxRetries: 4});
 
-        const spy    = createSpyCollection(),
-              chunks = makeChunks(3);
+        const spy       = createSpyCollection(),
+              chunks    = makeChunks(4),
+              persisted = [];
 
-        let fullWidthAttempts = 0;
+        let fullWidthAttempts = 0,
+            isolationCalls    = 0;
 
         TextEmbeddingService.embedTexts = async texts => {
-            if (texts.length === chunks.length) fullWidthAttempts++;
+            if (texts.some(text => text.includes('for chunk 0'))) {
+                if (texts.length === 2) fullWidthAttempts++;
+                if (texts.length === 1) isolationCalls++;
 
-            const error = new Error('request (18832 tokens) exceeds the available context size (16384 tokens)');
-            error.code  = EMBEDDING_INPUT_TRUNCATED_CODE;
-            throw error
+                const error = new Error('request (18832 tokens) exceeds the available context size (16384 tokens)');
+                error.code  = EMBEDDING_INPUT_TRUNCATED_CODE;
+                throw error
+            }
+
+            if (texts.length === 1) isolationCalls++;
+
+            return texts.map(() => new Array(384).fill(0))
         };
 
-        // The aftermath is deliberately unchanged and asserted as such: a first batch whose refusal
-        // forbids poison isolation still raises the first-batch abort. This ticket removes futile
-        // DISPATCHES, not the abort. That strand has its own owner, and naming it is the point: a
-        // reader must be able to tell "out of scope here" from "unowned". ticket-ref-ok: #16843.
-        await expect(
-            KB_VectorService.embedChunks({collection: spy, chunksToProcess: chunks}),
-            'the first-batch abort still raises — only the wasted dispatches are gone'
-        ).rejects.toThrow(/Failed to process batch 1/);
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            onPoisonEntries: async entries => persisted.push(...entries)
+        });
 
         expect(
             fullWidthAttempts,
             'a refusal the provider states deterministically must be dispatched once, never re-issued'
         ).toBe(1);
-        expect(spy.upsertedIds, 'and a truncated embedding must never be stored').toEqual([]);
+
+        // The other half of the same guarantee: the retry BUDGET is what ended, not the convergence
+        // path. Isolation re-offers candidates alone, and that single dispatch is what graduates the
+        // durable geometry fence — so this arm reds if the guard ever short-circuits past it.
+        expect(isolationCalls, 'post-budget isolation must still run and be reached').toBeGreaterThan(0);
+        expect(persisted.map(entry => entry.chunkId), 'the refused input is fenced by exact identity')
+            .toContain('chunk-0');
+        expect(spy.upsertedIds, 'and the recoverable tail still lands').toContain('chunk-2');
     });
 
-    test('#16972 NON-VACUITY: a deferrable class still spends its full retry budget', async () => {
+    test('#16972 NON-VACUITY: a retry-eligible failure still spends its full retry budget', async () => {
         // The guard above must convict ONLY our own deliberate refusals. A guard that stopped
         // retrying everything would pass the arm above while destroying the recovery path.
         //
-        // The control is an UNCLASSIFIED error, chosen after a provider timeout proved to be the
-        // wrong control, and the id is the evidence rather than decoration — the claim is about one
-        // specific merged change a reader must be able to verify. ticket-ref-ok: #16978 ends the
-        // sweep on a provider timeout, so a timeout skips the retry budget by an earlier mechanism.
-        // budget by a different and earlier mechanism. An error carrying no code is the honest
-        // "unlucky, not futile" case — it maps to `KB_VECTOR_EMBED_FAILED`, is outside the rejected
-        // set, and its retries are the recovery path this guard must not touch.
+        // The control is an UNCLASSIFIED error, and choosing it took one failed attempt: a provider
+        // timeout is NOT retry-eligible in this loop — it exits through an earlier mechanism, as does
+        // circuit-open — so it proves nothing about this guard. An error carrying no code is the
+        // honest "unlucky, not futile" case: it maps to `KB_VECTOR_EMBED_FAILED`, sits outside the
+        // rejected set, and its retries are the recovery path this guard must leave alone.
         Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 3});
 
         const spy    = createSpyCollection(),
@@ -210,7 +222,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
         expect(
             fullWidthAttempts,
-            'a timeout is unlucky rather than futile — the retry budget is the recovery path'
+            'a retry-eligible failure is unlucky rather than futile — the budget IS the recovery path'
         ).toBe(3);
     });
 
