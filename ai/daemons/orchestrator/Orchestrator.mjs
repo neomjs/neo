@@ -343,7 +343,13 @@ export class Orchestrator extends Base {
 
         try {
             await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high'});
+                // `wakeSuppressed: false` is REQUIRED here, not decorative: `AGENT:*` fan-out is
+                // quiet by default, so a stall alarm that omitted it would persist silently and
+                // reach seats only at their next natural intake — and the `catch` below would turn
+                // the coherence rejection into one log line, leaving the watchdog mute. A stalled
+                // embed pipeline degrades semantic recall for every seat at once, which is the
+                // narrow class the fleet-wide election exists for.
+                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high', wakeSuppressed: false});
             });
         } catch (e) {
             this.writeLog('ERROR', `[Orchestrator] embed-drain stall-alarm A2A broadcast failed: ${e.message}`);
@@ -404,7 +410,9 @@ export class Orchestrator extends Base {
 
         try {
             await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high'});
+                // Explicit wake election — see the embed-drain alarm above for why omission would
+                // make this watchdog mute rather than merely quiet.
+                await MailboxService.addMessage({to: 'AGENT:*', subject, body, priority: 'high', wakeSuppressed: false});
             });
         } catch (e) {
             this.writeLog('ERROR', `[Orchestrator] REM consolidation stall-alarm A2A broadcast failed: ${e.message}`);

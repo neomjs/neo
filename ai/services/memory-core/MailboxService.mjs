@@ -6,7 +6,6 @@ import {canonicalizeTaggedConceptIds}           from '../graph/conceptSpineCanon
 import GraphService                             from './GraphService.mjs';
 import PermissionService                        from './PermissionService.mjs';
 import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
-import {collisionPreventionTag}                 from '../shared/a2aCollisionTags.mjs';
 import {
     TASK_ASSIGNMENT_AUTHORITY,
     TASK_STATES,
@@ -2370,10 +2369,16 @@ class MailboxService extends Base {
      * @param {Boolean} [args.wakeSuppressed] Persist the message without emitting `SENT_TO_ME`
      *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
      *   consumed by the next boot, not injected back into the active sender harness. Known-actionable
-     *   direct lifecycle messages reject wake suppression before persistence. Defaults per sender
-     *   principal class: the `'human'` (operator-steering) class defaults to `true` — durable-quiet
-     *   delivery, the sender electing a wake per message by passing `false` — every other class
-     *   defaults to `false` (wake) exactly as before.
+     *   direct lifecycle messages reject wake suppression before persistence. Defaults resolve from
+     *   ADDRESS and sender class: every `AGENT:*` broadcast is quiet — broadcasts are presumed quiet,
+     *   and an all-hands interrupt is the sender's explicit `false`. Direct messages keep the plain
+     *   default and wake, except for the `'human'` (operator-steering) class, which is durable-quiet
+     *   on every target and elects a wake per message by passing `false`.
+     *
+     *   On an `AGENT:*` broadcast, `priority: 'high'` requires the sender to SAY something about the
+     *   wake — `false` (interrupt) or `true` (durable-high, top of the queue, nobody woken). Silence
+     *   plus `'high'` is the incoherent pair and is rejected; the rejection is scoped to the
+     *   agent classes, since operator steering carries `high` as drain-ordering metadata.
      * @param {Object} [args.task] Optional A2A Task envelope payload. Caller fields are cloned, then
      *   the server overwrites `task.assignee`: a direct AgentIdentity recipient is bound immediately;
      *   a broadcast remains `null` until an eligible recipient wins the atomic claim. The top-level
@@ -2405,15 +2410,31 @@ class MailboxService extends Base {
         // 'human' inverts the delivery defaults: durable-quiet (wake is the sender's per-message
         // election, never the default) and priority-high as turn-start drain-ordering metadata.
         const senderPrincipalClass = resolveSenderPrincipalClass(db, sentBy),
-              operatorSteering     = senderPrincipalClass === 'human';
+              operatorSteering     = senderPrincipalClass === 'human',
+              // Captured BEFORE the defaults resolve below, and kept as a THREE-state value: the
+              // coherence gate must tell "the sender elected a wake" and "the sender elected
+              // durable-quiet" apart from "the sender said nothing", and after the `??` all three
+              // collapse into one boolean. `null` is the silence the gate fires on.
+              wakeSuppressedBySender = wakeSuppressed === null || wakeSuppressed === undefined ? null : wakeSuppressed;
 
         priority       = priority       ?? (operatorSteering ? 'high' : 'normal');
-        // Claim-class broadcasts are quiet by default (operator-directed 2026-07-26, superseding the
-        // wake-mandatory polarity): a claim's collision defense lives at the claim surfaces (the
-        // `requireUnassigned` assignee gate + intake's claim-race re-check), while a forced wake
-        // taxed every active seat per claim. Explicit `wakeSuppressed: false` still wakes — the
-        // contested-lane escalation stays a sender election, never a default. Scoped to `AGENT:*`
-        // fan-out; direct messages keep the plain default.
+        // Broadcasts are PRESUMED quiet; an all-hands interrupt is the sender's explicit
+        // `wakeSuppressed: false`. That is the polarity `learn/agentos/A2A.md` already describes;
+        // what changed is that the implementation now covers it.
+        //
+        // The earlier framing here — "a broadcast cannot be action-required for everyone" — read as
+        // a universal and is not one: the presumption is rebuttable per message, which is the whole
+        // point of the election. Corrected because the sentence was quoted onward into three other
+        // surfaces before anyone noticed it overstated the rule.
+        //
+        // This supersedes a four-tag allowlist that delivered the same sentence for claim-class
+        // subjects only. The routine broadcast vocabulary is far wider — `pr-merged`,
+        // `merge-readiness`, `PR-opened`, `handoff`, `defect-note`, `runtime-maintenance` — so every
+        // class outside those four woke every active seat unless its author remembered the flag,
+        // and authors remembered unevenly. The predecessor fixed a matcher that was too literal;
+        // the same failure then recurred one level up as a vocabulary that was too small. Addressing
+        // is the signal that needs no vocabulary to stay current, which is why the rule keys on it.
+        // Direct messages keep the plain default and still wake: the noise was never in 1:1 traffic.
         //
         // Both this line and the `priority` one above depend on the field arriving ABSENT, and that
         // is a contract with the tool schema, not a local property: `buildZodSchema` compiles a
@@ -2422,7 +2443,29 @@ class MailboxService extends Base {
         // value is never nullish, and `??` cannot reach either branch — silently, since the injected
         // value is a legal one. So `add_message` declares no default for either field: a request
         // field may carry a schema default OR a service-side contextual default, never both.
-        wakeSuppressed = wakeSuppressed ?? (operatorSteering || (to === 'AGENT:*' && !!collisionPreventionTag({subject, taggedConcepts})));
+        wakeSuppressed = wakeSuppressed ?? (operatorSteering || to === 'AGENT:*');
+
+        // The incoherent pair is `priority: 'high'` on a broadcast whose quiet came from the
+        // DEFAULT — an author who set urgency without considering wake semantics, so the message
+        // reads urgent in every listing while nothing wakes for it. Under the quiet default that
+        // stops being a rare slip and becomes the common case, which is what makes it worth
+        // rejecting rather than tolerating.
+        //
+        // Both EXPLICIT wake states are deliberate statements and neither is incoherent:
+        //   - `wakeSuppressed: false` + high — the all-hands interrupt (stall alarms).
+        //   - `wakeSuppressed: true`  + high — durable-high: file it at the top of the queue and
+        //     do NOT interrupt. That is exactly `KbAlertingService`'s `deliveryMode: 'audit'`
+        //     carrying a `critical` severity, and it is the same semantic the operator-steering
+        //     class already relies on, where `high` is drain-ordering metadata rather than urgency.
+        //
+        // So the gate fires only on SILENCE about waking. Rejecting explicit suppression too would
+        // have made a real producer's durable alert unsendable — and its dispatcher catches and
+        // logs, so the alert would have been lost rather than surfaced. Caught in review by
+        // @neo-gpt-emmy; the narrower rule removes the false positive instead of bending the
+        // producer to satisfy an over-broad guard.
+        if (to === 'AGENT:*' && priority === 'high' && wakeSuppressedBySender === null && !operatorSteering) {
+            throw new Error("Cannot send a 'high' priority AGENT:* broadcast without saying what should happen to the wake: broadcasts are quiet by default, so 'high' alone claims urgency nothing wakes for. Set wakeSuppressed: false to interrupt the fleet, wakeSuppressed: true for a durable-high broadcast nobody is woken for, or use priority: 'normal'.");
+        }
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
         // schema wording exposes the `'AGENT:@login'` prefixed form; the seed uses bare `@login`.
