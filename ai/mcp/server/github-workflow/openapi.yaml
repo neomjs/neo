@@ -1057,14 +1057,11 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint (`POST` add / `DELETE` remove). This needs only the `repo` scope — not the `read:org` scope `gh pr edit` requires to resolve logins via GraphQL, which agent tokens routinely lack. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
+        Adds/removes PR reviewer requests through REST `requested_reviewers` (repo scope; no `read:org`). This is invitation, not approval.
 
-        **Action: 'add'** — first reads live PR mergeability with a bounded poll, then `POST`s a review request for the listed users/teams only when GitHub reports `mergeable: true`. A confirmed conflict fails as `PR_MERGE_CONFLICT`; a still-computing or structurally unusable verdict fails as `PR_MERGEABILITY_UNAVAILABLE`. `BLOCKED`, `BEHIND`, and `UNSTABLE` are not conflicts when the source-owned mergeability boolean is positive.
-        **Action: 'remove'** — `DELETE`s the review requests.
+        `add` polls the live PR and mutates only on `mergeable: true`; false returns `PR_MERGE_CONFLICT`, while exhausted null/malformed source returns `PR_MERGEABILITY_UNAVAILABLE`. Positive mergeability remains admissible with `BLOCKED`, `BEHIND`, or `UNSTABLE`. `remove` bypasses mergeability so stale requests can always be withdrawn.
 
-        At least one of `reviewers` or `team_reviewers` is required. A leading `@` on a login is stripped. Source-read or mutation failures surface as `GH_API_ERROR` carrying the REST failure (repo-scope semantics), not a `gh` CLI exit code.
-
-        **The result reports the effect, not the request.** GitHub accepts an unknown login on this endpoint and seats nobody — so a successful mutation response is not evidence a reviewer was assigned (measured: that call answered 200 with the full PR object). Every requested login is checked against the reviewer state in GitHub's own response: a login `add` did not seat fails with `REVIEWER_NOT_SEATED`, a login `remove` left in place fails with `REVIEWER_STILL_REQUESTED`, both naming each target under `unseated` rather than reporting partial success. `verifiedReviewers` / `verifiedTeamReviewers` are always derived from that response, never echoed from the arguments. Trust those fields, not the request you sent.
+        At least one user/team is required; leading `@` is stripped. Results verify GitHub's returned reviewer arrays, never echo the request: an absent add target returns `REVIEWER_NOT_SEATED`, a still-present remove target returns `REVIEWER_STILL_REQUESTED`, and an unreadable result returns `REVIEWER_STATE_UNVERIFIABLE`. Trust `verifiedReviewers` / `verifiedTeamReviewers`. Source/mutation transport failures return `GH_API_ERROR`.
       tags: [PullRequests]
       parameters:
         - name: pr_number

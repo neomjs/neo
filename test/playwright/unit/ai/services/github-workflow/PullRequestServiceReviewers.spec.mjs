@@ -403,6 +403,8 @@ test.describe('PullRequestService.managePrReviewers — REST requested_reviewers
               op      = Object.values(doc.paths).flatMap(p => Object.values(p)).find(o => o?.operationId === 'manage_pr_reviewers');
 
         expect(op, 'manage_pr_reviewers operation must exist').toBeTruthy();
+        expect(op.description.length, 'modified MCP operation description stays within the 1024-byte budget')
+            .toBeLessThanOrEqual(1024);
 
         const okRef  = op.responses['200'].content['application/json'].schema.$ref,
               errRef = op.responses['422'].content['application/json'].schema.$ref;
