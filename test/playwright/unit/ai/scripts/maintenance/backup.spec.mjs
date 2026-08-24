@@ -22,10 +22,13 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs';
 import path            from 'path';
 
-// Serial mode: this file mutates KB + MC singleton collection accessors across
-// beforeAll/afterAll. Serial ordering within this file prevents local multi-worker
-// races. CI runs workers:1 (see playwright.config.unit.mjs) so this is local-DX only.
-test.describe.configure({mode: 'serial'});
+// Serial mode is declared on the ONE describe that needs it, not on the file. Only the orchestrator
+// block mutates KB + MC singleton collection accessors across beforeAll/afterAll, so only its
+// ordering has to be constrained; the other three blocks import pure functions and scope their
+// fixtures to a pid+timestamp temp dir. File-level serial made any failure in the first block skip
+// every test after it — 42 of them, measured — which reports "1 failed" while nothing else ran, and
+// a summary that hides its own blast radius is worse than a louder one. CI runs workers:1 (see
+// playwright.config.unit.mjs) so the constraint is local-DX either way.
 
 /**
  * @summary Whether a copy subsystem's receipt accounts for itself — it copied rows, or it names the
@@ -59,6 +62,8 @@ function copyReceiptIsAccounted(receipt) {
 }
 
 test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 2)', () => {
+    test.describe.configure({mode: 'serial'});
+
     let SDK, fsExtra, runBackup;
     let KB_ChromaManager, Memory_StorageRouter;
     let originalKbCollection, originalMcGetMemory, originalMcGetSummary;
