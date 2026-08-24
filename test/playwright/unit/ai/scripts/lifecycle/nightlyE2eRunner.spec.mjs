@@ -77,7 +77,7 @@ test.describe('nightlyE2eRunner.runConfig — stale-report suppression guard (#1
  * so each arm asserts a decision the runner made rather than a service's availability.
  */
 test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake tier (#17691)', () => {
-    let runNightlyE2e, cwd, tmpDir;
+    let collectFailures, runNightlyE2e, cwd, tmpDir;
 
     const
         stateFile  = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
@@ -90,9 +90,28 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
             callTool: async (name, args) => onCall(name, args),
             close   : async () => {}
         }),
+        // The failure shape is DERIVED from production's own `collectFailures`, never hand-written.
+        // A hand-written fixture drifted: it carried `{file, error}` while `formatDigest` reads
+        // `{location, firstError}`, so every digest-content assertion was checking a shape production
+        // cannot emit — and the digest rendered `undefined`. That was invisible until nine real
+        // digests reached the swarm and showed the rendered text. Derivation makes the drift
+        // impossible rather than caught. Found by @neo-opus-vega.
+        productionFailures = () => collectFailures({
+            suites: [{
+                title: 'root',
+                file : 'x.spec.mjs',
+                specs: [{
+                    title: 'a failing spec',
+                    file : 'x.spec.mjs',
+                    line : 3,
+                    ok   : false,
+                    tests: [{results: [{status: 'failed', errors: [{message: 'Error: boom\n  at x.spec.mjs:3:1'}]}]}]
+                }]
+            }]
+        }),
         redOutcome = entry => ({
             config  : entry.config,
-            failures: [{title: 'a failing spec', file: 'x.spec.mjs', error: 'boom'}],
+            failures: productionFailures(),
             note    : '',
             output  : '',
             ran     : true
@@ -101,6 +120,7 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test.beforeAll(async () => {
         runNightlyE2e = (await import('../../../../../../ai/scripts/lifecycle/nightlyE2eRunner.mjs')).runNightlyE2e;
+        ({collectFailures} = await import('../../../../../../ai/scripts/lifecycle/nightlyE2eDigest.mjs'));
     });
 
     test.beforeEach(async () => {
