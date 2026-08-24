@@ -818,6 +818,7 @@ test.describe('composed Fleet S1 server', () => {
                 plane                       : {id: 'neo-local-canonical', dataRoot},
                 auth                        : {seatTokenRegistryPath: member('seat-tokens/registry.json')},
                 wakeDaemonHeartbeatAlivePath: member('wake-daemon/heartbeat.alive'),
+                heartbeatConcurrencyLockPath: member('heartbeat-concurrency.lock'),
                 fleet                       : {
                     dataDir     : member('fleet'),
                     instanceRoot: member('fleet/instances')

@@ -57,6 +57,7 @@ x-plane-env: &plane-env
   # Tier-1 members (ai/configBase.mjs PLANE_MEMBER_PATHS)
   NEO_AUTH_SEAT_TOKEN_REGISTRY_PATH: /app/.neo-ai-data-parity/seat-tokens/registry.json
   NEO_HEARTBEAT_ALIVE_PATH: /app/.neo-ai-data-parity/wake-daemon/heartbeat.alive
+  NEO_HEARTBEAT_LOCK_PATH: /app/.neo-ai-data-parity/heartbeat-concurrency.lock
   NEO_FLEET_DATA_DIR: /app/.neo-ai-data-parity/fleet
   NEO_FLEET_INSTANCE_ROOT: /app/.neo-ai-data-parity/fleet/instances
   NEO_CHROMA_DATA_DIR: /app/.neo-ai-data-parity/chroma/unified
