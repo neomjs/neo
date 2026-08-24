@@ -82,6 +82,14 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
     const
         stateFile  = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
         readState  = async () => fs.readJson(stateFile()),
+        // One seam replaces the former addMessage/graphReady/lifecycleReady trio: the runner reaches
+        // Memory Core as an MCP client, so "could not connect" and "the call was rejected"
+        // are distinct failures without separate readiness hooks. The stub carries `callTool` rather
+        // than a bare send, so the arms assert the real tool NAME and not just its payload.
+        connectStub = (onCall = () => {}) => async () => ({
+            callTool: async (name, args) => onCall(name, args),
+            close   : async () => {}
+        }),
         redOutcome = entry => ({
             config  : entry.config,
             failures: [{title: 'a failing spec', file: 'x.spec.mjs', error: 'boom'}],
@@ -112,14 +120,15 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         const sent = [];
 
         const result = await runNightlyE2e({
-            addMessage    : async options => { sent.push(options) },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub((name, args) => { sent.push({name, ...args}) }),
+            runOne : redOutcome
         });
 
         expect(result).toMatchObject({red: true, sent: true});
         expect(sent).toHaveLength(1);
+        // The tool NAME is part of the contract now, not just the payload: the digest travels as an
+        // `add_message` call against Memory Core, and a rename on either side must fail here.
+        expect(sent[0].name).toBe('add_message');
         expect(sent[0].wakeSuppressed).toBe(false);
         expect(sent[0].to).toBe('AGENT:*');
         expect(sent[0].subject).toContain('[nightly-e2e][RED]')
@@ -129,10 +138,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         const sent = [];
 
         const result = await runNightlyE2e({
-            addMessage    : async options => { sent.push(options) },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : greenOutcome
+            connect: connectStub((name, args) => { sent.push({name, ...args}) }),
+            runOne : greenOutcome
         });
 
         expect(result).toMatchObject({red: false, sent: false});
@@ -142,10 +149,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('delivery is RECORDED, not derived: a successful send writes `sent`', async () => {
         await runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(),
+            runOne : redOutcome
         });
 
         expect(await readState()).toMatchObject({red: true, digest: 'sent'})
@@ -153,10 +158,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('a THROWING send records `failed` durably and rethrows — the red is not lost', async () => {
         await expect(runNightlyE2e({
-            addMessage    : async () => { throw new Error('mailbox unreachable') },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(() => { throw new Error('mailbox unreachable') }),
+            runOne : redOutcome
         })).rejects.toThrow('mailbox unreachable');
 
         expect(await readState()).toMatchObject({
@@ -170,10 +173,10 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         // The state that used to be indistinguishable from success: the receipt is written before
         // the attempt, so an undelivered digest cannot be re-derived as delivered.
         await expect(runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => { throw new Error('graph never became ready') },
-            runOne        : redOutcome
+            // Now a CONNECT failure rather than a readiness failure — the transport is the thing that
+            // can be unreachable, and it fails before any message is attempted.
+            connect: async () => { throw new Error('graph never became ready') },
+            runOne : redOutcome
         })).rejects.toThrow('graph never became ready');
 
         expect(await readState()).toMatchObject({red: true, digest: 'failed'});
@@ -181,10 +184,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('the lock is released on the failure path too', async () => {
         await expect(runNightlyE2e({
-            addMessage    : async () => { throw new Error('nope') },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(() => { throw new Error('nope') }),
+            runOne : redOutcome
         })).rejects.toThrow('nope');
 
         expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
@@ -197,10 +198,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('a GREEN run cannot erase an unsent red — the undelivered digest is carried forward', async () => {
         await expect(runNightlyE2e({
-            addMessage    : async () => { throw new Error('mailbox unreachable') },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(() => { throw new Error('mailbox unreachable') }),
+            runOne : redOutcome
         })).rejects.toThrow('mailbox unreachable');
 
         const afterRed = await readState();
@@ -210,10 +209,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         // The night after: suite recovers, nothing to report. Before the carry existed this write
         // replaced the document above and the unreported red left no trace on any surface.
         const result = await runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : greenOutcome
+            connect: connectStub(),
+            runOne : greenOutcome
         });
 
         expect(result).toMatchObject({red: false, sent: false});
@@ -226,19 +223,15 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('a green run after a DELIVERED red carries nothing — the carry is conditional, not decorative', async () => {
         await runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(),
+            runOne : redOutcome
         });
 
         expect(await readState()).toMatchObject({red: true, digest: 'sent'});
 
         await runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : greenOutcome
+            connect: connectStub(),
+            runOne : greenOutcome
         });
 
         // A field that is always populated stops being read. This is the control that keeps the arm
@@ -248,20 +241,16 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('the EARLIEST unreported red survives a chain of later runs', async () => {
         await expect(runNightlyE2e({
-            addMessage    : async () => { throw new Error('first miss') },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(() => { throw new Error('first miss') }),
+            runOne : redOutcome
         })).rejects.toThrow('first miss');
 
         const firstAt = (await readState()).at;
 
         for (const note of ['second night', 'third night']) {
             await runNightlyE2e({
-                addMessage    : async () => {},
-                graphReady    : async () => {},
-                lifecycleReady: async () => {},
-                runOne        : greenOutcome
+                connect: connectStub(),
+                runOne : greenOutcome
             });
             expect(await readState(), note).toBeTruthy()
         }
@@ -273,17 +262,13 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('a DELIVERED digest clears the carry — reporting the suite discharges the earlier miss', async () => {
         await expect(runNightlyE2e({
-            addMessage    : async () => { throw new Error('missed') },
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(() => { throw new Error('missed') }),
+            runOne : redOutcome
         })).rejects.toThrow('missed');
 
         await runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : redOutcome
+            connect: connectStub(),
+            runOne : redOutcome
         });
 
         const state = await readState();
@@ -292,15 +277,36 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         expect(state).not.toHaveProperty('unresolvedRed');
     });
 
+    test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
+        // The production context that no other arm reaches. Every test above injects `connect`, and an
+        // interactive shell exports the credential — so the one environment where this breaks is the
+        // unattended `launchd` session, which is the only environment the runner actually runs in.
+        const original = process.env.NEO_MCP_REMOTE_TOKEN;
+
+        delete process.env.NEO_MCP_REMOTE_TOKEN;
+
+        try {
+            // No `connect` injection: this exercises the real client, which validates `requiredEnv`
+            // before opening any transport, so the arm asserts a configuration failure and never
+            // reaches the network.
+            await expect(runNightlyE2e({runOne: redOutcome})).rejects.toThrow(/NEO_MCP_REMOTE_TOKEN/);
+        } finally {
+            if (original === undefined) delete process.env.NEO_MCP_REMOTE_TOKEN;
+            else process.env.NEO_MCP_REMOTE_TOKEN = original;
+        }
+
+        // The red is not lost to the misconfiguration: it stands as an explicitly failed delivery,
+        // which is the whole difference from a host-local write that would have reported success.
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+    });
+
     test('an UNREADABLE prior receipt fails closed — a broken chain is not a clean one', async () => {
         await fs.ensureDir(path.dirname(stateFile()));
         await fs.writeFile(stateFile(), '{ this is not json', 'utf8');
 
         await runNightlyE2e({
-            addMessage    : async () => {},
-            graphReady    : async () => {},
-            lifecycleReady: async () => {},
-            runOne        : greenOutcome
+            connect: connectStub(),
+            runOne : greenOutcome
         });
 
         // Absent and unparseable are different facts. Collapsing them to `null` would let a corrupt

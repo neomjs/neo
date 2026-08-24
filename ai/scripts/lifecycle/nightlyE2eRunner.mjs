@@ -16,6 +16,18 @@
  * and `sent` or `failed` after it. A crash between the two leaves `pending` standing, so an
  * undelivered digest can never read as delivered.
  *
+ * The digest is delivered as an MCP CLIENT of the containerized Memory Core, not through in-process
+ * service imports. This process is host-resident by construction — the e2e layer needs GPU
+ * hardware and a headed browser, which is the whole reason it lives outside CI — while the graph it
+ * must reach is served from a container. An in-process `MailboxService` here resolves against the
+ * HOST plane root, which no reader serves: the write succeeds and the digest arrives nowhere. Its
+ * sibling lifecycle scripts keep their in-process imports correctly, because the orchestrator daemon
+ * runs them INSIDE the container; this one never made that trip and cannot.
+ *
+ * Delivery therefore fails loudly by construction. An unreachable or unauthenticated Memory Core
+ * throws at connect, which the disposition machinery above records as `failed` — where a local write
+ * to an unserved store would have returned success.
+ *
  * Hardening (the middleware-scheduler LaunchAgent precedent): an exclusive PID lockfile with stale-steal, a run log,
  * structured stderr, and finally-hygiene that always releases the lock. LaunchAgent-staged (not auto-installed);
  * see ai/scripts/lifecycle/nightly-e2e/README for activation. CRITICAL inherited rule: custom playwright configs
@@ -28,10 +40,10 @@ import {spawnSync}                                         from 'node:child_proc
 import path                                                from 'node:path';
 import {fileURLToPath}                                     from 'node:url';
 import fs                                                  from 'fs-extra';
-import GraphService                                        from '../../services/memory-core/GraphService.mjs';
-import LifecycleService                                    from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import MailboxService                                      from '../../services/memory-core/MailboxService.mjs';
-import RequestContextService                               from '../../mcp/server/shared/services/RequestContextService.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import Client                                              from '../../mcp/client/Client.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                     from '../../services/fleet/mcpServers.mjs';
 import {buildRunLog, collectFailures, formatDigest, isRed} from './nightlyE2eDigest.mjs';
 
 /**
@@ -127,17 +139,13 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
  * Every collaborator is injectable for the same reason `runConfig` takes its spawn: the delivery
  * paths are the ones worth proving, and a module-level import cannot be driven from a test.
  * @param {Object}   [options]
- * @param {Function} [options.addMessage] A2A send seam.
- * @param {Function} [options.graphReady] Graph readiness seam.
- * @param {Function} [options.lifecycleReady] Lifecycle readiness seam.
+ * @param {Function} [options.connect] Memory Core client seam — resolves to `{callTool, close}`.
  * @param {Function} [options.runOne] Per-config execution seam.
  * @returns {Promise<Object>} run outcome `{red, sent, reason?}`.
  */
 export async function runNightlyE2e({
-    addMessage     = options => MailboxService.addMessage(options),
-    graphReady     = () => GraphService.ready(),
-    lifecycleReady = () => LifecycleService.ready(),
-    runOne         = runConfig
+    connect = connectMemoryCore,
+    runOne  = runConfig
 } = {}) {
     const nowIso  = new Date().toISOString(),
           logPath = `${STATE_DIR}/logs/run-${nowIso.replace(/[:.]/g, '-')}.log`;
@@ -175,24 +183,25 @@ export async function runNightlyE2e({
             return {red: false, sent: false};
         }
 
-        const sender = process.env.NEO_AGENT_IDENTITY || '@system';
+        let client = null;
 
         try {
-            await lifecycleReady();
-            await graphReady();
+            // Connect FIRST and separately from the call: an unreachable or unauthenticated Memory
+            // Core must be distinguishable from a rejected message, and both must be distinguishable
+            // from success. The client throws here on a missing credential, which is the property
+            // that makes an unattended run's misconfiguration loud instead of nightly-silent.
+            client = await connect();
 
-            await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-                await addMessage({
-                    to      : 'AGENT:*',
-                    subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
-                    body    : formatDigest(outcomes, logPath),
-                    priority: 'normal',
-                    // A red suite is action-required BY DEFINITION, and a broadcast defaults to
-                    // suppressed, so silence here would be inherited rather than chosen. This is the
-                    // only per-message lever: the wake tier is one boolean on the message, so it
-                    // wakes every seat or none. Green never reaches this call and stays un-woken.
-                    wakeSuppressed: false
-                });
+            await client.callTool('add_message', {
+                to      : 'AGENT:*',
+                subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
+                body    : formatDigest(outcomes, logPath),
+                priority: 'normal',
+                // A red suite is action-required BY DEFINITION, and a broadcast defaults to
+                // suppressed, so silence here would be inherited rather than chosen. This is the
+                // only per-message lever: the wake tier is one boolean on the message, so it
+                // wakes every seat or none. Green never reaches this call and stays un-woken.
+                wakeSuppressed: false
             });
         } catch (error) {
             // The reporter failing is not the suite passing. `pending` already stands on disk, so
@@ -206,6 +215,11 @@ export async function runNightlyE2e({
                 logPath, nowIso, outcomes, red
             }).catch(() => {});
             throw error
+        } finally {
+            // The transport is per-run, so it closes on every path. A leaked connection would keep an
+            // unattended process alive past its work, and `launchd` would treat that as a run still
+            // in flight rather than a finished one.
+            await client?.close?.().catch(() => {});
         }
 
         // Written only after delivery RESOLVED. `sent` is recorded, never derived.
@@ -220,6 +234,41 @@ export async function runNightlyE2e({
     } finally {
         await fs.remove(LOCK_PATH).catch(() => {});
     }
+}
+
+/**
+ * @summary Opens an authenticated MCP client against the containerized Memory Core.
+ *
+ * The `memory-core` client entry is already declared (`ai/mcp/client/config.mjs`) as
+ * `streamable-http` against the local ingress with a required bearer credential, so this adds no
+ * transport surface — it consumes the one every other host-side client uses.
+ *
+ * Nothing is caught here on purpose. A missing credential, an unreachable ingress, or a rejected
+ * token must reach the caller so the receipt records `failed` and the process exits non-zero. The
+ * failure this replaces was the opposite: an in-process write to a host store no reader serves,
+ * which returned success every time.
+ *
+ * The credential is checked BEFORE construction, and that ordering is load-bearing rather than
+ * stylistic. `Neo.create()` runs `initAsync()` inside a detached promise with no rejection handler
+ * (`src/core/Base.mjs:314`), so a throw in there never reaches `ready()` — the ready promise simply
+ * never resolves. An unattended run would then HANG until the 6h stale-lock steal instead of
+ * recording a failed delivery, which is a strictly worse failure than the silent one this leaf
+ * exists to remove. Validating first keeps the loud path loud.
+ * @returns {Promise<Object>} A connected client exposing `callTool` and `close`.
+ */
+async function connectMemoryCore() {
+    if (!process.env[REMOTE_MCP_CREDENTIAL_ENV_VAR]?.trim()) {
+        throw new Error(
+            `nightlyE2eRunner: ${REMOTE_MCP_CREDENTIAL_ENV_VAR} is missing or empty — the RED digest cannot reach Memory Core. ` +
+            `An unattended run needs it in the LaunchAgent's EnvironmentVariables; see ai/scripts/lifecycle/nightly-e2e/README.md.`
+        );
+    }
+
+    const client = Neo.create(Client, {serverName: 'memory-core'});
+
+    await client.ready();
+
+    return client
 }
 
 /**

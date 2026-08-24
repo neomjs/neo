@@ -21,6 +21,21 @@
     <key>WorkingDirectory</key>
     <string>__NEO_REPO_ROOT__</string>
 
+    <!--
+      A `launchd` session inherits none of an interactive shell's environment, and the runner
+      delivers its digest as an authenticated MCP client of the containerized Memory Core.
+      Without these the nightly run reaches the client with no credential and no `node` on PATH —
+      and it would fail EVERY night while every local test stayed green, because an interactive
+      shell supplies both. Same substitution pattern as the sibling agent-os plists.
+    -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__NEO_PATH__</string>
+        <key>NEO_MCP_REMOTE_TOKEN</key>
+        <string>__NEO_MCP_REMOTE_TOKEN__</string>
+    </dict>
+
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
