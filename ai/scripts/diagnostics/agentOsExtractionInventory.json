@@ -313,7 +313,8 @@
                 "agentos-to-outside::ai/services/neural-link/InstanceService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/services/neural-link/InteractionService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/services/neural-link/RecorderService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
-                "agentos-to-outside::ai/services/neural-link/RuntimeService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1"
+                "agentos-to-outside::ai/services/neural-link/RuntimeService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
+                "agentos-to-outside::ai/services/neural-link/memoryCoreArchiveClient.mjs::static-import::../../../src/Neo.mjs::src/Neo.mjs::1"
             ],
             "direction": "agentos-to-outside",
             "disposition": "published-engine-package",
