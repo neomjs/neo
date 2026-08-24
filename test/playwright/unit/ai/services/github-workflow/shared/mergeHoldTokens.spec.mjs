@@ -82,8 +82,8 @@ test.describe('mergeHoldTokens', () => {
 
     test.describe('issuance vs demonstration — code is an example, never a hold', () => {
         test('a token inside a fenced block is not an issuance', () => {
-            // `merge-hold-tokens.md` opens a fence with this exact token in it. Without this, a
-            // reviewer quoting the docs to explain the convention blocks the PR they explain it on.
+            // A reviewer quoting an example to explain the convention must not block the PR they
+            // are explaining it on.
             expect(mergeHoldToken('How it works:\n```\n[MERGE_HOLD] blocks the PR\n```\ndone')).toBeNull();
         });
 
@@ -112,6 +112,18 @@ test.describe('mergeHoldTokens', () => {
 
         test('a mid-sentence mention is not an issuance', () => {
             expect(mergeHoldToken('No reason to hold this one — `[MERGE_HOLD]` would be overkill')).toBeNull();
+        });
+
+        test('a mention that WRAPS to line-initial is still not an issuance', () => {
+            // The rule is "opens a BLOCK", not "opens a line" — where prose wraps is not a property
+            // the author controls. The reference doc's own sentence saying a mid-sentence mention
+            // does not hold wrapped exactly here, and classified as a hold under the line rule.
+            expect(mergeHoldToken('Writing "no reason to\n`[MERGE_HOLD]` this" mid-sentence does not hold')).toBeNull();
+        });
+
+        test('an issuance opening a later block still counts', () => {
+            // Non-vacuity for the block rule: it must not reduce to "only the first line can hold".
+            expect(mergeHoldToken('Some context first.\n\n[MERGE_HOLD] and here is the reason')).toBe('merge_hold');
         });
     });
 });

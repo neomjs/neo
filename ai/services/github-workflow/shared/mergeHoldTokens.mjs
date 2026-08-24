@@ -44,17 +44,24 @@ const MERGE_HOLD_TOKENS = new Set([
  * Multi-line bodies are scanned per line, because a hold is normally a heading above its rationale.
  *
  * **CODE IS EXAMPLE, NEVER ISSUANCE.** A token inside a fenced block or an indented code block is
- * being SHOWN, not emitted — and mid-sentence backticks were already the only quoted form this
- * caught. The documentation for this very feature opens a fence with `[MERGE_HOLD]` in it, so
- * without this a reviewer who quotes the docs to explain the convention blocks the PR they are
- * explaining it on. Found by @neo-gpt-emmy at review: the original negative control exercised the
- * inline-backtick shape the matcher already handled and never the fenced shape it did not.
+ * being SHOWN, not emitted. Found by @neo-gpt-emmy at review: the original negative control
+ * exercised the inline-backtick shape the matcher already handled and never the fenced shape it
+ * did not.
+ *
+ * **A BLOCK, not a line.** "Opens a line" is not a property an author controls — prose wraps, and a
+ * wrap can promote a mid-sentence mention to line-initial. The reference doc's own sentence
+ * explaining that a mid-sentence mention does NOT hold wrapped precisely there and classified as a
+ * hold; an example that contradicts itself is the sharpest possible evidence that the rule was
+ * wrong. So a token must open a BLOCK: first content line, after a blank line, or after a fence.
+ * A wrapped continuation always has a non-blank predecessor and is therefore never an issuance.
  *
  * @param {String} body Comment body.
  * @returns {String|null} the matched token name (lower-case), or `null`.
  */
 export function mergeHoldToken(body = '') {
-    let fenced = false;
+    let
+        blockStart = true,
+        fenced     = false;
 
     for (const line of String(body).split('\n')) {
         // Toggle on any fence marker. An opening fence may carry an info string (```js); a closing
@@ -62,7 +69,9 @@ export function mergeHoldToken(body = '') {
         // rest of the body, which fails toward "no hold" and is the correct direction: a body whose
         // markdown does not terminate is not an unambiguous issuance.
         if (/^\s{0,3}(?:```|~~~)/.test(line)) {
-            fenced = !fenced;
+            fenced     = !fenced;
+            // A fence ends the block it interrupted, so the line after it opens a new one.
+            blockStart = true;
             continue;
         }
 
@@ -71,9 +80,19 @@ export function mergeHoldToken(body = '') {
             continue;
         }
 
-        const run = line.match(/^\s*[#`\s]*(?:\[[^\]]*\]\s*`?\s*)+/);
+        if (!line.trim()) {
+            blockStart = true;
+            continue;
+        }
 
-        if (!run) {
+        const
+            opensBlock = blockStart,
+            run        = line.match(/^\s*[#`\s]*(?:\[[^\]]*\]\s*`?\s*)+/);
+
+        // Every non-blank line consumes the block opening, whether or not it carries a token.
+        blockStart = false;
+
+        if (!opensBlock || !run) {
             continue;
         }
 
