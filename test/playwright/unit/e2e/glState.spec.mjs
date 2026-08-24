@@ -181,9 +181,10 @@ test.describe('e2e/utils/glState', () => {
 
     test('#16151 presenting config has one Chrome owner; engine config retains the GL probe', async () => {
         const
-            previousEngine = process.env.NEO_E2E_ENGINE_PROFILE,
-            previousFilm   = process.env.NEO_FILM_TAKE,
-            previousPort   = process.env.NEO_E2E_PORT;
+            previousEngine      = process.env.NEO_E2E_ENGINE_PROFILE,
+            previousFilm        = process.env.NEO_FILM_TAKE,
+            previousPort        = process.env.NEO_E2E_PORT,
+            previousLifecycleId = process.env.NEO_E2E_LIFECYCLE_RUN_ID;
 
         try {
             delete process.env.NEO_E2E_ENGINE_PROFILE;
@@ -225,6 +226,76 @@ test.describe('e2e/utils/glState', () => {
                 delete process.env.NEO_E2E_PORT
             } else {
                 process.env.NEO_E2E_PORT = previousPort
+            }
+
+            if (previousLifecycleId === undefined) {
+                delete process.env.NEO_E2E_LIFECYCLE_RUN_ID
+            } else {
+                process.env.NEO_E2E_LIFECYCLE_RUN_ID = previousLifecycleId
+            }
+        }
+    });
+
+    test('#17679 E2E config retains one receipt identity outside outputDir across re-imports', async () => {
+        const
+            previousEngine      = process.env.NEO_E2E_ENGINE_PROFILE,
+            previousFilm        = process.env.NEO_FILM_TAKE,
+            previousPort        = process.env.NEO_E2E_PORT,
+            previousRunId       = process.env.NEO_E2E_RUN_ID,
+            previousLifecycleId = process.env.NEO_E2E_LIFECYCLE_RUN_ID,
+            reporterOptions     = config => config.reporter.find(([name]) => (
+                name === './e2e/custom-reporter.js'
+            ))[1];
+
+        try {
+            delete process.env.NEO_E2E_ENGINE_PROFILE;
+            delete process.env.NEO_FILM_TAKE;
+            delete process.env.NEO_E2E_RUN_ID;
+            delete process.env.NEO_E2E_LIFECYCLE_RUN_ID;
+
+            const first = (
+                      await import(`../../playwright.config.e2e.mjs?receipt=first-${Date.now()}`)
+                  ).default,
+                  second = (
+                      await import(`../../playwright.config.e2e.mjs?receipt=second-${Date.now()}`)
+                  ).default,
+                  firstReceipt = reporterOptions(first),
+                  secondReceipt = reporterOptions(second);
+
+            expect(first.outputDir).toBe('./test-results/e2e/artifacts');
+            expect(firstReceipt.runId).toMatch(/^[a-f0-9-]{36}$/);
+            expect(firstReceipt.retentionLimit).toBe(100);
+            expect(secondReceipt.runId).toBe(firstReceipt.runId);
+            expect(secondReceipt.outputFile).toBe(firstReceipt.outputFile);
+            expect(firstReceipt.outputFile).toMatch(
+                /^test-results\/e2e\/browser-lifecycle\/receipt-[a-f0-9]{64}\.json$/
+            );
+            expect(firstReceipt.outputFile.startsWith(first.outputDir.replace(/^\.\//, ''))).toBe(false);
+
+            process.env.NEO_E2E_RUN_ID = 'caller/battery run';
+            const supplied = (
+                      await import(`../../playwright.config.e2e.mjs?receipt=supplied-${Date.now()}`)
+                  ).default,
+                  suppliedReceipt = reporterOptions(supplied);
+
+            expect(supplied.outputDir).toBe('./test-results/e2e/battery/caller/battery run/artifacts');
+            expect(suppliedReceipt.runId).toBe('caller/battery run');
+            expect(suppliedReceipt.outputFile).toMatch(
+                /^test-results\/e2e\/browser-lifecycle\/receipt-[a-f0-9]{64}\.json$/
+            )
+        } finally {
+            for (const [name, value] of [
+                ['NEO_E2E_ENGINE_PROFILE', previousEngine],
+                ['NEO_FILM_TAKE', previousFilm],
+                ['NEO_E2E_PORT', previousPort],
+                ['NEO_E2E_RUN_ID', previousRunId],
+                ['NEO_E2E_LIFECYCLE_RUN_ID', previousLifecycleId]
+            ]) {
+                if (value === undefined) {
+                    delete process.env[name]
+                } else {
+                    process.env[name] = value
+                }
             }
         }
     });

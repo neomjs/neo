@@ -3,6 +3,10 @@ import './configTemplateResolver.mjs';
 import {defineConfig, devices}             from '@playwright/test';
 import {resolveFreePortSync}               from './resolveFreePort.mjs';
 import {activeLaunchArgs, requiresGlProbe} from './e2e/utils/gpuIntent.mjs';
+import {
+    DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT,
+    resolveBrowserLifecycleReceipt
+} from './e2e/custom-reporter.js';
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the
@@ -23,7 +27,18 @@ process.env.NEO_E2E_PORT = String(PORT);
 //   cd test/playwright && dir="test-results/e2e/battery/run-1" && mkdir -p "$dir" && \
 //   NEO_E2E_RUN_ID=run-1 npx playwright test -c playwright.config.e2e.mjs e2e/<spec> 2>&1 | tee "$dir/run.log"
 const RUN_ID        = process.env.NEO_E2E_RUN_ID || null,
-      ARTIFACT_ROOT = RUN_ID ? `./test-results/e2e/battery/${RUN_ID}/artifacts` : './test-results/e2e/artifacts';
+      ARTIFACT_ROOT = RUN_ID ? `./test-results/e2e/battery/${RUN_ID}/artifacts` : './test-results/e2e/artifacts',
+      // Lifecycle receipts must outlive Playwright's outputDir cleanup and later runs. Retaining the
+      // newest 100 gives a useful recent-run window while bounding reporter-owned accumulation. Total
+      // run volume is unmeasured, so this policy deliberately makes no duration claim.
+      LIFECYCLE_RECEIPT = resolveBrowserLifecycleReceipt({
+          receiptRoot: './test-results/e2e/browser-lifecycle',
+          // The internal pin is inherited by Playwright's config re-imports and workers. Only the
+          // caller-owned NEO_E2E_RUN_ID scopes the normal battery artifact tree above.
+          runId       : RUN_ID || process.env.NEO_E2E_LIFECYCLE_RUN_ID || null
+      });
+
+process.env.NEO_E2E_LIFECYCLE_RUN_ID = LIFECYCLE_RECEIPT.runId;
 
 const
     launchArgs     = activeLaunchArgs(),
@@ -52,7 +67,10 @@ export default defineConfig({
         ['list'],
         ['html', { outputFolder: 'test-results/e2e/html-report', open: 'never' }],
         ['json', { outputFile: 'test-results/e2e/results.json' }],
-        ['./e2e/custom-reporter.js', { outputFile: 'test-results/e2e/benchmark-system-info.json' }]
+        ['./e2e/custom-reporter.js', {
+            ...LIFECYCLE_RECEIPT,
+            retentionLimit: DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT
+        }]
     ],
 
     use: {
