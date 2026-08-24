@@ -10,6 +10,7 @@ import AiConfig                    from '../../../../../../../ai/config.template
 import {
     classifyDirectProbeOutcome,
     DeploymentStateBridgeService,
+    deriveEmbeddingProbeSweepDisagreementInterval,
     summarizeProbeReliability
 } from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
@@ -1578,6 +1579,116 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
         expect(JSON.stringify(retryPendingSnapshot)).not.toContain(generationId);
         service.destroy();
+    });
+
+    test('healthy probe names a same-window repo failure without changing its verdict (#17501)', async () => {
+        const makeService = (lastErrorAt, cadenceMs = 120_000) => createService({
+            taskStateService: {
+                getTaskState() {
+                    return {running: false, lastCompletion: null}
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {tenantRepos: [{
+                        tenantId  : 'tenant-observer',
+                        repoSlug  : 'private/observer',
+                        cloneUrl  : 'https://git.example/private/observer.git',
+                        cadenceMs,
+                        configTier: 'yaml'
+                    }]}
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json'
+                },
+                async readPersistedRevisions() {
+                    return {'tenant-observer/private/observer': {
+                        lastIngestedRev    : null,
+                        lastRunAttemptAt   : OBSERVED_AT - 2_000,
+                        consecutiveFailures: 1,
+                        lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                        lastErrorAt
+                    }}
+                },
+                getEmbeddingRecoveryProbeSnapshot() {
+                    return {
+                        status             : 'healthy',
+                        checkedAt          : OBSERVED_AT,
+                        lastDemandCached   : false,
+                        failureStreak      : 0,
+                        backoffMs          : 0,
+                        nextAttemptAt      : null,
+                        terminal           : false,
+                        stopReason         : null,
+                        errorClassification: null,
+                        errorCode          : null
+                    }
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        // Exact recorded red-proof: the two-second disagreement was previously projected as plain healthy.
+        const disagreementService  = makeService(OBSERVED_AT - 2_000),
+              disagreementSnapshot = await disagreementService.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(disagreementSnapshot.embeddingRecoveryProbe).toMatchObject({
+            status             : 'healthy',
+            failureStreak      : 0,
+            errorClassification: 'probe-sweep-disagreement'
+        });
+
+        // The predicate is symmetric: a repo failure moments AFTER the probe means its healthy
+        // evidence was overtaken before this joined snapshot could publish it unqualified.
+        const laterErrorService  = makeService(OBSERVED_AT + 2_000),
+              laterErrorSnapshot = await laterErrorService.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(laterErrorSnapshot.embeddingRecoveryProbe.errorClassification)
+            .toBe('probe-sweep-disagreement');
+
+        // The window is inclusive. Make the repo floor deliberately wider so the probe cadence is
+        // the exact minimum, then place the later error on that boundary.
+        const probeCadenceMs   = AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
+              boundaryService  = makeService(OBSERVED_AT + probeCadenceMs, probeCadenceMs * 4),
+              boundarySnapshot = await boundaryService.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(boundarySnapshot.embeddingRecoveryProbe.errorClassification)
+            .toBe('probe-sweep-disagreement');
+
+        // CONTROL: a genuine recovery outside the ZERO-STREAK floor stays plain healthy. With one
+        // persisted failure the current backoff is 40s+; using that wider value would wrongly flag
+        // this 30s-old error, while the actual 20s zero-streak floor does not.
+        const recoveryService  = makeService(OBSERVED_AT - 30_000, 20_000),
+              recoverySnapshot = await recoveryService.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(recoverySnapshot.embeddingRecoveryProbe).toMatchObject({
+            status             : 'healthy',
+            errorClassification: null
+        });
+
+        disagreementService.destroy();
+        laterErrorService.destroy();
+        boundaryService.destroy();
+        recoveryService.destroy()
+    });
+
+    test('the disagreement interval changes with either existing authority and needs both (#17501)', () => {
+        expect(deriveEmbeddingProbeSweepDisagreementInterval({
+            probeCadenceMs     : 60_000,
+            sweepBackoffFloorMs: 120_000
+        })).toBe(60_000);
+        expect(deriveEmbeddingProbeSweepDisagreementInterval({
+            probeCadenceMs     : 30_000,
+            sweepBackoffFloorMs: 120_000
+        })).toBe(30_000);
+        expect(deriveEmbeddingProbeSweepDisagreementInterval({
+            probeCadenceMs     : 60_000,
+            sweepBackoffFloorMs: 20_000
+        })).toBe(20_000);
+        expect(deriveEmbeddingProbeSweepDisagreementInterval({
+            probeCadenceMs     : null,
+            sweepBackoffFloorMs: 20_000
+        })).toBeNull();
     });
 
     test('the outstanding-work count reaches the snapshot, and an unmeasured repo does not read as finished', async () => {
