@@ -259,6 +259,22 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
         expect(result).toMatch(/^Test (?:Passed|Failed):/);
     });
 
+    test('#16508 an unresolvable Playwright suite root fails closed as a containment refusal', async () => {
+        const originalCwd = process.cwd;
+
+        // The outer project jail can still prove this file is inside the temporary cwd. The second
+        // boundary cannot prove where the Playwright suite is because that cwd has no such tree.
+        // A raw ENOENT is therefore an escaped guard ambiguity, not an ordinary I/O failure.
+        process.cwd = () => tmpDir;
+
+        try {
+            await expect(FileSystemService.runPlaywrightTest({absolutePath: hostile}))
+                .rejects.toThrow(/403 Forbidden: Playwright suite containment could not be established \(ENOENT\)/);
+        } finally {
+            process.cwd = originalCwd
+        }
+    });
+
     test('#16508 traversal that normalizes outside the Playwright suite is refused', async () => {
         const traversal = [suiteRoot, '..', '..', path.relative(root, hostile)].join(path.sep);
 
