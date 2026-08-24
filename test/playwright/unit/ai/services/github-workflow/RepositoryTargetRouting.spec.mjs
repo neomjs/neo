@@ -128,6 +128,71 @@ test.describe('github-workflow 18-operation repository-target boundary (#17420)'
         expect(restCalls).toBe(0);
     });
 
+    test('an acknowledged non-default reassignment keeps mutation, post-verify, and audit comment on target', async () => {
+        let assigneeReads = 0,
+            auditBody,
+            restPath;
+
+        RepositoryService.getViewerPermission = async ({repo}) => {
+            expect(repo).toBe('neomjs/devindex');
+            return {permission: 'WRITE'}
+        };
+        GraphqlService.query = async (query, variables) => {
+            if (query.includes('GetIssueAssignees')) {
+                assigneeReads++;
+                expect(variables).toMatchObject({owner: 'neomjs', repo: 'devindex', number: 2});
+                return {
+                    repository: {
+                        issue: {
+                            assignees: {
+                                nodes: assigneeReads === 1
+                                    ? [{login: 'neo-opus-grace'}]
+                                    : [{login: 'neo-gpt'}]
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (query.includes('GetIssueId')) {
+                expect(variables).toMatchObject({owner: 'neomjs', repo: 'devindex', number: 2});
+                return {repository: {issue: {id: 'I_devindex_2'}}}
+            }
+
+            if (query.includes('AddComment')) {
+                expect(variables.subjectId).toBe('I_devindex_2');
+                auditBody = variables.body;
+                return {addComment: {commentEdge: {node: {id: 'IC_audit'}}}}
+            }
+
+            throw new Error('unexpected assignee-audit query')
+        };
+        GraphqlService.rest = async (method, path, payload) => {
+            expect(method).toBe('PATCH');
+            expect(payload).toEqual({assignees: ['neo-gpt']});
+            restPath = path;
+            return {}
+        };
+
+        const result = await IssueService.manageIssueAssignees({
+            repo                : 'devindex',
+            issue_number        : 2,
+            assignees           : ['neo-gpt'],
+            action              : 'add',
+            requireUnassigned   : true,
+            acknowledgedReassign: 'explicit handoff acceptance witness'
+        });
+
+        expect(restPath).toBe('/repos/neomjs/devindex/issues/2');
+        expect(assigneeReads).toBe(2);
+        expect(auditBody).toContain('explicit handoff acceptance witness');
+        expect(auditBody).toContain('neo-opus-grace');
+        expect(result).toMatchObject({
+            verifiedAssignees: ['neo-gpt'],
+            previousAssignees: ['neo-opus-grace']
+        });
+    });
+
     test('viewer permissions cache by owner/repo rather than sharing the home answer', async () => {
         const priorPermission  = RepositoryService.viewerPermission,
               priorPermissions = new Map(RepositoryService.viewerPermissions),
