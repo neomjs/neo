@@ -34,6 +34,13 @@ import logger from '../../mcp/server/neural-link/logger.mjs';
 export const CONNECT_DEADLINE_MS = 5000;
 
 /**
+ * The Memory Core server key in `ai/mcp/client/config.mjs`, which owns both the endpoint and the list of
+ * environment variables a client for it requires.
+ * @type {String}
+ */
+const SERVER_NAME = 'memory-core';
+
+/**
  * The live client, or `null` before the first successful connect / after a failure.
  * @type {Object|null}
  */
@@ -75,7 +82,22 @@ async function getClient({deadlineMs = CONNECT_DEADLINE_MS} = {}) {
     // Neural Link unit spec does — starts connection machinery and hangs the suite before a single
     // assertion runs. Measured: two specs that pass on `dev` never terminated. The host's own SQLite
     // access was dynamic for the same class of reason.
-    const {default: Client} = await import('../../mcp/client/Client.mjs');
+    const {default: Client}       = await import('../../mcp/client/Client.mjs'),
+          {default: ClientConfig} = await import('../../mcp/client/config.mjs'),
+          missingEnv              = (ClientConfig.mcpServers?.[SERVER_NAME]?.requiredEnv ?? [])
+              .filter(key => !process.env[key]);
+
+    // PRE-FLIGHT THE CREDENTIAL, and this is not belt-and-braces for the guard below. `Client.initAsync`
+    // throws on a missing required variable, and that throw lands on a promise nobody holds — so the only
+    // way to report it as a REFUSAL rather than an unhandled rejection is to never construct the client.
+    // Every observer sees an unhandled rejection, including a test harness that fails the surrounding test
+    // whatever this module does about the default policy. An unconfigured Memory Core is exactly the
+    // fail-by-name case the contract already describes, so it needs no rescuing — only naming.
+    if (missingEnv.length > 0) {
+        throw new Error(
+            `Memory Core credential absent: ${missingEnv.join(', ')} not set, so no archive client can be created.`
+        )
+    }
 
     let next, timer, graceTimer, rejectDetached,
         settled = false;
@@ -117,7 +139,7 @@ async function getClient({deadlineMs = CONNECT_DEADLINE_MS} = {}) {
 
     next = Neo.create(Client, {
         clientName: 'Neo.ai.NeuralLink.ArchiveClient',
-        serverName: 'memory-core',
+        serverName: SERVER_NAME,
         env       : process.env
     });
 

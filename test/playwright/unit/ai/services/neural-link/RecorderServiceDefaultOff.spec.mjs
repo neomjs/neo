@@ -34,9 +34,10 @@ test.describe('Neural Link action logging default', () => {
      * @param {Object}  [options.extraEnv=null] Additional env for the child.
      * @param {Boolean} [options.exerciseArchive=false] Also drive a save + read-back.
      * @param {Boolean} [options.exerciseTelemetry=false] Also drive three logged actions.
+     * @param {Boolean} [options.injectTransport=true] When false, the child uses the REAL client path.
      * @returns {Object} Observed child outcome.
      */
-    function bootRecorder({extraEnv = null, exerciseArchive = false, exerciseTelemetry = false} = {}) {
+    function bootRecorder({extraEnv = null, exerciseArchive = false, exerciseTelemetry = false, injectTransport = true} = {}) {
         const
             dir         = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-nl-gate-')),
             dbPath      = path.join(dir, 'graph.sqlite'),
@@ -72,6 +73,12 @@ test.describe('Neural Link action logging default', () => {
             // `Neo.gatekeep` at module scope, so importing RecorderService bare throws
             // "Neo is not defined". Same ordering the sibling specs get from `setup.mjs`.
             script = `
+                // Counts what ANY observer would see. A test harness installs exactly such a listener and
+                // fails the surrounding test on it, so surviving the rejection is not the same as never
+                // emitting one — and only the second property keeps an unrelated spec file green.
+                let unhandledRejections = 0;
+                process.on('unhandledRejection', () => { unhandledRejections++ });
+
                 import Neo       from ${JSON.stringify(path.join(rootDir, 'src/Neo.mjs'))};
                 import * as core from ${JSON.stringify(path.join(rootDir, 'src/core/_export.mjs'))};
                 const config          = (await import(${JSON.stringify(path.join(rootDir, 'ai/mcp/server/neural-link/config.mjs'))})).default;
@@ -82,6 +89,7 @@ test.describe('Neural Link action logging default', () => {
                 let calls = 0;
                 const store = new Map();
 
+                ${injectTransport ? '' : '/* no seam: this child exercises the REAL client path */ if (false)'}
                 client.setArchiveTransport(async (operation, args) => {
                     calls++;
                     if (operation === 'save_nl_transaction') {
@@ -101,6 +109,12 @@ test.describe('Neural Link action logging default', () => {
                 };
                 ${archiveStep}
                 ${telemetryStep}
+
+                // Drained AFTER the work: an unhandled rejection is reported on a later tick, so reading
+                // the counter synchronously would measure nothing and pass no matter what.
+                await new Promise(resolve => setTimeout(resolve, 50));
+                out.unhandledRejections = unhandledRejections;
+
                 process.stdout.write(JSON.stringify(out));
             `,
             childEnv = {...process.env, NEO_MEMORY_DB_PATH: dbPath, NEO_NL_LOG_PATH: logsDir, ...(extraEnv || {})};
@@ -213,6 +227,40 @@ test.describe('Neural Link action logging default', () => {
         // POSITIVE CONTROL: the same reader DOES find the file when the gate is on, so this zero is a
         // measurement of the gate rather than of a mistyped path.
         expect(bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}, exerciseTelemetry: true}).aggregateExists).toBe(true);
+    });
+
+    test('no credential: the archive refuses BY NAME and the process survives', () => {
+        // THE REGRESSION THIS PINS. `Client.initAsync` throws when a required variable is missing, and
+        // that throw lands on a promise nobody holds — `Base` builds its ready promise with a resolver
+        // only and awaits `initAsync` in a detached chain. So the failure surfaced as an UNHANDLED
+        // REJECTION rather than as this module's named refusal: it killed a CI worker, and it failed a
+        // test in a completely unrelated spec file that had merely imported the recorder.
+        //
+        // Catching it after the fact cannot fully fix that — every observer sees an unhandled rejection,
+        // including a harness that fails the surrounding test. The client must therefore never be
+        // constructed without its credential, which is what this arm proves.
+        const out = bootRecorder({
+            exerciseArchive: true,
+            injectTransport: false,
+            extraEnv       : {NEO_MCP_REMOTE_TOKEN: ''}
+        });
+
+        // The child ran to completion and printed its result — i.e. it did not die.
+        expect(out.error).toBeNull();
+
+        // THE LOAD-BEARING ASSERTION. Not "the process survived" — a listener already guarantees that,
+        // so an arm asserting survival passes with the pre-flight deleted and proves nothing. What the
+        // pre-flight adds is that no rejection is EMITTED for anyone else to see.
+        expect(out.unhandledRejections).toBe(0);
+
+        expect(out.archiveSaved).toBe(false);
+        expect(out.archiveReason).toContain('archive-store-unavailable');
+
+        // Named, so an operator learns WHICH thing is unconfigured rather than that "something failed".
+        expect(out.archiveReason).toContain('NEO_MCP_REMOTE_TOKEN');
+
+        // And still no host-local fallback: refusing must not mean writing somewhere else.
+        expect(out.fileExists).toBe(false);
     });
 
     test('enabled: the transaction archive contract also works', () => {
