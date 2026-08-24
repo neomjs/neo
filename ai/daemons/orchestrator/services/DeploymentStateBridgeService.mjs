@@ -87,9 +87,13 @@ import {
     describeBackupMaintenanceHealth,
     describeBackupRetryState
 } from '../scheduling/backup.mjs';
-import {resolveDurabilityPosture}    from './deploymentDurabilityPosture.mjs';
-import {summarizeStagingResidue}     from '../../../scripts/maintenance/backupStagingResidueCore.mjs';
-import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {resolveDurabilityPosture} from './deploymentDurabilityPosture.mjs';
+import {summarizeStagingResidue}  from '../../../scripts/maintenance/backupStagingResidueCore.mjs';
+import {
+    ACTIVE_RECOVERY_RUN_RETENTION_CLASS,
+    readRecentRecoveryRunStates,
+    readRecentRecoveryRunStatesWithCompleteness
+} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     queryHealLedger,
     readHealLedger,
@@ -142,6 +146,55 @@ const KB_CONFIG_BOOTSTRAP_FAILURE_STATUSES = new Set([
     'parse-failed',
     'invalid-shape'
 ]);
+/**
+ * Restart-bearing recovery actions whose positive settlement moves Docker's restart count.
+ * @member {Set<String>} PLANNED_RESTART_ACTIONS
+ */
+const PLANNED_RESTART_ACTIONS = new Set(['reconfigure', 'restart']);
+
+/**
+ * @summary Identifies a terminal that claims an uncertain restart settled as applied.
+ * @param {Object} entry Recovery-run entry.
+ * @param {String} serviceKey Compose service whose count is being projected.
+ * @returns {Boolean}
+ */
+function isAppliedRestartSettlementCandidate(entry, serviceKey) {
+    const details = entry?.details;
+
+    return details?.reasonCode === 'restart-effect-observed-applied' &&
+        details?.effectDisposition === 'applied' &&
+        details?.serviceKey === serviceKey &&
+        PLANNED_RESTART_ACTIONS.has(details?.action) &&
+        entry?.targetIdentity?.kind === 'compose-service' &&
+        entry.targetIdentity.id === serviceKey;
+}
+
+/**
+ * @summary Verifies the same-container StartedAt movement behind an applied settlement claim.
+ * @param {Object} entry Recovery-run entry.
+ * @param {String} serviceKey Compose service whose count is being projected.
+ * @returns {Boolean}
+ */
+function hasPositiveRestartSettlementEvidence(entry, serviceKey) {
+    if (!isAppliedRestartSettlementCandidate(entry, serviceKey)) return false;
+    if (
+        entry.status !== 'actioned' ||
+        entry.reobserveRequest !== null ||
+        entry.details?.status !== 'actioned' ||
+        !Number.isFinite(entry.completedAt)
+    ) return false;
+
+    const baseline      = entry.details?.reobservation?.baseline,
+          observed      = entry.details?.reobservation?.observed,
+          baselineAt    = Date.parse(baseline?.startedAt || ''),
+          observedAt    = Date.parse(observed?.startedAt || ''),
+          sameContainer = typeof baseline?.containerId === 'string' &&
+              baseline.containerId.length > 0 &&
+              baseline.containerId === observed?.containerId;
+
+    return sameContainer && Number.isFinite(baselineAt) && Number.isFinite(observedAt) && observedAt > baselineAt;
+}
+
 const EMBEDDING_RECOVERY_PROBE_STATUSES = new Set([
     'never-started',
     'pending',
@@ -259,6 +312,10 @@ export class DeploymentStateBridgeService extends Base {
          */
         directProbeFn: null,
         /**
+         * Recovery-run reader seam. The tolerant snapshot path consumes an entries array; the
+         * planned-restart path additionally accepts `{entries, completeness}` and its production
+         * default uses that shape. Both paths normalize the injected shape explicitly so a test
+         * cannot make one consumer correct by giving the sibling an object it cannot read.
          * @member {Function|null} recoveryRunStateReader=null
          * @protected
          */
@@ -1686,8 +1743,8 @@ export class DeploymentStateBridgeService extends Base {
             // have destroyed the line-boundary guarantee `boundUtf8Head` exists for: a truncated head
             // ends at a newline precisely so a human reading forward never meets half a value.
             lines    : countLines(bounded.text),
-            text             : bounded.text,
-            truncated        : bounded.truncated
+            text     : bounded.text,
+            truncated: bounded.truncated
         };
 
         // Same gate as the empty arm, for the same reason: a head read at t+5s holds only what
@@ -1886,9 +1943,14 @@ export class DeploymentStateBridgeService extends Base {
      * - a supervised-task recycle restarts a PROCESS, so Docker's `RestartCount` never moves for it
      *   and it must not be subtracted. It carries no lifecycle proof, so this predicate excludes it
      *   without needing a second rule.
+     * - an uncertain restart can settle later through a positive `StartedAt` movement. That terminal
+     *   is source-owned applied-effect proof rather than a replayed Docker-response proof, and carries
+     *   the original dispatch coordinate so it belongs to the same bounded count window.
      *
-     * The proof also stamps `observedAt` at the moment the restart was dispatched and carries its own
-     * `serviceKey` — the honest window bound and owner for this count, rather than the diagnosis time.
+     * The terminal lifecycle proof carries the owner (`serviceKey`) but its `observedAt` is created
+     * after Docker answers. The separately persisted `restartDispatch.requestedAt` is the honest
+     * pre-POST window coordinate; using the response-bound stamp can put a restart below a baseline
+     * that was sampled while the request was still in flight.
      *
      * @param {Object} options
      * @param {String} options.serviceKey
@@ -1919,8 +1981,74 @@ export class DeploymentStateBridgeService extends Base {
         try {
             // Same injection seam `collectRecoveryRunSnapshot` uses, rather than a second direct
             // reader — one source of recovery-run truth, and testable.
-            const reader  = this.recoveryRunStateReader || readRecentRecoveryRunStates,
-                  entries = await reader({dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir, limit});
+            const reader     = this.recoveryRunStateReader || readRecentRecoveryRunStatesWithCompleteness,
+                  readResult = await reader({dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir, limit}),
+                  // Existing tests and third-party seams may still return the legacy entries array.
+                  // Production uses the completeness-bearing reader; treating a caller-injected
+                  // array as complete preserves the dependency seam without weakening source reads.
+                  entries       = Array.isArray(readResult) ? readResult : readResult?.entries,
+                  activeEntries = Array.isArray(readResult?.activeEntries)
+                      ? readResult.activeEntries
+                      : entries?.filter(entry =>
+                          entry?.details?.retentionClass === ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+                      ),
+                  completeness  = Array.isArray(readResult)
+                      ? {status: 'complete'}
+                      : readResult?.completeness;
+
+            if (!Array.isArray(entries) || completeness?.status !== 'complete') {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-read-incomplete', status: 'degraded'};
+            }
+
+            const activeTargetRestarts = activeEntries.filter(entry =>
+                entry?.targetIdentity?.kind === 'compose-service' &&
+                entry.targetIdentity.id === serviceKey &&
+                entry?.details?.retentionClass === ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+            );
+
+            if (activeTargetRestarts.some(entry =>
+                !Number.isFinite(entry?.details?.restartDispatch?.requestedAt) ||
+                entry.details.restartDispatch.requestedAt > observedAt
+            )) {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-window-unbound', status: 'degraded'};
+            }
+
+            const hasUnclassifiedActiveEffect = activeTargetRestarts.some(entry => {
+                const dispatchPending = entry.status === 'pending' &&
+                          entry.details?.reasonCode === 'restart-dispatch-pending',
+                      effectUncertain = entry.status === 'reobserve-requested' &&
+                          entry.details?.reasonCode === 'restart-effect-disposition-uncertain' &&
+                          entry.reobserveRequest?.reason === 'effect-disposition-uncertain';
+
+                return !PLANNED_RESTART_ACTIONS.has(entry?.details?.action) ||
+                    entry?.details?.effectDisposition !== 'uncertain' ||
+                    !(dispatchPending || effectUncertain);
+            });
+
+            if (hasUnclassifiedActiveEffect) {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-effect-unclassified', status: 'degraded'};
+            }
+
+            if (activeTargetRestarts.length > 0) {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-effect-uncertain', status: 'degraded'};
+            }
+
+            const appliedSettlementCandidates = entries
+                .filter(entry => isAppliedRestartSettlementCandidate(entry, serviceKey))
+                .filter(entry => {
+                    const requestedAt = entry?.details?.restartDispatch?.requestedAt,
+                          terminalAt  = [entry?.updatedAt, entry?.completedAt].find(Number.isFinite) ?? null;
+
+                    return Number.isFinite(requestedAt)
+                        ? requestedAt >= baseline.observedAt
+                        : !(Number.isFinite(terminalAt) && terminalAt < baseline.observedAt)
+                });
+
+            if (appliedSettlementCandidates.some(entry =>
+                !hasPositiveRestartSettlementEvidence(entry, serviceKey)
+            )) {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-effect-unclassified', status: 'degraded'};
+            }
 
             // Entries arrive newest-first, so the last one is the furthest back this read reached.
             const oldest   = entries[entries.length - 1],
@@ -1933,16 +2061,38 @@ export class DeploymentStateBridgeService extends Base {
                 return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-window-truncated', status: 'degraded'};
             }
 
-            const count = entries.filter(entry => {
-                const proof = entry?.details?.runtimeAccess;
+            const restartEntries = entries.filter(entry => {
+                const details           = entry?.details,
+                      proof             = details?.runtimeAccess,
+                      appliedSettlement = hasPositiveRestartSettlementEvidence(entry, serviceKey);
 
-                return proof?.capabilityEnvelope === 'lifecycle-write' &&
-                    proof.operation  === 'restart'   &&
-                    proof.serviceKey === serviceKey  &&
-                    Number.isFinite(proof.observedAt) &&
-                    proof.observedAt >= baseline.observedAt &&
-                    proof.observedAt <= observedAt
-            }).length;
+                return appliedSettlement || (
+                    proof?.capabilityEnvelope === 'lifecycle-write' &&
+                    proof.operation  === 'restart' &&
+                    proof.serviceKey === serviceKey
+                );
+            }),
+                windowCandidates = restartEntries
+                    .map(entry => ({
+                        entry,
+                        requestedAt: entry?.details?.restartDispatch?.requestedAt,
+                        responseAt : entry?.details?.runtimeAccess?.observedAt
+                    }))
+                    // A response observed before the baseline proves its dispatch happened before
+                    // the baseline too. Legacy rows with no dispatch stamp can therefore age out
+                    // honestly instead of degrading every future window until retention removes them.
+                    .filter(item => Number.isFinite(item.requestedAt)
+                        ? item.requestedAt >= baseline.observedAt
+                        : !(Number.isFinite(item.responseAt) && item.responseAt < baseline.observedAt)),
+                hasUnboundWindow = windowCandidates.some(item =>
+                    !Number.isFinite(item.requestedAt) || item.requestedAt > observedAt
+                );
+
+            if (hasUnboundWindow) {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-window-unbound', status: 'degraded'};
+            }
+
+            const count = windowCandidates.filter(item => item.requestedAt <= observedAt).length;
 
             return {count, reason: null, status: 'available'};
         } catch {
@@ -2025,11 +2175,16 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         try {
-            const reader  = this.recoveryRunStateReader || readRecentRecoveryRunStates,
-                  entries = await reader({
-                dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
-                limit
-            });
+            const reader     = this.recoveryRunStateReader || readRecentRecoveryRunStates,
+                  readResult = await reader({
+                      dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir,
+                      limit
+                  }),
+                  entries      = Array.isArray(readResult) ? readResult : readResult?.entries;
+
+            if (!Array.isArray(entries)) {
+                throw new TypeError('Recovery-run reader must return an entries array or {entries, completeness}');
+            }
 
             return {status: 'available', source, limit, entries, errors: []};
         } catch (error) {
@@ -2080,10 +2235,10 @@ export class DeploymentStateBridgeService extends Base {
                   events = await reader({dir: this.healLedgerDir});
 
             return {
-                status      : 'available',
+                status : 'available',
                 source,
                 limit,
-                summary     : summarizeHealLedger(events),
+                summary: summarizeHealLedger(events),
                 // `summary.currentlyFrozen` is a bare target list; this carries each freeze's escalation,
                 // verdict evidence and thaw condition, so an operator can see WHY a target is frozen and
                 // what clears it without reading the ledger.

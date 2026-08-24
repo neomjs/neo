@@ -17,7 +17,8 @@ import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/o
 import {DeploymentRuntimeAccessService}  from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
 import {
     createRecoveryDiagnosisEvent,
-    createRecoveryRunStateEntry
+    createRecoveryRunStateEntry,
+    readRecentRecoveryRunStatesWithCompleteness
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
@@ -2465,7 +2466,16 @@ test.describe('restart churn reaches the deployment record', () => {
         startedAt  : at,
         updatedAt  : at,
         completedAt: at,
-        details    : {runtimeAccess: proof}
+        details    : {
+            runtimeAccess: proof,
+            ...(proof.operation === 'restart'
+                ? {
+                    restartDispatch: {
+                        requestedAt: proof.observedAt
+                    }
+                }
+                : {})
+        }
     });
 
     test.beforeEach(() => {dir = fs.mkdtempSync(path.join(os.tmpdir(), 'churn-bridge-'))});
@@ -2562,8 +2572,11 @@ test.describe('restart churn reaches the deployment record', () => {
         const churnFact = atBoundary.diagnosis.diagnosis.evidenceFacts
             .find(fact => fact.type === 'restart-churn');
 
+        expect(churnFact.authoritative).toBe(false);
         expect(churnFact.details.unplannedRestarts).toBe(3);
         expect(churnFact.details.threshold).toBe(3);
+        expect(atBoundary.diagnosis.actionClass).toBe('record');
+        expect(atBoundary.diagnosis.diagnosis.evidenceFacts.at(-1).type).toBe('restart-churn');
     });
 
     /**
@@ -2637,6 +2650,210 @@ test.describe('restart churn reaches the deployment record', () => {
         expect(unreadable.restartChurn.plannedRestarts.status).toBe('degraded');
         expect(unreadable.restartChurn.plannedRestarts.reason).toBe('recovery-run-read-failed');
         expect(unreadable.restartChurn.detecting).toBe(false);
+    });
+
+    test('#16984: retained recovery-run damage degrades planned-restart completeness', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+        fs.writeFileSync(path.join(dir, 'corrupt-recovery-run.jsonl'), '{"broken"\n');
+
+        const reader = ({limit}) => readRecentRecoveryRunStatesWithCompleteness({dir, limit}),
+              record = await bridgeFor('c1', 3, reader)
+                  .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.restartChurn.plannedRestarts).toEqual({
+            reason: 'recovery-run-read-incomplete',
+            status: 'degraded'
+        });
+        expect(record.restartChurn.detecting).toBe(false);
+    });
+
+    test('#16984: a complete empty recovery-run store remains an available zero', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const reader = ({limit}) => readRecentRecoveryRunStatesWithCompleteness({dir, limit}),
+              record = await bridgeFor('c1', 1, reader)
+                  .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.restartChurn.plannedRestarts).toEqual({reason: null, status: 'available'});
+        expect(record.restartChurn.detecting).toBe(true);
+    });
+
+    test('#16984: an active uncertain restart outside the recency slice still degrades', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const uncertain = runEntry(lifecycleProof('restart', 'orchestrator', OBSERVED_AT + 30000), OBSERVED_AT + 30000);
+
+        delete uncertain.details.runtimeAccess;
+        uncertain.reobserveRequest = {reason: 'effect-disposition-uncertain'};
+        Object.assign(uncertain.details, {
+            action           : 'restart',
+            effectDisposition: 'uncertain',
+            reasonCode       : 'restart-effect-disposition-uncertain',
+            retentionClass   : 'active-effect-interlock',
+            restartDispatch  : {requestedAt: OBSERVED_AT + 30000}
+        });
+
+        const reader = async () => ({
+                  entries      : [],
+                  activeEntries: [uncertain],
+                  completeness : {
+                      artifactCount          : 1,
+                      incompleteArtifactCount: 0,
+                      reasonCodes            : [],
+                      status                 : 'complete'
+                  }
+              }),
+              record = await bridgeFor('c1', 3, reader)
+                  .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.restartChurn.plannedRestarts).toEqual({
+            reason: 'recovery-run-effect-uncertain',
+            status: 'degraded'
+        });
+        expect(record.restartChurn.detecting).toBe(false);
+    });
+
+    test('#16984: an unclassified active restart interlock cannot certify zero', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const unclassified = runEntry(
+            lifecycleProof('restart', 'orchestrator', OBSERVED_AT + 30000),
+            OBSERVED_AT + 30000
+        );
+
+        delete unclassified.details.runtimeAccess;
+        Object.assign(unclassified.details, {
+            retentionClass : 'active-effect-interlock',
+            restartDispatch: {requestedAt: OBSERVED_AT + 30000}
+        });
+
+        const record = await bridgeFor('c1', 3, async () => ({
+            entries      : [],
+            activeEntries: [unclassified],
+            completeness : {status: 'complete'}
+        })).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.restartChurn.plannedRestarts).toEqual({
+            reason: 'recovery-run-effect-unclassified',
+            status: 'degraded'
+        });
+        expect(record.restartChurn.detecting).toBe(false);
+    });
+
+    test('#16984: applied settlement labels without positive StartedAt evidence cannot count', async () => {
+        const at      = OBSERVED_AT + 30000,
+              applied = runEntry(lifecycleProof('restart', 'orchestrator', at), at);
+
+        delete applied.details.runtimeAccess;
+        applied.status           = 'actioned';
+        applied.reobserveRequest = null;
+        Object.assign(applied.details, {
+            action           : 'restart',
+            effectDisposition: 'applied',
+            reasonCode       : 'restart-effect-observed-applied',
+            restartDispatch  : {requestedAt: at},
+            serviceKey       : 'orchestrator',
+            status           : 'actioned'
+        });
+
+        for (const reobservation of [
+            null,
+            {
+                baseline: {containerId: 'c1', startedAt: '2026-08-24T00:00:00.000Z'},
+                observed: {containerId: 'c1', startedAt: '2026-08-24T00:00:00.000Z'}
+            }
+        ]) {
+            applied.details.reobservation = reobservation;
+
+            const result = await bridgeFor('c1', 1, async () => [applied]).collectPlannedRestarts({
+                serviceKey: 'orchestrator',
+                baseline  : {observedAt: OBSERVED_AT},
+                observedAt: OBSERVED_AT + 60000
+            });
+
+            expect(result).toEqual({
+                count : Number.MAX_SAFE_INTEGER,
+                reason: 'recovery-run-effect-unclassified',
+                status: 'degraded'
+            });
+        }
+
+        applied.details.reobservation = {
+            baseline: {containerId: 'c1', startedAt: '2026-08-24T00:00:00.000Z'},
+            observed: {containerId: 'c1', startedAt: '2026-08-24T00:01:00.000Z'}
+        };
+        applied.status           = 'reobserve-requested';
+        applied.reobserveRequest = {reason: 'effect-disposition-uncertain'};
+
+        const nonterminal = await bridgeFor('c1', 1, async () => [applied]).collectPlannedRestarts({
+            serviceKey: 'orchestrator',
+            baseline  : {observedAt: OBSERVED_AT},
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(nonterminal).toEqual({
+            count : Number.MAX_SAFE_INTEGER,
+            reason: 'recovery-run-effect-unclassified',
+            status: 'degraded'
+        });
+    });
+
+    test('#16984: a positive restart proof without its pre-dispatch coordinate degrades', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const unbound = runEntry(lifecycleProof('restart', 'orchestrator', OBSERVED_AT + 30000), OBSERVED_AT + 30000);
+
+        delete unbound.details.restartDispatch;
+
+        const record = await bridgeFor('c1', 3, async () => [unbound])
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.restartChurn.plannedRestarts).toEqual({
+            reason: 'recovery-run-window-unbound',
+            status: 'degraded'
+        });
+        expect(record.restartChurn.detecting).toBe(false);
+    });
+
+    test('#16984: a post-inspect dispatch degrades this sample and counts in the next window', async () => {
+        const dispatchAt  = OBSERVED_AT + 60001,
+              responseAt  = OBSERVED_AT + 60002,
+              interleaved = runEntry(lifecycleProof('restart', 'orchestrator', responseAt), responseAt);
+
+        interleaved.details.restartDispatch.requestedAt = dispatchAt;
+
+        const bridge        = bridgeFor('c1', 1, async () => [interleaved]),
+              currentSample = await bridge.collectPlannedRestarts({
+                  serviceKey: 'orchestrator',
+                  baseline  : {observedAt: OBSERVED_AT},
+                  observedAt: OBSERVED_AT + 60000
+              }),
+              nextSample = await bridge.collectPlannedRestarts({
+                  serviceKey: 'orchestrator',
+                  baseline  : {observedAt: OBSERVED_AT + 60000},
+                  observedAt: OBSERVED_AT + 120000
+              });
+
+        expect(currentSample).toEqual({
+            count : Number.MAX_SAFE_INTEGER,
+            reason: 'recovery-run-window-unbound',
+            status: 'degraded'
+        });
+        expect(nextSample).toEqual({count: 1, reason: null, status: 'available'});
+    });
+
+    test('#16984 CONTROL: an unbound legacy proof already before the baseline does not poison the window', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const old = runEntry(lifecycleProof('restart', 'orchestrator', OBSERVED_AT - 60000), OBSERVED_AT - 60000);
+
+        delete old.details.restartDispatch;
+
+        const record = await bridgeFor('c1', 1, async () => [old])
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.restartChurn.plannedRestarts).toEqual({reason: null, status: 'available'});
+        expect(record.restartChurn.detecting).toBe(true);
     });
 
     /**
