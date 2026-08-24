@@ -624,8 +624,10 @@ function buildDialogGateArgs({appName, instancePid}) {
  * @summary Delivers through the existing draft-preserving, frontmost-verified macOS path.
  *
  * The dialog gate is armed by default; `adapterConfig.dialogProbe === false` is the documented
- * off-switch for real-harness rigs and hosts whose AX tree cannot answer the probe. Every other
- * value — including an absent one — keeps the gate armed.
+ * off-switch for real-harness rigs — there is no production writer or config leaf for the field,
+ * so a host operator's route to it is hand-authoring the subscription's `route.adapterConfig`,
+ * and no doc should imply a wider knob exists. Every other value — including an absent one —
+ * keeps the gate armed.
  *
  * @private
  */
