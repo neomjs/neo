@@ -1238,16 +1238,17 @@ class Store extends Collection {
     getCanonicalKey(value) {
         let field = this.model?.getField(this.getKeyProperty());
 
-        // Without a declared key field there is nothing to canonicalize against, so the value stands
-        // as its own identity.
-        if (!field) {
-            return value
-        }
-
-        // An absent value is not an identity. Passing it on lets a caller insert a row for a record
-        // the push never named.
+        // An absent value is not an identity, whatever the Model says. This is checked before the
+        // no-field case on purpose: a Store without a declared key field would otherwise pass null
+        // straight through, and a caller which inserts on a miss then adds a row nothing can address.
         if (value === null || value === undefined) {
             return undefined
+        }
+
+        // With no declared key field there is nothing to canonicalize against, so a present value
+        // stands as its own identity.
+        if (!field) {
+            return value
         }
 
         // Context-dependent keys cannot be resolved from a value alone — see Supported domain.

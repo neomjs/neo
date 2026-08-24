@@ -298,6 +298,25 @@ test.describe('Neo.data.Store - Push Integration', () => {
         store.destroy()
     });
 
+    test('Store should refuse an absent key even without a Model to canonicalize against', async () => {
+        // No declared key field, so there is nothing to convert — but "nothing to convert" must not
+        // become "anything is a key". Ordering this check after the no-field case let `null` through
+        // and inserted a row that `get(null)` could never retrieve.
+        const store = Neo.create(Store, {pushInsertStrategy: 'upsert'});
+
+        expect(store.getCanonicalKey(null)).toBeUndefined();
+        expect(store.getCanonicalKey(undefined)).toBeUndefined();
+
+        // A present value still stands as its own identity when no field declares otherwise.
+        expect(store.getCanonicalKey('abc')).toBe('abc');
+
+        store.onPipelinePush({id: null, status: 'created'});
+
+        expect(store.count).toBe(0);
+
+        store.destroy()
+    });
+
     test('Store should respect local sorters for inserted pipeline pushes', async () => {
         const store = createStore({
             pushInsertStrategy: 'insert',
