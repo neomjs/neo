@@ -238,11 +238,6 @@ jobs:
               return;
             }
 
-            // Agreement warnings arrive on stdout when present and are informational by
-            // contract: they name squash-provenance consequences, never branch ancestry.
-              return;
-            }
-
             if (missingVisible.length === 0 && missingInvisible.length === 0) {
               console.log("✅ PR body contains all required anchors.");
               return;
