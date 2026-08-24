@@ -613,7 +613,7 @@ test.describe('review-admission mergeability controller (#17692)', () => {
         expect(runtime.failures.join(' ')).toContain('stayed null after 4 bounded polls');
     });
 
-    test('head/base movement restarts and cannot publish an obsolete success', async () => {
+    test('head/base movement observed before publication restarts on the new coordinate', async () => {
         const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
               runtime = createReviewAdmissionRuntime({
                   reads: [

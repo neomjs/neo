@@ -253,9 +253,9 @@ jobs:
                     throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(observed.mergeable)}.`);
                   }
 
-                  // Re-read immediately before the terminal write. A head/base movement between the
-                  // poll and status publication restarts on the new coordinate rather than certifying
-                  // the old one.
+                  // Re-read immediately before the terminal write. Movement already visible here
+                  // restarts on the new coordinate. GitHub offers no atomic compare-and-status-write;
+                  // a post-read movement is corrected by the serialized successor/live tool gate.
                   const verified           = await readPull();
                   const verifiedCoordinate = coordinateOf(verified);
 
