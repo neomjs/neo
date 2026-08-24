@@ -19,18 +19,37 @@ import FileSystemService from '../../../../../../../ai/mcp/server/file-system/se
  */
 test.describe('ai/mcp/server/file-system FileSystemService', () => {
     const
-        root   = path.resolve(process.cwd()),
-        tmpDir = path.join(root, 'tmp', `fs-service-spec-${process.pid}`),
+        root        = path.resolve(process.cwd()),
+        suiteRoot   = path.join(root, 'test', 'playwright'),
+        suiteTmpDir = path.join(suiteRoot, `.fs-service-spec-${process.pid}`),
+        tmpDir      = path.join(root, 'tmp', `fs-service-spec-${process.pid}`),
+        falseSuite  = path.join(tmpDir, 'atest', 'playwright'),
+        falseSpec   = path.join(falseSuite, 'probe.spec.mjs'),
+        inSuiteSpec = path.join(
+            suiteRoot,
+            'unit',
+            'ai',
+            'mcp',
+            'server',
+            'file-system',
+            'toolServiceDispatch.spec.mjs'
+        ),
+        aliasInSuite = path.join(suiteTmpDir, 'outside-alias'),
         // A space AND a semicolon: the space alone splits argv-vs-shell, the semicolon is what turns
         // a split into command execution. Both are legal in a POSIX filename and both pass the jail.
-        hostile = path.join(tmpDir, 'probe ;.mjs');
+        hostile      = path.join(tmpDir, 'probe ;.mjs');
 
     test.beforeAll(async () => {
         await fs.ensureDir(tmpDir);
+        await fs.ensureDir(falseSuite);
+        await fs.ensureDir(suiteTmpDir);
         await fs.writeFile(hostile, 'export const ok = 1;\n', 'utf-8');
+        await fs.writeFile(falseSpec, 'export const outsideSuite = true;\n', 'utf-8');
+        await fs.symlink(tmpDir, aliasInSuite, 'dir');
     });
 
     test.afterAll(async () => {
+        await fs.remove(suiteTmpDir).catch(() => {});
         await fs.remove(tmpDir).catch(() => {});
     });
 
@@ -221,6 +240,34 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
     test('#15818 runPlaywrightTest still refuses a sandboxed path outside test/playwright/', async () => {
         // The directory guard is independent of the argv change and must survive it.
         await expect(FileSystemService.runPlaywrightTest({absolutePath: hostile}))
+            .rejects.toThrow(/403 Forbidden: Can only execute Playwright specs/);
+    });
+
+    test('#16508 a substring-shaped path outside the Playwright suite is refused', async () => {
+        // The old guard admitted this exact shape: `/atest/playwright/` contains the literal
+        // `test/playwright/`, even though the canonical file is nowhere inside the suite root.
+        await expect(FileSystemService.runPlaywrightTest({absolutePath: falseSpec}))
+            .rejects.toThrow(/403 Forbidden: Can only execute Playwright specs/);
+    });
+
+    test('#16508 a legitimate spec inside the Playwright suite still crosses the guard', async () => {
+        const result = await FileSystemService.runPlaywrightTest({absolutePath: inSuiteSpec});
+
+        // The runner outcome is deliberately not asserted here: this method currently invokes the
+        // generic Playwright CLI, whose config contract belongs to a different ticket. Either result
+        // proves the suite guard admitted the canonical in-suite path instead of refusing everything.
+        expect(result).toMatch(/^Test (?:Passed|Failed):/);
+    });
+
+    test('#16508 traversal that normalizes outside the Playwright suite is refused', async () => {
+        const traversal = [suiteRoot, '..', '..', path.relative(root, hostile)].join(path.sep);
+
+        await expect(FileSystemService.runPlaywrightTest({absolutePath: traversal}))
+            .rejects.toThrow(/403 Forbidden: Can only execute Playwright specs/);
+    });
+
+    test('#16508 an in-suite symlink resolving outside the Playwright suite is refused', async () => {
+        await expect(FileSystemService.runPlaywrightTest({absolutePath: path.join(aliasInSuite, path.basename(hostile))}))
             .rejects.toThrow(/403 Forbidden: Can only execute Playwright specs/);
     });
 });
