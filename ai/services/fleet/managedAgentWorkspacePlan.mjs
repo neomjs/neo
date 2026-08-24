@@ -138,12 +138,14 @@ const
         'cwd',
         'grant',
         'grants',
+        'agentosRuntimeRoot',
         'instanceRoot',
         'mainCheckout',
         'nodePath',
         'owner',
         'ownerPrincipal',
         'repoPath',
+        'targetRepoRoot',
         'secret',
         'token'
     ].map(key => key.toLowerCase()));

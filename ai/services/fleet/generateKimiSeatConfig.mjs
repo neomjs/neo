@@ -24,10 +24,10 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  * this module only decides their content. Sibling of `generateOpenCodeSeatConfig.mjs` — same
  * three load-bearing constraints, with the harness-specific surfaces mapped:
  *
- * 1. **Organs canonical.** MCP server CODE runs from the canonical checkout (the Memory Core
+ * 1. **AgentOS runtime authority.** MCP server CODE runs from the AgentOS runtime root (the Memory Core
  *    resolves its data root from the server code's own file location — a per-seat copy forks an
  *    empty graph island). The island guard REJECTS any server script resolving outside
- *    `canonicalRoot`, sibling parity.
+ *    `agentosRuntimeRoot`, sibling parity.
  * 2. **Seat personal.** Identity + credentials load via `--env-file` from the seat's OWN `.env`
  *    (`NEO_AGENT_IDENTITY`, `GH_TOKEN`, provider keys), wired per-server in `mcp.json`.
  * 3. **The memory layer loads via the identity-anchor hook.** Kimi Code auto-loads the PROJECT
@@ -45,10 +45,11 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  * envelope beside its own `server/instances/{server_id}.json` coordinates — exactly what the
  * wake daemon's kimi-server route discovers. No seat-side writers beyond the tracked hook.
  *
- * **Two roots, by harness design:** `config.toml` lives in the harness home (`kimiHome` —
- * `$KIMI_CODE_HOME`), while the MCP wiring lives in the seat checkout (`.kimi-code/mcp.json` is
- * a project-level file, untracked per seat). The generator takes both roots explicitly; the
- * coupling is loud, not latent.
+ * **Two roots, by harness design:** AgentOS executables and Neural Link's package/Bridge cwd derive
+ * from `agentosRuntimeRoot`; the project-level `.kimi-code/mcp.json` and seat `.env` live under
+ * `targetRepoRoot`. `config.toml` remains in the harness home (`kimiHome` — `$KIMI_CODE_HOME`).
+ * The generator takes every root explicitly; executable and target authority cannot be inferred
+ * from each other after the repository split.
  *
  * **Emission shape:** `mcp.json` is strict JSON (comment-stripped `JSON.parse` must succeed —
  * the unit spec enforces it). `config.toml` carries only what the harness needs beyond its
@@ -57,10 +58,11 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  * env per the launch contract's `env-key` mode).
  *
  * @param {Object} options
- * @param {String} options.canonicalRoot  Absolute path of the CANONICAL neo checkout (organs).
- * @param {String} options.seatEnvFile    Absolute path of the seat's own `.env` (identity + keys).
- * @param {String} options.workspaceRoot  Absolute path of the seat's working checkout — the
- *                                        `.kimi-code/mcp.json` target and the Neural Link `--cwd`.
+ * @param {String} options.agentosRuntimeRoot Absolute AgentOS runtime root — every local MCP
+ *                                            entrypoint and Neural Link `--cwd` resolve here.
+ * @param {String} options.targetRepoRoot     Absolute target checkout — the `.kimi-code/mcp.json`
+ *                                            destination and project authority.
+ * @param {String} options.seatEnvFile        Absolute path of the seat's own `.env` (identity + keys).
  * @param {String} options.kimiHome       Absolute path of the seat's harness home
  *                                        (`$KIMI_CODE_HOME`) — the `config.toml` target.
  * @param {String} options.memoryDir      Absolute path of the seat's persistent memory dir —
@@ -80,15 +82,15 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  * @returns {{files: Array<{path: String, content: String}>}} the emission list — callers own
  * writing (mode, atomicity, divergence policy).
  * @throws {Error} naming the offending argument on missing/invalid input, and
- * `generateKimiSeatConfig: island guard` when a server script resolves outside `canonicalRoot`.
+ * `generateKimiSeatConfig: island guard` when a server script resolves outside `agentosRuntimeRoot`.
  */
-export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoot, kimiHome, memoryDir, nodeBinary, environment = {}, defaultModel = 'kimi-code/k3', servers = KIMI_SEAT_SERVERS, remoteServers = {}} = {}) {
-    assertNonEmptyString(canonicalRoot, 'canonicalRoot');
-    assertNonEmptyString(seatEnvFile,   'seatEnvFile');
-    assertNonEmptyString(workspaceRoot, 'workspaceRoot');
-    assertNonEmptyString(kimiHome,      'kimiHome');
-    assertNonEmptyString(memoryDir,     'memoryDir');
-    assertNonEmptyString(nodeBinary,    'nodeBinary');
+export function generateKimiSeatConfig({agentosRuntimeRoot, targetRepoRoot, seatEnvFile, kimiHome, memoryDir, nodeBinary, environment = {}, defaultModel = 'kimi-code/k3', servers = KIMI_SEAT_SERVERS, remoteServers = {}} = {}) {
+    assertNonEmptyString(agentosRuntimeRoot, 'agentosRuntimeRoot');
+    assertNonEmptyString(targetRepoRoot,     'targetRepoRoot');
+    assertNonEmptyString(seatEnvFile,        'seatEnvFile');
+    assertNonEmptyString(kimiHome,           'kimiHome');
+    assertNonEmptyString(memoryDir,          'memoryDir');
+    assertNonEmptyString(nodeBinary,         'nodeBinary');
 
     if (!Array.isArray(servers) || servers.length === 0) {
         throw new Error("generateKimiSeatConfig: 'servers' must be a non-empty array.");
@@ -96,22 +98,22 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
 
     // Trailing slashes are legal input: `normalize` keeps them, and `root + '/'` would become a
     // double-slash that every valid script then fails (the guard mis-rejecting valid input).
-    const root = path.posix.normalize(canonicalRoot).replace(/(.)\/+$/, '$1');
+    const runtimeRoot = path.posix.normalize(agentosRuntimeRoot).replace(/(.)\/+$/, '$1');
 
-    // Island guard: every server script MUST resolve inside the canonical checkout — a script
+    // Island guard: every server script MUST resolve inside the AgentOS runtime root — a script
     // outside it forks the shared graph's data root into an empty island (see the module JSDoc).
     servers.forEach(server => {
-        const resolved = path.posix.normalize(path.posix.join(root, server.script));
+        const resolved = path.posix.normalize(path.posix.join(runtimeRoot, server.script));
 
-        if (!resolved.startsWith(root + '/') || !server.name || typeof server.needsCwd !== 'boolean') {
-            throw new Error(`generateKimiSeatConfig: island guard — server script '${server.script}' escapes canonicalRoot '${root}' or the entry is malformed.`);
+        if (!resolved.startsWith(runtimeRoot + '/') || !server.name || typeof server.needsCwd !== 'boolean') {
+            throw new Error(`generateKimiSeatConfig: island guard — server script '${server.script}' escapes agentosRuntimeRoot '${runtimeRoot}' or the entry is malformed.`);
         }
     });
     assertRemoteServerMap(remoteServers, servers);
 
     return {files: [
         {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome, servers})},
-        {path: path.posix.join(workspaceRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers, remoteServers})},
+        {path: path.posix.join(targetRepoRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({runtimeRoot, seatEnvFile, nodeBinary, environment, servers, remoteServers})},
         {path: path.posix.join(memoryDir, 'MEMORY.md'),                  content: renderMemoryIndexMd({harness: 'kimi-code'})},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),           content: renderSeatPointersMd()},
         {path: path.posix.join(memoryDir, 'identity.md'),                content: renderIdentityMd()},
@@ -155,9 +157,9 @@ function renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome, serv
     return [
         '# GENERATED by ai/services/fleet/generateKimiSeatConfig.mjs — regenerate, do not hand-edit.',
         '#',
-        '# 1. ORGANS CANONICAL: MCP server code runs from the canonical checkout (.kimi-code/mcp.json);',
-        '#    the Memory Core resolves its data root from the server code location, so per-seat server',
-        '#    copies fork an empty graph island.',
+        '# 1. AGENTOS RUNTIME: MCP server code and Neural Link package cwd resolve from the AgentOS',
+        '#    runtime root recorded in .kimi-code/mcp.json; the Memory Core resolves its data root',
+        '#    from server-code location, so target-repo server copies fork an empty graph island.',
         '# 2. SEAT PERSONAL: identity + credentials load via --env-file from the seat\'s own .env.',
         '# 3. PERMISSION: wake-fired turns must not freeze on approval dialogs for the seat\'s own MCP',
         '#    calls (2026-07-18 incident, opencode-seat parity); default mode is auto.',
@@ -250,7 +252,7 @@ function renderTurnPresenceHooks({nodeBinary, seatEnvFile}) {
  * @returns {String}
  * @private
  */
-function renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers, remoteServers}) {
+function renderMcpJson({runtimeRoot, seatEnvFile, nodeBinary, environment, servers, remoteServers}) {
     const mcpServers = {};
 
     servers.forEach(server => {
@@ -265,10 +267,10 @@ function renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environmen
             return
         }
 
-        const args = ['--env-file=' + seatEnvFile, path.posix.join(root, server.script)];
+        const args = ['--env-file=' + seatEnvFile, path.posix.join(runtimeRoot, server.script)];
 
         if (server.needsCwd) {
-            args.push('--cwd', workspaceRoot);
+            args.push('--cwd', runtimeRoot);
         }
 
         mcpServers[server.name] = {

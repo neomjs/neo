@@ -4,8 +4,8 @@ import {MEMORY_LAYER_BOOT_FILES, renderAboutThisLayerMd, renderIdentityMd, rende
 
 /**
  * The canonical MCP server set every OpenCode seat wires, keyed by the seat-config server name.
- * `script` is the POSIX path relative to the canonical (organs) checkout. `needsCwd: true` marks
- * the Neural Link: its `--cwd` binds the possession target to the seat's OWN working tree.
+ * `script` is the POSIX path relative to the AgentOS runtime root. `needsCwd: true` marks
+ * Neural Link: its `--cwd` starts the AgentOS package/Bridge from that same runtime authority.
  * Fixed module data, not a configurable default — an unlisted server is a deliberate caller
  * override via `options.servers`, never an accident of omission.
  * @type {ReadonlyArray<{name: String, script: String, needsCwd: Boolean}>}
@@ -26,12 +26,12 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * The three load-bearing seat constraints this productizes (verified live on the first OpenCode
  * seat, `@neo-kimi-phoebe`, 2026-07-18):
  *
- * 1. **Organs canonical.** MCP server CODE must run from the canonical checkout: the Memory
+ * 1. **AgentOS runtime authority.** MCP server CODE must run from the AgentOS runtime root: the Memory
  *    Core resolves its DATA ROOT from the server code's own file location
  *    (`ai/mcp/server/memory-core/configBase.mjs:21-28` — `import.meta.url` → `neoRootDir` →
  *    `.neo-ai-data/*`). Server code under a per-seat checkout silently forks an empty graph
  *    island whose writes never merge back. The island guard below therefore REJECTS any server
- *    script path that resolves outside `canonicalRoot`.
+ *    script path that resolves outside `agentosRuntimeRoot`.
  * 2. **Seat personal.** Identity + credentials load via `--env-file` from the seat's OWN `.env`
  *    (`NEO_AGENT_IDENTITY`, `GH_TOKEN`, provider keys). Node's `--env-file` never overwrites
  *    already-set vars, so explicit `environment` entries win where a caller needs them to.
@@ -57,7 +57,7 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  *
  * - **`permission.external_directory`** — a wake-fired turn must never freeze on an approval
  *   dialog for the seat's own files (2026-07-18 incident). The allow-list covers the seat home
- *   (workspace + memory), the canonical checkout (read access to server code), and any
+ *   (target checkout + memory), the AgentOS runtime root (read access to server code), and any
  *   caller-supplied `extraAllowedPaths`; the catch-all stays `"ask"` (insertion order matters:
  *   the LAST matching rule wins).
  * - **The wake-envelope boot hook** (emitted only when `wakeHookPath` is given) — binding the
@@ -75,10 +75,11 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * unit spec enforces it).
  *
  * @param {Object} options
- * @param {String} options.canonicalRoot  Absolute path of the CANONICAL neo checkout (organs).
- * @param {String} options.seatEnvFile    Absolute path of the seat's own `.env` (identity + keys).
- * @param {String} options.workspaceRoot  Absolute path of the seat's working checkout — the
- *                                        `opencode.jsonc` target and the Neural Link `--cwd`.
+ * @param {String} options.agentosRuntimeRoot Absolute AgentOS runtime root — every local MCP
+ *                                            entrypoint and Neural Link `--cwd` resolve here.
+ * @param {String} options.targetRepoRoot     Absolute target checkout — the `opencode.jsonc`
+ *                                            destination and project authority.
+ * @param {String} options.seatEnvFile        Absolute path of the seat's own `.env` (identity + keys).
  * @param {String} options.memoryDir      Absolute path of the seat's always-loaded memory dir —
  *                                        the `MEMORY.md` / `seat-pointers.md` / `identity.md` /
  *                                        `about-this-layer.md` scaffold target and the
@@ -104,14 +105,14 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * writing (mode, atomicity, divergence policy).
  * @throws {Error} naming the offending argument on missing/invalid input, and
  * `generateOpenCodeSeatConfig: island guard` when a server script resolves outside
- * `canonicalRoot`.
+ * `agentosRuntimeRoot`.
  */
-export function generateOpenCodeSeatConfig({canonicalRoot, seatEnvFile, workspaceRoot, memoryDir, nodeBinary, environment = {}, extraAllowedPaths = [], wakeHookPath, servers = OPENCODE_SEAT_SERVERS, seatHome, remoteServers = {}} = {}) {
-    assertNonEmptyString(canonicalRoot, 'canonicalRoot');
-    assertNonEmptyString(seatEnvFile,   'seatEnvFile');
-    assertNonEmptyString(workspaceRoot, 'workspaceRoot');
-    assertNonEmptyString(memoryDir,     'memoryDir');
-    assertNonEmptyString(nodeBinary,    'nodeBinary');
+export function generateOpenCodeSeatConfig({agentosRuntimeRoot, targetRepoRoot, seatEnvFile, memoryDir, nodeBinary, environment = {}, extraAllowedPaths = [], wakeHookPath, servers = OPENCODE_SEAT_SERVERS, seatHome, remoteServers = {}} = {}) {
+    assertNonEmptyString(agentosRuntimeRoot, 'agentosRuntimeRoot');
+    assertNonEmptyString(targetRepoRoot,     'targetRepoRoot');
+    assertNonEmptyString(seatEnvFile,        'seatEnvFile');
+    assertNonEmptyString(memoryDir,          'memoryDir');
+    assertNonEmptyString(nodeBinary,         'nodeBinary');
 
     if (!Array.isArray(servers) || servers.length === 0) {
         throw new Error("generateOpenCodeSeatConfig: 'servers' must be a non-empty array.");
@@ -119,21 +120,21 @@ export function generateOpenCodeSeatConfig({canonicalRoot, seatEnvFile, workspac
 
     // Trailing slashes are legal input: `normalize` keeps them, and `root + '/'` would become
     // a double-slash that every valid script then fails (the guard mis-rejecting valid input).
-    const root = path.posix.normalize(canonicalRoot).replace(/(.)\/+$/, '$1');
+    const runtimeRoot = path.posix.normalize(agentosRuntimeRoot).replace(/(.)\/+$/, '$1');
 
-    // Island guard: every server script MUST resolve inside the canonical checkout — a script
+    // Island guard: every server script MUST resolve inside the AgentOS runtime root — a script
     // outside it forks the shared graph's data root into an empty island (see the module JSDoc).
     servers.forEach(server => {
-        const resolved = path.posix.normalize(path.posix.join(root, server.script));
+        const resolved = path.posix.normalize(path.posix.join(runtimeRoot, server.script));
 
-        if (!resolved.startsWith(root + '/') || !server.name || typeof server.needsCwd !== 'boolean') {
-            throw new Error(`generateOpenCodeSeatConfig: island guard — server script '${server.script}' escapes canonicalRoot '${root}' or the entry is malformed.`);
+        if (!resolved.startsWith(runtimeRoot + '/') || !server.name || typeof server.needsCwd !== 'boolean') {
+            throw new Error(`generateOpenCodeSeatConfig: island guard — server script '${server.script}' escapes agentosRuntimeRoot '${runtimeRoot}' or the entry is malformed.`);
         }
     });
     assertRemoteServerMap(remoteServers, servers);
 
     const files = [
-        {path: path.posix.join(workspaceRoot, 'opencode.jsonc'),    content: renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeBinary, environment, extraAllowedPaths, servers, seatHome, remoteServers})},
+        {path: path.posix.join(targetRepoRoot, 'opencode.jsonc'), content: renderOpencodeJsonc({runtimeRoot, targetRepoRoot, seatEnvFile, memoryDir, nodeBinary, environment, extraAllowedPaths, servers, seatHome, remoteServers})},
         {path: path.posix.join(memoryDir, 'MEMORY.md'),             content: renderMemoryIndexMd({harness: 'opencode'})},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),      content: renderSeatPointersMd()},
         {path: path.posix.join(memoryDir, 'identity.md'),           content: renderIdentityMd()},
@@ -155,13 +156,13 @@ export function generateOpenCodeSeatConfig({canonicalRoot, seatEnvFile, workspac
  * @returns {String}
  * @private
  */
-function renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeBinary, environment, extraAllowedPaths, servers, seatHome, remoteServers}) {
+function renderOpencodeJsonc({runtimeRoot, targetRepoRoot, seatEnvFile, memoryDir, nodeBinary, environment, extraAllowedPaths, servers, seatHome, remoteServers}) {
     const
         header = [
             '  // GENERATED by ai/services/fleet/generateOpenCodeSeatConfig.mjs — regenerate, do not hand-edit.',
             '  //',
-            '  // 1. ORGANS CANONICAL: server code runs from the canonical checkout; the Memory Core resolves',
-            '  //    its data root from the server code location, so per-seat server copies fork an empty island.',
+            '  // 1. AGENTOS RUNTIME: server code and Neural Link package cwd resolve from the AgentOS',
+            '  //    runtime root; target-repo server copies would fork Memory Core into an empty island.',
             '  // 2. SEAT PERSONAL: identity + credentials load via --env-file from the seat\'s own .env.',
             '  // 3. MEMORY: the instructions files are the always-loaded identity layer; the Memory Core is',
             '  //    the on-demand deep archive. add_memory at end of every turn feeds it.',
@@ -187,10 +188,10 @@ function renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeB
         }
 
         const
-            command = [nodeBinary, '--env-file=' + seatEnvFile, path.posix.join(root, server.script)],
+            command = [nodeBinary, '--env-file=' + seatEnvFile, path.posix.join(runtimeRoot, server.script)],
             entry   = {
                 type       : 'local',
-                command    : server.needsCwd ? [...command, '--cwd', workspaceRoot] : command,
+                command    : server.needsCwd ? [...command, '--cwd', runtimeRoot] : command,
                 enabled    : true,
                 environment: {...environment}
             };
@@ -202,7 +203,7 @@ function renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeB
         // The seat home: explicit `seatHome` when given, else `memoryDir`'s parent — the
         // documented default derivation (the coupling is loud here, not latent).
         seatHomePath = seatHome ?? path.posix.dirname(path.posix.normalize(memoryDir)),
-        allowedPaths = [seatHomePath + '/**', workspaceRoot + '/**', root + '/**', ...extraAllowedPaths],
+        allowedPaths = [seatHomePath + '/**', targetRepoRoot + '/**', runtimeRoot + '/**', ...extraAllowedPaths],
         externalDirectory = {'*': 'ask'};
 
     allowedPaths.forEach(allowedPath => {

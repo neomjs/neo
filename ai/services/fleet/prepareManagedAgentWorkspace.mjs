@@ -3,7 +3,6 @@ import fs                                          from 'node:fs/promises';
 import {writeFileAtomic}                           from '../shared/atomicFileWrite.mjs';
 import path                                        from 'node:path';
 import crypto                                      from 'node:crypto';
-import {fileURLToPath}                             from 'node:url';
 import {isDeepStrictEqual}                         from 'node:util';
 import {hydrateCurrentWorktree}                    from '../../scripts/migrations/bootstrapWorktree.mjs';
 import {MCP_SERVERS, resolveMcpMatrix}             from './mcpServers.mjs';
@@ -18,9 +17,6 @@ import {OPENCODE_SEAT_SERVERS, generateOpenCodeSeatConfig} from './generateOpenC
 export {createManagedAgentWorkspacePlan} from './managedAgentWorkspacePlan.mjs';
 
 const
-    __filename               = fileURLToPath(import.meta.url),
-    __dirname                = path.dirname(__filename),
-    DEFAULT_MAIN_CHECKOUT    = path.resolve(__dirname, '../../..'),
     NEO_MCP_NAME_PREFIX      = 'neo-mjs-',
     CODEX_REMOTE_TRUST_BEGIN = '# Fleet-managed remote MCP project trust begin',
     CODEX_REMOTE_TRUST_END   = '# Fleet-managed remote MCP project trust end';
@@ -106,12 +102,14 @@ const
         'cwd',
         'grant',
         'grants',
+        'agentosRuntimeRoot',
         'instanceRoot',
         'mainCheckout',
         'nodePath',
         'owner',
         'ownerPrincipal',
         'repoPath',
+        'targetRepoRoot',
         'secret',
         'token'
     ].map(key => key.toLowerCase()));
@@ -194,15 +192,25 @@ function validateManagedAgentWorkspacePlan(plan) {
     return expected
 }
 
-/** @private */
-function bindManagedAgentWorkspacePlan({logicalPlan, repoPath, mainCheckout, nodePath}) {
+/**
+ * @summary Binds a logical seat plan to the two explicit host roots. Local server entrypoints and
+ * Neural Link's package/Bridge cwd are AgentOS-owned; target-repository ownership starts at generated
+ * artifacts and harness execution, never at the MCP executable edge.
+ * @param {Object} options
+ * @param {ManagedAgentWorkspacePlan} options.logicalPlan
+ * @param {String} options.agentosRuntimeRoot
+ * @param {String} options.nodePath
+ * @returns {Object[]}
+ * @private
+ */
+function bindManagedAgentWorkspacePlan({logicalPlan, agentosRuntimeRoot, nodePath}) {
     return logicalPlan.mcpServers.map(server => ({
         ...server,
         command   : nodePath,
-        sourceRoot: mainCheckout,
+        sourceRoot: agentosRuntimeRoot,
         args      : [
-            path.join(mainCheckout, server.entrypoint),
-            ...(server.key === 'neural-link' ? ['--cwd', repoPath] : [])
+            path.join(agentosRuntimeRoot, server.entrypoint),
+            ...(server.key === 'neural-link' ? ['--cwd', agentosRuntimeRoot] : [])
         ],
         runtimeEnv        : [...server.runtimeEnv],
         requiredRuntimeEnv: [...server.requiredRuntimeEnv],
@@ -213,13 +221,13 @@ function bindManagedAgentWorkspacePlan({logicalPlan, repoPath, mainCheckout, nod
 
 /**
  * @summary Bind and apply one validated logical workspace plan at the host-only effect edge. This
- * function alone introduces absolute repo/home/main-checkout/Node paths, then preserves the existing
- * bounded effect census: `stat`/`lstat`/`access`, checkout hydration, bounded reads, `mkdir`,
+ * function alone introduces absolute target-repo/home/AgentOS-runtime/Node paths, then preserves
+ * the existing bounded effect census: `stat`/`lstat`/`access`, checkout hydration, bounded reads, `mkdir`,
  * create-only and temporary writes, atomic `rename`, `chmod(0600)`, and receipt `unlink`. It never
  * spawns a process. Completed hydration or atomic/create-only artifacts may remain after a later
  * failure; retry converges that honest partial state without exposing partial file bytes.
  *
- * The sole production caller remains `startAgentProvisioned()` through the compatibility composer
+ * The sole production caller remains `startAgentProvisioned()` through the plan/apply composer
  * below. Renderers and convergence helpers consume the same host-bound plan shape as before.
  * Canonical re-derivation proves internal coherence with the plan's own logical inputs; it does not
  * prove registry authorization or cross-process provenance. That belongs to the later authenticated
@@ -227,16 +235,16 @@ function bindManagedAgentWorkspacePlan({logicalPlan, repoPath, mainCheckout, nod
  * @param {Object} options
  * @param {ManagedAgentWorkspacePlan} options.plan Closed logical plan; structural clones accepted
  *     after schema and canonical-projection coherence validation.
- * @param {String} options.repoPath Absolute provisioned checkout path.
+ * @param {String} options.targetRepoRoot Absolute provisioned target checkout path.
  * @param {String} options.instanceRoot Absolute Fleet harness-home root.
- * @param {String} [options.mainCheckout] Installed canonical checkout.
+ * @param {String} options.agentosRuntimeRoot Installed AgentOS runtime root.
  * @param {String} [options.nodePath] Node executable used for installed MCP entrypoints.
  * @param {Object} [options.remoteMcpCapability] Existing non-secret installed-adapter proof.
  * @param {Function} [options.hydrateWorkspace] Import-safe checkout hydration seam.
  * @param {Function} [options.deriveInstanceHome] Per-agent home derivation seam.
  * @param {Object} [options.fileSystem] Promise filesystem seam.
  * @param {Function} [options.log] Hydration logger.
- * @returns {Promise<{repoPath: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
+ * @returns {Promise<{agentosRuntimeRoot: String, targetRepoRoot: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
  * @throws {ManagedWorkspacePreparationError} For invalid plans/bindings, unsafe paths, unsupported
  *     capabilities, divergent content, or effect failures.
  */
@@ -261,9 +269,9 @@ export async function applyManagedAgentWorkspacePlan(options={}) {
 /** @private */
 async function applyManagedAgentWorkspacePlanUnchecked({
     plan: inputPlan,
-    repoPath,
+    targetRepoRoot,
     instanceRoot,
-    mainCheckout = DEFAULT_MAIN_CHECKOUT,
+    agentosRuntimeRoot,
     nodePath = process.execPath,
     remoteMcpCapability = null,
     hydrateWorkspace = hydrateCurrentWorktree,
@@ -273,25 +281,24 @@ async function applyManagedAgentWorkspacePlanUnchecked({
 } = {}) {
     const logicalPlan = validateManagedAgentWorkspacePlan(inputPlan);
 
-    assertAbsolutePath(repoPath, 'repoPath');
+    assertAbsolutePath(targetRepoRoot, 'targetRepoRoot');
     assertAbsolutePath(instanceRoot, 'instanceRoot');
-    assertAbsolutePath(mainCheckout, 'mainCheckout');
+    assertAbsolutePath(agentosRuntimeRoot, 'agentosRuntimeRoot');
     assertAbsolutePath(nodePath, 'nodePath');
 
     const
-        canonicalRepoPath     = path.resolve(repoPath),
-        canonicalInstanceRoot = path.resolve(instanceRoot),
-        installedRoot         = path.resolve(mainCheckout),
-        agent                 = logicalPlan.agent,
-        instanceHome          = deriveInstanceHome({
+        canonicalTargetRepoRoot     = path.resolve(targetRepoRoot),
+        canonicalInstanceRoot       = path.resolve(instanceRoot),
+        canonicalAgentosRuntimeRoot = path.resolve(agentosRuntimeRoot),
+        agent                       = logicalPlan.agent,
+        instanceHome                = deriveInstanceHome({
             instanceRoot: canonicalInstanceRoot,
             agentId     : agent.id,
             harnessType : agent.harnessType
         }),
-        plan = bindManagedAgentWorkspacePlan({
+        plan                        = bindManagedAgentWorkspacePlan({
             logicalPlan,
-            repoPath    : canonicalRepoPath,
-            mainCheckout: installedRoot,
+            agentosRuntimeRoot: canonicalAgentosRuntimeRoot,
             nodePath
         });
 
@@ -299,8 +306,8 @@ async function applyManagedAgentWorkspacePlanUnchecked({
     await assertRemoteBridgeCapability({
         agent,
         plan,
-        capability  : remoteMcpCapability,
-        mainCheckout: installedRoot,
+        capability        : remoteMcpCapability,
+        agentosRuntimeRoot: canonicalAgentosRuntimeRoot,
         nodePath,
         fileSystem
     });
@@ -312,12 +319,12 @@ async function applyManagedAgentWorkspacePlanUnchecked({
     });
 
     const hydration = await hydrateWorkspace({
-        mainCheckout: installedRoot,
-        projectRoot : canonicalRepoPath,
+        mainCheckout: canonicalAgentosRuntimeRoot,
+        projectRoot : canonicalTargetRepoRoot,
         log
     });
 
-    await assertRealDirectory(canonicalRepoPath, 'repoPath', fileSystem);
+    await assertRealDirectory(canonicalTargetRepoRoot, 'targetRepoRoot', fileSystem);
     await assertExecutablePlan({plan, nodePath, fileSystem});
     await assertNoSymlinkSegments({
         rootPath  : canonicalInstanceRoot,
@@ -328,19 +335,20 @@ async function applyManagedAgentWorkspacePlanUnchecked({
 
     const artifacts = await prepareHarnessArtifacts({
         agent,
-        repoPath    : canonicalRepoPath,
+        targetRepoRoot    : canonicalTargetRepoRoot,
         instanceHome,
-        mainCheckout: installedRoot,
+        agentosRuntimeRoot: canonicalAgentosRuntimeRoot,
         plan,
         remoteMcpCapability,
         fileSystem
     });
 
     return {
-        repoPath : canonicalRepoPath,
+        agentosRuntimeRoot: canonicalAgentosRuntimeRoot,
+        targetRepoRoot    : canonicalTargetRepoRoot,
         instanceHome,
-        mcpMatrix: {...logicalPlan.mcpMatrix},
-        mcpPlan  : plan.map(server => ({
+        mcpMatrix         : {...logicalPlan.mcpMatrix},
+        mcpPlan           : plan.map(server => ({
             ...server,
             args              : [...server.args],
             runtimeEnv        : [...server.runtimeEnv],
@@ -353,17 +361,18 @@ async function applyManagedAgentWorkspacePlanUnchecked({
 }
 
 /**
- * @summary Compatibility composer for the existing Fleet workspace preparation surface: resolve
- * the sparse-at-rest MCP matrix once, project the closed logical input, plan once, then apply once.
- * It preserves the established option names, six-field return, artifact bytes, safety gates, and
- * local/remote transition behavior while exposing the plan/apply seam for later container ownership.
+ * @summary Fleet workspace preparation composer: resolve the sparse-at-rest MCP matrix once,
+ * project the closed logical input, plan once, then apply once. Runtime and target roots are required
+ * under their semantic names; the former `mainCheckout` / `repoPath` aliases are deliberately not
+ * accepted because a stale caller must fail during seat re-materialization instead of silently
+ * executing AgentOS from the target repository.
  *
- * Executable MCP entrypoints deliberately resolve from the installed `mainCheckout`: fresh managed
+ * Executable MCP entrypoints deliberately resolve from `agentosRuntimeRoot`: fresh managed
  * clones have no dependencies, dependency installation/build is outside this composer, and sharing
  * another checkout's writable `node_modules` would collapse the checkout boundary. The prepared
- * `repoPath` remains the single harness cwd/project truth (and Neural Link's explicit `--cwd`), while
- * its ignored overlays are hydrated for resident workspace tooling. No resident dependency artifact
- * is created or adopted.
+ * `targetRepoRoot` remains the single harness cwd/project truth, while Neural Link's explicit `--cwd`
+ * resolves from AgentOS because it starts the AgentOS package/Bridge. Target ignored overlays are
+ * hydrated for resident workspace tooling; no resident dependency artifact is created or adopted.
  *
  * Product adapters are evidence-gated. Codex uses project TOML plus an isolated home; Claude Code
  * uses an explicit strict MCP JSON with environment-variable references; Claude Desktop uses its
@@ -374,9 +383,9 @@ async function applyManagedAgentWorkspacePlanUnchecked({
  *
  * @param {Object}   options
  * @param {Object}   options.agent               Fleet registry agent definition.
- * @param {String}   options.repoPath            Absolute provisioned checkout path.
+ * @param {String}   options.targetRepoRoot      Absolute provisioned target checkout path.
  * @param {String}   options.instanceRoot        Absolute Fleet harness-home root.
- * @param {String}  [options.mainCheckout]       Installed canonical checkout; defaults to this module's repo root.
+ * @param {String}   options.agentosRuntimeRoot  Installed AgentOS runtime root.
  * @param {String}  [options.nodePath]           Node executable used for installed MCP entrypoints.
  * @param {Object}  [options.mcpTarget]          Resolved non-secret tenant target:
  *     `{kind:'tenant', credentialEnvVar, resources:{memory-core:{url},knowledge-base:{url}}}`.
@@ -387,16 +396,16 @@ async function applyManagedAgentWorkspacePlanUnchecked({
  * @param {Function}[options.resolveMatrix]       Sparse-at-rest MCP resolver seam.
  * @param {Object}  [options.fileSystem]          Promise filesystem seam.
  * @param {Function}[options.log]                 Hydration logger.
- * @returns {Promise<{repoPath: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
+ * @returns {Promise<{agentosRuntimeRoot: String, targetRepoRoot: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
  * @throws {ManagedWorkspacePreparationError} for unsupported adapters or divergent owned content.
  * @see createManagedAgentWorkspacePlan
  * @see applyManagedAgentWorkspacePlan
  */
 export async function prepareManagedAgentWorkspace({
     agent,
-    repoPath,
+    targetRepoRoot,
     instanceRoot,
-    mainCheckout = DEFAULT_MAIN_CHECKOUT,
+    agentosRuntimeRoot,
     nodePath = process.execPath,
     hydrateWorkspace = hydrateCurrentWorktree,
     deriveInstanceHome = deriveAgentInstanceHome,
@@ -430,9 +439,9 @@ export async function prepareManagedAgentWorkspace({
 
     return applyManagedAgentWorkspacePlan({
         plan,
-        repoPath,
+        targetRepoRoot,
         instanceRoot,
-        mainCheckout,
+        agentosRuntimeRoot,
         nodePath,
         remoteMcpCapability,
         hydrateWorkspace,
@@ -531,13 +540,13 @@ function isPortableAbsolutePath(value) {
  * @param {Object} options.agent
  * @param {Object[]} options.plan
  * @param {Object|null} options.capability
- * @param {String} options.mainCheckout
+ * @param {String} options.agentosRuntimeRoot
  * @param {String} options.nodePath
  * @param {Object} options.fileSystem
  * @returns {Promise<void>}
  * @private
  */
-async function assertRemoteBridgeCapability({agent, plan, capability, mainCheckout, nodePath, fileSystem}) {
+async function assertRemoteBridgeCapability({agent, plan, capability, agentosRuntimeRoot, nodePath, fileSystem}) {
     if (agent.harnessType !== 'claude-desktop' ||
         !plan.some(server => server.enabled && server.target === 'tenant')) {
         return
@@ -545,7 +554,7 @@ async function assertRemoteBridgeCapability({agent, plan, capability, mainChecko
 
     const
         bridge             = capability?.bridge,
-        expectedEntrypoint = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs');
+        expectedEntrypoint = path.join(agentosRuntimeRoot, 'ai/mcp/client/stdioToStreamableHttp.mjs');
 
     if (capability?.harnessType !== 'claude-desktop' ||
         !bridge ||
@@ -650,9 +659,9 @@ async function assertNoSymlinkSegments({rootPath, targetPath, fileSystem, label}
 /** @private */
 async function prepareHarnessArtifacts({
     agent,
-    repoPath,
+    targetRepoRoot,
     instanceHome,
-    mainCheckout,
+    agentosRuntimeRoot,
     plan,
     remoteMcpCapability,
     fileSystem
@@ -660,11 +669,11 @@ async function prepareHarnessArtifacts({
     switch (agent.harnessType) {
         case 'codex':
         case 'codex-desktop':
-            return prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckout, plan, fileSystem});
+            return prepareCodexArtifacts({agent, targetRepoRoot, instanceHome, agentosRuntimeRoot, plan, fileSystem});
         case 'kimi-code':
-            return prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem});
+            return prepareKimiArtifacts({targetRepoRoot, instanceHome, agentosRuntimeRoot, plan, fileSystem});
         case 'opencode':
-            return prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem});
+            return prepareOpenCodeArtifacts({targetRepoRoot, instanceHome, agentosRuntimeRoot, plan, fileSystem});
         case 'claude-code':
             return prepareClaudeJsonArtifact({
                 agent,
@@ -691,10 +700,10 @@ async function prepareHarnessArtifacts({
 }
 
 /** @private */
-async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckout, plan, fileSystem}) {
+async function prepareCodexArtifacts({agent, targetRepoRoot, instanceHome, agentosRuntimeRoot, plan, fileSystem}) {
     const
-        templatePath   = path.join(mainCheckout, '.codex', 'config.template.toml'),
-        projectPath    = path.join(repoPath, '.codex', 'config.toml'),
+        templatePath   = path.join(agentosRuntimeRoot, '.codex', 'config.template.toml'),
+        projectPath    = path.join(targetRepoRoot, '.codex', 'config.toml'),
         template       = await fileSystem.readFile(templatePath, 'utf8'),
         projectContent = renderCodexProjectConfig(template, plan),
         legacyContent  = renderCodexProjectConfig(template, localizePlan(plan)),
@@ -715,7 +724,7 @@ async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckou
         instanceHome,
         remote,
         ownedLabel     : 'mcp_servers.\"neo-mjs-*\"',
-        trustedRoot    : repoPath,
+        trustedRoot    : targetRepoRoot,
         fileSystem
     }));
     const homeArtifact = await convergeTextArtifact({
@@ -729,7 +738,7 @@ async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckou
 
     if (await convergeCodexRemoteTrust({
         filePath   : homePath,
-        repoPath,
+        repoPath   : targetRepoRoot,
         remote,
         trustedRoot: instanceHome,
         fileSystem
@@ -849,7 +858,7 @@ function renderClaudeJsonContent({agent, plan, remoteMcpCapability, interpolateE
  * clobber or even flag them); the config/hook surfaces converge on their Fleet-owned projections.
  * @private
  */
-async function prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem}) {
+async function prepareKimiArtifacts({targetRepoRoot, instanceHome, agentosRuntimeRoot, plan, fileSystem}) {
     const
         enabledKeys = new Set(plan.filter(server => server.enabled).map(server => server.key)),
         servers     = KIMI_SEAT_SERVERS.filter(server => enabledKeys.has(server.name.slice(NEO_MCP_NAME_PREFIX.length)));
@@ -861,26 +870,26 @@ async function prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan,
     const
         remoteServers = createRemoteServerMap(plan),
         {files}       = generateKimiSeatConfig({
-        canonicalRoot: mainCheckout,
-        seatEnvFile  : path.join(repoPath, '.env'),
-        workspaceRoot: repoPath,
-        kimiHome     : instanceHome,
-        memoryDir    : path.join(instanceHome, 'memory'),
-        nodeBinary   : plan[0].command,
-        servers,
-        remoteServers
-    }),
+            agentosRuntimeRoot,
+            targetRepoRoot,
+            seatEnvFile: path.join(targetRepoRoot, '.env'),
+            kimiHome   : instanceHome,
+            memoryDir  : path.join(instanceHome, 'memory'),
+            nodeBinary : plan[0].command,
+            servers,
+            remoteServers
+        }),
         {files: legacyFiles} = generateKimiSeatConfig({
-            canonicalRoot: mainCheckout,
-            seatEnvFile  : path.join(repoPath, '.env'),
-            workspaceRoot: repoPath,
-            kimiHome     : instanceHome,
-            memoryDir    : path.join(instanceHome, 'memory'),
-            nodeBinary   : plan[0].command,
+            agentosRuntimeRoot,
+            targetRepoRoot,
+            seatEnvFile: path.join(targetRepoRoot, '.env'),
+            kimiHome   : instanceHome,
+            memoryDir  : path.join(instanceHome, 'memory'),
+            nodeBinary : plan[0].command,
             servers
         });
 
-    return convergeSeatConfigFiles({files, legacyFiles, repoPath, instanceHome, fileSystem, policies: [
+    return convergeSeatConfigFiles({files, legacyFiles, repoPath: targetRepoRoot, instanceHome, fileSystem, policies: [
         {match: /config\.toml$/,                   ownedProjection: kimiConfigTomlOwnedProjection, ownedLabel: 'default_permission_mode,default_model,[[permission.rules]],[[hooks]]'},
         {
             match          : /\.kimi-code\/mcp\.json$/,
@@ -900,7 +909,7 @@ async function prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan,
  * Fleet-owned; divergence fails closed per the generated-artifact posture).
  * @private
  */
-async function prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem}) {
+async function prepareOpenCodeArtifacts({targetRepoRoot, instanceHome, agentosRuntimeRoot, plan, fileSystem}) {
     const
         enabledKeys = new Set(plan.filter(server => server.enabled).map(server => server.key)),
         servers     = OPENCODE_SEAT_SERVERS.filter(server => enabledKeys.has(server.name.slice(NEO_MCP_NAME_PREFIX.length)));
@@ -912,19 +921,19 @@ async function prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, p
     const
         remoteServers = createRemoteServerMap(plan),
         options       = {
-        canonicalRoot: mainCheckout,
-        seatEnvFile  : path.join(repoPath, '.env'),
-        workspaceRoot: repoPath,
-        memoryDir    : path.join(instanceHome, 'memory'),
-        nodeBinary   : plan[0].command,
-        seatHome     : instanceHome,
-        wakeHookPath : path.join(instanceHome, 'write-wake-envelope.mjs'),
-        servers
-    },
+            agentosRuntimeRoot,
+            targetRepoRoot,
+            seatEnvFile : path.join(targetRepoRoot, '.env'),
+            memoryDir   : path.join(instanceHome, 'memory'),
+            nodeBinary  : plan[0].command,
+            seatHome    : instanceHome,
+            wakeHookPath: path.join(instanceHome, 'write-wake-envelope.mjs'),
+            servers
+        },
         {files}       = generateOpenCodeSeatConfig({...options, remoteServers}),
         {files: legacyFiles} = generateOpenCodeSeatConfig(options);
 
-    return convergeSeatConfigFiles({files, legacyFiles, repoPath, instanceHome, fileSystem, policies: [
+    return convergeSeatConfigFiles({files, legacyFiles, repoPath: targetRepoRoot, instanceHome, fileSystem, policies: [
         {
             match          : /opencode\.jsonc$/,
             ownedProjection: opencodeJsoncOwnedProjection,
