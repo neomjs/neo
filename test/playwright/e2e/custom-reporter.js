@@ -1,15 +1,20 @@
-import fs from 'fs-extra';
-import os from 'os';
-import { execSync } from 'child_process';
-import path from 'path';
-import {isEngineProfile} from './utils/gpuIntent.mjs';
+import fs                       from 'fs-extra';
+import os                       from 'os';
+import {createHash, randomUUID} from 'node:crypto';
+import { execSync }             from 'child_process';
+import path                     from 'path';
+import {isEngineProfile}        from './utils/gpuIntent.mjs';
+
+export const BROWSER_LIFECYCLE_RECEIPT_RECORD_TYPE = 'neo-e2e-browser-lifecycle-receipt';
+export const DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT = 100;
 
 const
-  ANSI_ESCAPE_PATTERN = /\u001B\[[0-?]*[ -/]*[@-~]/g,
-  HEADLESS_TOKEN_PATTERN = /(?:^|\s)-{1,2}headless(?:=[^\s]+)?(?=\s|$)/,
-  LAUNCH_COMMAND_PATTERN = /^<launching>\s+(.+)$/m,
-  MACH_SERVICE_PERMISSION_TOKEN = 'Permission denied (1100)',
-  PROCESS_EXIT_PATTERN = /\[pid=(\d+)]\s+<process did exit: exitCode=([^,>]+), signal=([^>]+)>/;
+  ANSI_ESCAPE_PATTERN                    = /\u001B\[[0-?]*[ -/]*[@-~]/g,
+  BROWSER_LIFECYCLE_RECEIPT_FILE_PATTERN = /^receipt-[a-f0-9]{64}\.json$/,
+  HEADLESS_TOKEN_PATTERN                 = /(?:^|\s)-{1,2}headless(?:=[^\s]+)?(?=\s|$)/,
+  LAUNCH_COMMAND_PATTERN                 = /^<launching>\s+(.+)$/m,
+  MACH_SERVICE_PERMISSION_TOKEN          = 'Permission denied (1100)',
+  PROCESS_EXIT_PATTERN                   = /\[pid=(\d+)]\s+<process did exit: exitCode=([^,>]+), signal=([^>]+)>/;
 
 /**
  * @summary Resolves a bounded browser-kind enum without persisting arbitrary executable paths.
@@ -68,6 +73,93 @@ export function readOptionalSystemFact(read, fallback=null) {
   } catch {
     return fallback
   }
+}
+
+/**
+ * @summary Derives a bounded cross-platform filename without projecting a caller-owned run id.
+ * @param {String} runId
+ * @returns {String}
+ */
+function browserLifecycleReceiptFileName(runId) {
+  const digest = createHash('sha256').update(runId).digest('hex');
+
+  return `receipt-${digest}.json`
+}
+
+/**
+ * @summary Resolves one run-owned lifecycle-receipt file outside Playwright's cleaned outputDir.
+ * @param {Object} [options]
+ * @param {Function} [options.createRunId=randomUUID]
+ * @param {String} [options.receiptRoot='test-results/e2e/browser-lifecycle']
+ * @param {String|null} [options.runId=null]
+ * @returns {{outputFile: String, runId: String}}
+ */
+export function resolveBrowserLifecycleReceipt({
+  createRunId = randomUUID,
+  receiptRoot = 'test-results/e2e/browser-lifecycle',
+  runId = null
+} = {}) {
+  const resolvedRunId = typeof runId === 'string' && runId.length > 0 ? runId : createRunId();
+
+  if (typeof receiptRoot !== 'string' || receiptRoot.length === 0) {
+    throw new TypeError('Browser lifecycle receipt root must be a non-empty string')
+  }
+  if (typeof resolvedRunId !== 'string' || resolvedRunId.length === 0) {
+    throw new TypeError('Browser lifecycle run id must be a non-empty string')
+  }
+
+  return {
+    outputFile: path.join(receiptRoot, browserLifecycleReceiptFileName(resolvedRunId)),
+    runId     : resolvedRunId
+  }
+}
+
+/**
+ * @summary Prunes only recognized reporter-owned regular files beyond the bounded newest window.
+ * @param {String} receiptRoot Browser lifecycle receipt directory.
+ * @param {Object} [options]
+ * @param {Number} [options.limit=DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT]
+ * @returns {{retained: Number, removed: String[]}}
+ */
+export function pruneBrowserLifecycleReceipts(receiptRoot, {
+  limit = DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT
+} = {}) {
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new TypeError('Browser lifecycle receipt limit must be a positive integer')
+  }
+  if (!fs.pathExistsSync(receiptRoot)) return {retained: 0, removed: []};
+
+  const owned = [];
+
+  for (const entry of fs.readdirSync(receiptRoot, {withFileTypes: true})) {
+    if (!entry.isFile() || !BROWSER_LIFECYCLE_RECEIPT_FILE_PATTERN.test(entry.name)) continue;
+
+    const filePath = path.join(receiptRoot, entry.name);
+
+    try {
+      const value = fs.readJsonSync(filePath),
+            stat  = fs.lstatSync(filePath);
+
+      if (
+        value?.recordType === BROWSER_LIFECYCLE_RECEIPT_RECORD_TYPE &&
+        typeof value?.runId === 'string' &&
+        value.runId.length > 0 &&
+        entry.name === browserLifecycleReceiptFileName(value.runId)
+      ) {
+        owned.push({filePath, mtimeMs: stat.mtimeMs, name: entry.name})
+      }
+    } catch {
+      // Malformed, disappearing, and unreadable files are not proven reporter-owned; leave them.
+    }
+  }
+
+  owned.sort((left, right) => right.mtimeMs - left.mtimeMs || right.name.localeCompare(left.name));
+
+  const removed = owned.slice(limit).map(entry => entry.name).sort();
+
+  for (const name of removed) fs.removeSync(path.join(receiptRoot, name));
+
+  return {retained: Math.min(owned.length, limit), removed}
 }
 
 /**
@@ -142,9 +234,13 @@ export default class BenchmarkSystemReporter {
    * @summary Initializes one reporter-owned receipt without taking ownership of Playwright browsers.
    * @param {Object} [options]
    * @param {String} [options.outputFile='benchmark-system-info.json']
+   * @param {String|null} [options.runId=null]
+   * @param {Number} [options.retentionLimit=DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT]
    */
   constructor(options={}) {
       this.outputFile = options?.outputFile || 'benchmark-system-info.json';
+      this.runId = options?.runId || randomUUID();
+      this.retentionLimit = options?.retentionLimit ?? DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT;
       this.receipt = null;
       this.launchExits = new Map();
   }
@@ -159,14 +255,16 @@ export default class BenchmarkSystemReporter {
     const systemInfo = this.getSystemInfo();
 
     this.receipt = {
+      recordType: BROWSER_LIFECYCLE_RECEIPT_RECORD_TYPE,
+      runId     : this.runId,
       ...systemInfo,
       benchmarkRun: {
-        timestamp: new Date().toISOString(),
+        timestamp         : new Date().toISOString(),
         playwrightProjects: config.projects?.map(p => p.name) || [],
-        totalTests: suite.allTests().length
+        totalTests        : suite.allTests().length
       },
       browserLifecycle: {
-        profile: resolveE2eProfileName(),
+        profile    : resolveE2eProfileName(),
         launchExits: [...this.launchExits.values()]
       }
     };
@@ -195,7 +293,8 @@ export default class BenchmarkSystemReporter {
     if (!this.receipt) return;
 
     fs.ensureDirSync(path.dirname(this.outputFile));
-    fs.writeJsonSync(this.outputFile, this.receipt, { spaces: 2 })
+    fs.writeJsonSync(this.outputFile, this.receipt, { spaces: 2 });
+    pruneBrowserLifecycleReceipts(path.dirname(this.outputFile), {limit: this.retentionLimit})
   }
 
   /**
@@ -245,6 +344,7 @@ export default class BenchmarkSystemReporter {
 
     const receipt = {
       ...incident,
+      capturedAt : new Date().toISOString(),
       observedVia: [observedVia]
     };
 
@@ -342,19 +442,19 @@ export default class BenchmarkSystemReporter {
     }
 
     return {
-      os: this.getOSName(),
+      os         : this.getOSName(),
       osVersion,
-      arch: process.arch,
-      platform: process.platform,
+      arch       : process.arch,
+      platform   : process.platform,
       totalMemory: Math.round(os.totalmem() / (1024 ** 3)),
-      freeMemory: Math.round(os.freemem() / (1024 ** 3)),
-      cpuCores: os.cpus().length,
+      freeMemory : Math.round(os.freemem() / (1024 ** 3)),
+      cpuCores   : os.cpus().length,
       cpuModel,
       cpuSpeed,
       nodeVersion: process.version,
-      timestamp: new Date().toISOString(),
+      timestamp  : new Date().toISOString(),
       loadAverage: readOptionalSystemFact(() => os.loadavg(), null),
-      uptime: readOptionalSystemFact(() => Math.round(os.uptime() / 3600), null),
+      uptime     : readOptionalSystemFact(() => Math.round(os.uptime() / 3600), null),
     };
   }
 
