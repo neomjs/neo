@@ -20,6 +20,11 @@
  * `AiConfig.heartbeatConcurrencyLockPath`. This module imports neither the class system nor the
  * config Provider, so its non-entrypoint consumers keep taking the coordinate as an argument.
  *
+ * **Upgrade window:** runs launched from a non-repo-root directory before this change wrote a lock
+ * under *that* directory. Nothing resolves those paths any more, so they are orphaned rather than
+ * stale — no reader means no TTL sweep, and they simply persist. A `.neo-ai-data/` tree sitting in
+ * an unexpected working directory is that archaeology, not a live lock, and is safe to delete.
+ *
  * @example
  *   node ai/scripts/lifecycle/heartbeatLock.mjs -- npx playwright test test/playwright/unit/foo.spec.mjs
  *
