@@ -33,6 +33,9 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  *     (mergeability not yet computed) and DIRTY/BEHIND/BLOCKED all fail closed.
  *  5. `reviewRequests` is fetched AND every explicitly-requested reviewer is disposed — i.e. `reviewRequests`
  *     minus `disposedReviewers` is empty (the reviewer-contract gate).
+ *  6. `crossFamilyVerdict` is resolved AND reports `crossFamily === true` — the §6.1 cross-family mandate.
+ *     GitHub models no model family, so rule 2 cannot stand in for this one: an APPROVED badge earned
+ *     entirely within the author's own family satisfies `reviewDecision` and violates the mandate.
  *
  * Fail-CLOSED contract: `state`, `mergedAt`, `checksGreen`, `mergeStateStatus`, and `reviewRequests`
  * that were NOT fetched (`undefined`) each block readiness — an un-queried field cannot certify a
@@ -47,6 +50,7 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  * @param {String} [pr.mergeStateStatus] GitHub mergeStateStatus (`CLEAN` | `UNSTABLE` | `DIRTY` | `BEHIND` | `BLOCKED` | ...); `undefined` (not fetched) fails closed.
  * @param {String[]} [pr.reviewRequests] Logins of still-requested reviewers (the explicit author/operator contract); `undefined` (not fetched) fails closed, `[]` asserts fetched-and-empty.
  * @param {String[]} [pr.disposedReviewers] Requested reviewers already disposed (formal review / visible step-out / unrequest).
+ * @param {Object} [pr.crossFamilyVerdict] Verdict from `resolveCrossFamilyVerdict` — `{crossFamily, authorFamily, approvingFamilies, authorLogin}`. `undefined` (not resolved) fails closed; `crossFamily: null` (author family unresolved) blocks with its own reason rather than collapsing into pass or fail.
  * @param {String} [pr.approvedAtOid] Commit oid the approving review was submitted against. Optional: absent means the anchor is not reported, never that it is fresh.
  * @param {String} [pr.headRefOid] Current head oid, paired with `approvedAtOid` to surface a stale approval anchor.
  * @returns {{strictMergeReady: Boolean, blockers: String[], advisories: String[]}}
@@ -61,7 +65,8 @@ export function validateMergeReady(pr = {}) {
         reviewRequests,
         disposedReviewers = [],
         approvedAtOid,
-        headRefOid
+        headRefOid,
+        crossFamilyVerdict
     } = pr;
 
     const blockers   = [],
@@ -81,6 +86,26 @@ export function validateMergeReady(pr = {}) {
 
     if (reviewDecision !== 'APPROVED') {
         blockers.push(`reviewDecision is '${reviewDecision ?? 'none'}', not APPROVED.`);
+    }
+
+    // `reviewDecision` answers "did someone with review rights approve". It cannot answer "is the
+    // approval one our rules accept", because GitHub models no notion of model family — so no
+    // GitHub-derived field will ever express the cross-family mandate, and a validator that mirrors
+    // those fields certifies a PR the mandate forbids. Observed live: a same-family-only approval
+    // returned strictMergeReady with ZERO blockers and zero advisories, so the reader got no signal
+    // at all — not a warning, not an unknown. The operator's override stays theirs; the point of
+    // this rule is that the override is INFORMED rather than depending on a reviewer noticing.
+    //
+    // Fail CLOSED like every other predicate field: an unresolved verdict blocks. `null` is the
+    // author-not-rostered case, which is external-contributor territory rather than a mandate
+    // breach — reported as its own blocker so the reader can see WHY it could not be certified,
+    // instead of being silently folded into either boolean.
+    if (crossFamilyVerdict === undefined) {
+        blockers.push('crossFamilyVerdict was not resolved — cannot certify the cross-family review mandate; failing closed.');
+    } else if (crossFamilyVerdict?.crossFamily === null) {
+        blockers.push(`cross-family mandate could not be evaluated: the author family did not resolve${crossFamilyVerdict.authorLogin ? ` for '${crossFamilyVerdict.authorLogin}'` : ''}. An unrostered author is usually an external contributor, for whom the mandate does not apply — confirm that before merging.`);
+    } else if (crossFamilyVerdict?.crossFamily === false) {
+        blockers.push(`cross-family review mandate unsatisfied: author family '${crossFamilyVerdict.authorFamily}', approving families [${(crossFamilyVerdict.approvingFamilies || []).join(', ') || 'none'}]. pull-request-workflow.md §6.1 requires at least one APPROVED review from a different model family; GitHub's reviewDecision cannot express this, so an APPROVED badge is not evidence of it.`);
     }
 
     // The anchor, and it is deliberately an ADVISORY rather than a blocker.

@@ -15,6 +15,23 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
  */
 
 /**
+ * The roster's family value for a seat whose underlying model is not publicly known — an unreleased
+ * preview behind a codename, where the seat itself cannot state its engine.
+ *
+ * **It COUNTS as differing for the cross-family mandate. Operator ruling, 2026-08-24.** That is a
+ * decision, not a consequence of string comparison, and it is recorded here because the next reader
+ * would otherwise re-derive it from `'unknown' !== 'claude'` and be right by accident.
+ *
+ * The trade, stated so nobody has to rediscover it: an `unknown` family cannot be SHOWN uncorrelated
+ * with the author's, so admitting it assumes part of what the mandate checks. It was weighed against
+ * the alternative — a guest seat whose approvals can never unblock anything is a seat with no
+ * merge-path value — and for a Claude-family author it is the difference between two eligible
+ * cross-family seats and three. The permissive reading won on that basis.
+ * @type {String}
+ */
+export const UNKNOWN_FAMILY = 'unknown';
+
+/**
  * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
  * self-id leads with the Social Name (`Authored by <Social Name> (…)`); this resolves it to the login
  * the family map keys on. The legacy `@identity` form is still parsed for transitional / pre-trim bodies.
@@ -159,6 +176,44 @@ export function parseSelfIdLogin(body) {
 }
 
 /**
+ * @summary Resolves an author family from ALREADY-PARSED logins, so a caller can carry the canonical
+ * self-id without carrying the body it came from.
+ *
+ * {@link resolveAuthorFamily} takes a PR and parses `body` itself, which is right for a caller that
+ * already holds the body. The merge-readiness projection does not: its snapshot is compared by
+ * `stableStringify` across two reads to detect source drift, so putting the raw `body` on it would
+ * make **any** prose edit mid-read invalidate the observation. Parsing the self-id once and carrying
+ * only the derived login keeps the drift signal pointed at what actually matters — a change to the
+ * declared author invalidates it, a typo fix in the description does not.
+ *
+ * Precedence is identical to the body-parsing form and that is the whole point: the declared self-id
+ * WINS over the opener login, because the GitHub opener can mis-resolve (an MCP `@me` drift stamps a
+ * different agent's login on the PR) while the body declares its own canonical author. A gate that
+ * read the opener would let that drift decide whether a merge is eligible.
+ *
+ * @param {Object} logins
+ * @param {String|null} [logins.selfIdLogin] `@`-stripped login parsed from the body self-id.
+ * @param {String|null} [logins.openerLogin] `@`-stripped GitHub opener login (advisory).
+ * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @returns {(String|undefined)} The model family, or undefined when neither login resolves.
+ */
+export function resolveAuthorFamilyFromLogins({selfIdLogin = null, openerLogin = null} = {}, agentFamilies = getCoreSwarmAgentFamilies()) {
+    const
+        selfIdFamily = selfIdLogin ? agentFamilies[selfIdLogin] : undefined,
+        openerFamily = openerLogin ? agentFamilies[openerLogin] : undefined;
+
+    if (selfIdFamily) {
+        if (openerFamily && openerFamily !== selfIdFamily) {
+            logger.warn(`[agentFamilyResolution] author identity drift — body self-id @${selfIdLogin} (${selfIdFamily}) != opener @${openerLogin} (${openerFamily}); using the canonical self-id.`);
+        }
+
+        return selfIdFamily
+    }
+
+    return openerFamily
+}
+
+/**
  * @summary Resolves a PR author's model family from the canonical body self-id (Social-Name-led, or
  * legacy `@identity`), falling back to the drift-prone GitHub login as an advisory source.
  *
@@ -255,16 +310,83 @@ export function groupReviewsByFamily(reviews = [], agentFamilies = getCoreSwarmA
  * @returns {Boolean}
  */
 export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
-    const authorFamily = resolveAuthorFamily(pr, agentFamilies);
-    const reviews      = Array.isArray(pr.reviews) ? pr.reviews : [];
+    const verdict = resolveCrossFamilyVerdict(pr, agentFamilies);
 
-    return reviews.some(review => {
-        const reviewerLogin  = review.author?.login || review.author?.name || review.author?.login;
-        const reviewerFamily = agentFamilies[reviewerLogin];
+    // `null` (author family unresolvable) maps to TRUE here, preserving this function's original
+    // reading: an unrostered author is an EXTERNAL contributor, and the mandate exists to stop one
+    // model family self-approving — a risk an external human's PR does not carry. That is why any
+    // classified approver satisfies it. The verdict form below keeps `null` distinct so a gate can
+    // decide for itself rather than inheriting a report's charity.
+    return verdict.crossFamily === null
+        ? verdict.approvingFamilies.length > 0
+        : verdict.crossFamily
+}
 
-        if (!reviewerFamily) return false;
-        if (!authorFamily) return true;
+/**
+ * @summary The cross-family mandate as a VERDICT rather than a boolean — the shape a merge gate needs.
+ *
+ * `hasCrossFamilyReview` above answers a report line, where an optimistic guess costs a wrong word.
+ * A gate cannot spend the same optimism, and the two differences are load-bearing:
+ *
+ * **1. Only an APPROVED review counts.** The mandate is "at least one cross-family *Approved*
+ * review", so a cross-family `COMMENT` or `CHANGES_REQUESTED` is not coverage — it is the opposite
+ * of coverage in the `CHANGES_REQUESTED` case. Reviews arrive in every state on the same
+ * connection, so the state filter is the difference between counting approvals and counting
+ * attention.
+ *
+ * **2. An unresolvable author family reports `null`, not a verdict.** The boolean form treats that
+ * case as satisfied, and deliberately so — an unrostered author is an external contributor, and the
+ * mandate exists to stop one model family self-approving, which is not a risk an external human's
+ * PR carries. That charity is right for a report and is not a decision this function should make
+ * for a caller. `null` is deliberately neither `true` nor `false`: "the author is not one of ours,
+ * so the mandate may not even apply" is a third state, and a consumer that collapses it into either
+ * boolean has silently chosen a policy. The gate decides; the resolver reports.
+ *
+ * The approving families are returned alongside the verdict because a blocker that cannot name who
+ * approved and what family they belong to sends the reader back to the API to find out.
+ *
+ * @param {Object} pr GitHub PR payload (`author`, `body`, `reviews`).
+ * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @returns {{crossFamily: (Boolean|null), authorFamily: (String|null), approvingFamilies: String[], unclassifiedApprovers: String[]}}
+ */
+export function resolveCrossFamilyVerdict(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
+    const
+        // A caller that already resolved the canonical author passes it directly; everyone else
+        // keeps the body-parsing path. Same precedence either way — the self-id wins over the opener.
+        authorFamily = (pr?.authorFamily ?? resolveAuthorFamily(pr, agentFamilies)) ?? null,
+        reviews      = Array.isArray(pr?.reviews) ? pr.reviews : [],
+        approvals    = reviews.filter(review => review?.state === 'APPROVED'),
+        resolved     = approvals.map(review => resolveReviewerFamily(review, agentFamilies)),
 
-        return reviewerFamily !== authorFamily
-    })
+        // `UNKNOWN_FAMILY` participates as an ordinary family value — see its declaration for the
+        // operator ruling and the trade behind it. Deliberately NOT filtered out: an earlier cut of
+        // this function treated it as unresolved, which was the honest-but-costly reading and is not
+        // the one the swarm chose.
+        approvingFamilies     = [...new Set(resolved.filter(item => item.classified).map(item => item.family))],
+        unclassifiedApprovers = resolved.filter(item => !item.classified).map(item => item.login).filter(Boolean);
+
+    const crossFamily = authorFamily === null
+        ? null
+        : approvingFamilies.some(family => family !== authorFamily);
+
+    return {
+        authorFamily,
+        approvingFamilies,
+        unclassifiedApprovers,
+        approvalsTruncated: Boolean(pr?.approvalsTruncated),
+        // A POSITIVE witness is decisive; a NEGATIVE over a truncated window is not a negative.
+        //
+        // The approvals connection is bounded (`reviews(last: 100)`), so a qualifying older approval
+        // can sit outside the retained suffix. Finding a cross-family approver inside the window
+        // settles the question whatever lies beyond it — one witness is enough. Finding none does
+        // NOT, because the witness may simply be off the end: that is missing evidence, not evidence
+        // of absence, and reporting it as `false` would state a fact the data cannot support.
+        //
+        // So truncation degrades a negative to `null`, which the consumer already fails closed on
+        // with its own message. An unknown AUTHOR short-circuits before any of it: comparing against
+        // `null` would make every classified approver look cross-family.
+        crossFamily: authorFamily === null || (crossFamily === false && Boolean(pr?.approvalsTruncated))
+            ? null
+            : crossFamily
+    }
 }
