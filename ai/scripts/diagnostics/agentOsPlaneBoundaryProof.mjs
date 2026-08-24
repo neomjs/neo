@@ -105,6 +105,7 @@ export const PROOF_CLASS = Object.freeze({
     closureEscapesPlaneRoot         : 'topology-edge-closure-escapes-plane-root',
     closureImportsCloudPackage      : 'topology-edge-closure-imports-cloud-package',
     closureReachesCloudModule       : 'topology-edge-closure-reaches-cloud-module',
+    closureReachedWithoutCustody    : 'topology-edge-closure-reaches-module-without-custody',
     closureOutOfRegistryRegion      : 'topology-edge-closure-reaches-out-of-registry-region',
     closureUnresolvedEdge           : 'instrument-closure-unresolved-edge',
     computedEdgeAdded               : 'topology-computed-edge-unregistered-addition',
@@ -349,9 +350,10 @@ export function runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages}) {
  *
  * Dispositions come from the reconciled inventory rows, scoped by BOTH surface and identity. Only a
  * `script-module` row answers module custody; a same-path plane-opener/config/workflow row answers a
- * different question and cannot classify the module by collision. A reached dependency with no
- * `script-module` row is outside this classifier rather than missing authority — proof 1 owns exact
- * surface membership and residue, while this proof consumes that result for isolation.
+ * different question and cannot classify the module by collision. Proof 1 owns exact membership and
+ * residue for its DECLARED surfaces, so a reached dependency with no `script-module` row is not a
+ * missing-inventory blocker. Proof 1 cannot observe that reach-derived null, though, so this layer
+ * retains it as a non-blocking custody observation rather than turning absence into silence.
  *
  * ## An unaccounted unresolved edge is an INSTRUMENT error, not a topology finding
  *
@@ -598,6 +600,7 @@ export function runStaticClosureProof({
         observedEdges    = new Set(),
         reachedModules   = new Set(),
         cloudPackages    = new Set(cloudOnlyPackages),
+        withoutCustody   = [],
         outOfRegion      = [],
         relative         = absPath => path.relative(planeRoot, absPath).split(path.sep).join('/'),
         seen             = new Set();
@@ -652,11 +655,17 @@ export function runStaticClosureProof({
 
             const disposition = dispositionBySurfaceIdentity.get(rowKey(SURFACE.scriptModule, identity));
 
-            if (disposition === undefined && !identity.startsWith(`${REGISTRY_REGION}/`)) {
-                // The inventory never claims the Engine-side region, so proof 2 carries that crossing
-                // to its dedicated owner. Inside `ai/**`, absence is not a second membership check:
-                // proof 1 already reconciles every governed surface against disk.
-                outOfRegion.push(identity)
+            if (disposition === undefined) {
+                if (identity.startsWith(`${REGISTRY_REGION}/`)) {
+                    // Proof 1 reconciles DECLARED surfaces, not every module the closure reaches.
+                    // Preserve that distinct null as cut context without promoting it into a
+                    // missing-inventory blocker or letting an unrelated surface classify custody.
+                    withoutCustody.push(identity)
+                } else {
+                    // The inventory never claims the Engine-side region, so proof 2 carries that
+                    // crossing to its dedicated owner.
+                    outOfRegion.push(identity)
+                }
             } else if (disposition === 'cloud') {
                 topologyFindings.push({
                     class               : PROOF_CLASS.closureReachesCloudModule,
@@ -703,6 +712,19 @@ export function runStaticClosureProof({
                 })
             }
         }
+    }
+
+    if (withoutCustody.length > 0) {
+        const identities = [...new Set(withoutCustody)].sort();
+
+        topologyFindings.push({
+            class               : PROOF_CLASS.closureReachedWithoutCustody,
+            identity            : `${identities.length} module(s)`,
+            detail              : 'reached from an Edge entrypoint with no `script-module` custody row — recorded from reach as cut context, not a proof-1 membership gap',
+            identities,
+            successorOwner      : 'the AgentOS extraction inventory (#17525 / #17645 lineage)',
+            preRelocationBlocker: false
+        })
     }
 
     // The inventory's governed surfaces live in `ai/**`; reached Engine source is a real
@@ -909,8 +931,9 @@ async function main() {
         const {instrumentErrors, topologyFindings} = runResolutionProof({edgeRoot, cloudRoot, cloudOnlyPackages: cloudOnly});
 
         // The static-closure layer consumes H1's reconciled authority rather than re-deriving it.
-        // Surface stays in the key: only `script-module` rows classify module custody, while proof 1
-        // remains the sole authority for whether every governed surface reconciles against disk.
+        // Surface stays in the key: only `script-module` rows classify module custody. Proof 1
+        // remains the sole authority for whether each declared surface reconciles against disk;
+        // this proof separately records reached modules with no custody row as non-blocking context.
         const
             // `allowDirty` is the inventory's development/test-only opt-in and its JSDoc says the
             // CLI never enables it. It was enabled here, which let the static closure measure a

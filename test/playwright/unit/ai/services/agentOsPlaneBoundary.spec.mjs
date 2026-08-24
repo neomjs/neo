@@ -314,10 +314,15 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
                       '/root/ai/svc.mjs': 'export function a() {}'
                   }),
                   resolve: specifier => specifier.startsWith('./') ? `/root/ai/${specifier.slice(2)}` : null
-              });
+        });
 
         expect(result.instrumentErrors).toEqual([]);
-        expect(result.topologyFindings).toEqual([])
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureReachedWithoutCustody]);
+        expect(result.topologyFindings[0]).toMatchObject({
+            identity            : '1 module(s)',
+            identities          : ['ai/svc.mjs'],
+            preRelocationBlocker: false
+        })
     });
 
     test('a Cloud-only PACKAGE import fires even though the closure never follows bare specifiers, and a deep import normalizes to its package', () => {
@@ -343,7 +348,7 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
         expect(classesOf(result)).toEqual([PROOF_CLASS.closureEscapesPlaneRoot])
     });
 
-    test('#17707 reached dependencies without a script-module row are not missing inventory authority', () => {
+    test('#17707 reached dependencies without a script-module row stay visible but non-blocking', () => {
         const result = run({
             planeRoot                   : '/root',
             entrypoints                 : ['/root/ai/e.mjs'],
@@ -356,10 +361,15 @@ test.describe('C′ plane-boundary proof — static-closure layer arms (#17533)'
             resolve: specifier => specifier.startsWith('./') ? `/root/ai/${specifier.slice(2)}` : null
         });
 
-        // Proof 1 owns exact surface membership. These are reached dependencies, not executable
-        // surfaces the inventory forgot; treating absence as custody manufactures authority from reach.
+        // Proof 1 owns exact surface membership, but its declared-row population cannot observe this
+        // reach-derived null. The modules stay visible without becoming missing-inventory blockers.
         expect(result.instrumentErrors).toEqual([]);
-        expect(result.topologyFindings).toEqual([])
+        expect(classesOf(result)).toEqual([PROOF_CLASS.closureReachedWithoutCustody]);
+        expect(result.topologyFindings[0]).toMatchObject({
+            identity            : '2 module(s)',
+            identities          : ['ai/ghost.mjs', 'ai/wraith.mjs'],
+            preRelocationBlocker: false
+        })
     });
 
     test('a module OUTSIDE the registry region gets its own class and owner — the authority never claimed that region', () => {
