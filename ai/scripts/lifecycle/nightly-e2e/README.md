@@ -26,12 +26,13 @@ simply never install it.
 #    green. The credential is the same NEO_MCP_REMOTE_TOKEN your other remote MCP clients use.
 REPO="$(git rev-parse --show-toplevel)"
 mkdir -p "$REPO/.neo-ai-data/nightly-e2e/logs" ~/Library/LaunchAgents
-sed -e "s#__NEO_REPO_ROOT__#$REPO#g" \
+# The subshell's umask makes the destination restrictive AT CREATION. A later `chmod 600` would
+# leave a window in which the secret is on disk world-readable — short, but real, and avoidable.
+(umask 077 && sed -e "s#__NEO_REPO_ROOT__#$REPO#g" \
     -e "s#__NEO_PATH__#$PATH#g" \
     -e "s#__NEO_MCP_REMOTE_TOKEN__#${NEO_MCP_REMOTE_TOKEN:?export NEO_MCP_REMOTE_TOKEN before rendering}#g" \
   "$REPO/ai/scripts/lifecycle/nightly-e2e/com.neomjs.nightly-e2e.plist" \
-  > ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist
-chmod 600 ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist   # the rendered copy carries a secret
+  > ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist)
 
 # 2. Load it (fires only on schedule — RunAtLoad is false).
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist
