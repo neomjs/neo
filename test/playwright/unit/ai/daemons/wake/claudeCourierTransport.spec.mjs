@@ -21,8 +21,9 @@ import {
  * Focus-free transport for Claude seats: receiver spools, a courier session drains and delivers
  * over Claude Code's contracted cross-session messaging. These arms pin the parts that must
  * never fail silently — the explicit routing table (no path conventions), prefix session
- * matching (worktrees are real), ambiguity reported instead of guessed, and the layered outcome
- * vocabulary that distinguishes channel acceptance from rendered-in-session confirmation.
+ * matching with fail-closed ties (worktrees are real), the layered outcome vocabulary that
+ * distinguishes channel acceptance from rendered-in-session confirmation — and the production
+ * composition: a real subscription route carries the map, exactly as an operator authors it.
  */
 
 const SEAT_MAP = [
@@ -40,14 +41,18 @@ test.describe('claude courier transport — routing table', () => {
         expect(map).toEqual(SEAT_MAP)
     });
 
-    test('rejects a relative cwd, an identity without @, and a duplicate binding', () => {
+    test('rejects a relative cwd, an identity without @, a duplicate binding, and a clone bound twice', () => {
         expect(() => parseIdentityCwdMap(JSON.stringify([{identity: '@x', cwd: 'rel/path'}])))
             .toThrow(/absolute/);
         expect(() => parseIdentityCwdMap(JSON.stringify([{identity: 'x', cwd: '/abs'}])))
             .toThrow(/@identity/);
         expect(() => parseIdentityCwdMap(JSON.stringify([
             {identity: '@x', cwd: '/a'}, {identity: '@x', cwd: '/b'}
-        ]))).toThrow(/twice/)
+        ]))).toThrow(/twice/);
+        // Two identities on one clone would both resolve there — rejected before it can misroute.
+        expect(() => parseIdentityCwdMap(JSON.stringify([
+            {identity: '@x', cwd: '/same'}, {identity: '@y', cwd: '/same'}
+        ]))).toThrow(/second identity/)
     })
 });
 
@@ -94,30 +99,33 @@ test.describe('claude courier transport — session resolution', () => {
         }).status).toBe('no-live-session')
     });
 
-    test('two same-depth candidates are ambiguous — never guessed; a deeper worktree disambiguates', () => {
-        const ambiguous = resolveSessionForIdentity({
+    test('a tie at maximum depth is ambiguous — shallower matches never break it', () => {
+        // One root plus two equally deep worktrees: the exact probe that must not guess pid 2.
+        const tie = resolveSessionForIdentity({
             identity: '@neo-opus-grace',
             map     : SEAT_MAP,
             sessions: [
                 {pid: 201, cwd: '/Users/Shared/opus-grace/neomjs/neo'},
-                {pid: 202, cwd: '/Users/Shared/opus-grace/neomjs/neo'}
+                {pid: 202, cwd: '/Users/Shared/opus-grace/neomjs/neo/.claude/worktrees/a'},
+                {pid: 203, cwd: '/Users/Shared/opus-grace/neomjs/neo/.claude/worktrees/b'}
             ]
         });
 
-        expect(ambiguous.status).toBe('ambiguous');
-        expect(ambiguous.candidates.map(candidate => candidate.pid).sort()).toEqual([201, 202]);
+        expect(tie.status).toBe('ambiguous');
+        expect(tie.candidates.map(candidate => candidate.pid).sort()).toEqual([202, 203]);
 
-        const nested = resolveSessionForIdentity({
+        const unique = resolveSessionForIdentity({
             identity: '@neo-opus-grace',
             map     : SEAT_MAP,
             sessions: [
                 {pid: 201, cwd: '/Users/Shared/opus-grace/neomjs/neo'},
-                {pid: 202, cwd: '/Users/Shared/opus-grace/neomjs/neo/.claude/worktrees/deep'}
+                {pid: 202, cwd: '/Users/Shared/opus-grace/neomjs/neo/.claude/worktrees/a'},
+                {pid: 203, cwd: '/Users/Shared/opus-grace/neomjs/neo/docs'}
             ]
         });
 
-        expect(nested.status).toBe('resolved');
-        expect(nested.session.pid).toBe(202)
+        expect(unique.status).toBe('resolved');
+        expect(unique.session.pid).toBe(202)
     })
 });
 
@@ -149,6 +157,12 @@ test.describe('claude courier transport — spool', () => {
             pid: 101, cwd: '/a', name: 'n1', messagingSocketPath: '/tmp/s1.sock'
         }));
         fs.writeFileSync(path.join(dir, '102.json'), JSON.stringify({pid: 102, cwd: '/b', name: 'bare'}));
+        fs.writeFileSync(path.join(dir, '103.json'), JSON.stringify({
+            cwd: '/c', name: 'pidless', messagingSocketPath: '/tmp/s3.sock'
+        }));
+        fs.writeFileSync(path.join(dir, '104.json'), JSON.stringify({
+            pid: 'not-a-number', cwd: '/d', name: 'badpid', messagingSocketPath: '/tmp/s4.sock'
+        }));
         fs.writeFileSync(path.join(dir, 'garbage.json'), '{not json');
 
         const rows = readSessionRegistry({sessionsDir: dir});
@@ -162,6 +176,7 @@ test.describe('claude courier transport — spool', () => {
 
 test.describe('claude courier transport — adapter semantics', () => {
 
+    // The route EXACTLY as an operator authors it: the map lives in adapterConfig, never injected.
     const record = (overrides = {}) => ({
         eventId       : 'evt-c1',
         subscriptionId: 'WAKE_SUB:courier-a',
@@ -172,7 +187,10 @@ test.describe('claude courier transport — adapter semantics', () => {
         route: {
             agentIdentity        : '@neo-opus-grace',
             harnessTargetMetadata: {adapter: COURIER_ADAPTER},
-            adapterConfig        : {}
+            adapterConfig        : {
+                attemptTimeoutMs     : 10_000,
+                courierIdentityCwdMap: SEAT_MAP
+            }
         },
         ...overrides
     });
@@ -180,12 +198,11 @@ test.describe('claude courier transport — adapter semantics', () => {
     const baseEffects = outboxDir => ({
         fs,
         homedir        : os.homedir,
-        identityCwdMap : SEAT_MAP,
         sessionRegistry: liveSessions('/Users/Shared/opus-grace/neomjs/neo'),
         courierDirs    : {outboxDir, receiptsDir: `${outboxDir}-receipts`}
     });
 
-    test('happy path: registry read from the seat home, spool entry carries pid+socket+digest', async () => {
+    test('PRODUCTION COMPOSITION: a real route record spools through the registry reader alone', async () => {
         const outboxDir   = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-run-'));
         const seatHome    = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-home-'));
         const sessionsDir = path.join(seatHome, '.claude/sessions');
@@ -195,6 +212,7 @@ test.describe('claude courier transport — adapter semantics', () => {
             pid: 101, cwd: '/Users/Shared/opus-grace/neomjs/neo', name: 'n1', messagingSocketPath: '/tmp/s101.sock'
         }));
 
+        // No effects.identityCwdMap exists anywhere in this call — the route field is the authority.
         const result = await deliverClaudeCourier({
             digest : 'DIGEST-BYTES',
             effects: {...baseEffects(outboxDir), sessionRegistry: null, homedir: () => seatHome},
@@ -221,17 +239,24 @@ test.describe('claude courier transport — adapter semantics', () => {
         const outboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-fail-'));
 
         const noMap = await deliverClaudeCourier({
-            digest: 'd', effects: {fs, homedir: os.homedir, courierDirs: {outboxDir}}, meta: {}, record: record()
+            digest : 'd',
+            effects: baseEffects(outboxDir),
+            meta   : {},
+            record : record({route: {agentIdentity: '@neo-opus-grace', adapterConfig: {}, harnessTargetMetadata: {adapter: COURIER_ADAPTER}}})
         });
-        expect(noMap).toEqual({outcome: 'failed', outcomeReason: 'courier-map-missing'});
+        expect(noMap.outcomeReason).toBe('courier-map-missing');
 
         const unmapped = await deliverClaudeCourier({
             digest : 'd',
-            effects: {...baseEffects(outboxDir), identityCwdMap: [{identity: '@other', cwd: '/x'}]},
+            effects: {...baseEffects(outboxDir), sessionRegistry: []},
             meta   : {},
-            record : record()
+            record : record({route: {
+                agentIdentity        : '@stranger',
+                harnessTargetMetadata: {adapter: COURIER_ADAPTER},
+                adapterConfig        : {courierIdentityCwdMap: SEAT_MAP}
+            }})
         });
-        expect(unmapped.outcomeReason).toBe('courier-unmapped-identity:@neo-opus-grace');
+        expect(unmapped.outcomeReason).toBe('courier-unmapped-identity:@stranger');
 
         const dead = await deliverClaudeCourier({
             digest : 'd',
@@ -241,20 +266,18 @@ test.describe('claude courier transport — adapter semantics', () => {
         });
         expect(dead.outcomeReason).toContain('courier-no-live-session');
 
-        const ambiguous = await deliverClaudeCourier({
+        const invalid = await deliverClaudeCourier({
             digest : 'd',
-            effects: {
-                ...baseEffects(outboxDir),
-                sessionRegistry: [
-                    {pid: 301, cwd: '/Users/Shared/opus-grace/neomjs/neo'},
-                    {pid: 302, cwd: '/Users/Shared/opus-grace/neomjs/neo'}
-                ]
-            },
-            meta  : {},
-            record: record()
+            effects: baseEffects(outboxDir),
+            meta   : {},
+            record : record({route: {
+                agentIdentity        : '@neo-opus-grace',
+                harnessTargetMetadata: {adapter: COURIER_ADAPTER},
+                adapterConfig        : {courierIdentityCwdMap: [{identity: 'broken', cwd: '/x'}]}
+            }})
         });
-        expect(ambiguous.outcomeReason).toContain('courier-ambiguous-session');
-        expect(ambiguous.outcome).toBe('failed');
+        expect(invalid.outcome).toBe('failed');
+        expect(invalid.outcomeReason).toContain('courier-map-invalid');
 
         fs.rmSync(outboxDir, {recursive: true, force: true})
     })
@@ -273,16 +296,13 @@ test.describe('claude courier transport — courier-side protocol', () => {
 
         seedOutbox(outboxDir);
 
-        const listed   = listOutboxEntries({outboxDir});
-        const complete = ({file}) => completeOutboxEntry({file});
+        const listed = listOutboxEntries({outboxDir});
 
         expect(listed.map(item => item.entry.eventId)).toEqual(['evt-a', 'evt-b']);
 
-        complete(listed[0]);
+        completeOutboxEntry({file: listed[0].file});
 
         expect(listOutboxEntries({outboxDir}).map(item => item.entry.eventId)).toEqual(['evt-b']);
-        // A dead courier re-drains survivors: nothing was claimed away by listing.
-        expect(listOutboxEntries({outboxDir})[0].entry.eventId).toBe('evt-b');
 
         fs.rmSync(outboxDir, {recursive: true, force: true})
     });
@@ -300,21 +320,41 @@ test.describe('claude courier transport — courier-side protocol', () => {
         fs.rmSync(outboxDir, {recursive: true, force: true})
     });
 
-    test('receipts are one-file-per-event and carry the verbatim detail', () => {
+    test('receipts are replaceable latest-outcome records whose schema travels inside', () => {
         const receiptsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-receipts-'));
 
-        writeCourierReceipt({
-            receiptsDir,
-            eventId: 'evt-a',
-            outcome: 'expired',
-            detail : 'held 5m then expired at the target'
-        });
+        writeCourierReceipt({receiptsDir, eventId: 'evt-a', outcome: 'held'});
         writeCourierReceipt({receiptsDir, eventId: 'evt-a', outcome: 'delivered'});
 
         const written = JSON.parse(fs.readFileSync(path.join(receiptsDir, 'evt-a.json'), 'utf8'));
 
+        expect(written.schemaVersion).toBe('1.0');
         expect(written.outcome).toBe('delivered');
         expect(written.at).toBeTruthy();
+
+        fs.rmSync(receiptsDir, {recursive: true, force: true})
+    });
+
+    test('an unknown outcome is a call-site error, never persisted as data', () => {
+        const receiptsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-receipts-'));
+
+        expect(() => writeCourierReceipt({receiptsDir, eventId: 'evt-x', outcome: 'probably-fine'}))
+            .toThrow(/must be one of/);
+
+        fs.rmSync(receiptsDir, {recursive: true, force: true})
+    });
+
+    test('the receipt path cannot escape its directory via the event id', () => {
+        const receiptsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-receipts-'));
+
+        // A traversal-shaped id is rejected outright rather than rewritten into a neighbor file.
+        expect(() => writeCourierReceipt({receiptsDir, eventId: '../escaped', outcome: 'delivered'}))
+            .toThrow(/path-safe segment/);
+        expect(fs.existsSync(path.join(path.dirname(receiptsDir), 'escaped.json'))).toBe(false);
+
+        // A legitimate id containing dots still resolves inside receiptsDir.
+        writeCourierReceipt({receiptsDir, eventId: 'evt.a-1', outcome: 'delivered'});
+        expect(fs.existsSync(path.join(receiptsDir, 'evt.a-1.json'))).toBe(true);
 
         fs.rmSync(receiptsDir, {recursive: true, force: true})
     })

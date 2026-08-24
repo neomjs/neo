@@ -138,7 +138,7 @@ class WakeSubscriptionService extends Base {
      *
      * @protected
      */
-    validAdapters = ['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server', 'kimi-pull-bridge']
+    validAdapters = ['osascript', 'tmux', 'claude-courier', 'codex-app-server', 'opencode-server', 'kimi-server', 'kimi-pull-bridge']
 
     /**
      * In-memory write-through cache for sub-millisecond trigger evaluation.

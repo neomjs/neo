@@ -73,7 +73,8 @@ export function parseIdentityCwdMap(raw) {
 
     if (!Array.isArray(parsed)) throw new Error('courier map must be a JSON array');
 
-    const seen = new Set();
+    const seenIds  = new Set();
+    const seenCwds = new Set();
 
     return parsed.map(binding => {
         if (!binding || typeof binding.identity !== 'string' || !binding.identity.startsWith('@')) {
@@ -84,9 +85,11 @@ export function parseIdentityCwdMap(raw) {
             throw new Error(`courier map cwd for ${binding.identity} must be an absolute path`)
         }
 
-        if (seen.has(binding.identity)) throw new Error(`courier map binds ${binding.identity} twice`);
+        if (seenIds.has(binding.identity)) throw new Error(`courier map binds ${binding.identity} twice`);
+        if (seenCwds.has(binding.cwd)) throw new Error(`courier map binds ${binding.cwd} to a second identity — one seat per clone`);
 
-        seen.add(binding.identity);
+        seenIds.add(binding.identity);
+        seenCwds.add(binding.cwd);
 
         return {identity: binding.identity, cwd: binding.cwd}
     })
@@ -122,7 +125,10 @@ export function readSessionRegistry({sessionsDir, fs: userFs = fs} = {}) {
                 return null
             }
         })
-        .filter(row => row && typeof row.messagingSocketPath === 'string' && row.messagingSocketPath)
+        .filter(row => row
+            && Number.isFinite(Number(row.pid)) && Number(row.pid) > 0
+            && typeof row.cwd === 'string' && path.isAbsolute(row.cwd)
+            && typeof row.messagingSocketPath === 'string' && row.messagingSocketPath)
         .map(row => ({
             pid       : Number(row.pid),
             cwd       : String(row.cwd),
@@ -160,14 +166,16 @@ export function resolveSessionForIdentity({identity, map, sessions}) {
     if (matches.length === 0) return {status: 'no-live-session', mappedCwd: binding.cwd};
 
     if (matches.length > 1) {
-        // Deepest cwd wins only when it is unambiguous; equal depth is a genuine conflict.
-        const depths = new Set(matches.map(session => session.cwd.split(path.sep).length));
+        // The deepest match wins only while it is unique; a tie at maximum depth is reported,
+        // never guessed — two equally deep worktrees mean the table cannot say which seat meant it.
+        const maxDepth = Math.max(...matches.map(session => session.cwd.split(path.sep).length));
+        const deepest  = matches.filter(session => session.cwd.split(path.sep).length === maxDepth);
 
-        if (depths.size > 1) {
-            return {status: 'resolved', session: matches.sort((a, b) => b.cwd.length - a.cwd.length)[0], mappedCwd: binding.cwd}
+        if (deepest.length === 1) {
+            return {status: 'resolved', session: deepest[0], mappedCwd: binding.cwd}
         }
 
-        return {status: 'ambiguous', mappedCwd: binding.cwd, candidates: matches}
+        return {status: 'ambiguous', mappedCwd: binding.cwd, candidates: deepest}
     }
 
     return {status: 'resolved', session: matches[0], mappedCwd: binding.cwd}
@@ -204,6 +212,11 @@ export function enqueueCourierEntry({outboxDir, entry, eventId, fs: userFs = fs,
 /**
  * @summary The `claude-courier` adapter: hand one accepted record to the courier, loudly.
  *
+ * **Route-owned authority.** The identity→cwd table is read from the subscription's own
+ * `adapterConfig.courierIdentityCwdMap` (array or JSON text of one) and pushed through the same
+ * strict parser an operator-authored table gets — a production route and a test reach the field
+ * through the identical path, so green arms certify inputs production actually supplies.
+ *
  * Success carries the `courier-spool-accepted` reason — channel acceptance, not rendered-in-
  * session confirmation. Every resolution failure carries a typed reason an operator can act on
  * without reading this file.
@@ -211,9 +224,10 @@ export function enqueueCourierEntry({outboxDir, entry, eventId, fs: userFs = fs,
  * @param {Object} params
  * @param {Object} params.digest Formatted wake digest (persisted verbatim).
  * @param {Object} params.effects Injectable host effects; recognized keys: `fs`, `homedir`,
- *   `courierDirs`, `identityCwdMap`, `sessionRegistry`.
+ *   `courierDirs`, `sessionRegistry`.
  * @param {Object} params.meta Route harnessTargetMetadata (unused today, reserved).
- * @param {Object} params.record Durable receiver record.
+ * @param {Object} params.record Durable receiver record; `route.adapterConfig.courierIdentityCwdMap`
+ *   is the map authority.
  * @returns {Promise<{outcome: String, outcomeReason: String}>}
  */
 export async function deliverClaudeCourier({digest, effects, meta, record}) {
@@ -229,10 +243,18 @@ export async function deliverClaudeCourier({digest, effects, meta, record}) {
         return {outcome: 'failed', outcomeReason: 'courier-target-identity-missing'}
     }
 
-    const map = deps.identityCwdMap;
+    const rawMap = record?.route?.adapterConfig?.courierIdentityCwdMap;
 
-    if (!Array.isArray(map)) {
+    if (!rawMap) {
         return {outcome: 'failed', outcomeReason: 'courier-map-missing'}
+    }
+
+    let map;
+
+    try {
+        map = parseIdentityCwdMap(typeof rawMap === 'string' ? rawMap : JSON.stringify(rawMap));
+    } catch (error) {
+        return {outcome: 'failed', outcomeReason: `courier-map-invalid:${error.message}`}
     }
 
     const sessions = Array.isArray(deps.sessionRegistry)
@@ -324,26 +346,49 @@ export function completeOutboxEntry({file, fs: userFs = fs}) {
 }
 
 /**
- * @summary Persists the courier's per-event outcome — the proof channel.
+ * The outcomes a courier may report. Anything else is a programming error at the call site,
+ * not data to persist.
+ * @type {String[]}
+ */
+export const RECEIPT_OUTCOMES = ['delivered', 'held', 'expired', 'refused', 'error'];
+
+/**
+ * @summary Persists the courier's latest outcome for one event — the proof channel.
  *
  * Claude Code reports held / expired / refused outcomes back to the SENDER; the courier records
- * them here so delivery is observable end to end instead of trusted on silence. One file per
- * event id keeps correlation trivial and rewriting impossible.
+ * them here so delivery is observable end to end instead of trusted on silence. The envelope is
+ * a **replaceable latest-outcome** record: a courier that first reports `held` and later
+ * `delivered` overwrites the file, because the reader's question is "what happened LAST", and
+ * the full history stays in the courier's own transcript. One file per sanitized event id keeps
+ * correlation trivial; the schema version travels inside so a consumer can reject futures
+ * instead of misreading them.
  *
  * @param {Object} params
  * @param {String} params.receiptsDir
- * @param {String} params.eventId Correlated with the spool entry's event id.
- * @param {'delivered'|'held'|'expired'|'refused'|'error'} params.outcome Courier-observed result.
+ * @param {String} params.eventId Correlated with the spool entry's event id; reduced to a
+ *   path-safe segment so the receipt can never land outside `receiptsDir`.
+ * @param {String} params.outcome One of {@link RECEIPT_OUTCOMES}.
  * @param {String} [params.detail] Verbatim report or error text, for triage without a session.
  * @param {Object} [params.fs] Injectable filesystem for hermetic tests.
  * @returns {{file: String}}
  */
 export function writeCourierReceipt({receiptsDir, eventId, outcome, detail = '', fs: userFs = fs}) {
+    if (!RECEIPT_OUTCOMES.includes(outcome)) {
+        throw new Error(`courier receipt outcome must be one of ${RECEIPT_OUTCOMES.join(' / ')}, got ${JSON.stringify(outcome)}`)
+    }
+
+    const safeId = String(eventId).replace(/[^\w.-]/g, '_');
+
+    if (!safeId || safeId.startsWith('.')) {
+        throw new Error(`courier receipt eventId must reduce to a non-empty path-safe segment, got ${JSON.stringify(eventId)}`)
+    }
+
     userFs.mkdirSync(receiptsDir, {recursive: true});
 
-    const file = path.join(receiptsDir, `${eventId}.json`);
+    const file = path.join(receiptsDir, `${safeId}.json`);
 
     writeFileAtomicSync(file, JSON.stringify({
+        schemaVersion: '1.0',
         eventId,
         outcome,
         detail: String(detail).slice(0, 2000),
