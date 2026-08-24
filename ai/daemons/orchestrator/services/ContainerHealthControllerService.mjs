@@ -27,10 +27,19 @@ import {CONTAINER_HEALTH_ACTION_CLASSES} from './ContainerHealthDiagnosisService
  * values are a SUBSET of the actuator's own `DEFAULT_ACTIONS`, asserted by spec.
  *
  * **What keeps a controller from being a thrash engine is not in this file, on purpose.** The token
- * bucket, the exponential backoff and the alarm-only terminal all live inside
- * `RecoveryActuatorService.apply`, so a repeating diagnosis marches into `attempt-cap-reached` no
- * matter how often it is consumed. A second envelope here would be a second thing to keep correct and
- * a second place for the two to disagree. The debounce that keeps a *working* service from being
+ * bucket, the exponential backoff, the alarm-only terminal and the futility breaker all live inside
+ * `RecoveryActuatorService`. A second envelope here would be a second thing to keep correct and
+ * a second place for the two to disagree.
+ *
+ * ⚠️ **Corrected 2026-08-24.** This paragraph used to claim a repeating diagnosis "marches into
+ * `attempt-cap-reached` no matter how often it is consumed". It does not, and the false reassurance is part of
+ * why nobody looked here: `getCurrentAttemptState` resets `attemptCount` once `maxAttemptsWindowMs` elapses, so
+ * the cap is a per-window RATE LIMIT and a structurally-wedged target is retried forever at a steady per-window
+ * rate — 4,690 heal events on one compose service in the 2026-08-13 incident, every warm ending
+ * `executor-failed`, each attempt adding load to the wedge it was trying to heal. The terminal that actually
+ * stops it is the futility breaker (`decideFutilityFreeze`, wired at both actuator terminals). The routing
+ * decision above is unchanged; only the claim that the envelope terminates is gone.
+ * The debounce that keeps a *working* service from being
  * restarted is likewise upstream: the diagnosis keys on the container runtime's own `unhealthy`
  * verdict, which the runtime only sets after `retries` consecutive probe failures — on the healthcheck
  * tuning these MCP services actually ship (`interval: 60s`, `retries: 5`) that is **five minutes of
@@ -120,7 +129,14 @@ export class ContainerHealthControllerService extends Base {
     /**
      * The B1 recovery actuator exposing `apply(serviceKey, action, options)` and
      * `recordDiagnosis(event, options)`. Every route ends at one of those two, and both carry the
-     * durable ledger + anti-thrash envelope this class deliberately does not reimplement. Set-once
+     * durable ledger + anti-thrash envelope this class deliberately does not reimplement.
+     *
+     * ⚠️ **Corrected 2026-08-24: the "both" was false, and the false half was the majority path.**
+     * `apply` consulted the envelope; `recordDiagnosis` did not — it hardcoded `attempt: 1, backoffUntil: null`,
+     * so every `actuatorAction: null` route (2,495 of 5,000 live heal events, against 10 `failed`) was
+     * unenveloped forever. Both terminals now pass the futility gate, so the sentence is true as written; it is
+     * annotated rather than silently corrected because a *wrong* comment about a safety envelope is worse than
+     * no comment — it is what kept readers from looking here. Set-once
      * injected dependency — a plain class field, never reassigned or observed, so the reactive
      * Config-controller machinery would be pure overhead.
      * @member {Object|null} recoveryActuator=null

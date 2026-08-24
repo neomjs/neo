@@ -939,7 +939,15 @@ export class Orchestrator extends Base {
                     // Symmetric store-level fence (memory + session) — paired with the re-probe auto-unfence via the
                     // same `createStoreFenceOperations` factory, so a freeze and its later auto-unfreeze lift exactly
                     // the same served set (they cannot diverge into the unfreeze-lifts-only-the-record-key asymmetry).
-                    fence: this.getStoreFenceOperations().fence
+                    fence: this.getStoreFenceOperations().fence,
+                    // The LEDGER half of that symmetry. The re-probe runner already ledgers `unfreeze`;
+                    // without this the frozen set only ever subtracted, so `currentlyFrozen` was permanently empty
+                    // and read as healthy while fences were up.
+                    healLedgerDir,
+                    healLedgerRetention: validateHealLedgerRetention(
+                        AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+                        AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+                    )
                 }),
                 // Throttle-shed: the resource-contention / exhaustion heal — open a bounded shed-window so the
                 // orchestrator defers ALL heavy-maintenance until the contended resource recovers, then auto-expires

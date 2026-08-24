@@ -2155,6 +2155,33 @@ class ConfigBase extends ConfigProvider {
                     chronicUnsafeInput: {
                         threshold: leaf(5,              'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_THRESHOLD', 'number'),
                         windowMs : leaf(60 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_CHRONIC_UNSAFE_INPUT_WINDOW_MS', 'number')
+                    },
+                    /**
+                     * Futility-breaker bounds — the TERMINAL layer above `maxAttemptsPerWindow`/`maxAttemptsWindowMs`.
+                     *
+                     * Those two are a RATE LIMITER, not a breaker: `getCurrentAttemptState` resets `attemptCount` to 0
+                     * once `maxAttemptsWindowMs` elapses, so `attempt-cap-reached` is a within-window brake and a
+                     * structurally-wedged target is retried forever at a steady per-window rate — the 2026-08-13
+                     * incident, 4,690 heal events on ONE compose service, every warm ending `executor-failed`, each
+                     * attempt adding load to the wedge it was trying to heal.
+                     *
+                     * ONE object feeding TWO pure consumers, which is why the five keys sit together: the first pair is
+                     * `decideFutilityFreeze`'s (`healActionDispatch`) and the thaw triple is `foldFutilityFreezeState`'s
+                     * (`healEventLedgerStore`). Each merges over its own defaults and destructures only its own keys, so
+                     * the extra keys are inert to both. Keeping them in one leaf group is deliberate: the breaker that
+                     * FREEZES and the fold that publishes when it may thaw are one policy, and splitting them into two
+                     * leaf groups is how an operator ends up tuning half a mechanism.
+                     *
+                     * `maxThawQuietMs >= baseThawQuietMs` or the fold refuses the bounds as unusable and the target stays
+                     * frozen — an unbounded thaw would defeat the freeze.
+                     * @type {Object}
+                     */
+                    futility: {
+                        maxIdenticalVerdicts: leaf(5,                   'NEO_RECOVERY_ACTUATOR_FUTILITY_MAX_IDENTICAL_VERDICTS', 'number'),
+                        windowMs            : leaf(60 * 60 * 1000,      'NEO_RECOVERY_ACTUATOR_FUTILITY_WINDOW_MS',              'number'),
+                        baseThawQuietMs     : leaf(30 * 60 * 1000,      'NEO_RECOVERY_ACTUATOR_FUTILITY_BASE_THAW_QUIET_MS',     'number'),
+                        tierMultiplier      : leaf(2,                   'NEO_RECOVERY_ACTUATOR_FUTILITY_TIER_MULTIPLIER',        'number'),
+                        maxThawQuietMs      : leaf(24 * 60 * 60 * 1000, 'NEO_RECOVERY_ACTUATOR_FUTILITY_MAX_THAW_QUIET_MS',      'number')
                     }
                 },
                 /**
