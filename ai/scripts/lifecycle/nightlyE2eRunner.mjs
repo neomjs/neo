@@ -62,6 +62,15 @@ const STATE_DIR     = '.neo-ai-data/nightly-e2e',
       LOCK_STALE_MS = 6 * 60 * 60 * 1000;   // 6h — a nightly run that outlives this is a hung process; steal the lock
 
 /**
+ * How long the Memory Core client may take to become ready before the run calls it a failed
+ * delivery. This is a FAILURE DEADLINE, not a wait: the happy path resolves in milliseconds and
+ * never observes it. It exists because framework readiness has no rejection path, so without a
+ * deadline an unreachable ingress produces a pending promise rather than an error.
+ * @type {Number}
+ */
+const CONNECT_DEADLINE_MS = 30 * 1000;
+
+/**
  * @summary Acquires the exclusive runner lock, stealing it only when the holder is provably stale (> 6h). A
  * fresh lock means another nightly run is in flight — abort rather than double-run the suite.
  * @param {String} nowIso ISO timestamp for the lock stamp.
@@ -140,12 +149,14 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
  * paths are the ones worth proving, and a module-level import cannot be driven from a test.
  * @param {Object}   [options]
  * @param {Function} [options.connect] Memory Core client seam — resolves to `{callTool, close}`.
+ * @param {Number}   [options.connectDeadlineMs=CONNECT_DEADLINE_MS] Failure deadline for the seam.
  * @param {Function} [options.runOne] Per-config execution seam.
  * @returns {Promise<Object>} run outcome `{red, sent, reason?}`.
  */
 export async function runNightlyE2e({
-    connect = connectMemoryCore,
-    runOne  = runConfig
+    connect           = connectMemoryCore,
+    connectDeadlineMs = CONNECT_DEADLINE_MS,
+    runOne            = runConfig
 } = {}) {
     const nowIso  = new Date().toISOString(),
           logPath = `${STATE_DIR}/logs/run-${nowIso.replace(/[:.]/g, '-')}.log`;
@@ -190,9 +201,14 @@ export async function runNightlyE2e({
             // Core must be distinguishable from a rejected message, and both must be distinguishable
             // from success. The client throws here on a missing credential, which is the property
             // that makes an unattended run's misconfiguration loud instead of nightly-silent.
-            client = await connect();
+            client = await connectWithinDeadline(connect(), connectDeadlineMs);
 
-            await client.callTool('add_message', {
+            // MCP has TWO success boundaries and only the first one throws. The protocol request
+            // resolving means the server answered; whether it ACCEPTED is carried in the result, and
+            // our own servers say so by resolving `{isError: true}` (`ai/mcp/server/BaseServer.mjs`).
+            // Writing `sent` on a resolved call alone would record a refused digest as delivered —
+            // this leaf's original defect, one layer up and behind a green suite.
+            const result = await client.callTool('add_message', {
                 to      : 'AGENT:*',
                 subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
                 body    : formatDigest(outcomes, logPath),
@@ -203,6 +219,14 @@ export async function runNightlyE2e({
                 // wakes every seat or none. Green never reaches this call and stays un-woken.
                 wakeSuppressed: false
             });
+
+            if (result?.isError) {
+                // Surface the server's own words rather than a generic label: the disposition says
+                // delivery failed, and the reason is the only thing that says why.
+                const detail = result.content?.map(block => block?.text).filter(Boolean).join(' ') || 'no detail supplied';
+
+                throw new Error(`Memory Core refused the digest: ${detail}`)
+            }
         } catch (error) {
             // The reporter failing is not the suite passing. `pending` already stands on disk, so
             // the red survives even if THIS write also fails — the receipt degrades from `failed`
@@ -269,6 +293,41 @@ async function connectMemoryCore() {
     await client.ready();
 
     return client
+}
+
+/**
+ * @summary Rejects a connection attempt that never settles, so an unreachable dependency is a
+ * failure rather than a hang.
+ *
+ * `Client.ready()` can only ever RESOLVE: `Neo.create` runs `initAsync` in a detached promise with no
+ * rejection handler (`src/core/Base.mjs:314`), and `#readyPromise` is settled solely by
+ * `afterSetIsReady`. So a rejected credential, an unreachable ingress, or a failed handshake leaves
+ * it pending forever, and awaiting it alone would hang the unattended run to the 6h stale-lock
+ * steal — the silence this leaf exists to remove, with extra steps.
+ *
+ * The deadline wraps the SEAM rather than living inside the default connect, because the guarantee
+ * belongs to the runner: a caller that supplies its own connection must not be able to remove the
+ * runner's only protection against never being answered.
+ *
+ * The `setTimeout` here is a self-naming failure deadline, not a wait — the happy path resolves in
+ * milliseconds and never observes it.
+ * @param {Promise} attempt The in-flight connection.
+ * @param {Number}  deadlineMs
+ * @returns {Promise<Object>} The connected client.
+ */
+function connectWithinDeadline(attempt, deadlineMs) {
+    let timer;
+
+    return Promise.race([
+        Promise.resolve(attempt).finally(() => clearTimeout(timer)),
+        new Promise((resolve, reject) => {
+            timer = setTimeout(() => reject(new Error(
+                `nightlyE2eRunner: the Memory Core connection did not settle within ${deadlineMs}ms — ` +
+                `unreachable ingress, a rejected credential, or a failed handshake. Framework readiness ` +
+                `cannot report which, because initialization rejection is not wired into it.`
+            )), deadlineMs)
+        })
+    ])
 }
 
 /**

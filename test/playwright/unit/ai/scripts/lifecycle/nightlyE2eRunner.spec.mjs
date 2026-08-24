@@ -277,6 +277,58 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         expect(state).not.toHaveProperty('unresolvedRed');
     });
 
+    test('a RESOLVED tool refusal is a failed delivery, not a sent one', async () => {
+        // MCP has two success boundaries and only the first throws: the request resolving means the
+        // server ANSWERED, not that it accepted. Our own servers refuse by resolving `{isError:true}`
+        // (`ai/mcp/server/BaseServer.mjs`), so a runner that writes `sent` on a resolved call records
+        // a refused digest as delivered — this leaf's original defect, one layer up.
+        let closed = false;
+
+        await expect(runNightlyE2e({
+            connect: async () => ({
+                callTool: async () => ({isError: true, content: [{type: 'text', text: 'mailbox quota exceeded'}]}),
+                close   : async () => { closed = true }
+            }),
+            runOne : redOutcome
+        })).rejects.toThrow(/mailbox quota exceeded/);
+
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+        expect(closed).toBe(true);
+        expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
+    });
+
+    test('a refused delivery is retained across the next green run, like any other unsent red', async () => {
+        await expect(runNightlyE2e({
+            connect: async () => ({
+                callTool: async () => ({isError: true, content: [{type: 'text', text: 'refused'}]}),
+                close   : async () => {}
+            }),
+            runOne : redOutcome
+        })).rejects.toThrow(/refused/);
+
+        const refusedAt = (await readState()).at;
+
+        await runNightlyE2e({connect: connectStub(), runOne : greenOutcome});
+
+        // A refusal is an undelivered red like any other, so the carry must not treat it differently
+        // from a thrown one just because it arrived as a resolved value.
+        expect((await readState()).unresolvedRed).toMatchObject({digest: 'failed', at: refusedAt})
+    });
+
+    test('a connect that never settles fails the run instead of hanging it', async () => {
+        // `ready()` has no rejection path — `Neo.create` runs `initAsync` detached and `#readyPromise`
+        // is resolve-only — so an unreachable ingress leaves it pending forever. Without a deadline
+        // the unattended run hangs to the 6h stale-lock steal, which is the silence being replaced.
+        await expect(runNightlyE2e({
+            connect          : () => new Promise(() => {}),   // never settles, exactly like the real failure
+            connectDeadlineMs: 50,
+            runOne           : redOutcome
+        })).rejects.toThrow(/did not settle within 50ms/);
+
+        expect(await readState()).toMatchObject({red: true, digest: 'failed'});
+        expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
+    });
+
     test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
         // The production context that no other arm reaches. Every test above injects `connect`, and an
         // interactive shell exports the credential — so the one environment where this breaks is the
