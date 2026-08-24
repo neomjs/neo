@@ -14,8 +14,10 @@ import {
     CORPUS_PROJECTION_CONSUMER,
     CORPUS_PROJECTION_CONSUMER_FACETS,
     CORPUS_PROJECTION_FACETS,
+    createCorpusProjectionAdmissionFingerprint,
     createCorpusProjectionReceipt,
-    evaluateCorpusProjectionAdmission,
+    evaluateCorpusProjectionAdmission as evaluateCorpusProjectionAdmissionRaw,
+    evaluateCorpusProjectionFreshness,
     failCorpusProjectionFacet,
     normalizeCorpusProjectionReceipt,
     recordCorpusMaterialization
@@ -25,13 +27,20 @@ import {
     writeCorpusProjectionReceipt
 } from '../../../../../../ai/services/graph/corpusProjectionReceiptStore.mjs';
 
-const HEAD_A = 'a'.repeat(40);
-const HEAD_B = 'b'.repeat(40);
+const HEAD_A       = 'a'.repeat(40);
+const HEAD_B       = 'b'.repeat(40);
+const EVALUATED_AT = Date.parse('2026-08-24T00:10:00.000Z');
+
+const evaluateCorpusProjectionAdmission = options => evaluateCorpusProjectionAdmissionRaw({
+    ...options,
+    now: EVALUATED_AT
+});
 
 function committedReceipt() {
     let receipt = createCorpusProjectionReceipt({
         sourceRepository: 'https://github.com/neomjs/neo.git',
         sourceRef       : 'refs/heads/dev',
+        freshnessSlaMs  : 4 * 60 * 60 * 1000,
         now             : '2026-08-24T00:00:00.000Z'
     });
 
@@ -49,15 +58,19 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
         expect(CORPUS_PROJECTION_CONSUMER_FACETS).toEqual({
             [CORPUS_PROJECTION_CONSUMER.computedGoldenPath]: ['issues', 'discussions'],
             [CORPUS_PROJECTION_CONSUMER.contextFrontier]   : ['issues', 'pulls', 'discussions'],
-            [CORPUS_PROJECTION_CONSUMER.dreamRem]          : ['issues', 'pulls', 'discussions'],
-            [CORPUS_PROJECTION_CONSUMER.knowledgeSearch]   : ['issues', 'pulls', 'discussions']
+            [CORPUS_PROJECTION_CONSUMER.dreamRem]          : ['issues'],
+            [CORPUS_PROJECTION_CONSUMER.knowledgeSearch]   : []
         })
     });
 
     test('a fully committed receipt admits every declared consumer', () => {
         const receipt = committedReceipt();
 
-        for (const consumer of Object.values(CORPUS_PROJECTION_CONSUMER)) {
+        for (const consumer of [
+            CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+            CORPUS_PROJECTION_CONSUMER.contextFrontier,
+            CORPUS_PROJECTION_CONSUMER.dreamRem
+        ]) {
             expect(evaluateCorpusProjectionAdmission({consumer, receipt})).toMatchObject({
                 admitted   : true,
                 fallback   : 'current',
@@ -65,20 +78,32 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
                 staleFacets: []
             })
         }
+        expect(evaluateCorpusProjectionAdmission({
+            consumer: CORPUS_PROJECTION_CONSUMER.knowledgeSearch,
+            receipt : null
+        })).toEqual({
+            admitted      : true,
+            fallback      : 'current',
+            reasonCode    : 'no-facet-dependency',
+            requiredFacets: [],
+            staleFacets   : []
+        })
     });
 
-    test('beginning the next revision withholds only consumers whose mapped facets are stale', () => {
-        const receipt = beginCorpusProjection({
+    test('diff-proven unchanged facets carry forward so pull-only work does not starve Golden Path', () => {
+        let receipt = beginCorpusProjection({
             receipt          : committedReceipt(),
             availableRevision: HEAD_B,
             facets           : ['pulls'],
             now              : '2026-08-24T00:03:00.000Z'
         });
+        receipt = commitCorpusProjectionFacet({receipt, facet: 'issues'});
+        receipt = commitCorpusProjectionFacet({receipt, facet: 'discussions'});
 
         expect(evaluateCorpusProjectionAdmission({
             consumer: CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
             receipt
-        }).admitted).toBe(false); // available revision moved; issue/discussion cursors still name HEAD_A
+        })).toMatchObject({admitted: true, staleFacets: []});
 
         expect(evaluateCorpusProjectionAdmission({
             consumer: CORPUS_PROJECTION_CONSUMER.contextFrontier,
@@ -87,7 +112,7 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
             admitted   : false,
             fallback   : 'last-known-good',
             reasonCode : 'required-facet-stale',
-            staleFacets: ['issues', 'pulls', 'discussions']
+            staleFacets: ['pulls']
         })
     });
 
@@ -137,7 +162,8 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
     test('materialization is source-bound and only full runs advance the full-rematerialization clock', () => {
         let receipt = createCorpusProjectionReceipt({
             sourceRepository: 'https://github.com/neomjs/neo.git',
-            sourceRef       : 'refs/heads/dev'
+            sourceRef       : 'refs/heads/dev',
+            freshnessSlaMs  : 4 * 60 * 60 * 1000
         });
         receipt = beginCorpusProjection({receipt, availableRevision: HEAD_A});
         receipt = recordCorpusMaterialization({
@@ -169,6 +195,16 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
             reasonCode    : 'consumer-unclassified',
             requiredFacets: [],
             staleFacets   : []
+        });
+        expect(evaluateCorpusProjectionAdmission({
+            consumer                : CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+            receipt,
+            expectedSourceRepository: 'https://github.com/neomjs/neo-agent-brain.git',
+            expectedSourceRef       : 'refs/heads/dev'
+        })).toMatchObject({
+            admitted   : false,
+            reasonCode : 'source-identity-mismatch',
+            staleFacets: ['issues', 'discussions']
         })
     });
 
@@ -181,6 +217,59 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
         expect(normalizeCorpusProjectionReceipt(receipt)).toMatchObject({
             valid: false,
             code : 'projected-revision-invalid:pulls'
+        })
+    });
+
+    test('the admission fingerprint changes on state or source-revision movement', () => {
+        const receipt = committedReceipt();
+        const initial = createCorpusProjectionAdmissionFingerprint(receipt);
+
+        expect(initial).toBeTruthy();
+        expect(createCorpusProjectionAdmissionFingerprint({...receipt, updatedAt: 'later'})).toBe(initial);
+        expect(createCorpusProjectionAdmissionFingerprint(beginCorpusProjection({
+            receipt,
+            availableRevision: HEAD_B,
+            facets           : ['issues']
+        }))).not.toBe(initial);
+        expect(createCorpusProjectionAdmissionFingerprint(null)).toBeNull()
+    });
+
+    test('the declared SLA distinguishes in-window lag from overdue checks and projection lag', () => {
+        const current = committedReceipt();
+        let   lagging = beginCorpusProjection({
+            receipt          : current,
+            availableRevision: HEAD_B,
+            facets           : ['issues'],
+            now              : '2026-08-24T00:03:00.000Z'
+        });
+        lagging = commitCorpusProjectionFacet({receipt: lagging, facet: 'pulls'});
+        lagging = commitCorpusProjectionFacet({receipt: lagging, facet: 'discussions'});
+
+        expect(evaluateCorpusProjectionFreshness({
+            receipt: lagging,
+            now    : Date.parse('2026-08-24T03:00:00.000Z')
+        })).toMatchObject({
+            status     : 'lagging',
+            posture    : 'pending',
+            reasonCodes: [],
+            staleFacets: ['issues']
+        });
+        expect(evaluateCorpusProjectionFreshness({
+            receipt: lagging,
+            now    : Date.parse('2026-08-24T05:00:00.000Z')
+        })).toMatchObject({
+            status     : 'breached',
+            posture    : 'degraded',
+            reasonCodes: ['source-check-overdue', 'projection-lag-overdue'],
+            staleFacets: ['issues']
+        });
+        expect(evaluateCorpusProjectionAdmissionRaw({
+            consumer: CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+            receipt : current,
+            now     : Date.parse('2026-08-24T05:00:00.000Z')
+        })).toMatchObject({
+            admitted  : false,
+            reasonCode: 'freshness-sla-breached'
         })
     });
 

@@ -124,7 +124,6 @@
                 "agentos-to-outside::ai/services/ingestion/ConceptDiscoveryService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/services/ingestion/ConceptDiscoveryService.mjs::static-import::../../../src/util/Json.mjs::src/util/Json.mjs::1",
                 "agentos-to-outside::ai/services/ingestion/ConceptIngestor.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
-                "agentos-to-outside::ai/services/ingestion/IssueIngestor.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/services/ingestion/MemorySessionIngestor.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/services/knowledge-base/ChromaManager.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/services/knowledge-base/DatabaseLifecycleService.mjs::static-import::../../../src/core/Base.mjs::src/core/Base.mjs::1",
@@ -1038,7 +1037,6 @@
                 "ai/scripts/migrations/refetchStalePulls.mjs",
                 "ai/scripts/migrations/refetchTruncatedIssues.mjs",
                 "ai/scripts/migrations/renameAgentIdentities.mjs",
-                "ai/scripts/runners/roadmapPlanner.mjs",
                 "ai/scripts/runners/runSandman.mjs",
                 "ai/scripts/setup/seedAgentIdentities.mjs"
             ],

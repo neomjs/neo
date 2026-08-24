@@ -14,6 +14,7 @@
  */
 
 export const CORPUS_PROJECTION_SCHEMA_VERSION = 'neo.corpus-projection/v1';
+export const CORPUS_PROJECTION_OWNER          = 'core-corpus-projection';
 
 export const CORPUS_PROJECTION_FACETS = Object.freeze([
     'issues',
@@ -31,8 +32,10 @@ export const CORPUS_PROJECTION_CONSUMER = Object.freeze({
 export const CORPUS_PROJECTION_CONSUMER_FACETS = Object.freeze({
     [CORPUS_PROJECTION_CONSUMER.computedGoldenPath]: Object.freeze(['issues', 'discussions']),
     [CORPUS_PROJECTION_CONSUMER.contextFrontier]   : CORPUS_PROJECTION_FACETS,
-    [CORPUS_PROJECTION_CONSUMER.dreamRem]          : CORPUS_PROJECTION_FACETS,
-    [CORPUS_PROJECTION_CONSUMER.knowledgeSearch]   : CORPUS_PROJECTION_FACETS
+    // REM's Tri-Vector schema can emit ISSUE nodes, but has no DISCUSSION/PULL_REQUEST node types.
+    [CORPUS_PROJECTION_CONSUMER.dreamRem]          : Object.freeze(['issues']),
+    // KB search reads the separate curated knowledge-base collection, never neo_graph_nodes.
+    [CORPUS_PROJECTION_CONSUMER.knowledgeSearch]   : Object.freeze([])
 });
 
 const PROJECTION_STATES = Object.freeze(new Set([
@@ -69,27 +72,39 @@ function cloneReceipt(receipt) {
  * @param {Object} options
  * @param {String} options.sourceRepository Explicit corpus repository clone identity.
  * @param {String} options.sourceRef Explicit ref resolved inside that repository.
+ * @param {Number} options.freshnessSlaMs Declared axis-2 freshness bound.
  * @param {String} [options.now=new Date().toISOString()] Observation timestamp.
  * @returns {Object}
  */
-export function createCorpusProjectionReceipt({sourceRepository, sourceRef, now = new Date().toISOString()} = {}) {
+export function createCorpusProjectionReceipt({
+    sourceRepository,
+    sourceRef,
+    freshnessSlaMs,
+    now = new Date().toISOString()
+} = {}) {
     if (typeof sourceRepository !== 'string' || !sourceRepository.trim()) {
         throw new Error('Corpus projection receipt requires a non-empty sourceRepository')
     }
     if (typeof sourceRef !== 'string' || !sourceRef.trim()) {
         throw new Error('Corpus projection receipt requires a non-empty sourceRef')
     }
+    if (!Number.isFinite(freshnessSlaMs) || freshnessSlaMs <= 0) {
+        throw new Error('Corpus projection receipt requires a positive freshnessSlaMs')
+    }
 
     return {
-        schemaVersion            : CORPUS_PROJECTION_SCHEMA_VERSION,
-        sourceRepository         : sourceRepository.trim(),
-        sourceRef                : sourceRef.trim(),
-        availableCorpusRevision  : null,
+        schemaVersion             : CORPUS_PROJECTION_SCHEMA_VERSION,
+        sourceRepository          : sourceRepository.trim(),
+        sourceRef                 : sourceRef.trim(),
+        freshnessSlaMs,
+        availableCorpusRevision   : null,
+        availableCorpusObservedAt : null,
         materializedCorpusRevision: null,
-        projectedRevisionByFacet : buildFacetMap(() => null),
-        projectionStateByFacet   : buildFacetMap(() => ({status: 'never', observedAt: now, errorCode: null})),
-        lastFullMaterializationAt: null,
-        updatedAt                : now
+        projectedRevisionByFacet  : buildFacetMap(() => null),
+        projectionStateByFacet    : buildFacetMap(() => ({status: 'never', observedAt: now, errorCode: null})),
+        lastFullMaterializationAt : null,
+        lastCheckedAt             : now,
+        updatedAt                 : now
     }
 }
 
@@ -106,6 +121,15 @@ export function normalizeCorpusProjectionReceipt(value) {
     if (typeof value.sourceRepository !== 'string' || !value.sourceRepository.trim() ||
         typeof value.sourceRef !== 'string' || !value.sourceRef.trim()) {
         return {valid: false, code: 'source-identity-missing', receipt: null}
+    }
+    if (!Number.isFinite(value.freshnessSlaMs) || value.freshnessSlaMs <= 0) {
+        return {valid: false, code: 'freshness-sla-invalid', receipt: null}
+    }
+    if (!Number.isFinite(Date.parse(value.lastCheckedAt || ''))) {
+        return {valid: false, code: 'last-checked-at-invalid', receipt: null}
+    }
+    if (value.availableCorpusObservedAt !== null && !Number.isFinite(Date.parse(value.availableCorpusObservedAt))) {
+        return {valid: false, code: 'available-observed-at-invalid', receipt: null}
     }
     if (value.availableCorpusRevision !== null && !isRevision(value.availableCorpusRevision)) {
         return {valid: false, code: 'available-revision-invalid', receipt: null}
@@ -159,8 +183,11 @@ export function beginCorpusProjection({
     if (!normalized.valid) throw new Error(`Cannot begin corpus projection: ${normalized.code}`);
     if (!isRevision(availableRevision)) throw new Error('Corpus projection requires a full 40-character source revision');
 
-    const next = cloneReceipt(normalized.receipt);
+    const next            = cloneReceipt(normalized.receipt);
+    const revisionChanged = next.availableCorpusRevision !== availableRevision;
     next.availableCorpusRevision = availableRevision;
+    if (revisionChanged || !next.availableCorpusObservedAt) next.availableCorpusObservedAt = now;
+    next.lastCheckedAt = now;
     next.updatedAt = now;
 
     for (const facet of facets) {
@@ -254,9 +281,18 @@ export function failCorpusProjectionFacet({receipt, facet, errorCode, now = new 
  * @param {Object} options
  * @param {String} options.consumer Canonical consumer id.
  * @param {*} options.receipt Persisted projection receipt.
+ * @param {String|null} [options.expectedSourceRepository=null] Consumer-configured source repository.
+ * @param {String|null} [options.expectedSourceRef=null] Consumer-configured source ref.
+ * @param {Date|Number} [options.now=Date.now()] Freshness evaluation clock.
  * @returns {{admitted: Boolean, fallback: 'current'|'last-known-good', reasonCode: String, requiredFacets: String[], staleFacets: String[]}}
  */
-export function evaluateCorpusProjectionAdmission({consumer, receipt} = {}) {
+export function evaluateCorpusProjectionAdmission({
+    consumer,
+    receipt,
+    expectedSourceRepository = null,
+    expectedSourceRef = null,
+    now = Date.now()
+} = {}) {
     const requiredFacets = CORPUS_PROJECTION_CONSUMER_FACETS[consumer];
 
     if (!requiredFacets) {
@@ -269,6 +305,16 @@ export function evaluateCorpusProjectionAdmission({consumer, receipt} = {}) {
         }
     }
 
+    if (requiredFacets.length === 0) {
+        return {
+            admitted      : true,
+            fallback      : 'current',
+            reasonCode    : 'no-facet-dependency',
+            requiredFacets: [],
+            staleFacets   : []
+        }
+    }
+
     const normalized = normalizeCorpusProjectionReceipt(receipt);
 
     if (!normalized.valid) {
@@ -276,6 +322,17 @@ export function evaluateCorpusProjectionAdmission({consumer, receipt} = {}) {
             admitted      : false,
             fallback      : 'last-known-good',
             reasonCode    : normalized.code,
+            requiredFacets: [...requiredFacets],
+            staleFacets   : [...requiredFacets]
+        }
+    }
+
+    if ((expectedSourceRepository != null && normalized.receipt.sourceRepository !== expectedSourceRepository.trim()) ||
+        (expectedSourceRef != null && normalized.receipt.sourceRef !== expectedSourceRef.trim())) {
+        return {
+            admitted      : false,
+            fallback      : 'last-known-good',
+            reasonCode    : 'source-identity-mismatch',
             requiredFacets: [...requiredFacets],
             staleFacets   : [...requiredFacets]
         }
@@ -298,11 +355,96 @@ export function evaluateCorpusProjectionAdmission({consumer, receipt} = {}) {
         projectionStateByFacet[facet].status !== 'committed'
     );
 
+    const freshness   = evaluateCorpusProjectionFreshness({receipt: normalized.receipt, now});
+    const slaBreached = freshness.reasonCodes.includes('source-check-overdue') ||
+        (staleFacets.length > 0 && freshness.reasonCodes.includes('projection-lag-overdue'));
+    const admitted = staleFacets.length === 0 && !slaBreached;
+
     return {
-        admitted      : staleFacets.length === 0,
-        fallback      : staleFacets.length === 0 ? 'current' : 'last-known-good',
-        reasonCode    : staleFacets.length === 0 ? 'projection-current' : 'required-facet-stale',
+        admitted,
+        fallback  : admitted ? 'current' : 'last-known-good',
+        reasonCode: staleFacets.length === 0
+            ? (slaBreached ? 'freshness-sla-breached' : 'projection-current')
+            : (slaBreached ? 'freshness-sla-breached' : 'required-facet-stale'),
         requiredFacets: [...requiredFacets],
         staleFacets
     }
+}
+
+/**
+ * @summary Classifies axis-2 freshness from the source-check clock and current-head projection age.
+ * @param {Object} options
+ * @param {*} options.receipt Candidate receipt.
+ * @param {Date|Number} [options.now=Date.now()] Evaluation clock.
+ * @returns {Object}
+ */
+export function evaluateCorpusProjectionFreshness({receipt, now = Date.now()} = {}) {
+    const normalized = normalizeCorpusProjectionReceipt(receipt);
+    const nowMs      = now instanceof Date ? now.getTime() : Number(now);
+
+    if (!normalized.valid || !Number.isFinite(nowMs)) {
+        return {
+            status                 : 'unavailable',
+            posture                : 'degraded',
+            reasonCodes            : [normalized.valid ? 'clock-invalid' : normalized.code],
+            freshnessSlaMs         : normalized.receipt?.freshnessSlaMs ?? null,
+            sourceCheckAgeMs       : null,
+            projectionLagAgeMs     : null,
+            staleFacets            : [...CORPUS_PROJECTION_FACETS],
+            sourceRepository       : normalized.receipt?.sourceRepository ?? null,
+            sourceRef              : normalized.receipt?.sourceRef ?? null,
+            availableCorpusRevision: normalized.receipt?.availableCorpusRevision ?? null
+        }
+    }
+
+    const value            = normalized.receipt;
+    const sourceCheckAgeMs = Math.max(0, nowMs - Date.parse(value.lastCheckedAt));
+    const staleFacets      = CORPUS_PROJECTION_FACETS.filter(facet =>
+        value.projectedRevisionByFacet[facet] !== value.availableCorpusRevision ||
+        value.projectionStateByFacet[facet].status !== 'committed'
+    );
+    const projectionLagAgeMs = staleFacets.length > 0 && value.availableCorpusObservedAt
+        ? Math.max(0, nowMs - Date.parse(value.availableCorpusObservedAt))
+        : 0;
+    const reasonCodes = [];
+
+    if (sourceCheckAgeMs > value.freshnessSlaMs) reasonCodes.push('source-check-overdue');
+    if (staleFacets.length > 0 && projectionLagAgeMs > value.freshnessSlaMs) {
+        reasonCodes.push('projection-lag-overdue')
+    }
+
+    return {
+        status                 : reasonCodes.length > 0 ? 'breached' : (staleFacets.length > 0 ? 'lagging' : 'current'),
+        posture                : reasonCodes.length > 0 ? 'degraded' : (staleFacets.length > 0 ? 'pending' : 'healthy'),
+        reasonCodes,
+        freshnessSlaMs         : value.freshnessSlaMs,
+        sourceCheckAgeMs,
+        projectionLagAgeMs,
+        staleFacets,
+        sourceRepository       : value.sourceRepository,
+        sourceRef              : value.sourceRef,
+        availableCorpusRevision: value.availableCorpusRevision
+    }
+}
+
+/**
+ * @summary Produces the stable pre/post-read token consumers use to discard a pass when projection
+ * state changes while they hydrate the live SQLite/Chroma pair.
+ * @param {*} receipt Candidate receipt.
+ * @returns {String|null} Stable valid-receipt token, otherwise null.
+ */
+export function createCorpusProjectionAdmissionFingerprint(receipt) {
+    const normalized = normalizeCorpusProjectionReceipt(receipt);
+
+    if (!normalized.valid) return null;
+
+    const value = normalized.receipt;
+
+    return JSON.stringify({
+        sourceRepository        : value.sourceRepository,
+        sourceRef               : value.sourceRef,
+        availableCorpusRevision : value.availableCorpusRevision,
+        projectedRevisionByFacet: value.projectedRevisionByFacet,
+        projectionStateByFacet  : value.projectionStateByFacet
+    })
 }

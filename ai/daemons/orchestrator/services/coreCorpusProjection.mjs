@@ -8,6 +8,7 @@ import {
     beginCorpusProjection,
     commitCorpusProjectionFacet,
     CORPUS_PROJECTION_FACETS,
+    CORPUS_PROJECTION_OWNER,
     createCorpusProjectionReceipt,
     failCorpusProjectionFacet,
     recordCorpusMaterialization
@@ -112,10 +113,55 @@ export function isCoreCorpusProjectionPath(sourcePath) {
 }
 
 /**
+ * @summary Maps exact-revision path changes to the facets whose materialized inputs changed.
+ * The shared root index can remap any facet id, so it truthfully invalidates all three.
+ * @param {String[]} sourcePaths Repo-relative added, changed, or deleted paths.
+ * @returns {String[]} Facets in canonical receipt order.
+ */
+export function getChangedCorpusProjectionFacets(sourcePaths = []) {
+    const changed = new Set();
+
+    for (const sourcePath of sourcePaths) {
+        const normalized = typeof sourcePath === 'string' ? sourcePath.replace(/\\/g, '/') : '';
+
+        const match = normalized.match(/^resources\/content\/(?:archive\/)?(issues|pulls|discussions)(?:\/|$)/);
+        if (match) changed.add(match[1])
+    }
+
+    return CORPUS_PROJECTION_FACETS.filter(facet => changed.has(facet))
+}
+
+/**
+ * @summary Compares the shared root content index by facet, preventing its routine rewrite from
+ * invalidating unrelated consumers. Every relevant row is compared, not merely row counts, so a
+ * same-count id/path substitution still marks the owning facet changed.
+ * @param {String|Buffer} baseContent Exact base-revision index JSON.
+ * @param {String|Buffer} headContent Exact head-revision index JSON.
+ * @returns {String[]} Changed facets in canonical receipt order.
+ */
+export function getChangedCorpusIndexFacets(baseContent, headContent) {
+    const base = JSON.parse(String(baseContent));
+    const head = JSON.parse(String(headContent));
+
+    if (!Array.isArray(base) || !Array.isArray(head)) {
+        throw createProjectionError(
+            'CORE_CORPUS_INDEX_INVALID',
+            'Core corpus root index must be a JSON array at both revisions'
+        )
+    }
+
+    const signature = (rows, facet) => JSON.stringify(rows
+        .filter(row => row?.type === facet)
+        .sort((a, b) => `${a.path || ''}:${a.id ?? ''}`.localeCompare(`${b.path || ''}:${b.id ?? ''}`)));
+
+    return CORPUS_PROJECTION_FACETS.filter(facet => signature(base, facet) !== signature(head, facet))
+}
+
+/**
  * @summary Materializes one exact source revision, either by full sibling-directory replacement or
  * an exact base→head diff over the already committed view.
  * @param {Object} options
- * @returns {Promise<{full: Boolean, addedOrChanged: String[], deleted: String[]}>}
+ * @returns {Promise<{full: Boolean, addedOrChanged: String[], deleted: String[], changedFacets: String[]}>}
  */
 export async function materializeCoreCorpusRevision({
     full,
@@ -135,7 +181,7 @@ export async function materializeCoreCorpusRevision({
         )
     }
 
-    let addedOrChanged, deleted;
+    let addedOrChanged, deleted, indexChangedFacets = [];
 
     if (full) {
         addedOrChanged = (await gitMirror.listRevisionPaths({
@@ -152,7 +198,35 @@ export async function materializeCoreCorpusRevision({
             headRevision
         });
         addedOrChanged = diff.addedOrChanged.filter(isCoreCorpusProjectionPath);
-        deleted = diff.deleted.filter(isCoreCorpusProjectionPath)
+        deleted = diff.deleted.filter(isCoreCorpusProjectionPath);
+
+        const rootIndexPath = 'resources/content/_index.json';
+
+        if (deleted.includes(rootIndexPath)) {
+            indexChangedFacets = [...CORPUS_PROJECTION_FACETS]
+        } else if (addedOrChanged.includes(rootIndexPath)) {
+            const headIndex = await gitMirror.readRevisionFile({
+                mirrorRoot,
+                ...identity,
+                revision  : headRevision,
+                sourcePath: rootIndexPath
+            });
+
+            try {
+                const baseIndex = await gitMirror.readRevisionFile({
+                    mirrorRoot,
+                    ...identity,
+                    revision  : baseRevision,
+                    sourcePath: rootIndexPath
+                });
+                indexChangedFacets = getChangedCorpusIndexFacets(baseIndex, headIndex)
+            } catch (error) {
+                // A newly introduced/unreadable base index cannot prove any facet unchanged.
+                // Re-running all facets is the fail-closed recovery; strict head ingestion still
+                // rejects malformed current JSON before a cursor can advance.
+                indexChangedFacets = [...CORPUS_PROJECTION_FACETS]
+            }
+        }
     }
 
     const targetRoot = full ? `${materializedRoot}.next-${process.pid}-${randomUUID()}` : materializedRoot;
@@ -203,7 +277,17 @@ export async function materializeCoreCorpusRevision({
         if (full) await fileSystem.remove(targetRoot)
     }
 
-    return {full, addedOrChanged, deleted}
+    return {
+        full,
+        addedOrChanged,
+        deleted,
+        changedFacets: full
+            ? [...CORPUS_PROJECTION_FACETS]
+            : CORPUS_PROJECTION_FACETS.filter(facet =>
+                indexChangedFacets.includes(facet) ||
+                getChangedCorpusProjectionFacets([...addedOrChanged, ...deleted]).includes(facet)
+            )
+    }
 }
 
 /**
@@ -237,6 +321,12 @@ export async function runCoreCorpusProjectionCycle({
                 'Core corpus projection requires explicit sourceRepository and sourceRef'
             )
         }
+        if (!Number.isFinite(config.freshnessSlaMs) || config.freshnessSlaMs <= 0) {
+            throw createProjectionError(
+                'CORE_CORPUS_FRESHNESS_SLA_INVALID',
+                'Core corpus projection requires a positive freshnessSlaMs'
+            )
+        }
 
         const sourceRepository = config.sourceRepository.trim(),
               sourceRef        = config.sourceRef.trim(),
@@ -247,7 +337,14 @@ export async function runCoreCorpusProjectionCycle({
         let receipt = await readReceipt(config.receiptPath);
 
         if (!receipt || receipt.sourceRepository !== sourceRepository || receipt.sourceRef !== sourceRef) {
-            receipt = createCorpusProjectionReceipt({sourceRepository, sourceRef, now: observedAt})
+            receipt = createCorpusProjectionReceipt({
+                sourceRepository,
+                sourceRef,
+                freshnessSlaMs: config.freshnessSlaMs,
+                now           : observedAt
+            })
+        } else if (receipt.freshnessSlaMs !== config.freshnessSlaMs) {
+            receipt = {...receipt, freshnessSlaMs: config.freshnessSlaMs, updatedAt: observedAt}
         }
 
         const clone = await gitMirror.cloneIfMissing({
@@ -287,9 +384,6 @@ export async function runCoreCorpusProjectionCycle({
             return {status: 'up-to-date', headRevision, receipt}
         }
 
-        receipt = beginCorpusProjection({receipt, availableRevision: headRevision, now: observedAt});
-        await writeReceipt(config.receiptPath, receipt);
-
         const materialization = await materializeCoreCorpusRevision({
             full,
             baseRevision    : receipt.materializedCorpusRevision,
@@ -302,22 +396,47 @@ export async function runCoreCorpusProjectionCycle({
             fileSystem
         });
 
+        const
+            changedFacets   = materialization.changedFacets,
+            unchangedFacets = CORPUS_PROJECTION_FACETS.filter(facet => !changedFacets.includes(facet)),
+            facetOutcomes   = [],
+            failures        = [];
+
+        // The materialized view is private staging. Publish the live-store fence only after that
+        // exact revision exists, but before the first structural/vector mutation. Diff-proven
+        // unchanged facets carry forward atomically so an unrelated pull-only projection cannot
+        // starve Golden Path's issues+discussions route.
+        receipt = beginCorpusProjection({
+            receipt,
+            availableRevision: headRevision,
+            facets           : changedFacets,
+            now              : observedAt
+        });
         receipt = recordCorpusMaterialization({
             receipt,
             revision: headRevision,
             full,
             now     : observedAt
         });
+
+        for (const facet of unchangedFacets) {
+            receipt = commitCorpusProjectionFacet({receipt, facet, now: observedAt});
+            facetOutcomes.push({facet, status: 'unchanged'})
+        }
         await writeReceipt(config.receiptPath, receipt);
 
-        const facetOutcomes = [];
-        const failures      = [];
-
-        for (const facet of CORPUS_PROJECTION_FACETS) {
+        for (const facet of changedFacets) {
             try {
                 const options = {
-                    contentRoot: config.materializedRoot,
-                    strict     : true
+                    contentRoot      : config.materializedRoot,
+                    projectionContext: {
+                        owner         : CORPUS_PROJECTION_OWNER,
+                        sourceRepository,
+                        sourceRef,
+                        sourceRevision: headRevision
+                    },
+                    reconcile: true,
+                    strict   : true
                 };
 
                 if (facet === 'issues') {

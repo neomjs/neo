@@ -277,6 +277,12 @@ services:
       # (inference-lifecycle is an mc-server startup dependency, confirmed at runtime).
       - NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
       - NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS:-}
+      # D2 context-frontier admission reads the orchestrator-owned receipt from the existing
+      # read-only deployment-state mount. These three values are comparison inputs only in MC:
+      # this container never owns the projection writer or its mirror.
+      - NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED=true
+      - NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY=${NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY:-https://github.com/neomjs/neo.git}
+      - NEO_ORCHESTRATOR_CORPUS_SOURCE_REF=${NEO_ORCHESTRATOR_CORPUS_SOURCE_REF:-refs/heads/dev}
       - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
     # The recovery actuator writes a config overlay onto the deployment-state mount, which this
@@ -444,7 +450,8 @@ services:
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model,orchestrator
       # One admitted Stage-2 writer on the store-bearing plane. Source identity is explicit — after
       # AgentOS extraction the image revision and Engine corpus revision are different Git histories.
-      # Mirror, materialized view, and receipt derive beneath the durable orchestrator-state mount.
+      # Mirror + materialized view derive beneath orchestrator-state; the receipt is written beside
+      # the deployment-state snapshot so MC can enforce D2 through its read-only shared mount.
       - NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED=true
       - NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY=${NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY:-https://github.com/neomjs/neo.git}
       - NEO_ORCHESTRATOR_CORPUS_SOURCE_REF=${NEO_ORCHESTRATOR_CORPUS_SOURCE_REF:-refs/heads/dev}

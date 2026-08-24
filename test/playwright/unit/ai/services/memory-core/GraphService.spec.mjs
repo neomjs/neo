@@ -1748,6 +1748,34 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             RequestContextService.getAgentIdentityNodeId = originalGetId;
         }
     });
+
+    test('listSharedNodeRecordsByLabels reads persisted shared rows and excludes tenant rows (#17627)', async () => {
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        const originalGetUserId     = RequestContextService.getUserId;
+
+        try {
+            RequestContextService.getUserId = () => null;
+            GraphService.upsertGlobalNode({id: 'issue-shared', type: 'ISSUE', name: 'Shared issue'});
+            GraphService.upsertGlobalNode({id: 'pr-shared', type: 'PULL_REQUEST', name: 'Shared PR'});
+
+            RequestContextService.getUserId = () => 'tenant-a';
+            GraphService.upsertNode({id: 'issue-tenant', type: 'ISSUE', name: 'Tenant issue'});
+
+            // Prove the method reads SQLite rather than the request-local lazy cache.
+            GraphService.db.nodes.clearSilent();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            expect(GraphService.listSharedNodeRecordsByLabels(['ISSUE'])).toEqual([{
+                id        : 'issue-shared',
+                label     : 'ISSUE',
+                properties: expect.objectContaining({name: 'Shared issue', userId: null})
+            }]);
+            expect(GraphService.listSharedNodeRecordsByLabels(['PULL_REQUEST']).map(node => node.id))
+                .toEqual(['pr-shared'])
+        } finally {
+            RequestContextService.getUserId = originalGetUserId
+        }
+    });
 });
 
 test.describe('GraphService — getLifecycleCensus (#10158)', () => {

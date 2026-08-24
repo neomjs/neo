@@ -41,6 +41,7 @@ import {
 } from './computedGoldenPathRouting.mjs';
 import {
     CORPUS_PROJECTION_CONSUMER,
+    createCorpusProjectionAdmissionFingerprint,
     evaluateCorpusProjectionAdmission
 } from './corpusProjectionContract.mjs';
 import {readCorpusProjectionReceipt} from './corpusProjectionReceiptStore.mjs';
@@ -156,7 +157,8 @@ class GoldenPathSynthesizer extends Base {
                 fallback      : 'current',
                 reasonCode    : 'projection-gate-disabled',
                 requiredFacets: ['issues', 'discussions'],
-                staleFacets   : []
+                staleFacets   : [],
+                fingerprint   : 'projection-gate-disabled'
             }
         }
 
@@ -167,10 +169,15 @@ class GoldenPathSynthesizer extends Base {
             logger.warn(`[GoldenPathSynthesizer] Corpus projection receipt unavailable: ${error.message}`)
         }
 
-        return evaluateCorpusProjectionAdmission({
-            consumer: CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
-            receipt
-        })
+        return {
+            ...evaluateCorpusProjectionAdmission({
+                consumer                : CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+                receipt,
+                expectedSourceRepository: config.sourceRepository,
+                expectedSourceRef       : config.sourceRef
+            }),
+            fingerprint: createCorpusProjectionAdmissionFingerprint(receipt)
+        }
     }
 
     /**
@@ -1852,6 +1859,32 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         }
 
         handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${markdownAppend}`;
+
+        // Close the pre-read admission TOCTOU window at the publish boundary. The writer stamps its
+        // projecting receipt before touching either live store; if that fingerprint moved during
+        // this pass, discard the newly rendered artifacts and retain the prior handoff/route.
+        const projectionRecheck = await this.constructor.getCorpusProjectionAdmission();
+
+        if (!projectionRecheck.admitted || projectionRecheck.fingerprint !== projectionAdmission.fingerprint) {
+            const admission = projectionRecheck.admitted
+                ? {
+                    ...projectionRecheck,
+                    admitted   : false,
+                    fallback   : 'last-known-good',
+                    reasonCode : 'projection-changed-during-read',
+                    staleFacets: [...projectionRecheck.requiredFacets]
+                }
+                : projectionRecheck;
+
+            logger.warn('[GoldenPathSynthesizer] Corpus projection moved during synthesis; preserving last-known-good artifacts.');
+
+            return {
+                status      : 'withheld',
+                reasonCode  : 'corpus-projection-changed-during-read',
+                wroteHandoff: false,
+                admission
+            }
+        }
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});

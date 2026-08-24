@@ -13,15 +13,15 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
-import fs                    from 'fs';
-import path                  from 'path';
-import os                    from 'os';
-import child_process         from 'child_process';
+import {test, expect}              from '@playwright/test';
+import Neo                         from '../../../../../../src/Neo.mjs';
+import * as core                   from '../../../../../../src/core/_export.mjs';
+import fs                          from 'fs';
+import path                        from 'path';
+import os                          from 'os';
+import child_process               from 'child_process';
 import {resolveCrossFamilyVerdict} from '../../../../../../ai/services/graph/agentFamilyResolution.mjs';
-import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
+import {TestLifecycleHelper}       from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.describe.configure({mode: 'serial'});
@@ -616,6 +616,54 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('### @neo-gpt');
         expect(handoffContent).not.toContain('### @neo-opus-grace');
         expect(handoffContent).not.toContain('stale author-grouped PR entry');
+    });
+
+    test('D2 publish recheck discards a pass whose receipt fingerprint moves after live-store reads (#17627)', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const originalAdmission            = GoldenPathSynthesizer.constructor.getCorpusProjectionAdmission;
+        const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-path-projection-race-'));
+        let   admissionReads               = 0;
+
+        aiConfig.vectorDimension = 2;
+        fs.writeFileSync(tmpHandoffFile, '# Last-known-good race handoff\n', 'utf8');
+        StorageRouter.getGraphCollection = async () => ({query: async () => ({ids: [[]], distances: [[]]})});
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['mock document']})});
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => [];
+        GoldenPathSynthesizer.constructor.getCorpusProjectionAdmission = async () => ({
+            admitted      : true,
+            fallback      : 'current',
+            reasonCode    : 'projection-current',
+            requiredFacets: ['issues', 'discussions'],
+            staleFacets   : [],
+            fingerprint   : ++admissionReads === 1 ? 'receipt-A' : 'receipt-B'
+        });
+
+        try {
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({issuesDir, repoEnrichmentEnabled: false});
+
+            expect(outcome).toMatchObject({
+                status      : 'withheld',
+                reasonCode  : 'corpus-projection-changed-during-read',
+                wroteHandoff: false,
+                admission   : {
+                    admitted  : false,
+                    reasonCode: 'projection-changed-during-read'
+                }
+            });
+            expect(admissionReads).toBe(2);
+            expect(fs.readFileSync(tmpHandoffFile, 'utf8')).toBe('# Last-known-good race handoff\n')
+        } finally {
+            GoldenPathSynthesizer.constructor.getCorpusProjectionAdmission = originalAdmission;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText = originalEmbedText;
+            fs.rmSync(issuesDir, {recursive: true, force: true})
+        }
     });
 
     test('synthesizeGoldenPath splits the Concept Slice to a fresh idempotent companion, incl. the degraded path (#14885)', async () => {
@@ -2028,6 +2076,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test('D2 admission withholds before both stores and preserves the last-known-good handoff (#17627)', async () => {
         const originalEnabled             = aiConfig.orchestrator.corpusProjection.enabled;
         const originalReceiptPathOverride = aiConfig.orchestrator.corpusProjection.receiptPathOverride;
+        const originalSourceRepository    = aiConfig.orchestrator.corpusProjection.sourceRepository;
+        const originalSourceRef           = aiConfig.orchestrator.corpusProjection.sourceRef;
         const originalGetGraphCollection  = StorageRouter.getGraphCollection;
         const receiptDir                  = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-path-projection-gate-'));
         const receiptPath                 = path.join(receiptDir, 'projection.json');
@@ -2042,7 +2092,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         let receipt = createCorpusProjectionReceipt({
             sourceRepository: 'https://github.com/neomjs/neo.git',
-            sourceRef       : 'refs/heads/dev'
+            sourceRef       : 'refs/heads/dev',
+            freshnessSlaMs  : 4 * 60 * 60 * 1000
         });
         receipt = beginCorpusProjection({receipt, availableRevision: HEAD_A});
         for (const facet of ['issues', 'pulls', 'discussions']) {
@@ -2054,6 +2105,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         aiConfig.orchestrator.corpusProjection.enabled = true;
         aiConfig.orchestrator.corpusProjection.receiptPathOverride = receiptPath;
+        aiConfig.orchestrator.corpusProjection.sourceRepository = 'https://github.com/neomjs/neo.git';
+        aiConfig.orchestrator.corpusProjection.sourceRef = 'refs/heads/dev';
         StorageRouter.getGraphCollection = async () => {
             throw new Error('D2 gate read Chroma despite a stale required facet')
         };
@@ -2075,6 +2128,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         } finally {
             aiConfig.orchestrator.corpusProjection.enabled = originalEnabled;
             aiConfig.orchestrator.corpusProjection.receiptPathOverride = originalReceiptPathOverride;
+            aiConfig.orchestrator.corpusProjection.sourceRepository = originalSourceRepository;
+            aiConfig.orchestrator.corpusProjection.sourceRef = originalSourceRef;
             StorageRouter.getGraphCollection = originalGetGraphCollection;
             fs.rmSync(receiptDir, {recursive: true, force: true})
         }

@@ -35,6 +35,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     let _originalGraphDb;
     let _originalUpsertNode;
     let _originalLinkNodes;
+    let _originalListSharedNodeRecordsByLabels;
+    let _originalRemoveNodes;
     let graphNodes;
     let graphEdges;
 
@@ -159,6 +161,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         _originalReadFileSync = fs.readFileSync;
         _originalUpsertNode = GraphService.upsertNode;
         _originalLinkNodes = GraphService.linkNodes;
+        _originalListSharedNodeRecordsByLabels = GraphService.listSharedNodeRecordsByLabels;
+        _originalRemoveNodes = GraphService.removeNodes;
         GraphService.upsertNode = nodeData => {
             graphNodes.push({
                 id        : nodeData.id,
@@ -262,6 +266,8 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             GraphService.db = _originalGraphDb;
             GraphService.upsertNode = _originalUpsertNode;
             GraphService.linkNodes = _originalLinkNodes;
+            GraphService.listSharedNodeRecordsByLabels = _originalListSharedNodeRecordsByLabels;
+            GraphService.removeNodes = _originalRemoveNodes;
         }
     });
 
@@ -675,6 +681,125 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             await expect(IssueIngestor.ingestIssueStates({contentRoot: root, strict: true}))
                 .rejects.toThrow()
         } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+            fs.rmSync(root, {recursive: true, force: true})
+        }
+    });
+
+    test('projection reconciliation retains an archive-moved id, then deletes it from graph and Chroma when source-absent (#17627)', async () => {
+        const root              = fs.mkdtempSync(path.join(os.tmpdir(), 'core-corpus-reconcile-')),
+              activeDir         = path.join(root, 'issues'),
+              activeFile        = path.join(activeDir, 'issue-9202.md'),
+              archiveDir        = path.join(root, 'archive/issues/v13'),
+              archiveFile       = path.join(archiveDir, 'issue-9201.md'),
+              projectionContext = {
+                  owner           : 'core-corpus-projection',
+                  sourceRepository: 'https://github.com/neomjs/neo.git',
+                  sourceRef       : 'refs/heads/dev',
+                  sourceRevision  : 'a'.repeat(40)
+              },
+              removedGraphIds = [],
+              removedVectorIds = [],
+              vectorUpserts = [];
+
+        let persistedNodes = [
+            {id: 'issue-9201', label: 'ISSUE', properties: {}},
+            {id: 'issue-9299', label: 'ISSUE', properties: {}},
+            {id: 'ISSUE:semantic-only', label: 'ISSUE', properties: {}}
+        ];
+        let vectorRows = [
+            {id: 'issue-9201', metadata: {type: 'ISSUE'}},
+            {id: 'issue-9299', metadata: {type: 'ISSUE', corpusProjectionOwner: 'core-corpus-projection'}},
+            {id: 'issue-9300', metadata: {type: 'ISSUE', userId: 'tenant-a'}},
+            {id: 'ISSUE:semantic-only', metadata: {type: 'ISSUE'}}
+        ];
+
+        fs.mkdirSync(activeDir, {recursive: true});
+        fs.mkdirSync(archiveDir, {recursive: true});
+        fs.writeFileSync(activeFile, [
+            '---',
+            'id: 9202',
+            'title: Active projected issue',
+            'state: OPEN',
+            '---',
+            '# Active projected issue'
+        ].join('\n'));
+        fs.writeFileSync(archiveFile, [
+            '---',
+            'id: 9201',
+            'title: Archive-moved issue',
+            'state: CLOSED',
+            '---',
+            '# Archive-moved issue'
+        ].join('\n'));
+
+        GraphService.listSharedNodeRecordsByLabels = labels =>
+            persistedNodes.filter(node => labels.includes(node.label));
+        GraphService.removeNodes = ids => {
+            removedGraphIds.push(...ids);
+            persistedNodes = persistedNodes.filter(node => !ids.includes(node.id))
+        };
+        StorageRouter.getGraphCollection = async () => ({
+            async get(args) {
+                return args.where
+                    ? {
+                        ids      : vectorRows.map(row => row.id),
+                        metadatas: vectorRows.map(row => row.metadata)
+                    }
+                    : {ids: [], metadatas: []}
+            },
+            async upsert(payload) { vectorUpserts.push(payload) },
+            async update() {},
+            async delete({ids}) {
+                removedVectorIds.push(...ids);
+                vectorRows = vectorRows.filter(row => !ids.includes(row.id))
+            }
+        });
+
+        try {
+            await IssueIngestor.ingestIssueStates({
+                contentRoot: root,
+                strict     : true,
+                reconcile  : true,
+                projectionContext
+            });
+
+            expect(removedGraphIds).toEqual(['issue-9299']);
+            expect(removedVectorIds).toEqual(['issue-9201', 'issue-9299']);
+            expect(persistedNodes.map(node => node.id)).toContain('issue-9201');
+            expect(graphNodes.find(node => node.id === 'issue-9201').properties).toMatchObject({
+                corpusProjectionOwner           : 'core-corpus-projection',
+                corpusProjectionSourceRepository: projectionContext.sourceRepository,
+                corpusProjectionSourceRef       : projectionContext.sourceRef,
+                corpusProjectionSourceRevision  : projectionContext.sourceRevision
+            });
+            expect(vectorRows.map(row => row.id)).not.toContain('issue-9201');
+            expect(vectorRows.map(row => row.id)).toContain('issue-9300');
+            expect(vectorUpserts.find(payload => payload.ids[0] === 'issue-9202').metadatas[0]).toMatchObject({
+                corpusProjectionOwner           : 'core-corpus-projection',
+                corpusProjectionSourceRepository: projectionContext.sourceRepository,
+                corpusProjectionSourceRef       : projectionContext.sourceRef,
+                corpusProjectionSourceRevision  : projectionContext.sourceRevision
+            });
+
+            fs.rmSync(archiveFile);
+            await IssueIngestor.ingestIssueStates({
+                contentRoot      : root,
+                strict           : true,
+                reconcile        : true,
+                projectionContext: {...projectionContext, sourceRevision: 'b'.repeat(40)}
+            });
+
+            expect(removedGraphIds).toEqual(['issue-9299', 'issue-9201']);
+            expect(removedVectorIds).toEqual(['issue-9201', 'issue-9299']);
+            expect(persistedNodes.map(node => node.id)).toContain('ISSUE:semantic-only');
+            expect(vectorRows.map(row => row.id)).toEqual(expect.arrayContaining([
+                'issue-9300',
+                'ISSUE:semantic-only'
+            ]))
+        } finally {
+            GraphService.listSharedNodeRecordsByLabels = _originalListSharedNodeRecordsByLabels;
+            GraphService.removeNodes = _originalRemoveNodes;
             StorageRouter.getGraphCollection = _originalGetGraphCollection;
             fs.rmSync(root, {recursive: true, force: true})
         }

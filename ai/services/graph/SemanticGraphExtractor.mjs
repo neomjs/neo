@@ -808,11 +808,15 @@ class SemanticGraphExtractor extends Base {
      *
      * @param {Object} payload Session-level Tri-Vector payload
      * @param {Object} session Wrapped session object
+     * @param {Object} [options]
+     * @param {String[]} [options.excludedNodeTypes=[]] Corpus-dependent node types withheld by D2 admission.
      * @returns {Promise<Object>} The committed payload
      * @protected
      */
-    async commitTriVectorPayload(payload, session) {
-        const artifact = payload.session_artifact;
+    async commitTriVectorPayload(payload, session, {excludedNodeTypes = []} = {}) {
+        const artifact      = payload.session_artifact;
+        const excluded      = new Set(excludedNodeTypes.map(type => String(type).toUpperCase()));
+        const excludedNodes = new Set();
 
         // Was a hand-written `frontier` spec upserted through plain upsertNode, which carried
         // two defects: the local description had drifted from the boot manifest, making the
@@ -829,6 +833,11 @@ class SemanticGraphExtractor extends Base {
 
             let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
             let nodeId   = node.id;
+
+            if (excluded.has(nodeType)) {
+                excludedNodes.add(node);
+                continue
+            }
 
             if (!nodeId.includes(':')) {
                 const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
@@ -857,17 +866,24 @@ class SemanticGraphExtractor extends Base {
             node._resolvedId = nodeId;
         }
 
-        const validNodeRefs = new Set([...artifact.graph.nodes.map(n => n.id), ...artifact.graph.nodes.map(n => n._resolvedId), 'frontier']);
+        const admittedNodes = artifact.graph.nodes.filter(node => !excludedNodes.has(node));
+        const validNodeRefs = new Set([...admittedNodes.map(n => n.id), ...admittedNodes.map(n => n._resolvedId), 'frontier']);
 
         for (const edge of artifact.graph.edges) {
             let resolvedSource = edge.source;
             let resolvedTarget = edge.target;
 
             const sourceNode = artifact.graph.nodes.find(n => n.id === edge.source);
+            if (excludedNodes.has(sourceNode)) continue;
             if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
 
             const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
+            if (excludedNodes.has(targetNode)) continue;
             if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
+
+            if (excluded.has('ISSUE') && (/^issue[-:]/i.test(resolvedSource) || /^issue[-:]/i.test(resolvedTarget))) {
+                continue
+            }
 
             resolvedSource = this.normalizeMemorySessionGraphNodeId(resolvedSource);
             resolvedTarget = this.normalizeMemorySessionGraphNodeId(resolvedTarget);
@@ -931,9 +947,12 @@ class SemanticGraphExtractor extends Base {
      * failures. This graceful degradation prevents token-exhaustion crash-loops under peak payload sizes.
      *
      * @param {Object} session Wrapped session object containing id, document, and meta
+     * @param {Object} [options]
+     * @param {Function|null} [options.beforeCommit=null] Async D2 seam returning commit options
+     * immediately before the first graph write.
      * @returns {Promise<Object>} The extracted payload, or `{ok:false, ...}` on failure
      */
-    async executeTriVectorExtraction(session) {
+    async executeTriVectorExtraction(session, {beforeCommit = null} = {}) {
         logger.info(`[SemanticGraphExtractor] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
 
         const systemInstruction = `You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
@@ -1128,7 +1147,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 }
             }
 
-            return await this.commitTriVectorPayload(payload, session);
+            const commitOptions = beforeCommit ? await beforeCommit({payload, session}) : undefined;
+
+            return await this.commitTriVectorPayload(payload, session, commitOptions);
 
         } catch (error) {
             if (error.message && error.message.includes('fetch failed')) {

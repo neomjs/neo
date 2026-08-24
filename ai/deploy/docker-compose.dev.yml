@@ -277,6 +277,11 @@ services:
       <<: [*plane-env, *provider-auth-env]
       NEO_TRANSPORT: streamable-http
       NEO_CHROMA_HOST: chroma
+      # Read-side D2 admission against the receipt on this parity plane's shared root.
+      # MC compares source identity and never owns the mirror/writer.
+      NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED: "true"
+      NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY: ${NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY:-https://github.com/neomjs/neo.git}
+      NEO_ORCHESTRATOR_CORPUS_SOURCE_REF: ${NEO_ORCHESTRATOR_CORPUS_SOURCE_REF:-refs/heads/dev}
       # Single-process container hosts the WAL drain loop itself: without it the decoupled
       # add_memory writes the WAL but nothing embeds it, so semantic recall reads empty.
       # Sole-drainer invariant: exactly one loop per WAL dir; never enable alongside the embed
@@ -362,6 +367,11 @@ services:
       # resolve the authority the canonical container already holds.
       NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: container-plane
       NEO_CHROMA_HOST: chroma
+      # Standalone profile: explicitly elect the same sole writer + Engine source identity as
+      # canonical Compose; nothing is inherited from docker-compose.yml.
+      NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED: "true"
+      NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY: ${NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY:-https://github.com/neomjs/neo.git}
+      NEO_ORCHESTRATOR_CORPUS_SOURCE_REF: ${NEO_ORCHESTRATOR_CORPUS_SOURCE_REF:-refs/heads/dev}
       # Runtime access is scoped to THIS plane's compose project — the same scalar the project
       # `name` and `NEO_PLANE_ID` resolve from, so a parity orchestrator can never address the
       # native stack's containers.

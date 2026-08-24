@@ -9,10 +9,20 @@ import path           from 'node:path';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
+    getChangedCorpusIndexFacets,
+    getChangedCorpusProjectionFacets,
     isCoreCorpusProjectionPath,
     runCoreCorpusProjectionCycle
 } from '../../../../../../../ai/daemons/orchestrator/services/coreCorpusProjection.mjs';
+import {
+    CORPUS_PROJECTION_CONSUMER,
+    evaluateCorpusProjectionAdmission
+} from '../../../../../../../ai/services/graph/corpusProjectionContract.mjs';
 import {readCorpusProjectionReceipt} from '../../../../../../../ai/services/graph/corpusProjectionReceiptStore.mjs';
+import {
+    classifyCoreCorpusProjectionOutcome,
+    runProjectCoreCorpus
+} from '../../../../../../../ai/scripts/maintenance/projectCoreCorpus.mjs';
 
 const HEAD_A = 'a'.repeat(40);
 const HEAD_B = 'b'.repeat(40);
@@ -25,6 +35,7 @@ function createConfig(root) {
         mirrorRoot                 : path.join(root, 'mirror'),
         materializedRoot           : path.join(root, 'materialized'),
         receiptPath                : path.join(root, 'projection.json'),
+        freshnessSlaMs             : 4 * 60 * 60 * 1000,
         readConcurrency            : 2,
         fullRematerializeIntervalMs: Number.MAX_SAFE_INTEGER
     }
@@ -93,7 +104,31 @@ test.describe('coreCorpusProjection — source-neutral writer (#17627)', () => {
         }
 
         expect(isCoreCorpusProjectionPath('resources/content/release-notes/v13.2.0.md')).toBe(false);
-        expect(isCoreCorpusProjectionPath('ai/configBase.mjs')).toBe(false)
+        expect(isCoreCorpusProjectionPath('ai/configBase.mjs')).toBe(false);
+        expect(getChangedCorpusProjectionFacets([
+            'resources/content/archive/issues/v13/issue-1.md',
+            'resources/content/pulls/pr-2.md'
+        ])).toEqual(['issues', 'pulls']);
+        expect(getChangedCorpusProjectionFacets(['resources/content/_index.json'])).toEqual([]);
+        expect(getChangedCorpusIndexFacets(
+            JSON.stringify([
+                {type: 'issues', id: 1, path: 'issues/issue-1.md'},
+                {type: 'pulls', id: 2, path: 'pulls/pr-2.md'}
+            ]),
+            JSON.stringify([
+                {type: 'issues', id: 1, path: 'issues/issue-1.md'},
+                {type: 'pulls', id: 3, path: 'pulls/pr-3.md'}
+            ])
+        )).toEqual(['pulls'])
+    });
+
+    test('#11735 non-interference: the writer closure reuses GitMirror without entering tenant sync or kb-config', () => {
+        const source = [
+            'ai/daemons/orchestrator/services/coreCorpusProjection.mjs',
+            'ai/scripts/maintenance/projectCoreCorpus.mjs'
+        ].map(file => fs.readFileSync(path.resolve(process.cwd(), file), 'utf8')).join('\n');
+
+        expect(source).not.toMatch(/TenantRepoSyncService|syncTenantRepos|tenant-repo-sync|kb-config\.yaml/)
     });
 
     test('cold start fully materializes one exact source revision before committing every facet', async () => {
@@ -127,7 +162,11 @@ test.describe('coreCorpusProjection — source-neutral writer (#17627)', () => {
                 materialization: {full: true, deleted: []}
             });
             expect(calls.map(call => call.facet)).toEqual(['issues', 'pulls', 'discussions']);
-            expect(calls.every(call => call.options.strict === true && call.options.contentRoot === config.materializedRoot)).toBe(true);
+            expect(calls.every(call =>
+                call.options.strict === true &&
+                call.options.reconcile === true &&
+                call.options.contentRoot === config.materializedRoot
+            )).toBe(true);
             expect(fs.readFileSync(path.join(config.materializedRoot, 'issues/issue-1.md'), 'utf8'))
                 .toBe('content:resources/content/issues/issue-1.md');
 
@@ -179,7 +218,8 @@ test.describe('coreCorpusProjection — source-neutral writer (#17627)', () => {
             expect(outcome.materialization).toEqual({
                 full          : false,
                 addedOrChanged: [archived],
-                deleted       : [active]
+                deleted       : [active],
+                changedFacets : ['issues']
             });
             expect(fs.pathExistsSync(path.join(config.materializedRoot, 'issues/issue-4.md'))).toBe(false);
             expect(fs.readFileSync(path.join(config.materializedRoot, 'archive/issues/v13/issue-4.md'), 'utf8')).toBe('state: CLOSED');
@@ -188,6 +228,116 @@ test.describe('coreCorpusProjection — source-neutral writer (#17627)', () => {
                 pulls      : HEAD_B,
                 discussions: HEAD_B
             })
+        } finally {
+            fs.removeSync(root)
+        }
+    });
+
+    test('the named periodic cadence forces a same-head full rematerialization and all-facet reconciliation', async () => {
+        const root      = fs.mkdtempSync(path.join(os.tmpdir(), 'core-corpus-periodic-full-')),
+              config    = {...createConfig(root), fullRematerializeIntervalMs: 60_000},
+              issuePath = 'resources/content/issues/issue-7.md',
+              gitMirror = createGitMirror({
+                  pathsByRevision: {[HEAD_A]: [issuePath]},
+                  filesByRevision: {[HEAD_A]: {[issuePath]: 'state: OPEN'}}
+              }),
+              calls = [];
+
+        try {
+            await runCoreCorpusProjectionCycle({
+                config,
+                gitMirror,
+                issueIngestor: createIngestor(calls),
+                now          : Date.parse('2026-08-24T00:00:00.000Z')
+            });
+            calls.length = 0;
+
+            const outcome = await runCoreCorpusProjectionCycle({
+                config,
+                gitMirror,
+                issueIngestor: createIngestor(calls),
+                now          : Date.parse('2026-08-24T00:01:01.000Z')
+            });
+
+            expect(outcome.materialization.full).toBe(true);
+            expect(outcome.materialization.changedFacets).toEqual(['issues', 'pulls', 'discussions']);
+            expect(calls.map(call => call.facet)).toEqual(['issues', 'pulls', 'discussions']);
+            expect(outcome.receipt.lastFullMaterializationAt).toBe('2026-08-24T00:01:01.000Z')
+        } finally {
+            fs.removeSync(root)
+        }
+    });
+
+    test('a pull-only failure carries unrelated facet coverage forward instead of all-cursors starvation', async () => {
+        const root          = fs.mkdtempSync(path.join(os.tmpdir(), 'core-corpus-pulls-only-')),
+              config        = createConfig(root),
+              issuePath     = 'resources/content/issues/issue-1.md',
+              pullPath      = 'resources/content/pulls/pr-2.md',
+              discussPath   = 'resources/content/discussions/discussion-3.md',
+              rootIndexPath = 'resources/content/_index.json',
+              indexA        = JSON.stringify([
+                  {type: 'issues', id: 1, version: null, path: 'issues/issue-1.md'},
+                  {type: 'pulls', id: 2, version: null, path: 'pulls/pr-2.md'},
+                  {type: 'discussions', id: 3, version: null, path: 'discussions/discussion-3.md'}
+              ]),
+              indexB = JSON.stringify([
+                  {type: 'issues', id: 1, version: null, path: 'issues/issue-1.md'},
+                  {type: 'pulls', id: 2, version: 'v13.2.0', path: 'pulls/pr-2.md'},
+                  {type: 'discussions', id: 3, version: null, path: 'discussions/discussion-3.md'}
+              ]),
+              gitMirror  = createGitMirror({
+                  pathsByRevision: {[HEAD_A]: [rootIndexPath, issuePath, pullPath, discussPath]},
+                  filesByRevision: {
+                      [HEAD_A]: {
+                          [rootIndexPath]: indexA,
+                          [issuePath]    : 'issue A',
+                          [pullPath]     : 'pull A',
+                          [discussPath]  : 'discussion A'
+                      },
+                      [HEAD_B]: {
+                          [rootIndexPath]: indexB,
+                          [pullPath]     : 'pull B'
+                      }
+                  }
+              }),
+              calls = [];
+
+        try {
+            await runCoreCorpusProjectionCycle({
+                config,
+                gitMirror,
+                issueIngestor: createIngestor(calls),
+                now          : Date.parse('2026-08-24T00:00:00.000Z')
+            });
+
+            gitMirror.setHead(HEAD_B);
+            gitMirror.setDiff({addedOrChanged: [rootIndexPath, pullPath], deleted: []});
+
+            await expect(runCoreCorpusProjectionCycle({
+                config,
+                gitMirror,
+                issueIngestor: createIngestor(calls, {
+                    pulls: Object.assign(new Error('injected pull failure'), {code: 'PULL_PROJECTION_FAILED'})
+                }),
+                now: Date.parse('2026-08-24T00:01:00.000Z')
+            })).rejects.toMatchObject({code: 'CORE_CORPUS_PROJECTION_INCOMPLETE'});
+
+            expect(calls.slice(3).map(call => call.facet)).toEqual(['pulls']);
+
+            const receipt = await readCorpusProjectionReceipt(config.receiptPath);
+            expect(receipt.projectedRevisionByFacet).toEqual({
+                issues     : HEAD_B,
+                pulls      : HEAD_A,
+                discussions: HEAD_B
+            });
+            expect(evaluateCorpusProjectionAdmission({
+                consumer: CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+                receipt
+            })).toMatchObject({admitted: true, staleFacets: []});
+            expect(evaluateCorpusProjectionAdmission({
+                consumer: CORPUS_PROJECTION_CONSUMER.contextFrontier,
+                receipt
+            })).toMatchObject({admitted: false, staleFacets: ['pulls']})
         } finally {
             fs.removeSync(root)
         }
@@ -243,6 +393,68 @@ test.describe('coreCorpusProjection — source-neutral writer (#17627)', () => {
                 config,
                 gitMirror: {cloneIfMissing: async () => { throw new Error('mirror must stay untouched') }}
             })).rejects.toMatchObject({code: 'CORE_CORPUS_SOURCE_IDENTITY_MISSING'})
+        } finally {
+            fs.removeSync(root)
+        }
+    })
+
+    test('a direct second writer defers at the heavy-maintenance lease before graph boot or projection (#17627)', async () => {
+        const root   = fs.mkdtempSync(path.join(os.tmpdir(), 'core-corpus-lease-')),
+              config = createConfig(root),
+              lines  = [];
+        let graphReadyCalls = 0;
+        let projectionCalls = 0;
+
+        try {
+            const exitCode = await runProjectCoreCorpus({
+                config,
+                configProvider: {
+                    orchestrator: {
+                        corpusProjection     : config,
+                        dataDir              : root,
+                        heavyMaintenanceLease: {staleAfterMs: 60_000}
+                    },
+                    validateRequiredEnv: () => ({findings: []})
+                },
+                assertFresh : async () => {},
+                graphService: {ready: async () => { graphReadyCalls++ }},
+                runCycle    : async () => { projectionCalls++ },
+                withLease   : async () => ({
+                    status  : 'held',
+                    acquired: false,
+                    lease   : {
+                        owner     : 'backup',
+                        reason    : 'periodic-backup',
+                        pid       : 123,
+                        acquiredAt: '2026-08-24T00:00:00.000Z'
+                    }
+                }),
+                output: {log: value => lines.push(value)},
+                exit  : code => code
+            });
+
+            expect(exitCode).toBe(0);
+            expect(graphReadyCalls).toBe(0);
+            expect(projectionCalls).toBe(0);
+            expect(JSON.parse(lines[0])).toEqual({
+                deferred: true,
+                reason  : 'heavy-maintenance-lease-held',
+                holder  : {
+                    owner     : 'backup',
+                    reason    : 'periodic-backup',
+                    pid       : 123,
+                    acquiredAt: '2026-08-24T00:00:00.000Z'
+                }
+            });
+            expect(classifyCoreCorpusProjectionOutcome({
+                status: 'completed',
+                result: {status: 'up-to-date'}
+            })).toEqual({deferred: false, status: 'up-to-date'});
+            expect(classifyCoreCorpusProjectionOutcome({status: 'unreadable'})).toEqual({
+                deferred   : true,
+                reason     : 'heavy-maintenance-lease-unavailable',
+                leaseStatus: 'unreadable'
+            })
         } finally {
             fs.removeSync(root)
         }

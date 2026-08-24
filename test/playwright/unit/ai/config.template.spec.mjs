@@ -454,7 +454,10 @@ test.describe('Tier 1 Config Immutability', () => {
             fullRematerializeIntervalMs: 7 * 24 * 60 * 60 * 1000,
             mirrorRoot                 : path.resolve(Config.orchestrator.dataDir, 'core-corpus-mirror'),
             materializedRoot           : path.resolve(Config.orchestrator.dataDir, 'core-corpus-materialized'),
-            receiptPath                : path.resolve(Config.orchestrator.dataDir, 'core-corpus-projection.json'),
+            receiptPath                : path.resolve(
+                path.dirname(Config.orchestrator.deploymentStateBridge.snapshotPath),
+                'core-corpus-projection.json'
+            ),
             freshnessSlaMs             : 4 * 60 * 60 * 1000
         });
         expect(Config.orchestrator.devServer).toEqual({

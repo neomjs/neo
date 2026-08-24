@@ -1347,8 +1347,9 @@ class ConfigBase extends ConfigProvider {
                  *
                  * The source identity is explicit because the AgentOS image revision and Engine
                  * corpus revision become different Git histories after extraction. The mirror,
-                 * materialized exact-revision view, and consumer receipt derive from the resolved
-                 * orchestrator state root through formulas below — no consumer reconstructs them.
+                 * materialized exact-revision view derive from the resolved orchestrator state root.
+                 * The consumer receipt derives beside the deployment-state bridge snapshot, whose
+                 * volume is orchestrator-write / MC-read-only — no consumer reconstructs either path.
                  * `enabled` remains false by default; a deployment electing the container-plane
                  * writer states the source repo/ref and enables it explicitly.
                  * @type {Object}
@@ -1472,15 +1473,15 @@ class ConfigBase extends ConfigProvider {
                  * @type {Object}
                  */
                 deploymentStateBridge: {
-                    enabled                     : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
-                    snapshotPath                : leaf(path.resolve(planeDataRootDefault, 'deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string', {planeMember: true}),
-                    writeIntervalMs             : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
-                    staleAfterMs                : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
-                    maxSnapshotBytes            : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
-                    allowedServices             : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES', 'csv'),
-                    includeLogs                 : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
-                    logTail                     : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
-                    logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
+                    enabled         : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
+                    snapshotPath    : leaf(path.resolve(planeDataRootDefault, 'deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string', {planeMember: true}),
+                    writeIntervalMs : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
+                    staleAfterMs    : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
+                    maxSnapshotBytes: leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
+                    allowedServices : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES', 'csv'),
+                    includeLogs     : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_INCLUDE_LOGS', 'boolean'),
+                    logTail         : leaf(120, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_TAIL', 'number'),
+                    logMaxBytes     : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
                     /**
                      * How far past a container's start the startup-log head reaches, in ms.
                      *
@@ -1650,9 +1651,9 @@ class ConfigBase extends ConfigProvider {
                  * @type {Object}
                  */
                 intervals: {
-                    pollMs              : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
-                    summarySweepMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
-                    kbSyncMs            : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
+                    pollMs        : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
+                    summarySweepMs: leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
+                    kbSyncMs      : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
                     /**
                      * Container-owned core-corpus projection cadence. CI owns GitHub emission;
                      * this separate lane owns
@@ -1660,7 +1661,7 @@ class ConfigBase extends ConfigProvider {
                      * @type {Number}
                      */
                     corpusProjectionMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_INTERVAL_MS', 'number'),
-                    backupMs            : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    backupMs          : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
                     /**
                      * Minimum spacing between retries of a FAILED backup run, and how long the retry
                      * window stays open. `0` on either disables retry and restores the earlier
@@ -2579,7 +2580,7 @@ class ConfigBase extends ConfigProvider {
                 path.resolve(data.orchestrator.dataDir, 'core-corpus-materialized'),
             'orchestrator.corpusProjection.receiptPath': data =>
                 data.orchestrator.corpusProjection.receiptPathOverride ??
-                path.resolve(data.orchestrator.dataDir, 'core-corpus-projection.json'),
+                path.resolve(path.dirname(data.orchestrator.deploymentStateBridge.snapshotPath), 'core-corpus-projection.json'),
             'orchestrator.corpusProjection.freshnessSlaMs': data =>
                 data.orchestrator.corpusProjection.freshnessSlaMsOverride ??
                 data.orchestrator.intervals.corpusProjectionMs * 2,
