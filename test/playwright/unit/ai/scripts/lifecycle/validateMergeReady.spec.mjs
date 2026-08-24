@@ -18,6 +18,7 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
         state             : 'OPEN',
         mergedAt          : null,
         crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
+        holdVerdict       : {held: false, holders: []},
         ...overrides
     });
 
@@ -151,6 +152,7 @@ test.describe('validateMergeReady — the approval anchor', () => {
         state             : 'OPEN',
         mergedAt          : null,
         crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
+        holdVerdict       : {held: false, holders: []},
         ...overrides
     });
 
@@ -242,6 +244,7 @@ test.describe('validateMergeReady — the cross-family mandate', () => {
         checksGreen     : true,
         mergeStateStatus: 'CLEAN',
         reviewRequests  : [],
+        holdVerdict     : {held: false, holders: []},
         ...overrides
     });
 
@@ -290,5 +293,57 @@ test.describe('validateMergeReady — the cross-family mandate', () => {
         // would send the reader hunting for a reviewer who was never required.
         expect(result.blockers.some(entry => entry.includes('could not be evaluated') && entry.includes('external-dev'))).toBe(true);
         expect(result.blockers.some(entry => entry.includes('mandate unsatisfied'))).toBe(false);
+    })
+});
+
+/**
+ * @summary Rule 7 — a reviewer who withdrew approval in a comment.
+ *
+ * Rule 5's mirror: there a PENDING obligation was invisible to `reviewDecision`, here a RETRACTED
+ * approval is. Every other gap in this module fails CLOSED; this one failed OPEN, reporting green
+ * while an owner had explicitly said stop.
+ */
+test.describe('validateMergeReady — the reviewer-hold gate', () => {
+    // Not the shared builder: these arms are about the hold field, so inheriting a healthy default
+    // is the one thing that would make them vacuous.
+    const green = overrides => ({
+        state             : 'OPEN',
+        mergedAt          : null,
+        reviewDecision    : 'APPROVED',
+        checksGreen       : true,
+        mergeStateStatus  : 'CLEAN',
+        reviewRequests    : [],
+        crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt']},
+        ...overrides
+    });
+
+    test('an active hold blocks, and the blocker NAMES the holder and the token', () => {
+        const result = validateMergeReady(green({
+            holdVerdict: {held: true, holders: [{login: 'neo-gpt-emmy', token: 'merge_hold'}]}
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        // A bare false sends the reader back to the PR to find out who is holding and why.
+        expect(result.blockers.some(entry => entry.includes('@neo-gpt-emmy') && entry.includes('merge_hold'))).toBe(true);
+    });
+
+    test('no hold passes, on the same otherwise-identical surface', () => {
+        expect(validateMergeReady(green({holdVerdict: {held: false, holders: []}})).strictMergeReady).toBe(true);
+    });
+
+    test('an UNRESOLVED hold verdict fails closed, like every other predicate field', () => {
+        const result = validateMergeReady(green());
+
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.some(entry => entry.includes('was not resolved'))).toBe(true);
+    });
+
+    test('a truncated comment window blocks with its OWN reason, not a hold claim', () => {
+        const result = validateMergeReady(green({holdVerdict: {held: null, holders: []}}));
+
+        expect(result.strictMergeReady).toBe(false);
+        // Three states, three messages: naming a holder we never saw would be a fabrication.
+        expect(result.blockers.some(entry => entry.includes('could not be evaluated'))).toBe(true);
+        expect(result.blockers.some(entry => entry.includes('hold outstanding'))).toBe(false);
     })
 });

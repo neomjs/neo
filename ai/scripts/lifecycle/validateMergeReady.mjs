@@ -36,6 +36,10 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  *  6. `crossFamilyVerdict` is resolved AND reports `crossFamily === true` — the §6.1 cross-family mandate.
  *     GitHub models no model family, so rule 2 cannot stand in for this one: an APPROVED badge earned
  *     entirely within the author's own family satisfies `reviewDecision` and violates the mandate.
+ *  7. `holdVerdict` is resolved AND reports no active reviewer hold. A reviewer can approve at T0 and
+ *     withdraw at T1 by posting `[MERGE_HOLD]`; `reviewDecision` is a flattened snapshot with no
+ *     notion of supersession and still reads APPROVED. This is rule 5's mirror — there a PENDING
+ *     obligation was invisible, here a RETRACTED approval is.
  *
  * Fail-CLOSED contract: `state`, `mergedAt`, `checksGreen`, `mergeStateStatus`, and `reviewRequests`
  * that were NOT fetched (`undefined`) each block readiness — an un-queried field cannot certify a
@@ -50,6 +54,7 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  * @param {String} [pr.mergeStateStatus] GitHub mergeStateStatus (`CLEAN` | `UNSTABLE` | `DIRTY` | `BEHIND` | `BLOCKED` | ...); `undefined` (not fetched) fails closed.
  * @param {String[]} [pr.reviewRequests] Logins of still-requested reviewers (the explicit author/operator contract); `undefined` (not fetched) fails closed, `[]` asserts fetched-and-empty.
  * @param {String[]} [pr.disposedReviewers] Requested reviewers already disposed (formal review / visible step-out / unrequest).
+ * @param {Object} [pr.holdVerdict] Verdict from `resolveMergeHold` — `{held, holders}`. `undefined` (not resolved) fails closed; `held: null` (the comment window was truncated) blocks with its own reason rather than reading as "no hold".
  * @param {Object} [pr.crossFamilyVerdict] Verdict from `resolveCrossFamilyVerdict` — `{crossFamily, authorFamily, approvingFamilies, authorLogin}`. `undefined` (not resolved) fails closed; `crossFamily: null` (author family unresolved) blocks with its own reason rather than collapsing into pass or fail.
  * @param {String} [pr.approvedAtOid] Commit oid the approving review was submitted against. Optional: absent means the anchor is not reported, never that it is fresh.
  * @param {String} [pr.headRefOid] Current head oid, paired with `approvedAtOid` to surface a stale approval anchor.
@@ -66,7 +71,8 @@ export function validateMergeReady(pr = {}) {
         disposedReviewers = [],
         approvedAtOid,
         headRefOid,
-        crossFamilyVerdict
+        crossFamilyVerdict,
+        holdVerdict
     } = pr;
 
     const blockers   = [],
@@ -106,6 +112,26 @@ export function validateMergeReady(pr = {}) {
         blockers.push(`cross-family mandate could not be evaluated: the author family did not resolve${crossFamilyVerdict.authorLogin ? ` for '${crossFamilyVerdict.authorLogin}'` : ''}. An unrostered author is usually an external contributor, for whom the mandate does not apply — confirm that before merging.`);
     } else if (crossFamilyVerdict?.crossFamily === false) {
         blockers.push(`cross-family review mandate unsatisfied: author family '${crossFamilyVerdict.authorFamily}', approving families [${(crossFamilyVerdict.approvingFamilies || []).join(', ') || 'none'}]. pull-request-workflow.md §6.1 requires at least one APPROVED review from a different model family; GitHub's reviewDecision cannot express this, so an APPROVED badge is not evidence of it.`);
+    }
+
+    // A reviewer who withdrew their approval in a comment. Every other gap in this validator fails
+    // CLOSED — an unfetched field blocks, `UNKNOWN` mergeability blocks, an outstanding reviewer
+    // blocks. This one failed OPEN: the PR reported green while its owner had explicitly said stop,
+    // and the stop lived in prose no readiness surface read. Observed live, with the author (me)
+    // having already broadcast merge-ready inside that window.
+    //
+    // `held: null` is the truncated-window case and is NOT "no hold": a bounded comment list can
+    // hide one, and absence in a bounded window is missing evidence rather than evidence of
+    // absence. It blocks with its own reason so the reader can tell "someone is holding this" from
+    // "we could not see far enough to know".
+    if (holdVerdict === undefined) {
+        blockers.push('holdVerdict was not resolved — cannot certify that no reviewer withdrew approval; failing closed.');
+    } else if (holdVerdict?.held === null) {
+        blockers.push('reviewer-hold state could not be evaluated: the comment window was truncated, so a hold may sit outside it. Absence over a bounded window is missing evidence, not evidence of absence.');
+    } else if (holdVerdict?.held === true) {
+        const named = (holdVerdict.holders || []).map(holder => `@${holder.login} (${holder.token})`).join(', ');
+
+        blockers.push(`reviewer hold outstanding: ${named || 'unnamed holder'}. A hold posted after that reviewer's latest submitted review withdraws it; reviewDecision cannot express supersession, so an APPROVED badge is not evidence the approval still stands. Only a NEWER submitted review from the same reviewer clears it.`);
     }
 
     // The anchor, and it is deliberately an ADVISORY rather than a blocker.
