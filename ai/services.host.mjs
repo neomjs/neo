@@ -104,9 +104,9 @@ import NeuralLink_Config                from './mcp/server/neural-link/config.mj
 // ownership of the connect decision before this write can go. The decision record for this barrel
 // boundary carries the successor and its retirement trigger.
 //
-// The companion `GH_Config.data.syncOnStartup = false` was deleted rather than moved: measured
-// `false → false`, because its leaf already defaults false. It dated from a single-agent era when
-// github-workflow was a pure MCP server, and it had no behavioural payload left.
+// The former GitHub Workflow `syncOnStartup` leaf and write are both retired. Native Graph corpus
+// projection has one container-plane owner; retaining a dormant startup fork would recreate a
+// second, unleased writer the moment an overlay enabled it.
 NeuralLink_Config.data.autoConnect = false;
 
 const __filename = fileURLToPath(import.meta.url);

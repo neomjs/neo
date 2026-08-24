@@ -442,6 +442,12 @@ services:
       # lifecycle operations aimed at the orchestrator structurally — restarting it through the bridge
       # it publishes would kill the process serving the request before any outcome could be reported.
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model,orchestrator
+      # One admitted Stage-2 writer on the store-bearing plane. Source identity is explicit — after
+      # AgentOS extraction the image revision and Engine corpus revision are different Git histories.
+      # Mirror, materialized view, and receipt derive beneath the durable orchestrator-state mount.
+      - NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED=true
+      - NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY=${NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY:-https://github.com/neomjs/neo.git}
+      - NEO_ORCHESTRATOR_CORPUS_SOURCE_REF=${NEO_ORCHESTRATOR_CORPUS_SOURCE_REF:-refs/heads/dev}
       # The SECOND evidence channel. A container-unhealthy state is advisory on its own; it licenses a
       # restart only alongside a failed DIRECT probe of the service, so without these URLs a wedged
       # service is diagnosed and never acted on. Hostnames are the compose service keys.

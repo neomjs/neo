@@ -39,6 +39,7 @@ const TEST_NEURAL_LINK_BRIDGE_PORT   = 18081;
 let   savedIntervals                 = null;
 let   savedLocalOnly                 = null;
 let   savedCloudOnly                 = null;
+let   savedCorpusProjectionEnabled   = null;
 let   savedDevServer                 = null;
 let   savedDevServerMissing          = false;
 let   savedGraphLogCompaction        = null;
@@ -116,7 +117,7 @@ function createTestOrchestrator(config = {}) {
     // Test defaults preserve the pre-refactor helper's defaults (600000ms intervals etc.).
     AiConfig.orchestrator.intervals.summarySweepMs   = config.summarySweepIntervalMs   ?? 600000;
     AiConfig.orchestrator.intervals.kbSyncMs         = config.kbSyncIntervalMs         ?? 600000;
-    AiConfig.orchestrator.intervals.githubWorkflowSyncMs = config.githubWorkflowSyncIntervalMs ?? 600000;
+    AiConfig.orchestrator.intervals.corpusProjectionMs = config.corpusProjectionIntervalMs ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.backupMs         = config.backupIntervalMs         ?? 86400000;
     AiConfig.orchestrator.intervals.graphLogCompactionMs = config.graphLogCompactionIntervalMs ?? 86400000;
     AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
@@ -134,10 +135,10 @@ function createTestOrchestrator(config = {}) {
     // not free — kbSync is the canonical "schedulable heavy lane" across the specs below, so the
     // group flip inverts it for every local-mode case that uses it as a stand-in.
     AiConfig.orchestrator.cloudOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
-    // Default-disabled like primaryDevSyncEnabled: githubWorkflowSync is a heavy lane with its own
-    // dedicated coverage (registry.spec getDueTask). Keeping it off by default scopes every other
-    // test's scheduling to the lanes under test, so the new lane never competes in the picker.
-    AiConfig.orchestrator.localOnly.githubWorkflowSyncEnabled      = config.githubWorkflowSyncEnabled      ?? false;
+    savedCorpusProjectionEnabled = savedCorpusProjectionEnabled ?? AiConfig.orchestrator.corpusProjection.enabled;
+    // Default-disabled in generic fixtures: dedicated projection arms opt in explicitly, so this
+    // heavy lane does not compete with whichever scheduler path another test is exercising.
+    AiConfig.orchestrator.corpusProjection.enabled = config.corpusProjectionEnabled ?? false;
     AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
     AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
     AiConfig.orchestrator.localOnly.neuralLinkBridgeEnabled        = Object.hasOwn(config, 'neuralLinkBridgeEnabled') ? config.neuralLinkBridgeEnabled : true;
@@ -212,6 +213,10 @@ test.afterEach(() => {
         restoreConfigObject(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
         savedCloudOnly = null;
     }
+    if (savedCorpusProjectionEnabled !== null) {
+        AiConfig.orchestrator.corpusProjection.enabled = savedCorpusProjectionEnabled;
+        savedCorpusProjectionEnabled = null;
+    }
     if (savedDevServer) {
         if (savedDevServerMissing) {
             AiConfig.setData('orchestrator.devServer', undefined);
@@ -280,8 +285,9 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             expect(hostContinuous).not.toContain(taskName);
         }
         expect(hostScheduled).toEqual(expect.arrayContaining([
-            'githubWorkflowSync', 'primary-dev-sync', 'swarm-heartbeat'
+            'primary-dev-sync', 'swarm-heartbeat'
         ]));
+        expect(hostScheduled).not.toContain('core-corpus-projection');
         expect(hostScheduled).not.toContain('summary');
         expect(hostScheduled).not.toContain('dream');
         expect(hostScheduled).not.toContain('data-integrity-sweep');
@@ -324,7 +330,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(containerScheduled).toEqual(expect.arrayContaining([
             'summary', 'dream', 'graphlog-compaction', 'message-concept-harvest',
             'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog',
-            'data-integrity-sweep', 'kbSync', 'temporal-summary', 'defect-ledger-digest'
+            'data-integrity-sweep', 'kbSync', 'temporal-summary', 'defect-ledger-digest',
+            'core-corpus-projection'
         ]));
         expect(containerScheduled).not.toContain('primary-dev-sync');
         expect(containerScheduled).not.toContain('swarm-heartbeat');
@@ -578,7 +585,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             neuralLinkBridgeLivenessTimeoutMs: 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'temporal-summary', 'defect-ledger-digest', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog', 'heavy-maintenance-starvation-watchdog']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'core-corpus-projection', 'backup', 'graphlog-compaction', 'temporal-summary', 'defect-ledger-digest', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog', 'heavy-maintenance-starvation-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -2158,7 +2165,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         // sorted-set assertion to decouple from declaration order.
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
-            'githubWorkflowSync',
+            'core-corpus-projection',
             'graphlog-compaction',
             'kbSync',
             'memory-summary-backfill',

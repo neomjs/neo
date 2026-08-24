@@ -2154,7 +2154,7 @@ class VectorService extends Base {
                 // Cooperative embedding yield: the shadow holds the completed batches and the write-ahead
                 // resume marker already indexes it, so DO NOT promote and DO NOT clear the marker — the next
                 // sweep resumes (decideResume -> selectResumableChunks). The live collection is untouched
-                // (preserved-not-promoted), so githubWorkflowSync can write resources/content/ freely while we
+                // (preserved-not-promoted), so core-corpus-projection can read resources/content/ freely while we
                 // are yielded; the resumed run re-reads the updated corpus. Torn-read-free by the same shadow
                 // isolation that protects a normal run.
                 const settled = acceptedIds.size - embedResult.remaining;

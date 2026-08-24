@@ -251,13 +251,13 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         })
     });
 
-    test('runFullSync executes Stage 2 ingestion by dynamically invoking IssueIngestor', async () => {
+    test('runFullSync never invokes Native Graph projection — the container-plane owner is exclusive (#17627)', async () => {
         const result = await SyncService.runFullSync();
 
         expect(result.success).toBe(true);
-        expect(stage2Calls.issueStates).toBe(1);
-        expect(stage2Calls.discussionStates).toBe(1);
-        expect(stage2Calls.pullRequestFeedback).toBe(1);
+        expect(stage2Calls.issueStates).toBe(0);
+        expect(stage2Calls.discussionStates).toBe(0);
+        expect(stage2Calls.pullRequestFeedback).toBe(0);
     });
 
     test('runFullSync rebuilds content indexes and SEO before the auto-push status check (#13260)', async () => {
@@ -389,9 +389,9 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(saves).toBeGreaterThan(derives);
         expect(derives).toBe(2);
         expect(stage2Calls).toEqual({
-            issueStates        : 1,
-            discussionStates   : 1,
-            pullRequestFeedback: 1
+            issueStates        : 0,
+            discussionStates   : 0,
+            pullRequestFeedback: 0
         });
         expect(commands.filter(command => command.startsWith('git status --porcelain '))).toHaveLength(2);
         expect(commands.filter(command => command === 'NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore: ticket sync [skip ci]"')).toHaveLength(2);
@@ -464,9 +464,9 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(saves).toBeGreaterThan(derives);
         expect(derives).toBe(2);
         expect(stage2Calls).toEqual({
-            issueStates        : 1,
-            discussionStates   : 1,
-            pullRequestFeedback: 1
+            issueStates        : 0,
+            discussionStates   : 0,
+            pullRequestFeedback: 0
         });
         expect(commands.filter(command => command.startsWith('git status --porcelain '))).toHaveLength(2);
         expect(commands.filter(command => command === 'NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify -m "chore: ticket sync [skip ci]"')).toHaveLength(2);

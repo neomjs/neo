@@ -626,8 +626,8 @@
         {
             "identity": "ai/scripts/maintenance/syncGithubWorkflow.mjs",
             "eligibility": "eligible",
-            "source": "ai/scripts/maintenance/syncGithubWorkflow.mjs:38,161-163; ai/services/github-workflow/SyncService.mjs:74-89",
-            "reason": "module scope disables syncOnStartup before singleton init; CLI sync, lease, and exit work stays guarded"
+            "source": "ai/scripts/maintenance/syncGithubWorkflow.mjs:24-31,149-157",
+            "reason": "eager imports perform finite namespace/config construction; CLI emission, lease, and exits stay guarded"
         },
         {
             "identity": "ai/scripts/migrations/bootstrapWorktree.mjs",
@@ -721,6 +721,7 @@
                 "ai/scripts/maintenance/graphLifecycleReport.mjs",
                 "ai/scripts/maintenance/ingestTenant.mjs",
                 "ai/scripts/maintenance/migrationCensusReport.mjs",
+                "ai/scripts/maintenance/projectCoreCorpus.mjs",
                 "ai/scripts/maintenance/purgeNoContentGraphMemories.mjs",
                 "ai/scripts/maintenance/purgeTestCollections.mjs",
                 "ai/scripts/maintenance/restore.mjs",
@@ -1013,6 +1014,7 @@
                 "ai/scripts/maintenance/migrationCensusReport.mjs",
                 "ai/scripts/maintenance/offHostSync.mjs",
                 "ai/scripts/maintenance/probeCollectionQueryHealth.mjs",
+                "ai/scripts/maintenance/projectCoreCorpus.mjs",
                 "ai/scripts/maintenance/purgeNoContentGraphMemories.mjs",
                 "ai/scripts/maintenance/purgeTestCollections.mjs",
                 "ai/scripts/maintenance/recreateGraphDb.mjs",

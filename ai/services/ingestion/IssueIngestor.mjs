@@ -14,11 +14,12 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+const DEFAULT_CONTENT_ROOT = path.resolve(__dirname, '../../../resources/content');
 
-const loadIndexMap = async (neoRootDir, type) => {
+const loadIndexMap = async (contentRoot, type) => {
     const map       = new Map();
-    const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
-    const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
+    const typeIndex = path.resolve(contentRoot, `${type}/_index.json`);
+    const rootIndex = path.resolve(contentRoot, '_index.json');
 
     let entries = [];
     if (fs.existsSync(typeIndex)) {
@@ -138,12 +139,16 @@ class IssueIngestor extends Base {
      * into the Native Graph database. Re-asserts edge weights for OPEN issues, heavily discounting
      * any nodes structurally blocked via BLOCKED_BY relationships to prevent GraphRAG hallucinations.
      * Upserts textual issue embeddings into the localized `neo_graph_nodes` SQLite vector collection.
+     * @param {Object} [options]
+     * @param {String} [options.contentRoot=DEFAULT_CONTENT_ROOT] Exact-revision materialized corpus root.
+     * @param {Boolean} [options.strict=false] True rejects any otherwise-swallowed facet error so a
+     * projection receipt can advance only after error-free completion.
      * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
      */
-    async ingestIssueStates() {
+    async ingestIssueStates({contentRoot = DEFAULT_CONTENT_ROOT, strict = false} = {}) {
         const targetPaths = [
-            path.resolve(__dirname, '../../../resources/content/issues'),
-            path.resolve(__dirname, '../../../resources/content/archive/issues')
+            path.resolve(contentRoot, 'issues'),
+            path.resolve(contentRoot, 'archive/issues')
         ];
 
         const filesRaw = [];
@@ -154,6 +159,7 @@ class IssueIngestor extends Base {
                     filesRaw.push(...files.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Error reading issues from ${targetPath}`, e);
             }
         }
@@ -166,9 +172,7 @@ class IssueIngestor extends Base {
         const openIssues   = [];
         const parsedIssues = [];
 
-        const neoRootDir  = path.resolve(__dirname, '../../..');
-        const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap    = await loadIndexMap(neoRootDir, 'issues');
+        const indexMap = await loadIndexMap(contentRoot, 'issues');
 
         let nodesCollection = null;
         if (StorageRouter) {
@@ -205,6 +209,7 @@ class IssueIngestor extends Base {
                         parsedIssues.push({ issueId, meta, content, filePath });
                     }
                 } catch (e) {
+                    if (strict) throw e;
                     logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
                 }
             }
@@ -331,6 +336,7 @@ class IssueIngestor extends Base {
                     });
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Failed to link edges for ${filePath}`, e);
             }
         }
@@ -341,12 +347,15 @@ class IssueIngestor extends Base {
     /**
      * @summary Extracts Ideation Sandbox Discussion content to drive semantic and structural context.
      * Searches both active and archived discussion directories recursively.
+     * @param {Object} [options]
+     * @param {String} [options.contentRoot=DEFAULT_CONTENT_ROOT] Exact-revision materialized corpus root.
+     * @param {Boolean} [options.strict=false] True rejects directory/frontmatter errors for truthful facet completion.
      * @returns {Promise<void>}
      */
-    async ingestDiscussionStates() {
+    async ingestDiscussionStates({contentRoot = DEFAULT_CONTENT_ROOT, strict = false} = {}) {
         const targetPaths = [
-            path.resolve(__dirname, '../../../resources/content/discussions'),
-            path.resolve(__dirname, '../../../resources/content/archive/discussions')
+            path.resolve(contentRoot, 'discussions'),
+            path.resolve(contentRoot, 'archive/discussions')
         ];
 
         const files = [];
@@ -357,13 +366,12 @@ class IssueIngestor extends Base {
                     files.push(...items.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Error reading discussions from ${targetPath}`, e);
             }
         }
 
-        const neoRootDir  = path.resolve(__dirname, '../../..');
-        const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap    = await loadIndexMap(neoRootDir, 'discussions');
+        const indexMap = await loadIndexMap(contentRoot, 'discussions');
 
         const nodesCollection = await StorageRouter.getGraphCollection();
         const discussions     = new Map();
@@ -379,6 +387,7 @@ class IssueIngestor extends Base {
             try {
                 meta = yaml.load(match[1]);
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
                 continue;
             }
@@ -491,12 +500,15 @@ class IssueIngestor extends Base {
     /**
      * @summary Performs dual-path semantic mining on active and archived PR review documents to extract heuristic tags.
      * Parses `[KB_GAP]`, `[TOOLING_GAP]`, and `[RETROSPECTIVE]` tags.
+     * @param {Object} [options]
+     * @param {String} [options.contentRoot=DEFAULT_CONTENT_ROOT] Exact-revision materialized corpus root.
+     * @param {Boolean} [options.strict=false] True rejects directory/frontmatter errors for truthful facet completion.
      * @returns {Promise<void>}
      */
-    async ingestPullRequestFeedback() {
+    async ingestPullRequestFeedback({contentRoot = DEFAULT_CONTENT_ROOT, strict = false} = {}) {
         const targetPaths = [
-            path.resolve(__dirname, '../../../resources/content/pulls'),
-            path.resolve(__dirname, '../../../resources/content/archive/pulls')
+            path.resolve(contentRoot, 'pulls'),
+            path.resolve(contentRoot, 'archive/pulls')
         ];
 
         const files = [];
@@ -507,13 +519,12 @@ class IssueIngestor extends Base {
                     files.push(...items.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
                 }
             } catch (e) {
+                if (strict) throw e;
                 logger.warn(`[IssueIngestor] Error reading pull requests from ${targetPath}`, e);
             }
         }
 
-        const neoRootDir  = path.resolve(__dirname, '../../..');
-        const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap    = await loadIndexMap(neoRootDir, 'pulls');
+        const indexMap = await loadIndexMap(contentRoot, 'pulls');
 
         for (const filePath of files) {
             const content = fs.readFileSync(filePath, 'utf8');
@@ -591,6 +602,7 @@ class IssueIngestor extends Base {
                         }
                     }
                 } catch (e) {
+                    if (strict) throw e;
                     logger.warn(`[IssueIngestor] Failed to process pull request feedback for ${filePath}`, e);
                 }
             }

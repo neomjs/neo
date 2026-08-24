@@ -90,11 +90,6 @@ class ConfigBase extends ConfigProvider {
              */
             repo: leaf('neo'),
             /**
-             * Whether to automatically trigger a full sync when the server starts.
-             * @type {boolean}
-             */
-            syncOnStartup: leaf(false),
-            /**
              * Whether to automatically commit and push changes after a sync.
              * Only executes if the user has write permissions and there are non-metadata changes.
              * @type {boolean}

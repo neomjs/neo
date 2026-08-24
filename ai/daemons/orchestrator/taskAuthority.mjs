@@ -100,7 +100,7 @@ export const TASK_AUTHORITY_BY_NAME = Object.freeze({
     summary                                : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     'memory-summary-backfill'              : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     kbSync                                 : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
-    githubWorkflowSync                     : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    'core-corpus-projection'               : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     backup                                 : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     'graphlog-compaction'                  : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     'temporal-summary'                     : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,

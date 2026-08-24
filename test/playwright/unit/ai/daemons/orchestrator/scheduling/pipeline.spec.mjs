@@ -142,7 +142,7 @@ function makeAdapterConfig({dreamMs = 3_600_000, remBacklogCatchupCooldownMs = 3
             intervals: {
                 summarySweepMs                   : 1,
                 kbSyncMs                         : 1,
-                githubWorkflowSyncMs             : 1,
+                corpusProjectionMs               : 1,
                 backupMs                         : 1,
                 graphLogCompactionMs             : 1,
                 primaryDevSyncMs                 : 1,

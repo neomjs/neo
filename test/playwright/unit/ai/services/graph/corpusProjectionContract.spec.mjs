@@ -17,7 +17,8 @@ import {
     createCorpusProjectionReceipt,
     evaluateCorpusProjectionAdmission,
     failCorpusProjectionFacet,
-    normalizeCorpusProjectionReceipt
+    normalizeCorpusProjectionReceipt,
+    recordCorpusMaterialization
 } from '../../../../../../ai/services/graph/corpusProjectionContract.mjs';
 import {
     readCorpusProjectionReceipt,
@@ -131,6 +132,24 @@ test.describe('corpusProjectionContract — source-bound D2 admission (#17627)',
             admitted   : false,
             staleFacets: ['issues']
         })
+    });
+
+    test('materialization is source-bound and only full runs advance the full-rematerialization clock', () => {
+        let receipt = createCorpusProjectionReceipt({
+            sourceRepository: 'https://github.com/neomjs/neo.git',
+            sourceRef       : 'refs/heads/dev'
+        });
+        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_A});
+        receipt = recordCorpusMaterialization({
+            receipt,
+            revision: HEAD_A,
+            full    : true,
+            now     : '2026-08-24T00:05:00.000Z'
+        });
+
+        expect(receipt.materializedCorpusRevision).toBe(HEAD_A);
+        expect(receipt.lastFullMaterializationAt).toBe('2026-08-24T00:05:00.000Z');
+        expect(() => recordCorpusMaterialization({receipt, revision: HEAD_B})).toThrow(/must equal/)
     });
 
     test('missing source identity, malformed revisions, and unknown consumers fail closed', () => {

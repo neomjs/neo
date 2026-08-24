@@ -414,7 +414,7 @@ test.describe('Tier 1 Config Immutability', () => {
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,
             kbSyncMs                         : 30 * 60 * 1000,
-            githubWorkflowSyncMs             : 2 * 60 * 60 * 1000,
+            corpusProjectionMs               : 2 * 60 * 60 * 1000,
             backupMs                         : 24 * 60 * 60 * 1000,
             graphLogCompactionMs             : 24 * 60 * 60 * 1000,
             primaryDevSyncMs                 : 10 * 60 * 1000,
@@ -429,7 +429,6 @@ test.describe('Tier 1 Config Immutability', () => {
         // reason to keep it exhaustive rather than relax it to `toMatchObject`.
         expect(Config.orchestrator.localOnly).toEqual({
             primaryDevSyncEnabled          : null,
-            githubWorkflowSyncEnabled      : false,
             chromaDaemonEnabled            : null,
             bridgeDaemonEnabled            : false,
             neuralLinkBridgeEnabled        : null,
@@ -443,6 +442,21 @@ test.describe('Tier 1 Config Immutability', () => {
         // local opts in — which is what puts them on the role that owns them.
         expect(Config.orchestrator.cloudOnly.kbSyncEnabled).toBe(null);
         expect(Config.orchestrator.cloudOnly.temporalSummaryEnabled).toBe(null);
+        expect(Config.orchestrator.corpusProjection).toEqual({
+            enabled                    : false,
+            sourceRepository           : '',
+            sourceRef                  : '',
+            mirrorRootOverride         : null,
+            materializedRootOverride   : null,
+            receiptPathOverride        : null,
+            freshnessSlaMsOverride     : null,
+            readConcurrency            : 8,
+            fullRematerializeIntervalMs: 7 * 24 * 60 * 60 * 1000,
+            mirrorRoot                 : path.resolve(Config.orchestrator.dataDir, 'core-corpus-mirror'),
+            materializedRoot           : path.resolve(Config.orchestrator.dataDir, 'core-corpus-materialized'),
+            receiptPath                : path.resolve(Config.orchestrator.dataDir, 'core-corpus-projection.json'),
+            freshnessSlaMs             : 4 * 60 * 60 * 1000
+        });
         expect(Config.orchestrator.devServer).toEqual({
             enabled               : null,
             port                  : 8080,

@@ -85,6 +85,7 @@ export function createCorpusProjectionReceipt({sourceRepository, sourceRef, now 
         sourceRepository         : sourceRepository.trim(),
         sourceRef                : sourceRef.trim(),
         availableCorpusRevision  : null,
+        materializedCorpusRevision: null,
         projectedRevisionByFacet : buildFacetMap(() => null),
         projectionStateByFacet   : buildFacetMap(() => ({status: 'never', observedAt: now, errorCode: null})),
         lastFullMaterializationAt: null,
@@ -108,6 +109,9 @@ export function normalizeCorpusProjectionReceipt(value) {
     }
     if (value.availableCorpusRevision !== null && !isRevision(value.availableCorpusRevision)) {
         return {valid: false, code: 'available-revision-invalid', receipt: null}
+    }
+    if (value.materializedCorpusRevision !== null && !isRevision(value.materializedCorpusRevision)) {
+        return {valid: false, code: 'materialized-revision-invalid', receipt: null}
     }
     if (!isPlainObject(value.projectedRevisionByFacet) || !isPlainObject(value.projectionStateByFacet)) {
         return {valid: false, code: 'facet-map-missing', receipt: null}
@@ -163,6 +167,36 @@ export function beginCorpusProjection({
         if (!CORPUS_PROJECTION_FACETS.includes(facet)) throw new Error(`Unknown corpus projection facet: ${facet}`);
         next.projectionStateByFacet[facet] = {status: 'projecting', observedAt: now, errorCode: null}
     }
+
+    return next
+}
+
+/**
+ * @summary Records that the exact available source revision is fully materialized for ingestion.
+ * @param {Object} options
+ * @param {Object} options.receipt Current projecting receipt.
+ * @param {String} options.revision Exact materialized source revision.
+ * @param {Boolean} [options.full=false] True stamps the periodic/full-materialization clock.
+ * @param {String} [options.now=new Date().toISOString()]
+ * @returns {Object}
+ */
+export function recordCorpusMaterialization({
+    receipt,
+    revision,
+    full = false,
+    now = new Date().toISOString()
+} = {}) {
+    const normalized = normalizeCorpusProjectionReceipt(receipt);
+
+    if (!normalized.valid) throw new Error(`Cannot record corpus materialization: ${normalized.code}`);
+    if (!isRevision(revision) || revision !== normalized.receipt.availableCorpusRevision) {
+        throw new Error('Materialized revision must equal the receipt availableCorpusRevision')
+    }
+
+    const next = cloneReceipt(normalized.receipt);
+    next.materializedCorpusRevision = revision;
+    if (full) next.lastFullMaterializationAt = now;
+    next.updatedAt = now;
 
     return next
 }

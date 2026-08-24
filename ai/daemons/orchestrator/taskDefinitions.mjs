@@ -425,12 +425,13 @@ export function buildTaskDefinitions({
             expectedCommand  : 'syncKnowledgeBase.mjs',
             captureStdoutJson: true
         },
-        githubWorkflowSync: {
-            label          : 'github workflow sync',
-            command        : nodeBin,
-            args           : [path.join(scriptDir, 'maintenance', 'syncGithubWorkflow.mjs')],
-            pidFileName    : 'github-workflow-sync.pid',
-            expectedCommand: 'syncGithubWorkflow.mjs'
+        'core-corpus-projection': {
+            label            : 'core corpus projection',
+            command          : nodeBin,
+            args             : [path.join(scriptDir, 'maintenance', 'projectCoreCorpus.mjs')],
+            pidFileName      : 'core-corpus-projection.pid',
+            expectedCommand  : 'projectCoreCorpus.mjs',
+            captureStdoutJson: true
         },
         backup: {
             label          : 'agent OS backup',

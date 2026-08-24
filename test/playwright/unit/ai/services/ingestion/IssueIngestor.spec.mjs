@@ -9,6 +9,7 @@ setup({
 
 import {test, expect}  from '@playwright/test';
 import fs              from 'fs';
+import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import Neo             from '../../../../../../src/Neo.mjs';
@@ -605,6 +606,78 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         }]);
         expect(graphNodes.some(node => ['PR_REVIEW', 'REQUIRED_ACTION', 'APPROVAL', 'BLOCKER'].includes(node.label))).toBe(false);
         expect(graphEdges.some(edge => ['BLOCKS', 'APPROVES', 'REQUESTS_CHANGES', 'NEUTRALIZES'].includes(edge.relationship))).toBe(false);
+    });
+
+    test('strict projection input reads all three facets from one exact-revision content root (#17627)', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-ingestor-projection-root-'));
+
+        fs.mkdirSync(path.join(root, 'issues'), {recursive: true});
+        fs.mkdirSync(path.join(root, 'discussions'), {recursive: true});
+        fs.mkdirSync(path.join(root, 'pulls'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'issues/issue-9101.md'), [
+            '---',
+            'id: 9101',
+            'title: Projected issue',
+            'state: OPEN',
+            '---',
+            '# Projected issue'
+        ].join('\n'));
+        fs.writeFileSync(path.join(root, 'discussions/discussion-9102.md'), [
+            '---',
+            'number: 9102',
+            'title: Projected discussion',
+            'closed: false',
+            '---',
+            '# Projected discussion'
+        ].join('\n'));
+        fs.writeFileSync(path.join(root, 'pulls/pr-9103.md'), [
+            '---',
+            'number: 9103',
+            'title: Projected PR',
+            'state: MERGED',
+            '---',
+            '# Projected PR'
+        ].join('\n'));
+
+        StorageRouter.getGraphCollection = async () => ({
+            get   : async () => ({ids: [], metadatas: []}),
+            upsert: async () => {}
+        });
+
+        try {
+            const issues = await IssueIngestor.ingestIssueStates({contentRoot: root, strict: true});
+            await IssueIngestor.ingestDiscussionStates({contentRoot: root, strict: true});
+            await IssueIngestor.ingestPullRequestFeedback({contentRoot: root, strict: true});
+
+            expect(issues.map(item => item.issueId)).toEqual(['issue-9101']);
+            expect(graphNodes.map(node => node.id)).toEqual(expect.arrayContaining([
+                'issue-9101',
+                'discussion-9102',
+                'pr-9103'
+            ]))
+        } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+            fs.rmSync(root, {recursive: true, force: true})
+        }
+    });
+
+    test('strict projection input rejects an otherwise-swallowed facet parse failure (#17627)', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-ingestor-projection-invalid-'));
+
+        fs.mkdirSync(path.join(root, 'issues'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'issues/issue-broken.md'), '---\ntitle: [unterminated\nstate: OPEN\n---\n# broken');
+        StorageRouter.getGraphCollection = async () => ({
+            get   : async () => ({ids: [], metadatas: []}),
+            upsert: async () => {}
+        });
+
+        try {
+            await expect(IssueIngestor.ingestIssueStates({contentRoot: root, strict: true}))
+                .rejects.toThrow()
+        } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+            fs.rmSync(root, {recursive: true, force: true})
+        }
     });
 });
 

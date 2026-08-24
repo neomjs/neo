@@ -1361,6 +1361,7 @@ class ConfigBase extends ConfigProvider {
                     materializedRootOverride   : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_MATERIALIZED_ROOT', 'string'),
                     receiptPathOverride        : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_RECEIPT_PATH', 'string'),
                     freshnessSlaMsOverride     : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_FRESHNESS_SLA_MS', 'number'),
+                    readConcurrency            : leaf(8, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_READ_CONCURRENCY', 'number'),
                     fullRematerializeIntervalMs: leaf(7 * DAY_MS, 'NEO_ORCHESTRATOR_CORPUS_FULL_REMATERIALIZE_INTERVAL_MS', 'number')
                 },
                 /**
@@ -1652,10 +1653,9 @@ class ConfigBase extends ConfigProvider {
                     pollMs              : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
                     summarySweepMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
                     kbSyncMs            : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
-                    githubWorkflowSyncMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_INTERVAL_MS', 'number'),
                     /**
-                     * Container-owned core-corpus projection cadence. Distinct from
-                     * `githubWorkflowSyncMs`: CI owns GitHub emission, while this lane owns
+                     * Container-owned core-corpus projection cadence. CI owns GitHub emission;
+                     * this separate lane owns
                      * committed-corpus → Native Graph projection on the store-bearing plane.
                      * @type {Number}
                      */
@@ -1829,7 +1829,7 @@ class ConfigBase extends ConfigProvider {
                  * Heavy-maintenance lease fairness — the bound on continuous lease hold. A long-running
                  * heavy task (e.g. a multi-hour KB re-embed) yields the single heavy-maintenance lease
                  * after `maxActiveHoldMs` of continuous hold — polled via `shouldYieldHeavyMaintenanceLease`
-                 * — so a starved heavy peer (e.g. `githubWorkflowSync`, which otherwise stales the sandman
+                 * — so a starved heavy peer (e.g. `core-corpus-projection`, which otherwise stales the sandman
                  * handoff for the whole run) interleaves; the next sweep re-acquires for the remaining work.
                  * A holder must only yield at a resumable checkpoint (a preserved shadow + resume-marker keep
                  * completed work), so the release window is torn-read-free. `0`/falsy ⇒ never yields
@@ -1992,18 +1992,13 @@ class ConfigBase extends ConfigProvider {
                  * without changing remote graph-backed A2A / Memory Core behavior.
                  * `null` means "use the deployment profile default" (`local` enables,
                  * `cloud` disables); set `true` only when explicitly opting a lane back in.
-                 * Exceptions default `false`: `githubWorkflowSyncEnabled` because the Data Sync
-                 * workflow owns scheduled corpus publication, plus `bridgeDaemonEnabled` and
+                 * Exceptions default `false`: `bridgeDaemonEnabled` and
                  * `swarmHeartbeatEnabled` because the Stop hook makes wake + heartbeat redundant
                  * flood. All remain env-overridable to re-enable.
                  * @type {Object}
                  */
                 localOnly: {
                     primaryDevSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
-                    // Scheduled corpus emission belongs to CI's read-only/Publisher split. Local
-                    // checkouts retain the manual CLI but must not regenerate the corpus every two
-                    // hours and accumulate changes they cannot publish through the dev ruleset.
-                    githubWorkflowSyncEnabled: leaf(false, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
