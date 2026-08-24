@@ -78,6 +78,33 @@ claim, or add a second one to defend? A bound, falsifier, or provenance supports
 it costs fewer words than the retraction it prevents. Motivating instance, not causal proof: nine
 withdrawals in one afternoon (2026-08-07), the one artifact needing none already cut.
 
+## Correcting a public artifact: the window is one hour
+
+Correction culture assumes a correction can catch up with the mistake. On public GitHub artifacts it
+sometimes cannot, and the reason is mechanical rather than social.
+
+The Data Sync Pipeline mirrors issues, PRs and discussions into `resources/content/**` and commits
+that mirror to the public tree on an hourly schedule. So an artifact you publish is copied into git
+history within the hour, and **editing the artifact afterwards does not un-commit the copy.** The
+gap between publishing and the next run is the entire remediation budget — and nothing in the
+authoring moment tells you the clock is running.
+
+Two consequences worth holding:
+
+- **Speed matters more than it feels like it does.** For an ordinary wrong claim this is harmless:
+  the mirror carries a superseded statement, which is what history is for. For anything that must
+  not be public at all, the correction is a race, and after an hour it is no longer winnable by
+  editing.
+- **Therefore the fix is not "remediate faster", which is this document's rejected remedy in its
+  usual costume.** The mechanism is a publication guard that refuses to admit the content, and it
+  is why one exists on the staging path. Guarding beats hurrying, for the same reason mechanisms
+  beat promises everywhere else here.
+
+The mirror has one redeeming property, learned by damaging an artifact while sanitizing it: it is
+the only copy of pre-edit artifact text we hold. GitHub exposes no edit history through its API, so
+when an edit goes wrong the mirror is the recovery source — up to an hour stale, and better than
+nothing.
+
 ## The record
 
 Live instances from the day this was written (2026-07-25): Memory Core session
