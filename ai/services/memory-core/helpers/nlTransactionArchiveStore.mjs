@@ -97,7 +97,8 @@ export function saveNlTransaction({appSessionId = null, name = null, transaction
     }
 
     const archiveId    = crypto.randomUUID(),
-          originWriter = transaction.originWriter ?? transaction.ops[0]?.originWriter;
+          originWriter = transaction.originWriter ?? transaction.ops[0]?.originWriter,
+          trimmedName  = typeof name === 'string' && name.trim() ? name.trim() : null;
 
     try {
         GraphService.upsertNode({
@@ -107,11 +108,13 @@ export function saveNlTransaction({appSessionId = null, name = null, transaction
             updatedAt : now,
             properties: {
                 archiveId,
-                name,
+                // `txId`, not `id` — the App Worker transaction snapshot names it `txId`, and reading the
+                // wrong key would archive a null source id that only surfaces at replay time.
+                sourceTxId    : transaction.txId ?? null,
+                name          : trimmedName,
                 appSessionId,
-                sourceTxId    : transaction.id ?? null,
                 originWriter,
-                committedAt   : transaction.committedAt ?? null,
+                committedAt   : Number.isFinite(transaction.committedAt) ? transaction.committedAt : null,
                 archivedAt    : now,
                 ops           : transaction.ops,
                 replayCount   : 0,
@@ -125,7 +128,17 @@ export function saveNlTransaction({appSessionId = null, name = null, transaction
         return {saved: false, reason: `archive-store-unavailable: ${error.message}`};
     }
 
-    return {saved: true, archiveId};
+    // The full success shape the host contract already published — not just `archiveId`. A caller that
+    // reads `opCount` or `committedAt` off this result predates the relocation and must keep working.
+    return {
+        saved      : true,
+        archiveId,
+        sourceTxId : transaction.txId ?? null,
+        archivedAt : now,
+        opCount    : transaction.ops.length,
+        originWriter,
+        committedAt: Number.isFinite(transaction.committedAt) ? transaction.committedAt : null
+    };
 }
 
 /**

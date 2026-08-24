@@ -1,10 +1,10 @@
 import {setup} from '../../../../setup.mjs';
 
-// Action logging is OFF by default per seat, so this suite — which exercises the schema
-// and the insert path — must opt IN. Set before `setup()` because the config leaf binds this env
-// at module-load time, and mutating the shared config singleton at runtime is forbidden.
-// The complementary default-OFF proof lives in `RecorderServiceDefaultOff.spec.mjs`, which spawns
-// fresh child processes precisely because this assignment is process-wide and cannot be undone.
+// Action logging is OFF by default per seat, so this suite — which exercises the telemetry admission
+// path — must opt IN. Set before `setup()` because the config leaf binds this env at module-load time,
+// and mutating the shared config singleton at runtime is forbidden. The complementary default-OFF proof
+// lives in `RecorderServiceDefaultOff.spec.mjs`, which spawns fresh child processes precisely because
+// this assignment is process-wide and cannot be undone.
 process.env.NEO_NL_ACTION_LOGGING = 'true';
 
 const appName = 'RecorderServiceTest';
@@ -24,216 +24,201 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
+/**
+ * The archive and the telemetry channel no longer live in a host SQLite file — both travel outbound to
+ * Memory Core through named operations. So this suite asserts the OUTBOUND CONTRACT (which operation is
+ * called, with which payload, and what the caller sees come back) rather than rows in a table.
+ *
+ * Every arm injects the transport. That is not convenience: with a credential present the real client
+ * waits on a live connection and this suite HANGS, and without one it fails on a missing environment
+ * variable — neither of which is the behaviour under test. Measured the hard way; before the seam existed
+ * both files ran past ten minutes without completing.
+ */
 test.describe('Neo.ai.services.neural-link.RecorderService', () => {
-    let RecorderService;
+    let RecorderService, setArchiveTransport, resetArchiveClient, calls;
 
     test.beforeAll(async () => {
         RecorderService = (await import('../../../../../../ai/services/neural-link/RecorderService.mjs')).default;
 
+        ({setArchiveTransport, resetArchiveClient} =
+            await import('../../../../../../ai/services/neural-link/memoryCoreArchiveClient.mjs'));
+
         await RecorderService.initAsync();
     });
 
-    test.afterAll(async () => {
-        if (RecorderService.db) {
-            try { RecorderService.db.close(); } catch (e) {}
-            RecorderService.db = null;
-        }
+    test.beforeEach(() => {
+        calls = [];
     });
 
-    test('should initialize the database schema', async () => {
-        expect(RecorderService.db).toBeTruthy();
-
-        const tables = RecorderService.db.prepare(`
-            SELECT name FROM sqlite_master
-             WHERE type = 'table'
-               AND name IN ('nl_action_log', 'nl_transaction_archive')
-             ORDER BY name
-        `).all();
-
-        expect(tables.map(row => row.name)).toEqual(['nl_action_log', 'nl_transaction_archive']);
+    test.afterEach(async () => {
+        await resetArchiveClient();
     });
 
-    test('should log tool invocations correctly', () => {
-        const dummyLog = {
+    /** Records every call and answers whatever the arm declares. */
+    function stubTransport(answers = {}) {
+        setArchiveTransport(async (operation, args) => {
+            calls.push({operation, args});
+
+            const answer = answers[operation];
+
+            if (typeof answer === 'function') return answer(args);
+
+            return answer ?? null;
+        });
+    }
+
+    test('boot opens no store — both contracts are reachable on demand instead', async () => {
+        // The relocation's headline property, asserted rather than assumed: there is no host-side handle
+        // left whose absence could silently disable a write. `initAsync` ran in beforeAll.
+        expect(RecorderService.db).toBeUndefined();
+    });
+
+    test('a logged tool invocation admits the DECIDED record set, and drops everything else', async () => {
+        stubTransport({admit_nl_actions: {admitted: 1, refused: 0}});
+
+        RecorderService.log({
             agent_id   : 'agent-123',
             session_id : 'session-456',
-            sequence_id: 'seq-789',
-            timestamp  : Date.now(),
-            tool       : 'test_tool',
-            args       : JSON.stringify({ arg1: 'value' }),
-            result     : JSON.stringify({ res: 'ok' }),
+            sequence_id: 'agent-123_turn-9',
+            timestamp  : 1_700_000_000_000,
+            tool       : 'create_component',
+            args       : JSON.stringify({className: 'Neo.button.Base', componentId: 'btn-1', secret: 'do-not-store'}),
+            result     : JSON.stringify({huge: 'payload'}),
             success    : true,
-            duration_ms: 150,
+            duration_ms: 42,
             app_name   : appName
-        };
+        });
 
-        RecorderService.log(dummyLog);
+        // `log` is fire-and-forget by design — telemetry must never block the tool call that produced it —
+        // so the assertion waits for the admission rather than assuming it already happened.
+        await expect.poll(() => calls.length).toBe(1);
 
-        const rows = RecorderService.db.prepare("SELECT * FROM nl_action_log WHERE sequence_id = 'seq-789'").all();
-        expect(rows.length).toBe(1);
+        const [{operation, args}] = calls,
+              [action]            = args.actions;
 
-        const row = rows[0];
-        expect(row.agent_id).toBe('agent-123');
-        expect(row.session_id).toBe('session-456');
-        expect(row.sequence_id).toBe('seq-789');
-        expect(row.tool).toBe('test_tool');
-        expect(row.success).toBe(1);
-        expect(row.reward).toBeNull();
-        expect(row.app_name).toBe(appName);
+        expect(operation).toBe('admit_nl_actions');
+
+        expect(action).toEqual({
+            sessionId : 'session-456',
+            timestamp : 1_700_000_000_000,
+            tool      : 'create_component',
+            success   : true,
+            durationMs: 42,
+            appName,
+            targets   : {classNames: ['Neo.button.Base'], componentIds: ['btn-1']}
+        });
+
+        // THE DROPPED SET IS ASSERTED, NOT MERELY OMITTED. Omission-by-forgetting and omission-by-contract
+        // look identical in a passing test, so the contract has to be the thing under test.
+        expect(action).not.toHaveProperty('agent_id');
+        expect(action).not.toHaveProperty('agentId');
+        expect(action).not.toHaveProperty('result');
+        expect(action).not.toHaveProperty('args');
+        expect(action).not.toHaveProperty('reward');
+
+        // And the raw argument that is neither a class nor a component id never crosses.
+        expect(JSON.stringify(action)).not.toContain('do-not-store');
+
+        // The host's `sequence_id` encoded `${agentId}_${turnId}` — correlation that WAS identity. It must
+        // not be forwarded; Memory Core mints its own opaque token.
+        expect(JSON.stringify(action)).not.toContain('agent-123');
     });
 
-    test('should handle success as 0 when log indicates failure', () => {
-        const dummyLog = {
-            agent_id   : 'agent-123',
+    test('a failed invocation admits success false rather than dropping the row', async () => {
+        stubTransport({admit_nl_actions: {admitted: 1, refused: 0}});
+
+        RecorderService.log({
             session_id : 'session-456',
-            sequence_id: 'seq-fail-123',
-            timestamp  : Date.now(),
-            tool       : 'test_tool2',
-            args       : '{}',
-            result     : 'error',
+            timestamp  : 1_700_000_000_001,
+            tool       : 'patch_code',
             success    : false,
-            duration_ms: 10
-        };
-
-        RecorderService.log(dummyLog);
-
-        const rows = RecorderService.db.prepare("SELECT * FROM nl_action_log WHERE sequence_id = 'seq-fail-123'").all();
-        expect(rows.length).toBe(1);
-        expect(rows[0].success).toBe(0);
-        expect(rows[0].reward).toBeNull();
-    });
-
-    test('querySequences should group and filter records', () => {
-        const timeNow = Date.now();
-        // create a future log
-         RecorderService.log({
-            agent_id   : 'agent-future',
-            sequence_id: 'seq-future',
-            timestamp  : timeNow + 5000,
-            tool       : 'future_tool',
-            args       : '{}',
-            success    : true
+            duration_ms: 7,
+            app_name   : appName
         });
 
-        const futureRows = RecorderService.querySequences({ sinceTimestamp: timeNow + 1000 });
-        expect(futureRows.length).toBe(1);
-        expect(futureRows[0].sequence_id).toBe('seq-future');
+        await expect.poll(() => calls.length).toBe(1);
+
+        // A failure is evidence, and the digest's consumers read `success` — dropping the row would make
+        // the failure rate unmeasurable rather than zero.
+        expect(calls[0].args.actions[0].success).toBe(false);
     });
 
-    test('pruneOlderThan should delete old rows', () => {
-        // Insert a very old row
-        RecorderService.db.prepare(`
-            INSERT INTO nl_action_log (id, agent_id, sequence_id, timestamp, tool, args)
-            VALUES ('old-1', 'ag', 'seq-old', ?, 'tool', '{}')
-        `).run(Date.now() - (10 * 24 * 60 * 60 * 1000)); // 10 days ago
-
-        const allBefore = RecorderService.db.prepare("SELECT count(*) as c FROM nl_action_log").get().c;
-
-        // prune older than 5 days
-        RecorderService.pruneOlderThan(5);
-
-        const allAfter = RecorderService.db.prepare("SELECT count(*) as c FROM nl_action_log").get().c;
-        expect(allAfter).toBe(allBefore - 1);
-
-        const oldCheck = RecorderService.db.prepare("SELECT * FROM nl_action_log WHERE id = 'old-1'").get();
-        expect(oldCheck).toBeUndefined();
-    });
-
-    test('should save, read, and mark replayed transaction archives', async () => {
+    test('save, read, and replay-mark travel to their named operations and preserve the shipped shape', async () => {
         const transaction = {
-            txId        : 'batch:add-grid',
+            txId        : 'tx-1',
             status      : 'committed',
-            originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
-            committedAt : 1234,
-            ops         : [{
-                sequenceId       : 'seq-1',
-                originWriter     : {agentId: 'agent-a', sessionId: 'sess-a'},
-                targetSubtreePath: ['root', 'leaf'],
-                forward          : {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}},
-                reverse          : {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 0}}},
-                label            : 'set x'
-            }]
+            committedAt : 1_700_000_000_000,
+            originWriter: {agentId: 'agent-1', sessionId: 'session-1'},
+            ops         : [{method: 'setConfigs', args: [{id: 'c1', text: 'hi'}]}]
         };
 
-        const saved = await RecorderService.saveTransactionArchive({
-            appSessionId: 'app-session-1',
-            name        : 'Add grid',
-            transaction
+        stubTransport({
+            save_nl_transaction         : {saved: true, archiveId: 'arch-1', sourceTxId: 'tx-1', opCount: 1},
+            get_nl_transaction          : {archiveId: 'arch-1', ops: transaction.ops, committedAt: 1_700_000_000_000, sourceTxId: 'tx-1', originWriter: transaction.originWriter, replayCount: 0},
+            mark_nl_transaction_replayed: {updated: true}
         });
 
-        expect(saved).toMatchObject({
-            saved       : true,
-            sourceTxId  : 'batch:add-grid',
-            archivedAt  : expect.any(Number),
-            opCount     : 1,
-            originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
-            committedAt : 1234
-        });
+        const saved = await RecorderService.saveTransactionArchive({appSessionId: 'app-1', name: ' named ', transaction});
 
-        const archive = await RecorderService.getTransactionArchive({archiveId: saved.archiveId});
+        expect(saved).toMatchObject({saved: true, archiveId: 'arch-1', sourceTxId: 'tx-1'});
+        expect(calls[0].operation).toBe('save_nl_transaction');
+        expect(calls[0].args.transaction.txId).toBe('tx-1');
 
-        expect(archive).toMatchObject({
-            archiveId     : saved.archiveId,
-            name          : 'Add grid',
-            sourceTxId    : 'batch:add-grid',
-            appSessionId  : 'app-session-1',
-            originWriter  : {agentId: 'agent-a', sessionId: 'sess-a'},
-            committedAt   : 1234,
-            archivedAt    : saved.archivedAt,
-            replayCount   : 0,
-            lastReplayedAt: null,
-            ops           : transaction.ops
-        });
+        const archive = await RecorderService.getTransactionArchive({archiveId: 'arch-1'});
 
-        expect(await RecorderService.recordTransactionReplay({archiveId: saved.archiveId})).toEqual({updated: true});
+        expect(calls[1].operation).toBe('get_nl_transaction');
+        // Replay reconstructs from these three; a relocation that lost any of them would break replay
+        // rather than the archive.
+        expect(archive).toMatchObject({ops: transaction.ops, sourceTxId: 'tx-1', originWriter: transaction.originWriter});
 
-        const replayed = await RecorderService.getTransactionArchive({archiveId: saved.archiveId});
-
-        expect(replayed.replayCount).toBe(1);
-        expect(replayed.lastReplayedAt).toEqual(expect.any(Number))
+        expect(await RecorderService.recordTransactionReplay({archiveId: 'arch-1'})).toEqual({updated: true});
+        expect(calls[2].operation).toBe('mark_nl_transaction_replayed');
     });
 
-    test('should reject non-data transaction archive payloads', async () => {
-        class NonDataArchiveValue {}
+    test('a non-data op is refused BEFORE the wire, naming the offending path', async () => {
+        stubTransport({save_nl_transaction: {saved: true, archiveId: 'unreachable'}});
 
-        const baseTransaction = {
-            txId        : 'batch:bad',
-            status      : 'committed',
-            originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
-            ops         : [{
-                sequenceId       : 'seq-bad',
-                originWriter     : {agentId: 'agent-a', sessionId: 'sess-a'},
-                targetSubtreePath: ['root', 'leaf'],
-                forward          : {tool: 'set_instance_properties', args: {id: 'leaf'}},
-                reverse          : {tool: 'set_instance_properties', args: {id: 'leaf'}},
-                label            : 'bad op'
-            }]
-        };
-
-        expect(await RecorderService.saveTransactionArchive({
+        const result = await RecorderService.saveTransactionArchive({
             transaction: {
-                ...baseTransaction,
-                ops: [{
-                    ...baseTransaction.ops[0],
-                    forward: {tool: 'set_instance_properties', args: {handler: () => {}}}
-                }]
+                txId        : 'tx-2',
+                status      : 'committed',
+                originWriter: {agentId: 'a', sessionId: 's'},
+                ops         : [{method: 'setConfigs', args: [{onClick: () => {}}]}]
             }
-        })).toEqual({
-            saved : false,
-            reason: 'transaction-not-data-only: non-data function value at transaction.ops[0].forward.args.handler'
         });
 
-        expect(await RecorderService.saveTransactionArchive({
+        expect(result.saved).toBe(false);
+        expect(result.reason).toContain('transaction-not-data-only');
+
+        // The guard stays host-side on purpose: JSON transport cannot carry a function, so a container-side
+        // check would only ever see a shape error with no idea which op produced it. Proving the call never
+        // left is what makes "before the wire" a fact rather than a comment.
+        expect(calls).toEqual([]);
+    });
+
+    test('an unreachable Memory Core FAILS the archive by name — never a silent local fallback', async () => {
+        setArchiveTransport(async () => { throw new Error('ingress unreachable') });
+
+        const result = await RecorderService.saveTransactionArchive({
             transaction: {
-                ...baseTransaction,
-                ops: [{
-                    ...baseTransaction.ops[0],
-                    forward: {tool: 'set_instance_properties', args: {value: new NonDataArchiveValue()}}
-                }]
+                txId        : 'tx-3',
+                status      : 'committed',
+                originWriter: {agentId: 'a', sessionId: 's'},
+                ops         : [{method: 'setConfigs', args: [{id: 'c1'}]}]
             }
-        })).toEqual({
-            saved : false,
-            reason: 'transaction-not-data-only: class-backed data at transaction.ops[0].forward.args.value'
-        })
+        });
+
+        // The whole point of the relocation: no host-local fallback. A friendlier failure that wrote a
+        // local file would re-create the two realities this work removes.
+        expect(result).toMatchObject({saved: false});
+        expect(result.reason).toContain('archive-store-unavailable');
+    });
+
+    test('the dormant telemetry readers are GONE, not ported', async () => {
+        // `querySequences` and `pruneOlderThan` had no production caller. Porting a dead method and calling
+        // retention governed is refused by this ticket's own AC, so their absence is asserted — otherwise a
+        // future reader restores them believing they were an oversight.
+        expect(RecorderService.querySequences).toBeUndefined();
+        expect(RecorderService.pruneOlderThan).toBeUndefined();
     });
 });

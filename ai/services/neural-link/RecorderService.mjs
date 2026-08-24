@@ -1,11 +1,94 @@
-import crypto from 'crypto';
-import fs     from 'fs-extra';
-import path   from 'path';
 import Base   from '../../../src/core/Base.mjs';
 import config from '../../mcp/server/neural-link/config.mjs';
 import logger from '../../mcp/server/neural-link/logger.mjs';
+import {
+    admitActions             as admitActionsViaMemoryCore,
+    getTransactionArchive    as getTransactionArchiveViaMemoryCore,
+    recordTransactionReplay  as recordTransactionReplayViaMemoryCore,
+    saveTransactionArchive   as saveTransactionArchiveViaMemoryCore
+} from './memoryCoreArchiveClient.mjs';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Argument keys whose values name a Neural Link TARGET. Everything else in a tool's arguments is dropped
+ * before telemetry leaves the host: raw args can carry app state, user content or a private `thought`,
+ * none of which telemetry needs and none of which should become durable because a tool call included it.
+ * @type {String[]}
+ */
+const TARGET_CLASS_KEYS = Object.freeze(['className']),
+      TARGET_ID_KEYS    = Object.freeze(['componentId', 'component_id', 'id']);
+
+/**
+ * @summary Extracts the bounded target projection from a tool's arguments.
+ *
+ * Walks one level plus the two nested bags NL tools actually use (`config`, `properties`), which is the
+ * shape `GapInferenceEngine` already consumes. Deliberately not a deep walk: an unbounded traversal is
+ * how "just the targets" becomes "most of the payload" the first time a tool nests something new.
+ * @param {*} args The tool arguments — a JSON string on the host's log entry, or an object.
+ * @returns {Object} `{classNames, componentIds}`, both always arrays.
+ */
+function projectTargets(args) {
+    let parsed = args;
+
+    if (typeof args === 'string') {
+        try {
+            parsed = JSON.parse(args)
+        } catch (error) {
+            return {classNames: [], componentIds: []}
+        }
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+        return {classNames: [], componentIds: []}
+    }
+
+    const classNames   = new Set(),
+          componentIds = new Set(),
+          collect      = bag => {
+              if (!bag || typeof bag !== 'object') return;
+
+              for (const key of TARGET_CLASS_KEYS) {
+                  if (typeof bag[key] === 'string') classNames.add(bag[key])
+              }
+
+              for (const key of TARGET_ID_KEYS) {
+                  if (typeof bag[key] === 'string') componentIds.add(bag[key])
+              }
+
+              if (Array.isArray(bag.componentIds)) {
+                  bag.componentIds.filter(v => typeof v === 'string').forEach(v => componentIds.add(v))
+              }
+          };
+
+    collect(parsed);
+    collect(parsed.config);
+    collect(parsed.properties);
+
+    return {classNames: [...classNames], componentIds: [...componentIds]}
+}
+
+/**
+ * @summary Projects the host's log entry into the admitted telemetry record.
+ *
+ * Drops `agent_id`, `result` and the raw `args` — a census of every production READ found no reader for
+ * the first two, and the third is replaced by the bounded target projection. `sequence_id` is dropped
+ * rather than forwarded: on the host it encoded `${agentId}_${turnId}`, so the correlation key WAS the
+ * agent's identity. Memory Core mints a fresh opaque token instead, which is correlation without
+ * identification.
+ * @param {Object} entry The host's snake_case log entry.
+ * @returns {Object} The admitted action.
+ */
+function projectActionEntry(entry = {}) {
+    return {
+        sessionId : entry.session_id ?? null,
+        timestamp : entry.timestamp,
+        tool      : entry.tool,
+        success   : entry.success === true || entry.success === 1,
+        durationMs: entry.duration_ms,
+        appName   : entry.app_name ?? null,
+        targets   : projectTargets(entry.args)
+    }
+}
 
 /**
  * Refuses non-data values before transaction ops are persisted for replay.
@@ -66,11 +149,6 @@ class RecorderService extends Base {
          * @protected
          */
         singleton: true,
-        /**
-         * @member {Object|null} db=null
-         * @protected
-         */
-        db: null
     }
 
     /**
@@ -82,119 +160,7 @@ class RecorderService extends Base {
      */
     storeOpen = null
 
-    /**
-     * @summary Opens the Memory Core connection on demand and ensures both physical schemas exist.
-     *
-     * This service owns TWO independent contracts against one file: `nl_action_log` (action
-     * telemetry) and `nl_transaction_archive` (the durable transaction save/replay product
-     * surface consumed by `InstanceService.saveTransaction()` / `replayTransaction()`).
-     *
-     * The connection is therefore opened lazily rather than at boot, so the two can be gated
-     * separately. A seat with telemetry disabled that never archives a transaction holds NO write
-     * handle on the shared plane graph — the point of the telemetry default — while a seat that
-     * does archive one gets a connection at that moment. Gating the connection instead of the
-     * capability would silently retire the archive contract along with the telemetry.
-     *
-     * Idempotent and SINGLE-FLIGHT: the open path awaits filesystem work, so a bare
-     * check-then-open races — N concurrent first users each observe a null `db` and open N
-     * connections against one shared file. The in-flight promise is assigned synchronously,
-     * before any await, so every concurrent caller joins one real open; it is cleared on settle,
-     * so a failed open resolves `null` for the current waiters while the NEXT call retries fresh
-     * instead of being pinned to a cached failure.
-     * @returns {Promise<Object|null>} The connection, or `null` if it could not be opened
-     * @protected
-     */
-    async ensureStore() {
-        if (this.db) {
-            return this.db;
-        }
 
-        if (!this.storeOpen) {
-            this.storeOpen = this.openStore().finally(() => {
-                this.storeOpen = null
-            });
-        }
-
-        return this.storeOpen;
-    }
-
-    /**
-     * @summary The real opener behind `ensureStore()` — never call directly.
-     *
-     * Emits exactly one connection marker per successful open. The enabled path keeps the
-     * boot-contract line naming `nl_action_log`; the on-demand path names the archive instead, so
-     * a disabled seat's log can never imply action telemetry was requested — the marker stays
-     * neutral for the contract that actually opened the store.
-     * @returns {Promise<Object|null>} The connection, or `null` if it could not be opened
-     * @protected
-     */
-    async openStore() {
-        try {
-            const dbPath = config.memoryCoreDbPath;
-
-            if (!dbPath) {
-                logger.warn('[RecorderService] memoryCoreDbPath not configured. Persistence unavailable.');
-                return null;
-            }
-
-            await fs.ensureDir(path.dirname(dbPath));
-            const Database = (await import('better-sqlite3')).default;
-
-            this.db = new Database(dbPath, { verbose: null });
-            this.db.pragma('journal_mode = WAL');
-
-            // Both schemas are created together: they share one file, and creating only one would
-            // leave the other contract failing on first use for no benefit.
-            this.db.exec(`
-                CREATE TABLE IF NOT EXISTS nl_action_log (
-                    id          TEXT PRIMARY KEY,
-                    agent_id    TEXT NOT NULL,
-                    session_id  TEXT,
-                    sequence_id TEXT NOT NULL,
-                    timestamp   INTEGER NOT NULL,
-                    tool        TEXT NOT NULL,
-                    args        TEXT NOT NULL,
-                    result      TEXT,
-                    success     INTEGER DEFAULT 0,
-                    duration_ms INTEGER,
-                    app_name    TEXT,
-                    reward      REAL DEFAULT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_nl_action_log_sequence  ON nl_action_log(sequence_id);
-                CREATE INDEX IF NOT EXISTS idx_nl_action_log_session   ON nl_action_log(session_id);
-                CREATE INDEX IF NOT EXISTS idx_nl_action_log_timestamp ON nl_action_log(timestamp);
-
-                CREATE TABLE IF NOT EXISTS nl_transaction_archive (
-                    archive_id              TEXT PRIMARY KEY,
-                    name                    TEXT,
-                    source_tx_id            TEXT NOT NULL,
-                    source_agent_id         TEXT,
-                    source_agent_session_id TEXT,
-                    app_session_id          TEXT,
-                    origin_writer           TEXT NOT NULL,
-                    committed_at            INTEGER,
-                    archived_at             INTEGER NOT NULL,
-                    ops                     TEXT NOT NULL,
-                    replay_count            INTEGER DEFAULT 0,
-                    last_replayed_at        INTEGER
-                );
-                CREATE INDEX IF NOT EXISTS idx_nl_transaction_archive_source_tx
-                    ON nl_transaction_archive(source_tx_id);
-                CREATE INDEX IF NOT EXISTS idx_nl_transaction_archive_archived
-                    ON nl_transaction_archive(archived_at);
-            `);
-
-            logger.info(config.actionLoggingEnabled
-                ? '[RecorderService] Connected to Memory Core nl_action_log.'
-                : '[RecorderService] Archive store opened on demand.');
-
-            return this.db;
-        } catch (err) {
-            logger.warn('[RecorderService] Failed to initialize SQLite connection:', err.message);
-
-            return null;
-        }
-    }
 
     /**
      * Opens the store eagerly only when action logging is enabled, so an enabled seat keeps its
@@ -212,12 +178,11 @@ class RecorderService extends Base {
     async initAsync() {
         await super.initAsync();
 
-        if (config.actionLoggingEnabled) {
-            await this.ensureStore();
-            return;
-        }
-
-        logger.info('[RecorderService] Action logging disabled; transaction archive available on demand.');
+        // Nothing to open. Both contracts now travel outbound to Memory Core on demand, so there is no
+        // host-side store to warm at boot and no connection whose absence could silently disable a write.
+        logger.info(config.actionLoggingEnabled
+            ? '[RecorderService] Action logging enabled; telemetry admits to Memory Core, write-only.'
+            : '[RecorderService] Action logging disabled; transaction archive available on demand.');
     }
 
     /**
@@ -226,220 +191,70 @@ class RecorderService extends Base {
      * @param {Object} entry The invocation payload containing sequences, tool metadata, args, and execution times.
      */
     log(entry) {
-        // Explicit gate: the store may be open for the ARCHIVE contract, so a live `db` is no
-        // longer evidence that telemetry was requested.
-        if (!config.actionLoggingEnabled || !this.db) return;
+        // Policy gate stays telemetry-only: the archive contract is reachable while this is off, which is
+        // the independence an earlier change established and this relocation must not quietly alter.
+        if (!config.actionLoggingEnabled) return;
 
-        try {
-            const insertStmt = this.db.prepare(`
-                INSERT INTO nl_action_log (
-                    id, agent_id, session_id, sequence_id, timestamp,
-                    tool, args, result, success, duration_ms, app_name
-                ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )
-            `);
-
-            insertStmt.run(
-                crypto.randomUUID(),
-                entry.agent_id || 'unknown',
-                entry.session_id || null,
-                entry.sequence_id,
-                entry.timestamp,
-                entry.tool,
-                entry.args,
-                entry.result,
-                entry.success ? 1 : 0,
-                entry.duration_ms,
-                entry.app_name || null
-            );
-        } catch (err) {
-            // Swallowing exceptions so it never disrupts the main logic
-            logger.error('[RecorderService] Failed to append log entry:', err);
-        }
+        // Fire-and-forget on purpose. Telemetry is observability, so it must never block the tool call
+        // that produced it nor surface a transport failure to it; the admission counts refusals instead.
+        admitActionsViaMemoryCore({actions: [projectActionEntry(entry)]}).catch(error => {
+            logger.error('[RecorderService] Failed to admit action telemetry:', error);
+        });
     }
 
-    /**
-     * Executes queries against the internal Action Log. Principally used by DreamService triggers
-     * to harvest execution chains for automated Playwright test synthesis.
-     * @param {Object} config Query parameters and offsets.
-     * @param {Number} [config.sinceTimestamp=0] Return logs after this epoch.
-     * @param {Number} [config.minSuccessRate] (Not yet implemented) Flattens metrics filtering.
-     * @param {Number} [config.limit] Optional hard limit.
-     * @returns {Array} An array of matched SQLite row objects.
-     */
-    querySequences({ sinceTimestamp = 0, minSuccessRate, limit } = {}) {
-        if (!config.actionLoggingEnabled || !this.db) return [];
 
-        try {
-            let   sql  = `SELECT * FROM nl_action_log WHERE timestamp >= ?`;
-            const args = [sinceTimestamp];
-
-            sql += ` ORDER BY timestamp DESC`;
-
-            if (limit) {
-                sql += ` LIMIT ?`;
-                args.push(limit);
-            }
-
-            return this.db.prepare(sql).all(...args);
-        } catch (err) {
-            logger.error('[RecorderService] Failed to query sequences:', err);
-            return [];
-        }
-    }
 
     /**
-     * Permanently drops legacy Neural Link action records from the SQLite db to prevent unbounded disk growth.
-     * @param {Number} [days=config.pruneLogsAfterDays] The rolling window in days beyond which older records are permanently discarded.
-     */
-    pruneOlderThan(days = config.pruneLogsAfterDays) {
-        if (!config.actionLoggingEnabled || !this.db) return;
-
-        try {
-            const cutoff   = Date.now() - (days * MS_PER_DAY);
-            const dropStmt = this.db.prepare(`DELETE FROM nl_action_log WHERE timestamp < ?`);
-            dropStmt.run(cutoff);
-        } catch (err) {
-            logger.error('[RecorderService] Failed to prune logs:', err);
-        }
-    }
-
-    /**
-     * Persists one committed App Worker transaction snapshot as an archive-replay source.
+     * @summary Archives one committed App Worker transaction, in the container graph.
+     *
+     * The archive moved off this host's own SQLite file: it now travels outbound to Memory Core through
+     * a named operation, because a host-resident store meant NL data accumulated where nothing else read
+     * it and a replay depended on which checkout ran it. Neural Link itself stays host-resident — it
+     * drives a real browser — but its DATA belongs where every other durable fact lives.
+     *
+     * The admission rules still live container-side as well as here; this method's job is the outbound
+     * call, and it deliberately has no local fallback. Writing to a file when Memory Core is unreachable
+     * would look kinder and would re-create the two realities the relocation removes.
      * @param {Object} params
      * @param {String} [params.appSessionId]
      * @param {String} [params.name]
      * @param {Object} params.transaction
-     * @returns {Promise<Object>} `{saved:Boolean, archiveId?:String, sourceTxId?:String, archivedAt?:Number, opCount?:Number, reason?:String}`
+     * @returns {Promise<Object>} `{saved: true, archiveId, sourceTxId, archivedAt, opCount, originWriter, committedAt}`
+     * on admission, or `{saved: false, reason}`.
      */
     async saveTransactionArchive({appSessionId, name, transaction} = {}) {
-        // Opens the store on demand: this contract is independent of the action-telemetry gate, so
-        // it must not depend on boot having opened a connection.
-        if (!await this.ensureStore()) {
-            return {saved: false, reason: 'archive-store-unavailable'}
-        }
-
-        if (!transaction || transaction.status !== 'committed' || !Array.isArray(transaction.ops) || transaction.ops.length === 0) {
-            return {saved: false, reason: 'invalid-transaction'}
-        }
-
-        const originWriter = transaction.originWriter ?? transaction.ops[0]?.originWriter;
-
-        if (!originWriter?.agentId || !originWriter?.sessionId) {
-            return {saved: false, reason: 'missing-origin-writer'}
-        }
-
-        let opsJson, originWriterJson;
-
-        try {
-            assertArchiveDataOnly(transaction.ops, 'transaction.ops');
-            opsJson          = JSON.stringify(transaction.ops);
-            originWriterJson = JSON.stringify(originWriter)
-        } catch (error) {
-            return {saved: false, reason: `transaction-not-data-only: ${error.message}`}
-        }
-
-        const
-            archiveId  = crypto.randomUUID(),
-            archivedAt = Date.now();
-
-        try {
-            this.db.prepare(`
-                INSERT INTO nl_transaction_archive (
-                    archive_id, name, source_tx_id, source_agent_id, source_agent_session_id,
-                    app_session_id, origin_writer, committed_at, archived_at, ops
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(
-                archiveId,
-                typeof name === 'string' && name.trim() ? name.trim() : null,
-                transaction.txId,
-                originWriter.agentId,
-                originWriter.sessionId,
-                appSessionId || null,
-                originWriterJson,
-                Number.isFinite(transaction.committedAt) ? transaction.committedAt : null,
-                archivedAt,
-                opsJson
-            );
-
-            return {
-                saved      : true,
-                archiveId,
-                sourceTxId : transaction.txId,
-                archivedAt,
-                opCount    : transaction.ops.length,
-                originWriter,
-                committedAt: Number.isFinite(transaction.committedAt) ? transaction.committedAt : null
+        // Fail fast on non-data ops BEFORE the wire. JSON transport cannot carry a function or a cycle,
+        // so an unserialisable op would surface container-side as a shape error with no hint of which
+        // op produced it — this keeps the diagnostic where the offending value still exists.
+        if (transaction?.ops) {
+            try {
+                assertArchiveDataOnly(transaction.ops, 'transaction.ops')
+            } catch (error) {
+                return {saved: false, reason: `transaction-not-data-only: ${error.message}`}
             }
-        } catch (err) {
-            logger.error('[RecorderService] Failed to save transaction archive:', err);
-            return {saved: false, reason: 'archive-save-failed'}
         }
+
+        return await saveTransactionArchiveViaMemoryCore({appSessionId, name, transaction})
     }
 
     /**
-     * Reads one archived transaction for replay.
+     * @summary Reads one archived transaction back for replay, from the container graph.
      * @param {Object} params
      * @param {String} params.archiveId
      * @returns {Promise<Object|null>}
      */
     async getTransactionArchive({archiveId} = {}) {
-        if (typeof archiveId !== 'string' || archiveId === '' || !await this.ensureStore()) {
-            return null
-        }
-
-        try {
-            const row = this.db.prepare(`
-                SELECT * FROM nl_transaction_archive WHERE archive_id = ?
-            `).get(archiveId);
-
-            if (!row) {
-                return null
-            }
-
-            return {
-                archiveId     : row.archive_id,
-                name          : row.name,
-                sourceTxId    : row.source_tx_id,
-                appSessionId  : row.app_session_id,
-                originWriter  : JSON.parse(row.origin_writer),
-                committedAt   : row.committed_at,
-                archivedAt    : row.archived_at,
-                ops           : JSON.parse(row.ops),
-                replayCount   : row.replay_count,
-                lastReplayedAt: row.last_replayed_at
-            }
-        } catch (err) {
-            logger.error('[RecorderService] Failed to read transaction archive:', err);
-            return null
-        }
+        return await getTransactionArchiveViaMemoryCore({archiveId})
     }
 
     /**
-     * Records that an archived transaction replay landed successfully.
+     * @summary Records that an archived transaction was replayed.
      * @param {Object} params
      * @param {String} params.archiveId
-     * @returns {Promise<{updated:Boolean}>}
+     * @returns {Promise<Object>} `{updated: Boolean}`
      */
     async recordTransactionReplay({archiveId} = {}) {
-        if (typeof archiveId !== 'string' || archiveId === '' || !await this.ensureStore()) {
-            return {updated: false}
-        }
-
-        try {
-            const result = this.db.prepare(`
-                UPDATE nl_transaction_archive
-                   SET replay_count = replay_count + 1,
-                       last_replayed_at = ?
-                 WHERE archive_id = ?
-            `).run(Date.now(), archiveId);
-
-            return {updated: result.changes > 0}
-        } catch (err) {
-            logger.error('[RecorderService] Failed to record transaction replay:', err);
-            return {updated: false}
-        }
+        return await recordTransactionReplayViaMemoryCore({archiveId})
     }
 }
 
