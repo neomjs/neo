@@ -15,10 +15,18 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
  */
 
 /**
- * The roster's placeholder for a seat whose underlying model is not publicly known — an unreleased
- * preview behind a codename. It is a recorded VALUE, never a family: two seats both carrying it are
- * not thereby the same family, and one carrying it is not thereby different from any other. Any
- * consumer asking whether two families DIFFER must treat it as unresolved.
+ * The roster's family value for a seat whose underlying model is not publicly known — an unreleased
+ * preview behind a codename, where the seat itself cannot state its engine.
+ *
+ * **It COUNTS as differing for the cross-family mandate. Operator ruling, 2026-08-24.** That is a
+ * decision, not a consequence of string comparison, and it is recorded here because the next reader
+ * would otherwise re-derive it from `'unknown' !== 'claude'` and be right by accident.
+ *
+ * The trade, stated so nobody has to rediscover it: an `unknown` family cannot be SHOWN uncorrelated
+ * with the author's, so admitting it assumes part of what the mandate checks. It was weighed against
+ * the alternative — a guest seat whose approvals can never unblock anything is a seat with no
+ * merge-path value — and for a Claude-family author it is the difference between two eligible
+ * cross-family seats and three. The permissive reading won on that basis.
  * @type {String}
  */
 export const UNKNOWN_FAMILY = 'unknown';
@@ -305,25 +313,17 @@ export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamili
  */
 export function resolveCrossFamilyVerdict(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
     const
-        rawAuthorFamily = resolveAuthorFamily(pr, agentFamilies) ?? null,
-        authorFamily    = rawAuthorFamily === UNKNOWN_FAMILY ? null : rawAuthorFamily,
+        authorFamily = resolveAuthorFamily(pr, agentFamilies) ?? null,
         reviews      = Array.isArray(pr?.reviews) ? pr.reviews : [],
         approvals    = reviews.filter(review => review?.state === 'APPROVED'),
         resolved     = approvals.map(review => resolveReviewerFamily(review, agentFamilies)),
 
-        // `'unknown'` is a recorded family VALUE, not a family. The roster uses it for a seat whose
-        // underlying model nobody can state — an unreleased preview behind a codename, where even
-        // the seat itself does not know what it is running on. It is truthy, so a naive difference
-        // test reads it as "a family that differs from claude" and certifies the mandate on it.
-        //
-        // That inverts the gate's whole question. §6.1 asks whether the approval came from a
-        // DIFFERENT family; `'unknown' !== 'claude'` is true as a string comparison and unknowable
-        // as a fact. Treating it as unresolved is the only reading that cannot certify a guarantee
-        // nobody can make — and it fails toward the blocker, which is where an unknown belongs.
-        knowable              = family => Boolean(family) && family !== UNKNOWN_FAMILY,
-
-        approvingFamilies     = [...new Set(resolved.filter(item => item.classified && knowable(item.family)).map(item => item.family))],
-        unclassifiedApprovers = resolved.filter(item => !item.classified || !knowable(item.family)).map(item => item.login).filter(Boolean);
+        // `UNKNOWN_FAMILY` participates as an ordinary family value — see its declaration for the
+        // operator ruling and the trade behind it. Deliberately NOT filtered out: an earlier cut of
+        // this function treated it as unresolved, which was the honest-but-costly reading and is not
+        // the one the swarm chose.
+        approvingFamilies     = [...new Set(resolved.filter(item => item.classified).map(item => item.family))],
+        unclassifiedApprovers = resolved.filter(item => !item.classified).map(item => item.login).filter(Boolean);
 
     return {
         authorFamily,

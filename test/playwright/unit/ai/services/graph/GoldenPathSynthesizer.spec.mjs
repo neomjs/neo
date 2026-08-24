@@ -300,11 +300,12 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(Synthesizer.hasCrossFamilyReview(approved, families)).toBe(true);
     });
 
-    test("a family recorded as 'unknown' is UNRESOLVED, never a family that differs", () => {
-        // The roster records `unknown` for a seat whose underlying model nobody can state — an
-        // unreleased preview behind a codename, where the seat itself does not know what it runs on.
-        // It is truthy, so a naive `!==` reads it as "a family that differs from claude" and would
-        // certify the cross-family mandate on a difference nobody can know. Both directions matter.
+    test("a family recorded as 'unknown' COUNTS as differing — operator ruling, not a string accident", () => {
+        // The roster records `unknown` for a seat whose engine nobody can state. Operator ruling
+        // 2026-08-24: it counts as differing, so a guest seat's approvals can unblock a merge.
+        // Asserted as a DECISION rather than left to fall out of `'unknown' !== 'claude'`, because
+        // an arm that merely observes the string comparison would pass under either policy and
+        // could not tell a future reader which one was chosen.
         const approverUnknown = {
             author : {login: 'author-agent'},
             reviews: [{author: {login: 'preview-agent'}, state: 'APPROVED'}]
@@ -313,9 +314,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(resolveCrossFamilyVerdict(approverUnknown, {
             'author-agent' : 'claude',
             'preview-agent': 'unknown'
-        }).crossFamily).toBe(false);
+        }).crossFamily).toBe(true);
 
-        // …and an `unknown` AUTHOR cannot be differed from either: unresolved, not covered.
+        // Symmetric: an `unknown` AUTHOR is differed from by a known family.
         const authorUnknown = {
             author : {login: 'preview-agent'},
             reviews: [{author: {login: 'author-agent'}, state: 'APPROVED'}]
@@ -324,14 +325,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(resolveCrossFamilyVerdict(authorUnknown, {
             'preview-agent': 'unknown',
             'author-agent' : 'claude'
-        }).crossFamily).toBe(null);
-
-        // A genuinely different, KNOWN family still satisfies it — the arm that stops this from
-        // collapsing into "nothing ever counts".
-        expect(resolveCrossFamilyVerdict(approverUnknown, {
-            'author-agent' : 'claude',
-            'preview-agent': 'gpt'
         }).crossFamily).toBe(true);
+
+        // …but SAME-family is still same-family, so the permissive reading has not swallowed the
+        // rule: two seats both carrying `unknown` do not differ from each other.
+        expect(resolveCrossFamilyVerdict(approverUnknown, {
+            'author-agent' : 'unknown',
+            'preview-agent': 'unknown'
+        }).crossFamily).toBe(false);
     });
 
     test('an unrostered author reports null, and the report keeps its external-contributor charity', () => {
