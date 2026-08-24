@@ -114,14 +114,22 @@ class DragCoordinator extends Manager {
     /**
      * Bounded ring of the most recent claim-resolution observations — what the resolver saw and
      * decided, per candidate, including the early return that has no candidates at all.
+     *
+     * The ring is a **session tail, not one gesture's tail**, and is deliberately never cleared at
+     * gesture end: the cross-window failures this exists to diagnose are frequently about what the
+     * PREVIOUS gesture decided, and clearing would destroy exactly that. Attribution is carried
+     * instead — every entry stamps the `gestureToken` live when it was recorded, so a reader
+     * separates retained gestures by filtering rather than by assuming the ring holds only one.
+     * A read that does not filter is reading a mixture, by design.
      * @member {Object[]} claimTrace=[]
      * @protected
      */
     claimTrace = []
 
     /**
-     * How many claim resolutions the ring retains. A gesture emits one per pointer move, so this
-     * covers the tail of a single drag rather than a session.
+     * How many claim resolutions the ring retains across the worker's lifetime. A gesture emits one
+     * per pointer move, so a long drag can fill this alone while several short ones coexist — which
+     * is why `gestureToken` on each entry, not the bound, is what makes a read attributable.
      * @member {Number} claimTraceLimit=40
      * @protected
      */
@@ -647,7 +655,7 @@ class DragCoordinator extends Manager {
         if (!group) {
             // The group being ABSENT and the group yielding no claim are different failures with
             // different repairs, and a resolver that returns `null` for both cannot say which.
-            this.recordClaimResolution({sortGroup, groupSize: null, outcome: 'group-absent'});
+            this.recordClaimResolution({sortGroup, groupSize: null, outcome: 'group-absent'}, arbiter?.token ?? null);
             return null
         }
 
@@ -663,8 +671,16 @@ class DragCoordinator extends Manager {
                 continue
             }
 
-            if (zone.stableTargetId == null || typeof zone.acceptsRemoteDrag !== 'function') {
+            // Two different causes, reported separately. Collapsing them labelled a zone that HAS a
+            // stable identity as `no-stable-identity`, which sends a reader looking for a missing id
+            // that is right there — the diagnostic would misdirect precisely when it is consulted.
+            if (zone.stableTargetId == null) {
                 candidates.push({windowId, skipped: 'no-stable-identity'});
+                continue
+            }
+
+            if (typeof zone.acceptsRemoteDrag !== 'function') {
+                candidates.push({windowId, stableTargetId: zone.stableTargetId, skipped: 'no-accepts-handler'});
                 continue
             }
 
@@ -700,7 +716,7 @@ class DragCoordinator extends Manager {
             outcome        : claimed ? 'claimed' : 'no-claim',
             claimedStableId: claimed?.stableId ?? null,
             candidates
-        });
+        }, arbiter.token);
 
         return claimed
     }
@@ -712,13 +728,19 @@ class DragCoordinator extends Manager {
      * which can only report what the answer WOULD have been once readiness has already failed —
      * and a reconstruction cannot see an early return at all. This records what the resolver
      * actually did, when it did it; `toJSON` surfaces it through the existing drag-state route.
-     * @param {Object} entry Resolution observation.
+     *
+     * `gestureToken` is stamped from the arbiter that was live at the moment of the decision, not
+     * read back at serialization time. The ring outlives a gesture, so a token resolved later would
+     * label every retained entry with whichever gesture happens to be current — attributing one
+     * gesture's decisions to another, which is worse than no attribution at all.
+     * @param {Object}      entry Resolution observation.
+     * @param {String|null} [gestureToken=null] The arbiter token live when this decision was made.
      * @protected
      */
-    recordClaimResolution(entry) {
+    recordClaimResolution(entry, gestureToken=null) {
         let me = this;
 
-        me.claimTrace.push(entry);
+        me.claimTrace.push({...entry, gestureToken});
 
         while (me.claimTrace.length > me.claimTraceLimit) {
             me.claimTrace.shift()
@@ -1326,8 +1348,10 @@ class DragCoordinator extends Manager {
             activeTransitionOwned     : me.activeTransitionOwned,
             nativeGestures            : Array.from(me.nativeClaimArbiters.keys()),
             pointerGestureToken       : me.pointerClaimArbiter?.token ?? null,
-            // The resolver's OWN record. `pointerGestureToken` proves only that the arbiter was
-            // minted one line above the resolver call — it says nothing about the collection loop.
+            // The resolver's OWN record. `pointerGestureToken` above proves only that an arbiter is
+            // live NOW — it says nothing about the collection loop, and nothing about which gesture
+            // produced any given retained entry. Each entry carries its own `gestureToken` for that;
+            // filter by it before reading, because the ring is a session tail and spans gestures.
             claimTrace: [...me.claimTrace],
             sortZones                 : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,

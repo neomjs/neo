@@ -1767,6 +1767,88 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(entry.candidates.find(item => item.windowId === 'win-source').skipped).toBe('source-or-excluded')
     });
 
+    test('a zone NEVER ASKED records `accepts: null`, which is not the `false` a refusal records', () => {
+        // The other half of the conjunct pair. The refusal arm above proves `false`; without this one
+        // the suite passes even if never-asked collapsed into refusal, which is the exact confusion
+        // the trace exists to end.
+        registerWindow('win-source', 0, 0, 800, 600);
+        registerWindow('win-target', 800, 0, 600, 520);
+
+        const asked  = [],
+              source = createZone('workspace-a', 'win-source'),
+              target = createZone('workspace-b', 'win-target', {accepts: () => { asked.push(1); return true }});
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(target);
+
+        // Inside the SOURCE window, so the target's inner rect resolves but does not intersect.
+        move(source, 400, 260);
+
+        const candidate = DragCoordinator.claimTrace.at(-1).candidates.find(item => item.stableTargetId === 'workspace-b');
+
+        expect(candidate).toMatchObject({innerResolved: true, intersects: false, accepts: null});
+        // The distinction is only real if the handler genuinely never ran — asserting the recorded
+        // value alone would pass against an implementation that called it and discarded the answer.
+        expect(asked).toEqual([]);
+        expect(candidate.accepts).not.toBe(false)
+    });
+
+    test('a zone WITH a stable id but no accepts handler is not reported as having no identity', () => {
+        // One label for two causes sent a reader hunting for a missing id that is right there.
+        registerWindow('win-source', 0, 0, 800, 600);
+        registerWindow('win-target', 800, 0, 600, 520);
+
+        const source = createZone('workspace-a', 'win-source'),
+              target = createZone('workspace-b', 'win-target');
+
+        delete target.acceptsRemoteDrag;
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(target);
+
+        move(source, 1100, 260);
+
+        const candidate = DragCoordinator.claimTrace.at(-1).candidates.find(item => item.windowId === 'win-target');
+
+        expect(candidate.skipped).toBe('no-accepts-handler');
+        expect(candidate.stableTargetId).toBe('workspace-b')
+    });
+
+    test('retained entries stay attributable to the gesture that produced them, across gestures', () => {
+        // The ring is a session tail by design, so a read spans gestures. That is only safe because
+        // every entry stamps the token live; without it the second read is an unattributable mixture.
+        registerWindow('win-source', 0, 0, 800, 600);
+        registerWindow('win-target', 800, 0, 600, 520);
+
+        const source = createZone('workspace-a', 'win-source'),
+              target = createZone('workspace-b', 'win-target', {accepts: () => false});
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(target);
+
+        move(source, 1100, 260);
+
+        const firstToken = DragCoordinator.claimTrace.at(-1).gestureToken;
+
+        // The real gesture terminal, not a hand-reset: `onDragEnd` retires the arbiter, so the next
+        // move mints a fresh token. Reaching into `pointerClaimArbiter` would prove the assertion
+        // against a boundary production never crosses.
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        move(source, 1120, 280);
+
+        const secondToken = DragCoordinator.claimTrace.at(-1).gestureToken;
+
+        expect(firstToken).toBeTruthy();
+        expect(secondToken).toBeTruthy();
+        expect(secondToken).not.toBe(firstToken);
+
+        // Both gestures are still readable, and each entry says which one it belongs to — the first
+        // gesture's records were not retro-labelled with the second's token.
+        expect(DragCoordinator.claimTrace.filter(e => e.gestureToken === firstToken).length).toBeGreaterThan(0);
+        expect(DragCoordinator.claimTrace.filter(e => e.gestureToken === secondToken).length).toBeGreaterThan(0)
+    });
+
     test('an ABSENT sort group is recorded as its own outcome, not as an ordinary no-claim', () => {
         // The group missing and the group yielding nothing are different failures with different
         // repairs, and `resolveClaimedTarget` returns `null` for both.
