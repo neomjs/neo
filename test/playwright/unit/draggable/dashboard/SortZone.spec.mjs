@@ -761,3 +761,242 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
     });
 });
+
+/**
+ * @summary Expanded-layout flex distribution — `flex` is app-supplied, so every CSS spelling arrives.
+ *
+ * The defect these arms pin is that `calculateExpandedLayout` identified flex items with a truthiness
+ * test and then did arithmetic on the raw config. `'none'` is truthy, so `totalFlex += 'none'`
+ * concatenated and the division produced `NaN` — written into `style.width` as `'NaNpx'` with nothing
+ * thrown.
+ *
+ * **Finiteness is necessary and not sufficient.** A mixed numeric/string case concatenates into a
+ * *finite but wrong* total, which every finiteness assertion passes. So the load-bearing check is that
+ * the distributed sizes SUM to the available space — the property the distribution claims — and each
+ * arm asserts the shares themselves, never merely that nothing crashed.
+ */
+test.describe('Neo.draggable.dashboard.SortZone expanded-layout flex distribution (#17353)', () => {
+    let DashboardSortZone;
+
+    test.beforeAll(async () => {
+        DashboardSortZone = (await import('../../../../../src/draggable/dashboard/SortZone.mjs')).default
+    });
+
+    /**
+     * Builds a zone whose geometry makes the arithmetic readable: `count` adjacent `slot`-sized slots
+     * exactly filling the owner on the main axis.
+     *
+     * The owner is sized to `count * slot` **deliberately**, so every inferred offset and gap is zero
+     * and `availableSpace` is precisely what the fixed items leave. That is what lets each arm assert
+     * that the distributed sizes sum to the full span — with a slack owner the sum is a smaller number
+     * nobody can read off the fixture, and an assertion nobody can read is one nobody can falsify.
+     */
+    function layoutZone({flexValues, sortDirection = 'horizontal', slot = 100, cross = 100}) {
+        const
+            isHorizontal = sortDirection === 'horizontal',
+            count        = flexValues.length,
+            span         = count * slot,
+            itemRects    = Array.from({length: count}, (_, i) => ({
+                x     : isHorizontal ? i * slot : 0,
+                y     : isHorizontal ? 0 : i * slot,
+                width : isHorizontal ? slot : cross,
+                height: isHorizontal ? cross : slot
+            })),
+            zone = Neo.create(DashboardSortZone, {
+                owner: {
+                    id   : `flexOwner-${sortDirection}-${count}`,
+                    items: flexValues.map((flex, i) => {
+                        const item = {id: `i${i}`, vdom: {cls: ['neo-draggable']}, wrapperStyle: {}};
+
+                        // Absent is a distinct case from `'none'`: it is the shape most items have,
+                        // and it must stay on the fixed branch after the fix as it was before.
+                        if (flex !== undefined) {
+                            item.flex = flex
+                        }
+
+                        return item
+                    }),
+                    vdom           : {},
+                    addDomListeners: () => {},
+                    getDomRect     : () => Promise.resolve([{x: 0, y: 0, width: span, height: cross}]),
+                    on             : () => {}
+                }
+            });
+
+        zone.adjustItemRectsToParent = true;
+        zone.indexMap                = Object.fromEntries(itemRects.map((_, i) => [i, i]));
+        zone.itemRects               = itemRects;
+        zone.ownerRect               = {
+            x     : 0,
+            y     : 0,
+            width : isHorizontal ? span : cross,
+            height: isHorizontal ? cross : span
+        };
+        zone.sortDirection = sortDirection;
+
+        return zone
+    }
+
+    /** The main-axis size each returned style carries, as a number. */
+    const mainSizes = (rects, sortDirection = 'horizontal') =>
+        rects.map(({style}) => parseFloat(sortDirection === 'horizontal' ? style.width : style.height));
+
+    test('a `flex: "none"` item produces a finite size instead of NaN geometry', () => {
+        const
+            zone  = layoutZone({flexValues: ['none', undefined, undefined]}),
+            rects = zone.calculateExpandedLayout();
+
+        // Every emitted number, not just the offending item's: a NaN size poisons `currentPos`, so the
+        // following items' `left` values inherit it. Asserting only the item that carries the bad flex
+        // would pass on a fix that de-NaNs the size and leaves the positions broken.
+        for (const {item, style} of rects) {
+            for (const [prop, value] of Object.entries(style)) {
+                expect(Number.isFinite(parseFloat(value)), `${item.id}.${prop} = ${value}`).toBe(true)
+            }
+        }
+
+        // `flex: none` is CSS for `0 0 auto`, so the item keeps its measured slot rather than growing.
+        expect(mainSizes(rects)).toEqual([100, 100, 100]);
+
+        zone.destroy()
+    });
+
+    test('a `flex: "none"` item is finite on the vertical axis too, where height is the poisoned field', () => {
+        const
+            zone  = layoutZone({flexValues: ['none', undefined], sortDirection: 'vertical'}),
+            rects = zone.calculateExpandedLayout();
+
+        expect(mainSizes(rects, 'vertical')).toEqual([100, 100]);
+        expect(rects.every(({style}) => Number.isFinite(parseFloat(style.top)))).toBe(true);
+
+        zone.destroy()
+    });
+
+    test('numeric flex distributes the full available space in proportion — the positive control', () => {
+        const
+            zone  = layoutZone({flexValues: [1, 3]}),
+            rects = zone.calculateExpandedLayout(),
+            sizes = mainSizes(rects);
+
+        // No fixed items, so the whole 200px span is distributed 1:3. These are the values the
+        // pre-fix code produced for purely numeric flex, unchanged — the fix must not disable the
+        // flex path while removing the string hazard.
+        expect(sizes).toEqual([50, 150]);
+        expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(200);
+
+        zone.destroy()
+    });
+
+    test('a numeric string mixed with a number distributes correctly — finite was never the whole property', () => {
+        const
+            zone  = layoutZone({flexValues: [2, '3']}),
+            rects = zone.calculateExpandedLayout(),
+            sizes = mainSizes(rects);
+
+        // Pre-fix this produced FINITE garbage, not NaN: `0 + 2` is 2, then `2 + '3'` concatenates to
+        // `'23'`, so the shares came out as 2/23 and 3/23 of the span — under a quarter of the
+        // container, silently. A finiteness assertion passes that. The sum is what does not.
+        expect(sizes).toEqual([80, 120]);
+        expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(200);
+
+        zone.destroy()
+    });
+
+    test('flex items and fixed items share one span without double-counting', () => {
+        const
+            zone  = layoutZone({flexValues: ['none', 1, 1]}),
+            rects = zone.calculateExpandedLayout(),
+            sizes = mainSizes(rects);
+
+        // The fixed item keeps its 100px slot; the remaining 200px splits evenly.
+        expect(sizes).toEqual([100, 100, 100]);
+        expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(300);
+
+        zone.destroy()
+    });
+
+    test('resolveFlexWeight reads the shorthand grow factor', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        expect(zone.resolveFlexWeight(2)).toBe(2);
+        expect(zone.resolveFlexWeight('2')).toBe(2);
+        expect(zone.resolveFlexWeight(0.5)).toBe(0.5);
+
+        // Shorthands, which this codebase writes routinely. Grow is the FIRST token.
+        expect(zone.resolveFlexWeight('1 1 auto')).toBe(1);
+        expect(zone.resolveFlexWeight('1 1 600px')).toBe(1);
+        expect(zone.resolveFlexWeight('1 1 100%')).toBe(1);
+        expect(zone.resolveFlexWeight('0 1 auto')).toBe(null);   // grow 0 — the common "do not grow" shorthand
+        expect(zone.resolveFlexWeight('0 0 200px')).toBe(null);
+
+        // Keywords, expanded as CSS defines them rather than guessed at.
+        expect(zone.resolveFlexWeight('none')).toBe(null);       // 0 0 auto
+        expect(zone.resolveFlexWeight('initial')).toBe(null);    // 0 1 auto
+        expect(zone.resolveFlexWeight('auto')).toBe(1);          // 1 1 auto
+
+        expect(zone.resolveFlexWeight(0)).toBe(null);            // grows nothing; matches the old falsy path
+        expect(zone.resolveFlexWeight('0')).toBe(null);          // the truthy spelling of the same thing
+        expect(zone.resolveFlexWeight(-1)).toBe(null);
+        expect(zone.resolveFlexWeight(undefined)).toBe(null);    // the routine case: no flex declared
+        expect(zone.resolveFlexWeight(null)).toBe(null);
+        expect(zone.resolveFlexWeight('')).toBe(null);
+        expect(zone.resolveFlexWeight('   ')).toBe(null);
+
+        zone.destroy()
+    });
+
+    test('CSS-equivalent spellings resolve alike — the leading-number scan they refute', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // `auto` IS `1 1 auto`. A scan for the first number in the string resolves the pair to null
+        // and 1 respectively, which is the defect @neo-gpt-emmy named on review.
+        expect(zone.resolveFlexWeight('auto')).toBe(zone.resolveFlexWeight('1 1 auto'));
+        // `none` IS `0 0 auto`.
+        expect(zone.resolveFlexWeight('none')).toBe(zone.resolveFlexWeight('0 0 auto'));
+
+        zone.destroy()
+    });
+
+    test('a weight is never invented from a value that does not carry one', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // A lone length is a BASIS: CSS grows it by 1. A leading-number scan returns 100 — a
+        // hundredfold error that is finite, plausible, and therefore invisible.
+        expect(zone.resolveFlexWeight('100px')).toBe(1);
+        expect(zone.resolveFlexWeight('50%')).toBe(1);
+
+        // Garbage resolves to fixed rather than to the number it happens to start with.
+        expect(zone.resolveFlexWeight('1oops')).toBe(null);
+        expect(zone.resolveFlexWeight('px')).toBe(null);
+        expect(zone.resolveFlexWeight('1 2 3 4')).toBe(null);
+
+        zone.destroy()
+    });
+
+    test('a bad token anywhere invalidates the declaration, not just a bad first one', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // @neo-gpt-emmy's round-2 RA. A browser drops the WHOLE declaration on one invalid token,
+        // so each of these leaves the item not flexible. Validating only position 0 would have read
+        // grow 1 off every one of them — the same invent-a-weight defect one position further along.
+        expect(zone.resolveFlexWeight('1 oops')).toBe(null);      // shrink is not a number or a basis
+        expect(zone.resolveFlexWeight('1 -1 auto')).toBe(null);   // a negative shrink is rejected
+        expect(zone.resolveFlexWeight('-1 1 auto')).toBe(null);   // and so is a negative grow
+        expect(zone.resolveFlexWeight('1 2 3')).toBe(null);       // a bare 3 is not a basis
+        expect(zone.resolveFlexWeight('1 1 none')).toBe(null);    // `none` is not a basis either
+
+        // The valid neighbours, which must survive the same validation.
+        expect(zone.resolveFlexWeight('1 2 3px')).toBe(1);
+        expect(zone.resolveFlexWeight('1 2')).toBe(1);            // <grow> <shrink>
+        expect(zone.resolveFlexWeight('1 auto')).toBe(1);         // <grow> <basis>
+        expect(zone.resolveFlexWeight('1 1 0')).toBe(1);          // unitless zero IS a valid basis
+        expect(zone.resolveFlexWeight('1 0 content')).toBe(1);
+
+        // Non-string, non-number inputs never reach Number()'s coercions.
+        expect(zone.resolveFlexWeight(true)).toBe(null);
+        expect(zone.resolveFlexWeight([2])).toBe(null);
+        expect(zone.resolveFlexWeight({})).toBe(null);
+
+        zone.destroy()
+    })
+});
