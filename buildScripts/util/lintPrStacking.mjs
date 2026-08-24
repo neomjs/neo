@@ -61,7 +61,11 @@ process.stdin.on('end', () => {
     }
 
     // ── Stacking verdict ─────────────────────────────────────────────────────────────────
-    const {stacked, parent} = findStackedParent({rangeCommits: commits.map(commit => commit.sha), openPullRequests});
+    const {stacked, parent} = findStackedParent({
+        rangeCommits   : commits.map(commit => commit.sha),
+        openPullRequests,
+        excludePrNumber: prNumber
+    });
 
     if (stacked) {
         console.error([
