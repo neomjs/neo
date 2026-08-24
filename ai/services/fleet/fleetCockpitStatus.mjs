@@ -73,10 +73,31 @@ function githubAvatarUrl(githubUsername) {
  *     `registryBridge.fleetRuntimeStatus()` — rows carry an observed `lifecycle` when present.
  * @param {Object[]} options.events        Optional already-normalized cockpit events.
  * @param {Object}   options.capabilities  Optional source-capability overrides from wired adapters.
- * @returns {Object} serializable cockpit DTO `{sources, capabilities, rows, events}`.
+ * @param {Number}   [options.operatorsPresent=null] Optional PLANE-level count of operators present,
+ *     independent of `rows`. Supplied by the plane-side presence projection when it exists; `null`
+ *     means NOT REPORTED and must never be rendered as zero. A bare count only — identities would
+ *     invert the default-private boundary.
+ * @returns {Object} serializable cockpit DTO `{sources, presence, capabilities, rows, events}`,
+ *     where `presence` is `{operatorsPresent: Number|null}`.
  */
-export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], wakeStatus = [], throttleStatus = [], presenceStatus = [], events = [], capabilities = {}} = {}) {
+export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], wakeStatus = [], throttleStatus = [], presenceStatus = [], operatorsPresent = null, events = [], capabilities = {}} = {}) {
     const suppliedCapabilities = capabilities || {}
+
+    // A PLANE-level count, deliberately separate from the per-agent presence axis above. That axis
+    // is keyed by `agentId`, so it can only describe rows the viewer already receives — and the
+    // question this answers is what a viewer with ZERO rows should be told. A default-private plane
+    // that shares nothing with you returns an empty roster, which is indistinguishable from a plane
+    // with no agents defined unless something outside the rows reports liveness.
+    //
+    // A bare COUNT, never identities: the count discloses that the plane is alive, while a list
+    // would invert the default-private boundary this whole feature exists to serve.
+    //
+    // `null` when unsupplied is load-bearing — it means "not reported", which a consumer must
+    // render differently from a reported `0`. Coercing absence to zero would fabricate "nobody is
+    // here" on every plane whose producer has not shipped yet.
+    const planePresence = Number.isInteger(operatorsPresent) && operatorsPresent >= 0
+        ? {operatorsPresent}
+        : {operatorsPresent: null}
 
     const statusByAgentId = new Map(
         fleetStatus.map(status => [status.agentId || status.id, sanitizePayload(status)])
@@ -118,6 +139,7 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
 
     return {
         sources     : FLEET_COCKPIT_SOURCES,
+        presence    : planePresence,
         capabilities: {
             activity: suppliedCapabilities.activity || createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'A2A / PR / lane activity adapter not wired'),
             runtime : suppliedCapabilities.runtime || createNotWiredCapability(FLEET_COCKPIT_SOURCES.runtime, 'runtime process status is pending the Fleet runtime-status wire method'),

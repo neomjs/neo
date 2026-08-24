@@ -2379,7 +2379,7 @@ class FleetCockpit extends DockWorkspace {
 
             // invoked INSIDE the chain so a synchronous throw rejects the tracked promise rather
             // than escaping before the settle hook attaches — see the activity twin
-            const {capabilities, rows} = await boundedRead(
+            const {capabilities, presence, rows} = await boundedRead(
                 Promise.resolve().then(() => bridge.fleetRoster()),
                 me.livenessReadTimeout,
                 () => { me.gridReadInFlight-- }
@@ -2412,7 +2412,23 @@ class FleetCockpit extends DockWorkspace {
                 // module documents as needing a retained reason. Cleared by the ordinary paths: a
                 // populated snapshot clears it below; a transport failure retracts it in
                 // {@link #degradeWiredSurface} (the claim must not outlive the connection).
-                me.gridDegradedReason = 'server connected · fleet registry empty — define agents to go live';
+                // TWO empty kinds, and telling them apart is the whole point. A default-private
+                // plane answers "0 agents shared with you" identically to a plane with nothing
+                // defined — so "define agents to go live" is a LIE in the actionable direction
+                // whenever the plane HAS agents this viewer cannot see. The operator action differs
+                // categorically: request access, not define agents, and not start the server.
+                //
+                // Only a plane-level count can separate them, because a scoped-empty roster carries
+                // no rows for the per-agent presence axis to describe. `null` means NOT REPORTED and
+                // keeps the pre-projection line byte-identical — absence must never render as zero,
+                // which would claim an empty plane on every deployment whose producer has not
+                // shipped.
+                const operatorsPresent = presence?.operatorsPresent;
+
+                me.gridDegradedReason = Number.isInteger(operatorsPresent) && operatorsPresent > 0
+                    ? `plane alive · ${operatorsPresent} ${operatorsPresent === 1 ? 'operator' : 'operators'} present · ` +
+                      '0 agents shared with you · request access'
+                    : 'server connected · fleet registry empty — define agents to go live';
                 return
             }
 

@@ -400,6 +400,54 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(cockpit.gridDegradedReason).toBe('server connected · fleet registry empty — define agents to go live')
     });
 
+    // Two empty kinds. A default-private plane answering "0 agents shared with you" is not a plane
+    // with nothing defined, and "define agents to go live" is a lie in the ACTIONABLE direction
+    // against a plane that has agents this viewer cannot see.
+    test('SCOPED-empty names the plane as alive and the action as request-access', async () => {
+        const {cockpit} = await routeLoadRoster({
+            fleetRoster: async () => ({presence: {operatorsPresent: 3}, rows: []})
+        });
+
+        expect(cockpit.gridDegradedReason).toBe(
+            'plane alive · 3 operators present · 0 agents shared with you · request access'
+        );
+        // still the answered-empty disposition — the sample survives, only the CAUSE differs
+        expect(cockpit.rosterSourceMode).toBe('sample')
+    });
+
+    test('a single operator is not pluralised — the count is rendered, not templated over', async () => {
+        const {cockpit} = await routeLoadRoster({
+            fleetRoster: async () => ({presence: {operatorsPresent: 1}, rows: []})
+        });
+
+        expect(cockpit.gridDegradedReason).toContain('1 operator present');
+        expect(cockpit.gridDegradedReason).not.toContain('1 operators')
+    });
+
+    test('a REPORTED zero is the truly-empty plane, not a scoped one', async () => {
+        // 0 shared AND 0 operators present is the genuine define-agents case. Reporting zero is a
+        // fact; the scoped line would claim liveness the producer just denied.
+        const {cockpit} = await routeLoadRoster({
+            fleetRoster: async () => ({presence: {operatorsPresent: 0}, rows: []})
+        });
+
+        expect(cockpit.gridDegradedReason).toBe('server connected · fleet registry empty — define agents to go live')
+    });
+
+    test('an ABSENT count leaves the pre-projection line byte-identical', async () => {
+        // The no-regression arm: every plane whose presence projection has not shipped must render
+        // exactly what it rendered before. Absence is NOT REPORTED, never a zero to reason from.
+        const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+
+        expect(cockpit.gridDegradedReason).toBe('server connected · fleet registry empty — define agents to go live');
+
+        const {cockpit: nulled} = await routeLoadRoster({
+            fleetRoster: async () => ({presence: {operatorsPresent: null}, rows: []})
+        });
+
+        expect(nulled.gridDegradedReason).toBe('server connected · fleet registry empty — define agents to go live')
+    });
+
     test('the answered-empty reason is RETRACTED on silence — the claim must not outlive the connection', async () => {
         // empty answer retains the cause…
         const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});

@@ -520,4 +520,35 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
             expect(['on', 'off', 'suppressed', 'unknown']).toContain(row.wake.state)
         }
     })
+
+    // The PLANE-level operator count. Separate from the per-agent presence axis by necessity —
+    // that axis is keyed by agentId, so it can only describe rows the viewer already has, and the
+    // question here is what a viewer with ZERO rows should be told.
+    test('carries a plane-level operator count independent of rows — a bare count, never identities', () => {
+        const snapshot = createFleetCockpitStatus({agents: [], operatorsPresent: 4})
+
+        expect(snapshot.presence).toEqual({operatorsPresent: 4})
+        expect(snapshot.rows).toEqual([])
+
+        // the boundary this feature exists to serve: liveness is disclosed, membership is not
+        expect(JSON.stringify(snapshot.presence)).not.toMatch(/agent|id|user|name/i)
+    })
+
+    test('an unsupplied count is null, never a fabricated zero', () => {
+        // Absence and reported-zero are different facts and an operator acts on them differently:
+        // `null` is "not reported" (render the pre-projection line), `0` is "nobody is here".
+        // Coercing absence to zero would claim an empty plane on every deployment whose producer
+        // has not shipped.
+        expect(createFleetCockpitStatus({agents: []}).presence).toEqual({operatorsPresent: null})
+        expect(createFleetCockpitStatus({agents: [], operatorsPresent: 0}).presence).toEqual({operatorsPresent: 0})
+    })
+
+    test('a malformed count degrades to not-reported rather than riding the wire', () => {
+        // The DTO owns every value it emits. A negative or non-integer count is a producer defect,
+        // and rendering "plane alive · -1 operators present" would be worse than saying nothing.
+        for (const bad of [-1, 1.5, '3', NaN, null, undefined, {}]) {
+            expect(createFleetCockpitStatus({agents: [], operatorsPresent: bad}).presence)
+                .toEqual({operatorsPresent: null})
+        }
+    })
 })
