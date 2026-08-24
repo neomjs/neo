@@ -2,6 +2,15 @@ import {setup} from '../../setup.mjs';
 
 const appName = 'DomAccessViewTransitionTest';
 
+// Imports are hoisted, so `Neo` and `Neo.main` already exist here — importing DomUtils below is
+// exactly what registers `Neo.main`, and is why this file was the first spec to hit the harness's
+// whole-namespace guard. Occupying ONE addon leaf reproduces the deeper half of that bug: a
+// container-level `??=` would find `Neo.main.addon` non-null and suppress every sibling default.
+globalThis.Neo             ??= {};
+globalThis.Neo.main        ??= {};
+globalThis.Neo.main.addon  ??= {};
+globalThis.Neo.main.addon.ImportedSibling = {marker: 'installed before setup()'};
+
 setup({
     appConfig: {
         name             : appName,
@@ -126,5 +135,29 @@ test.describe('Neo.main.DomUtils - view transition reveal', () => {
 
         expect(DomUtils.createRevealAnimation({duration: 800, easing: 'linear', x: 1, y: 1}, 100, 100).options)
             .toMatchObject({duration: 800, easing: 'linear'})
+    });
+
+    test('an explicit zero duration survives — it is the reduced-motion answer, not a missing value', () => {
+        // `duration || 500` rewrote 0 to 500. The same defect as reading `x: 0` as "no coordinate",
+        // one object over, and it needs its own arm because the 800 control above passes either way.
+        expect(DomUtils.createRevealAnimation({duration: 0, x: 1, y: 1}, 100, 100).options.duration).toBe(0);
+        expect(DomUtils.createRevealAnimation({duration: 800, x: 1, y: 1}, 100, 100).options.duration).toBe(800)
+    });
+});
+
+test.describe('test harness - Neo.main namespace defaults', () => {
+
+    test('a pre-occupied addon leaf fills the gaps rather than vetoing every sibling', () => {
+        // This file installed `Neo.main.addon.ImportedSibling` before setup() ran, standing in for
+        // any import that registers one addon. Guarding the container instead of the leaves would
+        // make setup() skip the rest — the harness bug this spec's own import first exposed, moved
+        // one level deeper where it is harder to see.
+        expect(Neo.main.addon.ImportedSibling.marker).toBe('installed before setup()');
+
+        expect(Neo.main.addon.DragDrop).toBeDefined();
+        expect(typeof Neo.main.addon.Navigator.subscribe).toBe('function');
+        expect(typeof Neo.main.addon.ResizeObserver.register).toBe('function');
+        expect(typeof Neo.main.addon.Stylesheet.insertCssRules).toBe('function');
+        expect(typeof Neo.main.DomAccess.getBoundingClientRect).toBe('function')
     });
 });

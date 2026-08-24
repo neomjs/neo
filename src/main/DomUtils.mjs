@@ -55,6 +55,15 @@ class DomUtils extends Base {
      * An over-large fixed radius covers the box too, but only by finishing off-screen — the
      * predecessor here used a hardcoded 3000 and spent roughly half its duration outside the
      * viewport, which is invisible motion the easing curve still budgets time for.
+     *
+     * **Assumption, stated because it is not universal:** the incoming coordinates are viewport
+     * relative, and the percentages are resolved against the pseudo-element's own box, so this is
+     * exact only while that box is viewport-aligned. It is on desktop — measured identical to
+     * `innerWidth`/`innerHeight` for `::view-transition`, `-group`, `-image-pair` and `-new`. It is
+     * NOT guaranteed on mobile, where the snapshot containing block spans area the retractable
+     * browser UI can occupy and its origin can sit above the layout viewport. Percentages remove the
+     * unit hazard; they do not by themselves reconcile two different boxes. A caller that needs
+     * exactness there has to map the snapshot box rather than pass `innerWidth`/`innerHeight`.
      * @param {Object} [reveal]
      * @param {Number} [reveal.duration=500]
      * @param {String} [reveal.easing='ease-in']
@@ -91,8 +100,11 @@ class DomUtils extends Base {
                 {clipPath: `circle(${radius}% at ${x}% ${y}%)`}
             ],
             options: {
-                duration     : reveal.duration || 500,
-                easing       : reveal.easing   || 'ease-in',
+                // `??`, not `||`: a caller asking for `duration: 0` wants an instant swap — the
+                // reduced-motion answer — and a truthiness guard would silently rewrite it to 500.
+                // The same class of bug as reading `x: 0` as "no coordinate", one object over.
+                duration     : reveal.duration ?? 500,
+                easing       : reveal.easing   ?? 'ease-in',
                 pseudoElement: '::view-transition-new(root)'
             }
         }

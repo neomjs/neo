@@ -1039,16 +1039,19 @@ class DomAccess extends Base {
 
         const animate    = data.animate || DomUtils.createRevealAnimation(data.reveal),
               transition = document.startViewTransition(async () => {
-                  await this.timeout(data.delay || 50)
+                  // `??`, not `||`: `delay: 0` is a caller asking for no window at all.
+                  await this.timeout(data.delay ?? 50)
               });
 
         if (animate) {
             transition.ready.then(() => {
                 document.documentElement.animate(animate.keyframes, animate.options)
             }).catch(error => {
-                // The reveal is decorative, so a failure must not reject the transition — but it
-                // must not be silent either. This path used to resolve as success unconditionally,
-                // which is how a browser-side change to the pseudo-element went unnoticed.
+                // Catches a rejected `ready` or a registration that throws — NOT a reveal that
+                // registers and then rasterises wrongly, which is what actually happened here and
+                // stays invisible to every runtime signal this method can read. The reveal is
+                // decorative, so a failure must not reject the transition; it must not be silent
+                // either, which is what returning success unconditionally amounted to.
                 console.warn('Neo.main.DomAccess: the view transition reveal was not applied.', error)
             })
         }

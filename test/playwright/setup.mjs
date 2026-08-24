@@ -101,24 +101,28 @@ export function setup(options = {}) {
         Neo.ns('Neo.Main', true).setRoute ??= () => {};
     }
 
-    // Filled in per branch rather than as one `Neo.main ??= {...}`. A spec which imports anything
-    // from `src/main/` registers `Neo.main` at class-setup time, before this runs — a single
-    // whole-namespace `??=` then finds it non-null and skips, leaving `Neo.main.addon` undefined
-    // and crashing the Stylesheet default below. Guarding each branch keeps the "never clobber what
-    // a spec already installed" intent while surviving an unrelated occupant of the namespace.
-    Neo.main ??= {};
+    // Filled in per LEAF rather than as one `Neo.main ??= {...}`. A spec which imports anything from
+    // `src/main/` registers `Neo.main` at class-setup time, before this runs — a whole-namespace
+    // `??=` then finds it non-null and skips, leaving `Neo.main.addon` undefined and crashing the
+    // Stylesheet default below.
+    //
+    // The same reasoning applies one level down, and guarding only the outer branch would rebuild
+    // the bug where it is harder to see: an import that registers a single addon makes
+    // `Neo.main.addon` non-null, and a container-level `??=` would then suppress every sibling
+    // default. Each leaf carries its own guard, so partial occupancy fills the gaps instead of
+    // vetoing them — while the "never clobber what a spec already installed" intent survives.
+    Neo.main       ??= {};
+    Neo.main.addon ??= {};
 
-    Neo.main.addon ??= {
-        DragDrop : {},
-        Navigator: {
-            subscribe  : () => {},
-            unsubscribe: () => {},
-            navigateTo : () => {}
-        },
-        ResizeObserver: {
-            register  : () => {},
-            unregister: () => {}
-        }
+    Neo.main.addon.DragDrop  ??= {};
+    Neo.main.addon.Navigator ??= {
+        subscribe  : () => {},
+        unsubscribe: () => {},
+        navigateTo : () => {}
+    };
+    Neo.main.addon.ResizeObserver ??= {
+        register  : () => {},
+        unregister: () => {}
     };
 
     Neo.main.DomAccess ??= {
