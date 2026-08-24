@@ -47,9 +47,6 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {parse}            from 'acorn';
 import {load as loadYaml} from 'js-yaml';
 
-import {ADR_0019_RULES as ANTIPATTERN_ADR_RULES}   from '../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
-import {ADR_0019_RULES as TEST_MUTATION_ADR_RULES} from '../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const ROOT_DIR   = path.resolve(__dirname, '../../..');
@@ -2339,18 +2336,86 @@ export const ADR_0019_RULES = Object.freeze([
 ]);
 
 /**
+ * @summary Reads catalog ids from an exported array of executable rule objects.
+ *
+ * A detached string array is deliberately rejected. Every element must be an object carrying both
+ * an `id` literal and the `pattern` or `detect` property the owning scanner invokes.
+ * @param {String} source Guard module source.
+ * @returns {String[]} Catalog ids in declaration order.
+ */
+export function collectCatalogRuleIdsFromSource(source) {
+    const ast = parseModule(source);
+
+    for (const statement of ast.body) {
+        const declaration = statement.type === 'ExportNamedDeclaration'
+                  ? statement.declaration
+                  : statement,
+              declarator = declaration?.type === 'VariableDeclaration'
+                  ? declaration.declarations.find(item => item.id?.name === 'ADR_0019_RULES')
+                  : null;
+
+        if (!declarator) continue;
+
+        const expression = declarator.init?.type === 'CallExpression' &&
+              declarator.init.callee?.type === 'MemberExpression' &&
+              declarator.init.callee.object?.name === 'Object' &&
+              declarator.init.callee.property?.name === 'freeze'
+            ? declarator.init.arguments[0]
+            : declarator.init;
+
+        if (expression?.type !== 'ArrayExpression') {
+            throw new Error('ADR_0019_RULES must be an exported array of executable rule objects')
+        }
+
+        return expression.elements.map(element => {
+            if (element?.type !== 'CallExpression' ||
+                element.callee?.type !== 'MemberExpression' ||
+                element.callee.object?.name !== 'Object' ||
+                element.callee.property?.name !== 'freeze' ||
+                element.arguments[0]?.type !== 'ObjectExpression'
+            ) {
+                throw new Error('ADR_0019_RULES entries must be Object.freeze({...}) rule objects')
+            }
+
+            const properties = element.arguments[0].properties,
+                  idProperty = properties.find(property => property.key?.name === 'id'),
+                  executable = properties.some(property => ['pattern', 'detect'].includes(property.key?.name));
+
+            if (idProperty?.value?.type !== 'Literal' || typeof idProperty.value.value !== 'string' || !executable) {
+                throw new Error('Each ADR_0019_RULES object requires a string id plus pattern/detect')
+            }
+
+            return idProperty.value.value
+        })
+    }
+
+    throw new Error('Guard source does not export ADR_0019_RULES')
+}
+
+/**
  * @summary Builds the named guard registry consumed by the catalog's two-way ownership check.
- * @param {Object} [options] Injectable rule arrays for mutation tests.
+ * @param {Object} [options] Injectable rule arrays/sources for mutation tests.
+ * @param {String} [options.rootDir] Repo root.
  * @returns {Map<String,Set<String>>} Guard name to enforced catalog ids.
  */
 export function createAdr0019GuardRegistry({
-    antipatternRules = ANTIPATTERN_ADR_RULES,
-    testMutationRules = TEST_MUTATION_ADR_RULES,
+    rootDir = ROOT_DIR,
+    antipatternRules,
+    antipatternSource = fs.readFileSync(path.join(rootDir, ANTIPATTERN_GUARD_REL_FILE), 'utf8'),
+    testMutationRules,
+    testMutationSource = fs.readFileSync(path.join(rootDir, TEST_MUTATION_GUARD_REL_FILE), 'utf8'),
     configSsotRules = ADR_0019_RULES
 } = {}) {
+    const antipatternIds = antipatternRules
+              ? antipatternRules.map(rule => rule.id)
+              : collectCatalogRuleIdsFromSource(antipatternSource),
+          testMutationIds = testMutationRules
+              ? testMutationRules.map(rule => rule.id)
+              : collectCatalogRuleIdsFromSource(testMutationSource);
+
     return new Map([
-        ['check-aiconfig-antipatterns', new Set(antipatternRules.map(rule => rule.id))],
-        ['check-aiconfig-test-mutation', new Set(testMutationRules.map(rule => rule.id))],
+        ['check-aiconfig-antipatterns', new Set(antipatternIds)],
+        ['check-aiconfig-test-mutation', new Set(testMutationIds)],
         ['lint-config-template-ssot', new Set(configSsotRules.map(rule => rule.id))]
     ])
 }

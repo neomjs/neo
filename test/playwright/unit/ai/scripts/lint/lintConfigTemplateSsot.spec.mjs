@@ -11,6 +11,7 @@ import {
     BASELINE,
     buildConfigLeafParitySnapshot,
     buildConfigPathKindsByIdentifier,
+    collectCatalogRuleIdsFromSource,
     collectConfigPathKindsFromSource,
     collectConfigEnvNamesFromSource,
     collectDeclaredConfigPaths,
@@ -75,7 +76,10 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect([...new Set(ADR_0019_RULES.map(rule => rule.id))].sort())
             .toEqual(['A4', 'B1', 'B2', 'B3', 'B5', 'C1', 'C3']);
         expect(ADR_0019_RULES.every(rule => typeof rule.detect === 'function' || rule.pattern instanceof RegExp))
-            .toBe(true)
+            .toBe(true);
+        expect(() => collectCatalogRuleIdsFromSource(
+            "export const ADR_0019_RULES = Object.freeze(['B4']);"
+        )).toThrow(/rule objects/)
     });
 
     test('C1 boundary: import-only is GREEN; exported module-time re-derivation is RED', () => {
