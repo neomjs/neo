@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 
 import {
     buildInventory,
+    collectConsumerEdges,
     collectLaunchRoots,
     collectManifestDependencyRows,
     collectPackageDependencies,
@@ -14,11 +15,16 @@ import {
     discoverWorkflowReferences,
     formatInventory,
     inspectManifestDependencies,
+    inspectEngineAgentOsDependencies,
     listTrackedFiles,
     reconcileInventory,
+    reconcileConsumerEdges,
+    reconcileConsumerSourceClasses,
     reconcileRuntimeProbeEligibility,
     resolveTrackedConfigSpecifier,
     rowKey,
+    CONSUMER_EDGE_DIRECTION,
+    CONSUMER_EDGE_DISPOSITIONS,
     RUNTIME_PROBE_ELIGIBILITY,
     sourceBindingError,
     SURFACE
@@ -83,6 +89,204 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             'fixture.mjs:2', 'fixture.mjs:3', 'fixture.mjs:4'
         ]);
         expect(discoverSubprocessLaunches('const = broken', 'broken.mjs').parseError).toBeTruthy()
+    });
+
+    test('consumer-edge discovery uses the shared AST parser for both directions and keeps line movement out of identity', () => {
+        const
+            projectRoot  = path.resolve('/repo'),
+            trackedFiles = [
+                'ai/cloud.mjs',
+                'ai/edge.mjs',
+                'test/fixture.mjs',
+                'test/playwright/unit/ai/already-brain.spec.mjs'
+            ],
+            sources = new Map([
+                [path.join(projectRoot, 'ai/cloud.mjs'), "import Engine from '../src/cloud-only.mjs';"],
+                [path.join(projectRoot, 'ai/edge.mjs'), [
+                    "import Base from '../src/core/Base.mjs';",
+                    "export * from '../apps/agentos/config.mjs';"
+                ].join('\n')],
+                [path.join(projectRoot, 'test/fixture.mjs'), [
+                    "import A from '../ai/a.mjs';",
+                    "export {B} from '../ai/b.mjs';",
+                    "export * from '../ai/c.mjs';",
+                    "const load = () => import('../ai/d.mjs');"
+                ].join('\n')],
+                [path.join(projectRoot, 'test/playwright/unit/ai/already-brain.spec.mjs'),
+                    "import Internal from '../../../../../ai/internal.mjs';"]
+            ]),
+            run = fixtureSources => collectConsumerEdges({
+                edgeReachedFiles           : ['ai/edge.mjs'],
+                preclassifiedSourcePrefixes: ['test/playwright/unit/ai/'],
+                projectRoot,
+                readFile                   : file => fixtureSources.get(file),
+                resolve                    : (specifier, fromFile) => path.resolve(path.dirname(fromFile), specifier),
+                trackedFiles
+            }),
+            first = run(sources);
+
+        expect(first.errors).toEqual([]);
+        expect(first.rows).toHaveLength(6);
+        expect(first.rows.map(row => row.evidence.direction)).toEqual([
+            CONSUMER_EDGE_DIRECTION.agentOsToOutside,
+            CONSUMER_EDGE_DIRECTION.agentOsToOutside,
+            CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+            CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+            CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+            CONSUMER_EDGE_DIRECTION.outsideToAgentOs
+        ]);
+        expect(first.rows.map(row => row.evidence.importKind)).toEqual(expect.arrayContaining([
+            'static-import', 'named-reexport', 'export-all', 'literal-dynamic-import'
+        ]));
+        expect(first.rows.some(row => row.evidence.sourcePath.includes('already-brain'))).toBe(false);
+        expect(first.rows.some(row => row.evidence.sourcePath === 'ai/cloud.mjs')).toBe(false);
+
+        const moved = new Map(sources);
+        moved.set(path.join(projectRoot, 'test/fixture.mjs'), `\n${sources.get(path.join(projectRoot, 'test/fixture.mjs'))}`);
+
+        const second = run(moved);
+
+        expect(second.rows.map(row => row.identity)).toEqual(first.rows.map(row => row.identity));
+        expect(second.rows.find(row => row.evidence.sourcePath === 'test/fixture.mjs').source)
+            .not.toBe(first.rows.find(row => row.evidence.sourcePath === 'test/fixture.mjs').source)
+    });
+
+    test('consumer-edge authority is direction-specific and closes exact missing/stale residue', () => {
+        const derived = [{
+                  surface    : SURFACE.consumerEdge,
+                  identity   : 'outside-to-agentos::test/a.mjs::static-import::../ai/a.mjs::ai/a.mjs::1',
+                  source     : 'test/a.mjs:1',
+                  disposition: null,
+                  rationale  : null,
+                  evidence   : {direction: CONSUMER_EDGE_DIRECTION.outsideToAgentOs}
+              }, {
+                  surface    : SURFACE.consumerEdge,
+                  identity   : 'agentos-to-outside::ai/a.mjs::static-import::../src/Neo.mjs::src/Neo.mjs::1',
+                  source     : 'ai/a.mjs:1',
+                  disposition: null,
+                  rationale  : null,
+                  evidence   : {direction: CONSUMER_EDGE_DIRECTION.agentOsToOutside}
+              }],
+              authority = {
+                  consumerEdges: [{
+                      identities    : [derived[0].identity],
+                      direction     : CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+                      disposition   : 'engine-contract-client',
+                      successorPhase: 'engine-continuity',
+                      source        : 'fixture inbound authority',
+                      rationale     : 'the Engine fixture becomes a contract client'
+                  }, {
+                      identities    : [derived[1].identity],
+                      direction     : CONSUMER_EDGE_DIRECTION.agentOsToOutside,
+                      disposition   : 'published-engine-package',
+                      successorPhase: 'move',
+                      source        : 'fixture outbound authority',
+                      rationale     : 'the AgentOS source consumes the published Engine'
+                  }]
+              },
+              valid = reconcileConsumerEdges(derived, authority);
+
+        expect(valid.ok).toBe(true);
+        expect(valid.rows.map(row => row.disposition)).toEqual([
+            'published-engine-package', 'engine-contract-client'
+        ]);
+
+        const wrongDirection = reconcileConsumerEdges([derived[0]], {
+            consumerEdges: [{
+                identities    : [derived[0].identity],
+                direction     : CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+                disposition   : 'published-engine-package',
+                successorPhase: 'move',
+                source        : 'fixture wrong-direction authority',
+                rationale     : 'this disposition belongs to the inverse direction'
+            }]
+        });
+
+        expect(wrongDirection.errors).toContainEqual({
+            kind: 'invalid-consumer-edge-disposition', key: derived[0].identity
+        });
+
+        const substituted = reconcileConsumerEdges([derived[0]], {
+            consumerEdges: [{
+                identities    : ['outside-to-agentos::test/b.mjs::static-import::../ai/b.mjs::ai/b.mjs::1'],
+                direction     : CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+                disposition   : 'engine-contract-client',
+                successorPhase: 'engine-continuity',
+                source        : 'fixture stale authority',
+                rationale     : 'same-count replacement must remain visible'
+            }]
+        });
+
+        expect(substituted.residue).toEqual({
+            diskMinusAuthority: [derived[0].identity],
+            authorityMinusDisk: ['outside-to-agentos::test/b.mjs::static-import::../ai/b.mjs::ai/b.mjs::1']
+        })
+    });
+
+    test('preclassified AgentOS source classes are exact, non-overlapping, and non-empty', () => {
+        const registry = {
+                  consumerSourceClasses: [{
+                      identity      : 'test/playwright/unit/ai/**',
+                      pathPrefix    : 'test/playwright/unit/ai/',
+                      disposition   : 'moves-agentos-test',
+                      successorPhase: 'move',
+                      source        : 'fixture unit-brain authority',
+                      rationale     : 'the unit-brain project already owns these tests'
+                  }]
+              },
+              valid = reconcileConsumerSourceClasses(registry, [
+                  'test/playwright/unit/ai/a.spec.mjs',
+                  'test/playwright/unit/body.spec.mjs'
+              ]);
+
+        expect(valid.ok).toBe(true);
+        expect(valid.prefixes).toEqual(['test/playwright/unit/ai/']);
+        expect(valid.rows[0].evidence.fileCount).toBe(1);
+
+        const invalid = reconcileConsumerSourceClasses({
+            consumerSourceClasses: [registry.consumerSourceClasses[0], {
+                ...registry.consumerSourceClasses[0],
+                identity  : 'nested',
+                pathPrefix: 'test/playwright/unit/ai/nested/'
+            }]
+        }, ['test/playwright/unit/ai/a.spec.mjs']);
+
+        expect(invalid.errors.map(error => error.kind)).toEqual(expect.arrayContaining([
+            'overlapping-consumer-source-class-prefix',
+            'stale-consumer-source-class'
+        ]))
+    });
+
+    test('Engine package direction rejects AgentOS dependencies and devDependencies independently', () => {
+        const forbiddenPackages = ['@neomjs/neo-agent-brain', 'neo-agent-brain'],
+              clean             = inspectEngineAgentOsDependencies({
+                  forbiddenPackages,
+                  manifest: {dependencies: {other: '1'}}
+              }),
+              runtime = inspectEngineAgentOsDependencies({
+                  forbiddenPackages,
+                  manifest: {dependencies: {'neo-agent-brain': '1'}}
+              }),
+              development = inspectEngineAgentOsDependencies({
+                  forbiddenPackages,
+                  manifest: {devDependencies: {'@neomjs/neo-agent-brain': '2'}}
+              });
+
+        expect(clean.ok).toBe(true);
+        expect(runtime.errors).toContainEqual({
+            kind : 'engine-agentos-package-edge',
+            key  : 'dependencies::neo-agent-brain',
+            error: '1'
+        });
+        expect(development.errors).toContainEqual({
+            kind : 'engine-agentos-package-edge',
+            key  : 'devDependencies::@neomjs/neo-agent-brain',
+            error: '2'
+        });
+        expect(inspectEngineAgentOsDependencies().errors).toContainEqual({
+            kind: 'empty-engine-agentos-package-covenant',
+            key : 'engineDependencyCovenant.forbiddenPackages'
+        })
     });
 
     test('a dirty tree cannot masquerade as a SHA-bound receipt', () => {
@@ -722,7 +926,7 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.counts[SURFACE.rootScript].total).toBe(packageScripts.length);
         expect(first.counts[SURFACE.workflowReference].total).toBe(workflowReferences.length);
         expect(first.counts[SURFACE.planeOpener].total).toBe(censusPlaneOpeners({projectRoot: REPO_ROOT}).total);
-        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v3');
+        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v4');
         expect(first.counts[SURFACE.launchRoot].total).toBe(first.launchRoots.total);
         expect(first.launchRoots.rows.map(row => row.identity))
             .toEqual(first.rows.filter(row => row.surface === SURFACE.launchRoot).map(row => row.identity));
@@ -752,6 +956,72 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             'fast-glob'       : expect.any(String)
         }));
         expect(first.packageDependencies.manifests.cloud.ws).toBeUndefined();
+        expect(first.consumerEdges.total).toBeGreaterThan(0);
+        expect(first.consumerEdges.byDirection).toEqual({
+            [CONSUMER_EDGE_DIRECTION.agentOsToOutside]: expect.any(Number),
+            [CONSUMER_EDGE_DIRECTION.outsideToAgentOs]: expect.any(Number)
+        });
+        expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.agentOsToOutside]).toBeGreaterThan(0);
+        expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.outsideToAgentOs]).toBeGreaterThan(0);
+        expect(first.consumerEdges.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
+        expect(first.consumerEdges.sourceClasses).toContainEqual(expect.objectContaining({
+            identity   : 'test/playwright/unit/ai/**',
+            disposition: 'moves-agentos-test',
+            evidence   : expect.objectContaining({pathPrefix: 'test/playwright/unit/ai/'})
+        }));
+        expect(first.consumerEdges.rows).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                surface : SURFACE.consumerEdge,
+                evidence: expect.objectContaining({
+                    direction : CONSUMER_EDGE_DIRECTION.outsideToAgentOs,
+                    sourcePath: 'test/playwright/fixtures.mjs'
+                })
+            }),
+            expect.objectContaining({
+                surface : SURFACE.consumerEdge,
+                evidence: expect.objectContaining({
+                    direction : CONSUMER_EDGE_DIRECTION.agentOsToOutside,
+                    targetPath: 'src/Neo.mjs'
+                })
+            })
+        ]));
+        const consumerBySource = sourcePath => first.consumerEdges.rows.filter(
+            row => row.evidence.sourcePath === sourcePath
+        );
+
+        expect(consumerBySource('test/playwright/restoreEmptyTargetMeasurementAdapter.mjs'))
+            .toEqual(expect.arrayContaining([expect.objectContaining({disposition: 'moves-agentos-test'})]));
+        expect(consumerBySource('test/playwright/e2e/agentos/AccountsConfigSurface.spec.mjs'))
+            .toEqual(expect.arrayContaining([expect.objectContaining({disposition: 'served-contract-integration'})]));
+        [
+            '.claude/hooks/laneStateStopHook.mjs',
+            '.codex/hooks/codex-context.mjs',
+            '.kimi-code/hooks/turnPresenceHook.mjs'
+        ].forEach(sourcePath => {
+            expect(consumerBySource(sourcePath), sourcePath).toEqual(expect.arrayContaining([
+                expect.objectContaining({disposition: 'generated-target-artifact'})
+            ]))
+        });
+
+        for (const targetRoot of ['src/', 'apps/', 'buildScripts/']) {
+            expect(first.consumerEdges.rows.some(row => row.evidence.direction ===
+                CONSUMER_EDGE_DIRECTION.agentOsToOutside && row.evidence.targetPath.startsWith(targetRoot)),
+            `outbound receipt must include ${targetRoot}`).toBe(true)
+        }
+        first.consumerEdges.rows.filter(row => row.evidence.direction ===
+            CONSUMER_EDGE_DIRECTION.agentOsToOutside && row.evidence.targetPath.startsWith('src/'))
+            .forEach(row => expect(row.disposition, row.identity).toBe('published-engine-package'));
+        first.consumerEdges.rows.forEach(row => {
+            expect(row.source, row.identity).toMatch(/:\d+$/);
+            expect(row.rationale, row.identity).toBeTruthy();
+            expect(['engine-continuity', 'move', 'seat-reprovisioning'], row.identity)
+                .toContain(row.successorPhase)
+        });
+        expect(first.engineDependencyCovenant.ok).toBe(true);
+        expect(first.engineDependencyCovenant.violations).toEqual([]);
+        expect(first.engineDependencyCovenant.forbiddenPackages).toEqual([
+            '@neomjs/neo-agent-brain', 'neo-agent-brain'
+        ]);
         expect(first.runtimeProbeEligibility.ok).toBe(true);
         expect(first.runtimeProbeEligibility.total).toBe(
             first.runtimeProbeEligibility.rows.length
@@ -785,13 +1055,23 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(human).toContain('ai/daemons/wake/daemon.mjs — task:bridgeDaemon');
         expect(human).toContain('package-dependency identities:');
         expect(human).toContain('package.brain.json::devDependencies::better-sqlite3 @');
+        expect(human).toContain('consumer-edge identities:');
+        expect(human).toContain('preclassified source classes:');
+        expect(human).toContain('Engine→AgentOS forbidden packages:');
 
         const keys = first.rows.map(row => rowKey(row.surface, row.identity));
 
         expect(new Set(keys).size).toBe(keys.length);
         expect(keys).toEqual([...keys].sort((a, b) => a.localeCompare(b)));
+        const validConsumerDispositions = new Set(Object.values(CONSUMER_EDGE_DISPOSITIONS)
+            .flatMap(values => [...values]));
+
         first.rows.forEach(row => {
-            expect(['cloud', 'edge', 'retire', 'shared', 'stays-engine']).toContain(row.disposition);
+            if ([SURFACE.consumerEdge, SURFACE.consumerSourceClass].includes(row.surface)) {
+                expect(validConsumerDispositions.has(row.disposition)).toBe(true)
+            } else {
+                expect(['cloud', 'edge', 'retire', 'shared', 'stays-engine']).toContain(row.disposition)
+            }
             expect(row.source).toBeTruthy();
             expect(row.rationale).toBeTruthy()
         });
@@ -809,7 +1089,9 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             SURFACE.rootScript,
             SURFACE.scriptModule,
             SURFACE.subprocessLaunch,
-            SURFACE.workflowReference
+            SURFACE.workflowReference,
+            SURFACE.consumerEdge,
+            SURFACE.consumerSourceClass
         ].forEach(surface => {
             expect(first.rows.filter(row => row.surface === surface).every(row => row.evidence?.override),
                 `${surface} custody must never fall through to current source shape`).toBe(true)

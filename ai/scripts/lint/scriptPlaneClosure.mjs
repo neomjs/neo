@@ -357,21 +357,35 @@ export function isGracefullyDegraded(ancestors) {
  * unresolved edge and is reported as one — see `collectModuleFacts().unresolved`.
  *
  * @param {String} source Module text.
- * @returns {{imports: String[], capabilities: Object[], unresolved: Object[], parsed: Boolean}}
+ * `importEdges` preserves the syntax kind and source coordinate for consumers that need to
+ * reconcile package-boundary crossings. `imports` remains the compatibility projection consumed
+ * by the closure and denial proof; both arrays are populated by one AST walk so they cannot drift.
+ *
+ * @returns {{imports: String[], importEdges: Object[], capabilities: Object[], unresolved: Object[], parsed: Boolean}}
  */
 export function collectModuleFacts(source) {
     const
         ast          = parseModule(source),
         imports      = [],
+        importEdges  = [],
         capabilities = [],
         unresolved   = [];
 
     if (!ast) {
         return {
-            imports, capabilities, unresolved: [{reason: 'unparseable'}],
+            imports, importEdges, capabilities, unresolved: [{reason: 'unparseable'}],
             calls: [], members: [], bindings: {}, superBindings: [], parsed: false
         }
     }
+
+    const addImport = (specifier, kind, node) => {
+        imports.push(specifier);
+        importEdges.push({
+            kind,
+            line: node.loc?.start?.line ?? null,
+            specifier
+        })
+    };
 
     // Which local binding names came from a host-capability package, so a later call can be traced
     // back to it. Matching the CALL rather than the import is what separates requirement from use.
@@ -391,7 +405,7 @@ export function collectModuleFacts(source) {
         if (node.type === 'ImportDeclaration') {
             const specifier = node.source.value;
 
-            imports.push(specifier);
+            addImport(specifier, 'static-import', node);
 
             const normalized = normalizeSpecifier(specifier),
                   capability = Object.entries(HOST_CAPABILITY_SOURCES)
@@ -413,12 +427,20 @@ export function collectModuleFacts(source) {
         // `export {X as Y} from './p.mjs'` — a re-export binds a name to another module's value
         // without ever importing it locally, so it is invisible to the ImportDeclaration branch.
         if (node.type === 'ExportNamedDeclaration' && node.source?.value) {
-            imports.push(node.source.value);
+            addImport(node.source.value, 'named-reexport', node);
 
             (node.specifiers ?? []).forEach(spec => importBindings.set(
                 spec.exported?.name ?? spec.local?.name,
                 {specifier: node.source.value, imported: spec.local?.name ?? 'default'}
             ));
+            return
+        }
+
+        // `export * from './module.mjs'` is a real static reach edge. Keeping it out of the shared
+        // parser made a barrel crossing invisible to both the capability closure and the extraction
+        // consumer ledger even though every runtime follows it.
+        if (node.type === 'ExportAllDeclaration' && node.source?.value) {
+            addImport(node.source.value, 'export-all', node);
             return
         }
 
@@ -450,7 +472,7 @@ export function collectModuleFacts(source) {
 
         if (node.type === 'ImportExpression') {
             if (node.source?.type === 'Literal' && typeof node.source.value === 'string') {
-                imports.push(node.source.value)
+                addImport(node.source.value, 'literal-dynamic-import', node)
             } else {
                 unresolved.push({
                     reason: 'dynamic-import',
@@ -586,6 +608,7 @@ export function collectModuleFacts(source) {
 
     return {
         imports,
+        importEdges,
         capabilities,
         unresolved,
         calls,
