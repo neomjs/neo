@@ -321,6 +321,11 @@ When §0 surfaces Cycle-1 structural invalidity — false premise, ungraduated s
 
 After `[REJECTED_WITH_RATIONALE]` (`review-response-protocol.md §4`), re-escalate the same item only with superior empirical evidence naming a missed failure mode. Authority or preference is insufficient; if the rationale survives falsification, yield, resolve it, and continue the PR lifecycle.
 
+### 9.2 Withdrawing an approval
+
+A comment saying "do not merge" does **not** retract a submitted approval; open it with
+`[MERGE_HOLD]` or `[RE_REVIEW_HOLD]`: [`merge-hold-tokens.md`](./merge-hold-tokens.md).
+
 ## 10. A2A Comment-ID Hand-off (warm-cache review cycles)
 
 For multi-cycle reviews, after posting a review comment **capture its `commentId` and A2A it to the next actor** (peer or author) with a one-line substance summary — so they fetch just that comment instead of re-reading the whole thread (full-thread re-fetch cost grows with thread length).
