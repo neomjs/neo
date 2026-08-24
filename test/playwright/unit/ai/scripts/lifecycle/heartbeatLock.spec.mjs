@@ -20,7 +20,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Unit coverage for the heartbeat concurrency mutex helper (#10319).
+ * @summary Unit coverage for the heartbeat concurrency mutex helper.
  *
  * The fallback heartbeat consumes `.neo-ai-data/heartbeat-concurrency.lock` as a skip
  * barrier. These tests keep the producer side isolated in temporary directories so the
@@ -108,8 +108,71 @@ test.describe('ai/scripts/heartbeatLock', () => {
         expect(stale.ageMs).toBeGreaterThanOrEqual(1000);
     });
 
-    // Note (#11766): the former `swarm-heartbeat.sh defines the skip, stale-clear, and
-    // no-queue semantics` test was removed with the bash script. The skip-vs-stale-clear
+    // Note: the former `swarm-heartbeat.sh defines the skip, stale-clear, and no-queue
+    // semantics` test was removed with the bash script. The skip-vs-stale-clear
     // ordering is now covered against the JS lane in
     // `test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs`.
+
+    /**
+     * The coordinate, not the mechanics.
+     *
+     * Every arm above passes an explicit `lockPath`, which is exactly why they were green while the
+     * default was cwd-relative: a fixture that supplies the answer cannot observe where the answer
+     * would otherwise come from. These arms assert the two properties that make the fork
+     * impossible — no path bypasses the injection, and the injected coordinate is the same from any
+     * working directory.
+     */
+    test.describe('#17660 — cwd-independent lock coordinate', () => {
+        // The FALSIFYING half. A default that silently resolved somewhere is the whole defect, so
+        // each entry point must refuse rather than pick. `fs.remove` on a bad path is destructive
+        // and `fs.stat` on a missing one reports "no lock held" — the reading that starts the work
+        // the mutex exists to prevent — so the throw has to land before either can run.
+        test('every lock operation refuses a missing coordinate BEFORE touching the filesystem', async () => {
+            const expected = /requires an injected lockPath/;
+
+            await expect(lockModule.acquireHeartbeatLock()).rejects.toThrow(expected);
+            await expect(lockModule.acquireHeartbeatLock({})).rejects.toThrow(expected);
+            await expect(lockModule.releaseHeartbeatLock({})).rejects.toThrow(expected);
+            await expect(lockModule.inspectHeartbeatLock({})).rejects.toThrow(expected);
+            await expect(lockModule.withHeartbeatLock(async () => 'unreachable', {})).rejects.toThrow(expected);
+
+            // Nothing was created on the way to any of those throws. `tmpBase` exists only once
+            // `acquireHeartbeatLock` runs its `ensureDir`, so its absence IS the before-filesystem
+            // assertion rather than a restatement of the throws above.
+            expect(await fs.pathExists(tmpBase)).toBe(false);
+        });
+
+        // The NON-VACUITY half (AC-3): resolve the coordinate from two different working
+        // directories and assert they agree. Pre-repair this arm is RED by construction — the
+        // module's answer WAS `process.cwd()` joined with a relative literal, so two cwds gave two
+        // locks and the mutex stopped being one. Child processes because cwd is per-process.
+        test('the configured coordinate is identical from two different working directories', async () => {
+            const {execFileSync} = await import('child_process'),
+                  os             = (await import('os')).default,
+                  repoRoot       = process.cwd(),
+                  bootstrap      = [
+                      `await import('file://${path.resolve(repoRoot, 'src/Neo.mjs')}');`,
+                      `await import('file://${path.resolve(repoRoot, 'src/core/_export.mjs')}');`,
+                      `const {default: AiConfig} = await import('file://${path.resolve(repoRoot, 'ai/config.mjs')}');`,
+                      "const p = (await import('node:path')).default;",
+                      'const raw = AiConfig.heartbeatConcurrencyLockPath;',
+                      // The RESOLVED path is the assertion subject, not the raw string. A relative
+                      // coordinate compares EQUAL across cwds — it is the same string in both
+                      // processes — so comparing raw values would pass against the very defect this
+                      // arm exists to catch. Resolving is what turns "same answer" into "same file".
+                      'process.stdout.write(JSON.stringify({raw, resolved: p.resolve(raw)}));'
+                  ].join(''),
+                  runFrom        = cwd => JSON.parse(execFileSync('node', ['--input-type=module', '-e', bootstrap], {
+                      cwd,
+                      encoding: 'utf-8',
+                      env     : {...process.env, NEO_UNIT_TEST_MODE: 'true'}
+                  }).trim());
+
+            const fromRepoRoot = runFrom(repoRoot),
+                  fromTmp      = runFrom(os.tmpdir());
+
+            expect(fromRepoRoot.resolved).toBe(fromTmp.resolved);
+            expect(path.isAbsolute(fromRepoRoot.raw)).toBe(true);
+        });
+    });
 });

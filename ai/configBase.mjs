@@ -266,6 +266,24 @@ class ConfigBase extends ConfigProvider {
              */
             wakeDaemonHeartbeatAlivePath: leaf(path.resolve(planeDataRootDefault, 'wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string', {planeMember: true}),
             /**
+             * Path to the heartbeat CONCURRENCY lock — the mutex `withHeartbeatLock` creates while
+             * expensive Agent OS work runs, and the absolute skip barrier the swarm-heartbeat lane
+             * honours until the stale-lock TTL expires. Distinct from the liveness sentinel above:
+             * that one is touched every pulse, this one only while work is in flight.
+             *
+             * A concurrency lock is only a lock while every contender addresses the same file, so
+             * this leaf exists to make that coordinate declared rather than ambient. Its consumer
+             * used a bare `.neo-ai-data/…` literal resolved against `process.cwd()`, which forked
+             * the mutex per launch directory — two runs of one checkout stopped serializing. The
+             * plane root is deliberately not its own member (see the anchor's note), so the lock
+             * needed a leaf of its own before the default could be removed.
+             *
+             * The default resolves to the same file the literal did for a repo-root invocation, so
+             * no live lock relocates; every other working directory is corrected.
+             * @type {string}
+             */
+            heartbeatConcurrencyLockPath: leaf(path.resolve(planeDataRootDefault, 'heartbeat-concurrency.lock'), 'NEO_HEARTBEAT_LOCK_PATH', 'string', {planeMember: true}),
+            /**
              * Fleet Manager supervision leaves: where per-agent harness instance homes live and
              * which binary each harness family launches. The lifecycle service reads these at the
              * use site (`FleetLifecycleService.getInstanceRoot` / `getHarnessBinaryPath`) — the
@@ -2548,6 +2566,7 @@ class ConfigBase extends ConfigProvider {
 export const PLANE_MEMBER_PATHS = Object.freeze([
     'auth.seatTokenRegistryPath',
     'wakeDaemonHeartbeatAlivePath',
+    'heartbeatConcurrencyLockPath',
     'fleet.dataDir',
     'fleet.instanceRoot',
     'engines.chroma.dataDirProd',

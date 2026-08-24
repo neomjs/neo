@@ -22,8 +22,7 @@ import {
 } from '../../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {
     inspectHeartbeatLock,
-    releaseHeartbeatLock,
-    HEARTBEAT_LOCK_PATH
+    releaseHeartbeatLock
 } from '../../../scripts/lifecycle/heartbeatLock.mjs';
 import {checkSunsetted as checkSunsettedScript} from '../../../scripts/lifecycle/checkSunsetted.mjs';
 import {normalizeAgentIdentityNodeId}           from '../../../graph/normalizeAgentIdentityNodeId.mjs';
@@ -65,6 +64,20 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  */
 function heartbeatAlivePath() {
     return AiConfig.wakeDaemonHeartbeatAlivePath;
+}
+
+/**
+ * @summary Resolves the heartbeat CONCURRENCY lock path — the skip barrier, not the liveness file.
+ *
+ * `heartbeatLock.mjs` is deliberately Neo-free, so this entrypoint-side service supplies the
+ * coordinate it no longer defaults. Both contenders — the producer wrapping expensive work and this
+ * lane inspecting/clearing it — must read the same leaf, or the mutex stops being one.
+ *
+ * @returns {String}
+ * @see ai/scripts/lifecycle/heartbeatLock.mjs
+ */
+function heartbeatLockPath() {
+    return AiConfig.heartbeatConcurrencyLockPath;
 }
 
 /**
@@ -495,7 +508,7 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async checkHeartbeatLock() {
-        return inspectHeartbeatLock()
+        return inspectHeartbeatLock({lockPath: heartbeatLockPath()})
     }
 
     /**
@@ -504,7 +517,7 @@ class SwarmHeartbeatService extends Base {
      * @protected
      */
     async clearHeartbeatLock() {
-        return releaseHeartbeatLock()
+        return releaseHeartbeatLock({lockPath: heartbeatLockPath()})
     }
 
     /**
@@ -1273,9 +1286,9 @@ class SwarmHeartbeatService extends Base {
 export default Neo.setupClass(SwarmHeartbeatService);
 
 export {
-    HEARTBEAT_LOCK_PATH,
     DEFAULT_POLL_INTERVAL_MS,
     heartbeatAlivePath,
+    heartbeatLockPath,
     githubNotificationWakeStatePath,
     isGitHubRemoteUrl,
     extractPullRequestNumberFromNotificationUrl

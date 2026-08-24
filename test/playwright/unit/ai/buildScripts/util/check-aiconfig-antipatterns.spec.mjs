@@ -417,3 +417,126 @@ test.describe('PLANE-ROOT — __dirname-derived plane roots', () => {
         expect(filterAllowlistedHits(hits, 'ai/services/SomeNewService.mjs')).toHaveLength(1)
     })
 });
+
+/**
+ * @summary Red-proofs rule PLANE-LITERAL — a bare `.neo-ai-data/…` literal resolved against cwd.
+ *
+ * The sibling above requires a `path.join|resolve(__dirname` prefix, so it is structurally unable
+ * to see this class: its ledger could empty, its arms could all pass, and the plane would still
+ * fork. The blast radius is worse, too — a `__dirname` fork is stable per checkout, so two runs
+ * from one clone agree; a cwd fork means two runs of the SAME clone disagree.
+ *
+ * The acquittal arms carry as much weight as the conviction arms here. A widened rule's first
+ * failure mode is convicting the cases the census just cleared, and three live sites are correct
+ * as written because the state they address is checkout-owned rather than plane-owned.
+ */
+test.describe('PLANE-LITERAL — cwd-relative plane literals', () => {
+    const planeLiteralHits = source => findAntipatterns(source).filter(hit => hit.rule === 'PLANE-LITERAL');
+
+    test('the pre-repair source of BOTH #17660 repair sites fires', () => {
+        // Verbatim from `dev` before this ticket. If either stops firing, the rule stopped covering
+        // the population it was built for.
+        expect(planeLiteralHits("export const HEARTBEAT_LOCK_PATH = '.neo-ai-data/heartbeat-concurrency.lock';")).toHaveLength(1);
+        expect(planeLiteralHits("const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.json';")).toHaveLength(1);
+        expect(planeLiteralHits("const COOLDOWN_LOCK_PATH  = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.lock';")).toHaveLength(1)
+    });
+
+    test('`let`, `var`, a plain reassignment, and a default parameter all fire', () => {
+        expect(planeLiteralHits("let dir = '.neo-ai-data/x';")).toHaveLength(1);
+        expect(planeLiteralHits("var dir = '.neo-ai-data/x';")).toHaveLength(1);
+        expect(planeLiteralHits("    dir = '.neo-ai-data/x';")).toHaveLength(1);
+        expect(planeLiteralHits("    chromaDataDir = '.neo-ai-data/chroma/unified',")).toHaveLength(1)
+    });
+
+    test('a TEMPLATE literal fires — the interpolated shape a quote-only predicate misses', () => {
+        expect(planeLiteralHits('const p = `.neo-ai-data/wake-daemon/inflight-${mode}.txt`;')).toHaveLength(1)
+    });
+
+    test('the plane NAME never fires — the canonical definitions are the authority, not a re-derivation', () => {
+        // Excluded by the required separator rather than by grandfathering, so the ledger stays
+        // free of entries that are really "this is the SSOT".
+        expect(planeLiteralHits("export const PLANE_DIR_NAME = '.neo-ai-data';")).toEqual([]);
+        expect(planeLiteralHits("    dataRootRelative: '.neo-ai-data',")).toEqual([])
+    });
+
+    test('a literal joined onto an already-resolved root never fires — that IS the sanctioned shape', () => {
+        expect(planeLiteralHits("const p = path.join(PROJECT_ROOT, '.neo-ai-data', 'concepts');")).toEqual([]);
+        expect(planeLiteralHits("export const DEFAULT_BACKUPS_DIR = path.resolve(neoRootDir, '.neo-ai-data/backups');")).toEqual([]);
+        expect(planeLiteralHits("const out = path.join(os.homedir(), '.neo-ai-data', 'serving-cost');")).toEqual([])
+    });
+
+    test('list elements and classifier prefixes never fire — they are not paths', () => {
+        expect(planeLiteralHits("    '.neo-ai-data',")).toEqual([]);
+        expect(planeLiteralHits("    {prefix: '.neo-ai-data/concepts/', subsystem: 'dream-nightshift'},")).toEqual([])
+    });
+
+    test('a JSDoc/comment mention never fires — the assignment token is masked inside a comment', () => {
+        expect(planeLiteralHits(" * writes to `.neo-ai-data/wake-daemon/swarm-wake-cooldown.json` on fire")).toEqual([]);
+        expect(planeLiteralHits("// const OLD = '.neo-ai-data/legacy/path.json' was the forked shape")).toEqual([])
+    });
+
+    test('the escape marker exempts a line, as it does for every other rule', () => {
+        expect(planeLiteralHits(`const p = '.neo-ai-data/x'; // ${ESCAPE_MARKER}`)).toEqual([])
+    });
+
+    test('PLANE-ROOT and PLANE-LITERAL never double-count the same line', () => {
+        // The literal must be the DIRECT right-hand side, so a `path.resolve(__dirname, …)` between
+        // the `=` and the quote breaks this rule and leaves the line to its sibling alone.
+        const both = findAntipatterns("const p = path.resolve(__dirname, '../.neo-ai-data/x');").map(hit => hit.rule);
+
+        expect(both).toContain('PLANE-ROOT');
+        expect(both).not.toContain('PLANE-LITERAL')
+    });
+
+    test('ACQUITTAL: the three checkout-owned sites are silenced, and the ledger is what silences them', () => {
+        // Two directions, because either alone is satisfiable by a rule that does nothing. Without
+        // the ledger every one of them must go RED — that is what proves the entries are load-
+        // bearing rather than decoration for sites the predicate never reached.
+        const noLedger = {...ALLOWLIST, 'PLANE-LITERAL': new Set()},
+              sites    = [
+                  ['ai/scripts/lifecycle/nightlyE2eRunner.mjs',       "const STATE_DIR     = '.neo-ai-data/nightly-e2e',"],
+                  ['ai/scripts/diagnostics/bootstrapCodexSandbox.mjs', "export const DEFAULT_SQLITE_DIR = '.neo-ai-data/sqlite';"],
+                  ['ai/daemons/orchestrator/taskDefinitions.mjs',      "    chromaDataDir = '.neo-ai-data/chroma/unified',"]
+              ];
+
+        for (const [file, source] of sites) {
+            const hits = planeLiteralHits(source);
+
+            expect(hits, `${file} must be reachable by the predicate`).toHaveLength(1);
+            expect(filterAllowlistedHits(hits, file), `${file} must be acquitted by the ledger`).toEqual([]);
+            expect(filterAllowlistedHits(hits, file, noLedger), `${file} must go red without the ledger`).toHaveLength(1)
+        }
+    });
+
+    test('LIVE-ANCHOR: every ledger entry still names a line that exists in its file', () => {
+        // An exact-site entry whose source text drifted stops muting and CI says so. The silent
+        // direction is the other one: the site gets DELETED and the entry lingers, exempting a
+        // future line that happens to match. Nothing else reports that, so this arm does.
+        for (const entry of ALLOWLIST['PLANE-LITERAL']) {
+            const [file, site] = entry.split('::'),
+                  content      = fs.readFileSync(path.join(repoRoot, file), 'utf8'),
+                  present      = content.split('\n').some(line => line.trim() === site.trim());
+
+            expect(present, `${file} no longer contains the ledgered site: ${site}`).toBe(true)
+        }
+    });
+
+    test('RATCHET: a second site inside a ledgered file stays RED — exact-site entries prove growth', () => {
+        const
+            file      = 'ai/scripts/lifecycle/nightlyE2eRunner.mjs',
+            knownSite = "const STATE_DIR     = '.neo-ai-data/nightly-e2e',",
+            newSite   = "const sneak = '.neo-ai-data/sneaky/state.json';",
+            hits      = planeLiteralHits(`${knownSite}\n${newSite}\n`),
+            kept      = filterAllowlistedHits(hits, file);
+
+        expect(hits).toHaveLength(2);
+        expect(kept).toHaveLength(1);
+        expect(kept[0].text).toContain('.neo-ai-data/sneaky')
+    });
+
+    test('an unlisted file with an acquitted file\'s exact shape is NOT silenced', () => {
+        const hits = planeLiteralHits("export const DEFAULT_SQLITE_DIR = '.neo-ai-data/sqlite';");
+
+        expect(filterAllowlistedHits(hits, 'ai/services/SomeNewService.mjs')).toHaveLength(1)
+    })
+});

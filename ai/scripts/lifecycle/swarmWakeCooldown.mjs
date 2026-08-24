@@ -19,23 +19,41 @@ import AiConfig                                 from '../../config.mjs';
 import memoryCoreConfig                         from '../../mcp/server/memory-core/config.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
-const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.json';
-const COOLDOWN_LOCK_PATH  = '.neo-ai-data/wake-daemon/swarm-wake-cooldown.lock';
+const COOLDOWN_STATE_FILE = 'swarm-wake-cooldown.json';
+const COOLDOWN_LOCK_FILE  = 'swarm-wake-cooldown.lock';
 
 /**
  * @summary Dispatch the cooldown-bounded swarm-wide wake for an all-agent-idle signal.
+ *
+ * `wakeDaemonDir` is required. A swarm-wide cooldown is shared state by definition, so the two
+ * files below must land in the resolved wake-daemon member and nowhere else: the previous
+ * cwd-relative literals gave every launch directory its own cooldown record, which does not
+ * enforce a cooldown — it enforces one per invocation site, and the suppression the TTL exists to
+ * produce silently stops happening.
+ *
  * @param {Object} signal All-agent-idle detector signal.
  * @param {Object} options
- * @param {String} options.wakeDaemonDir Resolved wake-daemon data member.
+ * @param {String} options.wakeDaemonDir Resolved wake-daemon data member. Required.
  * @returns {Promise<Object|void>} Dispatch outcome when the heartbeat lock implementation returns it.
+ * @throws {Error} When `wakeDaemonDir` is absent — before any filesystem access.
  */
 export async function swarmWakeCooldown(signal, {wakeDaemonDir}={}) {
+    // Ahead of the signal guards deliberately: a missing injection is a composition error, and one
+    // that only surfaces on the rare all-idle branch would stay invisible through every ordinary
+    // call — the same "silently wrong until it matters" shape the cwd-relative literals had.
+    if (!wakeDaemonDir) {
+        throw new Error('swarmWakeCooldown: wake-daemon directory must be injected by the composing entrypoint')
+    }
+
     if (!signal) {
         return {fired: false, reason: 'missing-signal'};
     }
     if (signal.allIdle !== true) {
         return {fired: false, reason: 'not-all-idle'};
     }
+
+    const cooldownStatePath = path.join(wakeDaemonDir, COOLDOWN_STATE_FILE),
+          cooldownLockPath  = path.join(wakeDaemonDir, COOLDOWN_LOCK_FILE);
 
     return withHeartbeatLock(async () => {
         // Cooldown TTL resolved from the wake-policy leaf (env NEO_SWARM_WAKE_COOLDOWN_SECONDS, 600s default).
@@ -44,8 +62,8 @@ export async function swarmWakeCooldown(signal, {wakeDaemonDir}={}) {
         const now        = Date.now();
 
         let state = {};
-        if (await fs.pathExists(COOLDOWN_STATE_PATH)) {
-            state = await fs.readJson(COOLDOWN_STATE_PATH).catch(() => ({}));
+        if (await fs.pathExists(cooldownStatePath)) {
+            state = await fs.readJson(cooldownStatePath).catch(() => ({}));
         }
 
         const lastFireAt        = state.last_fire_at_iso ? new Date(state.last_fire_at_iso).getTime() : 0;
@@ -92,11 +110,11 @@ export async function swarmWakeCooldown(signal, {wakeDaemonDir}={}) {
             ttl_seconds       : ttlSeconds
         };
 
-        await fs.ensureDir(path.dirname(COOLDOWN_STATE_PATH));
-        await fs.writeJson(COOLDOWN_STATE_PATH, state, { spaces: 2 });
+        await fs.ensureDir(path.dirname(cooldownStatePath));
+        await fs.writeJson(cooldownStatePath, state, { spaces: 2 });
 
         return {fired: true, coordinator, cycle_id: signal.cycle_id};
-    }, { lockPath: COOLDOWN_LOCK_PATH });
+    }, { lockPath: cooldownLockPath });
 }
 
 async function main() {
