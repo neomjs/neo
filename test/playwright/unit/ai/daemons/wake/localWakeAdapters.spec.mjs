@@ -39,6 +39,22 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         );
     });
 
+    test('the digest renders no session-context line regardless of probe state (AC-1)', () => {
+        // The envelope field survives for any future instrument — only its render died.
+        const probed = record('test');
+
+        probed.envelope.payload.sessionContext = {contextTokens: 45_000, maxContextTokens: 250_000};
+
+        expect(formatLocalWakeDigest(probed.envelope)).not.toContain('session-context');
+        // Absent probe data → no field → nothing to render either
+        expect(formatLocalWakeDigest(record('test').envelope)).not.toContain('session-context');
+        // A malformed field is treated as absent, never rendered half-formed
+        const malformed = record('test');
+
+        malformed.envelope.payload.sessionContext = {contextTokens: 'big'};
+
+        expect(formatLocalWakeDigest(malformed.envelope)).not.toContain('session-context');
+    });
 
     test('preserves strongest message priority and the pure-heartbeat lifecycle directive', () => {
         const mixed = record('test').envelope;
