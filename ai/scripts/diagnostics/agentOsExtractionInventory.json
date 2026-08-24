@@ -754,6 +754,18 @@
             "reason": "tree and SEO generation is guarded and the imported SEO generator has its own direct-entry guard"
         },
         {
+            "identity": "ai/scripts/lint/lintPrStacking.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lintPrStacking.mjs:141-146",
+            "reason": "stdin-driven decision CLI; side effects are stdout/stderr and process.exit behind the guard() tail"
+        },
+        {
+            "identity": "ai/scripts/lint/prStackingGuard.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/prStackingGuard.mjs:1-14",
+            "reason": "pure exported helpers and shared regex constants; no I/O or process state at module scope"
+        },
+        {
             "identity": "ai/scripts/maintenance/communityBatchPushClient.mjs",
             "eligibility": "eligible",
             "source": "ai/scripts/maintenance/communityBatchPushClient.mjs:242-244",
@@ -842,6 +854,7 @@
                 "ai/scripts/lint/lint-script-plane.mjs",
                 "ai/scripts/lint/lint-skill-manifest.mjs",
                 "ai/scripts/lint/lint-tree-json.mjs",
+                "ai/scripts/lint/lintPrStacking.mjs",
                 "ai/scripts/maintenance/communityBatchPushClient.mjs",
                 "ai/scripts/maintenance/kbPushClient.mjs",
                 "ai/scripts/maintenance/probeBusinessMetrics.mjs",
@@ -1112,6 +1125,8 @@
                 "ai/scripts/lint/lint-script-plane.mjs",
                 "ai/scripts/lint/lint-skill-manifest.mjs",
                 "ai/scripts/lint/lint-tree-json.mjs",
+                "ai/scripts/lint/lintPrStacking.mjs",
+                "ai/scripts/lint/prStackingGuard.mjs",
                 "ai/scripts/lint/scriptPlaneClosure.mjs",
                 "ai/scripts/maintenance/businessMetricsProbeCore.mjs",
                 "ai/scripts/maintenance/communityActivityShadowProbeCore.mjs",
@@ -1498,6 +1513,7 @@
                 ".github/workflows/adr-status-lint.yml::ai/scripts/lint/lint-adr-status.mjs::1",
                 ".github/workflows/adr-status-lint.yml::ai/scripts/lint/lint-adr-status.mjs::2",
                 ".github/workflows/adr-status-lint.yml::ai/scripts/lint/lint-adr-status.mjs::3",
+                ".github/workflows/agent-pr-body-lint.yml::ai/scripts/lint/lintPrStacking.mjs::1",
                 ".github/workflows/agent-pr-body-lint.yml::ai/scripts/agent-preflight.mjs::1",
                 ".github/workflows/agent-pr-body-lint.yml::ai/scripts/agent-preflight.mjs::2",
                 ".github/workflows/check-retired-primitives.yml::ai/scripts/diagnostics/check-retired-primitives.mjs::1",
