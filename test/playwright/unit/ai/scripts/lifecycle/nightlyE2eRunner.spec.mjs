@@ -360,15 +360,27 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
 
     test('#17725 the suite CANNOT open a live Memory Core connection, stub or no stub', async () => {
         // The guard that makes every other arm's isolation structural instead of remembered. An arm
-        // that omits the `connect` stub on a host with a credential used to reach the live fleet and
-        // broadcast a wake-bearing digest to every seat. The credential is injected here so the arm
-        // asserts the guard rather than the machine it happens to run on.
+        // omitting the `connect` stub on a credentialed host used to reach the live fleet and broadcast
+        // a wake-bearing digest to every seat.
+        //
+        // CONSTRUCTION is intercepted, not just the credential value. `Client` resolves `requiredEnv`
+        // and its Bearer against `process.env` when its own `env` lacks the key, so an injected env
+        // alone would still let a real host token be consumed — and the arm would then go red for an
+        // ambient missing-token error rather than for the transition it exists to protect. With the
+        // factory seam the assertion is exact: the guard fires BEFORE construction is attempted, and
+        // no real client is ever built. (@neo-gpt-emmy, RA-1.)
         expect(process.env.UNIT_TEST_MODE).toBe('true');
 
+        let constructionAttempts = 0;
+
         await expect(runNightlyE2e({
-            env   : {NEO_MCP_REMOTE_TOKEN: 'a-valid-looking-credential'},
-            runOne: redOutcome
+            createClient: () => { constructionAttempts++; throw new Error('CLIENT CONSTRUCTION ATTEMPTED') },
+            env         : {NEO_MCP_REMOTE_TOKEN: 'a-valid-looking-credential'},
+            runOne      : redOutcome
         })).rejects.toThrow(/UNIT_TEST_MODE/);
+
+        // The load-bearing assertion: the guard short-circuits ahead of the client entirely.
+        expect(constructionAttempts, 'the guard must fire before any client is constructed').toBe(0);
 
         // A refused connection is a recorded failure, not a silent success.
         expect(await readState()).toMatchObject({red: true, digest: 'failed'})
