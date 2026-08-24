@@ -2199,9 +2199,18 @@ export class DeploymentStateBridgeService extends Base {
             errors.push(summarizeDiagnosticError(error, 'tenant-repo-revision-state-read-failed'));
         }
 
-        const embeddingRecoveryProbe = summarizeEmbeddingRecoveryProbe(
+        const baseEmbeddingRecoveryProbe = summarizeEmbeddingRecoveryProbe(
             readEmbeddingRecoveryProbeSnapshot(this.tenantRepoSyncService)
         );
+        const embeddingRecoveryProbe = annotateEmbeddingProbeSweepDisagreement({
+            probeSnapshot  : baseEmbeddingRecoveryProbe,
+            probeCadenceMs : scheduler.sweepCadenceMs,
+            repos,
+            persistedRevisions,
+            globalCadenceMs: scheduler.globalCadenceMs,
+            jitterRatio    : scheduler.jitterRatio,
+            backoffCapMs   : scheduler.backoffCapMs
+        });
 
         const repoStates = repos.map(repo => summarizeTenantRepoState({
             repo,
@@ -2915,6 +2924,84 @@ function summarizeEmbeddingRecoveryProbe(candidate) {
             : null,
         probeSized: candidate?.probeSized === true
     };
+}
+
+/**
+ * @summary Derives the current probe/sweep disagreement window from the two existing scheduler
+ * authorities; no third threshold is introduced.
+ * @param {Object} options
+ * @param {Number} options.probeCadenceMs Fastest cadence at which the sweep can provide new probe evidence.
+ * @param {Number} options.sweepBackoffFloorMs Repo zero-streak cadence, including jitter and cap.
+ * @returns {Number|null} The narrower positive authority, or null when either answer is unavailable.
+ */
+export function deriveEmbeddingProbeSweepDisagreementInterval({probeCadenceMs, sweepBackoffFloorMs}) {
+    return Number.isFinite(probeCadenceMs) && probeCadenceMs > 0
+        && Number.isFinite(sweepBackoffFloorMs) && sweepBackoffFloorMs > 0
+        ? Math.min(probeCadenceMs, sweepBackoffFloorMs)
+        : null
+}
+
+/**
+ * @summary Names a healthy-probe / repo-failure timestamp contradiction without changing the probe verdict.
+ *
+ * The probe is process-global while checkpoints are per repo, so this projection exposes only the
+ * contradiction class—never the repository identity. A repo participates only while its last error
+ * remains inside BOTH current authorities: the sweep's probe-demand cadence and that repo's own
+ * zero-streak scheduling floor. Outside either window, a later healthy probe can be a genuine recovery.
+ *
+ * @param {Object} options
+ * @param {Object} options.probeSnapshot Sanitized process-owned probe projection.
+ * @param {Number} options.probeCadenceMs Tenant-repo sweep cadence.
+ * @param {Object[]} options.repos Effective repository configs.
+ * @param {Object} options.persistedRevisions Per-repo checkpoint map.
+ * @param {Number} options.globalCadenceMs Global repo cadence fallback.
+ * @param {Number} options.jitterRatio Deterministic repo jitter ratio.
+ * @param {Number} options.backoffCapMs Repo backoff cap.
+ * @returns {Object} Original probe or an error-classified copy; `status` is never changed.
+ */
+function annotateEmbeddingProbeSweepDisagreement({
+    probeSnapshot,
+    probeCadenceMs,
+    repos,
+    persistedRevisions,
+    globalCadenceMs,
+    jitterRatio,
+    backoffCapMs
+}) {
+    if (probeSnapshot?.status !== 'healthy' || !Number.isFinite(probeSnapshot.checkedAt)) {
+        return probeSnapshot
+    }
+
+    const disagreement = repos.some(repo => {
+        if (isTenantRepoDisabled(repo)) return false;
+
+        const checkpoint = normalizeTenantRepoCheckpointState(
+            persistedRevisions[createTenantRepoLabel(repo)] || null
+        );
+        const lastErrorAt = checkpoint?.lastErrorAt;
+
+        if (!Number.isFinite(lastErrorAt)) return false;
+
+        const floorState = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 0},
+            now               : probeSnapshot.checkedAt,
+            globalCadenceMs,
+            jitterRatio,
+            backoffCapMs
+        });
+        const intervalMs = deriveEmbeddingProbeSweepDisagreementInterval({
+            probeCadenceMs,
+            sweepBackoffFloorMs: floorState.effectiveCadenceMs
+        });
+
+        return intervalMs !== null && Math.abs(probeSnapshot.checkedAt - lastErrorAt) <= intervalMs
+    });
+
+    return disagreement ? {
+        ...probeSnapshot,
+        errorClassification: 'probe-sweep-disagreement'
+    } : probeSnapshot
 }
 
 /**
