@@ -843,7 +843,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-24T22:54:02Z</lastmod>
+    <lastmod>2026-08-24T23:46:07Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2200,7 +2200,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17739</loc>
-    <lastmod>2026-08-24T22:53:07Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17731</loc>
@@ -2488,7 +2488,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17578</loc>
-    <lastmod>2026-08-24T16:55:21Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17577</loc>
@@ -2932,7 +2932,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17370</loc>
-    <lastmod>2026-08-24T22:53:07Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17369</loc>
@@ -3208,7 +3208,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17261</loc>
-    <lastmod>2026-08-24T22:53:07Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17260</loc>
@@ -3340,7 +3340,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17203</loc>
-    <lastmod>2026-08-15T18:52:21Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17202</loc>
@@ -7000,7 +7000,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15429</loc>
-    <lastmod>2026-07-28T15:30:51Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15428</loc>
@@ -11652,7 +11652,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13190</loc>
-    <lastmod>2026-07-02T18:27:42Z</lastmod>
+    <lastmod>2026-08-24T23:44:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13187</loc>
@@ -11988,7 +11988,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13015</loc>
-    <lastmod>2026-08-22T17:42:27Z</lastmod>
+    <lastmod>2026-08-24T23:44:33Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13012</loc>
@@ -48691,18 +48691,23 @@
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/news/pulls/17746</loc>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/pulls/17744</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17743</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17742</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -48712,17 +48717,17 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17740</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17738</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17737</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -48732,7 +48737,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17735</loc>
-    <lastmod>2026-08-24T22:53:12Z</lastmod>
+    <lastmod>2026-08-24T23:44:37Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -77747,7 +77752,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/15209</loc>
-    <lastmod>2026-08-24T20:50:45Z</lastmod>
+    <lastmod>2026-08-24T23:44:35Z</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
