@@ -166,30 +166,24 @@ You MUST follow this exact handoff protocol:
 
 ### 6.1 The Cross-Family Mandate
 
-**No PR may be merged without at least one cross-family Approved review**
-(Claude-family <-> Gemini/GPT-family). The reviewer MUST submit a formal GitHub
-PR Review state (`reviewDecision: APPROVED`); a comment alone is insufficient.
-Author family is resolved from the §5 Social Name, with `author.login` fallback.
+**No PR may be merged without at least one cross-family Approved review** — one
+from a seat whose `modelFamily` differs from the author's, per
+`ai/graph/identityRoots.mjs`. `unknown` counts as differing (operator ruling
+2026-08-24). A difference test, never a list of families: a list needs
+hand-editing on every roster change and goes stale silently.
+
+The reviewer MUST submit a formal GitHub PR Review state (`reviewDecision:
+APPROVED`); a comment alone is insufficient. Author family is resolved from the
+§5 Social Name, with `author.login` fallback. A formal `APPROVED` is necessary
+but NOT sufficient: a non-empty `reviewRequests` blocks merge-handoff until each
+requested reviewer is disposed. `validateMergeReady` encodes this.
 
 Stacked PRs (`baseRefName` not `dev` / default): cross-family approval belongs
 to the dev-rebased full-CI merge candidate; same-family delta review is not a
 substitute.
 
-A formal `reviewDecision: APPROVED` is necessary but NOT sufficient: a non-empty `reviewRequests`
-blocks merge-handoff until each requested reviewer is disposed. `validateMergeReady` encodes this.
-Canonical `[merge-eligible]` cites a positive B-prime marker; otherwise
-use `[merge-readiness-uncertified][no-positive-observation]`, or
-`[merge-readiness-uncertified][issuer-unavailable:cloud-mode]` in cloud.
-It never grants merge authority.
-
-Exceptions are narrow and must be stated in the PR/review thread:
-- Micro-change: `chore` and `< 20` changed lines, or pure documentation with no runtime impact.
-- 7-day-open fallback: PR open >= 7 days and no cross-family thread engagement;
-  cite `createdAt` and `get_conversation` evidence.
-- Emergency: `priority: P0` or explicit Tobi override; retrospective cross-family review within 7 days.
-
-If CI is green and no cross-family reviewer has engaged after ~2 hours, invite
-exactly one opposite-family primary reviewer before considering fallback.
+Rationale, the trade `unknown` makes, the narrow exceptions, and merge-readiness
+marker vocabulary: [`cross-family-mandate.md`](./cross-family-mandate.md).
 
 ### 6.1.1 The Consensus-Gate (PR-Merge-Gate for Discussion-Graduated Substrate)
 
