@@ -1,7 +1,7 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
-import {newestMtime} from '../../../buildScripts/util/developmentThemeAssets.mjs';
+import {DEVELOPMENT_THEME_BUILD_COMMAND, newestMtime} from '../../../buildScripts/util/developmentThemeAssets.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../');
 
@@ -12,10 +12,20 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * silently locks in the WRONG pixels. A stale tree fails the whole visual run loudly;
  * capturing anyway is never an option.
  *
- * The guidance names the DURABLE fix first, and that ordering is the point. Printing only the
- * one-off build resolves this instance and guarantees the next one: an author runs the command,
- * edits SCSS again, and meets the identical failure. `npm run watch-themes` ends the recurrence
- * for every consumer of the built CSS, not just this harness.
+ * The guidance names the RECOVERY command first and the durable habit second, and both halves
+ * are executable as printed — which is the part that needs saying, because a command in an error
+ * message is an API: its interactivity, its process lifetime and its terminal ownership are part
+ * of the contract, not incidental.
+ *
+ * So the recovery line is `DEVELOPMENT_THEME_BUILD_COMMAND`, imported from the same module this
+ * file already reads mtimes from rather than retyped. Retyping it is how the earlier `npm run
+ * build-themes` reached this file: that expands to `themes.mjs -f`, and without `-n` the script
+ * falls into its Inquirer theme/environment prompts — an interactive question where the reader
+ * expected a rebuild. The e2e preflight prints this same constant for the same reason.
+ *
+ * `watch-themes` is listed SEPARATELY and marked long-running, never chained with `&&`. It holds
+ * a recursive `fs.watch` and is designed to stay up, so chaining would hand the author a blocked
+ * terminal instead of returning them to the run they came here to fix.
  *
  * Deliberately NOT auto-rebuilding here — and not on cost grounds, since the build is ~1.3s.
  * The watcher already covers this and serves every surface, so a repair bolted into one
@@ -23,8 +33,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * authors who happen to run visual tests.
  */
 const THEME_GUIDANCE =
-    '  npm run build-themes && npm run watch-themes   ← build once, then keep them fresh\n' +
-    '  node ./buildScripts/build/themes.mjs -f -n -e dev   ← one-off, if you only need this run';
+    `  ${DEVELOPMENT_THEME_BUILD_COMMAND}\n` +
+    '  then, in a SEPARATE shell, `npm run watch-themes` — it stays running and keeps the CSS\n' +
+    '  fresh for the rest of the session, so this failure stops recurring';
 
 export default function globalSetup() {
     const newestScss = newestMtime(path.join(repoRoot, 'resources/scss'), '.scss'),
