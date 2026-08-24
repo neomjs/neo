@@ -259,7 +259,7 @@ Before claiming/requesting visual-render, headed-harness, or native-matrix evide
 
 10% AC/scope sanity layer unless CI/security reveals a defect. Green CI is eligibility evidence, not an architecture verdict.
 
-Formal reviews assume green current-head CI. Verify before `manage_pr_review`; if checks are pending, missing, failing, or a stacked PR is lint-only (`baseRefName` not `dev` / default), send a compact CI deferral. Full-CI stacked approvals must name base state + retarget status; child-green alone is delta evidence. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
+Formal reviews assume green current-head CI and active `review-admission/mergeability`; activation uses a live read. Verify before `manage_pr_review`; if checks are pending, missing, failing, or a stacked PR is lint-only (`baseRefName` not `dev` / default), send a compact CI deferral. Full-CI stacked approvals must name base state + retarget status; child-green alone is delta evidence. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
 
 ### 7.7 Anti-Patterns
 

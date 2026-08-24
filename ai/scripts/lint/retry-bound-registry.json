@@ -71,6 +71,13 @@
             "boundCarrier": "max-delay",
             "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) \u2014 the spec `fleetWakeSseConsumer.spec.mjs` drives a drop\u2192reconnect cycle on the injected floor and `stop()` ends the loop."
         },
+        "ai/services/github-workflow/PullRequestService.mjs#readReviewAdmissionMergeability:04392a83": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`for (let attempt = 1; attempt <= attempts; attempt++)` is bounded by `REVIEW_ADMISSION_MERGEABILITY_ATTEMPTS = 4`; PullRequestServiceReviewers.spec.mjs asserts exactly three delays and terminal unavailable on the fourth read.",
+            "note": "Only GitHub's documented `mergeable: null` state advances the exponential delay; true/false terminate and malformed source fails immediately."
+        },
         "ai/services/github-workflow/GraphqlService.mjs##getRetryDelay:626883e2": {
             "kind": "retry-growth",
             "lifetime": "process-local",

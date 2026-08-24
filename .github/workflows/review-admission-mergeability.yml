@@ -1,0 +1,314 @@
+name: Review Admission Mergeability
+
+on:
+  # Ordinary `pull_request` workflows do NOT run when the PR is conflicted. This controller runs
+  # trusted `dev` workflow code, never checks out the PR, and publishes only a source-read status.
+  pull_request_target:
+    branches: [dev]
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+  # Mergeability is a head+base relation. A `dev` merge can invalidate an unchanged PR head, so
+  # every base movement must re-evaluate the whole open dev-target set.
+  push:
+    branches: [dev]
+  # Hourly Data Sync commits intentionally carry `[skip ci]`, which suppresses `push` workflows.
+  # Its trusted completion is the non-skippable signal for the canonical measured skipped writer.
+  workflow_run:
+    workflows: [Data Sync Pipeline]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+  statuses: write
+
+jobs:
+  discover:
+    name: Discover open dev pull requests
+    runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.targets.outputs.prs }}
+    steps:
+      - name: Read complete target set
+        id: targets
+        uses: actions/github-script@v9
+        env:
+          OVERFLOW_WRITE_DELAY_MS: '1000'
+        with:
+          script: |
+            let pulls = [];
+            let prs;
+
+            const isPullRequestEvent = context.eventName === 'pull_request_target';
+            const isClosed           = isPullRequestEvent && context.payload.action === 'closed';
+            const isMergedClose      = isClosed && context.payload.pull_request?.merged === true;
+
+            if (isPullRequestEvent && !isClosed) {
+              const eventPr = context.payload.pull_request?.number;
+
+              if (!Number.isInteger(eventPr)) {
+                core.setOutput('prs', '[]');
+                core.setFailed('pull_request_target payload omitted the pull-request number.');
+                return;
+              }
+
+              // Author-head movement needs exactly one live evaluation. Board-wide enumeration on
+              // every synchronize event multiplies status writes by open-PR count; only base movement
+              // (`push: dev`) needs the whole board.
+              prs = [eventPr];
+            } else if (isClosed && !isMergedClose) {
+              // Closing without merging does not move `dev`; the closed PR must not receive a fresh
+              // status and the board needs no work.
+              prs = [];
+            } else {
+              try {
+                pulls = await github.paginate(github.rest.pulls.list, {
+                  owner   : context.repo.owner,
+                  repo    : context.repo.repo,
+                  state   : 'open',
+                  base    : 'dev',
+                  per_page: 100
+                });
+              } catch (error) {
+                // A target-list failure cannot name heads to invalidate. Fail the controller loudly
+                // and publish no partial matrix; `manage_pr_reviewers(add)` remains the authoritative
+                // live source gate until workflow_dispatch recovery succeeds.
+                core.setOutput('prs', '[]');
+                core.setFailed(`Open dev PR discovery failed: ${error.message}`);
+                return;
+              }
+
+              prs = [...new Set(pulls.map(pull => pull.number))].sort((a, b) => a - b);
+            }
+
+            // 32 is an operational per-trigger burst ceiling, below GitHub's technical 256-job
+            // matrix cap: one worst-case null sweep costs at most ~256 REST calls, while idempotent
+            // terminal writes stay below the ~80 content writes/minute guidance. It does NOT claim
+            // the shared hourly budget without an event-rate input; ticket revalidation owns growth.
+            // Overflow attempts paced error transitions, reports failures, and refuses a partial
+            // matrix. The live reviewer-tool preflight remains authoritative if invalidation fails.
+            if (prs.length > 32) {
+              const publicationFailures = [];
+              const writeDelayMs        = Number(process.env.OVERFLOW_WRITE_DELAY_MS);
+              const sleep               = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+              const readStatus = async head => {
+                const combined = await github.rest.repos.getCombinedStatusForRef({
+                  owner: context.repo.owner,
+                  repo : context.repo.repo,
+                  ref  : head
+                });
+
+                return (combined.data.statuses || [])
+                  .find(status => status.context === 'review-admission/mergeability')?.state || null;
+              };
+
+              for (let index = 0; index < pulls.length; index++) {
+                const pull = pulls[index];
+                const head = pull?.head?.sha;
+
+                if (typeof head !== 'string') {
+                  publicationFailures.push(`#${pull?.number || 'unknown'}: missing head SHA`);
+                  continue;
+                }
+
+                try {
+                  if (await readStatus(head) !== 'error') {
+                    await github.rest.repos.createCommitStatus({
+                      owner      : context.repo.owner,
+                      repo       : context.repo.repo,
+                      sha        : head,
+                      state      : 'error',
+                      context    : 'review-admission/mergeability',
+                      description: 'Controller target set exceeds safe capacity; no partial certification'
+                    });
+
+                    if (index < pulls.length - 1 && writeDelayMs > 0) {
+                      await sleep(writeDelayMs);
+                    }
+                  }
+                } catch (error) {
+                  publicationFailures.push(`#${pull.number}: ${error.message}`);
+                }
+              }
+
+              core.setOutput('prs', '[]');
+              core.setFailed(
+                `Review-admission target set has ${prs.length} PRs; safe controller cap is 32. ` +
+                `Refusing partial publication. Error-status publication failures: ${publicationFailures.length}.`
+              );
+              return;
+            }
+
+            core.setOutput('prs', JSON.stringify(prs));
+
+  publish:
+    name: PR #${{ matrix.pr }} mergeability
+    needs: discover
+    if: ${{ needs.discover.result == 'success' && needs.discover.outputs.prs != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.discover.outputs.prs) }}
+    concurrency:
+      # Serialize writes per PR. Cancellation is not a write fence: an already-sent old status POST
+      # can complete after a newer job and overwrite it. With serialization, the newest retained
+      # run always reads live state and writes AFTER the older terminal call.
+      group: review-admission-mergeability-${{ matrix.pr }}
+      cancel-in-progress: false
+    steps:
+      - name: Publish live head mergeability
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+          MERGEABILITY_POLL_ATTEMPTS: '4'
+          MERGEABILITY_POLL_DELAY_MS: '250'
+          MERGEABILITY_MAX_RESTARTS: '3'
+        with:
+          script: |
+            const prNumber   = Number(process.env.PR_NUMBER);
+            const contextKey = 'review-admission/mergeability';
+            const maxPolls   = Number(process.env.MERGEABILITY_POLL_ATTEMPTS);
+            const delayMs    = Number(process.env.MERGEABILITY_POLL_DELAY_MS);
+            const maxRestarts = Number(process.env.MERGEABILITY_MAX_RESTARTS);
+            const sleep      = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const runUrl     = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            let lastCoordinate = null;
+
+            const readPull = async() => (await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: prNumber
+            })).data;
+
+            const coordinateOf = pull => {
+              const coordinate = {head: pull?.head?.sha, base: pull?.base?.sha};
+
+              if (typeof coordinate.head !== 'string' || typeof coordinate.base !== 'string') {
+                throw new Error(`PR #${prNumber} response omitted head/base coordinates.`);
+              }
+
+              return coordinate;
+            };
+
+            const sameCoordinate = (left, right) => left.head === right.head && left.base === right.base;
+            const readPublishedState = async coordinate => {
+              const combined = await github.rest.repos.getCombinedStatusForRef({
+                owner: context.repo.owner,
+                repo : context.repo.repo,
+                ref  : coordinate.head
+              });
+
+              return (combined.data.statuses || [])
+                .find(status => status.context === contextKey)?.state || null;
+            };
+            const publish = async(state, coordinate, description) => {
+              // Commit statuses are append-only and hard-fail after 1,000 entries per SHA/context.
+              // The live source read still runs on every event, but an unchanged terminal verdict
+              // needs no duplicate write. Absence while GitHub computes remains an admission hold.
+              if (await readPublishedState(coordinate) === state) {
+                core.info(`PR #${prNumber} already publishes ${contextKey}=${state}; no duplicate status.`);
+                return;
+              }
+
+              await github.rest.repos.createCommitStatus({
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                sha        : coordinate.head,
+                state,
+                context    : contextKey,
+                description,
+                target_url : runUrl
+              });
+            };
+
+            try {
+              for (let restart = 0; restart <= maxRestarts; restart++) {
+                const seed       = await readPull();
+                const coordinate = coordinateOf(seed);
+
+                lastCoordinate = coordinate;
+
+                let coordinateMoved = false;
+
+                for (let poll = 0; poll < maxPolls; poll++) {
+                  if (poll > 0) {
+                    await sleep(delayMs * (2 ** (poll - 1)));
+                  }
+
+                  const observed           = await readPull();
+                  const observedCoordinate = coordinateOf(observed);
+
+                  if (!sameCoordinate(coordinate, observedCoordinate)) {
+                    lastCoordinate = observedCoordinate;
+                    coordinateMoved = true;
+                    break;
+                  }
+
+                  if (observed.mergeable === null) {
+                    continue;
+                  }
+
+                  if (typeof observed.mergeable !== 'boolean') {
+                    throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(observed.mergeable)}.`);
+                  }
+
+                  // Re-read immediately before the terminal write. Movement already visible here
+                  // restarts on the new coordinate. GitHub offers no atomic compare-and-status-write;
+                  // a post-read movement is corrected by the serialized successor/live tool gate.
+                  const verified           = await readPull();
+                  const verifiedCoordinate = coordinateOf(verified);
+
+                  if (!sameCoordinate(coordinate, verifiedCoordinate)) {
+                    lastCoordinate = verifiedCoordinate;
+                    coordinateMoved = true;
+                    break;
+                  }
+
+                  if (verified.mergeable === null) {
+                    continue;
+                  }
+
+                  if (typeof verified.mergeable !== 'boolean') {
+                    throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(verified.mergeable)}.`);
+                  }
+
+                  const state       = verified.mergeable ? 'success' : 'failure';
+                  const description = verified.mergeable
+                    ? 'Mergeable with current dev base'
+                    : 'Conflicts with current dev base; author rebase required';
+
+                  await publish(state, coordinate, description);
+                  return;
+                }
+
+                if (coordinateMoved) {
+                  continue;
+                }
+
+                const finalPull       = await readPull();
+                const finalCoordinate = coordinateOf(finalPull);
+
+                if (!sameCoordinate(coordinate, finalCoordinate)) {
+                  lastCoordinate = finalCoordinate;
+                  continue;
+                }
+
+                await publish('error', coordinate, 'Mergeability unresolved against current dev base');
+                core.setFailed(`PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`);
+                return;
+              }
+
+              await publish('error', lastCoordinate, 'Head/base moved throughout the bounded mergeability probe');
+              core.setFailed(`PR #${prNumber} head/base moved through ${maxRestarts + 1} bounded coordinates.`);
+            } catch (error) {
+              if (lastCoordinate) {
+                try {
+                  await publish('error', lastCoordinate, 'Mergeability source read failed; retry controller');
+                } catch (publishError) {
+                  core.error(`Could not publish the source-read failure: ${publishError.message}`);
+                }
+              }
+
+              core.setFailed(error.message);
+            }

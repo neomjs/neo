@@ -26,6 +26,10 @@ name base PR / merge order / retarget-CI, then request primary cross-family
 review only after dev-rebase/full CI. Full-CI stacked heads still name base
 state.
 
+Require installed `review-admission/mergeability=success`; base moves can
+change it. Activation uses live `mergeable`; elsewhere
+`manage_pr_reviewers(add)` gates.
+
 ## 3. Outcome Branches
 
 ### Green
@@ -76,7 +80,7 @@ CI status: failing on current head <sha-or-short-sha>
 
 ### No Checks Returned
 
-If GitHub reports no checks for the PR, document `CI status: no checks reported` in the handoff and proceed with normal single-primary-reviewer routing. Absence of CI should not create an infinite hold loop.
+If no checks, proceed only without a controller. Otherwise a missing context holds the seat until the next base event or `workflow_dispatch`; park that recheck and drive another lane.
 
 ## 4. Re-Review Requests
 

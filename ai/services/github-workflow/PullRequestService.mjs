@@ -1,14 +1,14 @@
-import {exec, execFile}     from 'child_process';
-import {createHash}         from 'crypto';
-import {readFileSync}       from 'fs';
-import path                 from 'path';
-import {promisify}          from 'util';
-import Base                 from '../../../src/core/Base.mjs';
-import GraphqlService       from './GraphqlService.mjs';
-import aiConfig             from '../../mcp/server/github-workflow/config.mjs';
-import logger               from '../../mcp/server/github-workflow/logger.mjs';
-import RepositoryService    from './RepositoryService.mjs';
-import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
+import {exec, execFile}                   from 'child_process';
+import {createHash}                       from 'crypto';
+import {readFileSync}                     from 'fs';
+import path                               from 'path';
+import {promisify}                        from 'util';
+import Base                               from '../../../src/core/Base.mjs';
+import GraphqlService                     from './GraphqlService.mjs';
+import aiConfig                           from '../../mcp/server/github-workflow/config.mjs';
+import logger                             from '../../mcp/server/github-workflow/logger.mjs';
+import RepositoryService                  from './RepositoryService.mjs';
+import {validateMergeReady}               from '../../scripts/lifecycle/validateMergeReady.mjs';
 import {mergeHoldToken, resolveMergeHold} from './shared/mergeHoldTokens.mjs';
 import {
     groupReviewsByFamily,
@@ -32,7 +32,7 @@ import {
 } from './queries/pullRequestQueries.mjs';
 import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}
                                               from './shared/commentSelector.mjs';
-import {projectConversationTrust}              from './shared/conversationTrust.mjs';
+import {projectConversationTrust} from './shared/conversationTrust.mjs';
 import {resolveRepositoryTarget}  from './shared/repositoryTarget.mjs';
 
 const execAsync                           = promisify(exec);
@@ -68,11 +68,13 @@ const DROP_SUPERSEDE_CONTRACT_FIELDS = [
     'Successor map citation'
 ];
 
-const MERGE_READINESS_PROJECTION      = 'merge-readiness';
-const MERGE_READINESS_SCHEMA_VERSION  = 'neo.merge-readiness/v1';
-const MERGE_READINESS_RULES_PAGE_SIZE = 100;
-const MERGE_READINESS_RULES_MAX_PAGES = 10;
-const MAX_BELIEVED_OPEN               = 100;
+const MERGE_READINESS_PROJECTION             = 'merge-readiness';
+const MERGE_READINESS_SCHEMA_VERSION         = 'neo.merge-readiness/v1';
+const MERGE_READINESS_RULES_PAGE_SIZE        = 100;
+const MERGE_READINESS_RULES_MAX_PAGES        = 10;
+const MAX_BELIEVED_OPEN                      = 100;
+const REVIEW_ADMISSION_MERGEABILITY_ATTEMPTS = 4;
+const REVIEW_ADMISSION_MERGEABILITY_DELAY_MS = 250;
 
 function stableStringify(value) {
     if (Array.isArray(value)) {
@@ -157,6 +159,97 @@ function parseSeatedReviewerState(stdout) {
         users: new Set(users.map(user => user?.login?.toLowerCase()).filter(Boolean)),
         teams: new Set(teams.map(team => team?.slug?.toLowerCase()).filter(Boolean))
     };
+}
+
+/**
+ * @summary Parses the source-owned mergeability coordinate used before reviewer admission.
+ *
+ * GitHub's pull-request REST response is deliberately used instead of `mergeStateStatus`: the latter
+ * also expresses review/check/base-update policy (`BLOCKED`, `BEHIND`, `UNSTABLE`), while the boolean
+ * `mergeable` answers the narrower question this gate owns — whether the head can be combined with the
+ * current base. `null` is an asynchronous-computation receipt, not a negative or positive verdict.
+ *
+ * @param {String} stdout Raw `gh api .../pulls/{number}` response.
+ * @returns {{mergeable: Boolean|null, mergeableState: String|null, headSha: String, baseSha: String}|null}
+ * A coordinate-bearing observation, or `null` when the response cannot support an admission verdict.
+ */
+function parseReviewAdmissionMergeability(stdout) {
+    let parsed;
+
+    try {
+        parsed = JSON.parse(stdout);
+    } catch {
+        return null;
+    }
+
+    const mergeable = parsed?.mergeable,
+          headSha   = parsed?.head?.sha,
+          baseSha   = parsed?.base?.sha;
+
+    if (![true, false, null].includes(mergeable) || typeof headSha !== 'string' || typeof baseSha !== 'string') {
+        return null;
+    }
+
+    return {
+        mergeable,
+        mergeableState: typeof parsed.mergeable_state === 'string' ? parsed.mergeable_state : null,
+        headSha,
+        baseSha
+    };
+}
+
+/**
+ * @summary Reads live PR mergeability with a bounded retry for GitHub's documented `null` state.
+ *
+ * The retry is source-classified and bounded: only a structurally valid response whose `mergeable`
+ * field is exactly `null` waits. Invalid JSON/coordinates fail immediately, and `true`/`false` are
+ * terminal. This keeps reviewer assignment unavailable rather than falsely clean while GitHub's test
+ * merge is still computing.
+ *
+ * @param {Object} options
+ * @param {Object} options.target Resolved `{owner, repo}` target.
+ * @param {Number} options.prNumber Pull-request number.
+ * @param {Function} options.execFn Shell execution seam.
+ * @param {Function} options.waitFn Retry-delay seam.
+ * @param {Number} options.attempts Maximum source reads.
+ * @returns {Promise<{kind: 'mergeable'|'conflicting'|'unavailable', reason: String|null, attempts: Number, observation: Object|null}>}
+ */
+async function readReviewAdmissionMergeability({target, prNumber, execFn, waitFn, attempts}) {
+    let observation = null;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        const command  = `gh api repos/${target.owner}/${target.repo}/pulls/${prNumber}`,
+              {stdout} = await execFn(command, {cwd: aiConfig.projectRoot}) || {};
+
+        observation = parseReviewAdmissionMergeability(stdout);
+
+        if (!observation) {
+            return {kind: 'unavailable', reason: 'invalid-response', attempts: attempt, observation: null};
+        }
+
+        if (observation.mergeable === true) {
+            return {kind: 'mergeable', reason: null, attempts: attempt, observation};
+        }
+
+        if (observation.mergeable === false) {
+            return {kind: 'conflicting', reason: null, attempts: attempt, observation};
+        }
+
+        if (attempt < attempts) {
+            await waitFn(REVIEW_ADMISSION_MERGEABILITY_DELAY_MS * (2 ** (attempt - 1)));
+        }
+    }
+
+    return {kind: 'unavailable', reason: 'mergeability-pending', attempts, observation};
+}
+
+/**
+ * @summary Wait seam for bounded mergeability polling; tests inject a zero-cost implementation.
+ * @param {Number} delay Delay in milliseconds.
+ * @returns {Promise<void>}
+ */
+function waitForReviewAdmissionMergeability(delay) {
+    return new Promise(resolve => setTimeout(resolve, delay));
 }
 
 /**
@@ -464,7 +557,7 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
     // `reviewDecision`, which is where that state actually lives.
     const reviewsConnection  = pullRequest.reviews;
     const commentsConnection = pullRequest.comments;
-    const approvals         = (reviewsConnection?.nodes || [])
+    const approvals          = (reviewsConnection?.nodes || [])
         .filter(node => node?.state === 'APPROVED' && node?.commit?.oid && node?.submittedAt)
         // `login` rides along because the cross-family mandate is a question about WHO approved,
         // and this map is the only place the reviewer identity survives into the snapshot. It is
@@ -4437,12 +4530,23 @@ class PullRequestService extends Base {
      * requires `read:org` (a scope agent tokens routinely lack), so it failed for every agent on that
      * credential class. Permission errors still surface via the `gh` exit code.
      *
+     * `add` first reads the live pull request and admits the mutation only after GitHub reports
+     * `mergeable: true`. A confirmed conflict returns `PR_MERGE_CONFLICT`; a structurally unusable
+     * response or `mergeable: null` after the bounded poll returns `PR_MERGEABILITY_UNAVAILABLE`.
+     * `remove` deliberately bypasses this gate so a stale request can always be withdrawn. This is a
+     * review-attention gate, not merge readiness: `BLOCKED`, `BEHIND`, and `UNSTABLE` remain admissible
+     * when the source-owned boolean is positive.
+     *
      * @param {object}    options
      * @param {number}    options.pr_number          The number of the pull request.
      * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
      * @param {string[]}  [options.team_reviewers]   Array of bare team slugs (no owner prefix — the REST endpoint takes slugs directly).
      * @param {string}    options.action             Either `'add'` or `'remove'`.
      * @param {String}    [options.repo]             Optional bare name or owner/name repository target.
+     * @param {Object}    [dependencies]             Test seams for source reads and bounded polling.
+     * @param {Function}  [dependencies.execFn]      Shell execution seam.
+     * @param {Function}  [dependencies.waitFn]      Retry-delay seam.
+     * @param {Number}    [dependencies.mergeabilityAttempts] Maximum mergeability reads.
      * @returns {Promise<object>} On success, a message plus `verifiedReviewers` / `verifiedTeamReviewers`
      * read out of GitHub's response — never echoed from the arguments. A requested login that GitHub did
      * not seat returns `REVIEWER_NOT_SEATED`, a `remove` whose target is still listed returns
@@ -4451,7 +4555,14 @@ class PullRequestService extends Base {
      *
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
-    async managePrReviewers({pr_number, reviewers, team_reviewers, action, repo}, {execFn = execAsync} = {}) {
+    async managePrReviewers(
+        {pr_number, reviewers, team_reviewers, action, repo},
+        {
+            execFn               = execAsync,
+            waitFn               = waitForReviewAdmissionMergeability,
+            mergeabilityAttempts = REVIEW_ADMISSION_MERGEABILITY_ATTEMPTS
+        } = {}
+    ) {
         const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
 
         if (target.error) return target;
@@ -4477,6 +4588,43 @@ class PullRequestService extends Base {
         }
 
         try {
+            if (action === 'add') {
+                const admission = await readReviewAdmissionMergeability({
+                    target,
+                    prNumber: pr_number,
+                    execFn,
+                    waitFn,
+                    attempts: mergeabilityAttempts
+                });
+                const coordinate = admission.observation || {};
+
+                if (admission.kind === 'conflicting') {
+                    logger.warn(`Refusing reviewer assignment on conflicting ${target.fullName} PR #${pr_number}`);
+                    return {
+                        error               : 'Pull request has merge conflicts',
+                        message             : `Cannot request reviewers on PR #${pr_number}: GitHub reports the live head cannot be merged with the current base. Rebase or resolve conflicts, then re-run current-head CI and reviewer admission.`,
+                        code                : 'PR_MERGE_CONFLICT',
+                        pr_number,
+                        headSha             : coordinate.headSha,
+                        baseSha             : coordinate.baseSha,
+                        mergeabilityAttempts: admission.attempts
+                    };
+                }
+
+                if (admission.kind !== 'mergeable') {
+                    logger.warn(`Reviewer admission mergeability unavailable on ${target.fullName} PR #${pr_number}: ${admission.reason}`);
+                    return {
+                        error               : 'Pull request mergeability unavailable',
+                        message             : `Cannot request reviewers on PR #${pr_number}: GitHub did not produce a usable mergeability verdict after ${admission.attempts} source read(s) (${admission.reason}). Retry after GitHub finishes computing the test merge; unavailable is not evidence of either a conflict or a clean head.`,
+                        code                : 'PR_MERGEABILITY_UNAVAILABLE',
+                        pr_number,
+                        headSha             : coordinate.headSha,
+                        baseSha             : coordinate.baseSha,
+                        mergeabilityAttempts: admission.attempts
+                    };
+                }
+            }
+
             // Use the REST `requested_reviewers` endpoint rather than `gh pr edit --add/remove-reviewer`:
             // the CLI resolves logins via GraphQL, which requires the `read:org` scope that agent tokens
             // routinely lack (they carry `repo`/`project`/`user`/etc. but not `read:org`), so the CLI path
@@ -4571,7 +4719,7 @@ class PullRequestService extends Base {
             logger.error(`Error managing reviewers on ${target.fullName} PR #${pr_number}:`, error);
             return {
                 error  : 'GitHub API request failed',
-                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message} (REST requested_reviewers needs only the repo scope)`,
+                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message} (the reviewer-admission and requested_reviewers REST reads need only the repo scope)`,
                 code   : 'GH_API_ERROR',
                 details: error.stderr || error.message
             };

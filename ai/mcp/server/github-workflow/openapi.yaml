@@ -1057,14 +1057,11 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint (`POST` add / `DELETE` remove). This needs only the `repo` scope — not the `read:org` scope `gh pr edit` requires to resolve logins via GraphQL, which agent tokens routinely lack. Pairs with the cross-family review mandate (`pull-request §6.1`) as the **invitation layer** — the mandate is the validation layer (Approved-status before merge); this tool surfaces the active invitation primitive that pairs with it.
+        Adds/removes PR reviewer requests through REST `requested_reviewers` (repo scope; no `read:org`). This is invitation, not approval.
 
-        **Action: 'add'** — `POST`s a review request for the listed users/teams.
-        **Action: 'remove'** — `DELETE`s the review requests.
+        `add` polls the live PR and mutates only on `mergeable: true`; false returns `PR_MERGE_CONFLICT`, while exhausted null/malformed source returns `PR_MERGEABILITY_UNAVAILABLE`. Positive mergeability remains admissible with `BLOCKED`, `BEHIND`, or `UNSTABLE`. `remove` bypasses mergeability so stale requests can always be withdrawn.
 
-        At least one of `reviewers` or `team_reviewers` is required. A leading `@` on a login is stripped. Errors surface as `GH_API_ERROR` carrying the REST `requested_reviewers` response (repo-scope semantics), not a `gh` CLI exit code.
-
-        **The result reports the effect, not the request.** GitHub accepts an unknown login on this endpoint and seats nobody — so a successful mutation response is not evidence a reviewer was assigned (measured: that call answered 200 with the full PR object). Every requested login is checked against the reviewer state in GitHub's own response: a login `add` did not seat fails with `REVIEWER_NOT_SEATED`, a login `remove` left in place fails with `REVIEWER_STILL_REQUESTED`, both naming each target under `unseated` rather than reporting partial success. `verifiedReviewers` / `verifiedTeamReviewers` are always derived from that response, never echoed from the arguments. Trust those fields, not the request you sent.
+        At least one user/team is required; leading `@` is stripped. Results verify GitHub's returned reviewer arrays, never echo the request: an absent add target returns `REVIEWER_NOT_SEATED`, a still-present remove target returns `REVIEWER_STILL_REQUESTED`, and an unreadable result returns `REVIEWER_STATE_UNVERIFIABLE`. Trust `verifiedReviewers` / `verifiedTeamReviewers`. Source/mutation transport failures return `GH_API_ERROR`.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -1115,13 +1112,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: The call succeeded at the HTTP layer but the effect did not happen — `REVIEWER_NOT_SEATED` (an `add` GitHub answered successfully without seating a requested login, typically a nonexistent or non-collaborator account), `REVIEWER_STILL_REQUESTED` (a `remove` whose target is still listed as a requested reviewer — the seat is NOT free), or `REVIEWER_STATE_UNVERIFIABLE` (the response did not carry the reviewer arrays, so the outcome is unknown). Never reported as success.
+          description: Reviewer admission or mutation did not complete. Before `add`, `PR_MERGE_CONFLICT` means the live head conflicts with its current base and `PR_MERGEABILITY_UNAVAILABLE` means GitHub did not produce a usable verdict after the bounded poll; neither reaches the mutation. After a mutation, `REVIEWER_NOT_SEATED`, `REVIEWER_STILL_REQUESTED`, and `REVIEWER_STATE_UNVERIFIABLE` retain their existing effect-verification meanings. Never reported as success.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ManagePrReviewersErrorResponse'
         '500':
-          description: REST `requested_reviewers` call failed (`GH_API_ERROR` — typically a repo-scope/permission or network error).
+          description: REST mergeability preflight or `requested_reviewers` call failed (`GH_API_ERROR` — typically a repo-scope/permission or network error).
           content:
             application/json:
               schema:
@@ -2331,21 +2328,23 @@ components:
     ManagePrReviewersErrorResponse:
       type: object
       description: |
-        Structured failure for `manage_pr_reviewers` when GitHub answered successfully but the requested
-        reviewer change did not take effect. Distinct from the generic `ErrorResponse` because the caller
-        needs the observed state to act: which targets did not move (`unseated`) and who GitHub currently
-        reports as seated (`verifiedReviewers` / `verifiedTeamReviewers`).
+        Structured failure for `manage_pr_reviewers` when reviewer admission refused an `add`, or when
+        GitHub answered the reviewer mutation successfully but the requested change did not take effect.
+        Distinct from the generic `ErrorResponse` because the caller needs the observed state to act:
+        mergeability coordinates for an admission refusal, or which reviewer targets did not move
+        (`unseated`) and who GitHub currently reports as seated (`verifiedReviewers` /
+        `verifiedTeamReviewers`).
 
         `code` carries the direction that failed, and the two directions describe OPPOSITE observed states:
         `REVIEWER_NOT_SEATED` means an `add` target is ABSENT from the returned reviewer state, while
         `REVIEWER_STILL_REQUESTED` means a `remove` target is still PRESENT — so its seat is not free, and
         remediation aimed at a nonexistent login would be wrong.
 
-        `unseated` and the verified arrays are documented but NOT required, because
-        `REVIEWER_STATE_UNVERIFIABLE` is the case where the response carried no reviewer arrays at all.
-        Requiring them there would force this schema to publish empty arrays, which read as "GitHub reports
-        nobody seated" — a definite claim about the exact state that is unknown. Only the four fields that
-        every failure can honestly supply are required.
+        `unseated`, coordinate, and verified arrays are documented but NOT required. Admission refusals
+        happen before reviewer state exists; `REVIEWER_STATE_UNVERIFIABLE` carries no reviewer arrays; and
+        an invalid mergeability response may carry no usable head/base coordinate. Requiring absent facts
+        would turn unavailable source state into definite empty assertions. Only the four fields every
+        failure can honestly supply are required.
       required: [error, message, code, pr_number]
       properties:
         error:
@@ -2356,13 +2355,26 @@ components:
           example: "neo-gpt remain requested reviewers on PR #123: the removal was not applied."
         code:
           type: string
-          enum: [REVIEWER_NOT_SEATED, REVIEWER_STILL_REQUESTED, REVIEWER_STATE_UNVERIFIABLE]
-          description: Which postcondition failed. `REVIEWER_NOT_SEATED` — an `add` target is absent. `REVIEWER_STILL_REQUESTED` — a `remove` target is still present. `REVIEWER_STATE_UNVERIFIABLE` — the response carried no reviewer arrays, so the outcome is unknown.
-          example: "REVIEWER_STILL_REQUESTED"
+          enum: [PR_MERGE_CONFLICT, PR_MERGEABILITY_UNAVAILABLE, REVIEWER_NOT_SEATED, REVIEWER_STILL_REQUESTED, REVIEWER_STATE_UNVERIFIABLE]
+          description: Which admission/postcondition failed. `PR_MERGE_CONFLICT` — live head/base conflict. `PR_MERGEABILITY_UNAVAILABLE` — no usable verdict after bounded reads. `REVIEWER_NOT_SEATED` — an `add` target is absent. `REVIEWER_STILL_REQUESTED` — a `remove` target is still present. `REVIEWER_STATE_UNVERIFIABLE` — the mutation response carried no reviewer arrays.
+          example: "PR_MERGE_CONFLICT"
         pr_number:
           type: integer
-          description: The pull request whose reviewer state was read.
+          description: The pull request whose mergeability or reviewer state was read.
           example: 123
+        headSha:
+          type: string
+          description: Live head coordinate read during mergeability admission. Omitted when the source response was structurally unusable or the failure happened after mutation.
+          example: "0123456789abcdef0123456789abcdef01234567"
+        baseSha:
+          type: string
+          description: Live base coordinate read during mergeability admission. Omitted when the source response was structurally unusable or the failure happened after mutation.
+          example: "fedcba9876543210fedcba9876543210fedcba98"
+        mergeabilityAttempts:
+          type: integer
+          minimum: 1
+          description: Number of live pull-request reads consumed by a mergeability admission refusal. Omitted for post-mutation reviewer-state failures.
+          example: 4
         unseated:
           type: array
           items:

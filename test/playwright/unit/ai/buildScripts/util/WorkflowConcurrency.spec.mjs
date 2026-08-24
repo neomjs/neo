@@ -75,11 +75,154 @@ const createRuntime = ({
 };
 
 const executeScript = async(script, runtime) => {
-    await new AsyncFunction('github', 'context', 'core', script)(
+    await new AsyncFunction('github', 'context', 'core', 'setTimeout', script)(
         runtime.github,
         runtime.context,
-        runtime.core
+        runtime.core,
+        runtime.setTimeout || globalThis.setTimeout
     );
+};
+
+/**
+ * @summary Builds one live REST pull-request observation for the review-admission workflow.
+ * @param {Boolean|null} mergeable GitHub mergeability value.
+ * @param {Object} [options]
+ * @returns {Object}
+ */
+const mergeabilityPull = (mergeable, {head = 'pr-head', base = 'dev-head'} = {}) => ({
+    number: 42,
+    mergeable,
+    head  : {sha: head},
+    base  : {sha: base}
+});
+
+/**
+ * @summary Creates mocked GitHub/core surfaces for discovery and exact-head status publication.
+ * @param {Object} [options]
+ * @param {Object[]|Error} [options.targets] Open PR rows returned by discovery, or a source failure.
+ * @param {(Object|Error)[]} [options.reads] Ordered live PR reads; the final value repeats on exhaustion.
+ * @param {String} [options.eventName] Workflow event name.
+ * @param {Number} [options.eventPrNumber] Pull-request number in a `pull_request_target` payload.
+ * @param {String} [options.eventAction] Pull-request activity.
+ * @param {Boolean} [options.eventMerged] Whether a closed pull request merged.
+ * @param {Object} [options.publishedStates] Existing named status by head SHA.
+ * @returns {Object}
+ */
+const createReviewAdmissionRuntime = ({
+    targets       = [],
+    reads         = [mergeabilityPull(true)],
+    eventName     = 'push',
+    eventPrNumber = 42,
+    eventAction   = 'synchronize',
+    eventMerged   = false,
+    publishedStates = {}
+} = {}) => {
+    const failures     = [],
+          errors       = [],
+          delays       = [],
+          outputs      = new Map(),
+          statusCalls  = [],
+          statusReads  = [],
+          listCalls    = [],
+          pullReads    = [],
+          statusByHead = new Map(Object.entries(publishedStates));
+    let   readIndex = 0;
+    const runtime   = {
+        context: {
+            eventName,
+            payload: {
+                action      : eventAction,
+                pull_request: {number: eventPrNumber, merged: eventMerged}
+            },
+            repo   : {owner: 'neomjs', repo: 'neo'}
+        },
+        core   : {
+            error    : message => errors.push(message),
+            info     : () => {},
+            setFailed: message => failures.push(message),
+            setOutput: (name, value) => outputs.set(name, value)
+        },
+        github: {
+            paginate: async(method, args) => {
+                listCalls.push({method, args});
+
+                if (targets instanceof Error) throw targets;
+
+                return targets;
+            },
+            rest: {
+                pulls: {
+                    list: () => {},
+                    get : async args => {
+                        pullReads.push(args);
+                        const value = reads[Math.min(readIndex++, reads.length - 1)];
+
+                        if (value instanceof Error) throw value;
+
+                        return {data: value};
+                    }
+                },
+                repos: {
+                    getCombinedStatusForRef: async args => {
+                        statusReads.push(args);
+                        const state = statusByHead.get(args.ref);
+
+                        return {data: {statuses: state ? [{
+                            context: 'review-admission/mergeability',
+                            state
+                        }] : []}};
+                    },
+                    createCommitStatus: async args => {
+                        statusCalls.push(args);
+                        statusByHead.set(args.sha, args.state);
+                        return {data: args};
+                    }
+                }
+            }
+        },
+        errors,
+        delays,
+        failures,
+        listCalls,
+        outputs,
+        pullReads,
+        statusCalls,
+        statusReads,
+        setTimeout: (resolve, delay) => {
+            delays.push(delay);
+            resolve();
+        }
+    };
+
+    return runtime;
+};
+
+/**
+ * @summary Executes the workflow publisher with zero-cost polling while restoring process env.
+ * @param {String} script Extracted actions/github-script source.
+ * @param {Object} runtime Mock runtime.
+ * @returns {Promise<void>}
+ */
+const executeReviewAdmissionPublisher = async(script, runtime) => {
+    const keys = {
+        PR_NUMBER                 : '42',
+        MERGEABILITY_POLL_ATTEMPTS: '4',
+        MERGEABILITY_POLL_DELAY_MS: '0',
+        MERGEABILITY_MAX_RESTARTS : '3',
+        GITHUB_SERVER_URL         : 'https://github.com',
+        GITHUB_RUN_ID             : '32700000000'
+    };
+    const previous = Object.fromEntries(Object.keys(keys).map(key => [key, process.env[key]]));
+
+    Object.assign(process.env, keys);
+
+    try {
+        await executeScript(script, runtime);
+    } finally {
+        for (const [key, value] of Object.entries(previous)) {
+            value === undefined ? delete process.env[key] : process.env[key] = value;
+        }
+    }
 };
 
 test.describe('GitHub workflow concurrency (#15593)', () => {
@@ -273,5 +416,260 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         await expect(executeScript(script, runtime)).rejects.toThrow('live head unavailable');
         expect(runtime.calls.listFiles).toBe(0);
         expect(runtime.outputs.size).toBe(0);
+    });
+});
+
+test.describe('review-admission mergeability controller (#17692)', () => {
+    const workflowName = 'review-admission-mergeability.yml';
+
+    test('uses conflict-capable trusted triggers, least permissions, and no checkout', () => {
+        const workflow = readWorkflow(workflowName),
+              dataSync = readWorkflow('data-sync-pipeline.yml'),
+              steps    = Object.values(workflow.jobs).flatMap(job => job.steps || []);
+
+        expect(workflow.on.pull_request_target).toMatchObject({
+            branches: ['dev'],
+            types   : ['opened', 'reopened', 'synchronize', 'ready_for_review', 'closed']
+        });
+        expect(workflow.on.push).toEqual({branches: ['dev']});
+        expect(workflow.on.workflow_run).toEqual({
+            workflows: ['Data Sync Pipeline'],
+            types    : ['completed']
+        });
+        expect(dataSync.name).toBe(workflow.on.workflow_run.workflows[0]);
+        expect(workflow.on).toHaveProperty('workflow_dispatch');
+        expect(workflow.permissions).toEqual({
+            'pull-requests': 'read',
+            statuses       : 'write'
+        });
+        expect(steps.some(step => String(step.uses || '').startsWith('actions/checkout@'))).toBe(false);
+        expect(workflow.jobs.publish.concurrency).toEqual({
+            group               : 'review-admission-mergeability-${{ matrix.pr }}',
+            'cancel-in-progress': false
+        });
+        expect(workflow.jobs.discover.steps.find(step => step.id === 'targets').env)
+            .toEqual({OVERFLOW_WRITE_DELAY_MS: '1000'});
+    });
+
+    test('pull_request_target evaluates only its event PR; board triggers enumerate', async () => {
+        const workflow = readWorkflow(workflowName),
+              script   = workflow.jobs.discover.steps.find(step => step.id === 'targets').with.script,
+              prEvent  = createReviewAdmissionRuntime({
+                  eventName    : 'pull_request_target',
+                  eventPrNumber: 17692,
+                  targets      : [{number: 1}, {number: 2}]
+              }),
+              push     = createReviewAdmissionRuntime({targets: [
+                  {number: 1, head: {sha: 'head-1'}},
+                  {number: 2, head: {sha: 'head-2'}}
+              ]}),
+              sync     = createReviewAdmissionRuntime({
+                  eventName: 'workflow_run',
+                  targets  : [{number: 3, head: {sha: 'head-3'}}]
+              }),
+              merged   = createReviewAdmissionRuntime({
+                  eventName  : 'pull_request_target',
+                  eventAction: 'closed',
+                  eventMerged: true,
+                  targets    : [{number: 4, head: {sha: 'head-4'}}]
+              }),
+              closed   = createReviewAdmissionRuntime({
+                  eventName  : 'pull_request_target',
+                  eventAction: 'closed',
+                  eventMerged: false,
+                  targets    : [{number: 5, head: {sha: 'head-5'}}]
+              });
+
+        await executeScript(script, prEvent);
+        await executeScript(script, push);
+        await executeScript(script, sync);
+        await executeScript(script, merged);
+        await executeScript(script, closed);
+
+        expect(Object.fromEntries(prEvent.outputs)).toEqual({prs: '[17692]'});
+        expect(prEvent.listCalls).toEqual([]);
+        expect(Object.fromEntries(push.outputs)).toEqual({prs: '[1,2]'});
+        expect(push.listCalls).toHaveLength(1);
+        expect(Object.fromEntries(sync.outputs)).toEqual({prs: '[3]'});
+        expect(sync.listCalls).toHaveLength(1);
+        expect(Object.fromEntries(merged.outputs)).toEqual({prs: '[4]'});
+        expect(merged.listCalls).toHaveLength(1);
+        expect(Object.fromEntries(closed.outputs)).toEqual({prs: '[]'});
+        expect(closed.listCalls).toEqual([]);
+    });
+
+    test('discovers the complete open dev-target set and rejects matrix overflow', async () => {
+        const workflow = readWorkflow(workflowName),
+              script   = workflow.jobs.discover.steps.find(step => step.id === 'targets').with.script,
+              normal   = createReviewAdmissionRuntime({targets: [
+                  {number: 9, head: {sha: 'head-9'}},
+                  {number: 3, head: {sha: 'head-3'}},
+                  {number: 9, head: {sha: 'head-9'}}
+              ]}),
+              overflow = createReviewAdmissionRuntime({
+                  publishedStates: {
+                      'overflow-head-1': 'error',
+                      'overflow-head-2': 'error'
+                  },
+                  targets: Array.from({length: 33}, (_, index) => ({
+                      number: index + 1,
+                      head  : {sha: `overflow-head-${index + 1}`}
+                  }))
+              });
+
+        const previousDelay = process.env.OVERFLOW_WRITE_DELAY_MS;
+        process.env.OVERFLOW_WRITE_DELAY_MS = '1000';
+
+        try {
+            await executeScript(script, normal);
+            await executeScript(script, overflow);
+        } finally {
+            previousDelay === undefined
+                ? delete process.env.OVERFLOW_WRITE_DELAY_MS
+                : process.env.OVERFLOW_WRITE_DELAY_MS = previousDelay;
+        }
+
+        expect(normal.listCalls[0].args).toMatchObject({state: 'open', base: 'dev', per_page: 100});
+        expect(Object.fromEntries(normal.outputs)).toEqual({prs: '[3,9]'});
+        expect(normal.failures).toEqual([]);
+        expect(Object.fromEntries(overflow.outputs)).toEqual({prs: '[]'});
+        expect(overflow.failures.join(' ')).toContain('Refusing partial publication');
+        expect(overflow.statusCalls).toHaveLength(31);
+        expect(overflow.statusCalls.every(call =>
+            call.state === 'error' && call.context === 'review-admission/mergeability'
+        )).toBe(true);
+        expect(overflow.statusCalls.map(call => call.sha)).toContain('overflow-head-33');
+        expect(overflow.statusCalls.map(call => call.sha)).not.toContain('overflow-head-1');
+        expect(overflow.statusCalls.map(call => call.sha)).not.toContain('overflow-head-2');
+        expect(overflow.delays).toHaveLength(30);
+        expect(overflow.delays.every(delay => delay === 1000)).toBe(true);
+    });
+
+    test('board discovery failure is explicit and emits no partial matrix', async () => {
+        const workflow    = readWorkflow(workflowName),
+              script      = workflow.jobs.discover.steps.find(step => step.id === 'targets').with.script,
+              unavailable = createReviewAdmissionRuntime({targets: new Error('pull list unavailable')});
+
+        await executeScript(script, unavailable);
+
+        expect(Object.fromEntries(unavailable.outputs)).toEqual({prs: '[]'});
+        expect(unavailable.failures).toEqual(['Open dev PR discovery failed: pull list unavailable']);
+        expect(unavailable.statusCalls).toEqual([]);
+    });
+
+    test('conflict publishes failure on the PR head, never the base', async () => {
+        const workflow = readWorkflow(workflowName),
+              script   = workflow.jobs.publish.steps[0].with.script,
+              runtime  = createReviewAdmissionRuntime({
+                  reads: [
+                      mergeabilityPull(null,  {head: 'conflicting-head', base: 'moved-dev'}),
+                      mergeabilityPull(false, {head: 'conflicting-head', base: 'moved-dev'}),
+                      mergeabilityPull(false, {head: 'conflicting-head', base: 'moved-dev'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => call.state)).toEqual(['failure']);
+        expect(runtime.statusCalls.every(call => call.sha === 'conflicting-head')).toBe(true);
+        expect(runtime.statusCalls.every(call => call.sha !== 'moved-dev')).toBe(true);
+        expect(runtime.statusCalls.every(call => call.context === 'review-admission/mergeability')).toBe(true);
+        expect(runtime.failures).toEqual([]);
+    });
+
+    test('a later dev movement can turn the same formerly-green head red', async () => {
+        const script = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              green  = createReviewAdmissionRuntime({
+                  reads: [mergeabilityPull(true), mergeabilityPull(true), mergeabilityPull(true)]
+              }),
+              red    = createReviewAdmissionRuntime({
+                  publishedStates: {'pr-head': 'success'},
+                  reads          : [
+                      mergeabilityPull(false, {base: 'next-dev'}),
+                      mergeabilityPull(false, {base: 'next-dev'}),
+                      mergeabilityPull(false, {base: 'next-dev'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, green);
+        await executeReviewAdmissionPublisher(script, red);
+
+        expect(green.statusCalls.map(call => [call.sha, call.state])).toEqual([
+            ['pr-head', 'success']
+        ]);
+        expect(red.statusCalls.map(call => [call.sha, call.state])).toEqual([
+            ['pr-head', 'failure']
+        ]);
+    });
+
+    test('null exhaustion becomes error, never success', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({reads: [mergeabilityPull(null)]});
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => call.state)).toEqual(['error']);
+        expect(runtime.statusCalls.some(call => call.state === 'success')).toBe(false);
+        expect(runtime.failures.join(' ')).toContain('stayed null after 4 bounded polls');
+    });
+
+    test('head/base movement observed before publication restarts on the new coordinate', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({
+                  reads: [
+                      mergeabilityPull(null, {head: 'old-head', base: 'old-dev'}),
+                      mergeabilityPull(null, {head: 'new-head', base: 'new-dev'}),
+                      mergeabilityPull(null, {head: 'new-head', base: 'new-dev'}),
+                      mergeabilityPull(true, {head: 'new-head', base: 'new-dev'}),
+                      mergeabilityPull(true, {head: 'new-head', base: 'new-dev'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => [call.sha, call.state])).toEqual([
+            ['new-head', 'success']
+        ]);
+        expect(runtime.statusCalls).not.toContainEqual(expect.objectContaining({
+            sha  : 'old-head',
+            state: 'success'
+        }));
+    });
+
+    test('a source-read exception converts the known coordinate to error', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({
+                  reads: [mergeabilityPull(null), new Error('mergeability source unavailable')]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusCalls.map(call => call.state)).toEqual(['error']);
+        expect(runtime.failures).toEqual(['mergeability source unavailable']);
+    });
+
+    test('an initial pull-read failure fabricates no head and names the controller failure', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({reads: [new Error('initial pull unavailable')]});
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.statusReads).toEqual([]);
+        expect(runtime.statusCalls).toEqual([]);
+        expect(runtime.failures).toEqual(['initial pull unavailable']);
+    });
+
+    test('an unchanged terminal verdict performs the live read but appends no duplicate status', async () => {
+        const script  = readWorkflow(workflowName).jobs.publish.steps[0].with.script,
+              runtime = createReviewAdmissionRuntime({
+                  publishedStates: {'pr-head': 'success'},
+                  reads          : [mergeabilityPull(true)]
+              });
+
+        await executeReviewAdmissionPublisher(script, runtime);
+
+        expect(runtime.pullReads.length).toBeGreaterThanOrEqual(3);
+        expect(runtime.statusReads).toHaveLength(1);
+        expect(runtime.statusCalls).toEqual([]);
     });
 });
