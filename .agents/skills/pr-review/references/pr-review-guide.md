@@ -176,21 +176,20 @@ At RC2 or >24KB, load the payload. **A demand round is a `CHANGES_REQUESTED`** �
 ### 6.4 Micro-Review — the blast-scaled Cycle-1 light path
 
 `# PR Micro-Review` — the asset
-(`assets/pr-review-micro-review-template.md`) carries the anchors; `Class` is
-`micro` | `contained` | `mechanical`. No premise snapshot, no Depth Floor, no
-audits.
+(`assets/pr-review-micro-review-template.md`) carries the anchors and classes.
+No premise snapshot, no Depth Floor, no audits.
 
 **When — a rule, not a permission.** A MECHANICAL PR *gets* this shape — no
 architectural concept to teach (test-only / config-leaf / behavior-preserving /
 docs / receipt refresh) — at ANY size, or a micro/contained diff. Paying the full
-floor on a mechanical diff is itself the violation; an optional path goes unused.
-**Never** for ADR / new abstraction / consumed contract / security / migration /
-fleet-critical zones (`ai/` config, release path, workflows, substrate, MCP
-contracts) — full form regardless of size. Authors signal with
-`Micro-review eligible: <class> — <why>`; the reviewer decides; escalating to
-full is always free, the reverse never happens. **Keys on
-mechanical-vs-concept-bearing, never size:** a 400-line receipt refresh → MICRO;
-a 3-line ADR row → FULL.
+floor on a mechanical diff is itself the violation. **Never** for ADR / new
+abstraction / consumed contract / security / migration / fleet-critical zones
+(`ai/` config, release path, workflows, substrate, MCP contracts) — full form
+regardless of size. Authors signal with `Micro-review eligible: <class> — <why>`;
+**the reviewer owns the classification**, but a full-form escalation must NAME
+the concept-bearing surface or never-zone earning it. The reverse never happens.
+**Keys on mechanical-vs-concept-bearing, never size:** a 400-line receipt refresh
+→ MICRO; a 3-line ADR row → FULL.
 
 **Bounded-repair guard (Grace, #17527):** a repair stays micro-eligible only
 while it touches NO site the prescription did not name — a widened repair is a

@@ -252,11 +252,11 @@ After an author posts a review-response comment with fixup commits and the autho
 
 When a review lands on your PR, verify the reviewer used the correct
 template before treating the review as substantively complete:
-- **Cycle 1**: `pr-review-template.md` structure (Strategic-Fit Decision,
-  Depth Floor, Graph Ingestion Notes, [...]) — **or**
+- **Cycle 1**: `pr-review-template.md` — **or**
   `pr-review-micro-review-template.md` when the PR is mechanical per
-  `pr-review-guide.md` §6.4. A correctly-short micro-review is compliant;
-  demanding the full form on a mechanical diff is the violation
+  `pr-review-guide.md` §6.4. The reviewer owns the classification, but a full
+  form on a mechanical diff must NAME the concept-bearing surface or never-zone
+  earning it; unnamed, the escalation is the violation
 - **Cycle 2 (ordinary)**: `pr-review-round-2-template.md` — dispositions
   Cycle-1 actions verbatim; mints no new checklist
 - **Cycle ≥2 exceptional** (D+S, repair re-entry):
