@@ -34,6 +34,13 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * variable — neither of which is the behaviour under test. Measured the hard way; before the seam existed
  * both files ran past ten minutes without completing.
  */
+/**
+ * The shape an opaque correlation token must have. A UUID cannot encode `${agentId}_${turnId}`, so
+ * asserting the shape asserts the property.
+ * @type {RegExp}
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 test.describe('Neo.ai.services.neural-link.RecorderService', () => {
     let RecorderService, setArchiveTransport, resetArchiveClient, calls;
 
@@ -99,6 +106,7 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
         expect(operation).toBe('admit_nl_actions');
 
         expect(action).toEqual({
+            sequenceId: expect.stringMatching(UUID),
             sessionId : 'session-456',
             timestamp : 1_700_000_000_000,
             tool      : 'create_component',
@@ -122,6 +130,66 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
         // The host's `sequence_id` encoded `${agentId}_${turnId}` — correlation that WAS identity. It must
         // not be forwarded; Memory Core mints its own opaque token.
         expect(JSON.stringify(action)).not.toContain('agent-123');
+    });
+
+    test('the correlation token GROUPS a sequence without carrying its identity', async () => {
+        // THE PROPERTY A PER-ROW TOKEN SILENTLY DESTROYS. `GapInferenceEngine` groups actions by
+        // `sequenceId` and scores each group's success rate, so a token minted per row would make every
+        // sequence exactly one action long — a digest that still runs, still reports, and measures
+        // nothing. "Fresh and opaque" is satisfied by both shapes; only this arm tells them apart.
+        stubTransport({admit_nl_actions: {admitted: 1, refused: 0}});
+
+        const log = (sequence, timestamp) => RecorderService.log({
+            agent_id   : 'agent-123',
+            session_id : 'session-456',
+            sequence_id: sequence,
+            timestamp,
+            tool       : 'set_instance_properties',
+            success    : true,
+            duration_ms: 5,
+            app_name   : appName
+        });
+
+        log('agent-123_turn-9',  1_700_000_000_000);
+        log('agent-123_turn-9',  1_700_000_000_001);
+        log('agent-123_turn-10', 1_700_000_000_002);
+
+        await expect.poll(() => calls.length).toBe(3);
+
+        const [first, second, third] = calls.map(call => call.args.actions[0].sequenceId);
+
+        expect(first).toMatch(UUID);
+        expect(second).toBe(first);
+        expect(third).not.toBe(first);
+
+        // And the token is a SUBSTITUTE, never the host's own key — which encoded the agent id.
+        expect([first, third]).not.toContain('agent-123_turn-9');
+        expect(JSON.stringify(calls)).not.toContain('agent-123');
+    });
+
+    test('a bare id counts as a target only for component tools', async () => {
+        // The one conditional in the allowlist that moved host-side, and the one a re-implementation
+        // drops. `get_record({id})` names a RECORD; admitting it would link weak validation evidence to
+        // a node the action never touched.
+        stubTransport({admit_nl_actions: {admitted: 1, refused: 0}});
+
+        RecorderService.log({
+            session_id : 'session-456', timestamp: 1, tool: 'get_record', success: true,
+            duration_ms: 1, app_name: appName, args: JSON.stringify({id: 'record-77'})
+        });
+
+        await expect.poll(() => calls.length).toBe(1);
+        expect(calls[0].args.actions[0].targets).toEqual({classNames: [], componentIds: []});
+
+        // POSITIVE CONTROL: the same key on a component tool IS a target, so the empty result above is
+        // the condition firing rather than the projection being broken.
+        RecorderService.log({
+            session_id : 'session-456', timestamp: 2, tool: 'create_component', success: true,
+            duration_ms: 1, app_name: appName, args: JSON.stringify({id: 'btn-9'})
+        });
+
+        await expect.poll(() => calls.length).toBe(2);
+        expect(calls[1].args.actions[0].targets).toEqual({classNames: [], componentIds: ['btn-9']});
     });
 
     test('a failed invocation admits success false rather than dropping the row', async () => {

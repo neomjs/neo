@@ -1,4 +1,5 @@
-import Neo from '../../../src/Neo.mjs';
+import Neo    from '../../../src/Neo.mjs';
+import logger from '../../mcp/server/neural-link/logger.mjs';
 
 /**
  * @module ai/services/neural-link/memoryCoreArchiveClient
@@ -74,25 +75,56 @@ async function getClient({deadlineMs = CONNECT_DEADLINE_MS} = {}) {
     // Neural Link unit spec does — starts connection machinery and hangs the suite before a single
     // assertion runs. Measured: two specs that pass on `dev` never terminated. The host's own SQLite
     // access was dynamic for the same class of reason.
-    const {default: Client} = await import('../../mcp/client/Client.mjs'),
-          next              = Neo.create(Client, {
-              clientName: 'Neo.ai.NeuralLink.ArchiveClient',
-              serverName: 'memory-core',
-              env       : process.env
-          }),
-          ready = next.ready();
+    const {default: Client} = await import('../../mcp/client/Client.mjs');
 
-    // `Neo.create` runs `initAsync` DETACHED, so a rejected credential or handshake surfaces as an
-    // unhandled rejection — fatal under Node's default policy. Attaching a no-op handler keeps the
-    // rejection observable to the race below without letting it take down a long-lived host process that
-    // was only trying to archive a transaction.
-    ready.catch(() => {});
+    let next, timer, graceTimer, rejectDetached,
+        settled = false;
 
-    let timer;
+    // THE FAILURE IS NOT OBSERVABLE ON `ready()`, and assuming it was is the bug this guard replaces.
+    // `Base` builds its ready promise with a RESOLVER ONLY — there is no reject path — and then awaits
+    // `initAsync` inside a detached `Promise.resolve().then(...)` chain (`src/core/Base.mjs`). So a missing
+    // credential or a refused connection, both of which `Client.initAsync` throws, reject a promise nobody
+    // holds: Node's default policy then kills the process. A possession session must not die because a
+    // telemetry archive could not reach Memory Core, and a process-scoped listener is the only place that
+    // rejection can be seen.
+    const detached = new Promise((resolve, reject) => { rejectDetached = reject }),
+
+          /**
+           * Claims the connect failure, re-raising anything that is not ours.
+           * @param {*} reason
+           */
+          onUnhandled = reason => {
+              // A connected client's later rejection belongs to someone else. Re-raise it so installing
+              // this listener never converts another subsystem's fatal error into silence — suppressing
+              // failures we do not own is not a side effect this module gets to have.
+              if (next.connected === true) {
+                  setImmediate(() => { throw reason });
+                  return
+              }
+
+              if (settled) {
+                  // Ours, but late: the deadline already answered the caller with a named refusal, so the
+                  // arriving error is that same failure and re-raising it would kill the host for a
+                  // question already answered. It is logged rather than lost.
+                  logger.warn(`[NeuralLink] Memory Core connect failed after the deadline: ${reason?.message ?? reason}`);
+                  return
+              }
+
+              rejectDetached(reason instanceof Error ? reason : new Error(String(reason)))
+          };
+
+    process.on('unhandledRejection', onUnhandled);
+
+    next = Neo.create(Client, {
+        clientName: 'Neo.ai.NeuralLink.ArchiveClient',
+        serverName: 'memory-core',
+        env       : process.env
+    });
 
     try {
         await Promise.race([
-            ready,
+            next.ready(),
+            detached,
             new Promise((resolve, reject) => {
                 timer = setTimeout(() => reject(new Error(
                     `Memory Core connection did not settle within ${deadlineMs}ms — unreachable ingress or a ` +
@@ -102,7 +134,15 @@ async function getClient({deadlineMs = CONNECT_DEADLINE_MS} = {}) {
             })
         ]);
     } finally {
+        settled = true;
         clearTimeout(timer);
+
+        // The listener OUTLIVES the attempt on purpose. A deadline can fire while the connect is still
+        // in flight, and removing the listener at that moment would hand the still-pending rejection back
+        // to the default policy — turning the timeout we just reported cleanly into a process death a few
+        // seconds later. One deadline of grace covers that window; after it, default behaviour resumes.
+        graceTimer = setTimeout(() => process.removeListener('unhandledRejection', onUnhandled), deadlineMs);
+        graceTimer.unref?.()
     }
 
     // Assigned only after `ready()` settles: caching a half-open client would make every later call fail

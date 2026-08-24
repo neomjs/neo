@@ -1,3 +1,6 @@
+import crypto from 'crypto';
+import fs     from 'fs';
+import path   from 'path';
 import Base   from '../../../src/core/Base.mjs';
 import config from '../../mcp/server/neural-link/config.mjs';
 import logger from '../../mcp/server/neural-link/logger.mjs';
@@ -10,24 +13,26 @@ import {
 
 
 /**
- * Argument keys whose values name a Neural Link TARGET. Everything else in a tool's arguments is dropped
- * before telemetry leaves the host: raw args can carry app state, user content or a private `thought`,
- * none of which telemetry needs and none of which should become durable because a tool call included it.
- * @type {String[]}
- */
-const TARGET_CLASS_KEYS = Object.freeze(['className']),
-      TARGET_ID_KEYS    = Object.freeze(['componentId', 'component_id', 'id']);
-
-/**
  * @summary Extracts the bounded target projection from a tool's arguments.
  *
- * Walks one level plus the two nested bags NL tools actually use (`config`, `properties`), which is the
- * shape `GapInferenceEngine` already consumes. Deliberately not a deep walk: an unbounded traversal is
- * how "just the targets" becomes "most of the payload" the first time a tool nests something new.
+ * **This is `GapInferenceEngine.collectNlActionTargets` moved, not re-imagined.** The allowlist used to run
+ * container-side against the raw `args` column; the relocation stops raw args from ever crossing, so the
+ * projection has to happen where the args still exist. Porting it faithfully is the whole point — a
+ * projection that is merely SIMILAR silently changes what the digest treats as a target.
+ *
+ * Two conditions in it are easy to drop and both are load-bearing. A bare `id` counts only for
+ * component/instance tools: every other tool's `id` names a record, a session or a window, and admitting
+ * those would link weak evidence to nodes the action never touched. And the nested bags contribute only
+ * `className`/`componentId`, because `config`/`properties` are user-supplied shapes where a stray `id`
+ * means whatever the app author wanted it to mean.
+ *
+ * Deliberately not a deep walk: an unbounded traversal is how "just the targets" becomes "most of the
+ * payload" the first time a tool nests something new.
  * @param {*} args The tool arguments — a JSON string on the host's log entry, or an object.
+ * @param {String} [tool=''] The tool name, which decides whether a bare `id` is a component target.
  * @returns {Object} `{classNames, componentIds}`, both always arrays.
  */
-function projectTargets(args) {
+function projectTargets(args, tool = '') {
     let parsed = args;
 
     if (typeof args === 'string') {
@@ -38,55 +43,169 @@ function projectTargets(args) {
         }
     }
 
-    if (!parsed || typeof parsed !== 'object') {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return {classNames: [], componentIds: []}
     }
 
-    const classNames   = new Set(),
-          componentIds = new Set(),
-          collect      = bag => {
-              if (!bag || typeof bag !== 'object') return;
-
-              for (const key of TARGET_CLASS_KEYS) {
-                  if (typeof bag[key] === 'string') classNames.add(bag[key])
-              }
-
-              for (const key of TARGET_ID_KEYS) {
-                  if (typeof bag[key] === 'string') componentIds.add(bag[key])
-              }
-
-              if (Array.isArray(bag.componentIds)) {
-                  bag.componentIds.filter(v => typeof v === 'string').forEach(v => componentIds.add(v))
-              }
+    const classNames      = new Set(),
+          componentIds    = new Set(),
+          isComponentTool = /component|instance/i.test(tool || ''),
+          addString       = (set, value) => {
+              if (typeof value === 'string' && value.length > 0) set.add(value)
           };
 
-    collect(parsed);
-    collect(parsed.config);
-    collect(parsed.properties);
+    for (const [key, item] of Object.entries(parsed)) {
+        if (key === 'className') {
+            addString(classNames, item)
+        } else if (key === 'componentId' || key === 'component_id') {
+            addString(componentIds, item)
+        } else if (key === 'componentIds' && Array.isArray(item)) {
+            item.forEach(value => addString(componentIds, value))
+        } else if (key === 'id' && isComponentTool) {
+            addString(componentIds, item)
+        }
+    }
+
+    for (const key of ['config', 'properties']) {
+        const bag = parsed[key];
+
+        if (!bag || typeof bag !== 'object' || Array.isArray(bag)) continue;
+
+        addString(classNames,   bag.className);
+        addString(componentIds, bag.componentId)
+    }
 
     return {classNames: [...classNames], componentIds: [...componentIds]}
+}
+
+/**
+ * How many host sequences keep a token before the oldest is evicted.
+ *
+ * The map exists for the lifetime of a seat, so it needs a ceiling — an unbounded cache in a long-lived
+ * possession session is a slow leak. Eviction is harmless: a sequence that has been silent for a thousand
+ * newer sequences is finished, and were it to speak again it would simply start a new correlation group.
+ * @type {Number}
+ */
+const MAX_TRACKED_SEQUENCES = 1000;
+
+/**
+ * Host sequence id → the opaque token admitted in its place.
+ * @type {Map<String, String>}
+ */
+const correlationTokens = new Map();
+
+/**
+ * @summary Returns the opaque correlation token standing in for one host sequence id.
+ *
+ * The host's `sequence_id` encodes `${agentId}_${turnId}`, so the correlation key WAS the agent's
+ * identity and must not cross. But correlation itself is load-bearing — `GapInferenceEngine` groups
+ * actions by sequence and scores each group's success rate — so dropping the key outright would leave
+ * every sequence one action long, which reads as working telemetry and is not. A per-sequence UUID keeps
+ * the grouping and carries none of the identity.
+ *
+ * Minting host-side rather than in Memory Core is forced: `log` is fire-and-forget per action, so the
+ * container sees one row at a time and has nothing to correlate them by.
+ * @param {String|undefined} sequenceId The host's sequence id.
+ * @returns {String} A UUID, stable for the lifetime of that sequence.
+ */
+function correlationTokenFor(sequenceId) {
+    // An entry with no sequence correlates with nothing; a fresh token keeps it a group of one rather
+    // than silently joining it to whichever sequence happened to be cached under the empty key.
+    if (typeof sequenceId !== 'string' || sequenceId === '') {
+        return crypto.randomUUID()
+    }
+
+    let token = correlationTokens.get(sequenceId);
+
+    if (!token) {
+        token = crypto.randomUUID();
+
+        if (correlationTokens.size >= MAX_TRACKED_SEQUENCES) {
+            correlationTokens.delete(correlationTokens.keys().next().value)
+        }
+
+        correlationTokens.set(sequenceId, token)
+    }
+
+    return token
+}
+
+/**
+ * File name for the seat-local per-tool aggregate, written beside the Neural Link logs.
+ * @type {String}
+ */
+const LOCAL_AGGREGATE_FILE = 'nl-action-aggregate.json';
+
+/**
+ * Per-tool counters for this process: tool → `{tool, count, successCount, durationMs}`.
+ * @type {Map<String, Object>}
+ */
+const localAggregate = new Map();
+
+/**
+ * @summary Accounts one action locally, as ephemeral per-tool aggregate evidence.
+ *
+ * **This is not a second copy of the telemetry, and the distinction is the whole design.** It holds
+ * COUNTS — tool, how many, how many succeeded, total duration — and never a target, a session or an
+ * argument, so it cannot become the parallel record the relocation exists to eliminate.
+ *
+ * It exists because `genesisProbe` needs one: the probe drives a disposable seat and then aggregates
+ * what that seat actually did. It used to read the local `nl_action_log` table, which the relocation
+ * removes, and the alternative — a remote telemetry READ — is refused by this ticket's own contract,
+ * because it would give the container a way to be asked about host activity. Counting locally keeps the
+ * proof and the write-only direction at the same time.
+ *
+ * Written under `logPath`, which is already ephemeral, already rotated, and in a probe run already
+ * inside the disposable root that gets deleted with it. Failures are swallowed: diagnostic accounting
+ * must never take down the possession session it is describing.
+ * @param {Object} entry The host's snake_case log entry.
+ * @returns {void}
+ */
+function recordLocalAggregate(entry = {}) {
+    const tool = typeof entry.tool === 'string' ? entry.tool : null;
+
+    if (!tool) return;
+
+    const row = localAggregate.get(tool) || {tool, count: 0, successCount: 0, durationMs: 0};
+
+    row.count++;
+    if (entry.success === true || entry.success === 1) row.successCount++;
+    if (Number.isFinite(entry.duration_ms)) row.durationMs += entry.duration_ms;
+
+    localAggregate.set(tool, row);
+
+    try {
+        fs.mkdirSync(config.logPath, {recursive: true});
+        fs.writeFileSync(
+            path.join(config.logPath, LOCAL_AGGREGATE_FILE),
+            // Rewritten in full each time rather than appended: the file IS the running total, so a seat
+            // killed mid-run leaves a complete aggregate rather than a partial journal to replay.
+            JSON.stringify([...localAggregate.values()].sort((a, b) => a.tool.localeCompare(b.tool)), null, 4)
+        )
+    } catch (error) {
+        logger.debug('[RecorderService] Local aggregate accounting unavailable:', error.message)
+    }
 }
 
 /**
  * @summary Projects the host's log entry into the admitted telemetry record.
  *
  * Drops `agent_id`, `result` and the raw `args` — a census of every production READ found no reader for
- * the first two, and the third is replaced by the bounded target projection. `sequence_id` is dropped
- * rather than forwarded: on the host it encoded `${agentId}_${turnId}`, so the correlation key WAS the
- * agent's identity. Memory Core mints a fresh opaque token instead, which is correlation without
- * identification.
+ * the first two, and the third is replaced by the bounded target projection. `sequence_id` is REPLACED
+ * rather than forwarded or dropped, for the reason `correlationTokenFor` documents.
  * @param {Object} entry The host's snake_case log entry.
  * @returns {Object} The admitted action.
  */
 function projectActionEntry(entry = {}) {
     return {
+        sequenceId: correlationTokenFor(entry.sequence_id),
         sessionId : entry.session_id ?? null,
         timestamp : entry.timestamp,
         tool      : entry.tool,
         success   : entry.success === true || entry.success === 1,
         durationMs: entry.duration_ms,
         appName   : entry.app_name ?? null,
-        targets   : projectTargets(entry.args)
+        targets   : projectTargets(entry.args, entry.tool)
     }
 }
 
@@ -194,6 +313,11 @@ class RecorderService extends Base {
         // Policy gate stays telemetry-only: the archive contract is reachable while this is off, which is
         // the independence an earlier change established and this relocation must not quietly alter.
         if (!config.actionLoggingEnabled) return;
+
+        // Local ephemeral accounting, kept BEFORE the wire on purpose: it records what this seat did,
+        // which is a different fact from what Memory Core accepted, and the genesis probe needs the
+        // former. See `recordLocalAggregate`.
+        recordLocalAggregate(entry);
 
         // Fire-and-forget on purpose. Telemetry is observability, so it must never block the tool call
         // that produced it nor surface a transport failure to it; the admission counts refusals instead.

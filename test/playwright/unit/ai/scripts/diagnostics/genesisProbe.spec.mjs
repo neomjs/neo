@@ -530,17 +530,18 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
     });
 
     test('deletes an authorized root even when aggregate telemetry evidence is unreadable', async () => {
+        // The evidence is a seat-written JSON aggregate since the NL data relocation, so a corrupt one
+        // is what "unreadable" now means. The subject is unchanged: a failed capture must not become a
+        // veto that strands the disposable root on disk. Corrupt-but-present still RAISES — an absent
+        // file is the separate "nothing recorded" answer and would leave `failures` empty here.
         const
-            root         = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-cleanup-test-')),
-            databasePath = path.join(root, 'memory-core.sqlite'),
-            Database     = (await import('better-sqlite3')).default,
-            database     = new Database(databasePath);
+            root          = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-cleanup-test-')),
+            aggregatePath = path.join(root, 'nl-action-aggregate.json');
 
-        database.exec('CREATE TABLE unrelated (id INTEGER PRIMARY KEY)');
-        database.close();
+        await fsPromises.writeFile(aggregatePath, '{not-json', 'utf8');
 
         const result = await finalizeDisposableRoot({
-            databasePath,
+            aggregatePath,
             deletionAuthorized: true,
             root
         });

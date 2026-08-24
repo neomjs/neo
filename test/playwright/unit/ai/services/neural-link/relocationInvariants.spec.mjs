@@ -74,6 +74,27 @@ test.describe('Neural Link relocation invariants', () => {
         expect(containerModules.length).toBeGreaterThan(10);
     });
 
+    test('AC-7 — the genesis aggregate proof survives, and its writer and reader name the same file', () => {
+        // The OTHER half of AC-7, and the half a refusal test cannot cover. Genesis used to aggregate the
+        // seat's local `nl_action_log`; the relocation removes that table, and a remote telemetry read is
+        // refused by the arm below — so the proof is preserved by seat-local ephemeral accounting instead.
+        // Writer and reader hold the filename as separate literals on purpose (importing the recorder
+        // would drag the MCP client into a diagnostic script's closure), which makes them a drift pair.
+        const recorder = fs.readFileSync(path.join(rootDir, 'ai/services/neural-link/RecorderService.mjs'), 'utf8'),
+              probe    = fs.readFileSync(path.join(rootDir, 'ai/scripts/diagnostics/genesisProbe.mjs'), 'utf8'),
+              nameOf   = source => source.match(/'(nl-action-aggregate\.json)'/)?.[1] ?? null;
+
+        expect(nameOf(recorder)).toBe('nl-action-aggregate.json');
+        expect(nameOf(probe)).toBe(nameOf(recorder));
+
+        // And the probe still READS it — a constant nobody consumes would keep this arm green forever.
+        expect(probe).toContain('readAggregateTelemetry(aggregatePath)');
+
+        // POSITIVE CONTROL: the matcher returns null when the literal is genuinely absent, so the
+        // agreement above is a comparison rather than two nulls agreeing with each other.
+        expect(nameOf('const other = 1;')).toBeNull();
+    });
+
     test('AC-7 — the telemetry channel stays WRITE-ONLY: no remote read operation exists', () => {
         const openapi      = fs.readFileSync(path.join(rootDir, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8'),
               nlOperations = [...openapi.matchAll(/operationId:\s*(\S*nl_\S*)/g)].map(m => m[1]).sort();
