@@ -524,7 +524,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.nativeWindowDropCandidates.clear();
         DragCoordinator.nativeClaimArbiters.clear();
         DragCoordinator.nativeHoverTargets.clear();
-        DragCoordinator.pointerClaimArbiter = null
+        DragCoordinator.pointerClaimArbiter = null;
+        DragCoordinator.claimTrace.length   = 0
     }
 
     function clearWindows() {
@@ -1737,5 +1738,61 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(calls.filter(([name]) => name === 'dropOut')).toEqual([]);
         expect(calls.filter(([name]) => name === 'leave')).toEqual([['leave', 'workspace-a']]);
         expect(calls.filter(([name]) => name === 'reset')).toEqual([['reset']])
+    })
+
+    test('the claim trace records each conjunct separately, so a refusal is distinguishable from a zone never asked', () => {
+        // `&&` short-circuits: a nullish inner rect never calls `acceptsRemoteDrag`. A diagnostic
+        // that records only the zone's answer cannot tell those apart, which is the gap that cost
+        // five refuted hypotheses.
+        registerWindow('win-source', 0, 0, 800, 600);
+        registerWindow('win-target', 800, 0, 600, 520);
+
+        const source = createZone('workspace-a', 'win-source'),
+              target = createZone('workspace-b', 'win-target', {accepts: () => false});
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(target);
+
+        move(source, 1100, 260);
+
+        const entry = DragCoordinator.claimTrace.at(-1);
+
+        expect(entry.outcome).toBe('no-claim');
+        expect(entry.groupSize).toBe(2);
+
+        const candidate = entry.candidates.find(item => item.stableTargetId === 'workspace-b');
+
+        // The zone WAS asked and said no — inner resolved, the point is inside, `accepts` is false.
+        expect(candidate).toMatchObject({innerResolved: true, intersects: true, accepts: false});
+        expect(entry.candidates.find(item => item.windowId === 'win-source').skipped).toBe('source-or-excluded')
+    });
+
+    test('an ABSENT sort group is recorded as its own outcome, not as an ordinary no-claim', () => {
+        // The group missing and the group yielding nothing are different failures with different
+        // repairs, and `resolveClaimedTarget` returns `null` for both.
+        registerWindow('win-source', 0, 0, 800, 600);
+
+        const source = createZone('workspace-a', 'win-source');
+
+        DragCoordinator.register(source);
+        DragCoordinator.sortZones.clear();
+
+        move(source, 1100, 260);
+
+        expect(DragCoordinator.claimTrace.at(-1)).toMatchObject({outcome: 'group-absent', groupSize: null})
+    });
+
+    test('the trace is bounded, so a long gesture cannot accumulate entries without limit', () => {
+        registerWindow('win-source', 0, 0, 800, 600);
+
+        const source = createZone('workspace-a', 'win-source');
+
+        DragCoordinator.register(source);
+
+        for (let i = 0; i < DragCoordinator.claimTraceLimit + 25; i++) {
+            move(source, 100 + i, 260)
+        }
+
+        expect(DragCoordinator.claimTrace.length).toBe(DragCoordinator.claimTraceLimit)
     })
 });

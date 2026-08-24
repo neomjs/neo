@@ -338,11 +338,15 @@ test.describe('AgentOS Demo B — real cross-window dock drag', () => {
         });
 
         const result         = await resultPromise,
-              phaseZeroTrace = await app.getDragTrace();
+              phaseZeroTrace = await app.getDragTrace(),
+              // The coordinator's OWN record of what it saw per candidate. The workspace's
+              // `debug` payload is a post-hoc reconstruction and cannot report an early return.
+              claimState     = await app.getDragState();
 
         expect(result.errors,
             `the real gesture must settle through the remote target: ${JSON.stringify(result.debug ?? null)}`
-            + `\ndrag trace: ${JSON.stringify(phaseZeroTrace)}`)
+            + `\ndrag trace: ${JSON.stringify(phaseZeroTrace)}`
+            + `\nclaim trace: ${JSON.stringify(claimState?.claimTrace ?? null)}`)
             .toEqual([]);
         expect(result.applied).toBe(true);
         expect(result.witness.instanceId, 'the transferred pane is the original live instance').toBe(baseline.id);
