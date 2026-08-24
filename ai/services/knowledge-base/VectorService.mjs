@@ -44,8 +44,10 @@ import {
     upsertEmbeddingPoisonEntries
 }                                                                     from './helpers/kbEmbeddingPoisonStore.mjs';
 import {
+    EMBED_DISPOSITION,
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
     KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
+    classifyEmbedDisposition,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition,
     isAcceptedThenDiedError,
@@ -1863,6 +1865,32 @@ class VectorService extends Base {
                     }
 
                     lastError = err;
+
+                    // A rejected-class refusal is futile to re-issue BY DEFINITION, and the authority
+                    // for that is not local: `REJECTED_EMBED_ERROR_CODES` already documents membership
+                    // as "a later attempt is either futile or unsafe, never merely unlucky: an input
+                    // over the embedding budget is over it on every retry". The classifier, the KB
+                    // translation and the set all existed — this dispatch site simply never asked, so a
+                    // deterministic provider refusal spent the whole retry budget proving a verdict the
+                    // first response already carried. Measured in production: an 18,832-token input
+                    // against a 16,384-token ceiling, re-dispatched five times per batch, 47 such
+                    // batches in one repository.
+                    //
+                    // The budget is ENDED, not the aftermath: retry exhaustion below is reached exactly
+                    // as it would be after the last attempt, so first-batch abort, poison isolation and
+                    // the carried-prefix contract are untouched. The isolation dispatch in particular
+                    // is deliberately preserved — it is the one re-offer that graduates the durable
+                    // fence, and it is a single call rather than a budget.
+                    //
+                    // Deferrable classes (timeout, transport closure, circuit open) keep their full
+                    // budget: only OUR OWN deliberate refusals are non-retryable, and inference about
+                    // another process is never a basis for discarding a corpus.
+                    if (classifyEmbedDisposition(classifyEmbedFailureError(err)) === EMBED_DISPOSITION.rejected) {
+                        console.error(`Embedding batch ${batchNumber} was refused as ${classifyEmbedFailureError(err)}; ending the retry budget after one dispatch — a later attempt cannot change this verdict.`, err.message);
+                        retries = maxRetries;
+                        continue
+                    }
+
                     retries++;
                     console.error(`An error occurred during embedding batch ${batchNumber}. Retrying (${retries}/${maxRetries})...`, err.message);
                     if (retries < maxRetries) {
