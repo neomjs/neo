@@ -46,15 +46,6 @@ export function formatLocalWakeDigest(envelope = {}) {
     );
     const lines = [`[WAKE][priority:${priority}] ${total} events for ${identity}:`];
 
-    // The session-cost line (AC-2): present only when the receiver's context gate
-    // probed the session successfully and attached the result to this envelope. Absent probe
-    // data means no field — and no line, so an unprobed wake stays noise-free.
-    const sessionContext = payload.sessionContext;
-
-    if (Number.isFinite(sessionContext?.contextTokens) && Number.isFinite(sessionContext?.maxContextTokens)) {
-        lines.push(`[session-context: ${formatContextTokens(sessionContext.contextTokens)} tokens, gate at ${formatContextTokens(sessionContext.maxContextTokens)}]`);
-    }
-
     if (breakdown.sent_to_me?.count > 0) {
         const latestPriority = normalizeWakePriority(latestMessage.priority);
         const prioritySuffix = latestPriority === priority ? '' : `, latest priority: ${latestPriority}`;
@@ -104,16 +95,6 @@ export function formatLocalWakeDigest(envelope = {}) {
     }
 
     return lines.join('\n');
-}
-
-/**
- * @summary Formats a token count the way the gate thresholds are written (250K, 45K).
- * @param {Number} value
- * @returns {String}
- * @private
- */
-function formatContextTokens(value) {
-    return value >= 1000 ? `${Math.round(value / 1000)}K` : String(value);
 }
 
 /**
