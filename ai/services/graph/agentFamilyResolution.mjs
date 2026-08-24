@@ -1,7 +1,6 @@
 import {buildHydrationIndex} from '../../graph/identityHydration.mjs';
 import {migrateResident}     from '../../graph/identityRootsMigration.mjs';
 import {IDENTITIES}          from '../../graph/identityRoots.mjs';
-import logger                from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * @module ai/services/graph/agentFamilyResolution
@@ -10,9 +9,31 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
  *
  * Owner contract: resolve a maintainer's bare GitHub login + model family from the canonical
  * `identityRoots.mjs` roster (and a PR body's `Authored by …` self-id), and decide whether a PR
- * carries cross-family review coverage. These are stateless utilities over the identity roster;
+ * carries cross-family review coverage. These are import-safe utilities over the identity roster;
+ * runtime owners inject their warning sink rather than pulling a server logger/config closure into
+ * every source-only consumer.
  * `GoldenPathSynthesizer` keeps thin static delegating shims so its public API stays stable.
  */
+
+/**
+ * @summary Emits a non-fatal family-resolution warning through an injected source-neutral sink.
+ * Warning delivery must never change the family verdict, so a broken sink falls back to
+ * `console.warn` and a broken fallback is swallowed.
+ * @param {String} message
+ * @param {Function} [warn=console.warn]
+ * @private
+ */
+function emitWarning(message, warn=console.warn) {
+    try {
+        (typeof warn === 'function' ? warn : console.warn)(message)
+    } catch {
+        try {
+            console.warn(message)
+        } catch {
+            // Warning transport is optional; family resolution is not.
+        }
+    }
+}
 
 /**
  * The roster's family value for a seat whose underlying model is not publicly known — an unreleased
@@ -195,16 +216,26 @@ export function parseSelfIdLogin(body) {
  * @param {String|null} [logins.selfIdLogin] `@`-stripped login parsed from the body self-id.
  * @param {String|null} [logins.openerLogin] `@`-stripped GitHub opener login (advisory).
  * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @param {Object} [options]
+ * @param {Function} [options.warn=console.warn] Runtime-owner warning sink.
  * @returns {(String|undefined)} The model family, or undefined when neither login resolves.
  */
-export function resolveAuthorFamilyFromLogins({selfIdLogin = null, openerLogin = null} = {}, agentFamilies = getCoreSwarmAgentFamilies()) {
+export function resolveAuthorFamilyFromLogins(
+    {selfIdLogin = null, openerLogin = null} = {},
+    agentFamilies = getCoreSwarmAgentFamilies(),
+    {warn = console.warn} = {}
+) {
     const
         selfIdFamily = selfIdLogin ? agentFamilies[selfIdLogin] : undefined,
         openerFamily = openerLogin ? agentFamilies[openerLogin] : undefined;
 
     if (selfIdFamily) {
         if (openerFamily && openerFamily !== selfIdFamily) {
-            logger.warn(`[agentFamilyResolution] author identity drift — body self-id @${selfIdLogin} (${selfIdFamily}) != opener @${openerLogin} (${openerFamily}); using the canonical self-id.`);
+            emitWarning(
+                `[agentFamilyResolution] author identity drift — body self-id @${selfIdLogin} ` +
+                `(${selfIdFamily}) != opener @${openerLogin} (${openerFamily}); using the canonical self-id.`,
+                warn
+            )
         }
 
         return selfIdFamily
@@ -222,17 +253,28 @@ export function resolveAuthorFamilyFromLogins({selfIdLogin = null, openerLogin =
  * silently trusted. Model-name substring inference is deliberately NOT used — the self-id is the
  * canonical source, the login is the legacy bridge until every agent PR body carries `@identity`.
  * @param {Object} pr GitHub PR payload (`author`, `body`, `number`).
- * @param {Object} agentFamilies Login-to-family map (`@`-stripped logins).
+ * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @param {Object} [options]
+ * @param {Function} [options.warn=console.warn] Runtime-owner warning sink.
  * @returns {(String|undefined)} The model family, or undefined when neither source resolves.
  */
-export function resolveAuthorFamily(pr, agentFamilies) {
+export function resolveAuthorFamily(
+    pr,
+    agentFamilies = getCoreSwarmAgentFamilies(),
+    {warn = console.warn} = {}
+) {
     const selfIdLogin  = parseSelfIdLogin(pr?.body),
           selfIdFamily = selfIdLogin ? agentFamilies[selfIdLogin] : undefined,
           loginFamily  = agentFamilies[pr?.author?.login];
 
     if (selfIdFamily) {
         if (loginFamily && loginFamily !== selfIdFamily) {
-            logger.warn(`[GoldenPathSynthesizer] PR #${pr.number}: author identity drift — body self-id @${selfIdLogin} (${selfIdFamily}) != GitHub login @${pr.author?.login} (${loginFamily}); using the canonical self-id.`);
+            emitWarning(
+                `[GoldenPathSynthesizer] PR #${pr.number}: author identity drift — body self-id ` +
+                `@${selfIdLogin} (${selfIdFamily}) != GitHub login @${pr.author?.login} ` +
+                `(${loginFamily}); using the canonical self-id.`,
+                warn
+            )
         }
 
         return selfIdFamily
@@ -307,10 +349,12 @@ export function groupReviewsByFamily(reviews = [], agentFamilies = getCoreSwarmA
  *
  * @param {Object} pr GitHub PR payload from `gh pr list`.
  * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @param {Object} [options]
+ * @param {Function} [options.warn=console.warn] Runtime-owner warning sink.
  * @returns {Boolean}
  */
-export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
-    const verdict = resolveCrossFamilyVerdict(pr, agentFamilies);
+export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamilies(), options = {}) {
+    const verdict = resolveCrossFamilyVerdict(pr, agentFamilies, options);
 
     // `null` (author family unresolvable) maps to TRUE here, preserving this function's original
     // reading: an unrostered author is an EXTERNAL contributor, and the mandate exists to stop one
@@ -347,13 +391,15 @@ export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamili
  *
  * @param {Object} pr GitHub PR payload (`author`, `body`, `reviews`).
  * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @param {Object} [options]
+ * @param {Function} [options.warn=console.warn] Runtime-owner warning sink.
  * @returns {{crossFamily: (Boolean|null), authorFamily: (String|null), approvingFamilies: String[], unclassifiedApprovers: String[]}}
  */
-export function resolveCrossFamilyVerdict(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
+export function resolveCrossFamilyVerdict(pr, agentFamilies = getCoreSwarmAgentFamilies(), options = {}) {
     const
         // A caller that already resolved the canonical author passes it directly; everyone else
         // keeps the body-parsing path. Same precedence either way — the self-id wins over the opener.
-        authorFamily = (pr?.authorFamily ?? resolveAuthorFamily(pr, agentFamilies)) ?? null,
+        authorFamily = (pr?.authorFamily ?? resolveAuthorFamily(pr, agentFamilies, options)) ?? null,
         reviews      = Array.isArray(pr?.reviews) ? pr.reviews : [],
         approvals    = reviews.filter(review => review?.state === 'APPROVED'),
         resolved     = approvals.map(review => resolveReviewerFamily(review, agentFamilies)),

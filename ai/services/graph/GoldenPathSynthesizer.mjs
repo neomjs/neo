@@ -855,7 +855,7 @@ class GoldenPathSynthesizer extends Base {
      * @returns {(String|undefined)}
      */
     static resolveAuthorFamily(pr, agentFamilies) {
-        return resolvePrAuthorFamily(pr, agentFamilies)
+        return resolvePrAuthorFamily(pr, agentFamilies, {warn: logger.warn})
     }
 
     /**
@@ -865,7 +865,7 @@ class GoldenPathSynthesizer extends Base {
      * @returns {Boolean}
      */
     static hasCrossFamilyReview(pr, agentFamilies) {
-        return resolvePrCrossFamilyReview(pr, agentFamilies)
+        return resolvePrCrossFamilyReview(pr, agentFamilies, {warn: logger.warn})
     }
 
     /**

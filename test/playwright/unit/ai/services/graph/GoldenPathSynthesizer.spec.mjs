@@ -781,6 +781,34 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(section).toContain('### Recent Open PRs (`0` of `0` items)');
     });
 
+    test('#17702 Active PR rendering keeps author-drift warnings on the Memory Core logger', () => {
+        const consoleWarnings = [], memoryCoreWarnings = [], originalConsoleWarn = console.warn;
+
+        console.warn = message => consoleWarnings.push(message);
+        logger.warn   = message => memoryCoreWarnings.push(message);
+
+        try {
+            GoldenPathSynthesizer.constructor.renderActivePrCycleState({
+                capturedAt: new Date('2026-08-24T14:00:00.000Z'),
+                now       : new Date('2026-08-24T14:00:00.000Z'),
+                prs       : [{
+                    number   : 17702,
+                    title    : 'import-safe family resolution',
+                    createdAt: '2026-08-24T12:00:00.000Z',
+                    author   : {login: 'neo-opus-grace'},
+                    body     : 'Authored by Euclid (GPT-5, Codex Desktop). Session test.',
+                    reviews  : []
+                }]
+            })
+        } finally {
+            console.warn = originalConsoleWarn
+        }
+
+        expect(memoryCoreWarnings).toHaveLength(1);
+        expect(memoryCoreWarnings[0]).toContain('author identity drift');
+        expect(consoleWarnings).toEqual([])
+    });
+
     test('synthesizeGoldenPath skips Neo repo enrichment sections when deployment config disables them', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;

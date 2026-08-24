@@ -1,15 +1,18 @@
 import {test, expect} from '@playwright/test';
+import {spawnSync}    from 'node:child_process';
 import Neo            from '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 
 import {
     getCoreSwarmAgentFamilies,
     groupReviewsByFamily,
+    resolveAuthorFamily,
+    resolveAuthorFamilyFromLogins,
     resolveResidentFamily,
     resolveReviewerFamily
 } from '../../../../../../ai/services/graph/agentFamilyResolution.mjs';
-import {IDENTITIES}                                       from '../../../../../../ai/graph/identityRoots.mjs';
-import {migrateResident}                                  from '../../../../../../ai/graph/identityRootsMigration.mjs';
+import {IDENTITIES}      from '../../../../../../ai/graph/identityRoots.mjs';
+import {migrateResident} from '../../../../../../ai/graph/identityRootsMigration.mjs';
 
 /**
  * Consumer-migration coverage for the identityRoots flat-fact retirement: the family read-path
@@ -18,6 +21,56 @@ import {migrateResident}                                  from '../../../../../.
  * map must be exactly what the flat read produced before the move.
  */
 test.describe('ai/services/graph/agentFamilyResolution — hydration-index family reads', () => {
+    test('#17702 pure consumers import without bootstrapping Neo or AiConfig', () => {
+        const child = spawnSync(process.execPath, ['--input-type=module', '--eval', [
+            'await import("./ai/services/graph/agentFamilyResolution.mjs");',
+            'await import("./ai/scripts/lifecycle/revalidationSweep.mjs");',
+            'process.stdout.write("IMPORT_SAFE");'
+        ].join(' ')], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(child.status, child.stderr).toBe(0);
+        expect(child.stdout).toBe('IMPORT_SAFE')
+    });
+
+    test('#17702 runtime owners inject drift warnings without changing family verdicts', () => {
+        const
+            families = {'neo-gpt-emmy': 'gpt', 'neo-opus-grace': 'claude'},
+            warnings = [],
+            options  = {warn: message => warnings.push(message)};
+
+        expect(resolveAuthorFamilyFromLogins({
+            selfIdLogin: 'neo-gpt-emmy',
+            openerLogin: 'neo-opus-grace'
+        }, families, options)).toBe('gpt');
+        expect(resolveAuthorFamily({
+            number: 17702,
+            author: {login: 'neo-opus-grace'},
+            body  : 'Authored by Neo GPT Emmy (GPT-5.6 Sol Ultra, Codex). Session test.'
+        }, families, options)).toBe('gpt');
+
+        expect(warnings).toHaveLength(2);
+        expect(warnings[0]).toContain('author identity drift');
+        expect(warnings[1]).toContain('PR #17702');
+
+        const originalWarn = console.warn, fallbackWarnings = [];
+
+        console.warn = message => fallbackWarnings.push(message);
+
+        try {
+            expect(resolveAuthorFamilyFromLogins({
+                selfIdLogin: 'neo-gpt-emmy',
+                openerLogin: 'neo-opus-grace'
+            }, families, {warn: () => { throw new Error('broken sink') }})).toBe('gpt')
+        } finally {
+            console.warn = originalWarn
+        }
+
+        expect(fallbackWarnings).toHaveLength(1)
+    });
+
     test('REGRESSION AC: the login-to-family map is IDENTICAL to the flat-property derivation', () => {
         const flatDerived = Object.fromEntries(
             IDENTITIES
