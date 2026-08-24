@@ -38,8 +38,7 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(INDEFINITE_DEFERENCE_OBJECTS).toEqual([
             'something',
             'anything',
-            'otherwise',
-            'another'
+            'otherwise'
         ]);
 
         expect(matchDeferencePhrase('Taking the parser lane next unless you want something else first.'))
@@ -48,14 +47,14 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
             .toBe('unless you want');
         expect(matchDeferencePhrase('Taking the parser lane next unless you want otherwise.'))
             .toBe('unless you want');
-        expect(matchDeferencePhrase('Taking the parser lane next unless you want another option.'))
-            .toBe('unless you want');
         expect(matchDeferencePhrase('Taking the parser lane next UNLESS YOU WANT ANYTHING else.'))
             .toBe('unless you want');
 
         expect(matchDeferencePhrase('The default is fine unless you want deterministic isolation.')).toBeNull();
         expect(matchDeferencePhrase('Keep the current plan unless you want a smaller batch size.')).toBeNull();
         expect(matchDeferencePhrase('Use the first parser unless you want the other parser.')).toBeNull();
+        expect(matchDeferencePhrase('Use the first parser unless you want another parser.')).toBeNull();
+        expect(matchDeferencePhrase('Idempotent unless you want another run to overwrite state.')).toBeNull();
         expect(matchDeferencePhrase('Taking the parser lane next unless you want.')).toBeNull();
 
         // The longer existing entry stays independently reachable rather than being shadowed by

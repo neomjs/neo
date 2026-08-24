@@ -58,8 +58,7 @@ export const DEFERENCE_PHRASES = [
 export const INDEFINITE_DEFERENCE_OBJECTS = Object.freeze([
     'something',
     'anything',
-    'otherwise',
-    'another'
+    'otherwise'
 ]);
 
 /**
