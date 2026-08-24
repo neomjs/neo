@@ -22,6 +22,7 @@ Before reading any documentation, code, or memory, you **MUST** ensure your loca
 - Execute `git checkout dev && git pull origin dev` (substitute `dev` with the repository's default branch if working outside the canonical Neo.mjs repo).
 - **Lifecycle role (boot vs. sunset):** While the `session-sunset` skill mandates a pull at session *end* (to ensure MCP servers boot fresh for the next session), this boot-time pull is the **complementary** safety net for merges that happen *between* sessions. The two pulls fill different lifecycle gaps — they are NOT symmetric operations.
 - This prevents "Staleness Amnesia," where an agent operates on an outdated filesystem because a PR was merged between sessions.
+- **SCSS / theme / rendered-surface lanes only:** built CSS is gitignored and never travels with a branch — run `npm run watch-themes` in its own shell. The visual guard owns the initial-build command and prints it. *(Retire once a watcher starts with the dev server.)*
 
 ### Step 1: Read the Neo Identity & Frontend Architecture Boot Pair
 
