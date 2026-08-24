@@ -7,6 +7,15 @@ import SortZone           from '../container/SortZone.mjs';
 import VDomUtil           from '../../util/VDom.mjs';
 
 /**
+ * A single `flex` token that is a length or a percentage rather than a bare number. In the CSS
+ * shorthand such a token is the **basis**, and the grow factor defaults to 1 — so `flex: 100px`
+ * grows by 1, never by 100. Kept explicit rather than inferred from "digits followed by letters",
+ * which would read `1oops` as a length.
+ * @type {RegExp}
+ */
+const CSS_FLEX_BASIS = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:%|px|em|rem|ex|ch|cap|ic|lh|rlh|vw|vh|vi|vb|vmin|vmax|cm|mm|q|in|pt|pc)$/;
+
+/**
  * @class Neo.draggable.dashboard.SortZone
  * @extends Neo.draggable.container.SortZone
  */
@@ -252,21 +261,59 @@ class DashboardSortZone extends SortZone {
      * division yields `NaN` — written straight into `style.width` as `'NaNpx'`. Nothing throws, so the
      * geometry is simply wrong.
      *
-     * Resolving `'none'` to *not flexible* is also what CSS means by it — `flex: none` is `0 0 auto` — so
-     * such an item correctly keeps its measured rect. Zero and negative weights are fixed for the same
-     * reason: they grow nothing, which preserves the behaviour a falsy `0` already had.
+     * **It reads the shorthand's grow factor rather than scanning for the first number**, because
+     * CSS-equivalent spellings must not disagree. `flex: auto` and `flex: 1 1 auto` are the same
+     * declaration, and a leading-number scan resolves them to different weights. The same scan reads
+     * `100px` — a *basis*, whose grow defaults to 1 — as weight 100, and invents weight 1 out of
+     * `1oops`. This codebase writes shorthands routinely (`'0 1 auto'`, `'1 1 600px'`, `'1 1 100%'`),
+     * so the grammar is load-bearing rather than defensive.
      *
-     * `'auto'` is deliberately treated as fixed rather than guessed at `1`. No caller uses it, and where a
-     * measured rect is a safe wrong answer, an invented weight is not.
+     * The grammar, all of it:
      *
-     * @param {Number|String|null} flex The item's `flex` config, unvalidated.
+     * - a finite positive number is the weight;
+     * - `none` is `0 0 auto` and `initial` is `0 1 auto`, so both are **not flexible**;
+     * - `auto` is `1 1 auto`, so it is weight **1**;
+     * - otherwise the first of up to three tokens carries grow: a bare number is that grow, and a
+     *   lone length or percentage is a basis whose grow is 1;
+     * - anything else — a fourth token, a non-numeric leading token, a non-string non-number — is
+     *   not flexible.
+     *
+     * A zero or negative grow is likewise not flexible: it grows nothing, which preserves the
+     * behaviour a falsy `0` already had. **Unparseable never invents a weight**; the item keeps its
+     * measured rect, which is the safe wrong answer.
+     *
+     * @param {Number|String|null|undefined} flex The item's `flex` config, unvalidated — `undefined`
+     * is the routine case, since most items declare no `flex` at all.
      * @returns {Number|null} A positive finite weight, or `null` when the item does not participate in the
      * flex distribution.
      */
     resolveFlexWeight(flex) {
-        const weight = parseFloat(flex);
+        if (typeof flex === 'number') {
+            return Number.isFinite(flex) && flex > 0 ? flex : null
+        }
 
-        return Number.isFinite(weight) && weight > 0 ? weight : null
+        if (typeof flex !== 'string') {
+            return null
+        }
+
+        const value = flex.trim().toLowerCase();
+
+        if (value === 'none' || value === 'initial') return null;
+        if (value === 'auto')                        return 1;
+
+        const tokens = value.split(/\s+/).filter(Boolean);
+
+        if (tokens.length === 0 || tokens.length > 3) {
+            return null
+        }
+
+        const grow = Number(tokens[0]);
+
+        if (!Number.isFinite(grow)) {
+            return tokens.length === 1 && CSS_FLEX_BASIS.test(tokens[0]) ? 1 : null
+        }
+
+        return grow > 0 ? grow : null
     }
 
     /**

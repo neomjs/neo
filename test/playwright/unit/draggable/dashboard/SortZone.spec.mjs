@@ -915,23 +915,65 @@ test.describe('Neo.draggable.dashboard.SortZone expanded-layout flex distributio
         zone.destroy()
     });
 
-    test('resolveFlexWeight admits only positive finite weights', () => {
+    test('resolveFlexWeight reads the shorthand grow factor', () => {
         const zone = layoutZone({flexValues: [1]});
 
         expect(zone.resolveFlexWeight(2)).toBe(2);
         expect(zone.resolveFlexWeight('2')).toBe(2);
-        expect(zone.resolveFlexWeight('1 1 auto')).toBe(1);
         expect(zone.resolveFlexWeight(0.5)).toBe(0.5);
 
-        // Not flexible — each for its own reason, all rejected the same way.
-        expect(zone.resolveFlexWeight('none')).toBe(null);      // legal CSS, truthy, means 0 0 auto
-        expect(zone.resolveFlexWeight('auto')).toBe(null);      // deliberately fixed rather than guessed at 1
-        expect(zone.resolveFlexWeight(0)).toBe(null);           // grows nothing; matches the old falsy path
-        expect(zone.resolveFlexWeight('0')).toBe(null);         // the truthy spelling of the same thing
+        // Shorthands, which this codebase writes routinely. Grow is the FIRST token.
+        expect(zone.resolveFlexWeight('1 1 auto')).toBe(1);
+        expect(zone.resolveFlexWeight('1 1 600px')).toBe(1);
+        expect(zone.resolveFlexWeight('1 1 100%')).toBe(1);
+        expect(zone.resolveFlexWeight('0 1 auto')).toBe(null);   // grow 0 — the common "do not grow" shorthand
+        expect(zone.resolveFlexWeight('0 0 200px')).toBe(null);
+
+        // Keywords, expanded as CSS defines them rather than guessed at.
+        expect(zone.resolveFlexWeight('none')).toBe(null);       // 0 0 auto
+        expect(zone.resolveFlexWeight('initial')).toBe(null);    // 0 1 auto
+        expect(zone.resolveFlexWeight('auto')).toBe(1);          // 1 1 auto
+
+        expect(zone.resolveFlexWeight(0)).toBe(null);            // grows nothing; matches the old falsy path
+        expect(zone.resolveFlexWeight('0')).toBe(null);          // the truthy spelling of the same thing
         expect(zone.resolveFlexWeight(-1)).toBe(null);
-        expect(zone.resolveFlexWeight(undefined)).toBe(null);
+        expect(zone.resolveFlexWeight(undefined)).toBe(null);    // the routine case: no flex declared
         expect(zone.resolveFlexWeight(null)).toBe(null);
         expect(zone.resolveFlexWeight('')).toBe(null);
+        expect(zone.resolveFlexWeight('   ')).toBe(null);
+
+        zone.destroy()
+    });
+
+    test('CSS-equivalent spellings resolve alike — the leading-number scan they refute', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // `auto` IS `1 1 auto`. A scan for the first number in the string resolves the pair to null
+        // and 1 respectively, which is the defect @neo-gpt-emmy named on review.
+        expect(zone.resolveFlexWeight('auto')).toBe(zone.resolveFlexWeight('1 1 auto'));
+        // `none` IS `0 0 auto`.
+        expect(zone.resolveFlexWeight('none')).toBe(zone.resolveFlexWeight('0 0 auto'));
+
+        zone.destroy()
+    });
+
+    test('a weight is never invented from a value that does not carry one', () => {
+        const zone = layoutZone({flexValues: [1]});
+
+        // A lone length is a BASIS: CSS grows it by 1. A leading-number scan returns 100 — a
+        // hundredfold error that is finite, plausible, and therefore invisible.
+        expect(zone.resolveFlexWeight('100px')).toBe(1);
+        expect(zone.resolveFlexWeight('50%')).toBe(1);
+
+        // Garbage resolves to fixed rather than to the number it happens to start with.
+        expect(zone.resolveFlexWeight('1oops')).toBe(null);
+        expect(zone.resolveFlexWeight('px')).toBe(null);
+        expect(zone.resolveFlexWeight('1 2 3 4')).toBe(null);
+
+        // Non-string, non-number inputs never reach Number()'s coercions.
+        expect(zone.resolveFlexWeight(true)).toBe(null);
+        expect(zone.resolveFlexWeight([2])).toBe(null);
+        expect(zone.resolveFlexWeight({})).toBe(null);
 
         zone.destroy()
     })
