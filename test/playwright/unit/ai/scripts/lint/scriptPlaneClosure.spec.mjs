@@ -921,6 +921,24 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
     });
 
     test('a known conflict that no longer reproduces fails with its exact identity', () => {
+        const rel      = 'ai/scripts/maintenance/backup.mjs',
+              taskName = 'retired-task',
+              identity = `${rel}::${taskName}::authority-conflict-in-plane`,
+              result   = runLint({
+                  entrypoints,
+                  authorityByScript: {
+                      [rel]: {taskName, authorityClass: 'container-plane'}
+                  },
+                  ledger        : KNOWN_BACKUP_EDGES,
+                  knownConflicts: [identity]
+              });
+
+        expect(result.exitCode, 'stale conflict authority must not survive on green').toBe(1);
+        expect(result.resolvedConflicts).toEqual([identity]);
+        expect(result.unobservableConflicts).toEqual([]);
+    });
+
+    test('a known conflict whose root left the census is unobservable, not stale-and-deletable', () => {
         const identity = 'ai/gone/Module.mjs::retired-task::authority-conflict-in-plane',
               result   = runLint({
                   entrypoints,
@@ -929,8 +947,24 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
                   knownConflicts   : [identity]
               });
 
-        expect(result.exitCode, 'stale conflict authority must not survive on green').toBe(1);
-        expect(result.resolvedConflicts).toEqual([identity]);
+        expect(result.exitCode, 'lost observation must remain red without claiming a repair').toBe(1);
+        expect(result.resolvedConflicts).toEqual([]);
+        expect(result.unobservableConflicts).toEqual([identity]);
+    });
+
+    test('a known conflict whose task declaration was withdrawn is unobservable, not resolved', () => {
+        const rel      = entrypoints[0].rel,
+              identity = `${rel}::retired-task::authority-conflict-in-plane`,
+              result   = runLint({
+                  entrypoints,
+                  authorityByScript: {},
+                  ledger           : KNOWN_BACKUP_EDGES,
+                  knownConflicts   : [identity]
+              });
+
+        expect(result.exitCode, 'withdrawn authority must not mint a delete-ledger instruction').toBe(1);
+        expect(result.resolvedConflicts).toEqual([]);
+        expect(result.unobservableConflicts).toEqual([identity]);
     });
 
     test('an unlisted authority conflict fails; a ticketed one is held and still printed', () => {

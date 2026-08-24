@@ -390,7 +390,7 @@ export function buildPlaneProjection({
  * @summary Runs the lint over every npm-declared `ai/scripts` entrypoint.
  * @param {Object} [options]
  * @returns {{exitCode: Number, conflicts: Object[], edges: String[], appeared: String[],
- * resolved: String[], resolvedConflicts: String[], planes: Object}}
+ * resolved: String[], resolvedConflicts: String[], unobservableConflicts: String[], planes: Object}}
  */
 export function runLint({
     entrypoints       = readEntrypoints(),
@@ -429,16 +429,28 @@ export function runLint({
     });
 
     const
-        known             = new Set(ledger),
-        knownConflict     = new Set(knownConflicts),
-        appeared          = [...edges].filter(id => !known.has(id)).sort(),
-        resolved          = [...known].filter(id => !edges.has(id)).sort(),
-        newConflicts      = conflicts.filter(finding => !knownConflict.has(conflictIdentity(finding))),
-        heldConflicts     = conflicts.filter(finding => knownConflict.has(conflictIdentity(finding))),
-        resolvedConflicts = knownConflicts
-            .filter(id => !conflicts.some(finding => conflictIdentity(finding) === id))
+        known                     = new Set(ledger),
+        knownConflict             = new Set(knownConflicts),
+        entrypointPaths           = new Set(entrypoints.map(({rel}) => rel)),
+        appeared                  = [...edges].filter(id => !known.has(id)).sort(),
+        resolved                  = [...known].filter(id => !edges.has(id)).sort(),
+        newConflicts              = conflicts.filter(finding => !knownConflict.has(conflictIdentity(finding))),
+        heldConflicts             = conflicts.filter(finding => knownConflict.has(conflictIdentity(finding))),
+        nonReproducingConflictIds = knownConflicts
+            .filter(id => !conflicts.some(finding => conflictIdentity(finding) === id)),
+        isConflictIdentityObservable = id => {
+            const [entrypoint, taskName] = id.split('::');
+
+            return entrypointPaths.has(entrypoint)
+                && authorityByScript[entrypoint]?.taskName === taskName
+        },
+        resolvedConflicts           = nonReproducingConflictIds
+            .filter(isConflictIdentityObservable)
             .sort(),
-        byVia             = via => entrypoints.filter(entry => entry.via === via).length;
+        unobservableConflicts       = nonReproducingConflictIds
+            .filter(id => !isConflictIdentityObservable(id))
+            .sort(),
+        byVia                       = via => entrypoints.filter(entry => entry.via === via).length;
 
     console.log(`[lint-script-plane] ${entrypoints.length} executable root(s) — `
         + `${byVia('npm')} npm-declared, ${byVia('workflow')} workflow-invoked, `
@@ -452,9 +464,18 @@ export function runLint({
     });
 
     if (newConflicts.length === 0 && appeared.length === 0 && resolved.length === 0
-        && resolvedConflicts.length === 0) {
+        && resolvedConflicts.length === 0 && unobservableConflicts.length === 0) {
         console.log(`\n  OK — no new authority conflicts; ${edges.size} unresolved edge(s), all known.`);
-        return {exitCode: 0, conflicts, edges: [...edges], appeared, resolved, resolvedConflicts, planes}
+        return {
+            exitCode: 0,
+            conflicts,
+            edges   : [...edges],
+            appeared,
+            resolved,
+            resolvedConflicts,
+            unobservableConflicts,
+            planes
+        }
     }
 
     if (resolved.length > 0) {
@@ -470,6 +491,14 @@ export function runLint({
             + `(${resolvedConflicts.length}):\n`);
         resolvedConflicts.forEach(id => console.error(`    - ${id}`));
         console.error('\n  Remove stale authority from KNOWN_AUTHORITY_CONFLICTS.\n')
+    }
+
+    if (unobservableConflicts.length > 0) {
+        console.error(`\n[lint-script-plane] FAILED — known-conflict authority became unobservable `
+            + `(${unobservableConflicts.length}):\n`);
+        unobservableConflicts.forEach(id => console.error(`    - ${id}`));
+        console.error('\n  Restore the executable root or its task authority, or re-file the warrant');
+        console.error('  against the current identity. Do NOT delete the ledger row: absence is not a repair.\n')
     }
 
     if (newConflicts.length > 0) {
@@ -495,7 +524,16 @@ export function runLint({
         console.error('  the reason. Never swap one identity for another to keep a total steady.\n')
     }
 
-    return {exitCode: 1, conflicts, edges: [...edges], appeared, resolved, resolvedConflicts, planes}
+    return {
+        exitCode: 1,
+        conflicts,
+        edges   : [...edges],
+        appeared,
+        resolved,
+        resolvedConflicts,
+        unobservableConflicts,
+        planes
+    }
 }
 
 // Import-safe, per the house pattern in `lint-guard-ci-parity.mjs`: the workflow scan-root parity
