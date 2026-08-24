@@ -27,6 +27,37 @@ import path            from 'path';
 // races. CI runs workers:1 (see playwright.config.unit.mjs) so this is local-DX only.
 test.describe.configure({mode: 'serial'});
 
+/**
+ * @summary Whether a copy subsystem's receipt accounts for itself — it copied rows, or it names the
+ * source that was absent.
+ *
+ * The distinction this exists to draw: a bundle folder is created before its subsystem runs, so
+ * folder existence proves nothing about whether anything landed in it. A receipt reading `copied: 0`
+ * with no explanation is the case that must fail — it is indistinguishable, from the outside, from a
+ * subsystem that silently did nothing. `ledgers` nests its own per-source receipts, so an accounted
+ * parent may carry the explanation entirely in its children.
+ *
+ * @param {Object} receipt A `subsystems.<name>` entry from `runBackup`.
+ * @returns {Boolean}
+ */
+function copyReceiptIsAccounted(receipt) {
+    if (!receipt || typeof receipt !== 'object') {
+        return false
+    }
+
+    if (Number.isFinite(receipt.copied) && receipt.copied > 0) {
+        return true
+    }
+
+    if (typeof receipt.note === 'string' && receipt.note.length > 0) {
+        return true
+    }
+
+    const nested = Object.values(receipt).filter(value => value && typeof value === 'object');
+
+    return nested.length > 0 && nested.every(copyReceiptIsAccounted)
+}
+
 test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 2)', () => {
     let SDK, fsExtra, runBackup;
     let KB_ChromaManager, Memory_StorageRouter;
@@ -101,7 +132,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         }
     });
 
-    test('produces a bundle with all 5 subfolders and routes populated subsystems into their JSONL slots', async () => {
+    test('every subsystem in the bundle either exported, or named the source it had none of (#16617)', async () => {
         const silentLogger = {log: () => {}, error: () => {}};
 
         const result = await runBackup({
@@ -113,9 +144,13 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
 
         expect(result.bundleRoot).toBe(bundleRoot);
 
-        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
-            expect(fs.existsSync(path.join(bundleRoot, sub))).toBe(true);
-        }
+        // The bundle's own layout, not a hand-counted subset of it. The list this replaced named
+        // five folders while `runBackup` creates seven — so `mailbox` and `ledgers` were outside
+        // every assertion in this file, which is exactly where a subsystem that exports nothing
+        // goes unnoticed.
+        expect(fs.readdirSync(bundleRoot).sort()).toEqual([
+            'bundle-meta.json', 'concepts', 'graph', 'kb', 'ledgers', 'mailbox', 'mc', 'trajectories'
+        ]);
 
         const kbFiles = fs.readdirSync(path.join(bundleRoot, 'kb')).filter(f => f.endsWith('.jsonl'));
         expect(kbFiles.length).toBe(1);
@@ -136,14 +171,38 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         expect(result.subsystems.trajectories).toEqual({copied: 1});
         expect(result.subsystems.mc.count).toBe(2);
 
-        const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
-        expect(mcIntegrity.status).toBe('pass');
-        expect(mcIntegrity.sourceCount).toBe(2);
-        expect(mcIntegrity.bundleCount).toBe(2);
+        // Every subsystem must prove it either EXPORTED or named its own zero. The folder-existence
+        // loop this replaced could not tell those apart — an empty directory satisfied it, so a
+        // subsystem that exported nothing looked identical to one that worked.
+        //
+        // No row counts are pinned for `graph`: its size comes from the run-scoped test graph store,
+        // so asserting a number would make this verdict track corpus fill, which is the defect this
+        // ticket exists to remove. `verifyBundleIntegrity` already compares source against bundle,
+        // and `pass` is reachable only above zero — zero-parity is reported as `empty` and a missing
+        // count as `skipped`. So `pass` carries "exported, and completely" without naming a size.
+        const integrityBy = Object.fromEntries(result.meta.integrity.map(check => [check.subsystem, check]));
 
-        // graph subfolder exists but GraphService.db is not wired in unit-test mode,
-        // so no graph-backup file is emitted. This is the documented "source has no data"
-        // branch per ticket AC ("non-empty content when the source subsystems have data").
+        expect(Object.keys(integrityBy).sort(), 'every recovery substrate is checked').toEqual(['graph', 'kb', 'mc']);
+
+        for (const subsystem of ['kb', 'mc', 'graph']) {
+            const check = integrityBy[subsystem];
+
+            expect(check.status, `${subsystem}: exported nothing, or its skip is unnamed`).toBe('pass');
+            expect(check.bundleCount, `${subsystem}: row-count parity`).toBe(check.sourceCount);
+            expect(check.sourceCount, `${subsystem}: a zero-row export is not a recovery source`)
+                .toBeGreaterThan(0);
+        }
+
+        // The copy subsystems. `mailbox` and `ledgers` genuinely have no source in this fixture, and
+        // that is the named-skip half: `copied: 0` is acceptable only when the receipt carries the
+        // note saying which source was absent. An unexplained zero fails.
+        for (const [subsystem, receipt] of Object.entries(result.subsystems)) {
+            if (['kb', 'mc', 'graph'].includes(subsystem)) {
+                continue
+            }
+
+            expect(copyReceiptIsAccounted(receipt), `${subsystem}: ${JSON.stringify(receipt)}`).toBe(true);
+        }
     });
 
     test('keeps the final root invisible until capture completes, then publishes it without staging residue (#16417)', async () => {
