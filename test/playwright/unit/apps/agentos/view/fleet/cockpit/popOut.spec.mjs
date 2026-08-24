@@ -26,7 +26,8 @@ import StateProvider       from '../../../../../../../../src/state/Provider.mjs'
  * bookkeeping without weakening the call contract.
  * @param {Object} [options={}]
  * @param {Boolean} [options.openResult=true] What `windowOpen` resolves — `false` = blocked popup.
- * @param {String|null} [options.popupUrl=null] The URL `getByPath` reports for the vessel window.
+ * @param {String|Function|null} [options.popupUrl=null] The URL `getByPath` reports for the vessel
+ *     window, or a spy-state resolver for token-bearing URLs created during the test.
  * @returns {Object} spy state + `restore()`.
  */
 function installWindowVessel({deferOpen = false, openResult = true, popupUrl = null} = {}) {
@@ -41,7 +42,7 @@ function installWindowVessel({deferOpen = false, openResult = true, popupUrl = n
 
     Neo.windowConfigs = {'unit-window': {basePath: './'}};
 
-    Neo.Main.getByPath     = async () => popupUrl;
+    Neo.Main.getByPath     = async () => typeof popupUrl === 'function' ? popupUrl(state) : popupUrl;
     Neo.Main.getWindowData = async () => ({screenLeft: 10, screenTop: 20});
     Neo.Main.windowOpen    = data => {
         state.openCalls.push(data);
@@ -350,7 +351,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — detail pop-out st
 
         expect(cockpit.detailVesselState).toBe('windowed');
 
-        cockpit.onWindowDisconnect({windowId: 'vessel-win-3'});
+        await cockpit.onWindowDisconnect({windowId: 'vessel-win-3'});
         await cockpit.refreshPromise;
 
         await expect.poll(() => cockpit.detailVesselState, {timeout: 2000}).toBe('docked');
@@ -361,7 +362,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — detail pop-out st
         expect(vessel.closeCalls).toHaveLength(0);
 
         // a late duplicate disconnect is inert (the cleared bookkeeping is the guard)
-        cockpit.onWindowDisconnect({windowId: 'vessel-win-3'});
+        await cockpit.onWindowDisconnect({windowId: 'vessel-win-3'});
         expect(cockpit.detailVesselState).toBe('docked')
     });
 
@@ -493,7 +494,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — detail pop-out st
         expect(pane.isDestroyed).toBe(true);
 
         // a post-destroy disconnect must be inert (the isDestroyed guard)
-        cockpit.onWindowDisconnect({windowId: 'vessel-win-6'});
+        await cockpit.onWindowDisconnect({windowId: 'vessel-win-6'});
 
         cockpit = null
     })
@@ -552,8 +553,8 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
      * The canonical tear-out vessel URL the connect handler's tear-out branch matches on.
      * @returns {String}
      */
-    function memoriesVesselUrl() {
-        return `https://unit.test/apps/agentos/childapps/widget/index.html?tearout=memories&cockpitId=${cockpit.id}`
+    function memoriesVesselUrl({openCalls}) {
+        return openCalls.length ? new URL(openCalls.at(-1).url, 'https://unit.test/').href : null
     }
 
     /**
@@ -615,6 +616,9 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
         expect(vessel.openCalls).toHaveLength(1);
         expect(vessel.openCalls[0].url).toContain('tearout=memories');
         expect(vessel.openCalls[0].url).toContain(`cockpitId=${cockpit.id}`);
+        expect(vessel.openCalls[0].url).toContain('vesselFlow=tear-out');
+        expect(vessel.openCalls[0].url).toMatch(/vesselAdmission=\d+/);
+        expect(cockpit.tearOutAdmissions.get('memories')?.token).toBeGreaterThan(0);
 
         // the shell affordance now names the reverse action
         expect(cockpit.getMemoriesPane().getReference('memories-window-toggle').text).toBe('Return memories')
@@ -657,7 +661,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
     });
 
     test('owner pushes reach the vesseled pane; vessel-fired intents reach the controller', async () => {
-        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl});
 
         const pane = await revealMemories();
 
@@ -697,7 +701,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
     });
 
     test('vessel death brings the pane home at its exact south-strip position — state intact', async () => {
-        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl});
 
         const pane = await revealMemories();
 
@@ -706,7 +710,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
         await cockpit.popOutMemories();
         await simulateConnect('mem-vessel-home');
 
-        cockpit.onWindowDisconnect({windowId: 'mem-vessel-home'});
+        await cockpit.onWindowDisconnect({windowId: 'mem-vessel-home'});
         await cockpit.refreshPromise;
 
         // exact-position restore: memories back at its stored south-strip index, full order preserved
@@ -753,7 +757,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
     });
 
     test('the drill-in works in the vessel: intents resolve without a controller chain, pushes land through the accessor', async () => {
-        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl});
 
         const pane = await revealMemories();
 
@@ -815,7 +819,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
     });
 
     test('toggle routes by vessel state; a mid-gesture capture refuses instead of racing', async () => {
-        vessel = installWindowVessel({popupUrl: memoriesVesselUrl()});
+        vessel = installWindowVessel({popupUrl: memoriesVesselUrl});
 
         await revealMemories();
 
@@ -834,7 +838,7 @@ test.describe.serial('AgentOS.view.fleet.cockpit.Container — memories click po
         expect(vessel.closeCalls[0].names).toEqual([`fm-tearout-memories-${cockpit.id}`]);
 
         // mid-gesture ownership (captured handle, no adopted vessel) → guarded refusal
-        cockpit.onWindowDisconnect({windowId: 'mem-vessel-toggle'});
+        await cockpit.onWindowDisconnect({windowId: 'mem-vessel-toggle'});
         await cockpit.refreshPromise;
 
         cockpit.tearOutPaneHandles.memories = {isDestroyed: false};

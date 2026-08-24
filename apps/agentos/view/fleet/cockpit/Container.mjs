@@ -1,34 +1,27 @@
-import ActivityStream              from '../activity/Container.mjs';
-import AddAgentForm                from '../instances/AddAgentForm.mjs';
-import AgentDetail                 from '../detail/Container.mjs';
-import Button                      from '../../../../../src/button/Base.mjs';
-import CatchUpPane                 from '../catchup/Container.mjs';
-import Component                   from '../../../../../src/component/Base.mjs';
-import Container                   from '../../../../../src/container/Base.mjs';
-import DockLayoutAdapter           from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal            from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore        from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreviewProducer         from '../../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler    from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                 from '../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel               from '../../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpitController      from './Controller.mjs';
-import FleetGrid                   from '../roster/Container.mjs';
-import FleetActivityEvents         from '../../../store/FleetActivityEvents.mjs';
-import FleetRoster                 from '../../../store/FleetRoster.mjs';
-import MemoriesPane                from '../memories/Container.mjs';
-import OperatorMailbox             from '../mailbox/OperatorContainer.mjs';
-import TasksPane                   from '../tasks/Container.mjs';
-import ViewerWakeFeed              from '../../../store/ViewerWakeFeed.mjs';
-import WakeRoutePane               from '../wake/Container.mjs';
-import StateProvider               from '../../../../../src/state/Provider.mjs';
-import CockpitDockDocument         from '../../../util/CockpitDockDocument.mjs';
-import CockpitPresets              from '../../../util/CockpitPresets.mjs';
-import {createDockTearOutHandlers} from '../../../../../src/dashboard/DockTearOut.mjs';
-import SourceHealth                from '../../../util/SourceHealth.mjs';
-import SpineBanner                 from '../../../util/SpineBanner.mjs';
-import ViewerWakeTelltale          from '../../../util/ViewerWakeTelltale.mjs';
-import {previewToOperation}        from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import ActivityStream         from '../activity/Container.mjs';
+import AddAgentForm           from '../instances/AddAgentForm.mjs';
+import AgentDetail            from '../detail/Container.mjs';
+import Button                 from '../../../../../src/button/Base.mjs';
+import CatchUpPane            from '../catchup/Container.mjs';
+import DockPerspectiveStore   from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockService            from '../../../../../src/ai/client/DockService.mjs';
+import DockWorkspace          from '../../../../../src/dashboard/DockWorkspace.mjs';
+import DockZoneModel          from '../../../../../src/dashboard/DockZoneModel.mjs';
+import FleetCockpitController from './Controller.mjs';
+import FleetGrid              from '../roster/Container.mjs';
+import FleetActivityEvents    from '../../../store/FleetActivityEvents.mjs';
+import FleetRoster            from '../../../store/FleetRoster.mjs';
+import MemoriesPane           from '../memories/Container.mjs';
+import OperatorMailbox        from '../mailbox/OperatorContainer.mjs';
+import TasksPane              from '../tasks/Container.mjs';
+import ViewerWakeFeed         from '../../../store/ViewerWakeFeed.mjs';
+import WakeRoutePane          from '../wake/Container.mjs';
+import StateProvider          from '../../../../../src/state/Provider.mjs';
+import CockpitDockDocument    from '../../../util/CockpitDockDocument.mjs';
+import CockpitPresets         from '../../../util/CockpitPresets.mjs';
+import SourceHealth           from '../../../util/SourceHealth.mjs';
+import SpineBanner            from '../../../util/SpineBanner.mjs';
+import ViewerWakeTelltale     from '../../../util/ViewerWakeTelltale.mjs';
 import '../../../../../src/manager/Instance.mjs'; // binds Neo.get for the retained-component dock projection path
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
@@ -157,6 +150,11 @@ const FIXTURE_ACTIVITY = [
  *   reconciles one tick deferred (the committing splitter must finish its own `onDragEnd` before
  *   its retired shell destroys it — use-after-destroy otherwise; `isDestroyed` guards teardown).
  *
+ * {@link Neo.dashboard.DockWorkspace} also owns Fleet's gesture tear-out admission, exact token
+ * routing, pre-terminal/committed window state, placement capture and semantic return. Fleet keeps
+ * only product policy: platform window open/close, live-pane resolution, click-detail continuation,
+ * control-bar observers and the click-Memories verb that enters the same engine admission path.
+ *
  * Reconciliation retains existing pane and tab-chrome identities. Runtime pane state still lives
  * on THIS owner, never only on instances: {@link #resolveDockComponentRef} materializes genuinely
  * absent panes from held state ({@link #gridAdapterState} / {@link #streamAdapterState}) and the
@@ -172,9 +170,9 @@ const FIXTURE_ACTIVITY = [
  * activity zone composes {@link ActivityStream} → EventChip the same way ({@link #loadActivity}).
  *
  * @class AgentOS.view.fleet.cockpit.Container
- * @extends Neo.container.Base
+ * @extends Neo.dashboard.DockWorkspace
  */
-class FleetCockpit extends Container {
+class FleetCockpit extends DockWorkspace {
     static config = {
         /**
          * @member {String} className='AgentOS.view.fleet.cockpit.Container'
@@ -202,9 +200,10 @@ class FleetCockpit extends Container {
          */
         additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.cockpit.SpineBanner', 'AgentOS.view.fleet.cockpit.ViewerWakeTelltale'],
         /**
-         * @member {String[]} baseCls=['fm-fleet-cockpit']
+         * Consumer identity supplements the inherited `neo-dock-workspace` override anchor.
+         * @member {String[]} cls=['fm-fleet-cockpit']
          */
-        baseCls: ['fm-fleet-cockpit'],
+        cls: ['fm-fleet-cockpit'],
         /**
          * The roster-source admission mode. `sample` is the zero-call cold-first-run authority: an
          * empty first bridge answer cannot erase the honestly labelled bundled fleet. `selected`
@@ -292,27 +291,32 @@ class FleetCockpit extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * The persistent control bar sits at index 0; the inherited projected shell follows it.
+         * @member {Number} dockShellIndex=1
+         */
+        dockShellIndex: 1,
+        /**
+         * The inherited shell shares the root vbox with the persistent control bar.
+         * @member {Object} dockProjectionConfig={flex:1}
+         */
+        dockProjectionConfig: {flex: 1},
+        /**
+         * Fleet is the first zero-grant consumer of the engine-owned tear-out lifecycle.
+         * @member {Boolean} enableDockTearOutLifecycle=true
+         */
+        enableDockTearOutLifecycle: true,
+        /**
+         * Preserve the shipped widget-vessel URL contract while the engine remains product-neutral.
+         * @member {String} tearOutHostParam='cockpitId'
+         */
+        tearOutHostParam: 'cockpitId'
         // `items` is built in construct() — not here — so each projection can carry the
         // instance-bound applyDockZoneOperation + onDockZoneDocumentChange callbacks the resize
         // commit loop needs.
     }
 
-    /**
-     * The live committed dock-zone document — the layout SSOT this view projects from. Seeded
-     * from {@link module:cockpitDockDocument}; advanced by {@link #onDockZoneDocumentChange} on
-     * each committed operation.
-     * @member {Object|null} dockModel=null
-     */
-    dockModel = null
-    /**
-     * The serialized deferred projection queue. Each commit captures its document snapshot and
-     * chains behind the prior staged transaction, so rapid splitter/preset changes cannot overlap
-     * shells or resolve absent panes from a newer document.
-     * @member {Promise|null} refreshPromise=null
-     * @protected
-     */
-    refreshPromise = null
     /**
      * The named preset library — a {@link Neo.dashboard.DockPerspectiveStore} over the seeded
      * workspace-scope collection ({@link module:cockpitPresets}). The store is the preset SSOT;
@@ -329,12 +333,6 @@ class FleetCockpit extends Container {
      * @protected
      */
     presetError = null
-    /**
-     * The cross-zone drop producer instance (pointer → placement grammar), owned per cockpit.
-     * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
-     * @protected
-     */
-    dockPreviewProducer = null
     /**
      * Monotonic read-fence for the Brain-health pulls — an immediate first read, an interval tick,
      * and a timed-out-but-still-pending read can coexist; only the newest generation may write, so
@@ -739,54 +737,6 @@ class FleetCockpit extends Container {
      */
     lastDetailVesselFailure = null
     /**
-     * Gesture tear-out bookkeeping, SEPARATE from the click pop-out's {@link #detachedDetail}
-     * machinery by design (the composition law the reference host proved): written only
-     * POST-COMMIT (the detached terminal), so mid-gesture the click-vessel state machine sees
-     * nothing and a cancelled tear-out stays zero-mutation by guard.
-     * `tearOutPanes[itemId] = {windowName, windowId}`.
-     * @member {Object} tearOutPanes={}
-     * @protected
-     */
-    tearOutPanes = {}
-    /**
-     * The connect-race partner of {@link #tearOutPanes}: a tear-out vessel window that connected
-     * BEFORE its terminal committed (long drags) records here as
-     * `tearOutConnects[itemId] = {windowId}`; adoption runs at whichever event lands second.
-     * @member {Object} tearOutConnects={}
-     * @protected
-     */
-    tearOutConnects = {}
-    /**
-     * Live pane instances captured at the detached terminal, keyed by item id — the cockpit's
-     * projection DESTROYS un-preserved panes on reconcile, so the instance is captured
-     * synchronously before the commit's re-projection runs and parked via the reconciler's
-     * `preserveItemIds` until its vessel adopts it. On vessel death the handle feeds
-     * {@link #reintegrateTearOutItem}: a window disconnect never destroys the popup's view tree,
-     * so the LIVE instance survives and comes home same-instance through
-     * {@link #returningTearOutPanes} — destruction is only the no-home fallback terminal.
-     * @member {Object} tearOutPaneHandles={}
-     * @protected
-     */
-    tearOutPaneHandles = {}
-    /**
-     * Exact-position return truth: `tearOutPlacements[itemId] = {tabsNodeId, index}`, captured
-     * at the detach terminal BEFORE the commit removes the item (`addTab` appends by default,
-     * so this pair is the only way home). A refused detach commit deletes its own capture;
-     * {@link #reintegrateTearOutItem} consumes the record exact-once on vessel death.
-     * @member {Object} tearOutPlacements={}
-     * @protected
-     */
-    tearOutPlacements = {}
-    /**
-     * The one-refresh handoff slot for a pane coming HOME on vessel death:
-     * {@link #resolveDockComponentRef} consumes it FIRST — before the torn stand-in guard — and
-     * returns the LIVE instance into the projection (the {@link #detachedDetailPane} re-adoption
-     * precedent, generalized to gesture vessels). Same instance, never a recreation.
-     * @member {Object} returningTearOutPanes={}
-     * @protected
-     */
-    returningTearOutPanes = {}
-    /**
      * The cockpit-owned dock seam instance — the SAME `execute_dock_operation` path a live
      * agent drives, injected into the tour runner so scripted ops and agent ops are one code
      * path (this holder already implements the full contract: `getDockZoneDocument` /
@@ -816,40 +766,9 @@ class FleetCockpit extends Container {
 
         let me = this;
 
-        me.dockPreviewProducer = Neo.create(DockPreviewProducer);
         me.dockService         = Neo.create(DockService, {});
         me.perspectiveStore    = Neo.create(DockPerspectiveStore, {collection: CockpitPresets.create()});
         me.dockModel           = me.dockModel || CockpitDockDocument.create();
-
-        // The gesture tear-out choreography — the epic seam's product consumption: the admission
-        // machine holds the one vessel slot; this cockpit supplies the platform seams. The
-        // composition law (proved by the reference host): a tear-out NEVER touches the click
-        // pop-out's `detachedDetail` machinery mid-gesture — post-commit adoption uses its own
-        // bookkeeping, so a cancelled tear-out is zero-mutation by GUARD, and the two vessel
-        // pathways converge only through guards (the toggle disables while `detail` is torn;
-        // a click-windowed `detail` has no projected tab for the gesture to arm on).
-        me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
-            closeVessel     : vessel => me.closeTearOutVessel(vessel),
-            onDocumentChange: (document, operation) => {
-                let detached = operation?.operation === 'detachItem';
-
-                // capture the live pane SYNCHRONOUSLY before the commit's re-projection can
-                // destroy it — the reconciler parks it via preserveItemIds from here on
-                detached && me.captureTearOutPane(operation.itemId);
-                me.onDockZoneDocumentChange(document);
-                // the committed detach is the adoption trigger: the vessel owns the item now
-                detached && me.adoptTearOutPane(operation.itemId)
-            },
-            openVessel: request => me.openTearOutVessel(request)
-        });
-
-        // vessel lifecycle: the popped-out inspector reparents on connect, comes home on disconnect
-        Neo.currentWorker.on({
-            connect   : me.onWindowConnect,
-            disconnect: me.onWindowDisconnect,
-            scope     : me
-        });
 
         me.add(me.buildWorkspaceItems())
     }
@@ -989,116 +908,88 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * The owning reducer every dock gesture calls (`DockSplitter.commitResizeSplit`, the
-     * cross-zone drop path, NL-driven operations): applies an operation descriptor against the
-     * live committed document and returns `DockZoneModel`'s fail-closed `{document, errors}`
-     * result. Pure — the view sync happens in {@link #onDockZoneDocumentChange}, which callers
-     * invoke on success.
-     * @param {Object} descriptor The dock operation descriptor.
-     * @returns {{document: Object, errors: String[]}}
+     * Maps the engine's pre-projection chrome hook onto Fleet's persistent control bar.
+     * @param {Object} document
+     * @param {Object} refreshOptions
+     * @protected
      */
-    applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    beforeRefreshDockWorkspace(document, refreshOptions) {
+        this.syncControlBar()
     }
 
     /**
-     * The read half of the dock-holder contract (`src/ai/client/DockService.mjs`): exposes the
-     * live committed document so Neural Link topology reads work BEFORE any operation has run.
-     * The write half is {@link #applyDockZoneOperation}; the state sync stays in
-     * {@link #onDockZoneDocumentChange}.
-     * @returns {Object} The current committed dockZone.v1 document.
+     * Owner-held panes that survive while their dock items are absent from the projection.
+     * @returns {String[]}
+     * @protected
      */
-    getDockZoneDocument() {
-        return this.dockModel
+    getPreservedItemIds() {
+        return this.detachedDetailPane ? ['detail'] : []
     }
 
     /**
-     * The view-sync half of the commit loop: stores the new committed document and re-projects
-     * from it.
-     *
-     * Deferred one tick: this fires synchronously from inside the committing splitter's
-     * `onDragEnd` (via `commitResizeSplit`). Reconciliation still retires the old shell and its
-     * splitter; doing that mid-handler would create a use-after-destroy on the rest of `onDragEnd`.
-     * The `isDestroyed` guard covers teardown before the tick fires.
-     * @param {Object} document The committed dock-zone document.
+     * Resolves one Fleet catalog item through the engine workspace hook.
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {Object|Neo.component.Base}
      */
-    onDockZoneDocumentChange(document) {
-        let me = this;
-
-        me.dockModel = document;
-
-        me.refreshPromise = (me.refreshPromise || Promise.resolve())
-            .then(() => me.timeout(0))
-            .then(() => {
-                if (!me.isDestroyed) {
-                    return me.refreshDockWorkspace(document)
-                }
-            })
+    resolvePane(itemId, item) {
+        return this.resolveDockComponentRef(item?.componentRef, item, itemId)
     }
 
     /**
-     * @summary Reconciles the dock projection while synchronizing persistent control-bar state.
-     *
-     * The outgoing geometry is FLIP-snapshotted, then the shared reconciler transfers surviving
-     * panes and tab chrome into shell index 1. The toolbar at index 0 remains the same component;
-     * only its pressed/error state changes.
-     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
+     * Fleet reveal panes use the same owner-held resolver as ordinary projected tabs.
+     * @param {String} itemId
+     * @param {Object} item
+     * @returns {Object|Neo.component.Base}
      */
-    async refreshDockWorkspace(document=this.dockModel) {
-        const
-            me           = this,
-            flip         = Neo.main?.addon?.DockFlip,
-            placeholders = new Map();
+    resolveRevealPane(itemId, item) {
+        return this.resolvePane(itemId, item)
+    }
 
-        try {
-            await flip?.captureFirst({hostId: me.id, markerPrefix: 'dock-flip-item-'})
-        } catch (e) {/* instant landing */}
+    /**
+     * Resolves the live pane handle a connected tear-out vessel embodies.
+     * @param {String} itemId
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    resolveTearOutPane(itemId) {
+        return this.tearOutPaneHandles[itemId] || this.findProjectedDockPane(itemId)
+    }
 
-        me.syncControlBar();
+    /**
+     * Keeps Fleet's vessel affordances truthful after the engine records post-commit ownership.
+     * @param {Object} data
+     * @protected
+     */
+    afterTearOutPaneAdopt(data) {
+        this.syncControlBar()
+    }
 
-        const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
-            const placeholder = Neo.create({
-                module: Component,
-                header: {text: item?.title ?? componentRef ?? itemId},
-                hidden: true
-            });
+    /**
+     * Projects the current instance title into a newly admitted Fleet tear-out window.
+     * @param {Object} data
+     * @protected
+     */
+    afterTearOutWindowConnect({connection}) {
+        this.pushInstanceTitle(connection.windowId)
+    }
 
-            placeholders.set(itemId, placeholder);
+    /**
+     * Captures the click-detail generation before the engine's async URL read.
+     * @returns {Number}
+     * @protected
+     */
+    captureWindowConnectContext() {
+        return this.detailVesselGeneration
+    }
 
-            return placeholder
-        }, document);
-
-        nextConfig.flex = 1;
-
-        await DockProjectionReconciler.reconcileProjection({
-            host       : me,
-            nextConfig,
-            placeholders,
-            // a detached inspector is owner-preserved: the reconciler parks the pane (never
-            // destroys it) and retires only its obsolete tab button. Tear-out captures park the
-            // same way — their vessels adopt the parked instances post-commit.
-            preserveItemIds: [
-                ...(me.detachedDetailPane ? ['detail'] : []),
-                ...Object.keys(me.tearOutPaneHandles || {})
-            ],
-            resolveItem    : itemId => {
-                const item = document.items[itemId];
-
-                return DockLayoutAdapter.decorateProjectedItem(
-                    me.resolveDockComponentRef(item?.componentRef, item, itemId),
-                    itemId,
-                    item
-                )
-            },
-            shellIndex: 1
-        });
-
-        if (flip) {
-            DockMotionSignal.enter(me);
-            flip.play({hostId: me.id, markerPrefix: 'dock-flip-item-'})
-                .catch(() => {})
-                .finally(() => DockMotionSignal.leave(me))
-        }
+    /**
+     * Re-syncs pane toggles after physical vessel retirement.
+     * @param {Object} data
+     * @protected
+     */
+    afterTearOutWindowDisconnect(data) {
+        this.syncControlBar()
     }
 
     /**
@@ -1277,31 +1168,6 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading
-     * the instance-bound commit-loop callbacks onto every projected affordance.
-     * @param {Function|null} [resolveComponentRef=null] Optional item resolver for staged projections.
-     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
-     * @returns {Object}
-     */
-    projectDockModel(resolveComponentRef=null, document=this.dockModel) {
-        let me = this;
-
-        return DockLayoutAdapter.project(document, {
-            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
-            // the epic seam: arms the landed boundary grammar (enableProxyToPopup + allowOverdrag)
-            // on every projected tab strip; the four gesture handlers below route admission,
-            // the one commit, and retirement through this cockpit's vessel seams
-            enableDockTearOut       : true,
-            onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
-            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : resolveComponentRef
-                || me.resolveDockComponentRef.bind(me),
-            resolveRevealComponentRef   : me.resolveDockComponentRef.bind(me),
-            ...me.tearOutHandlers
-        })
-    }
-
-    /**
      * @summary SHELL-owned pop-out affordance config for the Memories pane — the detail toggle's
      * grammar on the tear-out pathway. Lives in the PANE's chrome per the navigation model (pane
      * verbs are pane-scoped, the bar seats instance-wide tenants only); ownership, handler and
@@ -1409,23 +1275,8 @@ class FleetCockpit extends Container {
      * @returns {Object}
      */
     resolveDockComponentRef(componentRef, item, itemId) {
-        let me        = this,
-            marker    = `dock-flip-item-${encodeURIComponent(itemId)}`,
-            returning = me.returningTearOutPanes?.[itemId];
-
-        // vessel-death re-adoption FIRST — before the torn stand-in guard, because the records
-        // are already retired when the handoff slot is armed: the LIVE pane returns into the
-        // projection, same instance, never a recreation (the detachedDetailPane precedent
-        // below, generalized to gesture vessels). A slot holding a destroyed pane is consumed
-        // and falls through to normal materialization.
-        if (returning) {
-            delete me.returningTearOutPanes[itemId];
-
-            if (!returning.isDestroyed) {
-                returning.parent?.remove(returning, false);
-                return returning
-            }
-        }
+        let me     = this,
+            marker = `dock-flip-item-${encodeURIComponent(itemId)}`;
 
         // a GESTURE-torn item's live pane is vessel-owned: a preset restore (or NL addTab)
         // re-treeing the item while torn must not steal or duplicate the instance — an honest
@@ -1621,51 +1472,6 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * Cross-zone drop reducer: a dock tab-header released outside its own toolbar reports its
-     * release point here (via `Neo.dashboard.DockTabSortZone`). The producer resolves the
-     * placement KIND from the pointer and each zone's rect, `previewToOperation` maps it to the
-     * semantic operation, and the standard commit loop applies it. A same-zone drop is a no-op
-     * (the within-toolbar reorder already committed via the `moveTo` listener).
-     * @param {Object} data
-     * @param {Number} data.clientX
-     * @param {Number} data.clientY
-     * @param {String} data.itemId       The dock item id being dragged.
-     * @param {String} data.sourceNodeId The tabs node the drag started in.
-     */
-    async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
-        let me    = this,
-            nodes = me.dockModel?.nodes || {},
-            zones = Object.keys(nodes)
-                .filter(nodeId => nodes[nodeId].type === 'tabs' && nodeId !== sourceNodeId)
-                .map(nodeId => ({nodeId, container: me.down({dockNodeId: nodeId})}))
-                .filter(zone => zone.container);
-
-        if (!zones.length) {
-            return
-        }
-
-        let rects = await me.getDomRect(zones.map(zone => zone.container.id));
-
-        let producerZones = zones
-                .map((zone, index) => ({
-                    nodeId     : zone.nodeId,
-                    rect       : rects[index],
-                    orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
-                }))
-                .filter(zone => zone.rect),
-            preview    = me.dockPreviewProducer.produce({pointer: {x: clientX, y: clientY}, zones: producerZones, itemId, sourceNodeId}),
-            descriptor = previewToOperation(preview);
-
-        if (descriptor) {
-            let result = me.applyDockZoneOperation(descriptor);
-
-            if (result && !result.errors?.length && result.document) {
-                me.onDockZoneDocumentChange(result.document)
-            }
-        }
-    }
-
-    /**
      * @summary Source-precedence guard: the provider-hosted roster store `autoLoad`s the JSON
      * sample seed while {@link #loadRoster} races the bridge. When the bridge wins, the sample's
      * later `load` would silently replace live rows (the grid still claiming `live`). Any store
@@ -1781,9 +1587,10 @@ class FleetCockpit extends Container {
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, requireProjectedPane = true}) {
+    async openTearOutVessel({admissionToken, itemId, proxyRect, requireProjectedPane = true}) {
         let me         = this,
-            windowName = `fm-tearout-${itemId}-${me.id}`;
+            windowName = `fm-tearout-${itemId}-${me.id}`,
+            gesture    = Number.isFinite(admissionToken);
 
         // fail-closed preconditions: only a live, projected, singly-owned pane may embody
         if (
@@ -1804,7 +1611,8 @@ class FleetCockpit extends Container {
                 left            = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
                 top             = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop),
                 opened          = await Neo.Main.windowOpen({
-                    url           : `${basePath}apps/agentos/childapps/widget/index.html?tearout=${itemId}&cockpitId=${me.id}`,
+                    url           : `${basePath}apps/agentos/childapps/widget/index.html?tearout=${itemId}&cockpitId=${me.id}` +
+                        (gesture ? `&vesselFlow=tear-out&vesselAdmission=${admissionToken}` : ''),
                     windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                     windowId      : me.windowId,
                     windowName
@@ -1819,170 +1627,22 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry,
-     * cancel, or a refused model commit) and releases every tear-out record for the item —
-     * including a captured pane handle, so the next projection re-adopts or re-materializes it
-     * normally. Best-effort on the window close; {@link #onWindowDisconnect}'s tear-out branch
-     * only matches ADOPTED vessels (`tearOutPanes`), so a pre-commit retirement never re-enters.
+     * Platform retirement hook: closes a vessel the gesture no longer needs (re-entry, cancel,
+     * timeout or refused model commit). The engine releases admission/connection records only
+     * after this hook settles non-false; Fleet's void success preserves the existing best-effort
+     * window-close contract.
      * @param {Object} vessel
      * @param {String} vessel.itemId
      * @param {String} vessel.windowName
      * @returns {Promise<void>}
      * @protected
      */
-    async closeTearOutVessel({itemId, windowName}) {
-        let me = this;
-
-        delete me.tearOutConnects[itemId];
-        delete me.tearOutPaneHandles[itemId];
-
+    async closeTearOutVessel({windowName}) {
         try {
-            await Neo.Main.windowClose({names: [windowName], windowId: me.windowId})
+            await Neo.Main.windowClose({names: [windowName], windowId: this.windowId})
         } catch (error) {
             // best-effort retirement
         }
-    }
-
-    /**
-     * The owner-destroy exit for every live tear-out record: closes each admitted vessel
-     * (fire-and-forget — the disconnect listener is already detached by the destroy path, so no
-     * re-entry) and settles every owner-held pane exactly once — captured handles AND armed
-     * returning slots alike (cockpit teardown is a terminal, so the bring-home handoff has no
-     * refresh left to land in). Cockpit teardown must not leave an OS vessel open or a live
-     * pane orphaned under a popup view tree the worker never destroys.
-     * @protected
-     */
-    retireTearOutState() {
-        let me = this;
-
-        for (const {windowName} of Object.values(me.tearOutPanes || {})) {
-            windowName && Neo.Main.windowClose({names: [windowName], windowId: me.windowId}).catch(() => {})
-        }
-
-        for (const pane of [...Object.values(me.tearOutPaneHandles || {}), ...Object.values(me.returningTearOutPanes || {})]) {
-            if (pane && !pane.isDestroyed) {
-                pane.parent?.remove(pane, false);
-                pane.destroy()
-            }
-        }
-
-        me.tearOutPanes          = {};
-        me.tearOutConnects       = {};
-        me.tearOutPaneHandles    = {};
-        me.tearOutPlacements     = {};
-        me.returningTearOutPanes = {}
-    }
-
-    /**
-     * @summary The tear-out commit seam with exact-position capture riding it: the
-     * `{tabsNodeId, index}` pair is readable only BEFORE a detach commit removes the item from
-     * the tree, and a refused commit deletes its own capture — no stale placement outlives a
-     * gesture that never committed. Every non-detach descriptor passes through untouched.
-     * @param {Object} descriptor
-     * @returns {{document:Object, errors:String[]}}
-     * @protected
-     */
-    applyTearOutOperation(descriptor) {
-        let me       = this,
-            isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
-            result;
-
-        captured && ((me.tearOutPlacements ??= {})[descriptor.itemId] = captured);
-
-        result = me.applyDockZoneOperation(descriptor);
-
-        isDetach && result?.errors?.length && delete me.tearOutPlacements?.[descriptor.itemId];
-
-        return result
-    }
-
-    /**
-     * @summary Brings a torn-out item HOME on vessel death — same instance, exact stored
-     * position (the vessel close policy of the docking design record §2.8).
-     *
-     * A window disconnect never destroys the popup's view tree, so the captured pane survives
-     * LIVE; it hands off through {@link #returningTearOutPanes} and the resolver returns it
-     * into the projection (the {@link #detachedDetailPane} re-adoption precedent). Placement
-     * recovery is SEMANTIC, never geometric: the stored `{tabsNodeId, index}` pair when its
-     * node survives, the first surviving tabs node (append) when it left the tree. An item some
-     * other flow already re-treed keeps that placement — the refresh simply swaps its stand-in
-     * for the live pane. Destruction remains only the no-home fallback terminal (no catalog
-     * record, no surviving tabs node, or a failed return commit) — ownership always settles,
-     * nothing is ever orphaned under a dead vessel's view.
-     * @param {String} itemId
-     * @param {Neo.component.Base|null} pane The captured handle, already released from the maps.
-     * @protected
-     */
-    reintegrateTearOutItem(itemId, pane) {
-        let me         = this,
-            placement  = me.tearOutPlacements?.[itemId],
-            doc        = me.dockModel,
-            storedHome = placement && doc?.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
-            fallback   = storedHome || Object.entries(doc?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
-            live       = pane && !pane.isDestroyed,
-            settle     = () => {
-                if (live) {
-                    pane.parent?.remove(pane, false);
-                    pane.destroy()
-                }
-            },
-            result;
-
-        delete me.tearOutPlacements?.[itemId];
-
-        if (!doc?.items?.[itemId] || !fallback) {
-            settle();
-            return
-        }
-
-        // Park the live pane OUT of the dead vessel's tree before the re-projection, then arm the
-        // return slot. A pane still parented in the vessel's `mainView` is a tree-live occupant the
-        // dock reconciler PREFERS over {@link #resolveDockComponentRef}'s re-adoption — so the item
-        // re-trees in the document while the live instance stays mounted in the dead vessel window
-        // (its `windowId` never leaves the closed vessel: the strand this fixes). Parking first makes the
-        // instance parentless, forcing the reconciler to re-materialize it through the resolver, which
-        // re-parents it into the live cockpit window. Symmetric inverse of {@link #reparentTearOutPane}'s
-        // `app.mainView.add(pane)` adoption; mirrors {@link #reattachAgentDetail}'s parked-pane discipline.
-        if (live) {
-            pane.parent?.remove(pane, false);
-            (me.returningTearOutPanes ??= {})[itemId] = pane
-        }
-
-        if (DockZoneModel.findContainingTabsId(doc, itemId)) {
-            // already re-treed by another flow (preset restore, NL addTab): the model is
-            // truthful as-is — the refresh swaps the stand-in for the returning live pane
-            me.refreshDockWorkspace();
-            return
-        }
-
-        result = me.applyDockZoneOperation({
-            operation : 'addTab',
-            itemId,
-            tabsNodeId: fallback,
-            ...(storedHome ? {index: placement.index} : {})
-        });
-
-        if (result?.errors?.length === 0) {
-            me.onDockZoneDocumentChange(result.document)
-        } else {
-            delete me.returningTearOutPanes?.[itemId];
-            settle()
-        }
-    }
-
-    /**
-     * Captures the live projected pane at the detached terminal — synchronously, BEFORE the
-     * commit's re-projection can destroy it — parking it via the reconciler's `preserveItemIds`
-     * until the vessel adopts it. A miss is fail-safe: admission already verified resolvability,
-     * and an unexpectedly-missing pane simply leaves the vessel empty (model truth unharmed).
-     * @param {String} itemId
-     * @protected
-     */
-    captureTearOutPane(itemId) {
-        let pane = this.findProjectedDockPane(itemId);
-
-        pane && !pane.isDestroyed && (this.tearOutPaneHandles[itemId] = pane)
     }
 
     /**
@@ -1999,47 +1659,6 @@ class FleetCockpit extends Container {
             reference    = componentRef === 'define-agent' ? 'add-agent-form' : componentRef;
 
         return reference ? (this.getReference(reference) || null) : null
-    }
-
-    /**
-     * The post-commit adoption: the detached terminal committed `detachItem` (the item left the
-     * tree, catalog preserved), so the vessel now OWNS the captured pane. Records the
-     * {@link #tearOutPanes} entry and — if the vessel already connected (the long-drag order) —
-     * reparents the live pane immediately; otherwise {@link #onWindowConnect}'s tear-out branch
-     * adopts on arrival (the fast-terminal order). Close-after-adoption reintegration is the G4
-     * vessel-lifecycle leaf's scope, deliberately not handled here.
-     * @param {String} itemId
-     * @protected
-     */
-    adoptTearOutPane(itemId) {
-        let me        = this,
-            connected = me.tearOutConnects[itemId];
-
-        me.tearOutPanes[itemId] = {windowName: `fm-tearout-${itemId}-${me.id}`, windowId: connected?.windowId ?? null};
-
-        connected && me.reparentTearOutPane(itemId, connected);
-        me.syncControlBar()
-    }
-
-    /**
-     * Moves the LIVE captured pane into a connected tear-out vessel — the same instance-moving
-     * reparent the click pop-out uses, minus every document write (the model already committed
-     * at the terminal; this is pure render-target work on the one shared heap).
-     * @param {String} itemId
-     * @param {Object} target `{windowId}`
-     * @protected
-     */
-    reparentTearOutPane(itemId, {windowId}) {
-        let me   = this,
-            app  = Neo.apps[windowId],
-            pane = me.tearOutPaneHandles[itemId];
-
-        if (!app || !pane || pane.isDestroyed) return;
-
-        me.tearOutPanes[itemId] && (me.tearOutPanes[itemId].windowId = windowId);
-
-        pane.parent?.remove(pane, false);
-        app.mainView.add(pane)
     }
 
     /**
@@ -2350,7 +1969,7 @@ class FleetCockpit extends Container {
             return {detached: false, errors: ['memories is not a docked item']}
         }
 
-        let vessel = await me.openTearOutVessel({itemId, proxyRect: null, requireProjectedPane: false});
+        let vessel = await me.acquireTearOutVessel({itemId, proxyRect: null, requireProjectedPane: false});
 
         if (!vessel) {
             // the silent-refusal witness (the detail pathway's observability contract): the click
@@ -2362,16 +1981,18 @@ class FleetCockpit extends Container {
         }
 
         if (me.isDestroyed) {
+            await me.retireTearOutVessel(vessel);
             return {detached: false, errors: ['cockpit destroyed during vessel open']}
         }
 
         // the item record is read BEFORE the commit prunes the tree entry (the catalog record
         // survives a detach, so this is belt-and-braces ordering, not a correctness dependency)
-        let item   = me.dockModel.items[itemId],
-            result = me.applyTearOutOperation({operation: 'detachItem', itemId});
+        let item       = me.dockModel.items[itemId],
+            descriptor = {operation: 'detachItem', itemId},
+            result     = me.applyTearOutOperation(descriptor);
 
         if (result.errors.length) {
-            await me.closeTearOutVessel({itemId, windowName: vessel.windowName});
+            await me.retireTearOutVessel(vessel);
             return {detached: false, errors: result.errors}
         }
 
@@ -2379,14 +2000,11 @@ class FleetCockpit extends Container {
         // (the gesture order); a pane that was never projected (rail-lazy chrome — resident tabs
         // always project) materializes from owner-held state instead — same resolver,
         // vessel-bound rather than projection-bound
-        me.captureTearOutPane(itemId);
-
-        if (!me.tearOutPaneHandles[itemId]) {
+        if (!me.findProjectedDockPane(itemId)) {
             me.tearOutPaneHandles[itemId] = Neo.create(me.resolveDockComponentRef(item?.componentRef, item, itemId))
         }
 
-        me.onDockZoneDocumentChange(result.document);
-        me.adoptTearOutPane(itemId);
+        me.onTearOutDocumentChange(result.document, descriptor, vessel);
 
         return {detached: true, errors: []}
     }
@@ -2432,50 +2050,19 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary A window joined the shared heap: if it is OUR detail vessel (the pop-out URL
-     * carries `detail=agent-detail&cockpitId=<this.id>`), take the `opening → connected →
-     * windowed` edges — move the parked LIVE pane into the vessel's main view. The instance
-     * moves trees on the one App-Worker heap; nothing re-instantiates. The URL read is an async
-     * boundary: the captured generation revalidates after it.
+     * @summary Continues the product-owned click-detail connect after the engine has read and
+     * admitted the owner URL as a non-tear-out route. The generation was captured synchronously
+     * before that URL read, so a raced reattach still makes this continuation inert.
      * @param {Object} data `{appName, windowId}`
+     * @param {Object} context Engine-owned route context.
+     * @param {Object} context.app Connected popup application.
+     * @param {Number} context.consumerContext Captured detail-vessel generation.
+     * @param {URLSearchParams} context.params Admitted owner URL params.
      * @protected
      */
-    async onWindowConnect(data) {
+    onUnhandledWindowConnect(data, {app, consumerContext: generation, params}) {
         let me         = this,
-            {windowId} = data,
-            app        = Neo.apps[windowId],
-            generation = me.detailVesselGeneration;
-
-        if (!app || me.isDestroyed) {
-            return
-        }
-
-        let url    = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-            params = new URL(url).searchParams;
-
-        if (me.isDestroyed || params.get('cockpitId') !== me.id) {
-            return
-        }
-
-        // Tear-out vessels connect through the same widget shell but live in their own
-        // bookkeeping: post-terminal (adopted) → reparent the captured pane now; mid-gesture →
-        // record the connect for the terminal to consume (the race runs both orders). The click
-        // pop-out branch below never sees a tear-out window.
-        let tearOutItemId = params.get('tearout');
-
-        if (tearOutItemId) {
-            if (me.tearOutPanes?.[tearOutItemId]) {
-                me.reparentTearOutPane(tearOutItemId, {windowId})
-            } else {
-                (me.tearOutConnects ??= {})[tearOutItemId] = {windowId}
-            }
-
-            // scope is a per-window fact — the torn-out window's OS chrome (its title)
-            // names the instance it serves, from its first connected moment; the switch owner
-            // re-pushes over `tearOutConnects` on every rebind
-            me.pushInstanceTitle(windowId);
-            return
-        }
+            {windowId} = data;
 
         if (
             !me.detachedDetail || !me.detachedDetailPane ||
@@ -2501,41 +2088,14 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary The detail vessel closed (user-closed or crashed): correlate by `windowId` and
-     * bring the inspector HOME through the standard reattach — the document records the return
-     * and the projection re-adopts the parked instance. A reattach-initiated close never
-     * re-enters: {@link #reattachAgentDetail} clears the bookkeeping before closing the vessel.
+     * @summary Continues a non-tear-out disconnect for the click-detail vessel. Engine-owned
+     * gesture vessels are already reconciled before this hook can run.
      * @param {Object} data `{appName, windowId}`
      * @protected
      */
-    onWindowDisconnect(data) {
-        let me = this;
-
-        if (me.isDestroyed) return;
-
-        if (me.detachedDetail?.windowId === data.windowId) {
-            me.reattachAgentDetail({windowAlreadyClosed: true});
-            return
-        }
-
-        // Tear-out vessel death: the item comes HOME. A window disconnect is a render-target
-        // signal ONLY — the worker fires `disconnect` without destroying the popup application
-        // or its view tree, so the captured pane survives LIVE and ownership settles through
-        // {@link #reintegrateTearOutItem}: same instance back at its stored position, semantic
-        // fallback when the home node left the tree, destruction only as the no-home terminal.
-        // The records retire BEFORE the reintegration so the torn stand-in guard cannot fire on
-        // the returning item's re-projection.
-        for (const [itemId, entry] of Object.entries(me.tearOutPanes || {})) {
-            if (entry.windowId === data.windowId) {
-                let pane = me.tearOutPaneHandles?.[itemId];
-
-                delete me.tearOutPanes[itemId];
-                delete me.tearOutConnects?.[itemId];
-                delete me.tearOutPaneHandles?.[itemId];
-                me.reintegrateTearOutItem(itemId, pane || null);
-                me.syncControlBar();
-                break
-            }
+    onUnhandledWindowDisconnect(data) {
+        if (this.detachedDetail?.windowId === data.windowId) {
+            this.reattachAgentDetail({windowAlreadyClosed: true})
         }
     }
 
@@ -2623,8 +2183,8 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary Detach the roster-store load guard, the vessel lifecycle listeners and the drop
-     * producer; the provider tears the owned store itself down. A still-detached inspector is
+     * @summary Detach Fleet-owned feeds and click-detail state; the inherited workspace retires
+     * its worker listeners, gesture vessels, captured panes and drop producer exactly once. A still-detached inspector is
      * OWNED state outside any projection: bump the generation (in-flight admission continuations
      * go inert), clear the connect timer, close its vessel (fire-and-forget — the guard in
      * {@link #onWindowDisconnect} keeps a late event inert) and destroy the instance. Live
@@ -2644,12 +2204,6 @@ class FleetCockpit extends Container {
 
         me.resolveFleetRosterStore()?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
-        Neo.currentWorker.un({
-            connect   : me.onWindowConnect,
-            disconnect: me.onWindowDisconnect,
-            scope     : me
-        });
-
         me.detailVesselGeneration++;
 
         if (me.detachedDetail) {
@@ -2661,10 +2215,6 @@ class FleetCockpit extends Container {
         me.detachedDetailPane?.destroy();
         me.detachedDetailPane = null;
 
-        me.retireTearOutState();
-
-        me.dockPreviewProducer?.destroy();
-        me.dockPreviewProducer = null;
         me.dockService?.destroy();
         me.dockService = null;
         me.perspectiveStore?.destroy();

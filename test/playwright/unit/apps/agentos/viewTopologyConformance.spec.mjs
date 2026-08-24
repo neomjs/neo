@@ -26,6 +26,7 @@ const
         ['src/container/Viewport.mjs',  'Viewport'],
         ['src/container/Panel.mjs',     'Panel'],
         ['src/dashboard/Panel.mjs',     'Panel'],
+        ['src/dashboard/DockWorkspace.mjs', 'Container'],
         ['src/container/Base.mjs',      'Container'],
         ['src/component/Chip.mjs',      'Chip'],
         ['src/component/Base.mjs',      'Component'],

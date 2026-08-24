@@ -1,11 +1,12 @@
-import Component                from '../component/Base.mjs';
-import Container                from '../container/Base.mjs';
-import DockLayoutAdapter        from './DockLayoutAdapter.mjs';
-import DockMotionSignal         from './DockMotionSignal.mjs';
-import DockPreviewProducer      from './DockPreviewProducer.mjs';
-import DockProjectionReconciler from './DockProjectionReconciler.mjs';
-import DockZoneModel            from './DockZoneModel.mjs';
-import {previewToOperation}     from './dockPreviewContract.mjs';
+import Component                   from '../component/Base.mjs';
+import Container                   from '../container/Base.mjs';
+import DockLayoutAdapter           from './DockLayoutAdapter.mjs';
+import DockMotionSignal            from './DockMotionSignal.mjs';
+import DockPreviewProducer         from './DockPreviewProducer.mjs';
+import DockProjectionReconciler    from './DockProjectionReconciler.mjs';
+import {createDockTearOutHandlers} from './DockTearOut.mjs';
+import DockZoneModel               from './DockZoneModel.mjs';
+import {previewToOperation}        from './dockPreviewContract.mjs';
 
 /**
  * @summary The engine-owned dock workspace host: the reducer-container that owns one committed
@@ -24,12 +25,22 @@ import {previewToOperation}     from './dockPreviewContract.mjs';
  * - {@link #resolvePane} — which live component or config renders a catalog item (the one hook
  *   every consumer overrides);
  * - {@link #resolveRevealPane} — the same resolution for auto-hide reveal overlays;
- * - {@link #getPreservedItemIds} — owner-held panes that must survive a projection they are
- *   absent from (a detached pane, a tear-out handle);
+ * - {@link #getPreservedItemIds} — consumer-held panes that must survive a projection they are
+ *   absent from (the engine adds its own tear-out handles independently);
  * - {@link #beforeRefreshDockWorkspace} — app chrome that syncs on every re-projection;
  * - {@link #getDockProjectionOptions} — extra adapter options: the hover-reveal opt-in, a
  *   drag-affordance layer's cross-zone seams, tear-out policy;
  * - {@link #getRefreshOptions} — the reconciler's geometry-only / retained-topology fast paths.
+ *
+ * With {@link #enableDockTearOutLifecycle}, the workspace also composes
+ * {@link Neo.dashboard.DockTearOut} and owns the cross-window half of the same truth: exact
+ * gesture admission, pre-terminal versus committed connection state, placement capture before
+ * `detachItem`, same-instance semantic return after physical disconnect, and exact-once teardown.
+ * Host/flow/admission-token checks run before the optional {@link #admitTearOutConnection} policy
+ * hook; applications contribute only platform vessel open/close, live-pane resolution, optional
+ * grant policy, lifecycle observers, and continuations for window routes unrelated to tear-out.
+ * The default is inert, so existing Workstation/Demo hosts keep their application lifecycle until
+ * their own explicit migration leaves.
  *
  * The class satisfies the dock-holder contract Neural Link tooling resolves against
  * (`getDockZoneDocument()` / `applyDockZoneOperation()` / `onDockZoneDocumentChange()`, see
@@ -112,6 +123,18 @@ class DockWorkspace extends Container {
          */
         enableDockCloseAction: false,
         /**
+         * Enables the engine-owned dock tear-out admission/document/window lifecycle. Disabled
+         * by default so ordinary workspaces and hosts carrying their own legacy lifecycle remain
+         * byte-behaviorally unchanged until their migration leaf.
+         * @member {Boolean} enableDockTearOutLifecycle=false
+         */
+        enableDockTearOutLifecycle: false,
+        /**
+         * Maximum time between an opened gesture vessel and its admitted worker connection.
+         * @member {Number} tearOutConnectWindowMs=20000
+         */
+        tearOutConnectWindowMs: 20000,
+        /**
          * Index of the projected shell inside the dock host — `1` when one toolbar precedes it.
          * @member {Number} dockShellIndex=0
          */
@@ -122,7 +145,14 @@ class DockWorkspace extends Container {
          * config, so consumers never carry the marker by hand.
          * @member {String} flipMarkerPrefix='dock-flip-item-'
          */
-        flipMarkerPrefix: 'dock-flip-item-'
+        flipMarkerPrefix: 'dock-flip-item-',
+        /**
+         * URL-search parameter whose value identifies this workspace as a tear-out vessel's
+         * owner. The engine default is product-neutral; legacy consumers may select their
+         * existing parameter name without teaching the engine that name.
+         * @member {String} tearOutHostParam='hostId'
+         */
+        tearOutHostParam: 'hostId'
     }
 
     /**
@@ -156,6 +186,73 @@ class DockWorkspace extends Container {
     refreshPromise = null
 
     /**
+     * Gesture admission tokens keyed by item while the platform vessel is opening or waiting to
+     * connect. The token is engine-owned gesture identity, distinct from optional product grants.
+     * @member {Map<String,Object>} tearOutAdmissions=new Map()
+     * @protected
+     */
+    tearOutAdmissions = new Map()
+
+    /**
+     * Monotonic engine generation for opened-vessel admission records.
+     * @member {Number} tearOutAdmissionGeneration=0
+     * @protected
+     */
+    tearOutAdmissionGeneration = 0
+
+    /**
+     * Tear-out windows that connected before the detach terminal committed.
+     * @member {Object} tearOutConnects={}
+     * @protected
+     */
+    tearOutConnects = {}
+
+    /**
+     * The four gesture callbacks produced by {@link Neo.dashboard.DockTearOut} for this workspace.
+     * @member {Object|null} tearOutHandlers=null
+     * @protected
+     */
+    tearOutHandlers = null
+
+    /**
+     * Post-commit vessel ownership records keyed by dock item id.
+     * @member {Object} tearOutPanes={}
+     * @protected
+     */
+    tearOutPanes = {}
+
+    /**
+     * Live pane handles captured before detach re-projection, owned by the generic lifecycle.
+     * @member {Object} tearOutPaneHandles={}
+     * @protected
+     */
+    tearOutPaneHandles = {}
+
+    /**
+     * Exact semantic return positions captured before detach removes an item from its tabs node.
+     * @member {Object} tearOutPlacements={}
+     * @protected
+     */
+    tearOutPlacements = {}
+
+    /**
+     * Platform vessels whose close hook explicitly refused or threw. Retained by exact item/window
+     * identity so exceptional cleanup never turns a live OS resource into untracked state; the
+     * next acquisition retries these before opening another vessel.
+     * @member {Map<String,Object>} tearOutRetirements=new Map()
+     * @protected
+     */
+    tearOutRetirements = new Map()
+
+    /**
+     * One-refresh same-instance return slots. {@link #resolveProjectedPane} consumes each slot
+     * before asking the app resolver, so a dead vessel can never strand its live pane.
+     * @member {Object} returningTearOutPanes={}
+     * @protected
+     */
+    returningTearOutPanes = {}
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -168,6 +265,21 @@ class DockWorkspace extends Container {
         }
 
         this.dockPreviewProducer = Neo.create(DockPreviewProducer)
+
+        if (this.enableDockTearOutLifecycle) {
+            this.tearOutHandlers = createDockTearOutHandlers({
+                applyOperation  : descriptor => this.applyTearOutOperation(descriptor),
+                closeVessel     : vessel => this.retireTearOutVessel(vessel),
+                onDocumentChange: (document, operation, vessel) => this.onTearOutDocumentChange(document, operation, vessel),
+                openVessel      : request => this.acquireTearOutVessel(request)
+            });
+
+            Neo.currentWorker.on({
+                connect   : this.onWindowConnect,
+                disconnect: this.onWindowDisconnect,
+                scope     : this
+            })
+        }
     }
 
     /**
@@ -180,6 +292,717 @@ class DockWorkspace extends Container {
      */
     applyDockZoneOperation(descriptor) {
         return DockZoneModel.applyOperation(this.dockModel, descriptor)
+    }
+
+    /**
+     * @summary Opens one platform vessel under the gesture admission token the engine owns.
+     * @param {Object} request
+     * @param {Number} request.admissionToken
+     * @param {String} request.itemId
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async acquireTearOutVessel(request={}) {
+        let me                       = this,
+            {admissionToken, itemId} = request,
+            admission, vessel;
+
+        if (typeof itemId !== 'string' || !itemId) {
+            return null
+        }
+
+        if (!await me.retryTearOutRetirements(itemId)) return null;
+
+        if (!Number.isFinite(admissionToken)) {
+            admissionToken = me.tearOutAdmissionGeneration + 1;
+            request = {...request, admissionToken}
+        }
+
+        admission = {
+            connected         : false,
+            connectingWindowId: null,
+            generation        : ++me.tearOutAdmissionGeneration,
+            itemId,
+            sortZone          : request.sortZone || null,
+            timerId           : null,
+            token             : admissionToken,
+            windowId          : null,
+            windowName        : null
+        };
+        me.tearOutAdmissions.set(itemId, admission);
+
+        try {
+            vessel = await me.openTearOutVessel(request)
+        } catch (error) {
+            vessel = null
+        }
+
+        if (!vessel) {
+            me.tearOutAdmissions.get(itemId) === admission && me.clearTearOutAdmission(itemId, admission);
+            return null
+        }
+
+        // The engine token is exact. A product hook may not replace the gesture identity it was
+        // asked to carry, and a stale async open may never orphan the OS window it already created.
+        if (
+            me.tearOutAdmissions.get(itemId) !== admission ||
+            (Number.isFinite(vessel.admissionToken) && vessel.admissionToken !== admissionToken)
+        ) {
+            await me.retireTearOutVessel({
+                ...vessel,
+                admissionToken,
+                generation: admission.generation,
+                itemId
+            });
+            return null
+        }
+
+        admission.windowName = vessel.windowName || admission.windowName || null;
+
+        const connection = me.tearOutConnects[itemId];
+
+        connection && !connection.windowName && (connection.windowName = admission.windowName);
+
+        if (!admission.connected) {
+            admission.timerId = setTimeout(() => {
+                me.expireTearOutAdmission(itemId, admission)
+            }, me.tearOutConnectWindowMs)
+        }
+
+        return {
+            ...vessel,
+            admissionToken,
+            generation: admission.generation
+        }
+    }
+
+    /**
+     * @summary Clears one exact admission record and its connect bound.
+     * @param {String} itemId
+     * @param {Object|null} [admission=this.tearOutAdmissions.get(itemId)]
+     * @protected
+     */
+    clearTearOutAdmission(itemId, admission=this.tearOutAdmissions.get(itemId)) {
+        if (!admission || this.tearOutAdmissions.get(itemId) !== admission) return false;
+
+        admission.timerId && clearTimeout(admission.timerId);
+        this.tearOutAdmissions.delete(itemId);
+
+        return true
+    }
+
+    /**
+     * @summary Expires an opened vessel that never established an admitted worker connection.
+     * @param {String} itemId
+     * @param {Object} admission
+     * @protected
+     */
+    async expireTearOutAdmission(itemId, admission) {
+        let me = this;
+
+        if (admission?.connected) return;
+        if (!admission || me.tearOutAdmissions.get(itemId) !== admission) return;
+
+        const entry  = me.tearOutPanes[itemId],
+              vessel = {
+                  admissionToken: admission.token,
+                  generation    : admission.generation,
+                  itemId,
+                  windowName    : admission.windowName || entry?.windowName
+              };
+
+        if (!await me.retireTearOutVessel(vessel)) return;
+
+        me.tearOutHandlers?.onVesselRetired(vessel);
+        !entry && admission.sortZone?.endWindowDrag();
+
+        if (entry && !entry.windowId) {
+            const pane = me.releaseTearOutPane(itemId);
+
+            delete me.tearOutPanes[itemId];
+            await me.reintegrateTearOutItem(itemId, pane);
+            me.afterTearOutWindowDisconnect({committed: true, entry, expired: true, itemId, pane})
+        }
+    }
+
+    /**
+     * @summary Returns the stable retained-retirement identity for one platform vessel.
+     * @param {Object} vessel
+     * @returns {String|null}
+     * @protected
+     */
+    getTearOutRetirementKey(vessel={}) {
+        return typeof vessel.itemId === 'string' && vessel.itemId &&
+            typeof vessel.windowName === 'string' && vessel.windowName
+            ? `${vessel.itemId}:${vessel.windowName}`
+            : null
+    }
+
+    /**
+     * @summary Retries every retained close for an item before another vessel may open.
+     * @param {String} itemId
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async retryTearOutRetirements(itemId) {
+        const retained = [...this.tearOutRetirements.values()]
+            .filter(vessel => vessel.itemId === itemId);
+
+        for (const vessel of retained) {
+            if (!await this.retireTearOutVessel(vessel)) return false
+        }
+
+        return true
+    }
+
+    /**
+     * @summary Retires one exact vessel through the app-owned platform close hook, retaining
+     * refusal/throw authority for retry and clearing only matching admission/connection state.
+     * @param {Object} vessel
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async retireTearOutVessel(vessel={}) {
+        let me  = this,
+            key = me.getTearOutRetirementKey(vessel),
+            closed;
+
+        key && me.tearOutRetirements.set(key, vessel);
+
+        try {
+            closed = await me.closeTearOutVessel(vessel)
+        } catch (error) {
+            closed = false
+        }
+
+        if (closed !== false) {
+            key && me.tearOutRetirements.get(key) === vessel && me.tearOutRetirements.delete(key);
+
+            const matches = entry => Boolean(entry &&
+                (Number.isFinite(vessel.admissionToken)
+                    ? (entry.token ?? entry.admissionToken) === vessel.admissionToken
+                    : entry.windowName === vessel.windowName) &&
+                (!Number.isFinite(vessel.generation) || entry.generation === vessel.generation)
+            );
+
+            const admission = me.tearOutAdmissions.get(vessel.itemId);
+
+            matches(admission) && me.clearTearOutAdmission(vessel.itemId, admission);
+            matches(me.tearOutConnects[vessel.itemId]) && delete me.tearOutConnects[vessel.itemId]
+        }
+
+        return closed !== false
+    }
+
+    /**
+     * Hook: opens the consumer's platform-specific tear-out vessel. The engine owns gesture
+     * admission and passes its token; a consumer owns URL, shell and geometry.
+     * @param {Object} request
+     * @returns {Promise<Object|null>|Object|null}
+     * @protected
+     */
+    openTearOutVessel(request) {
+        return null
+    }
+
+    /**
+     * Hook: closes the consumer's platform-specific tear-out vessel. Explicit false retains retry
+     * authority; legacy void success remains admitted by {@link Neo.dashboard.DockTearOut}.
+     * @param {Object} vessel
+     * @returns {Promise<Boolean|void>|Boolean|void}
+     * @protected
+     */
+    closeTearOutVessel(vessel) {
+        return false
+    }
+
+    /**
+     * @summary Captures exact pre-detach placement before routing through the pure holder reducer.
+     * @param {Object} descriptor
+     * @returns {{document:Object,errors:String[]}|null}
+     * @protected
+     */
+    applyTearOutOperation(descriptor) {
+        let me       = this,
+            isDetach = descriptor?.operation === 'detachItem',
+            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            result;
+
+        captured && (me.tearOutPlacements[descriptor.itemId] = captured);
+
+        result = me.applyDockZoneOperation(descriptor);
+
+        isDetach && result?.errors?.length && delete me.tearOutPlacements[descriptor.itemId];
+
+        return result
+    }
+
+    /**
+     * @summary Commits the admitted detach while preserving and adopting the live pane through
+     * explicit consumer hooks.
+     * @param {Object} document
+     * @param {Object} operation
+     * @param {Object} vessel
+     * @protected
+     */
+    onTearOutDocumentChange(document, operation, vessel) {
+        let me       = this,
+            detached = operation?.operation === 'detachItem',
+            itemId   = operation?.itemId;
+
+        detached && me.captureTearOutPane(itemId);
+        me.onDockZoneDocumentChange(document, operation, me);
+        detached && me.adoptTearOutPane(itemId, vessel)
+    }
+
+    /**
+     * @summary Captures the app-resolved live pane before detach re-projection can retire it.
+     * @param {String} itemId
+     * @protected
+     */
+    captureTearOutPane(itemId) {
+        const pane = this.resolveTearOutPane(itemId);
+
+        pane && !pane.isDestroyed && (this.tearOutPaneHandles[itemId] = pane)
+    }
+
+    /**
+     * @summary Promotes one committed item into post-terminal vessel ownership.
+     * @param {String} itemId
+     * @param {Object} [vessel={}]
+     * @protected
+     */
+    adoptTearOutPane(itemId, vessel={}) {
+        let me         = this,
+            connection = me.tearOutConnects[itemId],
+            entry      = {
+                admissionToken: vessel.admissionToken ?? connection?.admissionToken ?? null,
+                generation    : vessel.generation ?? connection?.generation ?? null,
+                windowId      : connection?.windowId ?? null,
+                windowName    : vessel.windowName || connection?.windowName || `tearout-${itemId}`
+            };
+
+        me.tearOutPanes[itemId] = entry;
+
+        if (connection) {
+            delete me.tearOutConnects[itemId];
+            me.clearTearOutAdmission(itemId);
+
+            if (!me.reparentTearOutPane(itemId, connection)) {
+                me.compensateFailedTearOutAdoption(itemId, entry);
+                throw new Error(`DockWorkspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
+            }
+        }
+
+        me.afterTearOutPaneAdopt({connection, entry, itemId, vessel})
+    }
+
+    /**
+     * Hook: observes the post-commit adoption moment after engine ownership state is written.
+     * @param {Object} data
+     * @protected
+     */
+    afterTearOutPaneAdopt(data) {}
+
+    /**
+     * Hook: resolves the app-owned live pane that a vessel should embody.
+     * @param {String} itemId
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    resolveTearOutPane(itemId) {
+        return null
+    }
+
+    /**
+     * Hook: releases one app-owned pane handle for return. The default resolves without retaining
+     * a second owner; consumers with handle maps override and delete atomically.
+     * @param {String} itemId
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    releaseTearOutPane(itemId) {
+        const pane = this.tearOutPaneHandles[itemId] || null;
+
+        delete this.tearOutPaneHandles[itemId];
+
+        return pane
+    }
+
+    /**
+     * @summary Compensates an admitted connection that cannot embody its live pane.
+     * @param {String} itemId
+     * @param {Object} entry
+     * @protected
+     */
+    compensateFailedTearOutAdoption(itemId, entry={}) {
+        let me     = this,
+            pane   = me.releaseTearOutPane(itemId),
+            vessel = {...entry, itemId};
+
+        delete me.tearOutPanes[itemId];
+        delete me.tearOutConnects[itemId];
+        Promise.resolve(me.retireTearOutVessel(vessel)).then(closed => {
+            closed && me.tearOutHandlers?.onVesselRetired(vessel)
+        });
+        me.reintegrateTearOutItem(itemId, pane)
+    }
+
+    /**
+     * @summary Moves one live pane into a connected vessel without changing document truth.
+     * @param {String} itemId
+     * @param {Object} target
+     * @param {String} target.windowId
+     * @returns {Boolean}
+     * @protected
+     */
+    reparentTearOutPane(itemId, target={}) {
+        let me         = this,
+            {windowId} = target,
+            app        = Neo.apps[windowId],
+            pane       = me.resolveTearOutPane(itemId),
+            oldParent  = pane?.parent;
+
+        if (!app || !pane || pane.isDestroyed) return false;
+
+        try {
+            if (oldParent !== app.mainView) {
+                oldParent?.remove(pane, false);
+                app.mainView.add(pane)
+            }
+        } catch (error) {
+            try {
+                !pane.isDestroyed && !pane.parent && oldParent?.add(pane)
+            } catch (restoreError) {/* the engine retains the live handle for semantic return */}
+
+            return false
+        }
+
+        me.tearOutPanes[itemId] && Object.assign(me.tearOutPanes[itemId], target);
+
+        return true
+    }
+
+    /**
+     * Hook: optional product grant policy after engine host/flow/token admission. Fleet's zero-grant
+     * consumer inherits true; rich hosts override without exporting a grant format to the engine.
+     * @param {Object} context
+     * @returns {Boolean|Promise<Boolean>}
+     * @protected
+     */
+    admitTearOutConnection(context) {
+        return true
+    }
+
+    /**
+     * Hook: observes an admitted tear-out connection after engine ownership state is updated.
+     * @param {Object} context
+     * @protected
+     */
+    afterTearOutWindowConnect(context) {}
+
+    /**
+     * Hook: handles an owner-matching worker connection that is not a gesture tear-out.
+     * @param {Object} data
+     * @param {Object} context
+     * @returns {Promise<void>|void}
+     * @protected
+     */
+    onUnhandledWindowConnect(data, context) {}
+
+    /**
+     * Hook: captures app-owned generation state synchronously before the worker URL round trip.
+     * @param {Object} data
+     * @returns {*}
+     * @protected
+     */
+    captureWindowConnectContext(data) {
+        return null
+    }
+
+    /**
+     * @summary Admits one worker window into pre-terminal or committed tear-out ownership.
+     * @param {Object} data
+     * @protected
+     */
+    async onWindowConnect(data) {
+        let me              = this,
+            {windowId}      = data,
+            app             = Neo.apps[windowId],
+            consumerContext = me.captureWindowConnectContext(data);
+
+        if (!app || me.isDestroyed) return;
+
+        let url, params;
+
+        try {
+            url    = await Neo.Main.getByPath({path: 'document.URL', windowId});
+            params = new URL(url).searchParams
+        } catch (error) {
+            return
+        }
+
+        if (me.isDestroyed || params.get(me.tearOutHostParam) !== me.id) return;
+
+        let itemId         = params.get('tearout'),
+            flow           = params.get('vesselFlow'),
+            admissionToken = Number(params.get('vesselAdmission'));
+
+        if (!itemId) {
+            await me.onUnhandledWindowConnect(data, {app, consumerContext, params});
+            return
+        }
+        if (flow === null) return;
+        if (flow !== 'tear-out') return;
+
+        const admission = me.tearOutAdmissions.get(itemId);
+
+        if (!Number.isFinite(admissionToken) || !admission || admission.token !== admissionToken) {
+            return
+        }
+
+        if (admission.connectingWindowId && admission.connectingWindowId !== windowId) return;
+
+        admission.connectingWindowId = windowId;
+
+        const activeVessel = me.tearOutHandlers?.activeVessel,
+              context      = {activeVessel, admission, admissionToken, app, consumerContext, data, itemId, params, windowId};
+
+        try {
+            if (await me.admitTearOutConnection(context) === false) {
+                me.tearOutAdmissions.get(itemId) === admission && (admission.connectingWindowId = null);
+                return
+            }
+        } catch (error) {
+            me.tearOutAdmissions.get(itemId) === admission && (admission.connectingWindowId = null);
+            throw error
+        }
+
+        // The grant hook is an async boundary. Retirement, timeout or a successor admission may
+        // have replaced this exact record while policy was deciding.
+        if (
+            me.isDestroyed || me.tearOutAdmissions.get(itemId) !== admission ||
+            admission.connectingWindowId !== windowId || !Neo.apps[windowId]
+        ) {
+            return
+        }
+
+        const connection = {
+            admissionToken,
+            generation: me.tearOutPanes[itemId]?.generation ?? activeVessel?.generation ?? admission.generation,
+            windowId,
+            windowName: activeVessel?.windowName || me.tearOutPanes[itemId]?.windowName || admission.windowName
+        };
+
+        admission.connected = true;
+        admission.windowId  = windowId;
+        admission.timerId && clearTimeout(admission.timerId);
+        admission.timerId = null;
+
+        if (me.tearOutPanes[itemId]) {
+            if (!me.reparentTearOutPane(itemId, connection)) {
+                me.compensateFailedTearOutAdoption(itemId, me.tearOutPanes[itemId]);
+                throw new Error(`DockWorkspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
+            }
+
+            me.clearTearOutAdmission(itemId, admission)
+        } else {
+            me.tearOutConnects[itemId] = connection
+        }
+
+        me.afterTearOutWindowConnect({...context, connection})
+    }
+
+    /**
+     * Hook: app-owned pane preparation immediately before semantic return starts.
+     * @param {Object} data
+     * @protected
+     */
+    beforeTearOutPaneReturn(data) {}
+
+    /**
+     * Hook: observes the semantic return disposition.
+     * @param {Object} data
+     * @protected
+     */
+    afterTearOutPaneReturn(data) {}
+
+    /**
+     * @summary Settles a live pane only when no semantic home can own it.
+     * @param {Neo.component.Base|null} pane
+     * @protected
+     */
+    settleTearOutPane(pane) {
+        if (pane && !pane.isDestroyed) {
+            pane.parent?.remove(pane, false);
+            pane.destroy()
+        }
+    }
+
+    /**
+     * @summary Returns a dead vessel's item to its exact semantic position and same live pane.
+     * @param {String} itemId
+     * @param {Neo.component.Base|null} pane
+     * @protected
+     */
+    async reintegrateTearOutItem(itemId, pane) {
+        let me         = this,
+            placement  = me.tearOutPlacements[itemId],
+            doc        = me.dockModel,
+            storedHome = placement && doc?.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
+            fallback   = storedHome || Object.entries(doc?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+            live       = pane && !pane.isDestroyed,
+            result;
+
+        delete me.tearOutPlacements[itemId];
+
+        if (!doc?.items?.[itemId] || !fallback) {
+            me.settleTearOutPane(pane);
+            me.afterTearOutPaneReturn({itemId, pane, returned: false});
+            return false
+        }
+
+        if (live) {
+            pane.parent?.remove(pane, false);
+            me.returningTearOutPanes[itemId] = pane
+        }
+
+        me.beforeTearOutPaneReturn({itemId, pane});
+
+        if (DockZoneModel.findContainingTabsId(doc, itemId)) {
+            me.onDockZoneDocumentChange(doc);
+
+            try {
+                await me.refreshPromise;
+                me.afterTearOutPaneReturn({itemId, pane, returned: true});
+                return true
+            } catch (error) {
+                me.afterTearOutPaneReturn({error, itemId, pane, returned: false});
+                return false
+            }
+        }
+
+        result = me.applyDockZoneOperation({
+            operation : 'addTab',
+            itemId,
+            tabsNodeId: fallback,
+            ...(storedHome ? {index: placement.index} : {})
+        });
+
+        if (result?.errors?.length === 0) {
+            me.onDockZoneDocumentChange(result.document);
+
+            try {
+                await me.refreshPromise;
+                me.afterTearOutPaneReturn({itemId, pane, returned: true});
+                return true
+            } catch (error) {
+                me.afterTearOutPaneReturn({error, itemId, pane, returned: false});
+                return false
+            }
+        } else {
+            delete me.returningTearOutPanes[itemId];
+            me.settleTearOutPane(pane);
+            me.afterTearOutPaneReturn({errors: result?.errors || [], itemId, pane, returned: false});
+            return false
+        }
+    }
+
+    /**
+     * Hook: handles a disconnect unrelated to an engine-owned gesture tear-out.
+     * @param {Object} data
+     * @protected
+     */
+    onUnhandledWindowDisconnect(data) {}
+
+    /**
+     * @summary Reconciles physical vessel death against pre-terminal or committed ownership.
+     * @param {Object} data
+     * @protected
+     */
+    async onWindowDisconnect(data) {
+        let me = this;
+
+        if (me.isDestroyed) return;
+
+        for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
+            if (entry.windowId === data.windowId) {
+                const pane = me.releaseTearOutPane(itemId);
+
+                delete me.tearOutPanes[itemId];
+                delete me.tearOutConnects[itemId];
+                me.clearTearOutAdmission(itemId);
+                me.tearOutHandlers?.onVesselRetired({...entry, itemId});
+                await me.reintegrateTearOutItem(itemId, pane);
+                me.afterTearOutWindowDisconnect({committed: true, data, entry, itemId, pane});
+                return
+            }
+        }
+
+        for (const [itemId, entry] of Object.entries(me.tearOutConnects)) {
+            if (entry.windowId === data.windowId) {
+                const admission = me.tearOutAdmissions.get(itemId);
+
+                delete me.tearOutConnects[itemId];
+                me.clearTearOutAdmission(itemId, admission);
+                me.tearOutHandlers?.onVesselRetired({...entry, itemId});
+                admission?.sortZone?.endWindowDrag();
+                me.afterTearOutWindowDisconnect({committed: false, data, entry, itemId, pane: null});
+                return
+            }
+        }
+
+        me.onUnhandledWindowDisconnect(data)
+    }
+
+    /**
+     * Hook: observes physical tear-out retirement after state reconciliation.
+     * @param {Object} data
+     * @protected
+     */
+    afterTearOutWindowDisconnect(data) {}
+
+    /**
+     * @summary Closes every admitted vessel and settles all owner-held panes exactly once.
+     * @protected
+     */
+    retireTearOutState() {
+        let me = this;
+
+        const vessels = new Map();
+
+        const collect = (itemId, entry={}) => {
+            const windowName = entry.windowName;
+
+            windowName && vessels.set(`${itemId}:${windowName}`, {...entry, itemId, windowName})
+        };
+
+        Object.entries(me.tearOutPanes || {}).forEach(([itemId, entry]) => collect(itemId, entry));
+        Object.entries(me.tearOutConnects || {}).forEach(([itemId, entry]) => collect(itemId, entry));
+        me.tearOutAdmissions?.forEach((entry, itemId) => collect(itemId, entry));
+        me.tearOutRetirements?.forEach(vessel => collect(vessel.itemId, vessel));
+
+        const active = me.tearOutHandlers?.activeVessel;
+
+        active && collect(active.itemId, active);
+        vessels.forEach(vessel => {
+            Promise.resolve(me.closeTearOutVessel(vessel)).catch(() => {})
+        });
+
+        const panes = new Set([
+            ...Object.values(me.returningTearOutPanes || {}),
+            ...Object.values(me.tearOutPaneHandles || {})
+        ]);
+
+        panes.forEach(pane => me.settleTearOutPane(pane));
+
+        me.tearOutAdmissions?.forEach((entry, itemId) => me.clearTearOutAdmission(itemId, entry));
+        me.tearOutConnects       = {};
+        me.tearOutPaneHandles    = {};
+        me.tearOutPanes          = {};
+        me.tearOutPlacements     = {};
+        me.tearOutRetirements    = new Map();
+        me.returningTearOutPanes = {}
     }
 
     /**
@@ -257,12 +1080,24 @@ class DockWorkspace extends Container {
     }
 
     /**
-     * Tears down the producer with the workspace and drops the pending refresh chain; a refresh
-     * scheduled before teardown no-ops on its `isDestroyed` guard.
+     * Tears down the producer and pending refresh chain. An enabled tear-out lifecycle first
+     * unregisters its worker routes, closes every pending/connected/committed vessel, and settles
+     * every owner-held pane exactly once; a refresh scheduled before teardown no-ops on its
+     * `isDestroyed` guard.
      * @param {...*} args
      */
     destroy(...args) {
         let me = this;
+
+        if (me.enableDockTearOutLifecycle) {
+            Neo.currentWorker.un({
+                connect   : me.onWindowConnect,
+                disconnect: me.onWindowDisconnect,
+                scope     : me
+            });
+            me.retireTearOutState();
+            me.tearOutHandlers = null
+        }
 
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
@@ -291,7 +1126,9 @@ class DockWorkspace extends Container {
      * @returns {Object}
      */
     getDockProjectionOptions() {
-        return {}
+        return this.enableDockTearOutLifecycle
+            ? {enableDockTearOut: true, ...this.tearOutHandlers}
+            : {}
     }
 
     /**
@@ -443,9 +1280,10 @@ class DockWorkspace extends Container {
     }
 
     /**
-     * Hook: item ids whose live panes this workspace holds OUTSIDE the current projection and
-     * that the reconciler must park rather than retire — a detached pane, a tear-out handle.
-     * The default holds none.
+     * Hook: item ids whose live panes the consumer holds OUTSIDE the current projection and that
+     * the reconciler must park rather than retire — for example a click-detached pane. Engine-owned
+     * tear-out handles are merged separately and never depend on an app override. The default
+     * holds none.
      * @returns {Iterable<String>}
      */
     getPreservedItemIds() {
@@ -719,7 +1557,11 @@ class DockWorkspace extends Container {
             nextConfig,
             onProjectionStaged,
             placeholders,
-            preserveItemIds: [...new Set([...me.getPreservedItemIds(), ...(refreshOptions.preserveItemIds || [])])],
+            preserveItemIds: [...new Set([
+                ...me.getPreservedItemIds(),
+                ...(me.enableDockTearOutLifecycle ? Object.keys(me.tearOutPaneHandles) : []),
+                ...(refreshOptions.preserveItemIds || [])
+            ])],
             resolveItem    : itemId => {
                 const item = document?.items?.[itemId];
 
@@ -794,6 +1636,17 @@ class DockWorkspace extends Container {
      * @protected
      */
     resolveProjectedPane(itemId, item) {
+        const returning = this.returningTearOutPanes?.[itemId];
+
+        if (returning) {
+            delete this.returningTearOutPanes[itemId];
+
+            if (!returning.isDestroyed) {
+                returning.parent?.remove(returning, false);
+                return returning
+            }
+        }
+
         return this.decorateFlipMarker(this.resolvePane(itemId, item), itemId)
     }
 
