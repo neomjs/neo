@@ -1638,6 +1638,23 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             errorClassification: 'probe-sweep-disagreement'
         });
 
+        // The predicate is symmetric: a repo failure moments AFTER the probe means its healthy
+        // evidence was overtaken before this joined snapshot could publish it unqualified.
+        const laterErrorService  = makeService(OBSERVED_AT + 2_000),
+              laterErrorSnapshot = await laterErrorService.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(laterErrorSnapshot.embeddingRecoveryProbe.errorClassification)
+            .toBe('probe-sweep-disagreement');
+
+        // The window is inclusive. Make the repo floor deliberately wider so the probe cadence is
+        // the exact minimum, then place the later error on that boundary.
+        const probeCadenceMs   = AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
+              boundaryService  = makeService(OBSERVED_AT + probeCadenceMs, probeCadenceMs * 4),
+              boundarySnapshot = await boundaryService.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(boundarySnapshot.embeddingRecoveryProbe.errorClassification)
+            .toBe('probe-sweep-disagreement');
+
         // CONTROL: a genuine recovery outside the ZERO-STREAK floor stays plain healthy. With one
         // persisted failure the current backoff is 40s+; using that wider value would wrongly flag
         // this 30s-old error, while the actual 20s zero-streak floor does not.
@@ -1650,6 +1667,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
 
         disagreementService.destroy();
+        laterErrorService.destroy();
+        boundaryService.destroy();
         recoveryService.destroy()
     });
 

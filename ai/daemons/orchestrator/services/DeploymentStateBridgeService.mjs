@@ -2945,9 +2945,11 @@ export function deriveEmbeddingProbeSweepDisagreementInterval({probeCadenceMs, s
  * @summary Names a healthy-probe / repo-failure timestamp contradiction without changing the probe verdict.
  *
  * The probe is process-global while checkpoints are per repo, so this projection exposes only the
- * contradiction class—never the repository identity. A repo participates only while its last error
- * remains inside BOTH current authorities: the sweep's probe-demand cadence and that repo's own
- * zero-streak scheduling floor. Outside either window, a later healthy probe can be a genuine recovery.
+ * contradiction class—never the repository identity. A repo participates only while the absolute
+ * distance between its last error and the healthy check remains inside BOTH current authorities:
+ * the sweep's probe-demand cadence and that repo's own zero-streak scheduling floor. An earlier
+ * error outside either window permits a later healthy check to be a genuine recovery; a later error
+ * inside the window means the healthy evidence was already overtaken when this snapshot joined them.
  *
  * @param {Object} options
  * @param {Object} options.probeSnapshot Sanitized process-owned probe projection.
