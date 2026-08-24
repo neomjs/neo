@@ -589,6 +589,57 @@ async function deliverWebhook({digest, effects, meta, signal}) {
 }
 
 /**
+ * @summary Builds the dialog-gate probe argv: one read-only System Events query that asks
+ * whether the target seat's focused UI element is a text-entry field.
+ *
+ * A pending interactive prompt (selection dialog, permission sheet) moves focus off the composer's
+ * text area; injecting keystrokes then feeds the wake TO the dialog, which submits it as the
+ * operator's answer — the destroyed-intent failure this gate exists to prevent. Reading before
+ * writing is the smallest delta that honors the temporal half of the verified-process invariant.
+ *
+ * Failure semantics are deliberately split:
+ * - readable role that is NOT a text field → `interactive dialog pending` error → the caller DEFERS;
+ * - unreadable state (`missing value`) or any probe throw that does not name a dialog → the caller
+ *   FAILS OPEN and delivers, because silent non-delivery is the dead-realm failure mode and the
+ *   mailbox stays authoritative.
+ *
+ * The `-- interactiveDialogProbe` comment is load-bearing twice over: it marks the emitted argv for
+ * red-capable fixtures, and it names the gate for receiver logs triaging a deferred wake.
+ *
+ * @param {Object} config
+ * @param {String} config.appName     Canonical harness app name.
+ * @param {Number|null} config.instancePid Resolved seat pid when addressType is pid/userDataDir.
+ * @returns {String[]} `osascript` argv fragments.
+ * @private
+ */
+function buildDialogGateArgs({appName, instancePid}) {
+    const escapedAppName = escapeAppleScript(appName);
+    const targetPid      = instancePid ? String(instancePid) : '';
+
+    return [
+        '-e', `  set targetAppName to "${escapedAppName}"`,
+        '-e', '  set targetBundleId to ""',
+        '-e', '  try',
+        '-e', `    set targetBundleId to id of application "${escapedAppName}"`,
+        '-e', '  end try',
+        '-e', `  set targetProcessId to "${targetPid}"`,
+        '-e', '  -- interactiveDialogProbe: readable non-text focus means a prompt owns the input path',
+        '-e', '  tell application "System Events"',
+        ...resolveTargetProcessLines('    '),
+        '-e', '    tell targetProcess',
+        '-e', '      set focusedRole to missing value',
+        '-e', '      try',
+        '-e', '        set focusedRole to role of focused element of window 1',
+        '-e', '      end try',
+        '-e', '      if focusedRole is not missing value and focusedRole is not in {"AXTextArea", "AXTextField"} then',
+        '-e', '        error "interactive dialog pending at phase before input"',
+        '-e', '      end if',
+        '-e', '    end tell',
+        '-e', '  end tell'
+    ];
+}
+
+/**
  * @summary Delivers through the existing draft-preserving, frontmost-verified macOS path.
  * @private
  */
@@ -621,6 +672,21 @@ async function deliverOsascript({digest, effects, meta, record}) {
         const target = await effects.getDefaultTarget({appName});
         if (['ambiguous', 'probe-failed'].includes(target.status)) return 'skipped';
         instancePid = target.pid;
+    }
+
+    // Dialog gate — read before writing. A readable non-text focus means a pending
+    // interactive prompt owns the input path: defer (the receiver parks and reschedules under a
+    // bound) rather than type the wake into the operator's dialog. Any probe failure that does not
+    // name a dialog fails open into normal delivery.
+    try {
+        await effects.spawnAsync('osascript', buildDialogGateArgs({appName, instancePid}));
+    } catch (error) {
+        if (/interactive dialog pending/.test(String(error?.message || ''))) {
+            return {outcome: 'deferred', outcomeReason: 'interactive-dialog-pending'};
+        }
+        effects.log.warn?.(
+            `[Wake Receiver] dialog gate could not probe ${record.subscriptionId}; delivering fail-open`
+        );
     }
 
     const args = buildOsascriptArgs({

@@ -311,7 +311,8 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
     });
 
     test('a post-submit draft-restore focus race is delivered and never retried', async () => {
-        let   attempts = 0;
+        let   probeAttempts    = 0;
+        let   deliveryAttempts = 0;
         const uiRecord = record('osascript', {
             route: {
                 agentIdentity,
@@ -323,12 +324,19 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         expect(await dispatchLocalWake(uiRecord, {
             platform        : 'darwin',
             getDefaultTarget: async () => ({status: 'resolved', pid: 4321, instanceCount: 1, bundleName: 'Claude'}),
-            spawnAsync      : async () => {
-                attempts++;
+            // The dialog-gate probe is read-only and runs once before delivery; its own
+            // failure must fail OPEN without consuming the delivery retry budget.
+            spawnAsync      : async (command, args) => {
+                if (args.some(a => String(a).includes('interactiveDialogProbe'))) {
+                    probeAttempts++;
+                    throw new Error('AX tree unavailable for dialog probe');
+                }
+                deliveryAttempts++;
                 throw new Error('Target app lost frontmost status before user input restore paste (-2700)');
             }
         })).toBe('delivered');
-        expect(attempts).toBe(1);
+        expect(deliveryAttempts).toBe(1);
+        expect(probeAttempts).toBe(1);
     });
 
     test('a terminal osascript failure reports the captured stderr, in the log and on the outcome (#16259)', async () => {
