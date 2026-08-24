@@ -16,6 +16,18 @@
  * and `sent` or `failed` after it. A crash between the two leaves `pending` standing, so an
  * undelivered digest can never read as delivered.
  *
+ * The digest is delivered as an MCP CLIENT of the containerized Memory Core, not through in-process
+ * service imports. This process is host-resident by construction — the e2e layer needs GPU
+ * hardware and a headed browser, which is the whole reason it lives outside CI — while the graph it
+ * must reach is served from a container. An in-process `MailboxService` here resolves against the
+ * HOST plane root, which no reader serves: the write succeeds and the digest arrives nowhere. Its
+ * sibling lifecycle scripts keep their in-process imports correctly, because the orchestrator daemon
+ * runs them INSIDE the container; this one never made that trip and cannot.
+ *
+ * Delivery therefore fails loudly by construction. An unreachable or unauthenticated Memory Core
+ * throws at connect, which the disposition machinery above records as `failed` — where a local write
+ * to an unserved store would have returned success.
+ *
  * Hardening (the middleware-scheduler LaunchAgent precedent): an exclusive PID lockfile with stale-steal, a run log,
  * structured stderr, and finally-hygiene that always releases the lock. LaunchAgent-staged (not auto-installed);
  * see ai/scripts/lifecycle/nightly-e2e/README for activation. CRITICAL inherited rule: custom playwright configs
@@ -28,10 +40,10 @@ import {spawnSync}                                         from 'node:child_proc
 import path                                                from 'node:path';
 import {fileURLToPath}                                     from 'node:url';
 import fs                                                  from 'fs-extra';
-import GraphService                                        from '../../services/memory-core/GraphService.mjs';
-import LifecycleService                                    from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import MailboxService                                      from '../../services/memory-core/MailboxService.mjs';
-import RequestContextService                               from '../../mcp/server/shared/services/RequestContextService.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import Client                                              from '../../mcp/client/Client.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                     from '../../services/fleet/mcpServers.mjs';
 import {buildRunLog, collectFailures, formatDigest, isRed} from './nightlyE2eDigest.mjs';
 
 /**
@@ -44,22 +56,52 @@ const E2E_CONFIGS = [
     {config: 'test/playwright/playwright.config.e2e.mjs', results: 'test-results/e2e/results.json'}
 ];
 
+// Only the DIRECTORY is a constant. Its children are derived per run by `bindPlane`, so no code path
+// can resolve one of them against a cwd that moved after the run started.
 const STATE_DIR     = '.neo-ai-data/nightly-e2e',
-      LOCK_PATH     = `${STATE_DIR}/runner.lock`,
-      STATE_PATH    = `${STATE_DIR}/last-run.json`,
       LOCK_STALE_MS = 6 * 60 * 60 * 1000;   // 6h — a nightly run that outlives this is a hung process; steal the lock
+
+/**
+ * How long the Memory Core client may take to become ready before the run calls it a failed
+ * delivery. This is a FAILURE DEADLINE, not a wait: the happy path resolves in milliseconds and
+ * never observes it. It exists because framework readiness has no rejection path, so without a
+ * deadline an unreachable ingress produces a pending promise rather than an error.
+ * @type {Number}
+ */
+const CONNECT_DEADLINE_MS = 30 * 1000;
+
+/**
+ * @summary Binds this run's plane to absolute paths, once, before any await.
+ *
+ * `STATE_DIR` and its children are repo-relative, so every use resolves against `process.cwd()` AT
+ * THAT MOMENT. Between acquiring the lock and releasing it the run performs a network round-trip,
+ * and any cwd change in that window silently renames the lock: the release looks in the new plane,
+ * finds nothing, and leaves the real lock behind — after which every run for the next six hours
+ * aborts believing one is still in flight. The receipt can split the same way.
+ *
+ * Binding once removes the dependency entirely. A run's plane is wherever it started, and nothing
+ * that happens mid-run can move it.
+ * @param {String} [stateDir=STATE_DIR] Plane directory; callers that must not depend on cwd pass it.
+ * @returns {{dir: String, lockPath: String, statePath: String}}
+ */
+function bindPlane(stateDir=STATE_DIR) {
+    const dir = path.resolve(stateDir);
+
+    return {dir, lockPath: path.join(dir, 'runner.lock'), statePath: path.join(dir, 'last-run.json')}
+}
 
 /**
  * @summary Acquires the exclusive runner lock, stealing it only when the holder is provably stale (> 6h). A
  * fresh lock means another nightly run is in flight — abort rather than double-run the suite.
  * @param {String} nowIso ISO timestamp for the lock stamp.
+ * @param {Object} plane Bound plane from {@link bindPlane}.
  * @returns {Promise<Boolean>} `true` when the lock is held by this process, `false` when a fresh run owns it.
  */
-async function acquireLock(nowIso) {
-    await fs.ensureDir(STATE_DIR);
+async function acquireLock(nowIso, {dir, lockPath}) {
+    await fs.ensureDir(dir);
 
-    if (await fs.pathExists(LOCK_PATH)) {
-        const held    = await fs.readJson(LOCK_PATH).catch(() => null),
+    if (await fs.pathExists(lockPath)) {
+        const held    = await fs.readJson(lockPath).catch(() => null),
               heldAt  = held?.at ? new Date(held.at).getTime() : 0,
               staleMs = Date.now() - heldAt;
 
@@ -70,7 +112,7 @@ async function acquireLock(nowIso) {
         console.error(`[nightlyE2eRunner] Stealing stale lock (held ${held?.at ?? 'unknown'}, > ${LOCK_STALE_MS}ms).`);
     }
 
-    await fs.writeJson(LOCK_PATH, {pid: process.pid, at: nowIso}, {spaces: 2});
+    await fs.writeJson(lockPath, {pid: process.pid, at: nowIso}, {spaces: 2});
     return true;
 }
 
@@ -127,24 +169,46 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
  * Every collaborator is injectable for the same reason `runConfig` takes its spawn: the delivery
  * paths are the ones worth proving, and a module-level import cannot be driven from a test.
  * @param {Object}   [options]
- * @param {Function} [options.addMessage] A2A send seam.
- * @param {Function} [options.graphReady] Graph readiness seam.
- * @param {Function} [options.lifecycleReady] Lifecycle readiness seam.
+ * @param {Function} [options.connect] Memory Core client seam — resolves to `{callTool, close}`.
+ * @param {Number}   [options.connectDeadlineMs=CONNECT_DEADLINE_MS] Failure deadline for the seam.
  * @param {Function} [options.runOne] Per-config execution seam.
+ * @param {String}   [options.stateDir=STATE_DIR] Plane directory seam — an explicit value makes a run's
+ *     plane independent of `process.cwd()` entirely, which a caller sharing a process needs.
  * @returns {Promise<Object>} run outcome `{red, sent, reason?}`.
  */
 export async function runNightlyE2e({
-    addMessage     = options => MailboxService.addMessage(options),
-    graphReady     = () => GraphService.ready(),
-    lifecycleReady = () => LifecycleService.ready(),
-    runOne         = runConfig
+    connect           = connectMemoryCore,
+    connectDeadlineMs = CONNECT_DEADLINE_MS,
+    runOne            = runConfig,
+    stateDir          = STATE_DIR
 } = {}) {
-    const nowIso  = new Date().toISOString(),
-          logPath = `${STATE_DIR}/logs/run-${nowIso.replace(/[:.]/g, '-')}.log`;
+    // Bound BEFORE the first await, so nothing that happens mid-run can move this run's plane.
+    const plane   = bindPlane(stateDir),
+          nowIso  = new Date().toISOString(),
+          logPath = path.join(plane.dir, `logs/run-${nowIso.replace(/[:.]/g, '-')}.log`);
 
-    if (!(await acquireLock(nowIso))) {
+    if (!(await acquireLock(nowIso, plane))) {
         return {red: false, sent: false, reason: 'lock-held'};
     }
+
+    // The runner owns this process, so it owns its rejection policy for the duration of the run.
+    // `Neo.create` runs `initAsync` detached, so a rejected credential surfaces as an UNHANDLED
+    // rejection and Node's default policy kills the process on the spot — verified against the live
+    // ingress as a fatal `StreamableHTTPError … HTTP 401`, no catch reached, the receipt stuck at
+    // `pending`, and the lock left behind so the next six hours of runs abort believing one is live.
+    //
+    // The sink spans the WHOLE run, not just the connect: a client whose readiness failed was never
+    // returned and therefore never closed, and its transport keeps rejecting afterwards. Dying on
+    // THAT straggler would abandon the receipt and the lock just as effectively as dying on the first.
+    const lateRejection = {deliver: null},
+          onUnhandled   = reason => {
+              const error = reason instanceof Error ? reason : new Error(String(reason));
+
+              if (lateRejection.deliver) lateRejection.deliver(error);
+              else console.error(`[nightlyE2eRunner] late transport rejection, after the delivery decision: ${error.message}`)
+          };
+
+    process.on('unhandledRejection', onUnhandled);
 
     try {
         const outcomes = E2E_CONFIGS.map(entry => runOne(entry)),
@@ -159,7 +223,7 @@ export async function runNightlyE2e({
         // fresh receipt without consulting the previous one is write-only across invocations: the
         // green path below would overwrite an earlier red whose digest never left the host, and that
         // red exists on no other surface.
-        const carriedRed = resolveCarriedRed(await readPriorReceipt());
+        const carriedRed = resolveCarriedRed(await readPriorReceipt(plane.statePath));
 
         if (carriedRed) {
             console.error(`[nightlyE2eRunner] Carrying forward an unreported red from ${carriedRed.at ?? 'an unreadable receipt'} (digest: ${carriedRed.digest}).`);
@@ -168,32 +232,46 @@ export async function runNightlyE2e({
         // A red receipt starts as `pending`, never as an absent field. Inferring delivery from
         // `red` alone would publish "sent" for a digest that never left: a crash between this write
         // and the send is indistinguishable from success unless the state exists BEFORE the attempt.
-        await writeRunReceipt({digest: red ? 'pending' : 'not-required', logPath, nowIso, outcomes, red, unresolvedRed: carriedRed});
+        await writeRunReceipt({digest: red ? 'pending' : 'not-required', logPath, nowIso, outcomes, red, statePath: plane.statePath, unresolvedRed: carriedRed});
 
         if (!red) {
             console.error('[nightlyE2eRunner] All declared e2e configs green — staying silent.');
             return {red: false, sent: false};
         }
 
-        const sender = process.env.NEO_AGENT_IDENTITY || '@system';
+        let client = null;
 
         try {
-            await lifecycleReady();
-            await graphReady();
+            // Connect FIRST and separately from the call: an unreachable or unauthenticated Memory
+            // Core must be distinguishable from a rejected message, and both must be distinguishable
+            // from success. The client throws here on a missing credential, which is the property
+            // that makes an unattended run's misconfiguration loud instead of nightly-silent.
+            client = await connectWithinDeadline(connect, connectDeadlineMs, lateRejection);
 
-            await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-                await addMessage({
-                    to      : 'AGENT:*',
-                    subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
-                    body    : formatDigest(outcomes, logPath),
-                    priority: 'normal',
-                    // A red suite is action-required BY DEFINITION, and a broadcast defaults to
-                    // suppressed, so silence here would be inherited rather than chosen. This is the
-                    // only per-message lever: the wake tier is one boolean on the message, so it
-                    // wakes every seat or none. Green never reaches this call and stays un-woken.
-                    wakeSuppressed: false
-                });
+            // MCP has TWO success boundaries and only the first one throws. The protocol request
+            // resolving means the server answered; whether it ACCEPTED is carried in the result, and
+            // our own servers say so by resolving `{isError: true}` (`ai/mcp/server/BaseServer.mjs`).
+            // Writing `sent` on a resolved call alone would record a refused digest as delivered —
+            // this leaf's original defect, one layer up and behind a green suite.
+            const result = await client.callTool('add_message', {
+                to      : 'AGENT:*',
+                subject : `[nightly-e2e][RED] ${outcomes.reduce((n, o) => n + o.failures.length, 0)} failing whitebox-e2e spec(s) — ${nowIso.slice(0, 10)}`,
+                body    : formatDigest(outcomes, logPath),
+                priority: 'normal',
+                // A red suite is action-required BY DEFINITION, and a broadcast defaults to
+                // suppressed, so silence here would be inherited rather than chosen. This is the
+                // only per-message lever: the wake tier is one boolean on the message, so it
+                // wakes every seat or none. Green never reaches this call and stays un-woken.
+                wakeSuppressed: false
             });
+
+            if (result?.isError) {
+                // Surface the server's own words rather than a generic label: the disposition says
+                // delivery failed, and the reason is the only thing that says why.
+                const detail = result.content?.map(block => block?.text).filter(Boolean).join(' ') || 'no detail supplied';
+
+                throw new Error(`Memory Core refused the digest: ${detail}`)
+            }
         } catch (error) {
             // The reporter failing is not the suite passing. `pending` already stands on disk, so
             // the red survives even if THIS write also fails — the receipt degrades from `failed`
@@ -203,9 +281,15 @@ export async function runNightlyE2e({
                 digest       : 'failed',
                 digestError  : String(error?.message ?? error),
                 unresolvedRed: carriedRed,
+                statePath    : plane.statePath,
                 logPath, nowIso, outcomes, red
             }).catch(() => {});
             throw error
+        } finally {
+            // The transport is per-run, so it closes on every path. A leaked connection would keep an
+            // unattended process alive past its work, and `launchd` would treat that as a run still
+            // in flight rather than a finished one.
+            await client?.close?.().catch(() => {});
         }
 
         // Written only after delivery RESOLVED. `sent` is recorded, never derived.
@@ -214,11 +298,104 @@ export async function runNightlyE2e({
         // fact an earlier one did not is no longer load-bearing — the suite's red state is reported and
         // actionable. Carrying it past a successful delivery would make the field permanent noise, and
         // a field that is always set stops being read.
-        await writeRunReceipt({digest: 'sent', logPath, nowIso, outcomes, red, unresolvedRed: null});
+        await writeRunReceipt({digest: 'sent', logPath, nowIso, outcomes, red, statePath: plane.statePath, unresolvedRed: null});
         console.error('[nightlyE2eRunner] RED digest sent to AGENT:* (wakeSuppressed: false).');
         return {red: true, sent: true};
     } finally {
-        await fs.remove(LOCK_PATH).catch(() => {});
+        process.off('unhandledRejection', onUnhandled);
+        await fs.remove(plane.lockPath).catch(() => {});
+    }
+}
+
+/**
+ * @summary Opens an authenticated MCP client against the containerized Memory Core.
+ *
+ * The `memory-core` client entry is already declared (`ai/mcp/client/config.mjs`) as
+ * `streamable-http` against the local ingress with a required bearer credential, so this adds no
+ * transport surface — it consumes the one every other host-side client uses.
+ *
+ * Nothing is caught here on purpose. A missing credential, an unreachable ingress, or a rejected
+ * token must reach the caller so the receipt records `failed` and the process exits non-zero. The
+ * failure this replaces was the opposite: an in-process write to a host store no reader serves,
+ * which returned success every time.
+ *
+ * The credential is checked BEFORE construction, and that ordering is load-bearing rather than
+ * stylistic. `Neo.create()` runs `initAsync()` inside a detached promise with no rejection handler
+ * (`src/core/Base.mjs:314`), so a throw in there never reaches `ready()` — the ready promise simply
+ * never resolves. An unattended run would then HANG until the 6h stale-lock steal instead of
+ * recording a failed delivery, which is a strictly worse failure than the silent one this leaf
+ * exists to remove. Validating first keeps the loud path loud.
+ * @returns {Promise<Object>} A connected client exposing `callTool` and `close`.
+ */
+async function connectMemoryCore() {
+    if (!process.env[REMOTE_MCP_CREDENTIAL_ENV_VAR]?.trim()) {
+        throw new Error(
+            `nightlyE2eRunner: ${REMOTE_MCP_CREDENTIAL_ENV_VAR} is missing or empty — the RED digest cannot reach Memory Core. ` +
+            `An unattended run needs it in the LaunchAgent's EnvironmentVariables; see ai/scripts/lifecycle/nightly-e2e/README.md.`
+        );
+    }
+
+    const client = Neo.create(Client, {serverName: 'memory-core'});
+
+    await client.ready();
+
+    return client
+}
+
+/**
+ * @summary Rejects a connection attempt that never settles, so an unreachable dependency is a
+ * failure rather than a hang.
+ *
+ * `Client.ready()` can only ever RESOLVE: `Neo.create` runs `initAsync` in a detached promise with no
+ * rejection handler (`src/core/Base.mjs:314`), and `#readyPromise` is settled solely by
+ * `afterSetIsReady`. So a rejected credential, an unreachable ingress, or a failed handshake leaves
+ * it pending forever, and awaiting it alone would hang the unattended run to the 6h stale-lock
+ * steal — the silence this leaf exists to remove, with extra steps.
+ *
+ * The deadline wraps the SEAM rather than living inside the default connect, because the guarantee
+ * belongs to the runner: a caller that supplies its own connection must not be able to remove the
+ * runner's only protection against never being answered.
+ *
+ * The `setTimeout` here is a self-naming failure deadline, not a wait — the happy path resolves in
+ * milliseconds and never observes it.
+ * @param {Promise} attempt The in-flight connection.
+ * @param {Number}  deadlineMs
+ * @returns {Promise<Object>} The connected client.
+ */
+async function connectWithinDeadline(connect, deadlineMs, onLateRejection) {
+    let timer;
+
+    try {
+        return await new Promise((resolve, reject) => {
+            // THE LOAD-BEARING LINE. `Neo.create` runs `initAsync` detached, so a rejected credential
+            // surfaces as an UNHANDLED rejection — and Node's default policy kills the process on the
+            // spot. Verified against the live ingress with an invalid token: a fatal
+            // `StreamableHTTPError: … HTTP 401` and exit 1, before any `catch` in this module runs.
+            //
+            // A deadline cannot help with that: the process is gone before it fires. The receipt is
+            // left at `pending` and — worse — the lock survives, so the NEXT six hours of runs abort
+            // believing one is still in flight. A crash is not a quiet failure; it is a failure that
+            // takes the next runs with it.
+            //
+            // Owning the process's rejection policy for the duration of the connect is the
+            // entrypoint's job, and this is the only place that can turn that crash back into a value.
+            // Scoped to the window and removed in `finally`, so it cannot swallow anything later.
+            onLateRejection.deliver = reject;
+
+            // Not a wait — a self-naming failure deadline for the case that does stay pending, since
+            // `ready()` has no reject path of its own (`src/core/Base.mjs:305`, settled only by
+            // `afterSetIsReady`).
+            timer = setTimeout(() => reject(new Error(
+                `nightlyE2eRunner: the Memory Core connection did not settle within ${deadlineMs}ms — ` +
+                `unreachable ingress or a stalled handshake. Framework readiness cannot report which, ` +
+                `because initialization rejection is not wired into it.`
+            )), deadlineMs);
+
+            Promise.resolve(connect()).then(resolve, reject)
+        })
+    } finally {
+        clearTimeout(timer);
+        onLateRejection.deliver = null
     }
 }
 
@@ -230,15 +407,16 @@ export async function runNightlyE2e({
  * an unparseable one means the delivery chain is broken and this run cannot know what preceded it.
  * Returning `null` for both would silently promote the broken case to the clean one — the precise
  * inference this module exists to prevent.
+ * @param {String} statePath Absolute receipt path from {@link bindPlane}.
  * @returns {Promise<{state: String, receipt: (Object|null)}>} `absent` | `read` | `unreadable`.
  */
-async function readPriorReceipt() {
-    if (!(await fs.pathExists(STATE_PATH))) {
+async function readPriorReceipt(statePath) {
+    if (!(await fs.pathExists(statePath))) {
         return {state: 'absent', receipt: null};
     }
 
     try {
-        return {state: 'read', receipt: await fs.readJson(STATE_PATH)}
+        return {state: 'read', receipt: await fs.readJson(statePath)}
     } catch (error) {
         return {state: 'unreadable', receipt: null, error: String(error?.message ?? error)}
     }
@@ -298,11 +476,12 @@ function resolveCarriedRed({state, receipt, error}) {
  * @param {String}   options.nowIso
  * @param {Object[]} options.outcomes
  * @param {Boolean}  options.red
+ * @param {String}   options.statePath Absolute receipt path from {@link bindPlane}.
  * @param {Object}   [options.unresolvedRed] Earlier undelivered red carried into this receipt.
  * @returns {Promise<void>}
  */
-async function writeRunReceipt({digest, digestError, logPath, nowIso, outcomes, red, unresolvedRed}) {
-    await fs.writeJson(STATE_PATH, {
+async function writeRunReceipt({digest, digestError, logPath, nowIso, outcomes, red, statePath, unresolvedRed}) {
+    await fs.writeJson(statePath, {
         at     : nowIso,
         red,
         digest,

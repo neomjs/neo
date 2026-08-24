@@ -20,12 +20,19 @@ simply never install it.
 ## Activate (macOS, per-user LaunchAgent)
 
 ```sh
-# 1. Render the template with your absolute repo root.
+# 1. Render the template with your absolute repo root, PATH, and Memory Core credential.
+#    A launchd session inherits NOTHING from your shell: without these the run reaches the MCP
+#    client with no token and no node on PATH, and fails every night while every local test stays
+#    green. The credential is the same NEO_MCP_REMOTE_TOKEN your other remote MCP clients use.
 REPO="$(git rev-parse --show-toplevel)"
 mkdir -p "$REPO/.neo-ai-data/nightly-e2e/logs" ~/Library/LaunchAgents
-sed "s#__NEO_REPO_ROOT__#$REPO#g" \
+# The subshell's umask makes the destination restrictive AT CREATION. A later `chmod 600` would
+# leave a window in which the secret is on disk world-readable — short, but real, and avoidable.
+(umask 077 && sed -e "s#__NEO_REPO_ROOT__#$REPO#g" \
+    -e "s#__NEO_PATH__#$PATH#g" \
+    -e "s#__NEO_MCP_REMOTE_TOKEN__#${NEO_MCP_REMOTE_TOKEN:?export NEO_MCP_REMOTE_TOKEN before rendering}#g" \
   "$REPO/ai/scripts/lifecycle/nightly-e2e/com.neomjs.nightly-e2e.plist" \
-  > ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist
+  > ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist)
 
 # 2. Load it (fires only on schedule — RunAtLoad is false).
 launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.neomjs.nightly-e2e.plist
@@ -44,8 +51,19 @@ cat .neo-ai-data/nightly-e2e/last-run.json          # {at, red, configs:[{config
 ls  .neo-ai-data/nightly-e2e/logs/                  # per-run logs + launchd.{out,err}.log
 ```
 
-On a **red** run the digest arrives in the A2A mailbox from `@system` (subject `[nightly-e2e][RED] …`), naming
-the failing specs. On a **green** run nothing is sent — silence is the signal.
+On a **red** run the digest arrives in the A2A mailbox (subject `[nightly-e2e][RED] …`), naming the failing
+specs. On a **green** run nothing is sent — silence is the signal.
+
+The digest is delivered as an authenticated **MCP client** of the containerized Memory Core, not through
+in-process service imports (#17708). That is not a style choice: this process is host-resident because e2e
+needs GPU hardware, while the graph lives in a container, so an in-process write would land in a host store
+no reader serves — succeeding locally and arriving nowhere. Its sender is therefore the identity
+`NEO_MCP_REMOTE_TOKEN` resolves to, not the literal `@system` it used to pass; use an automation credential
+rather than a maintainer seat, so a red digest is not mistaken for a person who ran it and is looking at it.
+
+Because delivery is now a network call, it can fail loudly — and that is the point. `last-run.json` carries
+`digest: 'failed'` with the error when it does, and `unresolvedRed` keeps an undelivered red visible across
+later green runs so a recovery night cannot erase it.
 
 ## Add a suite
 
