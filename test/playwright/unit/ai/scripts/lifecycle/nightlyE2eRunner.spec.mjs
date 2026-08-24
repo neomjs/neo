@@ -17,6 +17,7 @@ import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
 import os             from 'node:os';
 import path           from 'node:path';
+import {spawnSync}    from 'node:child_process';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -80,8 +81,8 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
     let runNightlyE2e, cwd, tmpDir;
 
     const
-        stateFile  = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
-        readState  = async () => fs.readJson(stateFile()),
+        stateFile = () => path.join(tmpDir, '.neo-ai-data/nightly-e2e/last-run.json'),
+        readState = async () => fs.readJson(stateFile()),
         // One seam replaces the former addMessage/graphReady/lifecycleReady trio: the runner reaches
         // Memory Core as an MCP client, so "could not connect" and "the call was rejected"
         // are distinct failures without separate readiness hooks. The stub carries `callTool` rather
@@ -329,14 +330,120 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
     });
 
-    // A production-shaped arm for a REJECTED (not missing) credential lived here and was removed on
-    // purpose. Its evidence is real and is in the PR body as a reproducible command: against the live
-    // ingress the runner catches the 401, writes `digest: 'failed'` with the server's text, releases
-    // the lock, and exits non-zero. It cannot live in THIS suite, because a playwright worker outlives
-    // the run: the client whose readiness never completed is never returned and never closed, and its
-    // transport rejects again after the run finished. The arm therefore failed on the worker's
-    // lifetime rather than on the runner's behaviour — red for the wrong reason, which is exactly what
-    // an arm must never be. The abandoned-transport leak is real and separately owned.
+    test('#17719 a PRESENT-BUT-REJECTED credential closes its Client transport in a long-lived process', () => {
+        // This arm used to live in-process and was removed because the Playwright worker outlived the
+        // run: Client readiness failed before the instance could be returned, nobody closed the opened
+        // transport, and its late rejection failed the worker AFTER every runner assertion passed.
+        // A child process gives that exact production path its own rejection policy while deliberately
+        // staying alive after the run, so transport ownership and the runner receipt are both observable.
+        const
+            neoUrl    = new URL('../../../../../../src/Neo.mjs', import.meta.url).href,
+            coreUrl   = new URL('../../../../../../src/core/_export.mjs', import.meta.url).href,
+            clientUrl = new URL('../../../../../../ai/mcp/client/Client.mjs', import.meta.url).href,
+            runnerUrl = new URL('../../../../../../ai/scripts/lifecycle/nightlyE2eRunner.mjs', import.meta.url).href,
+            stateDir  = path.join(tmpDir, 'rejected-credential-plane'),
+            probe     = `
+                import http from 'node:http';
+                import fs   from 'node:fs/promises';
+                import path from 'node:path';
+
+                await import(${JSON.stringify(neoUrl)});
+                await import(${JSON.stringify(coreUrl)});
+
+                const
+                    {default: Client}   = await import(${JSON.stringify(clientUrl)}),
+                    {runNightlyE2e}     = await import(${JSON.stringify(runnerUrl)}),
+                    stateDir            = ${JSON.stringify(stateDir)},
+                    unhandled           = [],
+                    rejectingServer     = http.createServer((request, response) => {
+                        request.resume();
+                        response.writeHead(401, {'content-type': 'application/json'});
+                        response.end(JSON.stringify({error: 'invalid_token', error_description: 'credential rejected by intake probe'}));
+                    });
+
+                process.on('unhandledRejection', error => unhandled.push(String(error?.message ?? error)));
+
+                await new Promise(resolve => rejectingServer.listen(0, '127.0.0.1', resolve));
+
+                const endpoint = 'http://127.0.0.1:' + rejectingServer.address().port + '/mcp';
+                let client, closeCalls = 0, caught = null;
+
+                const connect = () => {
+                    client = Neo.create(Client, {
+                        connectionConfig: {
+                            transportType   : 'streamable-http',
+                            url             : endpoint,
+                            transportOptions: {requestInit: {headers: {Authorization: 'Bearer rejected'}}}
+                        },
+                        serverName: 'rejected-credential-probe'
+                    });
+
+                    const originalClose = client.close.bind(client);
+                    client.close = async () => {
+                        closeCalls++;
+                        await originalClose();
+                        throw new Error('instrumented close failure after transport close')
+                    };
+
+                    return client.ready()
+                };
+
+                try {
+                    await runNightlyE2e({
+                        connect,
+                        connectDeadlineMs: 1000,
+                        stateDir,
+                        runOne: entry => ({
+                            config  : entry.config,
+                            failures: [{title: 'probe red', file: 'probe.spec.mjs', error: 'boom'}],
+                            note    : '',
+                            output  : '',
+                            ran     : true
+                        })
+                    })
+                } catch (error) {
+                    caught = String(error?.message ?? error)
+                }
+
+                // The process intentionally outlives the run. Any transport rejection after the
+                // runner removed its scoped sink is now observable instead of being hidden by exit.
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                const
+                    receipt = JSON.parse(await fs.readFile(path.join(stateDir, 'last-run.json'), 'utf8')),
+                    lock    = await fs.stat(path.join(stateDir, 'runner.lock')).then(() => true, () => false),
+                    result  = {
+                        caught,
+                        closeCalls,
+                        connected: client?.connected,
+                        digest   : receipt.digest,
+                        lock,
+                        unhandled
+                    };
+
+                rejectingServer.closeAllConnections?.();
+                await new Promise(resolve => rejectingServer.close(resolve));
+                process.stdout.write(JSON.stringify(result));
+            `,
+            result = spawnSync(process.execPath, ['--input-type=module', '--eval', probe], {
+                cwd     : tmpDir,
+                encoding: 'utf8',
+                timeout : 10000
+            });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stderr).toContain('Error closing transport after initialization failure');
+        expect(result.stderr).toContain('instrumented close failure after transport close');
+
+        const observation = JSON.parse(result.stdout);
+
+        expect(observation.caught).toContain('invalid_token');
+        expect(observation.closeCalls, 'failed init must close the transport without a returned handle').toBe(1);
+        expect(observation.connected).toBe(false);
+        expect(observation.digest).toBe('failed');
+        expect(observation.lock).toBe(false);
+        expect(observation.unhandled).toHaveLength(1)
+    });
 
     test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
         // The production context that no other arm reaches. Every test above injects `connect`, and an

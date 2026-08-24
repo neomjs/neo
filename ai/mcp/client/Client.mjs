@@ -285,13 +285,20 @@ class Client extends Base {
     }
 
     /**
-     * Closes the connection.
+     * @summary Closes the current transport and clears connection truth before awaiting teardown.
+     *
+     * Clearing `connected` first keeps a teardown rejection from leaving a client that still claims
+     * it is usable. Transport ownership remains with this instance even when initialization never
+     * reaches the caller-facing ready state.
      * @returns {Promise<void>}
      */
     async close() {
-        if (this.transport) {
-            await this.transport.close();
-            this.connected = false;
+        const transport = this.transport;
+
+        this.connected = false;
+
+        if (transport) {
+            await transport.close()
         }
     }
 
@@ -303,6 +310,15 @@ class Client extends Base {
         super.destroy();
     }
 
+    /**
+     * @summary Initializes one MCP connection and releases any transport opened by a failed attempt.
+     *
+     * `Neo.core.Base#ready()` remains the one-shot external wait contract and deliberately has no
+     * rejection channel. A connection failure therefore still rethrows into the owner process's
+     * error policy, but it must not strand the SDK transport merely because readiness never returns
+     * the instance to its caller. Cleanup failure is logged without masking the original init error.
+     * @returns {Promise<void>}
+     */
     async initAsync() {
         const me = this;
 
@@ -335,28 +351,38 @@ class Client extends Base {
         });
 
         // 3. Connect the client and create tool proxies
-        me.transport = me.createTransport();
+        try {
+            me.transport = me.createTransport();
 
-        me.client = new McpSdkClient({
-            name   : me.clientName,
-            version: me.clientVersion
-        }, {
-            capabilities: {}
-        });
+            me.client = new McpSdkClient({
+                name   : me.clientName,
+                version: me.clientVersion
+            }, {
+                capabilities: {}
+            });
 
-        await me.client.connect(me.transport);
-        me.connected = true;
+            await me.client.connect(me.transport);
+            me.connected = true;
 
-        // Fetch tools and create dynamic proxies
-        const tools = await me.listTools();
-        me.tools = {};
-        tools.forEach(tool => {
-            const camelCaseName = Neo.snakeToCamel(tool.name);
-            // console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log (Commented out for production)
-            me.tools[camelCaseName] = async (args) => {
-                return me.callTool(tool.name, args);
-            };
-        });
+            // Fetch tools and create dynamic proxies
+            const tools = await me.listTools();
+            me.tools = {};
+            tools.forEach(tool => {
+                const camelCaseName = Neo.snakeToCamel(tool.name);
+                // console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log (Commented out for production)
+                me.tools[camelCaseName] = async (args) => {
+                    return me.callTool(tool.name, args);
+                };
+            })
+        } catch (error) {
+            try {
+                await me.close()
+            } catch (closeError) {
+                console.error('MCP Client: Error closing transport after initialization failure:', closeError)
+            }
+
+            throw error
+        }
     }
 
     /**
