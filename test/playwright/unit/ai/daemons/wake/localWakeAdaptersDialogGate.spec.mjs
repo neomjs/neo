@@ -12,6 +12,10 @@ import path                                  from 'node:path';
  * typed into that prompt. Red-capable pair: pre-fix, the delivery argv executed and the envelope
  * became the dialog's answer; post-fix, the adapter classifies the dialog-pending state as a
  * DEFERRED outcome and the receiver parks-and-reschedules it under a bounded count.
+ *
+ * `adapterConfig.dialogProbe === false` is the documented off-switch: real-harness rigs
+ * use it to prove the pre-gate behavior end-to-end, so an armed-by-default gate must demonstrably
+ * disarm — and an explicit `true` must stay identical to the default.
  */
 
 const DIALOG_PENDING_MESSAGE = 'interactive dialog pending at phase before input';
@@ -101,6 +105,50 @@ test.describe('#17629 — wake vs pending interactive dialog', () => {
 
         expect(result).toBe('delivered');
         expect(pasteReached).toBe(true);
+    });
+
+    test('the dialogProbe escape hatch disarms the gate — the probe never runs and delivery proceeds', async () => {
+        let   pasteReached  = false;
+        let   probeAttempts = 0;
+        const record        = baseRecord('WAKE_SUB:dialog-defer-d');
+
+        record.route.adapterConfig.dialogProbe = false;
+
+        const result = await dispatchLocalWake(record, baseEffects({
+            spawnAsync: async (command, args) => {
+                // Even though this host WOULD report a pending dialog, a disarmed gate must not ask.
+                if (args.some(a => String(a).includes('interactiveDialogProbe'))) {
+                    probeAttempts += 1;
+                    throw new Error(DIALOG_PENDING_MESSAGE);
+                }
+                if (args.some(a => String(a).includes('keystroke "v"'))) pasteReached = true;
+                return '';
+            }
+        }));
+
+        expect(result).toBe('delivered');
+        expect(probeAttempts).toBe(0);
+        expect(pasteReached).toBe(true);
+    });
+
+    test('an explicit dialogProbe true is identical to the armed default', async () => {
+        const record = baseRecord('WAKE_SUB:dialog-defer-e');
+
+        record.route.adapterConfig.dialogProbe = true;
+
+        const result = await dispatchLocalWake(record, baseEffects({
+            spawnAsync: async (command, args) => {
+                if (args.some(a => String(a).includes('interactiveDialogProbe'))) {
+                    throw new Error(DIALOG_PENDING_MESSAGE);
+                }
+                return '';
+            }
+        }));
+
+        expect(result).toEqual({
+            outcome      : 'deferred',
+            outcomeReason: 'interactive-dialog-pending'
+        });
     });
 });
 
