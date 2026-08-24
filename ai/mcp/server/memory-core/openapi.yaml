@@ -2123,7 +2123,7 @@ paths:
                 priority:
                   type: string
                   enum: [low, normal, high]
-                  description: "Delivery priority. Omit to let the server set it from sender class: normal for an agent, high for an operator (turn-start drain ordering). On an AGENT:* broadcast, high is rejected unless you also set wakeSuppressed: false — broadcasts are quiet by default, so high alone would claim urgency nothing wakes for."
+                  description: "Delivery priority. Omit to let the server set it from sender class: normal for an agent, high for an operator (turn-start drain ordering). On an AGENT:* broadcast, high requires you to say what happens to the wake — wakeSuppressed: false to interrupt the fleet, or true for a durable-high broadcast nobody is woken for. High with no wakeSuppressed at all is rejected: broadcasts are presumed quiet, so it would claim urgency nothing wakes for."
                 partOfThread:
                   type: string
                 taggedConcepts:

@@ -3788,14 +3788,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 priority: 'high'
             })).rejects.toThrow(/high.*AGENT:\*.*wakeSuppressed: false|wakeSuppressed: false.*priority: 'normal'/s);
 
-            // Explicit `true` is the same contradiction stated outright, and is rejected too.
-            await expect(MailboxService.addMessage({
+            // Explicit `true` + high is DURABLE-HIGH and is ACCEPTED: file it at the top of the
+            // queue, interrupt nobody. Narrowed in review — the first cut rejected this and would
+            // have made a real producer's alert unsendable (see the composed arm below).
+            const {messageId: durableHigh} = await MailboxService.addMessage({
                 to            : 'AGENT:*',
                 subject       : '[pr-merged][PR #99998] shipped',
                 body          : 'status',
                 priority      : 'high',
                 wakeSuppressed: true
-            })).rejects.toThrow(/wakeSuppressed: false/);
+            });
+
+            expect(GraphService.db.nodes.get(durableHigh).properties.wakeSuppressed).toBe(true);
 
             // The error has to name BOTH knobs, or the author cannot tell which one to move.
             let message = '';
@@ -3827,6 +3831,36 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             });
 
             expect(GraphService.db.nodes.get(directId).properties.wakeSuppressed).toBe(false);
+        });
+    });
+
+    /**
+     * @summary The composed acceptance seam, using a real producer's exact argument shape.
+     *
+     * `KbAlertingService.dispatchA2A` builds `{to, subject, body, priority, wakeSuppressed}` where
+     * `priority` is `severity === 'critical' ? 'high' : 'normal'` and `wakeSuppressed` is
+     * `deliveryMode === 'audit'`. A rule with a `critical` severity, `audit` delivery and an
+     * `a2a:AGENT:*` channel therefore produces high + suppressed + broadcast.
+     *
+     * This arm exists because a capture stub cannot see the defect: the producer's own dispatcher
+     * catches and logs, so a rejection here does not surface as a failed send — the durable alert
+     * is simply LOST. Only the real acceptance seam can prove the message is accepted. RED before
+     * the gate was narrowed to fire on silence rather than on explicit suppression.
+     */
+    test('#17646 a critical AUDIT broadcast in a real producer shape is ACCEPTED, not rejected', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {messageId} = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[kb-alert][critical] retention sweep breached its floor',
+                body          : 'Durable audit alert; nobody is woken for it.',
+                priority      : 'high',                 // severity === 'critical'
+                wakeSuppressed: true                    // deliveryMode === 'audit'
+            });
+
+            const node = GraphService.db.nodes.get(messageId);
+
+            expect(node.properties.wakeSuppressed).toBe(true);
+            expect(node.properties.priority).toBe('high');
         });
     });
 

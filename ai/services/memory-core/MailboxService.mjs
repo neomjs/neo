@@ -2369,10 +2369,16 @@ class MailboxService extends Base {
      * @param {Boolean} [args.wakeSuppressed] Persist the message without emitting `SENT_TO_ME`
      *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
      *   consumed by the next boot, not injected back into the active sender harness. Known-actionable
-     *   direct lifecycle messages reject wake suppression before persistence. Defaults per sender
-     *   principal class: the `'human'` (operator-steering) class defaults to `true` — durable-quiet
-     *   delivery, the sender electing a wake per message by passing `false` — every other class
-     *   defaults to `false` (wake) exactly as before.
+     *   direct lifecycle messages reject wake suppression before persistence. Defaults resolve from
+     *   ADDRESS and sender class: every `AGENT:*` broadcast is quiet — broadcasts are presumed quiet,
+     *   and an all-hands interrupt is the sender's explicit `false`. Direct messages keep the plain
+     *   default and wake, except for the `'human'` (operator-steering) class, which is durable-quiet
+     *   on every target and elects a wake per message by passing `false`.
+     *
+     *   On an `AGENT:*` broadcast, `priority: 'high'` requires the sender to SAY something about the
+     *   wake — `false` (interrupt) or `true` (durable-high, top of the queue, nobody woken). Silence
+     *   plus `'high'` is the incoherent pair and is rejected; the rejection is scoped to the
+     *   agent classes, since operator steering carries `high` as drain-ordering metadata.
      * @param {Object} [args.task] Optional A2A Task envelope payload. Caller fields are cloned, then
      *   the server overwrites `task.assignee`: a direct AgentIdentity recipient is bound immediately;
      *   a broadcast remains `null` until an eligible recipient wins the atomic claim. The top-level
@@ -2405,10 +2411,11 @@ class MailboxService extends Base {
         // election, never the default) and priority-high as turn-start drain-ordering metadata.
         const senderPrincipalClass = resolveSenderPrincipalClass(db, sentBy),
               operatorSteering     = senderPrincipalClass === 'human',
-              // Captured BEFORE the defaults resolve below. The coherence gate has to tell "the
-              // sender elected a wake" apart from "the default left this loud", and after the `??`
-              // those two states are the same value.
-              wakeElectedBySender  = wakeSuppressed === false;
+              // Captured BEFORE the defaults resolve below, and kept as a THREE-state value: the
+              // coherence gate must tell "the sender elected a wake" and "the sender elected
+              // durable-quiet" apart from "the sender said nothing", and after the `??` all three
+              // collapse into one boolean. `null` is the silence the gate fires on.
+              wakeSuppressedBySender = wakeSuppressed === null || wakeSuppressed === undefined ? null : wakeSuppressed;
 
         priority       = priority       ?? (operatorSteering ? 'high' : 'normal');
         // A broadcast cannot be action-required for everyone — if it were, it would be addressed to
@@ -2434,14 +2441,26 @@ class MailboxService extends Base {
         // field may carry a schema default OR a service-side contextual default, never both.
         wakeSuppressed = wakeSuppressed ?? (operatorSteering || to === 'AGENT:*');
 
-        // `priority: 'high'` and a suppressed wake are contradictory instructions, and the pair was
-        // accepted silently: the message reads as urgent in every listing while nothing wakes for
-        // it. Under the quiet default that state stops being an authoring slip and becomes the
-        // common case, so the two knobs must agree on `AGENT:*` — `high` requires the sender to
-        // have elected the wake. Operator steering is exempt by construction: that class is
-        // durable-quiet, and its `high` is turn-start drain-ordering metadata, not urgency.
-        if (to === 'AGENT:*' && priority === 'high' && !wakeElectedBySender && !operatorSteering) {
-            throw new Error("Cannot send a 'high' priority AGENT:* broadcast without an explicit wake election: broadcasts are quiet by default, so 'high' would claim urgency nothing wakes for. Set wakeSuppressed: false to wake the fleet, or use priority: 'normal'.");
+        // The incoherent pair is `priority: 'high'` on a broadcast whose quiet came from the
+        // DEFAULT — an author who set urgency without considering wake semantics, so the message
+        // reads urgent in every listing while nothing wakes for it. Under the quiet default that
+        // stops being a rare slip and becomes the common case, which is what makes it worth
+        // rejecting rather than tolerating.
+        //
+        // Both EXPLICIT wake states are deliberate statements and neither is incoherent:
+        //   - `wakeSuppressed: false` + high — the all-hands interrupt (stall alarms).
+        //   - `wakeSuppressed: true`  + high — durable-high: file it at the top of the queue and
+        //     do NOT interrupt. That is exactly `KbAlertingService`'s `deliveryMode: 'audit'`
+        //     carrying a `critical` severity, and it is the same semantic the operator-steering
+        //     class already relies on, where `high` is drain-ordering metadata rather than urgency.
+        //
+        // So the gate fires only on SILENCE about waking. Rejecting explicit suppression too would
+        // have made a real producer's durable alert unsendable — and its dispatcher catches and
+        // logs, so the alert would have been lost rather than surfaced. Caught in review by
+        // @neo-gpt-emmy; the narrower rule removes the false positive instead of bending the
+        // producer to satisfy an over-broad guard.
+        if (to === 'AGENT:*' && priority === 'high' && wakeSuppressedBySender === null && !operatorSteering) {
+            throw new Error("Cannot send a 'high' priority AGENT:* broadcast without saying what should happen to the wake: broadcasts are quiet by default, so 'high' alone claims urgency nothing wakes for. Set wakeSuppressed: false to interrupt the fleet, wakeSuppressed: true for a durable-high broadcast nobody is woken for, or use priority: 'normal'.");
         }
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-

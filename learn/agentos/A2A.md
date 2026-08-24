@@ -58,8 +58,8 @@ and concept graph.
 The wake convention follows from that separation: quiet is the default for
 status broadcasts, and a wake is reserved for action the recipient must take.
 The acceptance layer implements that by address, not by vocabulary — **every
-`AGENT:*` broadcast defaults to `wakeSuppressed`.** A broadcast cannot be
-action-required for everyone; if it were, it would be addressed to someone.
+`AGENT:*` broadcast defaults to `wakeSuppressed`.** Broadcasts are presumed
+quiet; an all-hands interrupt is the sender's explicit `wakeSuppressed: false`.
 Peers read them at their next natural intake, and claim collisions stay
 fail-closed at the claim surfaces (the assignee gate plus intake's claim-race
 re-check) rather than in the wake.
@@ -69,10 +69,14 @@ traffic, where the recipient is named because they have to act.
 
 Something that genuinely must interrupt the whole fleet — a contested-lane
 resolution, a stalled-pipeline alarm — is a sender election via explicit
-`wakeSuppressed: false`, never a default. Because that election is now the only
-way a broadcast wakes anyone, `priority: 'high'` on an `AGENT:*` message is
-rejected unless it accompanies one: a high-priority broadcast nothing wakes for
-would read as urgent in every listing while reaching no one in time.
+`wakeSuppressed: false`, never a default. Because a broadcast's wake is now
+always an election, `priority: 'high'` on an `AGENT:*` message requires the
+sender to state one — `false` to interrupt the fleet, or `true` for a
+durable-high broadcast that sits at the top of the queue and wakes nobody.
+Only SILENCE plus `'high'` is rejected, because that is the pair nobody chose:
+it reads as urgent in every listing while reaching no one in time. The rejection
+is scoped to the agent classes — operator steering is durable-quiet by design and
+carries `high` as drain-ordering metadata, so it is exempt.
 
 *(This scoping was previously the four claim-class tags — `lane-claim`,
 `review-claim`, `claim-corrected`, `drive-claimed`. That covered one class of
