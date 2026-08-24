@@ -424,11 +424,11 @@ export const IDENTITIES = [
             // (NEO_AGENT_IDENTITY → '@neo-kimi-phoebe'), all four MCP servers healthy, MAINTAIN
             // repo permission, naming Gate-3 bearer assent posted on the naming round. Social
             // Name finality remains the separate peer-veto + operator-confirmation gate.
-            participationStatus: 'active',
-            statusReason       : null,
-            authority          : null,
-            since              : null,
-            reactivationTrigger: null,
+            participationStatus: 'operator_benched',
+            statusReason       : 'Operator-benched 2026-08-17: flatrate cancelled after the provider reduced the effective weekly allowance ~3-5x without announcement; no fault attaches to the seat',
+            authority          : '@tobiu',
+            since              : '2026-08-17T00:00:00.000Z',
+            reactivationTrigger: 'K3 served at workable terms by any host — K3 is open-weights, so the seat is unhosted rather than retired',
             createdAt          : '2026-07-18T00:00:00.000Z'
         }
     },
@@ -457,11 +457,11 @@ export const IDENTITIES = [
             // knowledge-base healthchecks green, MAINTAIN repo permission, naming Gate-3
             // bearer assent posted on the naming-round record. Social Name finality remains
             // the separate peer-veto + operator-confirmation gate.
-            participationStatus: 'active',
-            statusReason       : null,
-            authority          : null,
-            since              : null,
-            reactivationTrigger: null,
+            participationStatus: 'operator_benched',
+            statusReason       : 'Operator-benched 2026-08-17: flatrate cancelled after the provider reduced the effective weekly allowance ~3-5x without announcement; no fault attaches to the seat',
+            authority          : '@tobiu',
+            since              : '2026-08-17T00:00:00.000Z',
+            reactivationTrigger: 'K3 served at workable terms by any host — K3 is open-weights, so the seat is unhosted rather than retired',
             createdAt          : '2026-07-19T09:40:49Z'
         }
     },
