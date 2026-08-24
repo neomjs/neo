@@ -222,32 +222,71 @@ function getBelievedOpenValidationMessage(believedOpen) {
 }
 
 /**
+ * @summary Selects GraphQL errors owned by one direct believed-open alias.
+ *
+ * GitHub error messages are human prose and cannot own a classifier. The typed error is usable only
+ * when its path is exactly `['repository', alias]`; an extra-depth, reordered, malformed, or unrelated
+ * path describes a different observation and must not be borrowed.
+ *
+ * @param {Object[]|undefined} errors Partial GraphQL response errors.
+ * @param {String} alias Deterministic repository-level lookup alias.
+ * @returns {Object[]} Exact alias-scoped errors.
+ */
+function getBelievedOpenAliasErrors(errors, alias) {
+    if (!Array.isArray(errors)) return [];
+
+    return errors.filter(error =>
+        Array.isArray(error?.path) &&
+        error.path.length === 2 &&
+        error.path[0] === 'repository' &&
+        error.path[1] === alias
+    )
+}
+
+/**
  * @summary Classifies every submitted PR coordinate from its direct aliased GitHub row.
  * @param {Object} repository Repository result containing the direct alias fields.
  * @param {Array<{alias: String, number: Number}>} lookups Ordered alias-to-number lookup plan.
+ * @param {Object[]} [errors=[]] Typed partial-response errors returned beside repository data.
  * @returns {{stillOpen: Number[], falsified: Object[], unverifiable: Object[]}}
  */
-function projectBelievedOpen(repository, lookups) {
+function projectBelievedOpen(repository, lookups, errors=[]) {
     const stillOpen    = [];
     const falsified    = [];
     const unverifiable = [];
 
     lookups.forEach(({alias, number}) => {
-        const pullRequest = repository[alias];
+        const pullRequest    = repository[alias],
+              aliasErrors    = getBelievedOpenAliasErrors(errors, alias),
+              aliasPresent   = Object.hasOwn(repository, alias),
+              rowIsNull      = aliasPresent && pullRequest === null,
+              rowPresent     = aliasPresent && pullRequest !== null && pullRequest !== undefined,
+              exactNumberRow = rowPresent &&
+                  typeof pullRequest === 'object' &&
+                  !Array.isArray(pullRequest) &&
+                  pullRequest.number === number;
 
-        if (pullRequest?.state === 'OPEN') {
+        if (aliasErrors.length > 0) {
+            const reason = rowIsNull && aliasErrors.length === 1 && aliasErrors[0]?.type === 'NOT_FOUND'
+                ? 'not-found'
+                : 'lookup-error';
+
+            unverifiable.push({number, reason});
+            return
+        }
+
+        if (!exactNumberRow) {
+            unverifiable.push({number, reason: 'unresolved'});
+        } else if (pullRequest.state === 'OPEN') {
             stillOpen.push(number);
-        } else if (['CLOSED', 'MERGED'].includes(pullRequest?.state)) {
+        } else if (['CLOSED', 'MERGED'].includes(pullRequest.state)) {
             falsified.push({
                 number,
                 state   : pullRequest.state,
                 mergedAt: pullRequest.mergedAt ?? null
             })
         } else {
-            unverifiable.push({
-                number,
-                reason: 'not-found-or-inaccessible'
-            })
+            unverifiable.push({number, reason: 'unrecognized-state'})
         }
     });
 
@@ -3817,9 +3856,11 @@ class PullRequestService extends Base {
             const response = beliefPlan
                 ? await GraphqlService.query(beliefPlan.query, variables, {strict: false})
                 : await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
-            const data = beliefPlan && response && Object.hasOwn(response, 'data')
+            const partialEnvelope = beliefPlan && response && Object.hasOwn(response, 'data'),
+                  data            = partialEnvelope
                 ? response.data
-                : response;
+                : response,
+                  errors = partialEnvelope ? response.errors : [];
             const pullRequests = data.repository.pullRequests.nodes.map(normalizePullRequestListItem);
 
             const result = {
@@ -3829,7 +3870,7 @@ class PullRequestService extends Base {
 
             if (beliefPlan) {
                 result.checkedAt = new Date().toISOString();
-                result.belief    = projectBelievedOpen(data.repository, beliefPlan.lookups);
+                result.belief    = projectBelievedOpen(data.repository, beliefPlan.lookups, errors);
             }
 
             return result;
@@ -4300,7 +4341,7 @@ class PullRequestService extends Base {
 
             if (markerChanges.length > 0 || currentTerminal !== incomingTerminal || auditFieldChanges.length > 0) {
                 return {
-                    error                        : 'PR Review Budget Audit Validation Failed',
+                    error  : 'PR Review Budget Audit Validation Failed',
                     message: buildReviewBudgetAuditRefusal({
                         currentAudit,
                         incomingAudit,
