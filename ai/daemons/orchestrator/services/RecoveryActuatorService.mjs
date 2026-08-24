@@ -462,6 +462,7 @@ export class RecoveryActuatorService extends Base {
                                 action,
                                 targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
                                 effectDisposition: 'uncertain',
+                                restartDispatch  : {requestedAt},
                                 restartReobserve
                             }
                         });
@@ -598,6 +599,9 @@ export class RecoveryActuatorService extends Base {
                     ...(error?.restartObservationBaseline
                         ? {
                             restartObservationBaseline: error.restartObservationBaseline,
+                            restartDispatch           : {
+                                requestedAt: restartDispatchMarker?.reobserveRequest?.requestedAt ?? null
+                            },
                             restartReobserve          : {
                                 schemaVersion        : 1,
                                 diagnosisEvent       : diagnosis,
@@ -664,6 +668,13 @@ export class RecoveryActuatorService extends Base {
                 action,
                 targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
                 ...(heldAfterEffect ? {} : {authorityLostAfterEffect: true}),
+                ...(restartDispatchMarker
+                    ? {
+                        restartDispatch: {
+                            requestedAt: restartDispatchMarker.reobserveRequest.requestedAt
+                        }
+                    }
+                    : {}),
                 runtimeAccess    : result.runtimeAccess || null,
                 supervisor       : result.supervisor || null,
                 recorded         : result.recorded || null,
@@ -1329,9 +1340,20 @@ export class RecoveryActuatorService extends Base {
      * @returns {Promise<Object>} Reconciliation outcome.
      */
     async reconcileUncertainRestart({pending, serviceKey, action, target, now, isAuthorityHeld = null}) {
-        const context     = pending.details?.restartReobserve || {},
-              request     = pending.reobserveRequest,
-              baseOutcome = {
+        const context              = pending.details?.restartReobserve || {},
+              request              = pending.reobserveRequest,
+              persistedRequestedAt = pending.details?.restartDispatch?.requestedAt,
+              legacyMarkerRequestedAt =
+                  Number.isFinite(context.restartTimeoutSeconds) &&
+                  Number.isFinite(context.clientTimeoutMs)
+                      ? request?.requestedAt
+                      : null,
+              restartDispatch        = {
+                  requestedAt: Number.isFinite(persistedRequestedAt)
+                      ? persistedRequestedAt
+                      : Number.isFinite(legacyMarkerRequestedAt) ? legacyMarkerRequestedAt : null
+              },
+              baseOutcome            = {
                   status           : 'deferred',
                   serviceKey,
                   action,
@@ -1412,6 +1434,7 @@ export class RecoveryActuatorService extends Base {
                 action,
                 targetIdentity   : baseOutcome.targetIdentity,
                 effectDisposition: 'uncertain',
+                restartDispatch,
                 reobservation
             };
             taskStatus = 'skipped'
@@ -1442,6 +1465,7 @@ export class RecoveryActuatorService extends Base {
                 action,
                 targetIdentity   : baseOutcome.targetIdentity,
                 effectDisposition: 'applied',
+                restartDispatch,
                 reobservation
             };
             taskStatus = 'completed'

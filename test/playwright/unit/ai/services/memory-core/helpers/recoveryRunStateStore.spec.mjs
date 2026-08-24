@@ -29,6 +29,7 @@ import {
     pruneRecoveryRunStates,
     readActiveRecoveryRunStates,
     readRecentRecoveryRunStates,
+    readRecentRecoveryRunStatesWithCompleteness,
     RECOVERY_RUN_GRAPH_NODE_TYPES,
     selectRecoveryRunGraphRecords
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
@@ -518,5 +519,63 @@ test.describe('RecoveryRunStateStore', () => {
         const recent = await readRecentRecoveryRunStates({dir: tmpDir, limit: 2});
 
         expect(recent.map(entry => entry.recoveryRunId)).toEqual(['recovery-good']);
+    });
+
+    test('#16984: completeness-aware reads distinguish a genuinely empty store from retained damage', async () => {
+        const empty = await readRecentRecoveryRunStatesWithCompleteness({dir: tmpDir, limit: 5});
+
+        expect(empty).toEqual({
+            entries      : [],
+            activeEntries: [],
+            completeness : {
+                artifactCount          : 0,
+                incompleteArtifactCount: 0,
+                reasonCodes            : [],
+                status                 : 'complete'
+            }
+        });
+
+        const valid = runEntry('recovery-torn-for-completeness', 3000);
+
+        await writeFile(path.join(tmpDir, 'empty.jsonl'), '', 'utf8');
+        await writeFile(path.join(tmpDir, 'corrupt.jsonl'), '{"broken"\n', 'utf8');
+        await writeFile(
+            path.join(tmpDir, getRecoveryRunStateFileName(valid.recoveryRunId)),
+            `${JSON.stringify(valid)}\n{"torn"`,
+            'utf8'
+        );
+
+        const damaged = await readRecentRecoveryRunStatesWithCompleteness({dir: tmpDir, limit: 5});
+
+        expect(damaged.entries).toMatchObject([{recoveryRunId: valid.recoveryRunId}]);
+        expect(damaged.activeEntries).toEqual([]);
+        expect(damaged.completeness).toEqual({
+            artifactCount          : 3,
+            incompleteArtifactCount: 3,
+            reasonCodes            : ['artifact-empty', 'artifact-partial', 'artifact-undecodable'],
+            status                 : 'incomplete'
+        });
+    });
+
+    test('#16984: completeness reads retain active interlocks outside the ordinary recency cap', async () => {
+        const active = runEntry('recovery-active-oldest', 1000, {
+            details: {
+                effectDisposition: 'uncertain',
+                retentionClass   : ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+            }
+        });
+        const newer = [runEntry('recovery-newer-1', 2000), runEntry('recovery-newer-2', 3000)];
+
+        await Promise.all([active, ...newer].map(entry => writeFile(
+            path.join(tmpDir, getRecoveryRunStateFileName(entry.recoveryRunId)),
+            `${JSON.stringify(entry)}\n`,
+            'utf8'
+        )));
+
+        const result = await readRecentRecoveryRunStatesWithCompleteness({dir: tmpDir, limit: 1});
+
+        expect(result.entries.map(entry => entry.recoveryRunId)).toEqual(['recovery-newer-2']);
+        expect(result.activeEntries.map(entry => entry.recoveryRunId)).toEqual(['recovery-active-oldest']);
+        expect(result.completeness.status).toBe('complete');
     });
 });

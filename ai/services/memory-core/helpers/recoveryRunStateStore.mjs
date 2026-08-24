@@ -623,6 +623,87 @@ export async function readRecentRecoveryRunStates({dir, limit} = {}) {
 }
 
 /**
+ * @summary Reads recent recovery-run states together with retained-artifact completeness.
+ *
+ * The ordinary reader above is deliberately tolerant: a torn/corrupt diagnostic artifact cannot
+ * erase every other readable run. Consumers that publish an authoritative COUNT need a different
+ * answer, because skipping one retained artifact can skip the exact lifecycle proof being counted.
+ * This projection therefore scans every retained JSONL artifact, returns the same newest-entry
+ * population, and separately states whether every artifact was fully decodable and schema-valid.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Directory for per-run state files.
+ * @param {Number} options.limit Maximum entries to return.
+ * @returns {Promise<Object>} `{entries, activeEntries, completeness}`; incomplete reads retain
+ * readable entries for diagnostics but MUST NOT certify an authoritative count. `activeEntries`
+ * is retention-exempt and therefore never limited by the ordinary recency cap.
+ */
+export async function readRecentRecoveryRunStatesWithCompleteness({dir, limit} = {}) {
+    const result = (entries, {
+        activeEntries           = [],
+        artifactCount           = 0,
+        incompleteArtifactCount = 0,
+        reasonCodes             = []
+    } = {}) => ({
+        entries,
+        activeEntries,
+        completeness: {
+            artifactCount,
+            incompleteArtifactCount,
+            reasonCodes: [...new Set(reasonCodes)].sort(),
+            status     : incompleteArtifactCount > 0 ? 'incomplete' : 'complete'
+        }
+    });
+
+    if (!dir || !Number.isFinite(limit) || limit <= 0) {
+        return result([], {
+            incompleteArtifactCount: 1,
+            reasonCodes            : ['read-request-invalid']
+        });
+    }
+
+    let names;
+    try {
+        names = await fs.readdir(dir);
+    } catch (error) {
+        if (error?.code === 'ENOENT') return result([]);
+        throw error;
+    }
+
+    const files = await Promise.all(names
+        .filter(name => name.endsWith('.jsonl'))
+        .map(async name => {
+            const filePath = path.join(dir, name),
+                  stat     = await fs.stat(filePath);
+
+            return {filePath, mtimeMs: stat.mtimeMs};
+        }));
+
+    const artifacts = [];
+
+    for (const file of files.sort((a, b) => b.mtimeMs - a.mtimeMs)) {
+        artifacts.push(await readRecoveryRunArtifactWithCompleteness(file.filePath));
+    }
+
+    const allEntries = artifacts
+        .map(artifact => artifact.entry)
+        .filter(Boolean)
+        .sort((a, b) => getEntrySortTime(b) - getEntrySortTime(a)),
+        entries = allEntries.slice(0, limit),
+        activeEntries = allEntries.filter(entry =>
+            entry?.details?.retentionClass === ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+        ),
+        reasonCodes = artifacts.filter(artifact => artifact.reason).map(artifact => artifact.reason);
+
+    return result(entries, {
+        activeEntries,
+        artifactCount          : artifacts.length,
+        incompleteArtifactCount: reasonCodes.length,
+        reasonCodes
+    });
+}
+
+/**
  * @summary Reads every active recovery-run interlock independently of the ordinary recency window.
  *
  * Active effect interlocks are retention-exempt until a terminal row supersedes them in the same
@@ -691,6 +772,49 @@ async function readLatestValidRecoveryRunState(filePath) {
     }
 
     return null;
+}
+
+/**
+ * @summary Reads one complete JSONL artifact without hiding invalid rows behind a valid fallback.
+ * @param {String} filePath Recovery-run JSONL path.
+ * @returns {Promise<{entry: Object|null, reason: String|null}>} Latest valid entry plus completeness reason.
+ * @private
+ */
+async function readRecoveryRunArtifactWithCompleteness(filePath) {
+    let text;
+    try {
+        text = await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+        if (error?.code === 'ENOENT') return {entry: null, reason: 'artifact-missing'};
+        throw error;
+    }
+
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+
+    if (!lines.length) {
+        return {entry: null, reason: 'artifact-empty'};
+    }
+
+    let entry            = null,
+        invalidLineCount = 0;
+
+    for (const line of lines) {
+        try {
+            const candidate = JSON.parse(line);
+
+            validateRecoveryRunStateEntry(candidate, 'readRecentRecoveryRunStatesWithCompleteness');
+            entry = candidate;
+        } catch {
+            invalidLineCount++;
+        }
+    }
+
+    return {
+        entry,
+        reason: invalidLineCount > 0
+            ? entry ? 'artifact-partial' : 'artifact-undecodable'
+            : null
+    };
 }
 
 function getEntrySortTime(entry) {

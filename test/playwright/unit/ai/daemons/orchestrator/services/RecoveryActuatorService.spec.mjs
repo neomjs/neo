@@ -12,10 +12,13 @@ import {
     isRecoveryActuatorTargetBlocked,
     normalizeRecoveryActuatorTargets
 } from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
+import {DeploymentStateBridgeService}   from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
+import {DeploymentRuntimeAccessService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
 import {
     createRecoveryDiagnosisEvent,
     createRecoveryRunStateEntry,
-    createRecoveryTargetIdentity
+    createRecoveryTargetIdentity,
+    readRecentRecoveryRunStatesWithCompleteness
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {RECOVERY_OVERRIDE_FILENAME} from '../../../../../../../ai/services/memory-core/helpers/recoveryOverrideStore.mjs';
 import {readHealLedger}             from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
@@ -590,8 +593,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                       }
                   }
               },
-              firstService = createService({deploymentRuntimeAccessService: runtime}).service,
-              first        = await firstService.apply('mc-server', 'restart', {
+              {service: firstService, actuatorConfig} = createService({deploymentRuntimeAccessService: runtime}),
+              first = await firstService.apply('mc-server', 'restart', {
                   now            : 15_000,
                   isAuthorityHeld: () => held
               });
@@ -609,6 +612,17 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               settled   = await successor.apply('mc-server', 'restart', {
                   now            : first.reobserveRequest.earliestObservationAt,
                   isAuthorityHeld: () => held
+              }),
+              reader = ({limit}) => readRecentRecoveryRunStatesWithCompleteness({
+                  dir: actuatorConfig.recoveryRunStateDir,
+                  limit
+              }),
+              planned = await DeploymentStateBridgeService.prototype.collectPlannedRestarts.call({
+                  recoveryRunStateReader: reader
+              }, {
+                  serviceKey: 'mc-server',
+                  baseline  : {observedAt: first.restartDispatch.requestedAt - 1},
+                  observedAt: Date.now() + 1000
               });
 
         expect(settled).toMatchObject({
@@ -617,6 +631,8 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             effectDisposition: 'applied',
             recoveryRunId    : first.recoveryRunId
         });
+        expect(settled.restartDispatch).toEqual(first.restartDispatch);
+        expect(planned).toEqual({count: 1, reason: null, status: 'available'});
         expect(lifecycleCalls, 'the successor inspected the inherited uncertainty instead of POSTing').toHaveLength(1);
         expect(readCalls).toEqual([{serviceKey: 'mc-server', operation: 'inspect'}]);
     });
@@ -1568,6 +1584,159 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             expect(runtimeCalls).toHaveLength(1);
             expect(runtimeCalls[0]).toMatchObject({serviceKey: 'mc-server', operation: 'restart'});
             expect(typeof runtimeCalls[0].isAuthorityHeld).toBe('function');
+        });
+
+        test('#16984: actual restart and reconfigure survive actuator → store → planned-restart reader', async () => {
+            const gibibyte      = 1024 ** 3,
+                  dockerCalls   = [],
+                  runtimeAccess = Neo.create(DeploymentRuntimeAccessService, {
+                      runtimeAccessConfig: {
+                          ...DEFAULT_RUNTIME_ACCESS_CONFIG,
+                          enabled                     : true,
+                          mechanism                   : 'docker-socket',
+                          socketPath                  : '/var/run/docker.sock',
+                          composeProject              : 'neo',
+                          readOperations              : ['inspect'],
+                          lifecycleOperations         : ['restart', 'update-memory-limit'],
+                          timeoutMs                   : 5000,
+                          responseMaxBytes            : 1024,
+                          defaultRestartTimeoutSeconds: 0,
+                          auditMode                   : 'metadata'
+                      },
+                      dockerRequestFn: async ({method, path: requestPath}) => {
+                          dockerCalls.push({method, path: requestPath});
+
+                          if (method === 'GET' && requestPath.startsWith('/containers/json?')) {
+                              const query        = new URL(requestPath, 'http://docker.local'),
+                                    filters      = JSON.parse(query.searchParams.get('filters')),
+                                    serviceLabel = filters.label.find(label =>
+                                        label.startsWith('com.docker.compose.service=')
+                                    ),
+                                    serviceKey   = serviceLabel.slice('com.docker.compose.service='.length);
+
+                              if (serviceKey === 'local-model') {
+                                  throw new Error('Pre-dispatch target lookup refusal');
+                              }
+
+                              return {
+                                  statusCode: 200,
+                                  headers   : {},
+                                  body      : JSON.stringify([{
+                                      Id    : `container-${serviceKey}`,
+                                      Names : [`/neo-${serviceKey}-1`],
+                                      Image : 'neo:test',
+                                      State : 'running',
+                                      Status: 'Up',
+                                      Labels: {
+                                          'com.docker.compose.project': 'neo',
+                                          'com.docker.compose.service': serviceKey
+                                      }
+                                  }])
+                              };
+                          }
+
+                          if (method === 'GET' && requestPath.endsWith('/json')) {
+                              const containerId = decodeURIComponent(requestPath.split('/')[2]);
+
+                              return {
+                                  statusCode: 200,
+                                  headers   : {},
+                                  body      : JSON.stringify({
+                                      Id        : containerId,
+                                      HostConfig: {Memory: 2 * gibibyte},
+                                      State     : {StartedAt: '2026-08-24T00:00:00.000Z'}
+                                  })
+                              };
+                          }
+
+                          if (method === 'POST') {
+                              return {statusCode: 204, headers: {}, body: ''};
+                          }
+
+                          throw new Error(`Unexpected Docker request ${method} ${requestPath}`);
+                      },
+                      nowFn   : () => Date.now(),
+                      writeLog: () => {}
+                  }),
+                  {service, actuatorConfig} = createService({
+                      serviceConfig: {deploymentRuntimeAccessService: runtimeAccess}
+                  }),
+                  restart = await service.apply('mc-server', 'restart', {
+                      isAuthorityHeld: () => true,
+                      now            : 100_000
+                  }),
+                  reconfigure = await service.apply('mc-server', 'reconfigure', {
+                      isAuthorityHeld: () => true,
+                      knob           : KNOB,
+                      knobValues     : VALUES,
+                      now            : 100_001
+                  }),
+                  otherService = await service.apply('kb-server', 'restart', {
+                      isAuthorityHeld: () => true,
+                      now            : 100_002
+                  }),
+                  ceiling = await service.apply('chroma', 'raise-ceiling', {
+                      isAuthorityHeld: () => true,
+                      knob           : 'container-memory-ceiling',
+                      knobValues     : {'deploy.chroma.memoryCeilingBytes': 8 * gibibyte},
+                      now            : 100_003,
+                      targetIdentity : {kind: 'compose-service', id: 'chroma'}
+                  }),
+                  notApplied = await service.apply('local-model', 'restart', {
+                      isAuthorityHeld: () => true,
+                      now            : 100_004
+                  }),
+                  declined = await service.apply('mc-server', 'restart', {
+                      isAuthorityHeld: () => false,
+                      now            : 100_005
+                  }),
+                  rejected = await service.apply('mc-server', 'exec', {now: 100_006}),
+                  reader = ({limit}) => readRecentRecoveryRunStatesWithCompleteness({
+                      dir: actuatorConfig.recoveryRunStateDir,
+                      limit
+                  }),
+                  stored = await reader({limit: actuatorConfig.recoveryRunRetentionLimit}),
+                  planned = await DeploymentStateBridgeService.prototype.collectPlannedRestarts.call({
+                      recoveryRunStateReader: reader
+                  }, {
+                      serviceKey: 'mc-server',
+                      baseline  : {observedAt: 1},
+                      observedAt: Date.now() + 1000
+                  });
+
+            expect(restart.status).toBe('actioned');
+            expect(reconfigure.status).toBe('actioned');
+            expect(otherService.status).toBe('actioned');
+            expect(ceiling, JSON.stringify({ceiling, dockerCalls})).toMatchObject({
+                status: 'actioned',
+                action: 'raise-ceiling'
+            });
+            expect(notApplied).toMatchObject({status: 'failed', effectDisposition: 'not-applied'});
+            expect(declined).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+            expect(rejected).toMatchObject({status: 'rejected', reasonCode: 'unsupported-action'});
+            expect(stored.entries).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    targetIdentity: {kind: 'compose-service', id: 'chroma'},
+                    details       : expect.objectContaining({
+                        runtimeAccess: expect.objectContaining({
+                            operation       : 'update-memory-limit',
+                            recordType      : 'deployment-runtime-access',
+                            runtimeMechanism: 'docker-socket'
+                        })
+                    })
+                }),
+                expect.objectContaining({
+                    targetIdentity: {kind: 'compose-service', id: 'local-model'},
+                    details       : expect.objectContaining({effectDisposition: 'not-applied'})
+                })
+            ]));
+            expect(dockerCalls.filter(call =>
+                call.method === 'POST' && call.path.includes('/restart?')
+            )).toHaveLength(3);
+            expect(dockerCalls.filter(call =>
+                call.method === 'POST' && call.path.endsWith('/update')
+            )).toHaveLength(1);
+            expect(planned).toEqual({count: 2, reason: null, status: 'available'});
         });
 
         test('the full reconfigure action refuses takeover after its scratch write and before overlay publication', async () => {
