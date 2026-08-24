@@ -11,6 +11,7 @@ import {
     collectPackageDependencies,
     composeDependencyManifests,
     deriveRuntimeProbeTargets,
+    deriveWorkflowFilePopulation,
     discoverSubprocessLaunches,
     discoverWorkflowReferences,
     formatInventory,
@@ -21,13 +22,15 @@ import {
     reconcileConsumerEdges,
     reconcileConsumerSourceClasses,
     reconcileRuntimeProbeEligibility,
+    reconcileWorkflowFileDispositions,
     resolveTrackedConfigSpecifier,
     rowKey,
     CONSUMER_EDGE_DIRECTION,
     CONSUMER_EDGE_DISPOSITIONS,
     RUNTIME_PROBE_ELIGIBILITY,
     sourceBindingError,
-    SURFACE
+    SURFACE,
+    WORKFLOW_FILE_DISPOSITION
 }                       from '../../../../../../ai/scripts/diagnostics/agentOsExtractionInventory.mjs';
 import {resolveRelative}    from '../../../../../../ai/scripts/lint/scriptPlaneClosure.mjs';
 import {censusPlaneOpeners} from '../../../../../../ai/scripts/diagnostics/planePlacementCensus.mjs';
@@ -66,6 +69,148 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             '.github/workflows/fixture.yml:3',
             '.github/workflows/fixture.yml:4'
         ])
+    });
+
+    test('workflow-file authority is one action per file, independent of occurrence plane custody', () => {
+        const
+            workflowA = '.github/workflows/a.yml',
+            workflowB = '.github/workflows/b.yml',
+            rows      = [{
+                surface    : SURFACE.workflowReference,
+                identity   : `${workflowA}::ai/scripts/a.mjs::1`,
+                disposition: 'edge',
+                evidence   : {workflowFile: workflowA, target: 'ai/scripts/a.mjs'}
+            }, {
+                surface    : SURFACE.workflowReference,
+                identity   : `${workflowA}::ai/scripts/b.mjs::1`,
+                disposition: 'cloud',
+                evidence   : {workflowFile: workflowA, target: 'ai/scripts/b.mjs'}
+            }, {
+                surface    : SURFACE.workflowReference,
+                identity   : `${workflowB}::ai/scripts/c.mjs::1`,
+                disposition: 'edge',
+                evidence   : {workflowFile: workflowB, target: 'ai/scripts/c.mjs'}
+            }],
+            population = deriveWorkflowFilePopulation(rows),
+            result     = reconcileWorkflowFileDispositions(rows, {
+                workflowFileDispositions: [{
+                    identity    : workflowA,
+                    disposition : WORKFLOW_FILE_DISPOSITION.pinFetch,
+                    pinAuthority: 'fixture immutable compatibility receipt',
+                    source      : 'fixture authority',
+                    rationale   : 'mixed target custody does not choose the file action'
+                }, {
+                    identity        : workflowB,
+                    disposition     : WORKFLOW_FILE_DISPOSITION.move,
+                    targetRepository: 'neomjs/neo-agent-brain',
+                    source          : 'fixture authority',
+                    rationale       : 'the workflow follows its AgentOS-owned subject'
+                }]
+            });
+
+        expect(population.errors).toEqual([]);
+        expect(population.rows).toHaveLength(2);
+        expect(result.ok).toBe(true);
+        expect(result.total).toBe(2);
+        expect(result.occurrenceTotal).toBe(3);
+        expect(result.byDisposition).toEqual({move: 1, 'pin-fetch': 1, retire: 0});
+        expect(result.rows[0]).toEqual(expect.objectContaining({
+            identity   : workflowA,
+            disposition: WORKFLOW_FILE_DISPOSITION.pinFetch,
+            evidence   : expect.objectContaining({
+                occurrenceCount       : 2,
+                occurrenceDispositions: ['cloud', 'edge']
+            })
+        }))
+    });
+
+    test('RED: workflow-file authority never infers, copies, duplicates, or outlives source', () => {
+        const
+            workflow = '.github/workflows/a.yml',
+            rows     = [{
+                surface    : SURFACE.workflowReference,
+                identity   : `${workflow}::ai/scripts/a.mjs::1`,
+                disposition: 'edge',
+                evidence   : {workflowFile: workflow, target: 'ai/scripts/a.mjs'}
+            }, {
+                surface    : SURFACE.workflowReference,
+                identity   : `${workflow}::ai/scripts/b.mjs::1`,
+                disposition: 'cloud',
+                evidence   : {workflowFile: workflow, target: 'ai/scripts/b.mjs'}
+            }],
+            missing = reconcileWorkflowFileDispositions(rows, {workflowFileDispositions: []}),
+            hostile = reconcileWorkflowFileDispositions(rows, {
+                workflowFileDispositions: [{
+                    identity   : workflow,
+                    disposition: 'copy',
+                    source     : 'fixture authority',
+                    rationale  : 'copy must never become a fourth action'
+                }, {
+                    identity        : workflow,
+                    disposition     : WORKFLOW_FILE_DISPOSITION.move,
+                    targetRepository: 'neomjs/neo-agent-brain',
+                    source          : 'duplicate fixture',
+                    rationale       : 'duplicate authority must stay visible'
+                }, {
+                    identity        : '.github/workflows/stale.yml',
+                    disposition     : WORKFLOW_FILE_DISPOSITION.move,
+                    targetRepository: 'neomjs/neo-agent-brain',
+                    pinAuthority    : 'metadata from the wrong action',
+                    source          : 'stale fixture',
+                    rationale       : 'authority without source must stay red'
+                }]
+            });
+
+        expect(missing.ok).toBe(false);
+        expect(missing.errors).toContainEqual({
+            kind: 'missing-workflow-file-authority', key: workflow
+        });
+        expect(hostile.ok).toBe(false);
+        expect(hostile.errors.map(error => error.kind)).toEqual(expect.arrayContaining([
+            'duplicate-workflow-file-authority',
+            'invalid-workflow-file-disposition',
+            'stale-workflow-file-authority',
+            'unexpected-workflow-file-metadata'
+        ]))
+    });
+
+    test('RED: every workflow-file action requires its own terminal authority metadata', () => {
+        const
+            files = ['move.yml', 'pin.yml', 'retire.yml'].map(name => `.github/workflows/${name}`),
+            rows  = files.map((workflowFile, index) => ({
+                surface    : SURFACE.workflowReference,
+                identity   : `${workflowFile}::ai/scripts/${index}.mjs::1`,
+                disposition: 'edge',
+                evidence   : {workflowFile, target: `ai/scripts/${index}.mjs`}
+            })),
+            result = reconcileWorkflowFileDispositions(rows, {
+                workflowFileDispositions: [{
+                    identity        : files[0],
+                    disposition     : WORKFLOW_FILE_DISPOSITION.move,
+                    targetRepository: 'neomjs/wrong-target',
+                    source          : 'fixture authority',
+                    rationale       : 'a move must name the canonical target repository'
+                }, {
+                    identity        : files[1],
+                    disposition     : WORKFLOW_FILE_DISPOSITION.pinFetch,
+                    targetRepository: 'neomjs/neo-agent-brain',
+                    source          : 'fixture authority',
+                    rationale       : 'a pin fetch must name its immutable ref authority'
+                }, {
+                    identity   : files[2],
+                    disposition: WORKFLOW_FILE_DISPOSITION.retire,
+                    source     : 'fixture authority',
+                    rationale  : 'a retirement must name its terminal evidence'
+                }]
+            });
+
+        expect(result.ok).toBe(false);
+        expect(result.errors.map(error => error.kind)).toEqual(expect.arrayContaining([
+            'invalid-workflow-move-target',
+            'missing-workflow-pin-authority',
+            'missing-workflow-retirement-evidence',
+            'unexpected-workflow-file-metadata'
+        ]))
     });
 
     test('subprocess discovery uses executable AST calls, folds static strings, and ignores prose', () => {
@@ -909,7 +1054,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
                   .filter(file => /\.ya?ml$/.test(file))
                   .flatMap(file => discoverWorkflowReferences(
                       fs.readFileSync(path.join(REPO_ROOT, file), 'utf8'), file
-                  ));
+                  )),
+              workflowFiles = [...new Set(workflowReferences.map(row => row.identity.split('::', 1)[0]))];
 
         const packageDependencies = collectPackageDependencies({projectRoot: REPO_ROOT}).rows;
 
@@ -925,8 +1071,9 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.counts[SURFACE.scriptModule].total).toBe(scriptFiles.length);
         expect(first.counts[SURFACE.rootScript].total).toBe(packageScripts.length);
         expect(first.counts[SURFACE.workflowReference].total).toBe(workflowReferences.length);
+        expect(first.counts[SURFACE.workflowFile].total).toBe(workflowFiles.length);
         expect(first.counts[SURFACE.planeOpener].total).toBe(censusPlaneOpeners({projectRoot: REPO_ROOT}).total);
-        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v4');
+        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v5');
         expect(first.counts[SURFACE.launchRoot].total).toBe(first.launchRoots.total);
         expect(first.launchRoots.rows.map(row => row.identity))
             .toEqual(first.rows.filter(row => row.surface === SURFACE.launchRoot).map(row => row.identity));
@@ -964,6 +1111,18 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.agentOsToOutside]).toBeGreaterThan(0);
         expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.outsideToAgentOs]).toBeGreaterThan(0);
         expect(first.consumerEdges.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
+        expect(first.workflowFiles.total).toBe(20);
+        expect(first.workflowFiles.occurrenceTotal).toBe(72);
+        expect(first.workflowFiles.byDisposition).toEqual({move: 7, 'pin-fetch': 13, retire: 0});
+        expect(first.workflowFiles.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
+        expect(first.workflowFiles.rows.map(row => row.identity)).toEqual(workflowFiles.sort());
+        expect(first.workflowFiles.rows
+            .filter(row => row.disposition === WORKFLOW_FILE_DISPOSITION.move)
+            .every(row => row.targetRepository === 'neomjs/neo-agent-brain')).toBe(true);
+        expect(first.workflowFiles.rows
+            .filter(row => row.disposition === WORKFLOW_FILE_DISPOSITION.pinFetch)
+            .every(row => !Object.hasOwn(row, 'targetRepository') && typeof row.pinAuthority === 'string'))
+            .toBe(true);
         expect(first.consumerEdges.sourceClasses).toContainEqual(expect.objectContaining({
             identity   : 'test/playwright/unit/ai/**',
             disposition: 'moves-agentos-test',
@@ -1057,6 +1216,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(human).toContain('package.brain.json::devDependencies::better-sqlite3 @');
         expect(human).toContain('consumer-edge identities:');
         expect(human).toContain('preclassified source classes:');
+        expect(human).toContain('workflow-file identities: 20 · occurrences 72');
+        expect(human).toContain('pin-fetch: 13');
         expect(human).toContain('Engine→AgentOS forbidden packages:');
 
         const keys = first.rows.map(row => rowKey(row.surface, row.identity));
@@ -1069,6 +1230,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         first.rows.forEach(row => {
             if ([SURFACE.consumerEdge, SURFACE.consumerSourceClass].includes(row.surface)) {
                 expect(validConsumerDispositions.has(row.disposition)).toBe(true)
+            } else if (row.surface === SURFACE.workflowFile) {
+                expect(Object.values(WORKFLOW_FILE_DISPOSITION)).toContain(row.disposition)
             } else {
                 expect(['cloud', 'edge', 'retire', 'shared', 'stays-engine']).toContain(row.disposition)
             }
@@ -1089,6 +1252,7 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             SURFACE.rootScript,
             SURFACE.scriptModule,
             SURFACE.subprocessLaunch,
+            SURFACE.workflowFile,
             SURFACE.workflowReference,
             SURFACE.consumerEdge,
             SURFACE.consumerSourceClass
