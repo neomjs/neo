@@ -15,15 +15,15 @@ import {
  * unavailable` enum and was Drop+Superseded for it: a changed collection identity was read as data
  * loss, which Neo's own re-embed disproves — `VectorService` rebuilds into a shadow collection and
  * promotes it live → parking, shadow → canonical, so every healthy re-embed changes the canonical
- * identity with nothing lost. These specs pin the axes as orthogonal and `empty` as the one derived
- * claim, so the collapse cannot come back by accident.
+ * identity with nothing lost. These specs pin the axes as orthogonal and `provenEmpty` as the one
+ * derived claim, so the collapse cannot come back by accident.
  */
 test.describe('ai/services/shared/captureReceipt — orthogonal facts, one derived claim', () => {
-    test('`empty` requires a measured zero AND a continuous lineage', () => {
+    test('`provenEmpty` requires a measured zero AND a continuous lineage', () => {
         expect(derivesProvenEmpty({rowState: ROW_STATE.zero, lineage: LINEAGE.same})).toBe(true);
     });
 
-    test('a CHANGED lineage never derives `empty` — the falsifier that dropped the predecessor', () => {
+    test('a CHANGED lineage never derives `provenEmpty` — the falsifier that dropped the predecessor', () => {
         // A re-embed promotes a shadow collection into the canonical name, and a restore drops and
         // re-resolves. Both change the identity deliberately, with nothing lost. Reading that as
         // "the corpus was gone" is the exact defect this module exists to prevent.
@@ -40,7 +40,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
         expect(promoted.rowState).toBe(ROW_STATE.zero);
     });
 
-    test('an UNKNOWN lineage never derives `empty` — first run has nothing to compare against', () => {
+    test('an UNKNOWN lineage never derives `provenEmpty` — first run has nothing to compare against', () => {
         const firstRun = buildSourceReceipt({
             source      : 'neo-agent-memory',
             rowCount    : 0,
@@ -52,7 +52,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
         expect(firstRun.provenEmpty).toBe(false);
     });
 
-    test('rows are self-evidencing: a populated source is never `empty`, whatever its lineage', () => {
+    test('rows are self-evidencing: a populated source is never `provenEmpty`, whatever its lineage', () => {
         for (const previousId of ['same-id', 'different-id', null]) {
             const populated = buildSourceReceipt({
                 source      : 'neo-agent-memory',
@@ -84,7 +84,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
         expect(deriveLineage({currentId: 'a',  previousId: 'a'})).toBe(LINEAGE.same);
         expect(deriveLineage({currentId: 'a',  previousId: 'b'})).toBe(LINEAGE.changed);
         // Absent evidence is not evidence of continuity — the failure mode that would silently
-        // manufacture `empty` for every source whose id could not be observed.
+        // manufacture `provenEmpty` for every source whose id could not be observed.
         expect(deriveLineage({currentId: 'a',  previousId: null})).toBe(LINEAGE.unknown);
         expect(deriveLineage({currentId: null, previousId: 'a'})).toBe(LINEAGE.unknown);
         expect(deriveLineage({currentId: null, previousId: null})).toBe(LINEAGE.unknown);
@@ -119,7 +119,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
      */
     test.describe('malformed counts fail honest', () => {
         // Every case pairs the bad count with MATCHING identities, so lineage is `same` and the only
-        // thing standing between the receipt and `empty: true` is the row-state rule under test.
+        // thing standing between the receipt and `provenEmpty: true` is the row-state rule under test.
         const malformed = [
             ['absent',    undefined],
             ['null',      null],
