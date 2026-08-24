@@ -118,6 +118,12 @@ export function runConfig(entry, {spawn = spawnSync} = {}) {
  * Delivery moves through explicit receipt states — `pending` before the attempt, then `sent` or
  * `failed` — so an undelivered digest can never be re-derived as delivered.
  *
+ * That guarantee is per-run, and on its own it is not enough: the receipt is a single document each
+ * invocation rewrites, so a green night would erase a red one whose digest never left. Each run
+ * therefore READS the prior receipt before writing its own and carries an undelivered red forward
+ * until a delivery actually resolves. Recording disposition answers "did this run report?"; the carry
+ * answers "did an earlier run fail to?", and only the second survives being overwritten by success.
+ *
  * Every collaborator is injectable for the same reason `runConfig` takes its spawn: the delivery
  * paths are the ones worth proving, and a module-level import cannot be driven from a test.
  * @param {Object}   [options]
@@ -149,10 +155,20 @@ export async function runNightlyE2e({
         fs.ensureDirSync(path.dirname(logPath));
         fs.writeFileSync(logPath, buildRunLog(outcomes, nowIso), 'utf8');
 
+        // Read BEFORE the first write, because the write destroys what it reads. A run that stamps a
+        // fresh receipt without consulting the previous one is write-only across invocations: the
+        // green path below would overwrite an earlier red whose digest never left the host, and that
+        // red exists on no other surface.
+        const carriedRed = resolveCarriedRed(await readPriorReceipt());
+
+        if (carriedRed) {
+            console.error(`[nightlyE2eRunner] Carrying forward an unreported red from ${carriedRed.at ?? 'an unreadable receipt'} (digest: ${carriedRed.digest}).`);
+        }
+
         // A red receipt starts as `pending`, never as an absent field. Inferring delivery from
         // `red` alone would publish "sent" for a digest that never left: a crash between this write
         // and the send is indistinguishable from success unless the state exists BEFORE the attempt.
-        await writeRunReceipt({digest: red ? 'pending' : 'not-required', logPath, nowIso, outcomes, red});
+        await writeRunReceipt({digest: red ? 'pending' : 'not-required', logPath, nowIso, outcomes, red, unresolvedRed: carriedRed});
 
         if (!red) {
             console.error('[nightlyE2eRunner] All declared e2e configs green — staying silent.');
@@ -184,20 +200,83 @@ export async function runNightlyE2e({
             // to `pending`, never to `sent`.
             console.error(`[nightlyE2eRunner] RED digest delivery FAILED: ${error?.message ?? error}`);
             await writeRunReceipt({
-                digest     : 'failed',
-                digestError: String(error?.message ?? error),
+                digest       : 'failed',
+                digestError  : String(error?.message ?? error),
+                unresolvedRed: carriedRed,
                 logPath, nowIso, outcomes, red
             }).catch(() => {});
             throw error
         }
 
         // Written only after delivery RESOLVED. `sent` is recorded, never derived.
-        await writeRunReceipt({digest: 'sent', logPath, nowIso, outcomes, red});
+        //
+        // The carry is dropped here and ONLY here: a digest has now actually reached the swarm, so the
+        // fact an earlier one did not is no longer load-bearing — the suite's red state is reported and
+        // actionable. Carrying it past a successful delivery would make the field permanent noise, and
+        // a field that is always set stops being read.
+        await writeRunReceipt({digest: 'sent', logPath, nowIso, outcomes, red, unresolvedRed: null});
         console.error('[nightlyE2eRunner] RED digest sent to AGENT:* (wakeSuppressed: false).');
         return {red: true, sent: true};
     } finally {
         await fs.remove(LOCK_PATH).catch(() => {});
     }
+}
+
+/**
+ * @summary Reads the previous run's receipt, distinguishing "no prior run" from "prior run
+ * unreadable".
+ *
+ * The two are not the same fact and must not collapse: an absent receipt is a clean first run, while
+ * an unparseable one means the delivery chain is broken and this run cannot know what preceded it.
+ * Returning `null` for both would silently promote the broken case to the clean one — the precise
+ * inference this module exists to prevent.
+ * @returns {Promise<{state: String, receipt: (Object|null)}>} `absent` | `read` | `unreadable`.
+ */
+async function readPriorReceipt() {
+    if (!(await fs.pathExists(STATE_PATH))) {
+        return {state: 'absent', receipt: null};
+    }
+
+    try {
+        return {state: 'read', receipt: await fs.readJson(STATE_PATH)}
+    } catch (error) {
+        return {state: 'unreadable', receipt: null, error: String(error?.message ?? error)}
+    }
+}
+
+/**
+ * @summary Resolves the undelivered red this run must carry forward, so a later green cannot erase it.
+ *
+ * Without this the receipt is write-only across runs: every invocation stamps a fresh document, so a
+ * green night silently overwrites a red one whose digest never left the host. The red would be gone
+ * from the only surface that recorded it, and the reader would see an unbroken green.
+ *
+ * The EARLIEST unreported red wins — a carry already standing on the prior receipt outranks the prior
+ * run itself, because the first miss is the one a reader must not lose to a chain of later ones.
+ * @param {Object} prior Result of {@link readPriorReceipt}.
+ * @returns {(Object|null)} Carry-forward block, or `null` when nothing is owed.
+ */
+function resolveCarriedRed({state, receipt, error}) {
+    // Unreadable is not clean. Fail closed: the reader learns the chain broke rather than inheriting
+    // a green it never earned.
+    if (state === 'unreadable') {
+        return {at: null, digest: 'unknown', reason: 'prior receipt unreadable', ...(error ? {digestError: error} : {})};
+    }
+
+    if (state === 'absent' || !receipt) return null;
+
+    if (receipt.unresolvedRed) return receipt.unresolvedRed;
+
+    if (receipt.red === true && (receipt.digest === 'pending' || receipt.digest === 'failed')) {
+        return {
+            at    : receipt.at ?? null,
+            digest: receipt.digest,
+            ...(receipt.digestError ? {digestError: receipt.digestError} : {}),
+            ...(receipt.logPath ? {logPath: receipt.logPath} : {})
+        };
+    }
+
+    return null
 }
 
 /**
@@ -207,6 +286,11 @@ export async function runNightlyE2e({
  * then `pending` → `sent` | `failed` across the delivery attempt. A reader can therefore separate
  * "no digest was owed", "one is owed and unresolved", and "one failed" — where a missing field
  * would have collapsed all three into whatever the reader chose to assume.
+ *
+ * `unresolvedRed` extends that guarantee ACROSS runs: it names a red whose digest never left, and it
+ * survives every later write until a delivery actually resolves. Delivery disposition answers "did
+ * THIS run report?"; the carry answers "did any earlier run fail to?" — and only the second question
+ * is destroyed by a subsequent green.
  * @param {Object}   options
  * @param {String}   options.digest `not-required` | `pending` | `sent` | `failed`.
  * @param {String}   [options.digestError] Delivery failure message, when `digest` is `failed`.
@@ -214,14 +298,16 @@ export async function runNightlyE2e({
  * @param {String}   options.nowIso
  * @param {Object[]} options.outcomes
  * @param {Boolean}  options.red
+ * @param {Object}   [options.unresolvedRed] Earlier undelivered red carried into this receipt.
  * @returns {Promise<void>}
  */
-async function writeRunReceipt({digest, digestError, logPath, nowIso, outcomes, red}) {
+async function writeRunReceipt({digest, digestError, logPath, nowIso, outcomes, red, unresolvedRed}) {
     await fs.writeJson(STATE_PATH, {
         at     : nowIso,
         red,
         digest,
         ...(digestError ? {digestError} : {}),
+        ...(unresolvedRed ? {unresolvedRed} : {}),
         configs: outcomes.map(o => ({config: o.config, failing: o.failures.length, ran: o.ran, note: o.note})),
         logPath
     }, {spaces: 2})
