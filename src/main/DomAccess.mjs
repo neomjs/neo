@@ -1020,26 +1020,36 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary Starts a view transition, optionally revealing the new state from a point.
+     *
+     * Resolves once the transition has STARTED, deliberately not once it has finished. The caller
+     * applies its DOM change after this resolves, and `data.delay` is the window it has to do so
+     * before the new state is captured. Awaiting `transition.ready` here would close that window,
+     * and the transition would capture the unchanged DOM as both states.
      * @param {Object} data
-     * @param {Object} [data.animate]
-     * @param {Number} [data.delay=50]
-     * @returns {Promise<Boolean>}
+     * @param {Object} [data.animate] Raw keyframes and options, passed to `animate()` unchanged
+     * @param {Number} [data.delay=50] Milliseconds the caller has to apply its DOM change
+     * @param {Object} [data.reveal] Origin for a circular reveal — see DomUtils.createRevealAnimation()
+     * @returns {Promise<Boolean>} False when the browser has no View Transition API
      */
     async startViewTransition(data) {
         if (!document.startViewTransition) {
             return false
         }
 
-        const transition = document.startViewTransition(async () => {
-            await this.timeout(data.delay || 50)
-        });
+        const animate    = data.animate || DomUtils.createRevealAnimation(data.reveal),
+              transition = document.startViewTransition(async () => {
+                  await this.timeout(data.delay || 50)
+              });
 
-        if (data.animate) {
+        if (animate) {
             transition.ready.then(() => {
-                document.documentElement.animate(
-                    data.animate.keyframes,
-                    data.animate.options
-                )
+                document.documentElement.animate(animate.keyframes, animate.options)
+            }).catch(error => {
+                // The reveal is decorative, so a failure must not reject the transition — but it
+                // must not be silent either. This path used to resolve as success unconditionally,
+                // which is how a browser-side change to the pseudo-element went unnoticed.
+                console.warn('Neo.main.DomAccess: the view transition reveal was not applied.', error)
             })
         }
 

@@ -479,32 +479,14 @@ class ViewportController extends Controller {
         let me       = this,
             viewport = me.component,
             oldTheme = viewport.theme || 'neo-theme-neo-light',
-            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light',
-            radius, x, y;
+            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light';
 
-        if (data.clientX !== undefined && data.clientY !== undefined) {
-            x      = data.clientX;
-            y      = data.clientY;
-            radius = Math.hypot(Math.max(x, 3000 - x), Math.max(y, 3000 - y))
-        } else {
-            x      = 0;
-            y      = 0;
-            radius = 3000
-        }
-
+        // A keyboard activation carries no coordinates. It used to reveal from 0,0 — a corner wipe
+        // for an interaction that happened nowhere in particular; it now cross-fades, which is what
+        // the portal already did and what the absence of a pointer actually means.
         await Neo.main.DomAccess.startViewTransition({
-            animate: {
-                keyframes: [
-                    {clipPath: `circle(0px at ${x}px ${y}px)`},
-                    {clipPath: `circle(${radius}px at ${x}px ${y}px)`}
-                ],
-                options: {
-                    duration     : 500,
-                    easing       : 'ease-in',
-                    pseudoElement: '::view-transition-new(root)'
-                }
-            },
             delay   : 100,
+            reveal  : {x: data.clientX, y: data.clientY},
             windowId: me.windowId
         });
 
