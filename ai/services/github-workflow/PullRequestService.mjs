@@ -32,6 +32,7 @@ import {
 import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}
                                               from './shared/commentSelector.mjs';
 import {projectConversationTrust}              from './shared/conversationTrust.mjs';
+import {resolveRepositoryTarget}  from './shared/repositoryTarget.mjs';
 
 const execAsync                           = promisify(exec);
 const execFileAsync                       = promisify(execFile);
@@ -3473,6 +3474,7 @@ class PullRequestService extends Base {
      *                                                  resolved one level up, because invalid now errors.
      * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
      *                                                  Also scoped: body omitted, `bodyOmitted: true`.
+     * @param {String}        [options.repo]            Optional bare name or owner/name repository target.
      * @param {Object}        [dependencies] Internal source seams for deterministic tests.
      * @param {Function}      [dependencies.query] GitHub GraphQL query function.
      * @param {Function}      [dependencies.rest] GitHub REST request function.
@@ -3492,10 +3494,15 @@ class PullRequestService extends Base {
             since_comment_id,
             last_n,
             projection = 'conversation',
-            identityAssertion
+            identityAssertion,
+            repo
         } = typeof options === 'number'
             ? {pr_number: options}
             : (options || {});
+
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
 
         if (!pr_number) {
             return {
@@ -3525,13 +3532,15 @@ class PullRequestService extends Base {
             return buildMergeReadinessProjection({
                 prNumber: pr_number,
                 identityAssertion,
+                owner   : target.owner,
+                repo    : target.repo,
                 ...dependencies
             });
         }
 
         const variables = {
-            owner      : aiConfig.owner,
-            repo       : aiConfig.repo,
+            owner      : target.owner,
+            repo       : target.repo,
             prNumber   : pr_number,
             maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
         };
@@ -3587,7 +3596,7 @@ class PullRequestService extends Base {
                 }
             });
         } catch (error) {
-            logger.error(`Error getting conversation for PR #${pr_number} via GraphQL:`, error);
+            logger.error(`Error getting conversation for ${target.fullName} PR #${pr_number} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -3603,10 +3612,14 @@ class PullRequestService extends Base {
      * @param {string}  [options.file]     Optional file path (or comma-separated paths) to filter diff
      * @param {string}  [options.sha]      Optional SHA to diff against instead of live PR head
      * @param {boolean} [options.files_only] If true, return structured JSON with path/additions/deletions
+     * @param {String}  [options.repo]     Optional bare name or owner/name repository target.
      * @returns {Promise<string|object>} A promise that resolves to the diff text, file list JSON, or a structured error.
      */
     async getPullRequestDiff(options) {
-        const { pr_number, file, sha, files_only } = options || {};
+        const { pr_number, file, sha, files_only, repo } = options || {},
+              target                                     = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
 
         const prNumber = parseInt(pr_number, 10);
 
@@ -3620,7 +3633,7 @@ class PullRequestService extends Base {
 
         try {
             if (files_only) {
-                const {stdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'files'], {cwd: aiConfig.projectRoot});
+                const {stdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--repo', target.fullName, '--json', 'files'], {cwd: aiConfig.projectRoot});
                 const parsed   = JSON.parse(stdout);
                 return { files: parsed.files || [] };
             }
@@ -3644,14 +3657,22 @@ class PullRequestService extends Base {
                     };
                 }
 
-                const {stdout: baseStdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'baseRefOid'], {cwd: aiConfig.projectRoot});
+                const {stdout: baseStdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--repo', target.fullName, '--json', 'baseRefOid'], {cwd: aiConfig.projectRoot});
                 const baseRefOid           = JSON.parse(baseStdout).baseRefOid;
 
-                const filePaths = file.split(',').map(f => f.trim());
-                const {stdout}  = await execFileAsync('git', ['diff', `${baseRefOid}...${sha}`, '--', ...filePaths], {cwd: aiConfig.projectRoot});
+                const filePaths  = file.split(',').map(f => f.trim()),
+                      homeTarget = resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+                const {stdout} = target.fullName === homeTarget.fullName
+                    ? await execFileAsync('git', ['diff', `${baseRefOid}...${sha}`, '--', ...filePaths], {cwd: aiConfig.projectRoot})
+                    : await execFileAsync('gh', [
+                        'api',
+                        `repos/${target.owner}/${target.repo}/compare/${baseRefOid}...${sha}`,
+                        '-H',
+                        'Accept: application/vnd.github.v3.diff'
+                    ], {cwd: aiConfig.projectRoot});
                 diffStdout = stdout;
             } else {
-                const {stdout} = await execFileAsync('gh', ['pr', 'diff', String(prNumber)], {cwd: aiConfig.projectRoot});
+                const {stdout} = await execFileAsync('gh', ['pr', 'diff', String(prNumber), '--repo', target.fullName], {cwd: aiConfig.projectRoot});
                 diffStdout = stdout;
             }
 
@@ -3690,7 +3711,7 @@ class PullRequestService extends Base {
             return { result: diffStdout };
 
         } catch (error) {
-            logger.error(`Error getting diff for PR #${prNumber}:`, error);
+            logger.error(`Error getting diff for ${target.fullName} PR #${prNumber}:`, error);
 
             if (error.stderr && (error.stderr.includes('bad object') || error.stderr.includes('unknown revision') || error.stderr.includes('Invalid symmetric difference expression'))) {
                 return {
@@ -3716,13 +3737,19 @@ class PullRequestService extends Base {
      * @param {number}   [options.limit=aiConfig.pullRequest.defaults.limit] The maximum number of PRs to return
      * @param {string}   [options.state=aiConfig.pullRequest.defaults.state] The state of the pull requests to list (open, closed, merged, all)
      * @param {Number[]} [options.believedOpen]                              Exact PR numbers whose open belief should be falsified
+     * @param {String}   [options.repo]                                       Optional bare name or owner/name repository target.
      * @returns {Promise<object>} A promise that resolves to the list of pull requests or a structured error.
      */
     async listPullRequests({
         believedOpen,
         limit = aiConfig.pullRequest.defaults.limit,
-        state = aiConfig.pullRequest.defaults.state
+        state = aiConfig.pullRequest.defaults.state,
+        repo
     } = {}) {
+
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
 
         const validationMessage = getBelievedOpenValidationMessage(believedOpen);
 
@@ -3735,8 +3762,8 @@ class PullRequestService extends Base {
         }
 
         const variables = {
-            owner : aiConfig.owner,
-            repo  : aiConfig.repo,
+            owner : target.owner,
+            repo  : target.repo,
             limit,
             states: state.toUpperCase()
         };
@@ -3765,7 +3792,7 @@ class PullRequestService extends Base {
 
             return result;
         } catch (error) {
-            logger.error('Error fetching pull requests via GraphQL:', error);
+            logger.error(`Error fetching pull requests from ${target.fullName} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -3865,6 +3892,7 @@ class PullRequestService extends Base {
      * @param {String} [options.review_id]      The GraphQL node ID of the existing review (required for `update`; PRR_*).
      * @param {Object} [options.acknowledgedRequestChanges] Reviewer-login → disposition map required when approving over live `CHANGES_REQUESTED`.
      * @param {String} [options.reviewBudgetOverrideReason] Single-line durable disclosure for an exceptional post-budget ordinary RC.
+     * @param {String} [options.repo]                       Optional bare name or owner/name repository target.
      * @returns {Promise<Object>} Review payload on success (`{message, reviewId, state, url, submittedAt, databaseId?}`) or structured error.
      *
      * @see Neo.ai.services.github-workflow.queries.mutations.ADD_PULL_REQUEST_REVIEW
@@ -3876,8 +3904,13 @@ class PullRequestService extends Base {
         state,
         body,
         review_id,
-        reviewBudgetOverrideReason
+        reviewBudgetOverrideReason,
+        repo
     }) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['create', 'update'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -3952,12 +3985,16 @@ class PullRequestService extends Base {
             try {
                 const idData = await GraphqlService.query(GET_PULL_REQUEST_ID, {
                     activationIssueNumber: this.reviewBudgetActivationIssueNumber,
-                    owner                : aiConfig.owner,
-                    repo                 : aiConfig.repo,
+                    homeOwner            : aiConfig.owner,
+                    homeRepo             : aiConfig.repo,
+                    owner                : target.owner,
+                    repo                 : target.repo,
                     prNumber             : pr_number
                 });
-                const activationIssue = idData?.repository?.activationIssue;
-                const pullRequest     = idData?.repository?.pullRequest;
+                // `repository` fallback keeps injected legacy fixtures readable while production
+                // queries split home-policy activation from selected-target PR history.
+                const activationIssue = idData?.homeRepository?.activationIssue ?? idData?.repository?.activationIssue;
+                const pullRequest     = idData?.targetRepository?.pullRequest   ?? idData?.repository?.pullRequest;
                 const pullRequestId   = pullRequest?.id;
 
                 if (!pullRequestId) {
@@ -3994,8 +4031,8 @@ class PullRequestService extends Base {
 
                         try {
                             const resolved = await GraphqlService.query(buildIssueStatesQuery(ownerNumbers), {
-                                owner: aiConfig.owner,
-                                repo : aiConfig.repo
+                                owner: target.owner,
+                                repo : target.repo
                             });
 
                             states = Object.fromEntries(ownerNumbers.map(number =>
@@ -4004,7 +4041,7 @@ class PullRequestService extends Base {
                             // Unreadable answer ⇒ no refusal. See the helper's note: this gate sits on
                             // the merge-safe terminal, so a GitHub hiccup must not block the path the
                             // contract exists to make reachable.
-                            logger.warn(`Follow-up owner resolution failed for PR #${pr_number}; admitting: ${error.message}`)
+                            logger.warn(`Follow-up owner resolution failed for ${target.fullName} PR #${pr_number}; admitting: ${error.message}`)
                         }
 
                         const ownerResolutionFailure = states && getFollowUpOwnerResolutionFailure({
@@ -4148,7 +4185,7 @@ class PullRequestService extends Base {
                     } : {})
                 };
             } catch (error) {
-                logger.error(`Error creating PR review on PR #${pr_number}:`, error);
+                logger.error(`Error creating PR review on ${target.fullName} PR #${pr_number}:`, error);
                 return {
                     error  : 'GraphQL API request failed',
                     message: error.message,
@@ -4175,6 +4212,20 @@ class PullRequestService extends Base {
                     error  : 'Not Found',
                     message: `Pull request review ${review_id} not found or returned no review node.`,
                     code   : 'PR_REVIEW_NOT_FOUND'
+                }
+            }
+
+            const actualRepo = currentReview.pullRequest?.repository?.nameWithOwner;
+
+            if (target.explicit && (!actualRepo || actualRepo.toLowerCase() !== target.fullName.toLowerCase())) {
+                return {
+                    error  : 'Repository Target Mismatch',
+                    message: actualRepo
+                        ? `Pull request review ${review_id} belongs to ${actualRepo}, not selected repository ${target.fullName}; no update was sent.`
+                        : `Pull request review ${review_id} carried no repository identity, so selected repository ${target.fullName} could not be verified; no update was sent.`,
+                    code        : 'REPOSITORY_TARGET_MISMATCH',
+                    actualRepo  : actualRepo || null,
+                    selectedRepo: target.fullName
                 }
             }
 
@@ -4273,7 +4324,7 @@ class PullRequestService extends Base {
                 submittedAt: review.submittedAt
             };
         } catch (error) {
-            logger.error(`Error updating PR review ${review_id}:`, error);
+            logger.error(`Error updating PR review ${review_id} for selected repository ${target.fullName}:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -4308,6 +4359,7 @@ class PullRequestService extends Base {
      * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
      * @param {string[]}  [options.team_reviewers]   Array of bare team slugs (no owner prefix — the REST endpoint takes slugs directly).
      * @param {string}    options.action             Either `'add'` or `'remove'`.
+     * @param {String}    [options.repo]             Optional bare name or owner/name repository target.
      * @returns {Promise<object>} On success, a message plus `verifiedReviewers` / `verifiedTeamReviewers`
      * read out of GitHub's response — never echoed from the arguments. A requested login that GitHub did
      * not seat returns `REVIEWER_NOT_SEATED`, a `remove` whose target is still listed returns
@@ -4316,7 +4368,11 @@ class PullRequestService extends Base {
      *
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
-    async managePrReviewers({pr_number, reviewers, team_reviewers, action}, {execFn = execAsync} = {}) {
+    async managePrReviewers({pr_number, reviewers, team_reviewers, action, repo}, {execFn = execAsync} = {}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['add', 'remove'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -4350,8 +4406,8 @@ class PullRequestService extends Base {
             const allFlags      = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
             const allTargets    = [...reviewerList, ...teamReviewerList];
 
-            const command = `gh api repos/${aiConfig.owner}/${aiConfig.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
-            logger.info(`Attempting to ${action} reviewers on PR #${pr_number} via REST: ${allTargets.join(', ')}`);
+            const command = `gh api repos/${target.owner}/${target.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
+            logger.info(`Attempting to ${action} reviewers on ${target.fullName} PR #${pr_number} via REST: ${allTargets.join(', ')}`);
 
             const {stdout} = await execFn(command, {cwd: aiConfig.projectRoot}) || {};
 
@@ -4366,7 +4422,7 @@ class PullRequestService extends Base {
             const seated = parseSeatedReviewerState(stdout);
 
             if (!seated) {
-                logger.error(`Unverifiable requested_reviewers response on PR #${pr_number}`);
+                logger.error(`Unverifiable requested_reviewers response on ${target.fullName} PR #${pr_number}`);
                 return {
                     error  : 'Reviewer state unverifiable',
                     message: `Cannot confirm reviewer state on PR #${pr_number}: the requested_reviewers response did not carry the expected 'requested_reviewers'/'requested_teams' arrays, so whether ${allTargets.join(', ')} ${action === 'add' ? 'was seated' : 'was removed'} is unknown. Re-read the PR before trusting any reviewer assumption.`,
@@ -4405,7 +4461,7 @@ class PullRequestService extends Base {
                             `PR's reviewer state before assigning it to anyone else.`
                     };
 
-                logger.error(`${failure.code} on PR #${pr_number}: ${unseated.join(', ')}`);
+                logger.error(`${failure.code} on ${target.fullName} PR #${pr_number}: ${unseated.join(', ')}`);
 
                 return {
                     ...failure,
@@ -4429,7 +4485,7 @@ class PullRequestService extends Base {
                 verifiedTeamReviewers: [...seated.teams]
             };
         } catch (error) {
-            logger.error(`Error managing reviewers on PR #${pr_number}:`, error);
+            logger.error(`Error managing reviewers on ${target.fullName} PR #${pr_number}:`, error);
             return {
                 error  : 'GitHub API request failed',
                 message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message} (REST requested_reviewers needs only the repo scope)`,

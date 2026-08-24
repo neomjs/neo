@@ -5,6 +5,7 @@ import RepositoryService                                                        
 import logger                                                                                                                                                                                                                        from '../../mcp/server/github-workflow/logger.mjs';
 import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}                                                                                                                                  from './shared/commentSelector.mjs';
 import {projectConversationTrust}                                                                                                                                                                                                    from './shared/conversationTrust.mjs';
+import {resolveRepositoryTarget}                                                                                                                                                                                                     from './shared/repositoryTarget.mjs';
 import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST, FETCH_ISSUES_LIST_NO_FILTER, buildIssuesListQuery} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID}                                                                                                                                                                                                         from './queries/pullRequestQueries.mjs';
 import {
@@ -21,7 +22,8 @@ import {
     ADD_PROJECT_V2_ITEM,
     DELETE_PROJECT_V2_ITEM,
     FIND_PROJECT_V2_ITEM_BY_CONTENT,
-    UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT
+    UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT,
+    GET_ISSUE_COMMENT_TARGET
 } from './queries/mutations.mjs';
 
 /**
@@ -74,13 +76,17 @@ class IssueService extends Base {
      * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt
      *     order). Same accepted spellings and same malformed-vs-absent distinction as `comment_id`.
      * @param {Number} [options.last_n]           Return only the last N comments (by createdAt order).
+     * @param {String} [options.repo]             Optional bare name or owner/name repository target.
      * @returns {Promise<Object>} Conversation data or a structured error. A SCOPED request (any selector) omits the
      *          parent body and sets `bodyOmitted: true`; an unscoped request is unchanged. Payloads
      *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
      *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
-        const {issue_number, comment_id, since_comment_id, last_n} = options || {};
+        const {issue_number, comment_id, since_comment_id, last_n, repo} = options || {},
+              target                                                     = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
 
         if (!issue_number) {
             return {
@@ -91,8 +97,8 @@ class IssueService extends Base {
         }
 
         const variables = {
-            owner      : aiConfig.owner,
-            repo       : aiConfig.repo,
+            owner      : target.owner,
+            repo       : target.repo,
             issueNumber: issue_number,
             // get_conversation is one dual-purpose tool; the issue path shares the PR
             // conversation comment cap rather than adding a separate config key.
@@ -152,7 +158,7 @@ class IssueService extends Base {
                 }
             });
         } catch (error) {
-            logger.error(`Error getting conversation for issue #${issue_number} via GraphQL:`, error);
+            logger.error(`Error getting conversation for ${target.fullName} issue #${issue_number} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -165,16 +171,19 @@ class IssueService extends Base {
      * Adds labels to an issue or pull request.
      * @param {number}   issueNumber The number of the issue or PR.
      * @param {string[]} labels      An array of labels to add.
+     * @param {Object} [repositoryTarget] Resolved repository target supplied by the public operation.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async addLabels(issueNumber, labels) {
+    async addLabels(issueNumber, labels, repositoryTarget) {
+        const target = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+
         try {
-            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels, target);
 
             await GraphqlService.query(ADD_LABELS, { labelableId, labelIds });
             return { message: `Successfully added labels to issue #${issueNumber}` };
         } catch (error) {
-            logger.error(`Error adding labels to issue #${issueNumber} via GraphQL:`, error);
+            logger.error(`Error adding labels to ${target.fullName} issue #${issueNumber} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -215,12 +224,18 @@ class IssueService extends Base {
      * @param {string[]} options.assignees             Array of GitHub logins to assign, or empty array to clear all.
      * @param {boolean}  [options.requireUnassigned=true] Precondition gate — reject add if non-empty without `acknowledgedReassign`.
      * @param {string}   [options.acknowledgedReassign] Reason-bearing override for strict replacement; required when assignees are non-empty and `requireUnassigned: true`.
+     * @param {Object}   [options.repositoryTarget] Resolved repository target supplied by `manageIssueAssignees`.
      * @returns {Promise<object>} Success message + `verifiedAssignees` (post-verify state), or structured error (e.g., `ASSIGNEE_CONFLICT` with `currentAssignees` + `attemptedAssignees` for caller introspection).
      */
-    async assignIssue({issue_number, assignees, requireUnassigned = true, acknowledgedReassign}) {
-        if (!await this.hasWritePermission()) {
+    async assignIssue({issue_number, assignees, requireUnassigned = true, acknowledgedReassign, repositoryTarget}) {
+        const target     = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo}),
+              permission = await this.getWritePermission(target);
+
+        if (permission.error) return permission;
+
+        if (!permission.allowed) {
             const message = [
-                `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
+                `Permission denied for ${target.fullName}. Viewer has '${permission.permission}' permission, `,
                 `but one of [${this.writePermissions.join(', ')}] is required to assign issues.`
             ].join('');
 
@@ -235,11 +250,11 @@ class IssueService extends Base {
         try {
             // CLEAR MODE: empty assignees — no precondition needed; proceeds directly.
             if (!assignees || assignees.length === 0) {
-                logger.info(`Attempting to unassign all users from issue #${issue_number}`);
+                logger.info(`Attempting to unassign all users from ${target.fullName} issue #${issue_number}`);
                 // REST PATCH with an empty assignees array clears the full set atomically — the
                 // equivalent of the prior `gh issue edit --remove-assignee ""`, with no fetch and no
                 // intermediate state. (PATCH sends only `assignees`, so other issue fields are untouched.)
-                await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: []});
+                await GraphqlService.rest('PATCH', `/repos/${target.owner}/${target.repo}/issues/${issue_number}`, {assignees: []});
                 const message = `Successfully unassigned all users from issue #${issue_number}`;
                 logger.info(message);
                 return {message};
@@ -247,7 +262,7 @@ class IssueService extends Base {
 
             // ADD MODE: precondition + post-verify gate.
             // Step 1 — precondition fetch: who is currently assigned?
-            const currentAssignees = await this.#fetchCurrentAssignees(issue_number);
+            const currentAssignees = await this.#fetchCurrentAssignees(issue_number, target);
 
             // Step 2 — conflict gate: reject blind-add to occupied issue unless explicit override.
             if (currentAssignees.length > 0 && requireUnassigned && !acknowledgedReassign) {
@@ -257,7 +272,7 @@ class IssueService extends Base {
                     `To override with strict replacement: pass \`acknowledgedReassign: '<reason>'\` (the reason will be persisted as an audit-trail comment on the issue per #11537 AC8). `,
                     `Co-owner-add (preserving existing assignees) is deferred to V2 per Discussion #11536 OQ3 resolution.`
                 ].join('');
-                logger.warn(`ASSIGNEE_CONFLICT on #${issue_number}: current=[${currentAssignees.join(',')}], attempted=[${assignees.join(',')}]`);
+                logger.warn(`ASSIGNEE_CONFLICT on ${target.fullName}#${issue_number}: current=[${currentAssignees.join(',')}], attempted=[${assignees.join(',')}]`);
                 return {
                     error             : 'Assignee Conflict',
                     message           : conflictMessage,
@@ -276,18 +291,18 @@ class IssueService extends Base {
             const resolvedAssignees = await this.#resolveAssigneeAliases(assignees);
 
             logger.info(isOverride
-                ? `Strict-replacement override on #${issue_number} (reason: "${acknowledgedReassign}"): replacing [${currentAssignees.join(',')}] with [${assignees.join(',')}]`
-                : `Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
+                ? `Strict-replacement override on ${target.fullName}#${issue_number} (reason: "${acknowledgedReassign}"): replacing [${currentAssignees.join(',')}] with [${assignees.join(',')}]`
+                : `Attempting to assign ${target.fullName} issue #${issue_number} to: ${assignees.join(', ')}`);
 
-            await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: resolvedAssignees});
+            await GraphqlService.rest('PATCH', `/repos/${target.owner}/${target.repo}/issues/${issue_number}`, {assignees: resolvedAssignees});
 
             // Step 5 — post-verify: re-fetch and confirm the resulting assignee state.
-            const verifiedAssignees = await this.#fetchCurrentAssignees(issue_number);
+            const verifiedAssignees = await this.#fetchCurrentAssignees(issue_number, target);
 
             // Step 6 — audit-trail comment for overrides.
             // Persists the reason as a GitHub-visible artifact (issue comment); reason must NOT be lost.
             if (isOverride) {
-                await this.#createReassignAuditComment(issue_number, currentAssignees, assignees, acknowledgedReassign);
+                await this.#createReassignAuditComment(issue_number, currentAssignees, assignees, acknowledgedReassign, target);
             }
 
             const successMessage = isOverride
@@ -306,7 +321,7 @@ class IssueService extends Base {
             return result;
 
         } catch (error) {
-            logger.error(`Error updating assignees for issue #${issue_number}:`, error);
+            logger.error(`Error updating assignees for ${target.fullName} issue #${issue_number}:`, error);
             return {
                 error  : 'GitHub API request failed',
                 message: error.message,
@@ -319,13 +334,14 @@ class IssueService extends Base {
      * @summary Fetches current assignee logins for the precondition + post-verify gate.
      * Narrow GraphQL query (vs `FETCH_SINGLE_ISSUE`'s heavy nested fetch).
      * @param {number} issueNumber
+     * @param {Object} repositoryTarget Resolved repository target.
      * @returns {Promise<string[]>} Array of assignee logins (empty array if no assignees or issue missing).
      * @private
      */
-    async #fetchCurrentAssignees(issueNumber) {
+    async #fetchCurrentAssignees(issueNumber, repositoryTarget) {
         const data = await GraphqlService.query(GET_ISSUE_ASSIGNEES, {
-            owner       : aiConfig.owner,
-            repo        : aiConfig.repo,
+            owner       : repositoryTarget.owner,
+            repo        : repositoryTarget.repo,
             number      : issueNumber,
             maxAssignees: aiConfig.issueSync.maxAssigneesPerIssue
         });
@@ -351,9 +367,10 @@ class IssueService extends Base {
      * @param {string[]} previousAssignees
      * @param {string[]} newAssignees
      * @param {string}   reason
+     * @param {Object}   repositoryTarget Resolved repository target.
      * @private
      */
-    async #createReassignAuditComment(issueNumber, previousAssignees, newAssignees, reason) {
+    async #createReassignAuditComment(issueNumber, previousAssignees, newAssignees, reason, repositoryTarget) {
         const body = [
             `**\`[lane-override]\` reassignment audit-trail** (#11537 §AC8)`,
             ``,
@@ -365,15 +382,15 @@ class IssueService extends Base {
         ].join('\n');
 
         try {
-            const issueNodeId = await this.getIssueNodeId(issueNumber);
+            const issueNodeId = await this.getIssueNodeId(issueNumber, repositoryTarget);
             if (!issueNodeId) {
-                logger.warn(`Could not resolve node ID for #${issueNumber}; audit-trail comment skipped.`);
+                logger.warn(`Could not resolve node ID for ${repositoryTarget.fullName}#${issueNumber}; audit-trail comment skipped.`);
                 return;
             }
             await GraphqlService.query(ADD_COMMENT, {subjectId: issueNodeId, body});
-            logger.info(`Posted reassign audit-trail comment on #${issueNumber}`);
+            logger.info(`Posted reassign audit-trail comment on ${repositoryTarget.fullName}#${issueNumber}`);
         } catch (error) {
-            logger.error(`Error posting reassign audit-trail comment on #${issueNumber} — assignee mutation already succeeded:`, error);
+            logger.error(`Error posting reassign audit-trail comment on ${repositoryTarget.fullName}#${issueNumber} — assignee mutation already succeeded:`, error);
             // Graceful degradation: do not roll back the assignee mutation.
         }
     }
@@ -384,9 +401,12 @@ class IssueService extends Base {
      * @param {number} [options.issue_number] The number of the issue.
      * @param {number} [options.pr_number]    The number of the pull request.
      * @param {string} options.body           The raw content of the comment.
+     * @param {Object} [options.repositoryTarget] Resolved repository target supplied by the public operation.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async createComment({issue_number, pr_number, body}) {
+    async createComment({issue_number, pr_number, body, repositoryTarget}) {
+        const target = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+
         // Input Validation
         if (issue_number && pr_number) {
             return {
@@ -406,8 +426,8 @@ class IssueService extends Base {
         const isPR        = !!pr_number;
         const number      = isPR ? pr_number : issue_number;
         const idVariables = {
-            owner: aiConfig.owner,
-            repo : aiConfig.repo,
+            owner: target.owner,
+            repo : target.repo,
             // The PR query uses 'prNumber', the Issue query uses 'number'
             [isPR ? 'prNumber' : 'number']: number
         };
@@ -438,7 +458,7 @@ class IssueService extends Base {
             };
 
         } catch (error) {
-            logger.error(`Error creating comment on ${isPR ? 'PR' : 'issue'} #${number} via GraphQL:`, error);
+            logger.error(`Error creating comment on ${target.fullName} ${isPR ? 'PR' : 'issue'} #${number} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -469,17 +489,26 @@ class IssueService extends Base {
      *     to assign the authenticated GitHub user.
      * @param {Array<{projectNumber: number}>} [options.projects=[]] An array of ProjectV2 memberships
      *     to attach atomically after issue creation. Each entry specifies the org-level project number.
+     * @param {String} [options.repo] Optional bare name or owner/name repository target.
      * @returns {Promise<object>} A promise that resolves to the new issue's data or a structured error.
      *     On success: `{ issueNumber, url, projectAttachments?: Array<{projectNumber, projectId, itemId}>, projectAttachWarnings?: Array<{projectNumber, error}> }`.
      */
-    async createIssue({title, body='', labels=[], assignees=[], projects=[]}) {
-        logger.info(`Attempting to create GitHub issue: "${title}"`);
+    async createIssue({title, body='', labels=[], assignees=[], projects=[], repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
+        logger.info(`Attempting to create GitHub issue in ${target.fullName}: "${title}"`);
 
         // Permission check is only required if we are trying to assign users.
         if (assignees && assignees.length > 0) {
-            if (!await this.hasWritePermission()) {
+            const permission = await this.getWritePermission(target);
+
+            if (permission.error) return permission;
+
+            if (!permission.allowed) {
                 const message = [
-                    `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
+                    `Permission denied for ${target.fullName}. Viewer has '${permission.permission}' permission, `,
                     `but one of [${this.writePermissions.join(', ')}] is required to assign issues.`
                 ].join('');
 
@@ -515,7 +544,7 @@ class IssueService extends Base {
                 payload.assignees = await this.#resolveAssigneeAliases(assignees);
             }
 
-            const issue = await GraphqlService.rest('POST', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues`, payload);
+            const issue = await GraphqlService.rest('POST', `/repos/${target.owner}/${target.repo}/issues`, payload);
 
             const issueNumber = issue?.number,
                   issueUrl    = issue?.html_url;
@@ -524,13 +553,13 @@ class IssueService extends Base {
                 throw new Error('Could not resolve the new issue number from the GitHub REST response.');
             }
 
-            logger.info(`Successfully created GitHub issue #${issueNumber}: ${issueUrl}`);
+            logger.info(`Successfully created GitHub issue ${target.fullName}#${issueNumber}: ${issueUrl}`);
 
             const result = { issueNumber, url: issueUrl };
 
             // ProjectV2 attach (atomic for each project — partial-attach is acceptable failure mode)
             if (projects && projects.length > 0) {
-                const attachResult = await this.attachIssueToProjects(issueNumber, projects);
+                const attachResult = await this.attachIssueToProjects(issueNumber, projects, target);
                 if (attachResult.attachments.length > 0) {
                     result.projectAttachments = attachResult.attachments;
                 }
@@ -542,7 +571,7 @@ class IssueService extends Base {
             return result;
 
         } catch (error) {
-            logger.error('Error creating GitHub issue:', error);
+            logger.error(`Error creating GitHub issue in ${target.fullName}:`, error);
             return {
                 error  : 'GitHub API request failed',
                 message: error.message,
@@ -586,12 +615,15 @@ class IssueService extends Base {
      * within a single high-level operation, prefer batching at the caller level).
      *
      * @param {number} projectNumber The org-level project number.
+     * @param {Object} [repositoryTarget] Resolved repository target; its owner owns the ProjectV2.
      * @returns {Promise<{projectId: string, title: string, fields: object[]}|{error, message, code}>}
      */
-    async getProjectV2Metadata(projectNumber) {
+    async getProjectV2Metadata(projectNumber, repositoryTarget) {
+        const target = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+
         try {
             const result = await GraphqlService.query(GET_PROJECT_V2_METADATA, {
-                owner : aiConfig.owner,
+                owner : target.owner,
                 number: projectNumber
             });
 
@@ -599,7 +631,7 @@ class IssueService extends Base {
             if (!project) {
                 return {
                     error  : 'Not Found',
-                    message: `ProjectV2 #${projectNumber} not found under owner '${aiConfig.owner}'.`,
+                    message: `ProjectV2 #${projectNumber} not found under selected repository owner '${target.owner}'.`,
                     code   : 'PROJECT_NOT_FOUND'
                 };
             }
@@ -610,7 +642,7 @@ class IssueService extends Base {
                 fields   : project.fields?.nodes || []
             };
         } catch (error) {
-            logger.error(`Error fetching ProjectV2 #${projectNumber} metadata:`, error);
+            logger.error(`Error fetching ProjectV2 #${projectNumber} under selected owner ${target.owner}:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -627,18 +659,21 @@ class IssueService extends Base {
      * elsewhere in this service.
      *
      * @param {number} issueNumber The issue number.
+     * @param {Object} [repositoryTarget] Resolved repository target.
      * @returns {Promise<string|null>} The issue's GraphQL node ID, or `null` if not found.
      */
-    async getIssueNodeId(issueNumber) {
+    async getIssueNodeId(issueNumber, repositoryTarget) {
+        const target = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+
         try {
             const result = await GraphqlService.query(GET_ISSUE_ID, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
+                owner : target.owner,
+                repo  : target.repo,
                 number: issueNumber
             });
             return result.repository?.issue?.id || null;
         } catch (error) {
-            logger.error(`Error fetching issue #${issueNumber} node ID:`, error);
+            logger.error(`Error fetching ${target.fullName} issue #${issueNumber} node ID:`, error);
             return null;
         }
     }
@@ -653,13 +688,15 @@ class IssueService extends Base {
      *
      * @param {number} issueNumber The issue to attach.
      * @param {Array<{projectNumber: number}>} projects The projects to attach to.
+     * @param {Object} [repositoryTarget] Resolved repository target.
      * @returns {Promise<{attachments: Array<object>, warnings: Array<object>}>}
      */
-    async attachIssueToProjects(issueNumber, projects) {
-        const attachments = [];
-        const warnings    = [];
+    async attachIssueToProjects(issueNumber, projects, repositoryTarget) {
+        const target      = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo}),
+              attachments = [],
+              warnings    = [];
 
-        const contentId = await this.getIssueNodeId(issueNumber);
+        const contentId = await this.getIssueNodeId(issueNumber, target);
         if (!contentId) {
             warnings.push({
                 projectNumber: null,
@@ -669,7 +706,7 @@ class IssueService extends Base {
         }
 
         for (const {projectNumber} of projects) {
-            const metadata = await this.getProjectV2Metadata(projectNumber);
+            const metadata = await this.getProjectV2Metadata(projectNumber, target);
             if (metadata.error) {
                 warnings.push({projectNumber, error: metadata.message});
                 continue;
@@ -686,7 +723,7 @@ class IssueService extends Base {
                     itemId   : result.addProjectV2ItemById.item.id
                 });
             } catch (error) {
-                logger.error(`Error attaching issue #${issueNumber} to ProjectV2 #${projectNumber}:`, error);
+                logger.error(`Error attaching ${target.fullName} issue #${issueNumber} to ${target.owner} ProjectV2 #${projectNumber}:`, error);
                 warnings.push({projectNumber, error: error.message});
             }
         }
@@ -716,9 +753,14 @@ class IssueService extends Base {
      * @param {number}   [options.projectNumber]   Required for 'update_field'.
      * @param {string}   [options.fieldName]       Required for 'update_field' (the field name, e.g., 'Status').
      * @param {string}   [options.value]           Required for 'update_field' (the single-select option name).
+     * @param {String}   [options.repo]            Optional bare name or owner/name repository target.
      * @returns {Promise<object>} Success message + per-project details, or structured error.
      */
-    async manageIssueProjects({issue_number, action, projectNumbers, projectNumber, fieldName, value}) {
+    async manageIssueProjects({issue_number, action, projectNumbers, projectNumber, fieldName, value, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['add', 'remove', 'update_field'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -736,7 +778,7 @@ class IssueService extends Base {
                 };
             }
             const projects = projectNumbers.map(n => ({projectNumber: n}));
-            const result   = await this.attachIssueToProjects(issue_number, projects);
+            const result   = await this.attachIssueToProjects(issue_number, projects, target);
             return {
                 message    : `Attempted to attach issue #${issue_number} to ${projects.length} project(s).`,
                 attachments: result.attachments,
@@ -752,7 +794,7 @@ class IssueService extends Base {
                     code   : 'INVALID_ARGUMENTS'
                 };
             }
-            return this.detachIssueFromProjects(issue_number, projectNumbers);
+            return this.detachIssueFromProjects(issue_number, projectNumbers, target);
         }
 
         // action === 'update_field'
@@ -764,7 +806,7 @@ class IssueService extends Base {
             };
         }
 
-        return this.updateProjectV2ItemSingleSelect(issue_number, projectNumber, fieldName, value);
+        return this.updateProjectV2ItemSingleSelect(issue_number, projectNumber, fieldName, value, target);
     }
 
     /**
@@ -776,13 +818,15 @@ class IssueService extends Base {
      *
      * @param {number}   issueNumber    The issue to detach.
      * @param {number[]} projectNumbers The project numbers to detach from.
+     * @param {Object} [repositoryTarget] Resolved repository target.
      * @returns {Promise<object>} Aggregate result with `removed` + `warnings` arrays.
      */
-    async detachIssueFromProjects(issueNumber, projectNumbers) {
-        const removed  = [];
-        const warnings = [];
+    async detachIssueFromProjects(issueNumber, projectNumbers, repositoryTarget) {
+        const target   = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo}),
+              removed  = [],
+              warnings = [];
 
-        const contentId = await this.getIssueNodeId(issueNumber);
+        const contentId = await this.getIssueNodeId(issueNumber, target);
         if (!contentId) {
             return {
                 error  : 'Not Found',
@@ -792,7 +836,7 @@ class IssueService extends Base {
         }
 
         for (const projectNumber of projectNumbers) {
-            const metadata = await this.getProjectV2Metadata(projectNumber);
+            const metadata = await this.getProjectV2Metadata(projectNumber, target);
             if (metadata.error) {
                 warnings.push({projectNumber, error: metadata.message});
                 continue;
@@ -814,7 +858,7 @@ class IssueService extends Base {
                 });
                 removed.push({projectNumber, itemId});
             } catch (error) {
-                logger.error(`Error removing issue #${issueNumber} from ProjectV2 #${projectNumber}:`, error);
+                logger.error(`Error removing ${target.fullName} issue #${issueNumber} from ${target.owner} ProjectV2 #${projectNumber}:`, error);
                 warnings.push({projectNumber, error: error.message});
             }
         }
@@ -836,10 +880,12 @@ class IssueService extends Base {
      * @param {number} projectNumber The project number containing the item.
      * @param {string} fieldName     The single-select field name (e.g., 'Status').
      * @param {string} value         The option name (e.g., 'In Progress').
+     * @param {Object} [repositoryTarget] Resolved repository target.
      * @returns {Promise<object>} Success or structured error.
      */
-    async updateProjectV2ItemSingleSelect(issueNumber, projectNumber, fieldName, value) {
-        const contentId = await this.getIssueNodeId(issueNumber);
+    async updateProjectV2ItemSingleSelect(issueNumber, projectNumber, fieldName, value, repositoryTarget) {
+        const target    = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo}),
+              contentId = await this.getIssueNodeId(issueNumber, target);
         if (!contentId) {
             return {
                 error  : 'Not Found',
@@ -848,7 +894,7 @@ class IssueService extends Base {
             };
         }
 
-        const metadata = await this.getProjectV2Metadata(projectNumber);
+        const metadata = await this.getProjectV2Metadata(projectNumber, target);
         if (metadata.error) {
             return metadata;
         }
@@ -903,7 +949,7 @@ class IssueService extends Base {
                 optionId : option.id
             };
         } catch (error) {
-            logger.error(`Error updating field on ProjectV2 #${projectNumber} item:`, error);
+            logger.error(`Error updating field on ${target.owner} ProjectV2 #${projectNumber} item for ${target.fullName}#${issueNumber}:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -952,12 +998,17 @@ class IssueService extends Base {
     }
 
     /**
-     * Convenience shortcut
-     * @returns {Promise<Boolean>}
+     * @summary Resolves the selected repository's viewer permission and classifies write access.
+     * @param {Object} repositoryTarget Resolved repository target.
+     * @returns {Promise<{allowed: Boolean, permission: String}|Object>}
      */
-    async hasWritePermission() {
-        const {permission} = await RepositoryService.getViewerPermission();
-        return this.writePermissions.includes(permission);
+    async getWritePermission(repositoryTarget) {
+        const result = await RepositoryService.getViewerPermission({repo: repositoryTarget.fullName});
+
+        return result.error ? result : {
+            allowed   : this.writePermissions.includes(result.permission),
+            permission: result.permission
+        }
     }
 
     /**
@@ -973,9 +1024,14 @@ class IssueService extends Base {
      * @param {string}   options.action                The action to perform: 'add' or 'remove'.
      * @param {boolean}  [options.requireUnassigned=true] Precondition gate for `action: 'add'` — reject if non-empty without `acknowledgedReassign`.
      * @param {string}   [options.acknowledgedReassign] Reason-bearing override for `action: 'add'`; strict-replacement.
+     * @param {String}   [options.repo]                 Optional bare name or owner/name repository target.
      * @returns {Promise<object>}
      */
-    async manageIssueAssignees({issue_number, assignees, action, requireUnassigned, acknowledgedReassign}) {
+    async manageIssueAssignees({issue_number, assignees, action, requireUnassigned, acknowledgedReassign, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['add', 'remove'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -985,9 +1041,9 @@ class IssueService extends Base {
         }
 
         if (action === 'add') {
-            return this.assignIssue({issue_number, assignees, requireUnassigned, acknowledgedReassign});
+            return this.assignIssue({issue_number, assignees, requireUnassigned, acknowledgedReassign, repositoryTarget: target});
         } else {
-            return this.unassignIssue({issue_number, assignees});
+            return this.unassignIssue({issue_number, assignees, repositoryTarget: target});
         }
     }
 
@@ -999,9 +1055,14 @@ class IssueService extends Base {
      * @param {string} [options.comment_id]   The global node ID of the comment (required for update).
      * @param {string} options.body           The content of the comment.
      * @param {string} options.action         The action to perform: 'create' or 'update'.
+     * @param {String} [options.repo]         Optional bare name or owner/name repository target.
      * @returns {Promise<object>}
      */
-    async manageIssueComment({issue_number, pr_number, comment_id, body, action}) {
+    async manageIssueComment({issue_number, pr_number, comment_id, body, action, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['create', 'update'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -1011,7 +1072,7 @@ class IssueService extends Base {
         }
 
         if (action === 'create') {
-            return this.createComment({issue_number, pr_number, body});
+            return this.createComment({issue_number, pr_number, body, repositoryTarget: target});
         } else {
             if (!comment_id) {
                 return {
@@ -1020,7 +1081,9 @@ class IssueService extends Base {
                     code   : 'MISSING_ARGUMENTS'
                 };
             }
-            return this.updateComment(comment_id, body);
+            const targetFailure = await this.#getIssueCommentTargetFailure(comment_id, target, {issue_number, pr_number});
+
+            return targetFailure || this.updateComment(comment_id, body);
         }
     }
 
@@ -1030,9 +1093,14 @@ class IssueService extends Base {
      * @param {number}   options.issue_number The number of the issue or PR.
      * @param {string[]} options.labels       An array of labels to add or remove.
      * @param {string}   options.action       The action to perform: 'add' or 'remove'.
+     * @param {String}   [options.repo]       Optional bare name or owner/name repository target.
      * @returns {Promise<object>}
      */
-    async manageIssueLabels({issue_number, labels, action}) {
+    async manageIssueLabels({issue_number, labels, action, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['add', 'remove'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -1042,9 +1110,9 @@ class IssueService extends Base {
         }
 
         if (action === 'add') {
-            return this.addLabels(issue_number, labels);
+            return this.addLabels(issue_number, labels, target);
         } else {
-            return this.removeLabels(issue_number, labels);
+            return this.removeLabels(issue_number, labels, target);
         }
     }
 
@@ -1055,12 +1123,18 @@ class IssueService extends Base {
      * @param {object}   options              The options object
      * @param {number}   options.issue_number The number of the issue to modify.
      * @param {string[]} options.assignees    An array of GitHub user logins to unassign.
+     * @param {Object}   [options.repositoryTarget] Resolved repository target supplied by the public operation.
      * @returns {Promise<object>}
      */
-    async unassignIssue({issue_number, assignees}) {
-        if (!await this.hasWritePermission()) {
+    async unassignIssue({issue_number, assignees, repositoryTarget}) {
+        const target     = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo}),
+              permission = await this.getWritePermission(target);
+
+        if (permission.error) return permission;
+
+        if (!permission.allowed) {
             const message = [
-                `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
+                `Permission denied for ${target.fullName}. Viewer has '${permission.permission}' permission, `,
                 `but one of [${this.writePermissions.join(', ')}] is required to unassign issues.`
             ].join('');
 
@@ -1080,24 +1154,80 @@ class IssueService extends Base {
             };
         }
 
-        logger.info(`Attempting to unassign issue #${issue_number} from: ${assignees.join(', ')}`);
+        logger.info(`Attempting to unassign ${target.fullName} issue #${issue_number} from: ${assignees.join(', ')}`);
 
         try {
             // DELETE removes the specified logins from the issue's assignee set (incremental remove,
             // the equivalent of `gh issue edit --remove-assignee`); other assignees are preserved.
-            await GraphqlService.rest('DELETE', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}/assignees`, {assignees});
+            await GraphqlService.rest('DELETE', `/repos/${target.owner}/${target.repo}/issues/${issue_number}/assignees`, {assignees});
 
             const message = `Successfully unassigned ${assignees.join(', ')} from issue #${issue_number}`;
             logger.info(message);
             return { message };
 
         } catch (error) {
-            logger.error(`Error unassigning from issue #${issue_number}:`, error);
+            logger.error(`Error unassigning from ${target.fullName} issue #${issue_number}:`, error);
             return {
                 error  : 'GitHub API request failed',
                 message: error.message,
                 code   : 'GITHUB_API_ERROR'
             };
+        }
+    }
+
+    /**
+     * @summary Verifies a global IssueComment node belongs to the selected repository and supplied parent.
+     * @param {String} commentId Global IssueComment node ID.
+     * @param {Object} repositoryTarget Resolved per-request repository.
+     * @param {Object} parent Optional issue/PR number asserted by the caller.
+     * @returns {Promise<Object|null>} Typed refusal, or null when the target matches.
+     * @private
+     */
+    async #getIssueCommentTargetFailure(commentId, repositoryTarget, {issue_number, pr_number}) {
+        try {
+            const data    = await GraphqlService.query(GET_ISSUE_COMMENT_TARGET, {commentId}),
+                  comment = data?.node,
+                  subject = comment?.pullRequest || comment?.issue,
+                  actual  = subject?.repository?.nameWithOwner;
+
+            if (!comment?.id || !subject || !actual) {
+                return {
+                    error  : 'Not Found',
+                    message: `Issue comment ${commentId} was not found or carried no repository parent.`,
+                    code   : 'COMMENT_NOT_FOUND'
+                }
+            }
+
+            if (actual.toLowerCase() !== repositoryTarget.fullName.toLowerCase()) {
+                return {
+                    error       : 'Repository Target Mismatch',
+                    message     : `Issue comment ${commentId} belongs to ${actual}, not selected repository ${repositoryTarget.fullName}; no update was sent.`,
+                    code        : 'REPOSITORY_TARGET_MISMATCH',
+                    actualRepo  : actual,
+                    selectedRepo: repositoryTarget.fullName
+                }
+            }
+
+            const expectedNumber = pr_number || issue_number;
+
+            if (
+                expectedNumber &&
+                (subject.number !== expectedNumber || Boolean(pr_number) !== Boolean(comment.pullRequest))
+            ) {
+                return {
+                    error  : 'Comment Target Mismatch',
+                    message: `Issue comment ${commentId} does not belong to the supplied ${pr_number ? 'PR' : 'issue'} #${expectedNumber}; no update was sent.`,
+                    code   : 'COMMENT_TARGET_MISMATCH'
+                }
+            }
+
+            return null
+        } catch (error) {
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            }
         }
     }
 
@@ -1134,6 +1264,7 @@ class IssueService extends Base {
      * @summary Detects GitHub's missing-number GraphQL error for one labelable branch.
      * @param {Error}  error       GraphQL failure.
      * @param {String} type        GitHub type name (`Issue` or `PullRequest`).
+     * @param {Object} repositoryTarget Resolved repository target.
      * @param {Number} issueNumber Repository issue/PR number.
      * @returns {Boolean}
      * @private
@@ -1150,10 +1281,10 @@ class IssueService extends Base {
      * @returns {Promise<Object|null>}
      * @private
      */
-    async #queryLabelableIds(query, issueNumber, type) {
+    async #queryLabelableIds(query, issueNumber, type, repositoryTarget) {
         const variables = {
-            owner    : aiConfig.owner,
-            repo     : aiConfig.repo,
+            owner    : repositoryTarget.owner,
+            repo     : repositoryTarget.repo,
             issueNumber,
             maxLabels: aiConfig.issueSync.maxRepoLabels
         };
@@ -1195,16 +1326,17 @@ class IssueService extends Base {
      * Fetches the GraphQL node IDs for an issue or pull request and a set of labels.
      * @param {number}   issueNumber The number of the issue or PR.
      * @param {string[]} labelNames  An array of label names.
+     * @param {Object} repositoryTarget Resolved repository target.
      * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
      * @private
      */
-    async #getIds(issueNumber, labelNames) {
+    async #getIds(issueNumber, labelNames, repositoryTarget) {
         let
-            data        = await this.#queryLabelableIds(GET_ISSUE_LABEL_IDS, issueNumber, 'Issue'),
+            data        = await this.#queryLabelableIds(GET_ISSUE_LABEL_IDS, issueNumber, 'Issue', repositoryTarget),
             labelableId = data?.repository?.issue?.id;
 
         if (!labelableId) {
-            data        = await this.#queryLabelableIds(GET_PULL_REQUEST_LABEL_IDS, issueNumber, 'PullRequest');
+            data        = await this.#queryLabelableIds(GET_PULL_REQUEST_LABEL_IDS, issueNumber, 'PullRequest', repositoryTarget);
             labelableId = data?.repository?.pullRequest?.id;
         }
 
@@ -1222,16 +1354,17 @@ class IssueService extends Base {
      * @param {number}      blockedIssue   The issue number being blocked
      * @param {string}      blockedIssueId The GraphQL ID of the blocked issue
      * @param {number|null} blockingIssue  The issue number doing the blocking (null to remove)
+     * @param {Object}      repositoryTarget Resolved repository target.
      * @returns {Promise<object>} Result with updated relationship information
      * @private
      */
-    async #handleBlockedByRelationship(blockedIssue, blockedIssueId, blockingIssue) {
+    async #handleBlockedByRelationship(blockedIssue, blockedIssueId, blockingIssue, repositoryTarget) {
         // If blockingIssue is null, we're removing a blocked-by relationship
         if (!blockingIssue) {
             // Fetch current blockedBy relationships
             const blockedData = await GraphqlService.query(GET_BLOCKED_BY, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
+                owner : repositoryTarget.owner,
+                repo  : repositoryTarget.repo,
                 number: blockedIssue
             }, true); // Enable sub-issues feature for blocked-by access
 
@@ -1268,8 +1401,8 @@ class IssueService extends Base {
 
         // Adding a blocked-by relationship
         const blockingIdData = await GraphqlService.query(GET_ISSUE_ID, {
-            owner : aiConfig.owner,
-            repo  : aiConfig.repo,
+            owner : repositoryTarget.owner,
+            repo  : repositoryTarget.repo,
             number: blockingIssue
         });
 
@@ -1311,9 +1444,14 @@ class IssueService extends Base {
      * @param {'full'|'summary'|'title'|'title_only'} [options.projection='full'] Response shape projection
      * @param {string}          [options.cursor]            Cursor for pagination; pass a prior `endCursor`
      * @param {'updated'|'created'} [options.sort='updated'] Order field: `updated` (default) or `created` — creation order is the freshness-sweep evidence (updated-desc buries untouched fresh filings below recently-updated older issues)
+     * @param {String}          [options.repo]               Optional bare name or owner/name repository target.
      * @returns {Promise<object>} `{count, totalCount, truncated, endCursor, issues}`
      */
-    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null, sort='updated'} = {}) {
+    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null, sort='updated', repo} = {}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         const normalizedProjection = this.normalizeIssueListProjection(projection);
 
         if (!normalizedProjection) {
@@ -1386,8 +1524,8 @@ class IssueService extends Base {
             : buildIssuesListQuery({withAssigneeFilter: hasAssigneeFilter, orderField});
 
         const variables = {
-            owner: aiConfig.owner,
-            repo : aiConfig.repo,
+            owner: target.owner,
+            repo : target.repo,
             limit,
             cursor,
             states,
@@ -1445,7 +1583,7 @@ class IssueService extends Base {
                 issues
             };
         } catch (error) {
-            logger.error('Error fetching issues via GraphQL:', error);
+            logger.error(`Error fetching issues from ${target.fullName} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -1513,16 +1651,19 @@ class IssueService extends Base {
      * Removes labels from an issue or pull request.
      * @param {number}   issueNumber The number of the issue or PR.
      * @param {string[]} labels      An array of labels to remove.
+     * @param {Object} [repositoryTarget] Resolved repository target supplied by the public operation.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async removeLabels(issueNumber, labels) {
+    async removeLabels(issueNumber, labels, repositoryTarget) {
+        const target = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+
         try {
-            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels, target);
 
             await GraphqlService.query(REMOVE_LABELS, { labelableId, labelIds });
             return { message: `Successfully removed labels from issue #${issueNumber}` };
         } catch (error) {
-            logger.error(`Error removing labels from issue #${issueNumber} via GraphQL:`, error);
+            logger.error(`Error removing labels from ${target.fullName} issue #${issueNumber} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -1539,9 +1680,31 @@ class IssueService extends Base {
      * @param {number}  options.child_issue                        The issue number of the child/blocked issue
      * @param {number}  [options.parent_issue]                     The issue number of the parent/blocking issue (omit to unset relationship)
      * @param {boolean} [options.replace_parent=false]             If true, replaces existing parent relationship (parent_child only)
+     * @param {String}  [options.repo]                             Optional bare name or owner/name repository target; both issue numbers stay inside it.
      * @returns {Promise<object>} Result with updated relationship information or error
      */
-    async updateIssueRelationship({relationship_type='parent_child', child_issue, parent_issue=null, replace_parent=false}) {
+    async updateIssueRelationship({relationship_type='parent_child', child_issue, parent_issue=null, replace_parent=false, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
+        const relationshipNumbers = [child_issue, ...(parent_issue == null ? [] : [parent_issue])];
+
+        if (relationshipNumbers.some(value => !Number.isInteger(value))) {
+            const crossRepository = relationshipNumbers.find(value =>
+                typeof value === 'string' && (value.includes('/') || value.includes('#')));
+
+            return crossRepository ? {
+                error  : 'Cross-Repository Relationship Unsupported',
+                message: `Issue relationship input '${crossRepository}' carries repository identity, but this operation interprets both numeric issue IDs inside selected repository ${target.fullName}. Cross-repository relationships require two repo-qualified graph identities and are not supported.`,
+                code   : 'CROSS_REPOSITORY_RELATIONSHIP_UNSUPPORTED'
+            } : {
+                error  : 'Bad Request',
+                message: '`child_issue` and supplied `parent_issue` must be integer issue numbers inside the selected repository.',
+                code   : 'INVALID_ARGUMENTS'
+            }
+        }
+
         try {
             // Validate relationship type
             const validTypes = ['parent_child', 'blocked_by'];
@@ -1555,8 +1718,8 @@ class IssueService extends Base {
 
             // Get GraphQL IDs for both issues
             const childIdData = await GraphqlService.query(GET_ISSUE_ID, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
+                owner : target.owner,
+                repo  : target.repo,
                 number: child_issue
             });
 
@@ -1564,7 +1727,7 @@ class IssueService extends Base {
 
             // Handle blocked_by relationship type
             if (relationship_type === 'blocked_by') {
-                return await this.#handleBlockedByRelationship(child_issue, childIssueId, parent_issue);
+                return await this.#handleBlockedByRelationship(child_issue, childIssueId, parent_issue, target);
             }
 
             // Handle parent_child relationship type (original logic)
@@ -1573,8 +1736,8 @@ class IssueService extends Base {
                 // To remove a parent, we need the current parent's ID
                 // First, fetch the child issue's current parent
                 const childData = await GraphqlService.query(GET_ISSUE_PARENT, {
-                    owner : aiConfig.owner,
-                    repo  : aiConfig.repo,
+                    owner : target.owner,
+                    repo  : target.repo,
                     number: child_issue
                 });
 
@@ -1607,8 +1770,8 @@ class IssueService extends Base {
 
             // Adding or replacing a parent relationship
             const parentIdData = await GraphqlService.query(GET_ISSUE_ID, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
+                owner : target.owner,
+                repo  : target.repo,
                 number: parent_issue
             });
 
@@ -1631,7 +1794,7 @@ class IssueService extends Base {
             };
 
         } catch (error) {
-            logger.error(`Error updating issue relationship for #${child_issue}:`, error);
+            logger.error(`Error updating issue relationship for ${target.fullName}#${child_issue}:`, error);
 
             // Provide helpful error messages for common scenarios
             let errorMessage = error.message;

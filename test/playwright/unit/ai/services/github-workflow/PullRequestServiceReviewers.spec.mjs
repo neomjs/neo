@@ -62,6 +62,18 @@ test.describe('PullRequestService.managePrReviewers — REST requested_reviewers
         expect(res.message).toContain('requested');
     });
 
+    test('#17420: an explicit target qualifies the requested_reviewers REST path', async () => {
+        let captured;
+
+        await PullRequestService.managePrReviewers(
+            {repo: 'devindex', pr_number: 3, reviewers: ['neo-gpt'], action: 'add'},
+            {execFn: async command => { captured = command; return reviewerResponse(['neo-gpt']) }}
+        );
+
+        expect(captured).toContain('gh api repos/neomjs/devindex/pulls/3/requested_reviewers');
+        expect(captured).not.toContain('repos/neomjs/neo/pulls/3');
+    });
+
     test('remove → REST DELETE; team slugs are bare (no owner prefix)', async () => {
         let captured;
         await PullRequestService.managePrReviewers(

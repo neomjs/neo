@@ -10,6 +10,7 @@ import LabelService                                                             
 import LocalFileService                                                                from '../../../services/github-workflow/LocalFileService.mjs';
 import PullRequestService                                                              from '../../../services/github-workflow/PullRequestService.mjs';
 import RepositoryService                                                               from '../../../services/github-workflow/RepositoryService.mjs';
+import {resolveRepositoryTarget}                                                       from '../../../services/github-workflow/shared/repositoryTarget.mjs';
 import ToolService                                                                     from '../../ToolService.mjs';
 import {assertExpectedIdentity as assertExpectedGitHubIdentity, IdentityAssertionCode} from '../../../graph/assertExpectedIdentity.mjs';
 import RequestContextService                                                           from '../shared/services/RequestContextService.mjs';
@@ -25,6 +26,33 @@ const NON_PUBLIC_GITHUB_WRITE_ACCESS = 'non-public-write';
 const GITHUB_TOOL_ACCESS_TYPES       = Object.freeze(new Set([
     PUBLIC_GITHUB_WRITE_ACCESS,
     NON_PUBLIC_GITHUB_WRITE_ACCESS
+]));
+
+/**
+ * The exact remote-forge family carrying the shared per-request repository contract.
+ * Local checkout/content, repository-independent validation, graph projection, and server metadata
+ * stay outside this set. The OpenAPI/test census must remain exactly equal to it.
+ * @type {Set<String>}
+ */
+const REPOSITORY_TARGET_TOOLS = Object.freeze(new Set([
+    'list_labels',
+    'list_pull_requests',
+    'get_pull_request_diff',
+    'get_conversation',
+    'manage_issue_comment',
+    'manage_issue_labels',
+    'manage_issue_assignees',
+    'manage_pr_review',
+    'manage_pr_reviewers',
+    'list_issues',
+    'create_issue',
+    'manage_issue_projects',
+    'create_discussion',
+    'manage_discussion',
+    'get_discussion_conversation',
+    'manage_discussion_comment',
+    'update_issue_relationship',
+    'get_viewer_permission'
 ]));
 
 /**
@@ -331,6 +359,44 @@ function guardGitHubWriteTools(mapping, guardOptions) {
 }
 
 /**
+ * @summary Wraps one remote-forge handler with the no-I/O malformed-target gate.
+ *
+ * This guard must sit OUTSIDE the write-identity guard. The identity assertion calls GitHub to
+ * resolve the effective viewer; running it first would violate the repository contract by issuing
+ * GitHub I/O before rejecting malformed input. The service resolves the target again at its own use
+ * site so this boundary never exports or threads AiConfig state.
+ *
+ * @param {Function} delegate Remote-forge tool handler.
+ * @returns {Function} Repository-target validated handler.
+ */
+function buildRepositoryTargetGuard(delegate) {
+    return async function repositoryTargetGuard(options, ...rest) {
+        const repo   = options && typeof options === 'object' ? options.repo : undefined,
+              target = resolveRepositoryTarget(repo, {owner: config.owner, repo: config.repo});
+
+        if (target.error) return target;
+
+        return delegate(options, ...rest)
+    }
+}
+
+/**
+ * @summary Applies the repository-target guard to the exact 18-operation remote-forge family.
+ * @param {Object} mapping Operation id to handler function.
+ * @returns {Object} Mapping with target validation wrapped around remote-forge handlers.
+ */
+function guardRepositoryTargetTools(mapping) {
+    return Object.fromEntries(
+        Object.entries(mapping).map(([toolName, handler]) => [
+            toolName,
+            REPOSITORY_TARGET_TOOLS.has(toolName)
+                ? buildRepositoryTargetGuard(handler)
+                : handler
+        ])
+    )
+}
+
+/**
  * `get_conversation` dispatch router. The tool serves BOTH pull requests and
  * issues; it routes to the matching service by which identifier the caller supplied.
  * Rejects ambiguous (both ids) and empty (neither id) argument shapes with structured
@@ -447,17 +513,23 @@ const serviceMapping = {
 
 assertCompleteGitHubToolAccessPolicy(serviceMapping);
 
-const guardedServiceMapping = guardGitHubWriteTools(serviceMapping);
+// Ordering is load-bearing: malformed target refusal must happen before the write guard's GitHub
+// viewer probe. Wrap identity first, then repository validation around the resulting handlers.
+const identityGuardedServiceMapping = guardGitHubWriteTools(serviceMapping);
+const guardedServiceMapping         = guardRepositoryTargetTools(identityGuardedServiceMapping);
 
 // Exported for unit-test access. `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
 export {
     GITHUB_TOOL_ACCESS,
+    REPOSITORY_TARGET_TOOLS,
     assertCompleteGitHubToolAccessPolicy,
     assertNoUnclassifiedGitHubTools,
     buildGitHubWriteIdentityGuard,
+    buildRepositoryTargetGuard,
     getConversationRouter,
     guardGitHubWriteTools,
+    guardRepositoryTargetTools,
     isPublicGitHubWriteTool,
     normalizeGitHubIdentityLogin,
     resolveGitHubIdentityAssertion

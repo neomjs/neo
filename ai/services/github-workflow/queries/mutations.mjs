@@ -309,6 +309,32 @@ export const UPDATE_COMMENT = `
 `;
 
 /**
+ * Resolves the repository + parent number behind one global IssueComment node before update.
+ * A global node ID is not repository authority: the caller's selected repo must match the node's
+ * actual parent before the mutation is allowed to run.
+ *
+ * Variables required:
+ * - $commentId: ID! - The global ID of the comment to inspect
+ */
+export const GET_ISSUE_COMMENT_TARGET = `
+  query GetIssueCommentTarget($commentId: ID!) {
+    node(id: $commentId) {
+      ... on IssueComment {
+        id
+        issue {
+          number
+          repository { nameWithOwner }
+        }
+        pullRequest {
+          number
+          repository { nameWithOwner }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Mutation to add a new comment to a discussion.
  *
  * Variables required:
@@ -341,6 +367,27 @@ export const UPDATE_DISCUSSION_COMMENT = `
         id
         url
         updatedAt
+      }
+    }
+  }
+`;
+
+/**
+ * Resolves the repository + Discussion number behind one global DiscussionComment node.
+ * The selected repository is checked before a comment update can use the global node ID.
+ *
+ * Variables required:
+ * - $commentId: ID! - The global ID of the Discussion comment to inspect
+ */
+export const GET_DISCUSSION_COMMENT_TARGET = `
+  query GetDiscussionCommentTarget($commentId: ID!) {
+    node(id: $commentId) {
+      ... on DiscussionComment {
+        id
+        discussion {
+          number
+          repository { nameWithOwner }
+        }
       }
     }
   }
@@ -545,6 +592,8 @@ export const UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT = `
  *
  * Variables required:
  * - $activationIssueNumber: Int!
+ * - $homeOwner:             String!
+ * - $homeRepo:              String!
  * - $owner:                 String!
  * - $repo:                  String!
  * - $prNumber:              Int!
@@ -552,11 +601,13 @@ export const UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT = `
 export const GET_PULL_REQUEST_ID = `
   query GetPullRequestId(
     $activationIssueNumber: Int!
+    $homeOwner: String!
+    $homeRepo: String!
     $owner: String!
     $repo: String!
     $prNumber: Int!
   ) {
-    repository(owner: $owner, name: $repo) {
+    homeRepository: repository(owner: $homeOwner, name: $homeRepo) {
       activationIssue: issue(number: $activationIssueNumber) {
         id
         closedByPullRequestsReferences(first: 100, includeClosedPrs: true) {
@@ -573,6 +624,8 @@ export const GET_PULL_REQUEST_ID = `
           }
         }
       }
+    }
+    targetRepository: repository(owner: $owner, name: $repo) {
       pullRequest(number: $prNumber) {
         body
         createdAt
@@ -620,6 +673,10 @@ export const GET_PULL_REQUEST_REVIEW = `
         body
         id
         state
+        pullRequest {
+          number
+          repository { nameWithOwner }
+        }
       }
     }
   }

@@ -521,8 +521,22 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
             const COMMENT_URL = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098042';
             const UPDATED_TS  = '2026-04-24T02:15:33Z';
 
+            let callCount = 0;
+
             GraphqlService.query = async (query, variables) => {
+                callCount++;
                 expect(variables.commentId).toBe(COMMENT_ID);
+
+                if (callCount === 1) {
+                    return {
+                        node: {
+                            id         : COMMENT_ID,
+                            issue      : {number: 10272, repository: {nameWithOwner: 'neomjs/neo'}},
+                            pullRequest: null
+                        }
+                    }
+                }
+
                 return {
                     updateIssueComment: {
                         issueComment: {
@@ -546,6 +560,38 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
                 url      : COMMENT_URL,
                 updatedAt: UPDATED_TS
             });
+            expect(callCount).toBe(2);
+        });
+
+        test('an explicit wrong repository refuses before the update mutation', async () => {
+            const COMMENT_ID = 'IC_kwDOABcD_other_repo';
+            let   callCount  = 0;
+
+            GraphqlService.query = async () => {
+                callCount++;
+                return {
+                    node: {
+                        id         : COMMENT_ID,
+                        issue      : {number: 10272, repository: {nameWithOwner: 'neomjs/neo'}},
+                        pullRequest: null
+                    }
+                }
+            };
+
+            const result = await IssueService.manageIssueComment({
+                repo        : 'devindex',
+                issue_number: 10272,
+                comment_id  : COMMENT_ID,
+                body        : 'Must not cross repositories',
+                action      : 'update'
+            });
+
+            expect(result).toMatchObject({
+                code        : 'REPOSITORY_TARGET_MISMATCH',
+                actualRepo  : 'neomjs/neo',
+                selectedRepo: 'neomjs/devindex'
+            });
+            expect(callCount).toBe(1);
         });
 
         test('rejects missing comment_id on update', async () => {

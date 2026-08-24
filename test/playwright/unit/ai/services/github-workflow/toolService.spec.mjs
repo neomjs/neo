@@ -18,6 +18,7 @@ setup({
 // Neo; the augmentation happens via these imports — mirrors the existing AI unit-test
 // pattern (e.g. IssueService.spec.mjs).
 import {test, expect}  from '@playwright/test';
+import {readFileSync}  from 'node:fs';
 import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
@@ -191,18 +192,22 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
  */
 test.describe('Neo.ai.services.github-workflow.toolService — write identity guard (#13243)', () => {
     let GITHUB_TOOL_ACCESS;
+    let REPOSITORY_TARGET_TOOLS;
     let assertCompleteGitHubToolAccessPolicy;
     let buildGitHubWriteIdentityGuard;
     let guardGitHubWriteTools;
+    let guardRepositoryTargetTools;
     let isPublicGitHubWriteTool;
     let normalizeGitHubIdentityLogin;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
         GITHUB_TOOL_ACCESS                    = mod.GITHUB_TOOL_ACCESS;
+        REPOSITORY_TARGET_TOOLS              = mod.REPOSITORY_TARGET_TOOLS;
         assertCompleteGitHubToolAccessPolicy = mod.assertCompleteGitHubToolAccessPolicy;
         buildGitHubWriteIdentityGuard         = mod.buildGitHubWriteIdentityGuard;
         guardGitHubWriteTools                 = mod.guardGitHubWriteTools;
+        guardRepositoryTargetTools            = mod.guardRepositoryTargetTools;
         isPublicGitHubWriteTool               = mod.isPublicGitHubWriteTool;
         normalizeGitHubIdentityLogin          = mod.normalizeGitHubIdentityLogin;
     });
@@ -362,6 +367,31 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         });
     });
 
+    test('#17420: malformed repo refusal runs before identity resolution and the service delegate', async () => {
+        let identityCalls = 0,
+            delegateCalls = 0;
+        const identityGuarded = guardGitHubWriteTools({
+            manage_issue_comment: async () => { delegateCalls++; return {ok: true} }
+        }, {
+            assertExpectedIdentity: async () => {
+                identityCalls++;
+                return {ok: true, reason: null, code: 'OK'}
+            }
+        });
+        const guarded = guardRepositoryTargetTools(identityGuarded).manage_issue_comment;
+
+        await expect(guarded({repo: '', issue_number: 1, action: 'create', body: 'x'})).resolves.toMatchObject({
+            code        : 'REPOSITORY_TARGET_INVALID',
+            rejectedRepo: ''
+        });
+        expect(identityCalls).toBe(0);
+        expect(delegateCalls).toBe(0);
+
+        await expect(guarded({repo: 'devindex', issue_number: 1, action: 'create', body: 'x'})).resolves.toEqual({ok: true});
+        expect(identityCalls).toBe(1);
+        expect(delegateCalls).toBe(1);
+    });
+
     test('rejects service mappings with unclassified future tools (#13252)', () => {
         expect(() => guardGitHubWriteTools({
             get_conversation      : async () => {},
@@ -379,6 +409,56 @@ test.describe('Neo.ai.services.github-workflow.toolService — write identity gu
         expect(assertCompleteGitHubToolAccessPolicy(
             Object.fromEntries(registeredTools.map(toolName => [toolName, async () => {}]))
         )).toBe(true);
+    });
+
+    test('#17420: exactly the 18 remote-forge operations advertise the shared repository target', async () => {
+        const {listTools} = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+        const tools       = new Map(listTools().tools.map(tool => [tool.name, tool]));
+        const targeted    = [
+            'list_labels',
+            'list_pull_requests',
+            'get_pull_request_diff',
+            'get_conversation',
+            'manage_issue_comment',
+            'manage_issue_labels',
+            'manage_issue_assignees',
+            'manage_pr_review',
+            'manage_pr_reviewers',
+            'list_issues',
+            'create_issue',
+            'manage_issue_projects',
+            'create_discussion',
+            'manage_discussion',
+            'get_discussion_conversation',
+            'manage_discussion_comment',
+            'update_issue_relationship',
+            'get_viewer_permission'
+        ];
+        const excluded = [
+            'checkout_pull_request',
+            'get_local_issue_by_id',
+            'validate_pr_review_body',
+            'signal_state_transition',
+            'healthcheck',
+            'get_mcp_tool_handbook'
+        ];
+
+        for (const toolName of targeted) {
+            expect(tools.get(toolName)?.inputSchema?.properties?.repo, toolName).toMatchObject({
+                type: 'string'
+            });
+        }
+
+        for (const toolName of excluded) {
+            expect(tools.get(toolName)?.inputSchema?.properties?.repo, toolName).toBeUndefined();
+        }
+
+        expect(targeted).toHaveLength(18);
+        expect([...REPOSITORY_TARGET_TOOLS].sort()).toEqual([...targeted].sort());
+        const openApiSource = readFileSync('ai/mcp/server/github-workflow/openapi.yaml', 'utf8'),
+              sharedRefs    = openApiSource.match(/\$ref: '#\/components\/schemas\/RepositoryTarget'/g) || [];
+
+        expect(sharedRefs).toHaveLength(18);
     });
 
     test('classifies the public GitHub write boundary explicitly', () => {
