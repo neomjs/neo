@@ -1343,6 +1343,27 @@ class ConfigBase extends ConfigProvider {
                  */
                 tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string', {planeMember: false, planeMemberReason: 'profile-pinned — canonical in base/cloud; relocated profiles bind explicitly (#15800)'}),
                 /**
+                 * Source-neutral core-corpus projection owner.
+                 *
+                 * The source identity is explicit because the AgentOS image revision and Engine
+                 * corpus revision become different Git histories after extraction. The mirror,
+                 * materialized exact-revision view, and consumer receipt derive from the resolved
+                 * orchestrator state root through formulas below — no consumer reconstructs them.
+                 * `enabled` remains false by default; a deployment electing the container-plane
+                 * writer states the source repo/ref and enables it explicitly.
+                 * @type {Object}
+                 */
+                corpusProjection: {
+                    enabled                    : leaf(false, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED', 'boolean'),
+                    sourceRepository           : leaf('', 'NEO_ORCHESTRATOR_CORPUS_SOURCE_REPOSITORY', 'string'),
+                    sourceRef                  : leaf('', 'NEO_ORCHESTRATOR_CORPUS_SOURCE_REF', 'string'),
+                    mirrorRootOverride         : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_MIRROR_ROOT', 'string'),
+                    materializedRootOverride   : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_MATERIALIZED_ROOT', 'string'),
+                    receiptPathOverride        : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_RECEIPT_PATH', 'string'),
+                    freshnessSlaMsOverride     : leaf(null, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_FRESHNESS_SLA_MS', 'number'),
+                    fullRematerializeIntervalMs: leaf(7 * DAY_MS, 'NEO_ORCHESTRATOR_CORPUS_FULL_REMATERIALIZE_INTERVAL_MS', 'number')
+                },
+                /**
                  * Provider-readiness probe parameters consumed by the orchestrator dream task
                  * and the standalone Sandman CLI runner. The probe issues an HTTP GET against
                  * the resolved graph provider's `/api/tags` (Ollama) or `/v1/models`
@@ -1632,6 +1653,13 @@ class ConfigBase extends ConfigProvider {
                     summarySweepMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
                     kbSyncMs            : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
                     githubWorkflowSyncMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_INTERVAL_MS', 'number'),
+                    /**
+                     * Container-owned core-corpus projection cadence. Distinct from
+                     * `githubWorkflowSyncMs`: CI owns GitHub emission, while this lane owns
+                     * committed-corpus → Native Graph projection on the store-bearing plane.
+                     * @type {Number}
+                     */
+                    corpusProjectionMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_CORPUS_PROJECTION_INTERVAL_MS', 'number'),
                     backupMs            : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
                     /**
                      * Minimum spacing between retries of a FAILED backup run, and how long the retry
@@ -2548,6 +2576,18 @@ class ConfigBase extends ConfigProvider {
             'orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMs': data =>
                 data.orchestrator.heavyMaintenanceLease.starvationReceiptStaleAfterMsOverride ??
                 data.orchestrator.intervals.heavyMaintenanceStarvationWatchdogCheckMs * 2,
+            'orchestrator.corpusProjection.mirrorRoot': data =>
+                data.orchestrator.corpusProjection.mirrorRootOverride ??
+                path.resolve(data.orchestrator.dataDir, 'core-corpus-mirror'),
+            'orchestrator.corpusProjection.materializedRoot': data =>
+                data.orchestrator.corpusProjection.materializedRootOverride ??
+                path.resolve(data.orchestrator.dataDir, 'core-corpus-materialized'),
+            'orchestrator.corpusProjection.receiptPath': data =>
+                data.orchestrator.corpusProjection.receiptPathOverride ??
+                path.resolve(data.orchestrator.dataDir, 'core-corpus-projection.json'),
+            'orchestrator.corpusProjection.freshnessSlaMs': data =>
+                data.orchestrator.corpusProjection.freshnessSlaMsOverride ??
+                data.orchestrator.intervals.corpusProjectionMs * 2,
             'engines.chroma.useTestDatabase': data => data.engines.chroma.useUnitTestDatabase || data.engines.chroma.useTestHarness,
             'engines.chroma.dataDir'        : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
             'engines.chroma.host'           : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,

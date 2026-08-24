@@ -2025,6 +2025,61 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain(blockedId);
     });
 
+    test('D2 admission withholds before both stores and preserves the last-known-good handoff (#17627)', async () => {
+        const originalEnabled             = aiConfig.orchestrator.corpusProjection.enabled;
+        const originalReceiptPathOverride = aiConfig.orchestrator.corpusProjection.receiptPathOverride;
+        const originalGetGraphCollection  = StorageRouter.getGraphCollection;
+        const receiptDir                  = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-path-projection-gate-'));
+        const receiptPath                 = path.join(receiptDir, 'projection.json');
+        const HEAD_A                      = 'a'.repeat(40);
+        const HEAD_B                      = 'b'.repeat(40);
+        const {
+            beginCorpusProjection,
+            commitCorpusProjectionFacet,
+            createCorpusProjectionReceipt
+        } = await import('../../../../../../ai/services/graph/corpusProjectionContract.mjs');
+        const {writeCorpusProjectionReceipt} = await import('../../../../../../ai/services/graph/corpusProjectionReceiptStore.mjs');
+
+        let receipt = createCorpusProjectionReceipt({
+            sourceRepository: 'https://github.com/neomjs/neo.git',
+            sourceRef       : 'refs/heads/dev'
+        });
+        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_A});
+        for (const facet of ['issues', 'pulls', 'discussions']) {
+            receipt = commitCorpusProjectionFacet({receipt, facet})
+        }
+        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_B});
+        receipt = commitCorpusProjectionFacet({receipt, facet: 'discussions'});
+        await writeCorpusProjectionReceipt(receiptPath, receipt);
+
+        aiConfig.orchestrator.corpusProjection.enabled = true;
+        aiConfig.orchestrator.corpusProjection.receiptPathOverride = receiptPath;
+        StorageRouter.getGraphCollection = async () => {
+            throw new Error('D2 gate read Chroma despite a stale required facet')
+        };
+        fs.writeFileSync(tmpHandoffFile, '# Last-known-good handoff\n', 'utf8');
+
+        try {
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+
+            expect(outcome).toMatchObject({
+                status      : 'withheld',
+                reasonCode  : 'corpus-projection-not-current',
+                wroteHandoff: false,
+                admission   : {
+                    fallback   : 'last-known-good',
+                    staleFacets: ['issues']
+                }
+            });
+            expect(fs.readFileSync(tmpHandoffFile, 'utf8')).toBe('# Last-known-good handoff\n')
+        } finally {
+            aiConfig.orchestrator.corpusProjection.enabled = originalEnabled;
+            aiConfig.orchestrator.corpusProjection.receiptPathOverride = originalReceiptPathOverride;
+            StorageRouter.getGraphCollection = originalGetGraphCollection;
+            fs.rmSync(receiptDir, {recursive: true, force: true})
+        }
+    });
+
     test('Decision-D witness: Golden Path publishes from SQLite after same-facet Chroma rejection (#17627)', async () => {
         const originalExistsSync           = fs.existsSync;
         const originalReadFile             = fs.promises.readFile;

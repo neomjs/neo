@@ -40,6 +40,11 @@ import {
     renderComputedGoldenPathFailureSection       as renderRouteFailureSection
 } from './computedGoldenPathRouting.mjs';
 import {
+    CORPUS_PROJECTION_CONSUMER,
+    evaluateCorpusProjectionAdmission
+} from './corpusProjectionContract.mjs';
+import {readCorpusProjectionReceipt} from './corpusProjectionReceiptStore.mjs';
+import {
     appendRouteAttribution,
     validateRouteAttributionRetention
 } from './routeAttributionLedgerStore.mjs';
@@ -131,6 +136,41 @@ class GoldenPathSynthesizer extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @summary Resolves the D2 corpus-projection admission before Golden Path reads either live store.
+     *
+     * Disabled is the compatibility posture for deployments that have not elected the new writer.
+     * Once enabled, missing/corrupt/stale/projecting/failed issues or discussions withhold the pass
+     * and preserve the last-known-good handoff. Pull-only lag is deliberately irrelevant to this
+     * consumer; the shared consumer×facet map owns that distinction.
+     * @returns {Promise<Object>}
+     */
+    static async getCorpusProjectionAdmission() {
+        const config = aiConfig.orchestrator.corpusProjection;
+
+        if (!config.enabled) {
+            return {
+                admitted      : true,
+                fallback      : 'current',
+                reasonCode    : 'projection-gate-disabled',
+                requiredFacets: ['issues', 'discussions'],
+                staleFacets   : []
+            }
+        }
+
+        let receipt = null;
+        try {
+            receipt = await readCorpusProjectionReceipt(config.receiptPath)
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] Corpus projection receipt unavailable: ${error.message}`)
+        }
+
+        return evaluateCorpusProjectionAdmission({
+            consumer: CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+            receipt
+        })
     }
 
     /**
@@ -943,6 +983,23 @@ class GoldenPathSynthesizer extends Base {
         now = new Date()
     } = {}) {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
+
+        const projectionAdmission = await this.constructor.getCorpusProjectionAdmission();
+
+        if (!projectionAdmission.admitted) {
+            logger.warn(
+                `[GoldenPathSynthesizer] Withholding live-store read; corpus projection is not current ` +
+                `(${projectionAdmission.reasonCode}; stale=${projectionAdmission.staleFacets.join(',') || 'unknown'}). ` +
+                'Preserving the last-known-good handoff.'
+            );
+
+            return {
+                status      : 'withheld',
+                reasonCode  : 'corpus-projection-not-current',
+                wroteHandoff: false,
+                admission   : projectionAdmission
+            }
+        }
 
         let graphColl   = null;
         let summaryColl = null;
