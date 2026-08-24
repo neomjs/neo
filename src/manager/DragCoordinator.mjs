@@ -112,6 +112,30 @@ class DragCoordinator extends Manager {
     pointerClaimArbiter = null
 
     /**
+     * Bounded ring of the most recent claim-resolution observations — what the resolver saw and
+     * decided, per candidate, including the early return that has no candidates at all.
+     *
+     * The ring is a **session tail, not one gesture's tail**, and is deliberately never cleared at
+     * gesture end: the cross-window failures this exists to diagnose are frequently about what the
+     * PREVIOUS gesture decided, and clearing would destroy exactly that. Attribution is carried
+     * instead — every entry stamps the `gestureToken` live when it was recorded, so a reader
+     * separates retained gestures by filtering rather than by assuming the ring holds only one.
+     * A read that does not filter is reading a mixture, by design.
+     * @member {Object[]} claimTrace=[]
+     * @protected
+     */
+    claimTrace = []
+
+    /**
+     * How many claim resolutions the ring retains across the worker's lifetime. A gesture emits one
+     * per pointer move, so a long drag can fill this alone while several short ones coexist — which
+     * is why `gestureToken` on each entry, not the bound, is what makes a read attributable.
+     * @member {Number} claimTraceLimit=40
+     * @protected
+     */
+    claimTraceLimit = 40
+
+    /**
      * @summary Clears a pending geometry-only native window-drop candidate.
      *
      * Clears a pending geometry-only native window-drop candidate.
@@ -629,8 +653,13 @@ class DragCoordinator extends Manager {
         let group = this.sortZones.get(sortGroup);
 
         if (!group) {
+            // The group being ABSENT and the group yielding no claim are different failures with
+            // different repairs, and a resolver that returns `null` for both cannot say which.
+            this.recordClaimResolution({sortGroup, groupSize: null, outcome: 'group-absent'}, arbiter?.token ?? null);
             return null
         }
+
+        const candidates = [];
 
         for (const [windowId, zone] of group) {
             if (
@@ -638,26 +667,84 @@ class DragCoordinator extends Manager {
                 excludedWindowIds?.has(windowId)
             ) {
                 zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
+                candidates.push({windowId, skipped: 'source-or-excluded'});
                 continue
             }
 
-            if (zone.stableTargetId == null || typeof zone.acceptsRemoteDrag !== 'function') {
+            // Two different causes, reported separately. Collapsing them labelled a zone that HAS a
+            // stable identity as `no-stable-identity`, which sends a reader looking for a missing id
+            // that is right there — the diagnostic would misdirect precisely when it is consulted.
+            if (zone.stableTargetId == null) {
+                candidates.push({windowId, skipped: 'no-stable-identity'});
+                continue
+            }
+
+            if (typeof zone.acceptsRemoteDrag !== 'function') {
+                candidates.push({windowId, stableTargetId: zone.stableTargetId, skipped: 'no-accepts-handler'});
                 continue
             }
 
             let inner = Window.get(windowId)?.innerRect;
 
-            if (
-                inner?.intersects({bottom: screenY, right: screenX, x: screenX, y: screenY}) &&
-                zone.acceptsRemoteDrag(screenX - inner.x, screenY - inner.y)
-            ) {
+            // Each conjunct is observed SEPARATELY because `&&` short-circuits: a nullish `inner`
+            // never calls `acceptsRemoteDrag`, so a diagnostic that records only the zone's answer
+            // cannot distinguish "the zone refused" from "the zone was never asked".
+            const
+                intersects = inner ? inner.intersects({bottom: screenY, right: screenX, x: screenX, y: screenY}) : null,
+                accepts    = inner && intersects ? zone.acceptsRemoteDrag(screenX - inner.x, screenY - inner.y) : null;
+
+            candidates.push({
+                windowId,
+                stableTargetId: zone.stableTargetId,
+                innerResolved : Boolean(inner),
+                intersects,
+                accepts
+            });
+
+            if (intersects && accepts) {
                 arbiter.claim(zone.stableTargetId, zone)
             } else {
                 arbiter.release(zone.stableTargetId)
             }
         }
 
-        return arbiter.resolve()
+        const claimed = arbiter.resolve();
+
+        this.recordClaimResolution({
+            sortGroup,
+            groupSize      : group.size,
+            outcome        : claimed ? 'claimed' : 'no-claim',
+            claimedStableId: claimed?.stableId ?? null,
+            candidates
+        }, arbiter.token);
+
+        return claimed
+    }
+
+    /**
+     * @summary Records one bounded claim-resolution observation on the coordinator's own ring.
+     *
+     * The coordinator's decisions were previously reconstructed by the WORKSPACE after the fact,
+     * which can only report what the answer WOULD have been once readiness has already failed —
+     * and a reconstruction cannot see an early return at all. This records what the resolver
+     * actually did, when it did it; `toJSON` surfaces it through the existing drag-state route.
+     *
+     * `gestureToken` is stamped from the arbiter that was live at the moment of the decision, not
+     * read back at serialization time. The ring outlives a gesture, so a token resolved later would
+     * label every retained entry with whichever gesture happens to be current — attributing one
+     * gesture's decisions to another, which is worse than no attribution at all.
+     * @param {Object}      entry Resolution observation.
+     * @param {String|null} [gestureToken=null] The arbiter token live when this decision was made.
+     * @protected
+     */
+    recordClaimResolution(entry, gestureToken=null) {
+        let me = this;
+
+        me.claimTrace.push({...entry, gestureToken});
+
+        while (me.claimTrace.length > me.claimTraceLimit) {
+            me.claimTrace.shift()
+        }
     }
 
     /**
@@ -1261,6 +1348,11 @@ class DragCoordinator extends Manager {
             activeTransitionOwned     : me.activeTransitionOwned,
             nativeGestures            : Array.from(me.nativeClaimArbiters.keys()),
             pointerGestureToken       : me.pointerClaimArbiter?.token ?? null,
+            // The resolver's OWN record. `pointerGestureToken` above proves only that an arbiter is
+            // live NOW — it says nothing about the collection loop, and nothing about which gesture
+            // produced any given retained entry. Each entry carries its own `gestureToken` for that;
+            // filter by it before reading, because the ring is a session tail and spans gestures.
+            claimTrace: [...me.claimTrace],
             sortZones                 : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,
                 windows: Array.from(map.keys())
