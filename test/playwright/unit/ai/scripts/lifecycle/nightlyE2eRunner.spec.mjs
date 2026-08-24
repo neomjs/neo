@@ -329,6 +329,15 @@ test.describe('nightlyE2eRunner.runNightlyE2e — delivery disposition and wake 
         expect(await fs.pathExists(path.join(tmpDir, '.neo-ai-data/nightly-e2e/runner.lock'))).toBe(false)
     });
 
+    // A production-shaped arm for a REJECTED (not missing) credential lived here and was removed on
+    // purpose. Its evidence is real and is in the PR body as a reproducible command: against the live
+    // ingress the runner catches the 401, writes `digest: 'failed'` with the server's text, releases
+    // the lock, and exits non-zero. It cannot live in THIS suite, because a playwright worker outlives
+    // the run: the client whose readiness never completed is never returned and never closed, and its
+    // transport rejects again after the run finished. The arm therefore failed on the worker's
+    // lifetime rather than on the runner's behaviour — red for the wrong reason, which is exactly what
+    // an arm must never be. The abandoned-transport leak is real and separately owned.
+
     test('#17708 a MISSING credential fails loudly on the default transport, never silently', async () => {
         // The production context that no other arm reaches. Every test above injects `connect`, and an
         // interactive shell exports the credential — so the one environment where this breaks is the
