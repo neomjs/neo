@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-30 (transitions to Accepted on approved, green PR merge at the human merge gate) |
+| **Status** | Accepted — 2026-05-31 (PR #12212) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.8) drafting; architecture confirmed by operator (@tobiu) across a 2026-05-30 brainstorm + 11-agent fan-out audit |
 | **Operator direction** | 2026-05-30 session — "we need a new `/create-skill` for updating the neo identity and all affected areas… we could create a new ADR"; SSOT model is a load-bearing architectural decision, so it earns an ADR rather than a chat-pick |
 | **Implementation ticket** | #12203 — *"Neo identity maintenance: facts-vs-framing ADR + update skill"* (this ADR is its foundational AC) |

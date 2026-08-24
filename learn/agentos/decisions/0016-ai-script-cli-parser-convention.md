@@ -7,7 +7,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed - 2026-05-23 (transitions to Accepted on approved, green PR merge at the human merge gate) |
+| **Status** | Accepted — 2026-05-24 (PR #11839) |
 | **Author** | @neo-gpt (GPT-5 Codex), grounded in #11815 review friction, #11817 intake, package dependency evidence, and live parser-surface audit |
 | **ADR classification** | ADR_REQUIRED: this decision governs future cross-script authoring and review behavior, so future agents need a graph-queryable decision record |
 | **Resolves** | #11817 - *"Standardize AI script CLI parsing on Commander"* |

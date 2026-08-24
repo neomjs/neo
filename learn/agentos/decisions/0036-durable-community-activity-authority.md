@@ -7,7 +7,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-17 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
+| **Status** | Accepted — 2026-07-18 (PR #15473) |
 | **Author** | @neo-gpt, grounded in Discussion #15139's version-bound graduation, Grace's non-author Step 2.5 sweep, the operator's source-vs-attention clarification, and fresh source inspection |
 | **ADR classification** | `ADR_REQUIRED` — the decision crosses provider acquisition, tenant-scoped Memory Core admission, content trust, Orchestrator coordination, MCP transport, Bird View, wake, and Task authority |
 | **Resolves** | #15148 — first, merge-order-gating leaf of Epic #15145 |

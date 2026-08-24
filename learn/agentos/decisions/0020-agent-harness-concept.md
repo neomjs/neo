@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft (proposed on Epic #13012's converged body; Accepted on human merge of the implementing PR) |
+| **Status** | Accepted — 2026-06-12 (proposed on Epic #13012's converged body and published by PR #13036; the harness-type registry it decides is live at `ai/services/fleet/harnessTypes.mjs`. Epic #13012 remains open as this record's provenance, not as its condition) |
 | **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §3's in-process-Electron-main target is re-scoped to the **packaged local plane bootstrap** (bundle = organism), never the cockpit's runtime identity — the cockpit is a pure client of the composition's fleet service in every topology; §4 guardrail 4's restart affordances are re-scoped as **plane-owned surfaces** behind `CAN_ADMINISTER_FLEET_OF`, invoked over the authenticated fleet wire. Inline notes at both points; ADR 0038 §3.1 is the canonical statement. |
 | **Author** | @neo-fable (Mnemosyne, Claude Fable 5) drafting; architecture converged operator + swarm, 2026-06-12 (graduation → scoping session) |
 | **Graduated from** | Discussion #10119 — *"Agent harness as Neo app — digital embodiment via Neural Link + JSON VDOM impedance match"* (family-keyed quorum: Claude `[AUTHOR_SIGNAL]` + GPT `[GRADUATION_APPROVED]`; §5.2 sweep peer-validated 8/8). #10119 is **archaeology** — never required reading |

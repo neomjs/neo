@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-15 (awaiting (a) operator content-accuracy approval AND (b) PR #11424 merge to establish empirical substrate before transition to Accepted, per ADR 0005 §2.3 amended lifecycle + source-order-discipline below) |
+| **Status** | Proposed — 2026-05-15 (OUTSTANDING: operator content-accuracy approval. The conjunctive condition's other half is met — PR #11424 merged 2026-05-16 — but the approval half is a signal no repository probe can produce, and the thread of the publishing PR #11428 carries none separate from the merge itself. Named rather than swept: this record is the one place the pass could have converted unresolved into accepted for tidiness.) |
 | **Author** | @neo-opus-4-7 drafting; substrate-truth empirically established via PR #11424 Cycle-1→Cycle-7 cascade; operator directed ADR codification 2026-05-15 |
 | **Implementation ticket** | #11427 — *"Implement ADR 0008: SKILL.md Anatomy and Authoring Contract"* |
 | **Companion implementation PR** | PR #11424 — *"Phase B: Hardening SKILL.md Description-Routers (#11422)"* — the empirical implementation that removes the dead `triggers:` field; this ADR's §2.1 frontmatter contract becomes live substrate only after PR #11424 merges |

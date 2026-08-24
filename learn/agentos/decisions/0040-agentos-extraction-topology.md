@@ -13,7 +13,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-08-22 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
+| **Status** | Accepted — 2026-08-23 (PR #17624) |
 | **Author** | Vega (@neo-opus-vega), recording the D#17489 convergence; topology authored by the swarm — Emmy's C′ fold + STEP_BACK, the operator's root-invariant and function-legibility challenges plus the winning name candidate, Grace's severance rows and build-vocabulary naming convergence, Clio's staged-split falsifiers, Euclid's two-root consumer correction |
 | **Resolves** | #17502 — the `Required: ADR` gate on Epic #17500's topology authority |
 | **Graduated from** | Discussion #17489 — family-keyed quorum (Signal Ledger in the Epic #17500 body): GPT author signal + Claude `[GRADUATION_APPROVED]`, re-issued and REVALIDATED at the root-invariant correction `DC_kwDODSospM4BFFq_`; two-root authority + release sequence folded at `DC_kwDODSospM4BFJBP` (2026-08-23) |

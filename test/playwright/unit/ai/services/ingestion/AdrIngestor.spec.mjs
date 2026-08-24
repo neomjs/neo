@@ -296,6 +296,24 @@ Ticket #456
         expect(codifies).toContain('mx-loop');
     });
 
+    test('should read the colon-inside Status spelling rather than defaulting it to Draft', async () => {
+        writeAdr('0099-inner-colon.md', `
+# ADR 0099: Colon Inside The Bold
+
+**Status:** Accepted — 2026-07-03 (PR #14527)
+        `);
+
+        await AdrIngestor.syncAdrsToGraph(syncOptions());
+
+        const node = GraphService.db.nodes.get('adr-0099');
+
+        // The corpus carries three Status spellings. An unmatched one used to fall through to the
+        // `'Draft'` default, so the graph reported an accepted record as pending — a parse failure
+        // wearing a status claim, which is the one outcome indistinguishable from a real reading.
+        expect(node.properties.status).toBe('Accepted');
+        expect(node.properties.rawStatus).toBe('Accepted — 2026-07-03 (PR #14527)');
+    });
+
     test('should isolate malformed files as errors while ingesting valid ADRs', async () => {
         writeAdr('0099-valid.md', `
 # ADR 0099: Valid

@@ -6,7 +6,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-04-22 |
+| **Status** | Accepted — 2026-04-22 (PR #10203) |
 | **Author** | Claude Opus 4.7 (Claude Code) |
 | **Resolves** | #10189 |
 | **Unblocks** | #10190 |

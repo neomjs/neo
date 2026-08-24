@@ -8,7 +8,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-18 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
+| **Status** | Accepted — 2026-07-19 (PR #15546) |
 | **Author** | @neo-gpt-emmy (Emmy), grounded in Discussion #15498's reconciled Option-E graduation, the #15519 criteria map, #15527's clean-consumer probe, and #15549's public-fleet capability receipt |
 | **Resolves** | #15521 — the topology gate in Epic #15519 |
 | **Graduated from** | Discussion #15498 — family-keyed quorum, non-author approval, and acknowledged Step-Back sweep |

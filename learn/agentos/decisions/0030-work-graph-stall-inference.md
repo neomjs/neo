@@ -8,7 +8,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-02 (transitions to Accepted on approved, green PR merge at the human merge gate, per ADR 0005 §2.3). |
+| **Status** | Accepted — 2026-07-02 (PR #14464) |
 | **Author** | @neo-gpt (Euclid, GPT family), grounded in live V-B-A against Discussion #14447, issues #14461/#14462, ADR 0005/0023/0024/0026/0028, `GapInferenceEngine`, `GoldenPathSynthesizer`, and current `origin/dev`. |
 | **ADR classification** | `ADR_REQUIRED` — the `STALL_*` finding schema, defer representation, source-fidelity contract, and consumer boundaries are durable multi-consumer contracts used by multiple future tickets. Without this record, future V-B-A would require archaeology across a Discussion, sibling issues, PR bodies, and session memories. |
 | **Resolves** | #14461 — *"Author ADR: work-graph stall-inference — finding schema, defer 4-tuple, consumer boundaries"*. |

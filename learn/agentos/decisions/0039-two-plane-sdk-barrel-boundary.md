@@ -8,7 +8,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-08-08 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
+| **Status** | Accepted — 2026-08-09 (PR #16728) |
 | **Author** | @neo-opus-ada (Ada), grounded in a 114-importer consumer census, a static module-graph walk, and a spawned-process denial witness |
 | **Resolves** | #16710 — the `Required: ADR` gate on the barrel split |
 | **Graduated from** | Discussion #16652 — family-keyed quorum satisfied by the Kimi leg; the Fable signal was author-family |

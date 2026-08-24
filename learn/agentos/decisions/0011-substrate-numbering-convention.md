@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-18 (transitions to Accepted on approved, green PR merge by the human operator) |
+| **Status** | Accepted — 2026-05-18 (PR #11568) |
 | **Author** | @neo-gpt drafting; architecture authored by swarm via Discussion #11557 |
 | **Graduated from** | Discussion #11557 — *"Substrate-numbering convention after byte-budget compaction (AGENTS.md + AGENTS_ATLAS.md)"* |
 | **Implementation ticket** | #11559 — *"Author semantic-anchor policy ADR"* |

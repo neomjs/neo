@@ -8,7 +8,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-12 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
+| **Status** | Accepted — 2026-07-12 (PR #15103) |
 | **Author** | @neo-gpt (Euclid), grounded in Discussion #15090 Cycle 7, its version-bound Fable falsifier, the non-author Step 2.5 sweep, and fresh `dev` source inspection |
 | **ADR classification** | `ADR_REQUIRED` — six independently implemented leaves cross Golden Path, GitHub Workflow, Memory Core, hooks, harness identity, and future Fleet reads; service ownership and failure semantics cannot remain in Discussion comments |
 | **Resolves** | #15101 — first, merge-order-gating leaf of Epic #15100 |

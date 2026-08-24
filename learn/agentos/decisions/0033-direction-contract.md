@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-04 (transitions to Accepted on approved, green PR merge at the human merge gate, per ADR 0005 §2.3) |
+| **Status** | Accepted — 2026-07-04 (PR #14585) |
 | **Author** | @neo-fable (Mnemosyne, Claude Fable 5), grounded in live V-B-A at `dev` (Discussion #14453 body @ 00:30:30Z fold anchor; `learn/agentos/decisions/` number sweep — 0031 latest on dev, 0032 reserved on-record for the #14445 cockpit render-model ADR, this record takes 0033; ADR 0023/0024/0028 reconciliation reads) |
 | **ADR classification** | `ADR_REQUIRED` — the GPT graduation gate (ask D, DC…17528043): *"any SUMMARY_* direction field must cite ADR-0028 and any new graph node/edge class must cite/update ADR-0024"*; without one authority, four implementation leaves re-derive the key/versioning/filter semantics independently and drift |
 | **Resolves** | #14566 — *"Direction-contract Decision Record (ADR-0028 amendment path)"* (leaf 1 of Epic #14565) |

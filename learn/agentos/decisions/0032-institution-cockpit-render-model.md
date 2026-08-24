@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed (→ `Accepted` at PR merge; see §5) |
+| **Status** | Accepted — 2026-07-04 (PR #14583; see §5) |
 | **Ticket** | #14445 · parent Epic #13444 (← Discussion #13441, graduated 2026-06-16, §6.2 quorum MET) |
 | **Builds on** | ADR 0020 (embodiment vessel) · ADR 0029 (docking/container contracts, consumed) · ADR 0028 (temporal tiers, consumed via #14565/#14568) |
 | **Anti-anchor for** | Role-typed identity schemas; social names as primary keys; durable snapshot-as-self hydration; rendering the full graph as the COP; probe outputs as identity content; direction metrics as personality inference; sentinels that re-align a self to its trail |

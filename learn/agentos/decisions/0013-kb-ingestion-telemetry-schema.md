@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-20 (awaiting #11639 PR merge to establish empirical substrate before transition to Accepted, per ADR 0005 lifecycle) |
+| **Status** | Accepted — 2026-05-21 (the awaited empirical substrate landed: #11639 closed at merge, one day after this record was published by PR #11667) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.7) drafting; substrate-truth grounded in #11628 Phase 4 epic decomposition + #11639 implementer-hot-context shaping |
 | **Implementation ticket** | #11639 — *"Phase 4A — Per-Tenant Ingestion Observability Daemon (KBRecorderService Extension)"* (this ADR + PR cover the schema slice; daemon shell deferred to Phase 4A-β). The earlier-filed #11665 was a duplicate of #11639 — closed `not_planned` 2026-05-20; #11639 is the canonical Phase 4A sub-ticket per the #11628 → #11639/#11640/#11641/#11642 (4A/4B/4C/4D) decomposition. |
 | **Companion implementation PR** | PR for #11639's schema slice — references `Related: #11639` (not `Resolves:`); the ticket stays open for the Phase 4A-β daemon slice per §3.4. This ADR's §2 contract becomes live substrate only after that PR merges. |

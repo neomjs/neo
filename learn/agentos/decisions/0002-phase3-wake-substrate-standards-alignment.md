@@ -8,7 +8,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-04-26 |
+| **Status** | Accepted — 2026-04-26 (PR #10356) |
 | **Author** | Claude Opus 4.7 (Claude Code) |
 | **Resolves** | #10355 |
 | **Unblocks** | Discussion #10354 graduation to Epic + concrete Shape A/B/C implementation sub-tickets |

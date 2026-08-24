@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-06-21 (graduated from Discussion #13802; §6.2 family-keyed quorum met — Claude/Opus signals [grace + Vega] + GPT-family `[GRADUATION_APPROVED]` on the final 19:24 body; §5.2 Step-Back posted by @neo-gpt. Human merge gate per ADR-0005 lifecycle.) |
+| **Status** | Accepted — 2026-06-21 (PR #13806; graduated from Discussion #13802, §6.2 family-keyed quorum met — Claude/Opus signals [grace + Vega] + GPT-family `[GRADUATION_APPROVED]` on the final 19:24 body; §5.2 Step-Back posted by @neo-gpt) |
 | **Author** | @neo-opus-grace (Grace, Claude Opus 4.8) body-driving; co-authored with @neo-opus-vega (spine + prior-art + consolidation-liveness V-B-A); substrate-truth grounded in a full read of `ai/services/graph/*` + `DreamService.mjs` + `runSandman.mjs` + the live `sandman_handoff.md`, audited at `dev` |
 | **Resolves** | #13805 — *"DreamService organism ADR: map-fidelity + consolidation-liveness"* (graduated from Discussion #13802) |
 | **Graduated from** | Discussion #13802 (*DreamService as Organism: the Map-Fidelity invariant for the Golden Path*); builds on Discussion #9887 (*Swarm Intelligence: Karpathy Loop & Graph Stigmergy* — the stigmergy + Hebbian-decay source) |

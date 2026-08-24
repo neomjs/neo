@@ -515,6 +515,12 @@
             "reason": "ADR traversal and exits are deferred behind the direct-run guard; eager state is paths and constants"
         },
         {
+            "identity": "ai/scripts/lint/lint-adr-status.mjs",
+            "eligibility": "eligible",
+            "source": "ai/scripts/lint/lint-adr-status.mjs:233-249",
+            "reason": "decision-record reads, console output, and exits are deferred behind the direct-run guard; eager state is paths, regexes, and constants"
+        },
+        {
             "identity": "ai/scripts/lint/lint-agents.mjs",
             "eligibility": "eligible",
             "source": "ai/scripts/lint/lint-agents.mjs:326-328",
@@ -671,6 +677,7 @@
                 "ai/scripts/lint/check-commit-authorship.mjs",
                 "ai/scripts/lint/check-front-door-fingerprint.mjs",
                 "ai/scripts/lint/lint-adr-seam-table.mjs",
+                "ai/scripts/lint/lint-adr-status.mjs",
                 "ai/scripts/lint/lint-agents.mjs",
                 "ai/scripts/lint/lint-config-template-ssot.mjs",
                 "ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
@@ -939,6 +946,7 @@
                 "ai/scripts/lint/check-commit-authorship.mjs",
                 "ai/scripts/lint/check-front-door-fingerprint.mjs",
                 "ai/scripts/lint/lint-adr-seam-table.mjs",
+                "ai/scripts/lint/lint-adr-status.mjs",
                 "ai/scripts/lint/lint-agents.mjs",
                 "ai/scripts/lint/lint-config-template-ssot.mjs",
                 "ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
@@ -1335,6 +1343,9 @@
                 ".github/workflows/adr-seam-table-lint.yml::ai/scripts/lint/lint-adr-seam-table.mjs::1",
                 ".github/workflows/adr-seam-table-lint.yml::ai/scripts/lint/lint-adr-seam-table.mjs::2",
                 ".github/workflows/adr-seam-table-lint.yml::ai/scripts/lint/lint-adr-seam-table.mjs::3",
+                ".github/workflows/adr-status-lint.yml::ai/scripts/lint/lint-adr-status.mjs::1",
+                ".github/workflows/adr-status-lint.yml::ai/scripts/lint/lint-adr-status.mjs::2",
+                ".github/workflows/adr-status-lint.yml::ai/scripts/lint/lint-adr-status.mjs::3",
                 ".github/workflows/agent-pr-body-lint.yml::ai/scripts/agent-preflight.mjs::1",
                 ".github/workflows/agent-pr-body-lint.yml::ai/scripts/agent-preflight.mjs::2",
                 ".github/workflows/check-retired-primitives.yml::ai/scripts/diagnostics/check-retired-primitives.mjs::1",

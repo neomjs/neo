@@ -3,6 +3,7 @@ import fs             from 'fs-extra';
 import * as yaml      from 'js-yaml';
 import path           from 'node:path';
 
+import {SCAN_SURFACE as ADR_STATUS_SURFACE}      from '../../../../../../ai/scripts/lint/lint-adr-status.mjs';
 import {SCAN_SURFACE as BOUNDARY_SURFACE}        from '../../../../../../buildScripts/util/check-engine-brain-boundary.mjs';
 import {SCAN_SURFACE as CONFIG_TEMPLATE_SURFACE} from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
 import {SCAN_SURFACE as ENTRYPOINT_SURFACE}      from '../../../../../../ai/scripts/lint/lint-npm-script-entrypoints.mjs';
@@ -54,6 +55,11 @@ const REGISTRY = Object.freeze({
         scriptRel: 'ai/scripts/lint/lint-adr-seam-table.mjs',
         source   : 'declared',
         surface  : ['learn/agentos/decisions/**']
+    },
+    'adr-status-lint.yml': {
+        scriptRel: 'ai/scripts/lint/lint-adr-status.mjs',
+        source   : 'imported',
+        surface  : ADR_STATUS_SURFACE
     },
     'aiconfig-antipattern-lint.yml': {
         scriptRel: 'buildScripts/util/check-aiconfig-antipatterns.mjs',
