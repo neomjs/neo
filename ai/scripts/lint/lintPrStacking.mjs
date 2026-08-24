@@ -5,87 +5,97 @@
  * observable — a sibling OPEN PR head inside this branch's exclusive range — and reports
  * commit/ticket agreement separately, non-failing.
  *
- * **Why a committed script and not inline workflow JS.** The guard previously lived inline in
- * `agent-pr-body-lint.yml` as a ticket-proxy with failures in both directions. The repo's doctrine
- * ("ONE OWNING IMPLEMENTATION", same step shape as `validatePrBody`) is that gates run as
- * committed code so local and hosted verdicts cannot diverge — and so the decision helpers carry
- * real unit arms instead of trusting an untestable YAML block.
+ * **Why a committed script and not inline workflow JS.** Two reasons, both load-bearing. First,
+ * the repo's doctrine: gates run as committed code so local and hosted verdicts cannot diverge,
+ * and the decision helpers carry real unit arms instead of trusting an untestable YAML block.
+ * Second, discovered while landing this file: the extraction inventory derives launch roots from
+ * workflow `run:` commands, and a script referenced only inside github-script JS is invisible to
+ * every census — the exact invisibility class this module exists to end elsewhere.
  *
- * **Input contract.** One JSON document on **stdin**:
+ * **Inputs** (environment, provided by the calling workflow step):
+ * - `PR_NUMBER` — the pull request under lint.
+ * - `BASE_BRANCH` (default `dev`) — the intended base branch.
+ * - `GITHUB_TOKEN` — read-only API access (body, commit list, open-PR heads).
  *
- * ```
- * {
- *   "prNumber": 17721,
- *   "body": "<full PR body text>",
- *   "commits": [{ "sha": "<full sha>", "subject": "<first line>" }],
- *   "openPullRequests": [{ "number": 1, "headSha": "<sha>", "headRefName": "<branch>" }]
- * }
- * ```
- *
- * `commits` MUST be exactly `origin/<base>..HEAD` — the exclusive range is the population the
- * stacking question is about. Authentication stays in the caller (the workflow's already-
- * authenticated client), so this script needs no token and no network.
+ * Requires `fetch-depth: 0` so `origin/<base>` exists locally.
  *
  * **Verdicts.**
  * - *Stacked* (exit 1): an open sibling PR's head is among the exclusive commits; the diagnostic
  *   names the parent PR and branch, with the rebase fix.
  * - *Agreement warnings* (stdout, non-failing): commits claiming tickets the body does not declare
  *   are listed with their squash-provenance consequence. A repointed close-target on a healthy
- *   branch produces these by design; failing them re-created a known false positive.
+ *   branch produces these by design; failing them once re-created a known false positive.
  *
- * @see buildScripts/util/prStackingGuard.mjs — the pure helpers this CLI orchestrates
+ * @see buildScripts/../ai/scripts/lint/prStackingGuard.mjs — the pure helpers this CLI orchestrates
  * @see .github/workflows/agent-pr-body-lint.yml — the calling workflow step
  */
 
-import {findAgreementMismatches, findStackedParent, parseDeclaredTickets} from './prStackingGuard.mjs';
+import {execSync} from 'node:child_process';
+import process    from 'node:process';
 
-let raw = '';
+import {
+    buildAgreementWarning,
+    findAgreementMismatches,
+    findStackedParent,
+    parseDeclaredTickets
+} from './prStackingGuard.mjs';
 
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => raw += chunk);
-process.stdin.on('end', () => {
-    let payload;
+const sh = command => execSync(command, {encoding: 'utf8'}).trim();
+const gh = command => execSync(`gh api ${command}`, {encoding: 'utf8'});
 
-    try {
-        payload = JSON.parse(raw)
-    } catch (error) {
-        console.error(`[stacking-guard] stdin was not valid JSON: ${error.message}`);
+const guard = () => {
+    const prNumber   = process.env.PR_NUMBER;
+    const baseBranch = process.env.BASE_BRANCH || 'dev';
+
+    if (!prNumber) {
+        console.error('[stacking-guard] PR_NUMBER is required');
         process.exit(2)
     }
 
-    const {prNumber, body, commits, openPullRequests} = payload ?? {};
+    // ── Facts ────────────────────────────────────────────────────────────────────────────
+    // Unit-separator pairing survives any subject content, unlike line-splitting on \n.
+    const rangeCommits = sh(
+        `git log --format='%H%x1f%s' "origin/${baseBranch}..HEAD"`
+    )
+        .split('\n')
+        .filter(Boolean)
+        .map(line => {
+            const [sha, ...rest] = line.split('\x1f');
 
-    if (!Array.isArray(commits)) {
-        console.error('[stacking-guard] `commits` (exclusive range, oldest first) is required');
-        process.exit(2)
-    }
+            return {sha, subject: rest.join('\x1f')}
+        });
+
+    const openPullRequests = gh(
+        `"repos/{owner}/{repo}/pulls?state=open&per_page=100" --jq '.[] | {number: .number, headSha: .head.sha, headRefName: .head.ref}'`
+    )
+        .split('\n')
+        .filter(Boolean)
+        .map(line => JSON.parse(line));
+
+    const bodyText = gh(`"repos/{owner}/{repo}/pulls/${prNumber}" --jq .body`);
 
     // ── Stacking verdict ─────────────────────────────────────────────────────────────────
     const {stacked, parent} = findStackedParent({
-        rangeCommits   : commits.map(commit => commit.sha),
+        rangeCommits   : rangeCommits.map(commit => commit.sha),
         openPullRequests,
-        excludePrNumber: prNumber
+        excludePrNumber: Number(prNumber)
     });
 
     if (stacked) {
         console.error([
-            `[stacking-guard] STACKED (exit 1): commit ${commits.at(-1)?.sha.slice(0, 10)} is the head of open PR #${parent.number}`,
-            `(\`${parent.headRefName}\`) — this branch was cut from that PR's head, not off \`dev\`.`,
-            'Fix: git rebase --onto origin/dev <cut-point> <this-branch>, then push --force-with-lease.'
+            `[stacking-guard] STACKED (exit 1): commit ${rangeCommits.at(-1)?.sha.slice(0, 10)} is the head of open PR #${parent.number}`,
+            `(\`${parent.headRefName}\`) — this branch was cut from that PR's head, not off \`${baseBranch}\`.`,
+            'Fix: git rebase --onto origin/' + baseBranch + ' <cut-point> <this-branch>, then push --force-with-lease.'
         ].join('\n'));
 
         process.exit(1)
     }
 
-    console.log(`[stacking-guard] OK — ${commits.length} exclusive commit(s); none is an open sibling PR head.`);
+    console.log(`[stacking-guard] OK — ${rangeCommits.length} exclusive commit(s); none is an open sibling PR head.`);
 
     // ── Agreement (non-failing) ──────────────────────────────────────────────────────────
-    if (!body) {
-        return
-    }
-
-    const declared   = parseDeclaredTickets(body);
-    const mismatches = findAgreementMismatches(commits, declared);
+    const declared   = parseDeclaredTickets(bodyText);
+    const mismatches = findAgreementMismatches(rangeCommits, declared);
 
     if (mismatches.length > 0) {
         const deliveredList = [...declared].map(t => `#${t}`).join(', ') || '(none)';
@@ -93,4 +103,7 @@ process.stdin.on('end', () => {
 
         console.log(`\n${warning}`)
     }
-});
+};
+
+
+guard()

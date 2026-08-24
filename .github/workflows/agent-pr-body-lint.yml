@@ -169,74 +169,6 @@ jobs:
                 : "`Resolves #N` (mandatory closing keyword — `Refs`/`Related` alone is NOT sufficient)");
             }
 
-            // ──────────────────────────────────────────────────────────────────────
-            // Stacked-PR guard (#16589): committed owning implementation.
-            //
-            // Stacking is decided from the one sound observable — an OPEN sibling PR whose
-            // head commit sits inside this branch's exclusive range — never from ticket-name
-            // proxies (the proxy failed both ways: repointed close-targets false-positived on
-            // healthy branches, and the house multi-id `Related:` convention contributed zero
-            // ids to the old declared-set regex). Commit/ticket agreement reports separately
-            // and never fails the run: repointing a close target during review is normal.
-            //
-            // Decision helpers carry unit arms in
-            // test/playwright/unit/buildScripts/prStackingGuard.spec.mjs; this step only
-            // fetches facts and relays the verdict.
-            // ──────────────────────────────────────────────────────────────────────
-            const commits = await github.paginate(github.rest.pulls.listCommits, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              per_page: 100,
-            });
-
-            const openPullRequests = await github.paginate(github.rest.pulls.list, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "open",
-              per_page: 100,
-            });
-
-            const stackingInput = JSON.stringify({
-              prNumber: pr.number,
-              body,
-              commits: commits.map((c) => ({
-                sha: c.sha,
-                subject: (c.commit.message || "").split("\n")[0],
-              })),
-              openPullRequests: openPullRequests.map((p) => ({
-                number: p.number,
-                headSha: p.head.sha,
-                headRefName: p.head.ref,
-              })),
-            });
-
-            let stackedVerdict;
-            try {
-              const { execSync } = require("child_process");
-              execSync("node ./ai/scripts/lint/lintPrStacking.mjs", {
-                input: stackingInput,
-                encoding: "utf8",
-                stdio: ["pipe", "pipe", "pipe"],
-              });
-              console.log("✅ Stacking guard: no sibling-PR ancestry, all commit tickets declared.");
-            } catch (error) {
-              stackedVerdict = String(error.stderr || error.output || error.message || "");
-            }
-
-            if (stackedVerdict) {
-              if (context.payload.action === "opened") {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  body: `## 🚨 Stacked-PR Guard\n\n${stackedVerdict}`,
-                });
-              }
-
-              core.setFailed(stackedVerdict.split("\n").filter(Boolean)[0] || "stacked PR detected");
-              return;
-            }
 
             if (missingVisible.length === 0 && missingInvisible.length === 0) {
               console.log("✅ PR body contains all required anchors.");
@@ -311,3 +243,11 @@ jobs:
                 ? `A follow-up comment on PR #${pr.number} carries the full guidance.`
                 : `(No follow-up comment is posted on \`${context.payload.action}\` events — this annotation is the diagnostic.)`
             ].join('\n'));
+
+      - name: Stacked-PR guard
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node ./ai/scripts/lint/lintPrStacking.mjs
