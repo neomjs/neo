@@ -146,7 +146,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
                         believedOpen3: null
                     }
                 },
-                errors: [{path: ['repository', 'believedOpen3']}]
+                errors: [{type: 'NOT_FOUND', path: ['repository', 'believedOpen3']}]
             }
         };
 
@@ -185,9 +185,78 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
             }],
             unverifiable: [{
                 number: 999999,
-                reason: 'not-found-or-inaccessible'
+                reason: 'not-found'
             }]
         })
+    });
+
+    test('#16196 classifies only exact-number rows and exact alias-scoped typed errors', async () => {
+        GraphqlService.query = async () => ({
+            data: {
+                repository: {
+                    pullRequests  : {nodes: [row({number: 700})]},
+                    believedOpen0 : {number: 20, state: 'OPEN', mergedAt: null},
+                    believedOpen1 : {number: 21, state: 'CLOSED', mergedAt: null},
+                    believedOpen2 : {number: 999, state: 'MERGED', mergedAt: '2026-08-24T00:00:00Z'},
+                    believedOpen3 : {number: 23, state: 'ALIEN', mergedAt: null},
+                    believedOpen4 : null,
+                    believedOpen5 : null,
+                    believedOpen6 : {number: 26, state: 'OPEN', mergedAt: null},
+                    believedOpen7 : null,
+                    believedOpen8 : null,
+                    believedOpen9 : null,
+                    believedOpen10: {number: 30, state: 'MERGED', mergedAt: '2026-08-24T01:00:00Z'},
+                    believedOpen12: 'malformed-row'
+                }
+            },
+            errors: [
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen4'], message: 'permission denied'},
+                {type: 'FORBIDDEN', path: ['repository', 'believedOpen5'], message: 'Could not resolve PullRequest'},
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen6']},
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen7']},
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen7']},
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen8', 'extra']},
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen9'], message: 'not an absence message'},
+                {type: 'NOT_FOUND', path: ['repository', 'believedOpen13']},
+                {type: 'NOT_FOUND', path: ['believedOpen11', 'repository']},
+                {type: 'NOT_FOUND', path: 'repository.believedOpen11'},
+                {type: 'NOT_FOUND'},
+                {type: 'NOT_FOUND', path: ['repository', 'unrelatedAlias']}
+            ]
+        });
+
+        const result = await PullRequestService.listPullRequests({
+            believedOpen: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]
+        });
+
+        expect(result.belief).toEqual({
+            stillOpen: [20],
+            falsified: [{
+                number  : 21,
+                state   : 'CLOSED',
+                mergedAt: null
+            }, {
+                number  : 30,
+                state   : 'MERGED',
+                mergedAt: '2026-08-24T01:00:00Z'
+            }],
+            unverifiable: [
+                {number: 22, reason: 'unresolved'},
+                {number: 23, reason: 'unrecognized-state'},
+                {number: 24, reason: 'not-found'},
+                {number: 25, reason: 'lookup-error'},
+                {number: 26, reason: 'lookup-error'},
+                {number: 27, reason: 'lookup-error'},
+                {number: 28, reason: 'unresolved'},
+                {number: 29, reason: 'not-found'},
+                {number: 31, reason: 'unresolved'},
+                {number: 32, reason: 'unresolved'},
+                {number: 33, reason: 'lookup-error'}
+            ]
+        });
+        expect(result.belief.stillOpen).toHaveLength(1);
+        expect(result.belief.falsified).toHaveLength(2);
+        expect(result.belief.unverifiable).toHaveLength(11);
     });
 
     test('accepts an explicit empty belief without changing the board query', async () => {

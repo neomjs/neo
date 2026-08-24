@@ -148,6 +148,7 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         const believedOpen = operation.parameters.find(parameter => parameter.name === 'believedOpen');
         const response     = doc.components.schemas.PullRequestListResponse.properties;
         const belief       = doc.components.schemas.PullRequestBelief;
+        const reasons      = belief.properties.unverifiable.items.properties.reason.enum;
 
         expect(operation['x-neo-tool-summary']).toContain('believedOpen');
         expect(operation['x-neo-tool-summary'].length).toBeLessThanOrEqual(120);
@@ -162,10 +163,11 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
             }
         });
 
-        const {listTools} = await import('../../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
-        const toolSchema  = listTools().tools
-            .find(tool => tool.name === 'list_pull_requests')
-            .inputSchema.properties.believedOpen;
+        const {listTools}   = await import('../../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+        const listedTool    = listTools().tools.find(tool => tool.name === 'list_pull_requests');
+        const toolSchema    = listedTool.inputSchema.properties.believedOpen;
+        const listedReasons = listedTool.outputSchema.properties.belief.properties
+            .unverifiable.items.properties.reason.enum;
 
         expect(toolSchema).toMatchObject({
             type       : 'array',
@@ -179,6 +181,8 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(response.checkedAt.format).toBe('date-time');
         expect(response.belief.$ref).toBe('#/components/schemas/PullRequestBelief');
         expect(belief.required).toEqual(['stillOpen', 'falsified', 'unverifiable']);
+        expect(reasons).toEqual(['not-found', 'unrecognized-state', 'lookup-error', 'unresolved']);
+        expect(listedReasons).toEqual(reasons);
         expect(operations.filter(value => value.operationId === 'list_pull_requests')).toHaveLength(1);
         expect(operations.some(value => value.operationId === 'falsify_pull_request_belief')).toBe(false);
     });

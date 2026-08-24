@@ -2220,7 +2220,13 @@ components:
                 type: integer
               reason:
                 type: string
-                enum: [not-found-or-inaccessible]
+                enum: [not-found, unrecognized-state, lookup-error, unresolved]
+                description: >
+                  Why the submitted coordinate could not be verified: not-found requires a null row
+                  plus one exact alias-scoped NOT_FOUND error; unrecognized-state requires an
+                  exact-number row with an unknown state and no alias error; lookup-error covers an
+                  exact non-NOT_FOUND, duplicate, or inconsistent row/error payload; unresolved means
+                  neither a usable exact-number row nor an exact alias-scoped error was observed.
 
     PullRequestConversation:
       type: object
