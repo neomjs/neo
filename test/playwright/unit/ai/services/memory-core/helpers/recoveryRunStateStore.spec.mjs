@@ -557,6 +557,22 @@ test.describe('RecoveryRunStateStore', () => {
         });
     });
 
+    test('#16984: an absent state directory is a complete zero before the first persisted run', async () => {
+        const absentDir = path.join(tmpDir, 'never-persisted'),
+            absent      = await readRecentRecoveryRunStatesWithCompleteness({dir: absentDir, limit: 5});
+
+        expect(absent).toEqual({
+            entries      : [],
+            activeEntries: [],
+            completeness : {
+                artifactCount          : 0,
+                incompleteArtifactCount: 0,
+                reasonCodes            : [],
+                status                 : 'complete'
+            }
+        });
+    });
+
     test('#16984: completeness reads retain active interlocks outside the ordinary recency cap', async () => {
         const active = runEntry('recovery-active-oldest', 1000, {
             details: {

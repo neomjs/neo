@@ -630,6 +630,9 @@ export async function readRecentRecoveryRunStates({dir, limit} = {}) {
  * answer, because skipping one retained artifact can skip the exact lifecycle proof being counted.
  * This projection therefore scans every retained JSONL artifact, returns the same newest-entry
  * population, and separately states whether every artifact was fully decodable and schema-valid.
+ * An absent directory is a complete zero: the writer creates the directory before its first append,
+ * so `ENOENT` means no recovery run has ever been persisted. That differs from an artifact that
+ * disappears after enumeration, which is retained as incomplete evidence.
  *
  * @param {Object} options
  * @param {String} options.dir Directory for per-run state files.
