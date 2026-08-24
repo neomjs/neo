@@ -246,6 +246,7 @@
         "heapObservation.maxSkewMs",
         "heapObservation.staleAfterMs",
         "heapObservation.writeIntervalMs",
+        "heartbeatConcurrencyLockPath",
         "knowledgeBase",
         "localModels",
         "localModels.chat",
