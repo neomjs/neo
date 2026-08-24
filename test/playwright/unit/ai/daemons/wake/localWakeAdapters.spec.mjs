@@ -39,18 +39,14 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         );
     });
 
-    test('the session-context line rides the digest only when the gate attached probe data (AC-2)', () => {
+    test('the digest renders no session-context line regardless of probe state (AC-1)', () => {
+        // The envelope field survives for any future instrument — only its render died.
         const probed = record('test');
 
         probed.envelope.payload.sessionContext = {contextTokens: 45_000, maxContextTokens: 250_000};
 
-        const probedDigest = formatLocalWakeDigest(probed.envelope);
-
-        expect(probedDigest).toContain('[session-context: 45K tokens, gate at 250K]');
-        // The line sits directly under the [WAKE] header, ahead of the breakdown bullets
-        expect(probedDigest.indexOf('[session-context:')).toBeLessThan(probedDigest.indexOf('1 message events'));
-
-        // Absent probe data → no field → no line (an unprobed wake stays noise-free)
+        expect(formatLocalWakeDigest(probed.envelope)).not.toContain('session-context');
+        // Absent probe data → no field → nothing to render either
         expect(formatLocalWakeDigest(record('test').envelope)).not.toContain('session-context');
         // A malformed field is treated as absent, never rendered half-formed
         const malformed = record('test');
