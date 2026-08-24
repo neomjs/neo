@@ -55,6 +55,35 @@ let StorePushPipeline = class StorePushPipeline extends Pipeline {
 }
 StorePushPipeline = Neo.setupClass(StorePushPipeline);
 
+let StringKeyPushModel = class StringKeyPushModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Data.StorePush.StringKeyModel',
+        keyProperty: 'id',
+        fields     : [
+            {name: 'id',     type: 'String'},
+            {name: 'status', type: 'String'}
+        ]
+    }
+}
+StringKeyPushModel = Neo.setupClass(StringKeyPushModel);
+
+let StringKeyPushPipeline = class StringKeyPushPipeline extends Pipeline {
+    static config = {
+        className: 'Test.Unit.Data.StorePush.StringKeyPipeline'
+    }
+
+    async read() {
+        return [
+            {id: '1', status: 'pending'}
+        ]
+    }
+
+    simulatePush(data) {
+        this.fire('push', data)
+    }
+}
+StringKeyPushPipeline = Neo.setupClass(StringKeyPushPipeline);
+
 function createStore(config={}) {
     return Neo.create(Store, {
         model   : StorePushModel,
@@ -117,6 +146,69 @@ test.describe('Neo.data.Store - Push Integration', () => {
 
         expect(store.count).toBe(3);
         expect(store.get(3).status).toBe('created');
+
+        store.destroy()
+    });
+
+    test('Store should update, not fork, when a push key arrives as a different type', async () => {
+        const store = createStore({pushInsertStrategy: 'upsert'});
+
+        await store.load();
+        expect(store.count).toBe(2);
+
+        // The stored key is the Integer 1; the push carries "1". A strict Map lookup on the received
+        // value misses, and an upsert answers a miss by appending — so this asserts one identity,
+        // not merely a successful update.
+        store.pipeline.simulatePush({id: '1', status: 'done'});
+
+        expect(store.count).toBe(2);
+        expect(store.get(1).status).toBe('done');
+        expect(store.items.filter(record => Number(record.id) === 1)).toHaveLength(1);
+
+        // Canonicalization must not turn every push into an update: an unseen key still inserts, and
+        // it lands under the key a later canonical lookup will use.
+        store.pipeline.simulatePush({id: '3', rank: 3, status: 'created', type: 'visible'});
+
+        expect(store.count).toBe(3);
+        expect(store.get(3).status).toBe('created');
+        expect(store.items.filter(record => Number(record.id) === 3)).toHaveLength(1);
+
+        store.destroy()
+    });
+
+    test('Store should refuse a push key which cannot be canonicalized', async () => {
+        const store = createStore({pushInsertStrategy: 'upsert'});
+
+        await store.load();
+
+        // `parseInt('bad')` is NaN. Persisting it would leave the record field and the map key
+        // disagreeing, so the record would be unreachable by any later lookup — refuse instead.
+        store.pipeline.simulatePush({id: 'bad', rank: 9, status: 'created', type: 'visible'});
+
+        expect(store.count).toBe(2);
+        expect(store.get('bad')).toBe(null);
+
+        store.destroy()
+    });
+
+    test('Store should canonicalize a push key for a String-keyed Model too', async () => {
+        const store = Neo.create(Store, {
+            model   : StringKeyPushModel,
+            pipeline: {module: StringKeyPushPipeline},
+
+            pushInsertStrategy: 'upsert'
+        });
+
+        await store.load();
+        expect(store.count).toBe(1);
+
+        // The symmetric case: the stored key is the String '1' and the push carries the number 1.
+        // An int-only rule would leave this one forking.
+        store.pipeline.simulatePush({id: 1, status: 'done'});
+
+        expect(store.count).toBe(1);
+        expect(store.get('1').status).toBe('done');
+        expect(store.items.filter(record => String(record.id) === '1')).toHaveLength(1);
 
         store.destroy()
     });

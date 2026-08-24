@@ -1201,16 +1201,59 @@ class Store extends Collection {
     }
 
     /**
+     * Resolves the canonical key a record insertion would store for a given value.
+     *
+     * @summary Puts a key lookup and a key insertion on one type, so neither can hold a different
+     * identity for the same record.
+     *
+     * `Collection.get()` is a strict `Map` lookup, while `add()` routes each field through
+     * `RecordFactory.parseRecordValue()` and converts it to its declared type. A value whose type
+     * differs from the stored one is therefore not a near-miss but a miss, and callers which answer
+     * a miss by inserting will append a second record under the same identity.
+     *
+     * Delegates to the same parser insertion uses, rather than reimplementing its rules, so the two
+     * cannot drift apart: `Integer`, `String`, `Float`, `Date` and custom `convert` semantics all
+     * stay owned by `RecordFactory`.
+     *
+     * @param {*} value The key as it was received, e.g. from a server push or a DOM id.
+     * @returns {*|undefined} The canonical key, or `undefined` when the value cannot be
+     * canonicalized — a key that would store as `NaN` is unreachable by any later lookup, so it is
+     * refused rather than persisted.
+     */
+    getCanonicalKey(value) {
+        let field = this.model?.getField(this.getKeyProperty());
+
+        // A calculated key is derived from a record that does not exist yet, and an absent value has
+        // no identity to canonicalize.
+        if (value === null || value === undefined || !field || field.calculate) {
+            return value
+        }
+
+        let canonical = RecordFactory.parseRecordValue({record: {}, field, value});
+
+        return Number.isNaN(canonical) ? undefined : canonical
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
     onPipelinePush(data) {
-        let me = this,
-            id = data[me.getKeyProperty()],
+        let me          = this,
+            keyProperty = me.getKeyProperty(),
+            id          = me.getCanonicalKey(me.getKey(data)),
             record;
 
         if (id !== undefined) {
             record = me.get(id);
+
+            // The Collection keys itself by the value it is handed, so a received key would be
+            // stored verbatim and then miss every later canonical lookup — the same identity split,
+            // one insert further along. Only a key the payload carries directly is rewritten; a
+            // mapped one stays the Model's to resolve.
+            if (Object.hasOwn(data, keyProperty) && data[keyProperty] !== id) {
+                data = {...data, [keyProperty]: id}
+            }
 
             if (record) {
                 record.set(data)
