@@ -71,15 +71,18 @@ function buildPreparedMcpPlan(args, mcpMatrix) {
 
         return {
             key,
-            name              : `neo-mjs-${key}`,
+            name            : `neo-mjs-${key}`,
             enabled,
-            target            : resource ? 'tenant' : 'resident',
-            transport         : resource ? 'streamable-http' : 'stdio',
-            url               : resource?.url || null,
-            credentialEnvVar  : resource ? 'NEO_MCP_REMOTE_TOKEN' : null,
-            command           : '/usr/bin/node',
-            sourceRoot        : '/installed/neo',
-            args              : [`/installed/neo/ai/mcp/server/${key}/mcp-server.mjs`],
+            target          : resource ? 'tenant' : 'resident',
+            transport       : resource ? 'streamable-http' : 'stdio',
+            url             : resource?.url || null,
+            credentialEnvVar: resource ? 'NEO_MCP_REMOTE_TOKEN' : null,
+            command         : '/usr/bin/node',
+            sourceRoot      : args.agentosRuntimeRoot,
+            args            : [
+                `${args.agentosRuntimeRoot}/ai/mcp/server/${key}/mcp-server.mjs`,
+                ...(key === 'neural-link' ? ['--cwd', args.agentosRuntimeRoot] : [])
+            ],
             runtimeEnv        : ['NEO_AGENT_IDENTITY'],
             requiredRuntimeEnv: ['NEO_AGENT_IDENTITY'],
             secretEnv         : [],
@@ -104,10 +107,11 @@ function makePrepareWorkspace(events) {
         };
 
         return {
-            repoPath    : args.repoPath,
-            instanceHome: `/instances/${args.agent.id}`,
+            agentosRuntimeRoot: args.agentosRuntimeRoot,
+            targetRepoRoot    : args.targetRepoRoot,
+            instanceHome      : `/instances/${args.agent.id}`,
             mcpMatrix,
-            mcpPlan     : buildPreparedMcpPlan(args, mcpMatrix)
+            mcpPlan           : buildPreparedMcpPlan(args, mcpMatrix)
         }
     };
     fn.calls    = calls;
@@ -176,21 +180,21 @@ function makeTenantService({
 }
 
 test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning)', () => {
-    test('provisions, prepares, then starts with one canonical checkout path', async () => {
+    test('provisions the target, binds AgentOS runtime, then launches from the target root', async () => {
         const events           = [],
               lifecycle        = makeLifecycle({agents: repoAgent('a'), events}),
               ensureRepo       = makeEnsureRepo('/managed/a/neomjs-neo', events),
               prepareWorkspace = makePrepareWorkspace(events),
               cloneRepo        = () => {},
               status           = await startAgentProvisioned({
-                  lifecycleService: lifecycle,
-                  agentId         : 'a',
-                  managedRoot     : '/managed',
+                  lifecycleService  : lifecycle,
+                  agentId           : 'a',
+                  managedRoot       : '/managed',
                   cloneRepo,
                   ensureRepo,
                   prepareWorkspace,
-                  mainCheckout    : '/installed/neo',
-                  nodePath        : '/usr/bin/node'
+                  agentosRuntimeRoot: '/installed/neo',
+                  nodePath          : '/usr/bin/node'
               });
 
         // provisioning fed the agent's metadata.repo coordinates + the managed root + the clone seam
@@ -198,14 +202,14 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
         expect(ensureRepo.calls[0]).toMatchObject({managedRoot: '/managed', agentId: 'a', repoSlug: 'neomjs/neo', cloneUrl: REPO.cloneUrl, cloneRepo});
         expect(prepareWorkspace.calls).toHaveLength(1);
         expect(prepareWorkspace.calls[0]).toMatchObject({
-            agent       : repoAgent('a').a,
-            repoPath    : '/managed/a/neomjs-neo',
-            instanceRoot: '/instances',
-            mainCheckout: '/installed/neo',
-            nodePath    : '/usr/bin/node'
+            agent             : repoAgent('a').a,
+            targetRepoRoot    : '/managed/a/neomjs-neo',
+            instanceRoot      : '/instances',
+            agentosRuntimeRoot: '/installed/neo',
+            nodePath          : '/usr/bin/node'
         });
         expect(events).toEqual(['ensure', 'prepare', 'start']);
-        // The harness starts with cwd === provisioned repoPath === prepared repoPath.
+        // Runtime authority stays AgentOS-owned; the harness cwd stays the provisioned target root.
         expect(lifecycle.calls.start).toHaveLength(1);
         expect(lifecycle.calls.start[0]).toEqual({id: 'a', opts: {cwd: '/managed/a/neomjs-neo'}});
         expect(status.state).toBe('running');
@@ -239,10 +243,11 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
             prepareWorkspace = makePrepareWorkspace(events);
 
         await startAgentProvisioned({
-            lifecycleService: lifecycle,
+            lifecycleService  : lifecycle,
             tenantService,
-            agentId         : 'a',
-            managedRoot     : '/managed',
+            agentId           : 'a',
+            managedRoot       : '/managed',
+            agentosRuntimeRoot: '/installed/neo',
             ensureRepo,
             prepareWorkspace
         });
@@ -261,7 +266,7 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
         expect(lifecycle.calls.credential).toEqual(['a']);
         expect(lifecycle.calls.capability).toEqual([{
             agent  : agents.a,
-            options: {mainCheckout: undefined, nodePath: undefined}
+            options: {mainCheckout: '/installed/neo', nodePath: undefined}
         }]);
         expect(tenantService.calls.resolve).toEqual(['tenant-a']);
         expect(tenantService.calls.credential).toEqual(['tenant-a']);
@@ -592,6 +597,26 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
         expect(lifecycle.calls.start).toHaveLength(0);
     });
 
+    test('a relative AgentOS runtime root rejects before repo or harness effects', async () => {
+        const
+            lifecycle        = makeLifecycle({agents: repoAgent('a')}),
+            ensureRepo       = makeEnsureRepo(),
+            prepareWorkspace = makePrepareWorkspace();
+
+        await expect(startAgentProvisioned({
+            lifecycleService  : lifecycle,
+            agentId           : 'a',
+            managedRoot       : '/managed',
+            agentosRuntimeRoot: 'relative/agentos',
+            ensureRepo,
+            prepareWorkspace
+        })).rejects.toThrow(/agentosRuntimeRoot.*absolute/);
+
+        expect(ensureRepo.calls).toEqual([]);
+        expect(prepareWorkspace.calls).toEqual([]);
+        expect(lifecycle.calls.start).toEqual([])
+    });
+
     test('an unknown agent throws', async () => {
         const lifecycle = makeLifecycle({agents: {}});
 
@@ -607,8 +632,11 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
             agentId         : 'a',
             managedRoot     : '/managed',
             ensureRepo      : makeEnsureRepo('/managed/a/neomjs-neo'),
-            prepareWorkspace: async () => ({repoPath: '/other/repo'})
-        })).rejects.toThrow(/canonical provisioned repoPath/);
+            prepareWorkspace: async args => ({
+                agentosRuntimeRoot: args.agentosRuntimeRoot,
+                targetRepoRoot    : '/other/repo'
+            })
+        })).rejects.toThrow(/exact AgentOS runtime and target repo roots/);
 
         expect(lifecycle.calls.start).toHaveLength(0);
     });

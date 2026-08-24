@@ -6,14 +6,14 @@ import {OPENCODE_SEAT_SERVERS, generateOpenCodeSeatConfig} from '../../../../../
 // host-runtime side effects and each case is fully isolated. Mirrors deriveHarnessLaunchSpec.spec.
 
 const PARAMS = {
-    canonicalRoot    : '/canonical',
-    seatEnvFile      : '/seat/checkout/.env',
-    workspaceRoot    : '/seat/checkout',
-    memoryDir        : '/seat/memory',
-    nodeBinary       : '/usr/local/bin/node',
-    environment      : {NEO_OPENAI_COMPATIBLE_HOST: 'http://127.0.0.1:1234', PATH: '/usr/bin:/bin'},
-    extraAllowedPaths: ['/opt/fleet/**'],
-    wakeHookPath     : '/seat/write-wake-envelope.mjs'
+    agentosRuntimeRoot: '/agentos/runtime',
+    targetRepoRoot    : '/seat/checkout',
+    seatEnvFile       : '/seat/checkout/.env',
+    memoryDir         : '/seat/memory',
+    nodeBinary        : '/usr/local/bin/node',
+    environment       : {NEO_OPENAI_COMPATIBLE_HOST: 'http://127.0.0.1:1234', PATH: '/usr/bin:/bin'},
+    extraAllowedPaths : ['/opt/fleet/**'],
+    wakeHookPath      : '/seat/write-wake-envelope.mjs'
 };
 
 const parseJsonc = content => JSON.parse(content.split('\n').filter(line => !line.trimStart().startsWith('//')).join('\n'));
@@ -23,7 +23,7 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         const
             {files}  = generateOpenCodeSeatConfig(PARAMS),
             config   = parseJsonc(files.find(file => file.path === '/seat/checkout/opencode.jsonc').content),
-            expected = name => ['/usr/local/bin/node', '--env-file=/seat/checkout/.env', `/canonical/ai/mcp/server/${name}/mcp-server.mjs`];
+            expected = name => ['/usr/local/bin/node', '--env-file=/seat/checkout/.env', `/agentos/runtime/ai/mcp/server/${name}/mcp-server.mjs`];
 
         expect(config.$schema).toBe('https://opencode.ai/config.json');
         // The always-loaded slot carries the boot files ONLY — detail files (seat-pointers,
@@ -31,17 +31,18 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         // every turn (the 27.2KB → ~10KB hot-index reshape).
         expect(config.instructions).toEqual(['/seat/memory/MEMORY.md', '/seat/memory/identity.md']);
 
-        // The four canonical servers, organs-rooted; the Neural Link additionally binds --cwd.
+        // Local server code and Neural Link's package/Bridge cwd are Agent OS-owned. Project
+        // artifacts and the seat env remain target-repository-owned.
         expect(config.mcp['neo-mjs-memory-core']).toEqual({type: 'local', command: expected('memory-core'), enabled: true, environment: PARAMS.environment});
         expect(config.mcp['neo-mjs-github-workflow'].command).toEqual(expected('github-workflow'));
         expect(config.mcp['neo-mjs-knowledge-base'].command).toEqual(expected('knowledge-base'));
-        expect(config.mcp['neo-mjs-neural-link'].command).toEqual([...expected('neural-link'), '--cwd', '/seat/checkout']);
+        expect(config.mcp['neo-mjs-neural-link'].command).toEqual([...expected('neural-link'), '--cwd', '/agentos/runtime']);
 
         // Permission block: catch-all stays "ask" FIRST (last matching rule wins), seat paths allowed.
         const externalDirectory = config.permission.external_directory;
 
         expect(Object.keys(externalDirectory)[0]).toBe('*');
-        expect(externalDirectory).toMatchObject({'*': 'ask', '/seat/**': 'allow', '/seat/checkout/**': 'allow', '/canonical/**': 'allow', '/opt/fleet/**': 'allow'});
+        expect(externalDirectory).toMatchObject({'*': 'ask', '/seat/**': 'allow', '/seat/checkout/**': 'allow', '/agentos/runtime/**': 'allow', '/opt/fleet/**': 'allow'});
     });
 
     test('emission list: five scaffold files by default, the wake hook only when wakeHookPath is given', () => {
@@ -99,7 +100,9 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         // Bumped 2026-08-23: the wake hook now stamps `agentIdentity` from NEO_AGENT_IDENTITY so the
         // reader can refuse an envelope a DIFFERENT seat wrote to the same shared path. A change to
         // hook content is precisely what this digest exists to surface, so it is bumped, not relaxed.
-        expect(digest).toBe('34d20d3a8e3a5a01dee7cf7c12ba272d912ef5ffe906a5977fe1c78a5956f9d7')
+        // Bumped 2026-08-24: AgentOS runtime and target-repository roots became explicit, and Neural
+        // Link's package cwd moved to the runtime authority.
+        expect(digest).toBe('bea77518dd1af0f6603c1ab794a7f71a8e8a34914dde9275664e47504bde4f6c')
     });
 
     test('remote map replaces only selected servers with the exact OpenCode HTTP adapter grammar', () => {
@@ -166,7 +169,7 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         })
     });
 
-    test('island guard: a server script escaping canonicalRoot throws; a malformed entry throws', () => {
+    test('island guard: a server script escaping agentosRuntimeRoot throws; a malformed entry throws', () => {
         const evil = [{name: 'evil', script: '../evil/mcp-server.mjs', needsCwd: false}];
 
         expect(() => generateOpenCodeSeatConfig({...PARAMS, servers: evil})).toThrow(/island guard/);
@@ -174,12 +177,12 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         expect(() => generateOpenCodeSeatConfig({...PARAMS, servers: []})).toThrow(/'servers' must be a non-empty array/);
     });
 
-    test('island guard: a trailing-slash canonicalRoot is accepted (valid input must not mis-reject)', () => {
+    test('island guard: a trailing-slash agentosRuntimeRoot is accepted (valid input must not mis-reject)', () => {
         const
-            {files} = generateOpenCodeSeatConfig({...PARAMS, canonicalRoot: '/canonical/'}),
+            {files} = generateOpenCodeSeatConfig({...PARAMS, agentosRuntimeRoot: '/agentos/runtime/'}),
             config  = parseJsonc(files[0].content);
 
-        expect(config.mcp['neo-mjs-memory-core'].command[2]).toBe('/canonical/ai/mcp/server/memory-core/mcp-server.mjs');
+        expect(config.mcp['neo-mjs-memory-core'].command[2]).toBe('/agentos/runtime/ai/mcp/server/memory-core/mcp-server.mjs');
     });
 
     test('seatHome: explicit param wins; default derives from memoryDir parent', () => {
@@ -193,12 +196,22 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
     });
 
     test('named throws: every required param is validated by name', () => {
-        for (const key of ['canonicalRoot', 'seatEnvFile', 'workspaceRoot', 'memoryDir', 'nodeBinary']) {
+        for (const key of ['agentosRuntimeRoot', 'targetRepoRoot', 'seatEnvFile', 'memoryDir', 'nodeBinary']) {
             const params = {...PARAMS};
 
             delete params[key];
             expect(() => generateOpenCodeSeatConfig(params)).toThrow(new RegExp(`'${key}' must be a non-empty string`));
         }
+
+        const legacyOnly = {
+            ...PARAMS,
+            canonicalRoot: PARAMS.agentosRuntimeRoot,
+            workspaceRoot: PARAMS.targetRepoRoot
+        };
+        delete legacyOnly.agentosRuntimeRoot;
+        delete legacyOnly.targetRepoRoot;
+
+        expect(() => generateOpenCodeSeatConfig(legacyOnly)).toThrow(/'agentosRuntimeRoot'/)
     });
 
     test('sovereignty guard: the emitted identity.md is a template — sovereignty header, zero story content', () => {
@@ -228,7 +241,7 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         expect(hook).not.toMatch(/import .* from '(?!node:)/); // no non-node imports (C1-clean)
     });
 
-    test('OPENCODE_SEAT_SERVERS: the canonical four are organs-relative scripts', () => {
+    test('OPENCODE_SEAT_SERVERS: the canonical four are AgentOS-relative scripts', () => {
         expect(OPENCODE_SEAT_SERVERS.map(server => server.name)).toEqual([
             'neo-mjs-memory-core', 'neo-mjs-github-workflow', 'neo-mjs-knowledge-base', 'neo-mjs-neural-link'
         ]);

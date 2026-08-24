@@ -1,6 +1,10 @@
 import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from './mcpServers.mjs';
 import {ensureAgentRepo}               from './ensureAgentRepo.mjs';
 import {prepareManagedAgentWorkspace}  from './prepareManagedAgentWorkspace.mjs';
+import path                            from 'node:path';
+import {fileURLToPath}                 from 'node:url';
+
+const DEFAULT_AGENTOS_RUNTIME_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /**
  * @summary Resolve the provider login that names the canonical AgentIdentity. Fleet `id` names one
@@ -29,7 +33,7 @@ function expectedAgentIdentity(agent) {
  * `FleetLifecycleService.start` supervises a process but knows nothing about repos: it spawns the
  * harness in the Fleet Manager's own working directory. This composer closes that gap. Given an agent
  * whose definition carries its working-repo coordinates (`metadata.repo = {cloneUrl, repoSlug}`), it
- * first ensures the canonical checkout exists — clone-or-reuse, never clobber, via
+ * first ensures the target checkout exists — clone-or-reuse, never clobber, via
  * {@link Neo.ai.services.fleet.ensureAgentRepo} — then hydrates the checkout + isolated harness home
  * through {@link Neo.ai.services.fleet.prepareManagedAgentWorkspace}, and only then starts the harness
  * with its `cwd` pinned to the prepared checkout. Fleet Manager auto-memory is checkout-path-keyed, so
@@ -67,7 +71,8 @@ function expectedAgentIdentity(agent) {
  *                                              singleton only for an opted-in remote seat.
  * @param {String}   [options.instanceRoot]     Explicit harness-home root; omitted ⇒ the lifecycle
  *                                              service's config-resolved `getInstanceRoot()` value.
- * @param {String}   [options.mainCheckout]     Installed canonical checkout override for preparation.
+ * @param {String}   [options.agentosRuntimeRoot] Installed AgentOS runtime root; defaults to the
+ *                                                package root containing this composer.
  * @param {String}   [options.nodePath]         Node executable override for generated MCP definitions.
  * @returns {Promise<Object>} the agent's lifecycle status (see `FleetLifecycleService.status`).
  * @throws {Error} when `lifecycleService` / `agentId` is missing, the agent is unknown, `managedRoot`
@@ -83,7 +88,7 @@ export async function startAgentProvisioned({
     prepareWorkspace = prepareManagedAgentWorkspace,
     tenantService = null,
     instanceRoot,
-    mainCheckout,
+    agentosRuntimeRoot = DEFAULT_AGENTOS_RUNTIME_ROOT,
     nodePath
 } = {}) {
     if (!lifecycleService) throw new Error("startAgentProvisioned: 'lifecycleService' is required.");
@@ -121,6 +126,9 @@ export async function startAgentProvisioned({
     if (!managedRoot) {
         throw new Error(`startAgentProvisioned: 'managedRoot' is required to provision the repo for agent '${agentId}'.`);
     }
+    if (typeof agentosRuntimeRoot !== 'string' || !path.isAbsolute(agentosRuntimeRoot)) {
+        throw new Error(`startAgentProvisioned: 'agentosRuntimeRoot' must be an absolute path for agent '${agentId}'.`)
+    }
 
     let
         remotePlan                   = null,
@@ -146,7 +154,7 @@ export async function startAgentProvisioned({
         }
 
         remoteCapability = await lifecycleService.assertRemoteMcpCapability(agent, {
-            mainCheckout,
+            mainCheckout: agentosRuntimeRoot,
             nodePath
         });
 
@@ -169,7 +177,7 @@ export async function startAgentProvisioned({
     // is never spawned into an unprovisioned / conflicting directory (fail-closed). Input validation
     // (managedRoot / agentId / repoSlug / a missing cloneUrl when a clone is needed) is inherited from
     // the provisioning chain's own contracts — not re-implemented here.
-    const {repoPath} = await ensureRepo({
+    const {repoPath: targetRepoRoot} = await ensureRepo({
         managedRoot,
         agentId,
         repoSlug: repo.repoSlug,
@@ -182,9 +190,9 @@ export async function startAgentProvisioned({
     // propagates, so `start` is never called over divergent or unsupported resident state.
     const prepared = await prepareWorkspace({
         agent,
-        repoPath,
+        targetRepoRoot,
         instanceRoot       : instanceRoot ?? lifecycleService.getInstanceRoot?.(),
-        mainCheckout,
+        agentosRuntimeRoot,
         nodePath,
         remoteMcpCapability: remoteCapability,
         mcpTarget          : remotePlan && {
@@ -194,15 +202,17 @@ export async function startAgentProvisioned({
         }
     });
 
-    if (!prepared || prepared.repoPath !== repoPath) {
-        throw new Error(`startAgentProvisioned: preparation did not return the canonical provisioned repoPath for agent '${agentId}'.`);
+    if (!prepared ||
+        prepared.targetRepoRoot !== targetRepoRoot ||
+        prepared.agentosRuntimeRoot !== path.resolve(agentosRuntimeRoot)) {
+        throw new Error(`startAgentProvisioned: preparation did not return the exact AgentOS runtime and target repo roots for agent '${agentId}'.`);
     }
 
     if (target?.kind === 'tenant') {
         await lifecycleService.inspectPreparedRemoteMcpAdapter({
             agent,
             binaryPath  : remoteCapability.binaryPath,
-            repoPath    : prepared.repoPath,
+            repoPath    : prepared.targetRepoRoot,
             instanceHome: prepared.instanceHome,
             mcpMatrix   : prepared.mcpMatrix,
             mcpPlan     : prepared.mcpPlan,
@@ -214,7 +224,7 @@ export async function startAgentProvisioned({
     }
 
     return lifecycleService.start(agentId, {
-        cwd: prepared.repoPath,
+        cwd: prepared.targetRepoRoot,
         ...(target?.kind === 'tenant'
             ? {resolvedCredential, resolvedMcpCredential, remoteMcpCapability: remoteCapability}
             : {})

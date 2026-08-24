@@ -59,25 +59,25 @@ const BOUNDED_APPLY_EFFECTS = new Set([
     'writeFile'
 ]);
 
-let root, mainCheckout, repoRoot, instanceRoot, hydrationCalls;
+let root, agentosRuntimeRoot, repoRoot, instanceRoot, hydrationCalls;
 
 test.beforeEach(async () => {
     root          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-fleet-workspace-'));
-    mainCheckout  = path.join(root, 'installed-neo');
+    agentosRuntimeRoot  = path.join(root, 'installed-neo');
     repoRoot      = path.join(root, 'managed-repos');
     instanceRoot  = path.join(root, 'instances');
     hydrationCalls = [];
 
-    await fs.mkdir(path.join(mainCheckout, '.codex'), {recursive: true});
-    await fs.writeFile(path.join(mainCheckout, '.codex', 'config.template.toml'), TEMPLATE, 'utf8');
-    await fs.mkdir(path.join(mainCheckout, 'ai/mcp/client'), {recursive: true});
+    await fs.mkdir(path.join(agentosRuntimeRoot, '.codex'), {recursive: true});
+    await fs.writeFile(path.join(agentosRuntimeRoot, '.codex', 'config.template.toml'), TEMPLATE, 'utf8');
+    await fs.mkdir(path.join(agentosRuntimeRoot, 'ai/mcp/client'), {recursive: true});
     await fs.writeFile(
-        path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'),
+        path.join(agentosRuntimeRoot, 'ai/mcp/client/stdioToStreamableHttp.mjs'),
         '// installed Neo bridge entrypoint\n',
         'utf8'
     );
     for (const relativePath of MCP_ENTRYPOINTS) {
-        const filePath = path.join(mainCheckout, relativePath);
+        const filePath = path.join(agentosRuntimeRoot, relativePath);
         await fs.mkdir(path.dirname(filePath), {recursive: true});
         await fs.writeFile(filePath, '// installed canonical entrypoint\n', 'utf8');
     }
@@ -102,15 +102,15 @@ function makeHydrate() {
 function options(agent, repoName = agent.id) {
     const result = {
         agent,
-        repoPath        : path.join(repoRoot, repoName),
+        targetRepoRoot  : path.join(repoRoot, repoName),
         instanceRoot,
-        mainCheckout,
+        agentosRuntimeRoot,
         nodePath        : NODE_PATH,
         hydrateWorkspace: makeHydrate()
     };
 
     if (agent.harnessType === 'claude-desktop') {
-        result.remoteMcpCapability = claudeDesktopRemoteCapability(mainCheckout)
+        result.remoteMcpCapability = claudeDesktopRemoteCapability(agentosRuntimeRoot)
     }
 
     return result
@@ -283,7 +283,7 @@ function tomlMcpTable(content, name) {
 }
 
 test.describe('managed workspace logical plan → host apply boundary', () => {
-    test('the compatibility composer has one production caller', async () => {
+    test('the plan/apply composer has one production caller', async () => {
         const callers = [];
 
         for (const rootName of ['ai', 'apps', 'buildScripts', 'src']) {
@@ -397,7 +397,7 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
         });
         expect(first.mcpServers.every(server => server.entrypoint && !path.isAbsolute(server.entrypoint))).toBe(true);
         expect(collectStrings(first).filter(value => !/^https?:/.test(value)).every(value => !path.isAbsolute(value))).toBe(true);
-        expect(JSON.stringify(first)).not.toMatch(/"(?:args|command|cwd|mainCheckout|nodePath|owner|grant|authorization)"/);
+        expect(JSON.stringify(first)).not.toMatch(/"(?:args|command|cwd|agentosRuntimeRoot|targetRepoRoot|mainCheckout|repoPath|nodePath|owner|grant|authorization)"/);
     });
 
     test('planner rejects forbidden/unknown/absolute fields without evaluating effectful accessors', () => {
@@ -405,8 +405,11 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
             name  : 'owner',
             mutate: input => { input.owner = '@someone' }
         }, {
-            name  : 'nested repoPath',
-            mutate: input => { input.agent.repoPath = '/tmp/repo' }
+            name  : 'nested targetRepoRoot',
+            mutate: input => { input.agent.targetRepoRoot = '/tmp/repo' }
+        }, {
+            name  : 'legacy root alias',
+            mutate: input => { input.agent.repoPath = '/tmp/legacy-repo' }
         }, {
             name  : 'bearer value',
             mutate: input => { input.mcpTarget = {...tenantTarget(), bearer: 'secret-value'} }
@@ -486,9 +489,9 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
 
         const result = await applyManagedAgentWorkspacePlan({
             plan            : structuredClone(plan),
-            repoPath        : path.join(repoRoot, 'direct-apply'),
+            targetRepoRoot  : path.join(repoRoot, 'direct-apply'),
             instanceRoot,
-            mainCheckout,
+            agentosRuntimeRoot,
             nodePath        : NODE_PATH,
             hydrateWorkspace: async args => {
                 operations.push('hydrateWorkspace');
@@ -502,15 +505,46 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
         expect(operations).toContain('hydrateWorkspace');
         expect(operations).toContain('writeFile');
         expect(Object.keys(result)).toEqual([
-            'repoPath',
+            'agentosRuntimeRoot',
+            'targetRepoRoot',
             'instanceHome',
             'mcpMatrix',
             'mcpPlan',
             'hydration',
             'artifacts'
         ]);
-        expect(result.mcpPlan[0].args[0]).toBe(path.join(mainCheckout, MCP_ENTRYPOINTS[0]));
-        expect(path.isAbsolute(result.mcpPlan[0].args[0])).toBe(true)
+        expect(result.mcpPlan[0].args[0]).toBe(path.join(agentosRuntimeRoot, MCP_ENTRYPOINTS[0]));
+        expect(path.isAbsolute(result.mcpPlan[0].args[0])).toBe(true);
+        expect(result.agentosRuntimeRoot).toBe(agentosRuntimeRoot);
+        expect(result.targetRepoRoot).toBe(path.join(repoRoot, 'direct-apply'));
+        expect(result.mcpPlan.every(server => server.sourceRoot === agentosRuntimeRoot)).toBe(true);
+        expect(result.mcpPlan.find(server => server.key === 'neural-link').args.slice(-2))
+            .toEqual(['--cwd', agentosRuntimeRoot])
+    });
+
+    test('host apply requires both semantic roots and never falls back to legacy aliases', async () => {
+        const
+            plan    = createManagedAgentWorkspacePlan(logicalInput()),
+            hydrate = makeHydrate(),
+            base    = {plan, instanceRoot, nodePath: NODE_PATH, hydrateWorkspace: hydrate};
+
+        await expect(applyManagedAgentWorkspacePlan({
+            ...base,
+            targetRepoRoot: path.join(repoRoot, 'missing-runtime')
+        })).rejects.toThrow(/agentosRuntimeRoot/);
+
+        await expect(applyManagedAgentWorkspacePlan({
+            ...base,
+            agentosRuntimeRoot
+        })).rejects.toThrow(/targetRepoRoot/);
+
+        await expect(applyManagedAgentWorkspacePlan({
+            ...base,
+            mainCheckout: agentosRuntimeRoot,
+            repoPath    : path.join(repoRoot, 'legacy-only')
+        })).rejects.toThrow(/targetRepoRoot/);
+
+        expect(hydrationCalls).toEqual([])
     });
 
     test('host apply rejects projection drift while accepting a coherent clone without proving provenance', async () => {
@@ -524,9 +558,9 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
 
         await expect(applyManagedAgentWorkspacePlan({
             plan            : divergentPlan,
-            repoPath        : path.join(repoRoot, 'divergent-plan'),
+            targetRepoRoot  : path.join(repoRoot, 'divergent-plan'),
             instanceRoot,
-            mainCheckout,
+            agentosRuntimeRoot,
             nodePath        : NODE_PATH,
             hydrateWorkspace: async args => {
                 hydrationCalls.push(args);
@@ -544,9 +578,9 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
 
         const result = await applyManagedAgentWorkspacePlan({
             plan            : coherentPlan,
-            repoPath        : path.join(repoRoot, 'coherent-plan'),
+            targetRepoRoot  : path.join(repoRoot, 'coherent-plan'),
             instanceRoot,
-            mainCheckout,
+            agentosRuntimeRoot,
             nodePath        : NODE_PATH,
             hydrateWorkspace: makeHydrate()
         });
@@ -557,17 +591,17 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
 
     test('invalid host input is normalized and a completed artifact converges after a mid-apply failure', async () => {
         const
-            plan     = createManagedAgentWorkspacePlan(logicalInput()),
-            badPlan  = structuredClone(plan),
-            repoPath = path.join(repoRoot, 'partial-apply');
+            plan           = createManagedAgentWorkspacePlan(logicalInput()),
+            badPlan        = structuredClone(plan),
+            targetRepoRoot = path.join(repoRoot, 'partial-apply');
 
         badPlan.agent.id = '/tmp/escaped-agent';
 
         await expect(applyManagedAgentWorkspacePlan({
             plan            : badPlan,
-            repoPath,
+            targetRepoRoot,
             instanceRoot,
-            mainCheckout,
+            agentosRuntimeRoot,
             nodePath        : NODE_PATH,
             hydrateWorkspace: makeHydrate()
         })).rejects.toBeInstanceOf(ManagedWorkspacePreparationError);
@@ -589,16 +623,16 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
         });
         const applyOptions = {
             plan,
-            repoPath,
+            targetRepoRoot,
             instanceRoot,
-            mainCheckout,
+            agentosRuntimeRoot,
             nodePath        : NODE_PATH,
             hydrateWorkspace: makeHydrate()
         };
 
         await expect(applyManagedAgentWorkspacePlan({...applyOptions, fileSystem: failingFileSystem}))
             .rejects.toBeInstanceOf(ManagedWorkspacePreparationError);
-        expect(await read(path.join(repoPath, '.codex', 'config.toml'))).toContain('neo-mjs-memory-core');
+        expect(await read(path.join(targetRepoRoot, '.codex', 'config.toml'))).toContain('neo-mjs-memory-core');
 
         const retry = await applyManagedAgentWorkspacePlan(applyOptions);
 
@@ -609,7 +643,7 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
         ])
     });
 
-    test('compatibility composer resolves once before entering one host apply sequence', async () => {
+    test('plan/apply composer resolves once before entering one host apply sequence', async () => {
         const
             events = [],
             agent  = makeAgent('codex'),
@@ -633,7 +667,8 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
 
         expect(events).toEqual(['resolve', 'apply:derive', 'apply:hydrate']);
         expect(Object.keys(result)).toEqual([
-            'repoPath',
+            'agentosRuntimeRoot',
+            'targetRepoRoot',
             'instanceHome',
             'mcpMatrix',
             'mcpPlan',
@@ -648,15 +683,16 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const
             opts              = options(makeAgent('codex')),
             result            = await prepareManagedAgentWorkspace(opts),
-            projectConfigPath = path.join(opts.repoPath, '.codex', 'config.toml'),
+            projectConfigPath = path.join(opts.targetRepoRoot, '.codex', 'config.toml'),
             homeConfigPath    = path.join(result.instanceHome, 'config.toml'),
             memoriesPath      = path.join(result.instanceHome, 'memories'),
             projectConfig     = await read(projectConfigPath),
             homeConfig        = await read(homeConfigPath);
 
         expect(hydrationCalls).toHaveLength(1);
-        expect(hydrationCalls[0]).toMatchObject({mainCheckout, projectRoot: opts.repoPath});
-        expect(result.repoPath).toBe(opts.repoPath);
+        expect(hydrationCalls[0]).toMatchObject({mainCheckout: agentosRuntimeRoot, projectRoot: opts.targetRepoRoot});
+        expect(result.agentosRuntimeRoot).toBe(agentosRuntimeRoot);
+        expect(result.targetRepoRoot).toBe(opts.targetRepoRoot);
         expect(result.hydration).toEqual({hydrated: true});
         expect(result.mcpPlan).toHaveLength(5);
         expect(result.mcpPlan.map(server => server.key)).toEqual([
@@ -680,13 +716,13 @@ test.describe('prepareManagedAgentWorkspace', () => {
             WORKSPACE_ARTIFACT_STATES.CREATED
         ]);
 
-        // Fresh managed clones have no dependencies: every executable comes from the installed
-        // checkout, while Neural Link receives the managed repo as its explicit project cwd.
+        // Fresh target clones have no dependencies: every executable and Neural Link's package cwd
+        // come from AgentOS, while project artifacts remain under the target repository.
         expect(projectConfig).toContain(`command = ${JSON.stringify(NODE_PATH)}`);
-        expect(projectConfig).toContain(path.join(mainCheckout, 'ai/mcp/server/memory-core/mcp-server.mjs'));
-        expect(projectConfig).toContain(JSON.stringify(['--cwd', opts.repoPath]).slice(1, -1));
+        expect(projectConfig).toContain(path.join(agentosRuntimeRoot, 'ai/mcp/server/memory-core/mcp-server.mjs'));
+        expect(projectConfig).toContain(JSON.stringify(['--cwd', agentosRuntimeRoot]).slice(1, -1));
         expect(projectConfig).not.toContain('command = "npm"');
-        await expect(fs.stat(path.join(opts.repoPath, 'node_modules'))).rejects.toMatchObject({code: 'ENOENT'});
+        await expect(fs.stat(path.join(opts.targetRepoRoot, 'node_modules'))).rejects.toMatchObject({code: 'ENOENT'});
 
         // All catalog keys are projected from current defaults; optional workflows remain disabled.
         expect(projectConfig.match(/^\[mcp_servers\./gm)).toHaveLength(5);
@@ -694,7 +730,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(projectConfig).toMatch(/\[mcp_servers\."neo-mjs-gitlab-workflow"\][\s\S]*?enabled = false/);
         expect(homeConfig).toContain('cli_auth_credentials_store = "file"');
         expect(homeConfig).toContain('mcp_oauth_credentials_store = "file"');
-        expect(homeConfig).not.toContain(`[projects.${JSON.stringify(opts.repoPath)}]`);
+        expect(homeConfig).not.toContain(`[projects.${JSON.stringify(opts.targetRepoRoot)}]`);
         expect(homeConfig).not.toContain('trust_level = "trusted"');
         expect(homeConfig).toBe([
             '# Fleet-owned Codex home policy. Authentication material itself is created by Codex login, never by Fleet.',
@@ -713,7 +749,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
     test('re-entry reports MATCH and ignores unrelated operator-owned TOML tables/keys', async () => {
         const opts        = options(makeAgent('codex'));
         const first       = await prepareManagedAgentWorkspace(opts);
-        const projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
+        const projectPath = path.join(opts.targetRepoRoot, '.codex', 'config.toml');
         const homePath    = path.join(first.instanceHome, 'config.toml');
 
         await fs.appendFile(projectPath, '\n[mcp_servers."operator-local"]\ncommand = "custom"\n', 'utf8');
@@ -841,13 +877,13 @@ test.describe('prepareManagedAgentWorkspace', () => {
             foreignDeps = path.join(root, 'foreign-resident', 'node_modules');
 
         await fs.mkdir(foreignDeps, {recursive: true});
-        await fs.mkdir(opts.repoPath, {recursive: true});
-        await fs.symlink(foreignDeps, path.join(opts.repoPath, 'node_modules'), 'dir');
+        await fs.mkdir(opts.targetRepoRoot, {recursive: true});
+        await fs.symlink(foreignDeps, path.join(opts.targetRepoRoot, 'node_modules'), 'dir');
 
         const result = await prepareManagedAgentWorkspace(opts);
 
         expect(result.artifacts.every(item => item.ownedKeys !== 'dependency-root')).toBe(true);
-        expect(path.resolve(path.dirname(path.join(opts.repoPath, 'node_modules')), await fs.readlink(path.join(opts.repoPath, 'node_modules'))))
+        expect(path.resolve(path.dirname(path.join(opts.targetRepoRoot, 'node_modules')), await fs.readlink(path.join(opts.targetRepoRoot, 'node_modules'))))
             .toBe(foreignDeps);
     });
 
@@ -865,14 +901,25 @@ test.describe('prepareManagedAgentWorkspace', () => {
         await expect(prepareManagedAgentWorkspace(missingNode)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_UNSUPPORTED'
         });
-        await expect(fs.stat(path.join(missingNode.repoPath, '.codex', 'config.toml'))).rejects.toMatchObject({code: 'ENOENT'});
+        await expect(fs.stat(path.join(missingNode.targetRepoRoot, '.codex', 'config.toml'))).rejects.toMatchObject({code: 'ENOENT'});
 
         const missingEntrypoint = options(makeAgent('codex'), 'missing-entrypoint');
-        await fs.rm(path.join(mainCheckout, MCP_ENTRYPOINTS[0]));
+        await fs.rm(path.join(agentosRuntimeRoot, MCP_ENTRYPOINTS[0]));
         await expect(prepareManagedAgentWorkspace(missingEntrypoint)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_UNSUPPORTED'
         });
-        await expect(fs.stat(path.join(missingEntrypoint.repoPath, '.codex', 'config.toml'))).rejects.toMatchObject({code: 'ENOENT'});
+        await expect(fs.stat(path.join(missingEntrypoint.targetRepoRoot, '.codex', 'config.toml'))).rejects.toMatchObject({code: 'ENOENT'});
+    });
+
+    test('swapping AgentOS runtime and target roots fails at the AgentOS executable guard', async () => {
+        const opts = options(makeAgent('codex'), 'swapped-roots');
+
+        [opts.agentosRuntimeRoot, opts.targetRepoRoot] = [opts.targetRepoRoot, opts.agentosRuntimeRoot];
+
+        await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
+            code   : 'FLEET_WORKSPACE_UNSUPPORTED',
+            message: expect.stringMatching(/installed file entrypoint/)
+        })
     });
 
     test('directory-valued Node and MCP entrypoint paths fail executable preflight', async () => {
@@ -884,7 +931,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         });
 
         const directoryEntrypoint = options(makeAgent('codex'), 'directory-entrypoint');
-        const directoryPath       = path.join(mainCheckout, MCP_ENTRYPOINTS[0]);
+        const directoryPath       = path.join(agentosRuntimeRoot, MCP_ENTRYPOINTS[0]);
         await fs.rm(directoryPath);
         await fs.mkdir(directoryPath);
 
@@ -919,9 +966,9 @@ test.describe('prepareManagedAgentWorkspace', () => {
         ]);
         expect(nl.command).toBe(NODE_PATH);
         expect(nl.args).toEqual([
-            path.join(mainCheckout, 'ai/mcp/server/neural-link/mcp-server.mjs'),
+            path.join(agentosRuntimeRoot, 'ai/mcp/server/neural-link/mcp-server.mjs'),
             '--cwd',
-            opts.repoPath
+            agentosRuntimeRoot
         ]);
         expect(nl.env).toEqual({
             NEO_AGENT_IDENTITY         : '${NEO_AGENT_IDENTITY}',
@@ -929,7 +976,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             NEO_NL_TOOL_PROJECTION_MODE: '${NEO_NL_TOOL_PROJECTION_MODE}'
         });
         expect(raw).not.toContain('secret-token-value');
-        await expect(fs.stat(path.join(opts.repoPath, '.mcp.json'))).rejects.toMatchObject({code: 'ENOENT'});
+        await expect(fs.stat(path.join(opts.targetRepoRoot, '.mcp.json'))).rejects.toMatchObject({code: 'ENOENT'});
     });
 
     test('Claude Desktop: default profile includes Neural Link without persisting its optional Bridge token', async () => {
@@ -1005,8 +1052,8 @@ test.describe('prepareManagedAgentWorkspace', () => {
         await expect(prepareManagedAgentWorkspace()).rejects.toThrow(/agent/);
         await expect(prepareManagedAgentWorkspace({
             ...options(makeAgent('codex')),
-            repoPath: 'relative/repo'
-        })).rejects.toThrow(/repoPath.*absolute/);
+            targetRepoRoot: 'relative/repo'
+        })).rejects.toThrow(/targetRepoRoot.*absolute/);
         expect(hydrationCalls).toHaveLength(0);
     });
 
@@ -1015,7 +1062,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             opts   = options(makeAgent('kimi-code')),
             result = await prepareManagedAgentWorkspace(opts),
             config = await read(path.join(result.instanceHome, 'config.toml')),
-            mcp    = JSON.parse(await read(path.join(opts.repoPath, '.kimi-code', 'mcp.json'))),
+            mcp    = JSON.parse(await read(path.join(opts.targetRepoRoot, '.kimi-code', 'mcp.json'))),
             hook   = await read(path.join(result.instanceHome, 'hooks', 'identityAnchorHook.mjs')),
             memory = await read(path.join(result.instanceHome, 'memory', 'MEMORY.md'));
 
@@ -1078,7 +1125,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const
             opts        = options(makeAgent('opencode')),
             result      = await prepareManagedAgentWorkspace(opts),
-            jsoncSource = await read(path.join(opts.repoPath, 'opencode.jsonc')),
+            jsoncSource = await read(path.join(opts.targetRepoRoot, 'opencode.jsonc')),
             config      = JSON.parse(jsoncSource.split('\n').filter(line => !line.trimStart().startsWith('//')).join('\n'));
 
         // 6 artifacts: opencode.jsonc + 4 memory-layer files + the wake-envelope boot hook.
@@ -1092,7 +1139,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(Object.keys(config.mcp).sort()).toEqual(['neo-mjs-knowledge-base', 'neo-mjs-memory-core', 'neo-mjs-neural-link']);
         // Permission allow-list covers the seat home, the managed repo, and the canonical checkout.
         expect(config.permission.external_directory[result.instanceHome + '/**']).toBe('allow');
-        expect(config.permission.external_directory[opts.repoPath + '/**']).toBe('allow');
+        expect(config.permission.external_directory[opts.targetRepoRoot + '/**']).toBe('allow');
         expect(config.permission.external_directory['*']).toBe('ask');
 
         const hook = await read(path.join(result.instanceHome, 'write-wake-envelope.mjs'));
@@ -1118,7 +1165,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const cases = [{
             harnessType: 'codex',
             inspect    : async (opts, result) => {
-                const source = await read(path.join(opts.repoPath, '.codex', 'config.toml'));
+                const source = await read(path.join(opts.targetRepoRoot, '.codex', 'config.toml'));
 
                 expect(source).toMatch(/\[mcp_servers\."neo-mjs-memory-core"\][\s\S]*?url = "https:\/\/tenant\.example\.com\/agentos\/mc\/mcp"[\s\S]*?bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/);
                 expect(source).toMatch(/\[mcp_servers\."neo-mjs-knowledge-base"\][\s\S]*?url = "https:\/\/tenant\.example\.com\/agentos\/kb\/mcp"[\s\S]*?bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/);
@@ -1127,7 +1174,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         }, {
             harnessType: 'codex-desktop',
             inspect    : async (opts, result) => {
-                const source = await read(path.join(opts.repoPath, '.codex', 'config.toml'));
+                const source = await read(path.join(opts.targetRepoRoot, '.codex', 'config.toml'));
 
                 expect(source).toContain('bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"');
                 expect(result.instanceHome).toContain('codex-desktop')
@@ -1154,7 +1201,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             inspect    : async (opts, result) => {
                 const
                     config = JSON.parse(await read(path.join(result.instanceHome, 'claude_desktop_config.json'))),
-                    bridge = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs');
+                    bridge = path.join(agentosRuntimeRoot, 'ai/mcp/client/stdioToStreamableHttp.mjs');
 
                 expect(config.mcpServers['neo-mjs-memory-core']).toEqual({
                     command: NODE_PATH,
@@ -1181,7 +1228,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         }, {
             harnessType: 'kimi-code',
             inspect    : async opts => {
-                const config = JSON.parse(await read(path.join(opts.repoPath, '.kimi-code', 'mcp.json')));
+                const config = JSON.parse(await read(path.join(opts.targetRepoRoot, '.kimi-code', 'mcp.json')));
 
                 expect(config.mcpServers['neo-mjs-memory-core']).toEqual({
                     url              : 'https://tenant.example.com/agentos/mc/mcp',
@@ -1198,7 +1245,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         }, {
             harnessType: 'opencode',
             inspect    : async opts => {
-                const config = parseJsonc(await read(path.join(opts.repoPath, 'opencode.jsonc')));
+                const config = parseJsonc(await read(path.join(opts.targetRepoRoot, 'opencode.jsonc')));
 
                 expect(config.mcp['neo-mjs-memory-core']).toEqual({
                     type   : 'remote',
@@ -1247,7 +1294,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
     test('transport transition is local → remote → different remote → local, preserving unrelated TOML bytes', async () => {
         const
             opts        = options(makeAgent('codex'), 'transition-codex'),
-            projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
+            projectPath = path.join(opts.targetRepoRoot, '.codex', 'config.toml');
 
         const local              = await prepareManagedAgentWorkspace(opts);
         const localBaseline      = await read(projectPath);
@@ -1314,11 +1361,11 @@ test.describe('prepareManagedAgentWorkspace', () => {
                 operatorBlock: strictOperatorBlock
             }, {
                 harnessType  : 'kimi-code',
-                artifactPath : opts => path.join(opts.repoPath, '.kimi-code', 'mcp.json'),
+                artifactPath : opts => path.join(opts.targetRepoRoot, '.kimi-code', 'mcp.json'),
                 operatorBlock: strictOperatorBlock
             }, {
                 harnessType  : 'opencode',
-                artifactPath : opts => path.join(opts.repoPath, 'opencode.jsonc'),
+                artifactPath : opts => path.join(opts.targetRepoRoot, 'opencode.jsonc'),
                 operatorBlock: jsoncOperatorBlock
             }];
 
@@ -1375,7 +1422,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
     test('a receipt cannot authorize an operator-edited transport projection', async () => {
         const
             opts        = options(makeAgent('codex'), 'edited-remote'),
-            projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
+            projectPath = path.join(opts.targetRepoRoot, '.codex', 'config.toml');
 
         opts.mcpTarget = tenantTarget();
         await prepareManagedAgentWorkspace(opts);
@@ -1445,7 +1492,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             fixture = await startBridgeFixture(token),
             opts    = options(makeAgent('claude-desktop'), 'remote-desktop-live-bridge');
 
-        opts.mainCheckout       = PROJECT_ROOT;
+        opts.agentosRuntimeRoot       = PROJECT_ROOT;
         opts.remoteMcpCapability = claudeDesktopRemoteCapability(PROJECT_ROOT);
         opts.mcpTarget           = tenantTarget(fixture.baseUrl);
 
@@ -1531,7 +1578,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const missingBridge = options(makeAgent('claude-desktop'), 'remote-desktop-missing-bridge');
 
         missingBridge.mcpTarget = tenantTarget();
-        await fs.rm(path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'));
+        await fs.rm(path.join(agentosRuntimeRoot, 'ai/mcp/client/stdioToStreamableHttp.mjs'));
 
         await expect(prepareManagedAgentWorkspace(missingBridge)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_UNSUPPORTED'

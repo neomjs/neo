@@ -10,23 +10,23 @@ import {KIMI_SEAT_SERVERS, generateKimiSeatConfig} from '../../../../../../ai/se
 // host-runtime side effects and each case is fully isolated. Mirrors generateOpenCodeSeatConfig.spec.
 
 const PARAMS = {
-    canonicalRoot: '/canonical',
-    seatEnvFile  : '/seat/checkout/.env',
-    workspaceRoot: '/seat/checkout',
-    kimiHome     : '/fleet/instances/p/kimi',
-    memoryDir    : '/seat/memory',
-    nodeBinary   : '/usr/local/bin/node',
-    environment  : {NEO_OPENAI_COMPATIBLE_HOST: 'http://127.0.0.1:1234', PATH: '/usr/bin:/bin', HOME: '/Users/fleet'}
+    agentosRuntimeRoot: '/agentos/runtime',
+    targetRepoRoot    : '/seat/checkout',
+    seatEnvFile       : '/seat/checkout/.env',
+    kimiHome          : '/fleet/instances/p/kimi',
+    memoryDir         : '/seat/memory',
+    nodeBinary        : '/usr/local/bin/node',
+    environment       : {NEO_OPENAI_COMPATIBLE_HOST: 'http://127.0.0.1:1234', PATH: '/usr/bin:/bin', HOME: '/Users/fleet'}
 };
 
 const findFile = (files, suffix) => files.find(file => file.path.endsWith(suffix));
 
 test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)', () => {
-    test('golden shape: mcp.json parses as strict JSON and wires the canonical four servers, organs-rooted', () => {
+    test('golden shape: mcp.json parses as strict JSON and wires the canonical four servers, AgentOS-rooted', () => {
         const
             {files} = generateKimiSeatConfig(PARAMS),
             mcp     = JSON.parse(findFile(files, '.kimi-code/mcp.json').content).mcpServers,
-            script  = name => `/canonical/ai/mcp/server/${name}/mcp-server.mjs`;
+            script  = name => `/agentos/runtime/ai/mcp/server/${name}/mcp-server.mjs`;
 
         for (const server of KIMI_SEAT_SERVERS) {
             const entry = mcp[server.name];
@@ -41,8 +41,9 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         expect(mcp['neo-mjs-memory-core'].args[1]).toBe(script('memory-core'));
         expect(mcp['neo-mjs-github-workflow'].args[1]).toBe(script('github-workflow'));
         expect(mcp['neo-mjs-knowledge-base'].args[1]).toBe(script('knowledge-base'));
-        // The Neural Link additionally binds --cwd to the seat's own working tree.
-        expect(mcp['neo-mjs-neural-link'].args).toEqual(['--env-file=/seat/checkout/.env', script('neural-link'), '--cwd', '/seat/checkout']);
+        // Neural Link starts its package/Bridge from Agent OS; the target checkout owns artifacts,
+        // not executable authority.
+        expect(mcp['neo-mjs-neural-link'].args).toEqual(['--env-file=/seat/checkout/.env', script('neural-link'), '--cwd', '/agentos/runtime']);
     });
 
     test('golden shape: config.toml carries the auto permission posture, default model, per-server allow rules, and the tracked wake hook', () => {
@@ -176,7 +177,9 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         // Live-frozen from the pre-change origin/dev artifact. This is deliberately not current-vs-current:
         // an unconditional remote credential echo in any generated file changes the digest.
         // Bumped 2026-08-15: the seat-layer rules gained the defect-note anti-pattern line.
-        expect(digest).toBe('2652a60b456146fd4906c7151347b4c7bc1f329ec9a606d777d57b507704f5d6')
+        // Bumped 2026-08-24: AgentOS runtime and target-repository roots became explicit, and Neural
+        // Link's package cwd moved to the runtime authority.
+        expect(digest).toBe('85906be5c2de8ede420c9cfec5e34b236bf410c31f9b01dc724784795c3563c3')
     });
 
     test('remote map replaces only selected servers with the exact Kimi HTTP adapter grammar', () => {
@@ -242,7 +245,7 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         })
     });
 
-    test('island guard: a server script escaping canonicalRoot throws; a malformed entry throws', () => {
+    test('island guard: a server script escaping agentosRuntimeRoot throws; a malformed entry throws', () => {
         const evil = [{name: 'evil', script: '../evil/mcp-server.mjs', needsCwd: false}];
 
         expect(() => generateKimiSeatConfig({...PARAMS, servers: evil})).toThrow(/island guard/);
@@ -250,20 +253,30 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         expect(() => generateKimiSeatConfig({...PARAMS, servers: []})).toThrow(/'servers' must be a non-empty array/);
     });
 
-    test('island guard: a trailing-slash canonicalRoot is accepted (valid input must not mis-reject)', () => {
+    test('island guard: a trailing-slash agentosRuntimeRoot is accepted (valid input must not mis-reject)', () => {
         const
-            {files} = generateKimiSeatConfig({...PARAMS, canonicalRoot: '/canonical/'}),
+            {files} = generateKimiSeatConfig({...PARAMS, agentosRuntimeRoot: '/agentos/runtime/'}),
             mcp     = JSON.parse(findFile(files, '.kimi-code/mcp.json').content).mcpServers;
 
-        expect(mcp['neo-mjs-memory-core'].args[1]).toBe('/canonical/ai/mcp/server/memory-core/mcp-server.mjs');
+        expect(mcp['neo-mjs-memory-core'].args[1]).toBe('/agentos/runtime/ai/mcp/server/memory-core/mcp-server.mjs');
     });
 
     test('named throws: every required param is validated by name', () => {
-        for (const key of ['canonicalRoot', 'seatEnvFile', 'workspaceRoot', 'kimiHome', 'memoryDir', 'nodeBinary']) {
+        for (const key of ['agentosRuntimeRoot', 'targetRepoRoot', 'seatEnvFile', 'kimiHome', 'memoryDir', 'nodeBinary']) {
             const params = {...PARAMS};
             delete params[key];
             expect(() => generateKimiSeatConfig(params), `missing '${key}' must throw`).toThrow(new RegExp(`'${key}'`));
         }
+
+        const legacyOnly = {
+            ...PARAMS,
+            canonicalRoot: PARAMS.agentosRuntimeRoot,
+            workspaceRoot: PARAMS.targetRepoRoot
+        };
+        delete legacyOnly.agentosRuntimeRoot;
+        delete legacyOnly.targetRepoRoot;
+
+        expect(() => generateKimiSeatConfig(legacyOnly)).toThrow(/'agentosRuntimeRoot'/)
     });
 
     test('defaultModel override lands in config.toml', () => {
