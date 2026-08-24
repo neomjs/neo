@@ -15,6 +15,15 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
  */
 
 /**
+ * The roster's placeholder for a seat whose underlying model is not publicly known — an unreleased
+ * preview behind a codename. It is a recorded VALUE, never a family: two seats both carrying it are
+ * not thereby the same family, and one carrying it is not thereby different from any other. Any
+ * consumer asking whether two families DIFFER must treat it as unresolved.
+ * @type {String}
+ */
+export const UNKNOWN_FAMILY = 'unknown';
+
+/**
  * Social Name → `@`-stripped GitHub login, derived from the canonical identity roster. The PR-body
  * self-id leads with the Social Name (`Authored by <Social Name> (…)`); this resolves it to the login
  * the family map keys on. The legacy `@identity` form is still parsed for transitional / pre-trim bodies.
@@ -296,13 +305,25 @@ export function hasCrossFamilyReview(pr, agentFamilies = getCoreSwarmAgentFamili
  */
 export function resolveCrossFamilyVerdict(pr, agentFamilies = getCoreSwarmAgentFamilies()) {
     const
-        authorFamily = resolveAuthorFamily(pr, agentFamilies) ?? null,
+        rawAuthorFamily = resolveAuthorFamily(pr, agentFamilies) ?? null,
+        authorFamily    = rawAuthorFamily === UNKNOWN_FAMILY ? null : rawAuthorFamily,
         reviews      = Array.isArray(pr?.reviews) ? pr.reviews : [],
         approvals    = reviews.filter(review => review?.state === 'APPROVED'),
         resolved     = approvals.map(review => resolveReviewerFamily(review, agentFamilies)),
 
-        approvingFamilies     = [...new Set(resolved.filter(item => item.classified).map(item => item.family))],
-        unclassifiedApprovers = resolved.filter(item => !item.classified).map(item => item.login).filter(Boolean);
+        // `'unknown'` is a recorded family VALUE, not a family. The roster uses it for a seat whose
+        // underlying model nobody can state — an unreleased preview behind a codename, where even
+        // the seat itself does not know what it is running on. It is truthy, so a naive difference
+        // test reads it as "a family that differs from claude" and certifies the mandate on it.
+        //
+        // That inverts the gate's whole question. §6.1 asks whether the approval came from a
+        // DIFFERENT family; `'unknown' !== 'claude'` is true as a string comparison and unknowable
+        // as a fact. Treating it as unresolved is the only reading that cannot certify a guarantee
+        // nobody can make — and it fails toward the blocker, which is where an unknown belongs.
+        knowable              = family => Boolean(family) && family !== UNKNOWN_FAMILY,
+
+        approvingFamilies     = [...new Set(resolved.filter(item => item.classified && knowable(item.family)).map(item => item.family))],
+        unclassifiedApprovers = resolved.filter(item => !item.classified || !knowable(item.family)).map(item => item.login).filter(Boolean);
 
     return {
         authorFamily,

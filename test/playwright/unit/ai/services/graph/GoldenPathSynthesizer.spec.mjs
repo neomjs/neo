@@ -300,6 +300,40 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(Synthesizer.hasCrossFamilyReview(approved, families)).toBe(true);
     });
 
+    test("a family recorded as 'unknown' is UNRESOLVED, never a family that differs", () => {
+        // The roster records `unknown` for a seat whose underlying model nobody can state — an
+        // unreleased preview behind a codename, where the seat itself does not know what it runs on.
+        // It is truthy, so a naive `!==` reads it as "a family that differs from claude" and would
+        // certify the cross-family mandate on a difference nobody can know. Both directions matter.
+        const approverUnknown = {
+            author : {login: 'author-agent'},
+            reviews: [{author: {login: 'preview-agent'}, state: 'APPROVED'}]
+        };
+
+        expect(resolveCrossFamilyVerdict(approverUnknown, {
+            'author-agent' : 'claude',
+            'preview-agent': 'unknown'
+        }).crossFamily).toBe(false);
+
+        // …and an `unknown` AUTHOR cannot be differed from either: unresolved, not covered.
+        const authorUnknown = {
+            author : {login: 'preview-agent'},
+            reviews: [{author: {login: 'author-agent'}, state: 'APPROVED'}]
+        };
+
+        expect(resolveCrossFamilyVerdict(authorUnknown, {
+            'preview-agent': 'unknown',
+            'author-agent' : 'claude'
+        }).crossFamily).toBe(null);
+
+        // A genuinely different, KNOWN family still satisfies it — the arm that stops this from
+        // collapsing into "nothing ever counts".
+        expect(resolveCrossFamilyVerdict(approverUnknown, {
+            'author-agent' : 'claude',
+            'preview-agent': 'gpt'
+        }).crossFamily).toBe(true);
+    });
+
     test('an unrostered author reports null, and the report keeps its external-contributor charity', () => {
         const pr = {
             author : {login: 'external-dev'},
