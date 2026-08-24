@@ -971,7 +971,7 @@ async function buildMergeReadinessProjection({
                 authorFamily      : resolveAuthorFamilyFromLogins({
                     selfIdLogin: snapshot.authorSelfIdLogin,
                     openerLogin: snapshot.authorLogin
-                }) ?? null,
+                }, undefined, {warn: logger.warn}) ?? null,
                 approvalsTruncated: snapshot.approvals.hasPreviousPage,
                 reviews           : snapshot.approvals.nodes.map(node => ({state: 'APPROVED', author: {login: node.login}}))
             }),
