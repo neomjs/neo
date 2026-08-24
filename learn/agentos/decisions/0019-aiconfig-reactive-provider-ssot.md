@@ -40,7 +40,7 @@ SSOT covers two things that earlier revisions of this ADR conflated, so they are
 
 ## 3. Antipattern catalog (the sanctioned-pattern reference)
 
-A reviewer checks a config-touching diff against this list; the lint (sub #2) mechanizes the flaggable subset. Each ID is tagged **`[live-on-dev]`** (an actual cleanup target) or **`[#12420-proposed]`** (existed only on the superseded PR #12420 branch — prevented by not-merging #12420 + the lint, NOT a cleanup target). The tag is V-B-A'd: e.g. `hasEnvValue` = **0 occurrences on `dev`**.
+A reviewer checks a config-touching diff against this list; the lint (sub #2) mechanizes the flaggable subset. Each ID's tag follows the enforcement-ownership contract below and is V-B-A'd against `dev`: e.g. `hasEnvValue` = **0 occurrences**.
 
 ### Group A — re-implementing the Provider's resolution
 | ID | Antipattern | Tag | Sanctioned form |
@@ -70,6 +70,9 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 | C1 ⛔ | a non-entrypoint exports a competing resolver/value for an env already bound by an AiConfig leaf (`const X = process.env.Y \|\| …; export {X}`) | `[guarded: lint-config-template-ssot]` — zero-baseline | import `AiConfig` and read the resolved leaf at the use site; a bare import is legal, but a second exported resolver is not |
 | C2 | duplicated primitives (`chromaClientPrimitives` re-implements the embedding dummy-fn; `chromaTestIsolation` hidden default DB names) | `[unenforced: live debt]` | fold into the SSOT leaves |
 | C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[guarded: lint-config-template-ssot]` — AST-resolved, scans `test/**`, zero-baseline | tests import the canonical template |
+| C4 | two leaf paths inside AiConfig are semantically interchangeable aliases for one resolved value (sharing an env switch across independent decisions is not duplication) | `[unenforced: #17448 removed the known live alias; lint-config-template-ssot.mjs:1595 Set-collapses env bindings and cannot detect same-meaning leaves]` | keep one declared coordinate — a reader census decides which name survives; migrate readers when needed, then delete the other |
+
+> **C4 placement:** both competing, same-meaning declarations live inside the SSOT. This is boundary/duplication (Group C), not resolution reimplemented outside the Provider (Group A) or indirection around an AiConfig read (Group B). Independent decisions driven by one shared mode flag do not qualify.
 
 > **C1 correction and ownership (2026-08-24, #17481):** import location was the wrong predicate. The `ai/` daemon entrypoints legitimately import `Neo`/`_export`/`AiConfig`, and ordinary non-entrypoint use sites may import `AiConfig` after their process entrypoint bootstraps Neo. The recorded genuine C1 site had **no Neo import**: it re-derived `DEFAULT_DB_PATH` from an env already bound by a leaf and exported that competing truth. C1 is therefore the intersection of A1's re-derivation and an export, scoped to non-entrypoints; B1 remains distinct because it exports a frozen copy *from* AiConfig. The boundary was exposed by `#17466`'s corrected Agent claim and `#17481`'s import-only probe. The guard pins both edges: import-only in `ai/Agent.mjs` is GREEN, while adding the competing exported resolver is RED. Entrypoints that re-derive still fail A1.
 
