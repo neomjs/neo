@@ -112,10 +112,16 @@ jobs:
       # `DATA_SYNC_READER_TOKEN` is passed under its own name rather than as `GITHUB_TOKEN`: the
       # scoping function strips `GITHUB_TOKEN`/`GH_TOKEN` from every child by design, so a token
       # arriving under either of those names would be discarded before any stage could read it.
+      # `NEO_CONFIDENTIAL_TERMS` is the #17730 publication guard's denylist. It is supplied as a secret
+      # rather than committed, because this repository is public and a guard carrying the names it
+      # protects publishes exactly what it withholds. An UNSET secret renders as an empty string, which
+      # the guard reads as the explicit policy "there are no terms to guard" — so populating it is an
+      # operator action, and until it is populated the guard admits everything.
       - name: Run bounded Data Sync emission and publish
         env:
           DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
           DATA_SYNC_READER_TOKEN: ${{ github.token }}
+          NEO_CONFIDENTIAL_TERMS: ${{ secrets.NEO_CONFIDENTIAL_TERMS }}
         run: node ./buildScripts/dataSyncPipeline.mjs
       - name: Push Data to neomjs/pages
         env:

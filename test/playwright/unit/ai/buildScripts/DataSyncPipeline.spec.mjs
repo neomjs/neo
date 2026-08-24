@@ -10,8 +10,11 @@ import {CREDENTIAL_FAMILIES} from '../../../../../ai/services/fleet/redactCreden
 import {
     aggregateDeferredFailures,
     classifyStageFailure,
+    CONFIDENTIAL_TERMS_ENV_VAR,
     describeStageFailure,
     emitGeneratedData,
+    findConfidentialProse,
+    readConfidentialTerms,
     executeCommand,
     GENERATED_DATA_PATHS,
     isGeneratedDataPath,
@@ -140,8 +143,9 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
             let emissions = 0;
 
             const result = await runDataSyncPipeline({
-                cwd : fixture.runner,
-                emit: async ({attempt, cwd}) => {
+                denylist: [],
+                cwd     : fixture.runner,
+                emit    : async ({attempt, cwd}) => {
                     emissions++;
                     await write(cwd, generatedFile, `generated:v1:attempt-${attempt}\n`);
                     await write(cwd, 'resources/content/issues/chunk-10/issue-15977.md', '# Issue 15977\n');
@@ -192,8 +196,9 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
             let emissions = 0;
 
             const result = await runDataSyncPipeline({
-                cwd    : fixture.runner,
-                execute: async (command, args, options) => {
+                denylist: [],
+                cwd     : fixture.runner,
+                execute : async (command, args, options) => {
                     commands.push([command, ...args]);
                     return executeCommand(command, args, options)
                 },
@@ -232,8 +237,9 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
 
         try {
             await expect(runDataSyncPipeline({
-                cwd : fixture.runner,
-                emit: async ({attempt, cwd}) => {
+                denylist: [],
+                cwd     : fixture.runner,
+                emit    : async ({attempt, cwd}) => {
                     const source = (await fs.readFile(path.join(cwd, 'source.txt'), 'utf8')).trim();
 
                     await write(cwd, generatedFile, `generated:${source}:attempt-${attempt}\n`);
@@ -260,8 +266,9 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
             await write(fixture.runner, 'source.txt', 'manual-local-change\n');
 
             await runDataSyncPipeline({
-                cwd : fixture.runner,
-                emit: async ({cwd}) => {
+                denylist: [],
+                cwd     : fixture.runner,
+                emit    : async ({cwd}) => {
                     await write(cwd, generatedFile, 'generated:v1:allowlisted\n');
                     await write(cwd, 'source.txt', 'manual-emission-change\n')
                 },
@@ -541,8 +548,9 @@ test.describe('tokenScope validation fails closed', () => {
             const corpusFailure = new Error('discussion resource limit');
 
             await expect(runDataSyncPipeline({
-                cwd : fixture.runner,
-                emit: async ({cwd}) => {
+                denylist: [],
+                cwd     : fixture.runner,
+                emit    : async ({cwd}) => {
                     await write(cwd, generatedFile, 'generated:partial-progress\n');
                     return {deferredError: corpusFailure}
                 },
@@ -697,8 +705,9 @@ test.describe('a deferred stage failure cannot freeze corpus publication (#17148
 
         try {
             await expect(runDataSyncPipeline({
-                cwd : fixture.runner,
-                emit: async ({attempt, cwd, log}) => {
+                denylist: [],
+                cwd     : fixture.runner,
+                emit    : async ({attempt, cwd, log}) => {
                     await write(cwd, generatedFile, 'generated:corpus-despite-denial\n');
 
                     return emitGeneratedData({
@@ -912,4 +921,116 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
         expect(seenEnv.PATH).toBe('/usr/bin');
         expect(seenEnv.GIT_CONFIG_VALUE_0).toContain(Buffer.from(`x-access-token:${secret}`).toString('base64'))
     });
+
+});
+
+// The mirror commits every issue/PR/discussion comment into this PUBLIC tree on the next hourly
+// run, so a leaked comment becomes a committed file within the hour and sanitizing the comment
+// afterwards does not un-commit it. The window between publishing a leak and the next run is the
+// entire remediation budget. These arms use a synthetic token exclusively — the guard's own tests
+// must never carry the values it exists to withhold.
+test.describe('confidential-content publication guard (#17730)', () => {
+    const TERM = 'zzsynthetictenantzz';
+
+    test('a staged file carrying a denylisted term fails the run, and nothing is published', async () => {
+        const fixture = await createRepositoryFixture();
+
+        try {
+            await expect(runDataSyncPipeline({
+                denylist: [TERM],
+                cwd     : fixture.runner,
+                emit    : async ({cwd}) => {
+                    await write(cwd, generatedFile, `# Issue\n\nThe ${TERM} plane is red.\n`)
+                },
+                log: () => {}
+            })).rejects.toThrow(/refused to publish confidential content/u);
+
+            // It GATES. A check whose result does not stop the publication is a log line.
+            expect(remoteSubjects(fixture)).toEqual(['initial'])
+        } finally {
+            await fs.rm(fixture.root, {recursive: true, force: true})
+        }
+    });
+
+    test('the failure names the file and WHICH rule fired, never the matched value', async () => {
+        const fixture = await createRepositoryFixture();
+
+        try {
+            let message = '';
+
+            await runDataSyncPipeline({
+                denylist: [TERM],
+                cwd     : fixture.runner,
+                emit    : async ({cwd}) => {
+                    await write(cwd, generatedFile, `# Issue\n\nline two\nThe ${TERM} plane is red.\n`)
+                },
+                log: () => {}
+            }).catch(error => { message = error.message });
+
+            expect(message).toContain(generatedFile);
+            expect(message).toContain(':4');
+            expect(message).toContain('term #1');
+
+            // CI logs for a public repository are themselves a public artifact. A guard that
+            // echoes the term leaks it into the record of catching it.
+            expect(message).not.toContain(TERM)
+        } finally {
+            await fs.rm(fixture.root, {recursive: true, force: true})
+        }
+    });
+
+    test('identity forms publish normally, so the hourly sync is not broken by trailers and handles', async () => {
+        const fixture = await createRepositoryFixture();
+
+        try {
+            const result = await runDataSyncPipeline({
+                denylist: [TERM],
+                cwd     : fixture.runner,
+                emit    : async ({cwd}) => {
+                    await write(cwd, generatedFile,
+                        `# Issue\n\nCo-Authored-By: A Person <person@${TERM}.com>\nThanks @${TERM}!\n`)
+                },
+                log: () => {}
+            });
+
+            // The census behind this ticket found identity forms outnumbering real leaks 2:1. A
+            // denylist that fails on them fails EVERY hourly run, and would be switched off in a day.
+            expect(result).toMatchObject({changed: true, pushed: true});
+            expect(remoteSubjects(fixture)).toEqual([
+                'chore(data): Hourly data sync pipeline update [skip ci]',
+                'initial'
+            ])
+        } finally {
+            await fs.rm(fixture.root, {recursive: true, force: true})
+        }
+    });
+
+    test('a publication run must state its policy — an inherited one is refused', async () => {
+        await expect(runDataSyncPipeline({cwd: '/repo'})).rejects.toThrow(/denylist must be an array/u)
+    });
+
+    test('an ABSENT denylist variable is a configuration failure, an empty one is a policy', () => {
+        expect(() => readConfidentialTerms({})).toThrow(new RegExp(CONFIDENTIAL_TERMS_ENV_VAR, 'u'));
+
+        // Explicitly none — a deployment with nothing to guard says so, and that is not the same
+        // statement as nobody having configured the guard at all.
+        expect(readConfidentialTerms({[CONFIDENTIAL_TERMS_ENV_VAR]: ''})).toEqual([]);
+        expect(readConfidentialTerms({[CONFIDENTIAL_TERMS_ENV_VAR]: ' Alpha , beta ,'})).toEqual(['alpha', 'beta'])
+    });
+
+    test('prose matches, identity forms do not — one character of lookbehind separates them', () => {
+        const terms = ['acme'];
+
+        expect(findConfidentialProse('the acme plane', terms)).toEqual([{line: 1, termIndex: 0}]);
+        expect(findConfidentialProse('acme-memory-core', terms)).toEqual([{line: 1, termIndex: 0}]);
+
+        // A private HOST is a real leak and is preceded by `.`, not `@`.
+        expect(findConfidentialProse('https://mcp.acme.net/x', terms)).toEqual([{line: 1, termIndex: 0}]);
+
+        expect(findConfidentialProse('uhlig@acme.com', terms)).toEqual([]);
+        expect(findConfidentialProse('thanks @acme for the fix', terms)).toEqual([]);
+
+        expect(findConfidentialProse('one\ntwo\nthe acme plane', terms)).toEqual([{line: 3, termIndex: 0}]);
+        expect(findConfidentialProse('ACME shipped', terms)).toEqual([{line: 1, termIndex: 0}])
+    })
 });

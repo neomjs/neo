@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {spawn}                from 'node:child_process';
+import {readFile}      from 'node:fs/promises';
 import path                   from 'node:path';
 import process                from 'node:process';
 import {fileURLToPath}        from 'node:url';
@@ -269,6 +270,117 @@ export function isGeneratedDataPath(filePath) {
         || filePath === 'apps/portal/llms.txt'
         || filePath.startsWith('apps/portal/resources/data/')
         || filePath.startsWith('resources/content/')
+}
+
+/**
+ * Environment variable carrying the confidential-term denylist, comma-separated.
+ *
+ * The list lives OUT of the tree on purpose: this repository is public, and a guard that commits the
+ * names it protects publishes exactly what it exists to withhold. An ABSENT variable is a
+ * configuration failure, never an empty list — see {@link readConfidentialTerms}.
+ * @type {String}
+ */
+export const CONFIDENTIAL_TERMS_ENV_VAR = 'NEO_CONFIDENTIAL_TERMS';
+
+/**
+ * @summary Reads the confidential-term denylist, distinguishing "explicitly none" from "unconfigured".
+ *
+ * An empty string is a VALID policy — a deployment with no client names to protect states so. An
+ * absent variable is not that statement; it is nobody having made one, and treating the two alike is
+ * how a guard silently protects nothing. Absence therefore throws.
+ * @param {Object} [env=process.env] Environment source.
+ * @returns {String[]} Lower-cased terms, possibly empty.
+ * @throws {Error} When the variable is absent entirely.
+ */
+export function readConfidentialTerms(env = process.env) {
+    const raw = env[CONFIDENTIAL_TERMS_ENV_VAR];
+
+    if (raw === undefined) {
+        throw new Error(
+            `Data Sync: ${CONFIDENTIAL_TERMS_ENV_VAR} is not set. A publication run must state its ` +
+            `confidentiality policy — set it to an empty string to declare that there are no terms to guard.`
+        )
+    }
+
+    return raw.split(',').map(term => term.trim().toLowerCase()).filter(Boolean)
+}
+
+/**
+ * @summary Finds confidential terms used as PROSE, exempting identity forms by construction.
+ *
+ * The exemption is the whole difficulty. A client name also appears legitimately inside git identity
+ * — `someone@example.com` co-author trailers, `@handle` mentions of contributors — and those forms
+ * outnumbered the real leaks 2:1 in the census that motivated this guard. A denylist that fails on
+ * them fails the HOURLY sync forever, so it would be switched off within a day.
+ *
+ * One character of lookbehind separates the two populations exactly: an identity form is always
+ * introduced by `@`, and a prose reference never is. `mcp.example.net` (a private host, a real leak)
+ * is preceded by `.` and matches; `uhlig@example.com` and `@example` do not.
+ * @param {String}   content File contents.
+ * @param {String[]} terms Lower-cased denylist.
+ * @returns {Array<{line: Number, termIndex: Number}>} One entry per prose occurrence.
+ */
+export function findConfidentialProse(content, terms) {
+    const hits = [], lower = content.toLowerCase();
+
+    terms.forEach((term, termIndex) => {
+        let from = 0, at;
+
+        while ((at = lower.indexOf(term, from)) !== -1) {
+            from = at + term.length;
+
+            // `@` immediately before the match is an email local-part boundary or a handle sigil.
+            // Both are identity, not prose.
+            if (content[at - 1] === '@') continue;
+
+            hits.push({line: content.slice(0, at).split('\n').length, termIndex})
+        }
+    });
+
+    return hits
+}
+
+/**
+ * @summary Refuses to publish staged content carrying a confidential term.
+ *
+ * This GATES: it throws, the staging step fails, and the publication commit is never made. It
+ * deliberately does not sanitize — a pipeline that quietly rewrites content teaches nobody, and the
+ * author never learns their comment leaked into a tree that mirrors it within the hour.
+ *
+ * The message names the file, the line and WHICH rule fired, never the matched value: CI logs for a
+ * public repository are themselves a public artifact, so echoing the term would leak it into the
+ * record of the guard that caught it.
+ * @param {Object}   options
+ * @param {String}   options.cwd Repository root.
+ * @param {String[]} options.paths Repository-relative staged paths.
+ * @param {Function} options.readFile Reader accepting an absolute path, returning file text.
+ * @param {String[]} options.terms Lower-cased denylist.
+ * @returns {Promise<void>}
+ * @throws {Error} When any staged file carries a term in prose.
+ */
+async function assertNoConfidentialContent({cwd, paths, readFile, terms}) {
+    if (terms.length === 0) return;
+
+    const findings = [];
+
+    for (const filePath of paths) {
+        // A staged DELETION has no readable blob, and a removed leak is the outcome we want anyway.
+        const content = await readFile(path.join(cwd, filePath), 'utf8').catch(() => null);
+
+        if (content === null) continue;
+
+        for (const {line, termIndex} of findConfidentialProse(content, terms)) {
+            findings.push(`${filePath}:${line} (term #${termIndex + 1})`)
+        }
+    }
+
+    if (findings.length > 0) {
+        throw new Error(
+            `Data Sync refused to publish confidential content in ${findings.length} location(s): ` +
+            `${findings.join(', ')}. Sanitize the source artifact on GitHub, then let the next run ` +
+            `re-mirror it. The matched values are withheld deliberately — CI logs are public too.`
+        )
+    }
 }
 
 /**
@@ -685,14 +797,25 @@ export async function emitGeneratedData({
  * @returns {Promise<{attempts: Number, baseSha: String, changed: Boolean, pushed: Boolean}>}
  */
 export async function runDataSyncPipeline({
+    denylist,
     cwd         = process.cwd(),
     emit        = emitGeneratedData,
     execute     = executeCommand,
     log         = console.log,
-    maxAttempts = 2
+    maxAttempts = 2,
+    read        = readFile
 } = {}) {
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
         throw new TypeError('maxAttempts must be a positive integer')
+    }
+
+    // No default. A publication run states its confidentiality policy or does not run: a defaulted
+    // empty list is indistinguishable from a deliberate one, and the difference is the whole guard.
+    if (!Array.isArray(denylist)) {
+        throw new TypeError(
+            'denylist must be an array — a publication run states its confidentiality policy, it never ' +
+            'inherits one'
+        )
     }
 
     await git(execute, cwd, ['config', 'user.name', 'github-actions[bot]']);
@@ -757,6 +880,7 @@ export async function runDataSyncPipeline({
         const stagedPaths = await readStagedPaths(execute, cwd);
 
         assertGeneratedOnly(stagedPaths);
+        await assertNoConfidentialContent({cwd, paths: stagedPaths, readFile: read, terms: denylist});
         log(`[DataSync] staged attempt=${attempt}/${maxAttempts} files=${stagedPaths.length}`);
 
         currentSha = await fetchRemoteDev(execute, cwd);
@@ -865,7 +989,7 @@ const modulePath   = fileURLToPath(import.meta.url);
 const cliEntryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
 
 if (cliEntryPath === modulePath) {
-    runDataSyncPipeline().catch(error => {
+    runDataSyncPipeline({denylist: readConfidentialTerms()}).catch(error => {
         console.error(`[DataSync] ${error.message}`);
         process.exitCode = 1
     })
