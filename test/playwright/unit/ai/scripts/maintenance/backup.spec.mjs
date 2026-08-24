@@ -22,12 +22,85 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs';
 import path            from 'path';
 
-// Serial mode: this file mutates KB + MC singleton collection accessors across
-// beforeAll/afterAll. Serial ordering within this file prevents local multi-worker
-// races. CI runs workers:1 (see playwright.config.unit.mjs) so this is local-DX only.
-test.describe.configure({mode: 'serial'});
+// Serial mode is declared on the ONE describe that needs it, not on the file. Only the orchestrator
+// block mutates KB + MC singleton collection accessors across beforeAll/afterAll, so only its
+// ordering has to be constrained; the other three blocks import pure functions and scope their
+// fixtures to a pid+timestamp temp dir. File-level serial made any failure in the first block skip
+// every test after it — 42 of them, measured — which reports "1 failed" while nothing else ran, and
+// a summary that hides its own blast radius is worse than a louder one. The constraint is NOT
+// local-DX-only: `playwright.config.unit.mjs` sets `workers: process.env.CI ? 4 : undefined`, so CI
+// runs four unit workers and the singleton race it guards is reachable there too.
+
+/**
+ * @summary Whether a copy subsystem's receipt accounts for itself — it copied rows, or it names the
+ * source that was absent.
+ *
+ * The distinction this exists to draw: a bundle folder is created before its subsystem runs, so
+ * folder existence proves nothing about whether anything landed in it. A receipt reading `copied: 0`
+ * with no explanation is the case that must fail — it is indistinguishable, from the outside, from a
+ * subsystem that silently did nothing. `ledgers` nests its own per-source receipts, so an accounted
+ * parent may carry the explanation entirely in its children.
+ *
+ * @param {Object} receipt A `subsystems.<name>` entry from `runBackup`.
+ * @returns {Boolean}
+ */
+function copyReceiptIsAccounted(receipt) {
+    if (!receipt || typeof receipt !== 'object') {
+        return false
+    }
+
+    const nested = Object.values(receipt).filter(value => value && typeof value === 'object');
+
+    // Nested receipts are checked FIRST and regardless of the aggregate. An earlier revision
+    // returned on a positive `copied` before looking down, so `{copied: 2, recoveryRuns: {copied: 0}}`
+    // — a real shape this suite already fixtures — passed with an unexplained nested zero, which is
+    // the exact case this predicate exists to catch. A positive parent does not account for a silent
+    // child.
+    if (!nested.every(copyReceiptIsAccounted)) {
+        return false
+    }
+
+    if (Number.isFinite(receipt.copied) && receipt.copied > 0) {
+        return true
+    }
+
+    if (typeof receipt.note === 'string' && receipt.note.length > 0) {
+        return true
+    }
+
+    // A zero aggregate over children that each named their own absence is accounted; a bare
+    // `{copied: 0}` leaf is not.
+    return nested.length > 0
+}
+
+/**
+ * @summary Whether a recovery substrate's integrity check names a legitimate outcome.
+ *
+ * Every outcome `verifyBundleIntegrity` can emit is stated explicitly, because a property is
+ * corpus-independent only when it accepts each legitimate state by name rather than requiring the
+ * one that happens to occur. `pass` means rows were exported and the counts agree. `empty` is the
+ * declared zero-parity outcome and is legitimate here: `storagePaths.graphTest` is `':memory:'`, so
+ * the run-scoped graph carries whatever the process happened to write and may hold nothing. `fail`
+ * and `skipped` are never accounted.
+ *
+ * @param {Object} check One `meta.integrity` entry.
+ * @returns {Boolean}
+ */
+function integrityOutcomeIsAccounted(check) {
+    if (check?.status === 'pass') {
+        return check.sourceCount > 0 && check.bundleCount === check.sourceCount
+    }
+
+    if (check?.status === 'empty') {
+        return check.sourceCount === 0 && check.bundleCount === 0
+    }
+
+    return false
+}
 
 test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 2)', () => {
+    test.describe.configure({mode: 'serial'});
+
     let SDK, fsExtra, runBackup;
     let KB_ChromaManager, Memory_StorageRouter;
     let originalKbCollection, originalMcGetMemory, originalMcGetSummary;
@@ -101,7 +174,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         }
     });
 
-    test('produces a bundle with all 5 subfolders and routes populated subsystems into their JSONL slots', async () => {
+    test('every subsystem in the bundle either exported, or named the source it had none of (#16617)', async () => {
         const silentLogger = {log: () => {}, error: () => {}};
 
         const result = await runBackup({
@@ -113,9 +186,13 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
 
         expect(result.bundleRoot).toBe(bundleRoot);
 
-        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
-            expect(fs.existsSync(path.join(bundleRoot, sub))).toBe(true);
-        }
+        // The bundle's own layout, not a hand-counted subset of it. The list this replaced named
+        // five folders while `runBackup` creates seven — so `mailbox` and `ledgers` were outside
+        // every assertion in this file, which is exactly where a subsystem that exports nothing
+        // goes unnoticed.
+        expect(fs.readdirSync(bundleRoot).sort()).toEqual([
+            'bundle-meta.json', 'concepts', 'graph', 'kb', 'ledgers', 'mailbox', 'mc', 'trajectories'
+        ]);
 
         const kbFiles = fs.readdirSync(path.join(bundleRoot, 'kb')).filter(f => f.endsWith('.jsonl'));
         expect(kbFiles.length).toBe(1);
@@ -136,14 +213,92 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         expect(result.subsystems.trajectories).toEqual({copied: 1});
         expect(result.subsystems.mc.count).toBe(2);
 
-        const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
-        expect(mcIntegrity.status).toBe('pass');
-        expect(mcIntegrity.sourceCount).toBe(2);
-        expect(mcIntegrity.bundleCount).toBe(2);
+        // Every subsystem must prove it either EXPORTED or named its own zero. The folder-existence
+        // loop this replaced could not tell those apart — an empty directory satisfied it, so a
+        // subsystem that exported nothing looked identical to one that worked.
+        //
+        // The strictness is split by what the fixture actually controls, which is the only honest
+        // place to put it. `kb` and `mc` are seeded here, so they must reach `pass` above zero. The
+        // graph is NOT seeded: `storagePaths.graphTest` is `':memory:'`, so its rows are whatever the
+        // process happened to write, and demanding `pass` would make this verdict depend on ambient
+        // in-process fill — removing an exact count does not remove that dependency, which is the
+        // defect this ticket is named after. It is held to the property instead: every legitimate
+        // outcome named, `fail` and `skipped` never accepted.
+        const integrityBy = Object.fromEntries(result.meta.integrity.map(check => [check.subsystem, check]));
 
-        // graph subfolder exists but GraphService.db is not wired in unit-test mode,
-        // so no graph-backup file is emitted. This is the documented "source has no data"
-        // branch per ticket AC ("non-empty content when the source subsystems have data").
+        expect(Object.keys(integrityBy).sort(), 'every recovery substrate is checked').toEqual(['graph', 'kb', 'mc']);
+
+        for (const subsystem of ['kb', 'mc']) {
+            const check = integrityBy[subsystem];
+
+            expect(check.status, `${subsystem}: seeded by this fixture, so it must export`).toBe('pass');
+            expect(check.bundleCount, `${subsystem}: row-count parity`).toBe(check.sourceCount);
+            expect(check.sourceCount, `${subsystem}: a zero-row export is not a recovery source`)
+                .toBeGreaterThan(0);
+        }
+
+        expect(
+            integrityOutcomeIsAccounted(integrityBy.graph),
+            `graph: ${JSON.stringify(integrityBy.graph)} is neither a complete export nor a declared zero`
+        ).toBe(true);
+
+        // The copy subsystems. `mailbox` and `ledgers` genuinely have no source in this fixture, and
+        // that is the named-skip half: `copied: 0` is acceptable only when the receipt carries the
+        // note saying which source was absent. An unexplained zero fails.
+        for (const [subsystem, receipt] of Object.entries(result.subsystems)) {
+            if (['kb', 'mc', 'graph'].includes(subsystem)) {
+                continue
+            }
+
+            expect(copyReceiptIsAccounted(receipt), `${subsystem}: ${JSON.stringify(receipt)}`).toBe(true);
+        }
+    });
+
+    // Both predicates above decide the verdict of the arm before this one, so they are proved here
+    // against constructed inputs rather than against whatever the run-scoped graph happens to hold.
+    // That is the point: a property is corpus-independent only if its own proof is.
+    test('an integrity outcome is accounted only when it names a complete export or a declared zero (#17711)', () => {
+        // The two legitimate states, both accepted — this is the pair that makes the graph arm hold
+        // whether the `:memory:` store carries rows or nothing.
+        expect(integrityOutcomeIsAccounted({status: 'pass',  sourceCount: 17, bundleCount: 17})).toBe(true);
+        expect(integrityOutcomeIsAccounted({status: 'empty', sourceCount: 0,  bundleCount: 0})).toBe(true);
+
+        // `fail` and `skipped` are the outcomes a green must never absorb.
+        expect(integrityOutcomeIsAccounted({status: 'fail',    sourceCount: 17, bundleCount: 3})).toBe(false);
+        expect(integrityOutcomeIsAccounted({status: 'skipped', reason: 'no numeric source count'})).toBe(false);
+
+        // A torn write that still calls itself `pass`, and a `pass` at zero — both must be refused,
+        // because `pass` is the status the loop trusts.
+        expect(integrityOutcomeIsAccounted({status: 'pass', sourceCount: 17, bundleCount: 3})).toBe(false);
+        expect(integrityOutcomeIsAccounted({status: 'pass', sourceCount: 0,  bundleCount: 0})).toBe(false);
+
+        // An `empty` whose counts disagree is not the declared zero-parity state.
+        expect(integrityOutcomeIsAccounted({status: 'empty', sourceCount: 0, bundleCount: 4})).toBe(false);
+        expect(integrityOutcomeIsAccounted(undefined)).toBe(false);
+    });
+
+    test('a positive aggregate does not account for an unexplained nested zero (#17711)', () => {
+        // The regression this predicate was rewritten for: an earlier revision returned on a
+        // positive `copied` before inspecting children, so a silent nested zero rode a healthy
+        // parent. `ledgers` is exactly that shape and this suite already fixtures it.
+        expect(copyReceiptIsAccounted({copied: 2, recoveryRuns: {copied: 0}})).toBe(false);
+
+        // Same parent, child now naming its own absence — accounted.
+        expect(copyReceiptIsAccounted({
+            copied      : 2,
+            recoveryRuns: {copied: 0, note: 'source not present: recovery-runs'}
+        })).toBe(true);
+
+        // A zero aggregate over children that each named their absence is accounted; a bare leaf zero
+        // is not, whatever nesting sits above it.
+        expect(copyReceiptIsAccounted({
+            copied      : 0,
+            healAttempts: {copied: 0, note: 'source not present: heal-attempts.json'},
+            healEvents  : {copied: 0, note: 'source not present: data-heal-events'}
+        })).toBe(true);
+        expect(copyReceiptIsAccounted({copied: 0})).toBe(false);
+        expect(copyReceiptIsAccounted({copied: 3})).toBe(true);
+        expect(copyReceiptIsAccounted(null)).toBe(false);
     });
 
     test('keeps the final root invisible until capture completes, then publishes it without staging residue (#16417)', async () => {
