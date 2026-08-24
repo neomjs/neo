@@ -142,7 +142,16 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
               rows      = parseAdr0019CatalogRows(adrSource),
               clean     = lintAdr0019GuardOwnership({adrSource});
 
-        expect(rows).toHaveLength(17);
+        // Not `toHaveLength(<n>)`. An exact row count cannot distinguish a truncated parse from a
+        // catalog that legitimately grew: adding a correctly tagged row fails it just as loudly as
+        // losing half the table, while the ownership relation below stays clean. A catalog nobody
+        // can extend without editing a test is a tripwire, not a check.
+        //
+        // Assert what the count stood for. One id per group proves the parser reached the end of
+        // the table, and `violations` already proves every row carries a disposition — so a
+        // truncated parse still fails while a well-formed addition does not.
+        expect(rows.map(row => row.id)).toEqual(expect.arrayContaining(['A1', 'B4', 'C3']));
+        expect(rows.length).toBeGreaterThanOrEqual(17);
         expect(clean.violations).toEqual([]);
 
         const missingB4 = createAdr0019GuardRegistry({testMutationRules: []}),
