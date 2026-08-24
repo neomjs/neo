@@ -231,9 +231,7 @@ that asymmetry turns a type mismatch into a *miss* rather than a near-miss — a
 strategy answers a miss by adding, leaving two records under one identity that nothing later removes.
 
 The Store therefore resolves each pushed key through `Store#getCanonicalKey()` before looking it up, and
-stores that canonical key rather than the received one. The method delegates to the same
-`RecordFactory.parseRecordValue()` that record insertion uses, so lookup and insertion cannot disagree
-about identity:
+stores that canonical key rather than the received one:
 
 ```javascript readonly
 // Model declares {name: 'id', type: 'Integer'} and the Store already holds record 1.
@@ -241,12 +239,27 @@ store.pipeline.simulatePush({id: '1', status: 'offline'});
 // -> updates record 1. Without canonicalization this appends a second record with id 1.
 ```
 
-A key that cannot be canonicalized is **refused** rather than inserted. An `Integer` key of `'abc'` would
-store as `NaN` while the Collection stays keyed by `'abc'`, making the record unreachable by any later
-lookup — so the push is dropped instead of persisting an entry nothing can address.
+This is not `Integer`-only. A `String`-keyed Model receiving a numeric push is the same defect mirrored,
+and takes the same path.
 
-This applies to every declared key type, not just `Integer`: a `String`-keyed Model receiving a numeric
-push is the same defect mirrored, and is handled by the same path.
+**Supported domain.** A key field which declares no `convert` and no `calculate`, and whose declared type
+converts to a primitive. Inside it, the conversion is delegated to the same
+`RecordFactory.parseRecordValue()` insertion uses, so the declared-type rules are not restated in a second
+place where they could drift.
+
+**Everything else is refused, and a refused push is dropped** rather than inserted — a wrong key is worse
+than no key, because it adds a second row under an identity that already exists. A push is refused when:
+
+| case | why a lookup cannot reproduce the stored key |
+| --- | --- |
+| `calculate` on the key field | the stored key is derived from a record which does not exist at lookup time |
+| `convert` on the key field | insertion passes the Record to the converter; a lookup can only pass the raw value, so a converter which reads the record yields a different key on each path |
+| a `Date` (or any object) key | conversion produces an equal-but-distinct object each time, and a `Map` compares keys by identity, so the lookup could never match what was stored |
+| a value converting to `NaN`, e.g. an `Integer` key of `'abc'` | it would store as `NaN` behind a `'abc'` map key, leaving the record unreachable |
+| `null`, `undefined`, or an absent key | not an identity at all; passing it on lets an upsert invent a row for a record the payload never named |
+
+If your server owns keys in one of the refused shapes, push a `'reload'` strategy instead of an insert —
+the Store can re-read a projection it cannot address record-by-record.
 
 ## Migration Path for Legacy Configs
 

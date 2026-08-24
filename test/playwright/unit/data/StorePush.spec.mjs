@@ -84,6 +84,43 @@ let StringKeyPushPipeline = class StringKeyPushPipeline extends Pipeline {
 }
 StringKeyPushPipeline = Neo.setupClass(StringKeyPushPipeline);
 
+let ConvertKeyPushModel = class ConvertKeyPushModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Data.StorePush.ConvertKeyModel',
+        keyProperty: 'id',
+        fields     : [
+            // Reads the record it is converting for, so insertion and a bare lookup cannot agree.
+            {name: 'id', type: 'String', convert: (value, record) => `${record ? 'record' : 'plain'}:${value}`},
+            {name: 'status', type: 'String'}
+        ]
+    }
+}
+ConvertKeyPushModel = Neo.setupClass(ConvertKeyPushModel);
+
+let DateKeyPushModel = class DateKeyPushModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Data.StorePush.DateKeyModel',
+        keyProperty: 'id',
+        fields     : [
+            {name: 'id',     type: 'Date'},
+            {name: 'status', type: 'String'}
+        ]
+    }
+}
+DateKeyPushModel = Neo.setupClass(DateKeyPushModel);
+
+let CalculatedKeyPushModel = class CalculatedKeyPushModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Data.StorePush.CalculatedKeyModel',
+        keyProperty: 'id',
+        fields     : [
+            {name: 'id', type: 'String', calculate: data => `calc:${data?.status ?? ''}`},
+            {name: 'status', type: 'String'}
+        ]
+    }
+}
+CalculatedKeyPushModel = Neo.setupClass(CalculatedKeyPushModel);
+
 function createStore(config={}) {
     return Neo.create(Store, {
         model   : StorePushModel,
@@ -209,6 +246,54 @@ test.describe('Neo.data.Store - Push Integration', () => {
         expect(store.count).toBe(1);
         expect(store.get('1').status).toBe('done');
         expect(store.items.filter(record => String(record.id) === '1')).toHaveLength(1);
+
+        store.destroy()
+    });
+
+    test('Store should refuse a key whose stored identity a lookup cannot reproduce', async () => {
+        // A record-dependent `convert` sees the Record at insertion and only the raw value at
+        // lookup, so the two produce different keys. Asserted as a comparison, not an assumption.
+        const convertStore = Neo.create(Store, {model: ConvertKeyPushModel, pushInsertStrategy: 'upsert'});
+
+        convertStore.add({id: '1', status: 'pending'});
+
+        const storedKey = convertStore.getKey(convertStore.items[0]);
+
+        expect(storedKey).toBe('record:1');
+        expect(convertStore.getCanonicalKey('1')).toBeUndefined();
+
+        // A Date key is equal-but-distinct on every conversion, and a Map compares by identity.
+        const dateStore = Neo.create(Store, {model: DateKeyPushModel, pushInsertStrategy: 'upsert'}),
+              stamp     = '2026-08-24T00:00:00.000Z';
+
+        expect(new Date(stamp)).not.toBe(new Date(stamp));
+        expect(dateStore.getCanonicalKey(stamp)).toBeUndefined();
+
+        // A calculated key is derived from a record which does not exist at lookup time.
+        const calcStore = Neo.create(Store, {model: CalculatedKeyPushModel, pushInsertStrategy: 'upsert'});
+
+        expect(calcStore.getCanonicalKey('wire')).toBeUndefined();
+
+        convertStore.destroy();
+        dateStore.destroy();
+        calcStore.destroy()
+    });
+
+    test('Store should not synthesize a row for a push which names no key', async () => {
+        const store = createStore({pushInsertStrategy: 'upsert'});
+
+        await store.load();
+        expect(store.count).toBe(2);
+
+        // `null` is not an identity. Passed on, it misses every lookup and the upsert invents a row
+        // with a generated id for a record the payload never named.
+        expect(store.getCanonicalKey(null)).toBeUndefined();
+
+        store.pipeline.simulatePush({id: null, status: 'created'});
+        expect(store.count).toBe(2);
+
+        store.pipeline.simulatePush({status: 'created'});
+        expect(store.count).toBe(2);
 
         store.destroy()
     });

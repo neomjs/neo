@@ -529,8 +529,10 @@ class Buffered extends ComponentList {
             return super.getItemRecordId(nodeOrId)
         }
 
-        if (value !== null && value !== undefined && this.store.getKeyType()?.includes('int')) {
-            value = Number(value)
+        // A refused key canonicalizes to undefined and falls through to the null contract below,
+        // which is the same answer this returned for an id it could not resolve.
+        if (value !== null && value !== undefined) {
+            value = this.store.getCanonicalKey(value)
         }
 
         return value ?? null

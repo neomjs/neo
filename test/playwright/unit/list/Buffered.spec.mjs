@@ -124,6 +124,18 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         list = null
     });
 
+    test('getItemRecordId canonicalizes a logical id and keeps its null contract', async () => {
+        await createList();
+
+        // The id round-trips through the DOM as a string; the Store keys by Integer. Resolving it
+        // through the Store's canonical-key boundary is what makes the returned id a usable key.
+        expect(list.getItemRecordId(list.getItemId(3))).toBe(3);
+        expect(list.store.get(list.getItemRecordId(list.getItemId(3)))).toBe(list.store.get(3));
+
+        // An id the list cannot resolve still answers null rather than a half-converted value.
+        expect(list.getItemRecordId(`${list.getLogicalIdPrefix()}not-a-key`)).toBe(null)
+    });
+
     test('5,000 records mount only viewport + buffer rows with honest semantic positions', async () => {
         await createList();
 

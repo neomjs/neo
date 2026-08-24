@@ -1201,37 +1201,68 @@ class Store extends Collection {
     }
 
     /**
-     * Resolves the canonical key a record insertion would store for a given value.
+     * Resolves the canonical key a record insertion would store for a given value, or refuses.
      *
-     * @summary Puts a key lookup and a key insertion on one type, so neither can hold a different
-     * identity for the same record.
+     * @summary Puts a key lookup and a key insertion on one Map identity, so neither can hold a
+     * different record under the same key.
      *
      * `Collection.get()` is a strict `Map` lookup, while `add()` routes each field through
      * `RecordFactory.parseRecordValue()` and converts it to its declared type. A value whose type
      * differs from the stored one is therefore not a near-miss but a miss, and callers which answer
      * a miss by inserting will append a second record under the same identity.
      *
-     * Delegates to the same parser insertion uses, rather than reimplementing its rules, so the two
-     * cannot drift apart: `Integer`, `String`, `Float`, `Date` and custom `convert` semantics all
-     * stay owned by `RecordFactory`.
+     * ## Supported domain
+     *
+     * A key whose field declares no `convert` and no `calculate`, and which converts to a primitive.
+     * Within it, the conversion is delegated to the parser insertion uses, so the declared-type rules
+     * stay owned by `RecordFactory` rather than being restated here.
+     *
+     * Everything else is **refused** with `undefined`, because a wrong key is worse than no key —
+     * it inserts a second row under an identity that already exists:
+     *
+     * - `calculate` derives the stored key from a record that does not exist at lookup time;
+     * - `convert` receives the Record at insertion, while a lookup can only offer the raw value, so
+     *   a converter which reads the record produces a different key on each path;
+     * - an object result — a `Date` key being the realistic case — is equal-but-distinct on every
+     *   call, and a `Map` compares keys by identity, so it could never match what was stored;
+     * - a value that converts to `NaN`, or which the field's length/nullable rules reject, has no
+     *   addressable identity at all.
+     *
+     * Refusal is not silent at the call site: `onPipelinePush()` drops the push rather than
+     * synthesizing a row for a record the payload never successfully named.
      *
      * @param {*} value The key as it was received, e.g. from a server push or a DOM id.
-     * @returns {*|undefined} The canonical key, or `undefined` when the value cannot be
-     * canonicalized — a key that would store as `NaN` is unreachable by any later lookup, so it is
-     * refused rather than persisted.
+     * @returns {*|undefined} The canonical key, or `undefined` when the value falls outside the
+     * supported domain above.
      */
     getCanonicalKey(value) {
         let field = this.model?.getField(this.getKeyProperty());
 
-        // A calculated key is derived from a record that does not exist yet, and an absent value has
-        // no identity to canonicalize.
-        if (value === null || value === undefined || !field || field.calculate) {
+        // Without a declared key field there is nothing to canonicalize against, so the value stands
+        // as its own identity.
+        if (!field) {
             return value
+        }
+
+        // An absent value is not an identity. Passing it on lets a caller insert a row for a record
+        // the push never named.
+        if (value === null || value === undefined) {
+            return undefined
+        }
+
+        // Context-dependent keys cannot be resolved from a value alone — see Supported domain.
+        if (field.calculate || field.convert) {
+            return undefined
         }
 
         let canonical = RecordFactory.parseRecordValue({record: {}, field, value});
 
-        return Number.isNaN(canonical) ? undefined : canonical
+        // `typeof null` is 'object'; a null here means the field's own rules rejected the value.
+        if (canonical === null || canonical === undefined || Number.isNaN(canonical)) {
+            return undefined
+        }
+
+        return typeof canonical === 'object' ? undefined : canonical
     }
 
     /**
