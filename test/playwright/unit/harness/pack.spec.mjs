@@ -441,6 +441,7 @@ test.describe('harness pack stage', () => {
         // A new gate here means the artifact's product behavior changed — update deliberately.
         expect(Object.keys(env).filter(name => name.endsWith('_ENABLED')).sort()).toEqual([
             'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED',
+            'NEO_ORCHESTRATOR_CORPUS_PROJECTION_ENABLED',
             'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED',
             'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
             'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
