@@ -121,6 +121,25 @@ export const PLANE_ROOT_REDERIVATION = /\bpath\.(?:join|resolve)\s*\(\s*__dirnam
  */
 export const PLANE_LITERAL_ASSIGNMENT = /(?:\b(?:const|let|var)\s+[\w$]+|[\w$]+\s*)=\s*['"`]\.neo-ai-data\//;
 
+/**
+ * @summary AiConfig catalog rules enforced by this guard, with each id attached to the
+ * executable predicate it names.
+ *
+ * This is deliberately not a detached `RULE_IDS` inventory. The scanner below consumes these
+ * exact objects, so changing a predicate or its catalog ownership is one edit rather than two
+ * independently-drifting claims.
+ * @type {ReadonlyArray<{id: String, pattern: RegExp, filePattern?: RegExp}>}
+ */
+export const ADR_0019_RULES = Object.freeze([
+    Object.freeze({id: 'B3', pattern: new RegExp(B3_DEFENSIVE_CHAIN.source, 'g')}),
+    Object.freeze({id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')}),
+    Object.freeze({
+        id         : 'A1',
+        filePattern: A1_IMPORT_GATE,
+        pattern    : new RegExp(A1_ENV_REDERIVATION.source, 'g')
+    })
+]);
+
 /*
  * Rule-scoped grandfathering: each rule carries its OWN set of repo-relative POSIX paths, so one
  * rule's existing-surface exemption can never widen another's — A5 keeps its zero-baseline ratchet
@@ -167,12 +186,12 @@ export const ALLOWLIST = Object.freeze({
     ])
 });
 
-const RULES = [
-    {id: 'B3', pattern: new RegExp(B3_DEFENSIVE_CHAIN.source, 'g')},
-    {id: 'A5', pattern: new RegExp(A5_ENV_HELPER.source, 'g')},
-    {id: 'PLANE-ROOT', pattern: new RegExp(PLANE_ROOT_REDERIVATION.source, 'g')},
-    {id: 'PLANE-LITERAL', pattern: new RegExp(PLANE_LITERAL_ASSIGNMENT.source, 'g')}
-];
+const A1_RULE = ADR_0019_RULES.find(rule => rule.id === 'A1');
+const RULES   = Object.freeze([
+    ...ADR_0019_RULES.filter(rule => rule !== A1_RULE),
+    Object.freeze({id: 'PLANE-ROOT',    pattern: new RegExp(PLANE_ROOT_REDERIVATION.source, 'g')}),
+    Object.freeze({id: 'PLANE-LITERAL', pattern: new RegExp(PLANE_LITERAL_ASSIGNMENT.source, 'g')})
+]);
 
 /**
  * @summary Scans file content for the A1 / A5 / B3 / PLANE-ROOT / PLANE-LITERAL antipatterns whose root token sits in code.
@@ -191,7 +210,7 @@ export function findAntipatterns(content) {
           hits          = [],
           a1Candidates  = [],
           codeOnlyLines = [],
-          a1Global      = new RegExp(A1_ENV_REDERIVATION.source, 'g');
+          a1Global      = new RegExp(A1_RULE.pattern.source, 'g');
 
     lines.forEach((line, index) => {
         // Mask + projection compute UNCONDITIONALLY — before the escape check. The mask no longer
@@ -243,13 +262,13 @@ export function findAntipatterns(content) {
         // whose env token lives inside a string or comment. On the projection, masked env tokens
         // are spaces — the regex simply cannot match them.
         for (const match of codeOnly.matchAll(a1Global)) {
-            a1Candidates.push({line: index + 1, rule: 'A1', text: line.trim()});
+            a1Candidates.push({line: index + 1, rule: A1_RULE.id, text: line.trim()});
             break
         }
     });
 
     // A1 is two-signal: candidates emit only when the file's CODE opens the import gate.
-    if (a1Candidates.length && A1_IMPORT_GATE.test(codeOnlyLines.join('\n'))) {
+    if (a1Candidates.length && A1_RULE.filePattern.test(codeOnlyLines.join('\n'))) {
         hits.push(...a1Candidates)
     }
 

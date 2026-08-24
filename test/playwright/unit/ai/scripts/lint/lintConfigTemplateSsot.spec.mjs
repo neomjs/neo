@@ -1,29 +1,37 @@
-import {test, expect}  from '@playwright/test';
-import {spawnSync}     from 'node:child_process';
-import path            from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {test, expect}                          from '@playwright/test';
+import {spawnSync}                             from 'node:child_process';
+import {existsSync, readdirSync, readFileSync} from 'node:fs';
+import path                                    from 'node:path';
+import {pathToFileURL}                         from 'node:url';
 
 import {
+    ADR_0019_RULES,
     AI_CONFIG_IMPLEMENTATION_BASELINE,
     AI_CONFIG_MODULE_SCOPE_BASELINE,
     BASELINE,
     buildConfigLeafParitySnapshot,
     buildConfigPathKindsByIdentifier,
     collectConfigPathKindsFromSource,
+    collectConfigEnvNamesFromSource,
     collectDeclaredConfigPaths,
+    createAdr0019GuardRegistry,
     detectAiConfigImplementationViolations,
     detectComposeDefaultRestatements,
     detectComposeDefaultRestatementsFromDocuments,
     detectConfigLeafParityViolations,
     detectInlineEnvLeaves,
     detectModuleScopeAiConfigCaptures,
+    detectNonEntrypointConfigResolvers,
     detectTestConfigOverlayImports,
     detectTestConfigProviderExports,
     detectUnprojectedBehaviorBindingClocksFromSources,
     lintAiConfigImplementationSsot,
     lintAiConfigModuleScopeCaptures,
+    lintAdr0019GuardOwnership,
     lintConfigTemplateSsot,
     lintTestConfigAuthority,
+    isThreadEntrypoint,
+    parseAdr0019CatalogRows,
     runLint
 } from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
 
@@ -61,6 +69,94 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
         expect(result.status, result.stderr).toBe(0);
         expect(result.stdout).toContain('[lint-config-template-ssot] OK');
+    });
+
+    test('ADR-0019 ids live on executable rule objects, not a detached file list', () => {
+        expect([...new Set(ADR_0019_RULES.map(rule => rule.id))].sort())
+            .toEqual(['A4', 'B1', 'B2', 'B3', 'B5', 'C1', 'C3']);
+        expect(ADR_0019_RULES.every(rule => typeof rule.detect === 'function' || rule.pattern instanceof RegExp))
+            .toBe(true)
+    });
+
+    test('C1 boundary: import-only is GREEN; exported module-time re-derivation is RED', () => {
+        const envNames = new Set(['NEO_DB_PATH']),
+              clean    = [
+                  "import AiConfig from './config.mjs';",
+                  'export default class Agent {}'
+              ].join('\n'),
+              red      = [
+                  clean,
+                  "const DEFAULT_DB_PATH = process.env.NEO_DB_PATH || './data/db';",
+                  'export {DEFAULT_DB_PATH};'
+              ].join('\n');
+
+        expect(detectNonEntrypointConfigResolvers(clean, {configEnvNames: envNames})).toEqual([]);
+        expect(detectNonEntrypointConfigResolvers(red, {configEnvNames: envNames}).map(hit => hit.rule))
+            .toEqual(['C1']);
+
+        // A runtime function is not A1's module-evaluation shape.
+        expect(detectNonEntrypointConfigResolvers(
+            'export function readPath() { return process.env.NEO_DB_PATH; }',
+            {configEnvNames: envNames}
+        )).toEqual([])
+    });
+
+    test('C1 only binds env names that a leaf already owns', () => {
+        const names = collectConfigEnvNamesFromSource([
+            "const data = {dbPath: leaf('/tmp/db', 'NEO_DB_PATH', 'string')};",
+            "const ignored = process.env.NOT_A_LEAF;"
+        ].join('\n'));
+
+        expect([...names]).toEqual(['NEO_DB_PATH']);
+        expect(detectNonEntrypointConfigResolvers(
+            "export const EXTERNAL = process.env.NOT_A_LEAF || 'x';",
+            {configEnvNames: names}
+        )).toEqual([])
+    });
+
+    test('entrypoint classification is executable: runAgent + every daemon pass; Agent does not', () => {
+        const rootDir  = process.cwd(),
+              read     = rel => readFileSync(path.join(rootDir, rel), 'utf8'),
+              runAgent = read('ai/scripts/runners/runAgent.mjs'),
+              agent    = read('ai/Agent.mjs'),
+              daemons  = readdirSync(path.join(rootDir, 'ai/daemons'), {withFileTypes: true})
+                  .filter(entry => entry.isDirectory())
+                  .map(entry => `ai/daemons/${entry.name}/daemon.mjs`)
+                  .filter(rel => existsSync(path.join(rootDir, rel)));
+
+        expect(isThreadEntrypoint({source: runAgent})).toBe(true);
+        expect(isThreadEntrypoint({source: agent})).toBe(false);
+        expect(daemons.length).toBeGreaterThan(0);
+        daemons.forEach(rel => expect(isThreadEntrypoint({source: read(rel)}), rel).toBe(true))
+    });
+
+    test('ADR-0019 guard ownership is exact in both directions', () => {
+        const adrSource = readFileSync(
+                  path.join(process.cwd(), 'learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md'),
+                  'utf8'
+              ),
+              rows      = parseAdr0019CatalogRows(adrSource),
+              clean     = lintAdr0019GuardOwnership({adrSource});
+
+        expect(rows).toHaveLength(17);
+        expect(clean.violations).toEqual([]);
+
+        const missingB4 = createAdr0019GuardRegistry({testMutationRules: []}),
+              overstate = lintAdr0019GuardOwnership({adrSource, guardRegistry: missingB4});
+
+        expect(overstate.violations).toContainEqual(expect.objectContaining({
+            id: 'B4', guard: 'check-aiconfig-test-mutation', kind: 'overstates-enforcement'
+        }));
+
+        const understatedSource = adrSource.replace(
+                  '[guarded: check-aiconfig-antipatterns]` — live debt',
+                  '[unenforced: mutation]` — live debt'
+              ),
+              understate = lintAdr0019GuardOwnership({adrSource: understatedSource});
+
+        expect(understate.violations).toContainEqual(expect.objectContaining({
+            id: 'A1', guard: 'check-aiconfig-antipatterns', kind: 'understates-enforcement'
+        }))
     });
 
     // ---- pure detection ----
@@ -494,6 +590,40 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
         expect(result.exitCode).toBe(0);
         expect(result.moduleScope.newViolations).toHaveLength(0);
+    });
+
+    test('the combined lint keeps C1 import-only GREEN and competing export RED', async () => {
+        const common = {
+                  files                 : [],
+                  implementationFiles   : [],
+                  implementationBaseline: [],
+                  moduleScopeFiles      : [],
+                  moduleScopeBaseline   : [],
+                  testConfigFiles       : [],
+                  configEnvNames        : new Set(['NEO_DB_PATH'])
+              },
+              importOnly = fileOf(
+                  'ai/Agent.mjs',
+                  "import AiConfig from './config.mjs';\nexport default class Agent {}"
+              ),
+              competing = fileOf(
+                  'ai/Agent.mjs',
+                  [
+                      importOnly.source,
+                      "const DEFAULT_DB_PATH = process.env.NEO_DB_PATH || './data/db';",
+                      'export {DEFAULT_DB_PATH};'
+                  ].join('\n')
+              );
+
+        const green = await runLint({...common, c1Files: [importOnly]}),
+              red   = await runLint({...common, c1Files: [competing]});
+
+        expect(green.exitCode).toBe(0);
+        expect(green.c1Resolvers.violations).toEqual([]);
+        expect(red.exitCode).toBe(1);
+        expect(red.c1Resolvers.violations).toEqual([
+            expect.objectContaining({file: 'ai/Agent.mjs', rule: 'C1', env: 'NEO_DB_PATH'})
+        ])
     });
 
     test('a test overlay import fails the combined lint without a baseline escape hatch', async () => {

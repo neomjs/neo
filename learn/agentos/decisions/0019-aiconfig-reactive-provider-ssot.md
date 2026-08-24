@@ -45,33 +45,35 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 ### Group A — re-implementing the Provider's resolution
 | ID | Antipattern | Tag | Sanctioned form |
 |---|---|---|---|
-| A1 | module-level re-derivation (`const DB_PATH = process.env.X \|\| path.join(...)`) | `[live: daemons :53-54/:36, deploy]` | read `AiConfig.X.Y` at the use site |
-| A2 | imperative cascade hooks (`afterApplyEnvLeaf`) | `[#12420-proposed]` | a `formula` (only if genuinely computed) or a plain leaf derivation |
-| A3 | over-engineered resolution helpers (`resolveAiDataRoot`) | `[#12420-proposed]` | the leaf's env-binding already resolves |
-| A4 | inline `process.env.UNIT_TEST_MODE ? test : prod` inside a leaf | `[live: #12451]` | declarative leaf; test-mode resolved by construction |
-| A5 | a `hasEnvValue(name)` helper | `[#12420-proposed]` | delete it — `leaf(default, env, type)` owns the env-check |
-| A6 | leaf+formula duplication (one path defined in both) | `[#12420-proposed]` | one definition — the leaf |
-| A7 | a formula re-implementing the leaf's env-resolution | `[#12420-proposed]` | drop the env knob (likely YAGNI) → `path.join(data.root, …)` |
-| A8 | `storagePaths.graph` 4-branch tangle (`:memory:` + two env vars, one read direct from `process.env`, + derive) | `[#12420-proposed]` | one leaf + one derivation; test-mode by construction |
-| A9 | `formulas` for plain path-joins | both | a leaf/derivation; formulas = reactive computed values only |
+| A1 | module-level re-derivation (`const DB_PATH = process.env.X \|\| path.join(...)`) | `[guarded: check-aiconfig-antipatterns]` — live debt is allowlisted there | read `AiConfig.X.Y` at the use site |
+| A2 | imperative cascade hooks (`afterApplyEnvLeaf`) | `[unenforced: #12420-proposed]` | a `formula` (only if genuinely computed) or a plain leaf derivation |
+| A3 | over-engineered resolution helpers (`resolveAiDataRoot`) | `[unenforced: #12420-proposed]` | the leaf's env-binding already resolves |
+| A4 | inline `process.env.UNIT_TEST_MODE ? test : prod` inside a leaf | `[guarded: lint-config-template-ssot]` | declarative leaf; test-mode resolved by construction |
+| A5 | a `hasEnvValue(name)` helper | `[guarded: check-aiconfig-antipatterns]` — zero-baseline reintroduction ratchet | delete it — `leaf(default, env, type)` owns the env-check |
+| A6 | leaf+formula duplication (one path defined in both) | `[unenforced: #12420-proposed]` | one definition — the leaf |
+| A7 | a formula re-implementing the leaf's env-resolution | `[unenforced: #12420-proposed]` | drop the env knob (likely YAGNI) → `path.join(data.root, …)` |
+| A8 | `storagePaths.graph` 4-branch tangle (`:memory:` + two env vars, one read direct from `process.env`, + derive) | `[unenforced: #12420-proposed]` | one leaf + one derivation; test-mode by construction |
+| A9 | `formulas` for plain path-joins | `[unenforced: mixed live/proposed debt]` | a leaf/derivation; formulas = reactive computed values only |
 
 ### Group B — indirection AROUND the SSOT (even when reading it)
 | ID | Antipattern | Tag | Sanctioned form |
 |---|---|---|---|
-| B1 | exporting config values/subtrees (`export const X = AiConfig.Y`) | `[live: TaskDefinitions.mjs]` | consumers import `AiConfig` and read at use site |
-| B2 | `const X = AiConfig.Y` pointers | review-only | read inline — alias only if used 3+ times in one scope |
-| B3 | defensive `?.` on `AiConfig` reads | `[live-on-dev]` | the SSOT guarantees the tree; let it fail loud |
-| **B4 ⭐** | **SAFETY-CRITICAL — runtime writes to `AiConfig`** (see §4) | `[live-on-dev: check-aiconfig-test-mutation]` — the gate is the enforcement anchor; it scans `test/**` only, so `ai/**` is unenforced (§4) | tests isolate by construction (`UNIT_TEST_MODE`); NEVER mutate the shared singleton |
-| B5 | passing `AiConfig` values into other consumers' configs (`Orchestrator → buildTaskDefinitions({chromaPort, …})`, 14 threaded args) | `[live: daemons]` | the consumer imports `AiConfig` and reads it (see §5 for the C1×B5 resolution) |
+| B1 | exporting config values/subtrees (`export const X = AiConfig.Y`) | `[guarded: lint-config-template-ssot]` | consumers import `AiConfig` and read at use site |
+| B2 | `const X = AiConfig.Y` pointers | `[guarded: lint-config-template-ssot]` — primitive/formula captures; live proxy subtrees remain valid | read inline — alias only if used 3+ times in one scope |
+| B3 | defensive `?.` on `AiConfig` reads | `[guarded: check-aiconfig-antipatterns, lint-config-template-ssot]` | the SSOT guarantees the tree; let it fail loud |
+| **B4 ⭐** | **SAFETY-CRITICAL — runtime writes to `AiConfig`** (see §4) | `[guarded: check-aiconfig-test-mutation]` — scans `test/**` only, so `ai/**` remains unenforced (§4) | tests isolate by construction (`UNIT_TEST_MODE`); NEVER mutate the shared singleton |
+| B5 | passing `AiConfig` values into other consumers' configs (`Orchestrator → buildTaskDefinitions({chromaPort, …})`, 14 threaded args) | `[guarded: lint-config-template-ssot]` — statically recognisable pass-throughs | the consumer imports `AiConfig` and reads it (see §5 for the C1×B5 resolution) |
 
 ### Group C — boundary / duplication
 | ID | Antipattern | Tag | Sanctioned form |
 |---|---|---|---|
-| C1 ⛔ | **NEO imports ONLY in thread-entrypoints** (ZERO tolerance — `import Neo`/`_export`/`AiConfig` in a *non-entrypoint* script can BREAK things) | `[live: TaskDefinitions.mjs]` | keep the non-entrypoint Neo-free; it takes pure FUNCTIONS from a shared module, and any LITERAL it needs must earn §5.5's anchor reason — being a non-entrypoint is never itself the reason, and it must not carry a resolver for anything a leaf already binds |
-| C2 | duplicated primitives (`chromaClientPrimitives` re-implements the embedding dummy-fn; `chromaTestIsolation` hidden default DB names) | `[live-on-dev]` | fold into the SSOT leaves |
-| C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[guarded: the lint's test config-authority rule (AST-resolved, scans `test/`), 0 on dev — #11976 repaired the backlog; #16628 wired the CI trigger to the scanned surface]` | tests import the canonical template |
+| C1 ⛔ | a non-entrypoint exports a competing resolver/value for an env already bound by an AiConfig leaf (`const X = process.env.Y \|\| …; export {X}`) | `[guarded: lint-config-template-ssot]` — zero-baseline | import `AiConfig` and read the resolved leaf at the use site; a bare import is legal, but a second exported resolver is not |
+| C2 | duplicated primitives (`chromaClientPrimitives` re-implements the embedding dummy-fn; `chromaTestIsolation` hidden default DB names) | `[unenforced: live debt]` | fold into the SSOT leaves |
+| C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[guarded: lint-config-template-ssot]` — AST-resolved, scans `test/**`, zero-baseline | tests import the canonical template |
 
-> **V-B-A classification correction (@neo-opus-4-7, `dev` line-evidence — Discussion #12453 `DC_kwDODSospM4BBgm5`):** the `ai/` daemon *entrypoints* (`bridge/daemon.mjs:3-6`, `orchestrator/daemon.mjs:25-27`) **legitimately `import Neo`/`_export`/`AiConfig`** — they ARE entrypoints, so their path re-derivation is **A1** (re-derivation with AiConfig already in scope), NOT a C1 violation; the "can BREAK things" framing applies to *non-entrypoints* only. The **single genuine C1×B5 site is `TaskDefinitions.mjs`** (no Neo import; `export const DEFAULT_DB_PATH`). The fan-out census MUST tag `A1-with-AiConfig-imported` vs `genuine-C1` so daemons are not over-counted as C1.
+> **C1 correction and ownership (2026-08-24, #17481):** import location was the wrong predicate. The `ai/` daemon entrypoints legitimately import `Neo`/`_export`/`AiConfig`, and ordinary non-entrypoint use sites may import `AiConfig` after their process entrypoint bootstraps Neo. The recorded genuine C1 site had **no Neo import**: it re-derived `DEFAULT_DB_PATH` from an env already bound by a leaf and exported that competing truth. C1 is therefore the intersection of A1's re-derivation and an export, scoped to non-entrypoints; B1 remains distinct because it exports a frozen copy *from* AiConfig. The boundary was exposed by `#17466`'s corrected Agent claim and `#17481`'s import-only probe. The guard pins both edges: import-only in `ai/Agent.mjs` is GREEN, while adding the competing exported resolver is RED. Entrypoints that re-derive still fail A1.
+
+> **Tag contract (2026-08-24, #17481):** every §3 row declares either `[guarded: <guard>]` or `[unenforced: <reason>]`. The named guards export ids on the executable rule objects they run, and `lint-config-template-ssot` validates the relation both ways. These tags are enforcement ownership, not point-in-time instance counts; live debt and baselines stay with the owning guard.
 
 ### Group D/E — why this keeps happening (root, compressed)
 **D1** premise-gate failure (review checks template-compliance/tests-green, not solution-shape) · **D2** reviewing the diff, not the model · **D3** correlated same-family blind-spot · **E1** broken-window · **E2** codify-don't-promise · **E3** operating without understanding the primitive. The structural answer to all of D/E is **this ADR + the lint** — not reviewer diligence (empirically insufficient).

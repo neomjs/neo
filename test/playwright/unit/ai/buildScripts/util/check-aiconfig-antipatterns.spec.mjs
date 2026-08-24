@@ -1,11 +1,11 @@
-import {test, expect}                                                      from '@playwright/test';
-import {findAntipatterns, filterAllowlistedHits, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
-import {A1_IMPORT_GATE}                                                    from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
-import {spawnSync}                                                         from 'node:child_process';
-import fs                                                                  from 'node:fs';
-import path                                                                from 'node:path';
-import process                                                             from 'node:process';
-import {fileURLToPath}                                                     from 'node:url';
+import {test, expect}                                                                      from '@playwright/test';
+import {findAntipatterns, filterAllowlistedHits, ADR_0019_RULES, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
+import {A1_IMPORT_GATE}                                                                    from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
+import {spawnSync}                                                                         from 'node:child_process';
+import fs                                                                                  from 'node:fs';
+import path                                                                                from 'node:path';
+import process                                                                             from 'node:process';
+import {fileURLToPath}                                                                     from 'node:url';
 
 const
     __dirname   = path.dirname(fileURLToPath(import.meta.url)),
@@ -21,6 +21,12 @@ const
  * honors the inline escape marker plus the census-seeded grandfather allowlist.
  */
 test.describe('check-aiconfig-antipatterns guard', () => {
+    test('ADR-0019 ids live on the executable rule objects', () => {
+        expect(ADR_0019_RULES.map(rule => rule.id).sort()).toEqual(['A1', 'A5', 'B3']);
+        expect(ADR_0019_RULES.every(rule => rule.pattern instanceof RegExp)).toBe(true);
+        expect(ADR_0019_RULES.find(rule => rule.id === 'A1').filePattern).toBe(A1_IMPORT_GATE)
+    });
+
     test('B3: flags a defensive hop directly on a config root', () => {
         expect(findAntipatterns('if (!this.configFile || !this.aiConfig?.load) return;').map(h => h.rule)).toEqual(['B3']);
         expect(findAntipatterns('const mode = AiConfig?.auth;').map(h => h.rule)).toEqual(['B3']);
