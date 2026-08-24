@@ -1,4 +1,5 @@
 import aiConfig               from '../../mcp/server/memory-core/config.mjs';
+import logger                 from '../../mcp/server/memory-core/logger.mjs';
 import {hasCrossFamilyReview} from './agentFamilyResolution.mjs';
 
 /**
@@ -32,7 +33,7 @@ export function renderRecentOpenPrSummary(prs, {limit = aiConfig.goldenPathRecen
 
     for (const pr of recent) {
         const author = pr.author?.login || 'unknown';
-        section += `- **PR #${pr.number}**: ${pr.title} — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${hasCrossFamilyReview(pr) ? 'yes' : 'no'}\n`;
+        section += `- **PR #${pr.number}**: ${pr.title} — author @${author} — opened ${pr.createdAt} — cross-family reviewed: ${hasCrossFamilyReview(pr, undefined, {warn: logger.warn}) ? 'yes' : 'no'}\n`;
     }
 
     section += `\n`;
