@@ -332,10 +332,12 @@ test.describe('coreCorpusProjection — source-neutral writer (#17627)', () => {
             });
             expect(evaluateCorpusProjectionAdmission({
                 consumer: CORPUS_PROJECTION_CONSUMER.computedGoldenPath,
+                now     : Date.parse('2026-08-24T00:01:00.000Z'),
                 receipt
             })).toMatchObject({admitted: true, staleFacets: []});
             expect(evaluateCorpusProjectionAdmission({
                 consumer: CORPUS_PROJECTION_CONSUMER.contextFrontier,
+                now     : Date.parse('2026-08-24T00:01:00.000Z'),
                 receipt
             })).toMatchObject({admitted: false, staleFacets: ['pulls']})
         } finally {

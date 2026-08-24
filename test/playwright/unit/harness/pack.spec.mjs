@@ -442,7 +442,6 @@ test.describe('harness pack stage', () => {
         expect(Object.keys(env).filter(name => name.endsWith('_ENABLED')).sort()).toEqual([
             'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED',
             'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED',
-            'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
             'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_LMS_ENABLED',
