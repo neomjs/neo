@@ -1,13 +1,23 @@
 import aiConfig          from '../../mcp/server/github-workflow/config.mjs';
 import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
-import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}
                                  from './shared/commentSelector.mjs';
-import {projectConversationTrust}                                                                from './shared/conversationTrust.mjs';
-import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID}      from './queries/discussionQueries.mjs';
-import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
+import {projectConversationTrust} from './shared/conversationTrust.mjs';
+import {resolveRepositoryTarget}  from './shared/repositoryTarget.mjs';
+import {
+    GET_DISCUSSION_CONVERSATION,
+    GET_REPO_AND_DISCUSSION_CATEGORIES,
+    GET_DISCUSSION_ID
+} from './queries/discussionQueries.mjs';
+import {
+    CREATE_DISCUSSION,
+    ADD_DISCUSSION_COMMENT,
+    UPDATE_DISCUSSION,
+    UPDATE_DISCUSSION_COMMENT,
+    GET_DISCUSSION_COMMENT_TARGET
+} from './queries/mutations.mjs';
 
 /**
  * @summary Service for interacting with GitHub Discussions via the GraphQL API.
@@ -57,6 +67,7 @@ class DiscussionService extends Base {
      * @param {String} [options.since_comment_id]   Return top-level comments strictly after the matching comment. Same
      *     accepted spellings and same malformed-vs-absent distinction as `comment_id`.
      * @param {Number} [options.last_n]             Return only the last N top-level comments.
+     * @param {String} [options.repo]               Optional bare name or owner/name repository target.
      * @returns {Promise<Object>} Discussion conversation data, optionally filtered, or a structured error. A SCOPED
      *          request (any selector) omits the parent body and sets `bodyOmitted: true`; an unscoped request is
      *          unchanged. Scoping asked for part of a thread and used to be charged for all of it.
@@ -65,7 +76,10 @@ class DiscussionService extends Base {
      *          (see `shared/conversationTrust.mjs`).
      */
     async getConversation(options) {
-        const {discussion_number, comment_id, since_comment_id, last_n} = options || {};
+        const {discussion_number, comment_id, since_comment_id, last_n, repo} = options || {},
+              target                                                          = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
 
         if (!discussion_number) {
             return {
@@ -76,8 +90,8 @@ class DiscussionService extends Base {
         }
 
         const variables = {
-            owner           : aiConfig.owner,
-            repo            : aiConfig.repo,
+            owner           : target.owner,
+            repo            : target.repo,
             discussionNumber: discussion_number,
             maxComments     : aiConfig.pullRequest.maxCommentsPerPullRequest,
             maxReplies      : aiConfig.pullRequest.maxCommentsPerPullRequest
@@ -140,7 +154,7 @@ class DiscussionService extends Base {
                 }
             });
         } catch (error) {
-            logger.error(`Error getting conversation for discussion #${discussion_number} via GraphQL:`, error);
+            logger.error(`Error getting conversation for ${target.fullName} discussion #${discussion_number} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -155,16 +169,21 @@ class DiscussionService extends Base {
      * @param {string} options.title    The title of the discussion.
      * @param {string} options.body     The Markdown body of the discussion.
      * @param {string} options.category The name of the category (e.g., 'Ideas', 'Q&A'). Defaults to 'Ideas'.
+     * @param {String} [options.repo]    Optional bare name or owner/name repository target.
      * @returns {Promise<object>} A promise that resolves to the new discussion data.
      */
-    async createDiscussion({title, body, category = 'Ideas'}) {
-        logger.info(`Attempting to create GitHub Discussion: "${title}" in category "${category}"`);
+    async createDiscussion({title, body, category = 'Ideas', repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
+        logger.info(`Attempting to create GitHub Discussion in ${target.fullName}: "${title}" in category "${category}"`);
 
         try {
             // First, get the repository ID and discussion categories
             const repoData = await GraphqlService.query(GET_REPO_AND_DISCUSSION_CATEGORIES, {
-                owner: aiConfig.owner,
-                repo : aiConfig.repo
+                owner: target.owner,
+                repo : target.repo
             });
 
             const repositoryId = repoData.repository.id;
@@ -194,7 +213,7 @@ class DiscussionService extends Base {
 
             const discussion = result.createDiscussion.discussion;
 
-            logger.info(`Successfully created GitHub Discussion #${discussion.number}: ${discussion.url}`);
+            logger.info(`Successfully created GitHub Discussion ${target.fullName}#${discussion.number}: ${discussion.url}`);
 
             return {
                 discussionNumber: discussion.number,
@@ -203,7 +222,7 @@ class DiscussionService extends Base {
             };
 
         } catch (error) {
-            logger.error('Error creating GitHub Discussion:', error);
+            logger.error(`Error creating GitHub Discussion in ${target.fullName}:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -217,14 +236,17 @@ class DiscussionService extends Base {
      * @param {object} options                      The options object
      * @param {number} options.discussion_number    The number of the discussion.
      * @param {string} options.body                 The raw content of the comment.
+     * @param {Object} [options.repositoryTarget]   Resolved repository target supplied by the public operation.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async createComment({discussion_number, body}) {
+    async createComment({discussion_number, body, repositoryTarget}) {
+        const target = repositoryTarget || resolveRepositoryTarget(undefined, {owner: aiConfig.owner, repo: aiConfig.repo});
+
         try {
             // Get Discussion subjectId
             const idData = await GraphqlService.query(GET_DISCUSSION_ID, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
+                owner : target.owner,
+                repo  : target.repo,
                 number: discussion_number
             });
 
@@ -250,7 +272,7 @@ class DiscussionService extends Base {
             };
 
         } catch (error) {
-            logger.error(`Error creating comment on discussion #${discussion_number} via GraphQL:`, error);
+            logger.error(`Error creating comment on ${target.fullName} discussion #${discussion_number} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -289,15 +311,71 @@ class DiscussionService extends Base {
     }
 
     /**
+     * @summary Verifies a global DiscussionComment belongs to the selected repository and parent.
+     * @param {String} commentId Global DiscussionComment node ID.
+     * @param {Object} repositoryTarget Resolved per-request repository.
+     * @param {Number} [discussionNumber] Optional parent number asserted by the caller.
+     * @returns {Promise<Object|null>} Typed refusal, or null when the target matches.
+     * @private
+     */
+    async #getDiscussionCommentTargetFailure(commentId, repositoryTarget, discussionNumber) {
+        try {
+            const data       = await GraphqlService.query(GET_DISCUSSION_COMMENT_TARGET, {commentId}),
+                  comment    = data?.node,
+                  discussion = comment?.discussion,
+                  actual     = discussion?.repository?.nameWithOwner;
+
+            if (!comment?.id || !discussion || !actual) {
+                return {
+                    error  : 'Not Found',
+                    message: `Discussion comment ${commentId} was not found or carried no repository parent.`,
+                    code   : 'COMMENT_NOT_FOUND'
+                }
+            }
+
+            if (actual.toLowerCase() !== repositoryTarget.fullName.toLowerCase()) {
+                return {
+                    error       : 'Repository Target Mismatch',
+                    message     : `Discussion comment ${commentId} belongs to ${actual}, not selected repository ${repositoryTarget.fullName}; no update was sent.`,
+                    code        : 'REPOSITORY_TARGET_MISMATCH',
+                    actualRepo  : actual,
+                    selectedRepo: repositoryTarget.fullName
+                }
+            }
+
+            if (discussionNumber && discussion.number !== discussionNumber) {
+                return {
+                    error  : 'Comment Target Mismatch',
+                    message: `Discussion comment ${commentId} does not belong to supplied Discussion #${discussionNumber}; no update was sent.`,
+                    code   : 'COMMENT_TARGET_MISMATCH'
+                }
+            }
+
+            return null
+        } catch (error) {
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            }
+        }
+    }
+
+    /**
      * Consolidates comment management into a single method.
      * @param {object} options                        The options object
      * @param {number} [options.discussion_number]    The number of the discussion (required for create).
      * @param {string} [options.comment_id]           The global node ID of the comment (required for update).
      * @param {string} options.body                   The content of the comment.
      * @param {string} options.action                 The action to perform: 'create' or 'update'.
+     * @param {String} [options.repo]                 Optional bare name or owner/name repository target.
      * @returns {Promise<object>}
      */
-    async manageDiscussionComment({discussion_number, comment_id, body, action}) {
+    async manageDiscussionComment({discussion_number, comment_id, body, action, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (!['create', 'update'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -314,7 +392,7 @@ class DiscussionService extends Base {
                     code   : 'MISSING_ARGUMENTS'
                 };
             }
-            return this.createComment({discussion_number, body});
+            return this.createComment({discussion_number, body, repositoryTarget: target});
         } else {
             if (!comment_id) {
                 return {
@@ -323,7 +401,9 @@ class DiscussionService extends Base {
                     code   : 'MISSING_ARGUMENTS'
                 };
             }
-            return this.updateComment(comment_id, body);
+            const targetFailure = await this.#getDiscussionCommentTargetFailure(comment_id, target, discussion_number);
+
+            return targetFailure || this.updateComment(comment_id, body);
         }
     }
 
@@ -334,9 +414,14 @@ class DiscussionService extends Base {
      * @param {string} options.action             The action to perform: 'update_body'.
      * @param {number} options.discussion_number  The number of the discussion to update.
      * @param {string} options.body               The new Markdown body for the discussion.
+     * @param {String} [options.repo]             Optional bare name or owner/name repository target.
      * @returns {Promise<object>} A promise that resolves to {discussionId, url, updatedAt} or a structured error.
      */
-    async manageDiscussion({action, discussion_number, body}) {
+    async manageDiscussion({action, discussion_number, body, repo}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         if (action !== 'update_body') {
             return {
                 error  : 'Bad Request',
@@ -356,8 +441,8 @@ class DiscussionService extends Base {
         try {
             // Resolve the discussion number to its global node ID
             const idData = await GraphqlService.query(GET_DISCUSSION_ID, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
+                owner : target.owner,
+                repo  : target.repo,
                 number: discussion_number
             });
 
@@ -373,7 +458,7 @@ class DiscussionService extends Base {
             const result       = await GraphqlService.query(UPDATE_DISCUSSION, {discussionId, body});
             const discussion   = result.updateDiscussion.discussion;
 
-            logger.info(`Successfully updated body of GitHub Discussion #${discussion_number}: ${discussion.url}`);
+            logger.info(`Successfully updated body of GitHub Discussion ${target.fullName}#${discussion_number}: ${discussion.url}`);
 
             return {
                 discussionId: discussion.id,
@@ -381,7 +466,7 @@ class DiscussionService extends Base {
                 updatedAt   : discussion.updatedAt
             };
         } catch (error) {
-            logger.error(`Error updating discussion #${discussion_number} body via GraphQL:`, error);
+            logger.error(`Error updating ${target.fullName} discussion #${discussion_number} body via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,

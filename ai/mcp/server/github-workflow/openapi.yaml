@@ -138,6 +138,7 @@ paths:
       summary: List Repository Labels
       operationId: list_labels
       x-neo-tool-tier: read
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
@@ -146,6 +147,12 @@ paths:
         **When to Use:**
         This is a crucial discovery tool. Call it before using `create_issue` or `manage_issue_labels` to ensure you are using valid, existing label names.
       tags: [Labels]
+      parameters:
+        - name: repo
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RepositoryTarget'
       responses:
         '200':
           description: A list of repository labels.
@@ -188,6 +195,11 @@ paths:
         - `believedOpen` resolves each supplied number directly; it never infers terminal state from bounded-page absence.
       tags: [Pull Requests]
       parameters:
+        - name: repo
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RepositoryTarget'
         - name: limit
           in: query
           required: false
@@ -302,6 +314,11 @@ paths:
           schema:
             type: integer
             example: 123
+        - name: repo
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RepositoryTarget'
         - name: file
           in: query
           required: false
@@ -418,6 +435,8 @@ paths:
             schema:
               type: object
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 pr_number:
                   type: integer
                   description: The pull request number. Supply either `pr_number` or `issue_number`, not both.
@@ -577,6 +596,8 @@ paths:
                 - action
                 - body
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [create, update]
@@ -665,6 +686,8 @@ paths:
                 - action
                 - labels
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [add, remove]
@@ -750,6 +773,8 @@ paths:
                 - action
                 - assignees
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [add, remove]
@@ -916,6 +941,8 @@ paths:
                 - action
                 - body
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [create, update]
@@ -1055,6 +1082,8 @@ paths:
               required:
                 - action
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [add, remove]
@@ -1162,6 +1191,11 @@ paths:
         **Completeness:** `limit` bounds the matches RETURNED, not the rows searched. Check `truncated` before treating a result as complete, and pass the returned `endCursor` back as `cursor` to continue.
       tags: [Issues]
       parameters:
+        - name: repo
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RepositoryTarget'
         - name: limit
           in: query
           required: false
@@ -1248,6 +1282,8 @@ paths:
               required:
                 - title
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 title:
                   type: string
                   description: The title of the issue.
@@ -1338,6 +1374,8 @@ paths:
               required:
                 - action
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [add, remove, update_field]
@@ -1412,6 +1450,8 @@ paths:
                 - title
                 - body
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 title:
                   type: string
                   description: The title of the discussion.
@@ -1462,6 +1502,8 @@ paths:
                 - discussion_number
                 - body
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [update_body]
@@ -1544,6 +1586,8 @@ paths:
               required:
                 - discussion_number
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 discussion_number:
                   type: integer
                   description: The number of the discussion to retrieve.
@@ -1719,6 +1763,8 @@ paths:
                 - action
                 - body
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 action:
                   type: string
                   enum: [create, update]
@@ -1800,6 +1846,8 @@ paths:
               required:
                 - child_issue
               properties:
+                repo:
+                  $ref: '#/components/schemas/RepositoryTarget'
                 relationship_type:
                   type: string
                   enum: [parent_child, blocked_by]
@@ -1850,6 +1898,7 @@ paths:
       summary: Get Viewer Permission
       operationId: get_viewer_permission
       x-neo-tool-tier: read
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
@@ -1865,6 +1914,12 @@ paths:
         - `TRIAGE`: Can manage issues and pull requests.
         - `READ`: Can read the repository.
       tags: [Repository]
+      parameters:
+        - name: repo
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RepositoryTarget'
       responses:
         '200':
           description: The viewer's permission level for the repository.
@@ -1928,6 +1983,16 @@ paths:
 
 components:
   schemas:
+    RepositoryTarget:
+      type: string
+      minLength: 1
+      pattern: '^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?/)?[A-Za-z0-9._-]{1,100}$'
+      description: >-
+        Optional per-request GitHub repository. Omit it for the deployment home repository; pass a
+        bare name to use the deployment home owner, or pass exactly `owner/name` for a full target.
+        Empty values, whitespace, backslashes, empty segments, and additional slashes are refused
+        before GitHub I/O and never fall back to home. ProjectV2 lookups use the selected owner;
+        issue relationships interpret both numbers inside this one selected repository.
     HealthCheckResponse:
       type: object
       properties:

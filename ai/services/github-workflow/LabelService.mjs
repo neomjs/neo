@@ -2,6 +2,7 @@ import Base           from '../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig       from '../../mcp/server/github-workflow/config.mjs';
 import {FETCH_LABELS} from './queries/labelQueries.mjs';
+import {resolveRepositoryTarget} from './shared/repositoryTarget.mjs';
 
 /**
  * @summary Service for interacting with GitHub labels via the GraphQL API.
@@ -38,19 +39,25 @@ class LabelService extends Base {
      * and converts thrown exceptions into structured MCP error payloads for protocol
      * responses; non-MCP callers (build scripts, CLI) receive normal exception semantics.
      *
+     * @param {Object} [options]
+     * @param {String} [options.repo] Optional bare name or owner/name repository target.
      * @returns {Promise<{count: number, labels: object[]}>} Resolves to the aggregated label set.
      * @throws {Error} If the underlying GraphQL call fails. See `GraphqlService.query` for error shapes.
      * @see https://github.com/neomjs/neo/issues/10112
      */
-    async listLabels() {
+    async listLabels({repo} = {}) {
+        const target = resolveRepositoryTarget(repo, {owner: aiConfig.owner, repo: aiConfig.repo});
+
+        if (target.error) return target;
+
         let allLabels   = [];
         let hasNextPage = true;
         let cursor      = null;
 
         while (hasNextPage) {
             const variables = {
-                owner: aiConfig.owner,
-                repo : aiConfig.repo,
+                owner: target.owner,
+                repo : target.repo,
                 limit: 100,
                 cursor
             };

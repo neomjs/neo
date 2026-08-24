@@ -2691,6 +2691,54 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(graphqlCallCount).toBe(0);
     });
 
+    test('#17420: same PR number in home/non-default repos reads separate target histories while activation stays home-owned', async () => {
+        const observations = [];
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                observations.push(variables);
+                return {
+                    homeRepository  : {activationIssue: activationIssueNode()},
+                    targetRepository: {pullRequest: pullRequestNode()}
+                }
+            }
+
+            if (queryString.includes('AddPullRequestReview')) {
+                return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+            }
+
+            return null
+        };
+
+        for (const repo of [undefined, 'devindex']) {
+            const result = await PullRequestService.managePrReview({
+                ...(repo ? {repo} : {}),
+                action   : 'create',
+                pr_number: 73,
+                state    : 'APPROVED',
+                body     : VALID_REVIEW_BODY
+            });
+
+            expect(result.error, repo || 'home').toBeUndefined();
+        }
+
+        expect(observations).toEqual([{
+            activationIssueNumber: PullRequestService.reviewBudgetActivationIssueNumber,
+            homeOwner            : 'neomjs',
+            homeRepo             : 'neo',
+            owner                : 'neomjs',
+            repo                 : 'neo',
+            prNumber             : 73
+        }, {
+            activationIssueNumber: PullRequestService.reviewBudgetActivationIssueNumber,
+            homeOwner            : 'neomjs',
+            homeRepo             : 'neo',
+            owner                : 'neomjs',
+            repo                 : 'devindex',
+            prNumber             : 73
+        }]);
+    });
+
     test('action:create + state:APPROVED → submits APPROVE event, returns review payload', async () => {
         const result = await PullRequestService.managePrReview({
             action   : 'create',
