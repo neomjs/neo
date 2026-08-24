@@ -222,6 +222,32 @@ does not become visible and a locally sorted insert lands in sorted order. For s
 (`remoteFilter`, `remoteSort`, or pagination), prefer `'reloadWhenUncertain'` or `'reload'` unless your
 server payload explicitly proves visible membership and order.
 
+#### The pushed key is canonicalized before lookup
+
+A push carries whatever type the wire happened to use, and JSON has no way to say "this `1` is the same
+record as the `1` you already hold". A Store keys its Collection by strict `Map` identity, so `"1"` and `1`
+are different keys, while `Store#add()` converts every field to the type its Model declares. Left alone,
+that asymmetry turns a type mismatch into a *miss* rather than a near-miss — and an `'insert'` / `'upsert'`
+strategy answers a miss by adding, leaving two records under one identity that nothing later removes.
+
+The Store therefore resolves each pushed key through `Store#getCanonicalKey()` before looking it up, and
+stores that canonical key rather than the received one. The method delegates to the same
+`RecordFactory.parseRecordValue()` that record insertion uses, so lookup and insertion cannot disagree
+about identity:
+
+```javascript readonly
+// Model declares {name: 'id', type: 'Integer'} and the Store already holds record 1.
+store.pipeline.simulatePush({id: '1', status: 'offline'});
+// -> updates record 1. Without canonicalization this appends a second record with id 1.
+```
+
+A key that cannot be canonicalized is **refused** rather than inserted. An `Integer` key of `'abc'` would
+store as `NaN` while the Collection stays keyed by `'abc'`, making the record unreachable by any later
+lookup — so the push is dropped instead of persisting an entry nothing can address.
+
+This applies to every declared key type, not just `Integer`: a `String`-keyed Model receiving a numeric
+push is the same defect mirrored, and is handled by the same path.
+
 ## Migration Path for Legacy Configs
 
 If you are upgrading from an older version of Neo.mjs, your existing `url` and `api` configs on Stores are still fully supported.
