@@ -111,6 +111,18 @@ export const PARITY_BASELINE = Object.freeze({
     // online. Do not "fix" this by widening the schema.
     'memory-core.who_is_online.now': 'Injected clock (test seam) with a working default; agent-settable time would let a caller falsify peer liveness. Deliberately internal.',
 
+    // PERMANENT — the same clock-seam class as `who_is_online.now` above, and the same refusal for the
+    // same reason. These three relocate Neural Link's durable data onto the one graph, and every one of
+    // them stamps a time a later reader trusts: `archivedAt` on an archive, `lastReplayedAt` on a replay,
+    // `timestamp` on an admitted telemetry row. Declaring `now` would make those stamps caller-supplied,
+    // so a host could archive a transaction "yesterday", backdate a replay, or place telemetry outside a
+    // window an aggregate is computed over — falsifying WHEN something happened rather than whether it
+    // did. The default (`Date.now()`) is the production path and the parameter exists only so a spec can
+    // assert an exact stamp instead of a tolerance. Do not "fix" these by widening the schema.
+    'memory-core.save_nl_transaction.now'         : 'Injected clock (test seam) with a working default; agent-settable time would let a caller backdate an archive stamp a reader trusts. Deliberately internal.',
+    'memory-core.mark_nl_transaction_replayed.now': 'Injected clock (test seam) with a working default; agent-settable time would let a caller backdate a replay mark. Deliberately internal.',
+    'memory-core.admit_nl_actions.now'            : 'Injected clock (test seam) with a working default; agent-settable time would let a caller place telemetry outside the window an aggregate is computed over. Deliberately internal.',
+
     // DEBT — genuine contract gaps awaiting individual disposition; each row's reason names the
     // tracking ticket, which is where a decay-prone reference belongs. Not suppressed: the capability
     // exists in the service and is unreachable from outside it, and declaring a parameter makes it

@@ -252,6 +252,13 @@ const memoryCoreToolTiers = ['read', 'write', 'extended', 'admin'];
 
 const expectedMemoryCoreToolTiers = {
     admit_community_batch        : 'write',
+    // Neural Link data relocated onto the one graph. The archive's read is `read` because a
+    // response carrying archive data is host-initiated round-trip data, not container-initiated access;
+    // the three writers are `write` rather than `admin` because a constrained tier beats a broad one.
+    save_nl_transaction          : 'write',
+    get_nl_transaction           : 'read',
+    mark_nl_transaction_replayed : 'write',
+    admit_nl_actions             : 'write',
     healthcheck                  : 'read',
     get_community_source_health  : 'read',
     get_mcp_tool_handbook        : 'read',

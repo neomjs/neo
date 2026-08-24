@@ -2664,8 +2664,219 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /neural-link/transactions/save:
+    post:
+      summary: Save NL transaction archive
+      operationId: save_nl_transaction
+      x-neo-tool-tier: write
+      x-pass-as-object: true
+      x-neo-tool-summary: Archive one COMMITTED Neural Link transaction in the container graph; refuses uncommitted, op-less, or origin-writer-less input by name.
+      description: |
+        The container-plane home for the transaction archive Neural Link used to write to its own host
+        SQLite file. Host-initiated: the host asks, the container stores. Admission requires
+        `status: committed`, at least one op, and an origin writer carrying both agentId and sessionId;
+        a refusal answers `{saved: false, reason}` rather than throwing, so an unarchivable transaction
+        cannot take down the possession session that produced it. There is no host-local fallback on
+        purpose — one would re-create the two realities this relocation removes.
+      tags: [NeuralLink]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveNlTransactionRequest'
+      responses:
+        '200':
+          description: Save result, or a named refusal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveNlTransactionResponse'
+
+  /neural-link/transactions/get:
+    post:
+      summary: Read NL transaction archive
+      operationId: get_nl_transaction
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Read one archived Neural Link transaction by archiveId; answers null when it does not exist.
+      description: |
+        The archive's read half, which is what makes replay a host-initiated round trip rather than
+        container-initiated access to the host. Returns the record shape `#14829` shipped — ops and
+        originWriter as structures, plus replayCount and lastReplayedAt — or `null` for an unknown
+        archiveId. A response carrying archive data is in-contract; the write-only rule applies to the
+        action-telemetry channel, not to this one.
+      tags: [NeuralLink]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetNlTransactionRequest'
+      responses:
+        '200':
+          description: The archived transaction, or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetNlTransactionResponse'
+
+  /neural-link/transactions/replayed:
+    post:
+      summary: Mark NL transaction replayed
+      operationId: mark_nl_transaction_replayed
+      x-neo-tool-tier: write
+      x-pass-as-object: true
+      x-neo-tool-summary: Increment one archive's replay count and stamp the time; answers updated false for an unknown archiveId.
+      description: |
+        Records that a replay happened, preserving `#14829`'s replay-mark semantics across the
+        relocation. An unknown archiveId answers `{updated: false}` rather than creating a row, so the
+        count can never claim a replay of something that was never archived.
+      tags: [NeuralLink]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkNlTransactionReplayedRequest'
+      responses:
+        '200':
+          description: Whether an archive was marked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkNlTransactionReplayedResponse'
+
+  /neural-link/actions/admit:
+    post:
+      summary: Admit NL action telemetry
+      operationId: admit_nl_actions
+      x-neo-tool-tier: write
+      x-pass-as-object: true
+      x-neo-tool-summary: WRITE-ONLY admission for Neural Link action telemetry; the server generates the correlation token and row id, and drops every field outside the admitted set.
+      description: |
+        The optional, policy-gated telemetry half of the NL relocation. Write-only by contract: there is
+        no companion read operation, and its absence is asserted rather than pending. The admitted set is
+        sequenceId, sessionId, timestamp, tool, success, durationMs, appName and a bounded `targets`
+        projection of classNames and componentIds. Everything else is DROPPED — no agentId, no raw args,
+        no result, no reward. `sequenceId` is a fresh server-generated token rather than the host's former
+        `${agentId}_${turnId}`, so correlation no longer carries identity, and the storage row id is
+        generated server-side so one caller cannot address another's row. A row that cannot be stored is
+        counted as refused rather than aborting the batch.
+      tags: [NeuralLink]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdmitNlActionsRequest'
+      responses:
+        '200':
+          description: Admission counts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmitNlActionsResponse'
+
 components:
   schemas:
+    SaveNlTransactionRequest:
+      type: object
+      required:
+        - transaction
+      properties:
+        transaction:
+          type: object
+          description: "The committed transaction. Requires `status` of `committed`, a non-empty `ops` array, and an origin writer with agentId and sessionId."
+        appSessionId:
+          type: string
+          nullable: true
+          description: The NL app session the transaction was captured in.
+        name:
+          type: string
+          nullable: true
+          description: Caller-supplied archive name.
+    SaveNlTransactionResponse:
+      type: object
+      required:
+        - saved
+      properties:
+        saved:
+          type: boolean
+        archiveId:
+          type: string
+          description: Present only when saved is true.
+        reason:
+          type: string
+          description: Present only when saved is false — `invalid-transaction`, `missing-origin-writer`, or `archive-store-unavailable`.
+    GetNlTransactionRequest:
+      type: object
+      required:
+        - archiveId
+      properties:
+        archiveId:
+          type: string
+    GetNlTransactionResponse:
+      type: object
+      nullable: true
+      description: The archived record, or null when the archiveId is unknown.
+      properties:
+        archiveId:      {type: string}
+        name:           {type: string, nullable: true}
+        sourceTxId:     {type: string, nullable: true}
+        appSessionId:   {type: string, nullable: true}
+        originWriter:   {type: object, nullable: true}
+        committedAt:    {type: number, nullable: true}
+        archivedAt:     {type: number, nullable: true}
+        ops:            {type: array, items: {type: object}}
+        replayCount:    {type: number}
+        lastReplayedAt: {type: number, nullable: true}
+    MarkNlTransactionReplayedRequest:
+      type: object
+      required:
+        - archiveId
+      properties:
+        archiveId:
+          type: string
+    MarkNlTransactionReplayedResponse:
+      type: object
+      required:
+        - updated
+      properties:
+        updated:
+          type: boolean
+    AdmitNlActionsRequest:
+      type: object
+      required:
+        - actions
+      properties:
+        actions:
+          type: array
+          description: Bounded batch of action rows. Fields outside the admitted set are dropped rather than stored.
+          items:
+            type: object
+            properties:
+              sessionId:  {type: string, nullable: true}
+              timestamp:  {type: number, nullable: true}
+              tool:       {type: string, nullable: true}
+              success:    {type: boolean}
+              durationMs: {type: number, nullable: true}
+              appName:    {type: string, nullable: true}
+              targets:
+                type: object
+                properties:
+                  classNames:   {type: array, items: {type: string}}
+                  componentIds: {type: array, items: {type: string}}
+    AdmitNlActionsResponse:
+      type: object
+      required:
+        - admitted
+        - refused
+      properties:
+        admitted:
+          type: number
+        refused:
+          type: number
     MemoryCoreToolMetricsResponse:
       type: object
       required:

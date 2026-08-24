@@ -18,6 +18,12 @@ import WakeSubscriptionService       from '../../../services/memory-core/WakeSub
 import TurnPresenceService           from '../../../services/memory-core/TurnPresenceService.mjs';
 import MemoryCoreRecorderService     from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {admitNlActions}              from '../../../services/memory-core/helpers/nlActionTelemetryStore.mjs';
+import {
+    getNlTransaction,
+    markNlTransactionReplayed,
+    saveNlTransaction
+} from '../../../services/memory-core/helpers/nlTransactionArchiveStore.mjs';
 import {readSandmanHandoff}          from '../../../services/memory-core/helpers/sandmanHandoffStore.mjs';
 import {exploreLaneLandscape}        from '../../../services/graph/exploreLaneLandscape.mjs';
 import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
@@ -510,7 +516,15 @@ const serviceMapping = {
     who_is_online                : WakeSubscriptionService.whoIsOnline             .bind(WakeSubscriptionService),
     purge_session                : SessionService         .purgeSession            .bind(SessionService),
     resume_session               : SessionService         .validateSessionForResume.bind(SessionService),
-    set_session_id               : SessionService         .setSessionId            .bind(SessionService)
+    set_session_id               : SessionService         .setSessionId            .bind(SessionService),
+    // Neural Link's durable data, relocated off the host's own SQLite file onto the one graph.
+    // NL itself stays host-resident — it drives a real browser — so every one of these is
+    // HOST-INITIATED: the host asks, the container answers. `admit_nl_actions` is additionally WRITE-ONLY
+    // by contract, which is why there is no `get_nl_actions` beside it and why its absence is asserted.
+    save_nl_transaction         : saveNlTransaction,
+    get_nl_transaction          : getNlTransaction,
+    mark_nl_transaction_replayed: markNlTransactionReplayed,
+    admit_nl_actions            : admitNlActions
 };
 
 const toolService = Neo.create(ToolService, {
