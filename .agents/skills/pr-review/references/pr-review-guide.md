@@ -180,13 +180,19 @@ At RC2 or >24KB, load the payload. **A demand round is a `CHANGES_REQUESTED`** �
 `**Glance:**` (the premise + correctness check), the canonical
 `- **Origin Session ID:**` line. No premise snapshot, no Depth Floor, no audits.
 
-**When:** a MECHANICAL PR — no architectural concept to teach (test-only /
-config-leaf / behavior-preserving / docs / receipt refresh) — at ANY size, or a
-micro/contained diff. **Never** for ADR / new abstraction / consumed contract /
-security / migration / fleet-critical zones (`ai/` config, release path,
-workflows, substrate, MCP contracts) — full form regardless of size. Authors
-signal with `Micro-review eligible: <class> — <why>`; the reviewer decides;
-escalating to full is always free, the reverse never happens.
+**When — a rule, not a permission.** A MECHANICAL PR *gets* this shape: no
+architectural concept to teach (test-only / config-leaf / behavior-preserving /
+docs / receipt refresh), at ANY size. **Paying the full floor on a mechanical
+diff is itself the violation** — an optional short path does not get used.
+**Never** for ADR / new abstraction / consumed
+contract / security / migration / fleet-critical zones (`ai/` config, release
+path, workflows, substrate, MCP contracts) — full form regardless of size.
+Authors signal with `Micro-review eligible: <class> — <why>`; the reviewer
+decides; escalating to full is always free, the reverse never happens.
+
+**Trigger is mechanical-vs-concept-bearing, never line count.** Worked pair: a
+400-line receipt refresh teaches nothing → MICRO; a 3-line ADR row defines a
+predicate reviewers run against `dev` → FULL. Size pointed the wrong way twice.
 
 **Bounded-repair guard (Grace, #17527):** a repair stays micro-eligible only
 while it touches NO site the prescription did not name — a widened repair is a
@@ -199,7 +205,7 @@ RESIDUE under the circuit breaker after semantics cleared.
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
-Structural compliance ≠ rigor — these mandates (+ the concept-graph feed) are for **concept-bearing** changes: touch an ADR/new-abstraction/consumed-contract/security/migration. A **mechanical** PR (test/config/behavior-preserving, any size) gets a premise+correctness glance → Approve.
+Structural compliance ≠ rigor. This floor is for **concept-bearing** changes. A **mechanical** PR takes §6.4's Micro-Review instead — cycle-1-eligible, no prior round; §6.4 owns the rule and its never-zones.
 
 ### 7.1 Minimum-One-Challenge for Peer Reviews
 

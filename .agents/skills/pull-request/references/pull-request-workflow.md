@@ -252,8 +252,11 @@ After an author posts a review-response comment with fixup commits and the autho
 
 When a review lands on your PR, verify the reviewer used the correct
 template before treating the review as substantively complete:
-- **Cycle 1**: review must follow `pr-review-template.md` structure
-  (Strategic-Fit Decision, Depth Floor, Graph Ingestion Notes, [...])
+- **Cycle 1**: `pr-review-template.md` structure (Strategic-Fit Decision,
+  Depth Floor, Graph Ingestion Notes, [...]) — **or**
+  `pr-review-micro-review-template.md` when the PR is mechanical per
+  `pr-review-guide.md` §6.4. A correctly-short micro-review is compliant;
+  demanding the full form on a mechanical diff is the violation
 - **Cycle 2 (ordinary)**: `pr-review-round-2-template.md` — dispositions
   Cycle-1 actions verbatim; mints no new checklist
 - **Cycle ≥2 exceptional** (D+S, repair re-entry):
