@@ -14,6 +14,11 @@ on:
       # removal can be blessed by updating the record of what exists, with nothing re-reading reality.
       - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
+      # ADR-0019's catalog and its sibling executable rule objects are inputs to the two-way
+      # ownership verdict. A change to any one must run the checker on that same PR.
+      - 'learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md'
+      - 'buildScripts/util/check-aiconfig-antipatterns.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
       # Compose templates are SCANNED by two rules — the Compose/default parity check and the
       # behavior-binding clock projection check (#17115) — so by the scanned ⊆ watched invariant
@@ -43,6 +48,11 @@ on:
       # removal can be blessed by updating the record of what exists, with nothing re-reading reality.
       - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
+      # ADR-0019's catalog and its sibling executable rule objects are inputs to the two-way
+      # ownership verdict. A change to any one must run the checker on that same push.
+      - 'learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md'
+      - 'buildScripts/util/check-aiconfig-antipatterns.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
       # Compose templates are SCANNED by two rules — the Compose/default parity check and the
       # behavior-binding clock projection check (#17115) — so by the scanned ⊆ watched invariant

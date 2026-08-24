@@ -1,10 +1,10 @@
-import {test, expect}                                                                      from '@playwright/test';
-import {spawnSync}                                                                         from 'node:child_process';
-import {existsSync, mkdirSync, rmSync, writeFileSync}                                      from 'node:fs';
-import path                                                                                from 'node:path';
-import process                                                                             from 'node:process';
-import {fileURLToPath}                                                                     from 'node:url';
-import {findDbPathMutations, findCloneCaptures, scanFileContent, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
+import {test, expect}                                                                                      from '@playwright/test';
+import {spawnSync}                                                                                         from 'node:child_process';
+import {existsSync, mkdirSync, rmSync, writeFileSync}                                                      from 'node:fs';
+import path                                                                                                from 'node:path';
+import process                                                                                             from 'node:process';
+import {fileURLToPath}                                                                                     from 'node:url';
+import {findDbPathMutations, findCloneCaptures, scanFileContent, ADR_0019_RULES, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
@@ -16,6 +16,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * inline escape marker.
  */
 test.describe('check-aiconfig-test-mutation guard', () => {
+    test('B4 lives on the executable mutation rule object', () => {
+        expect(ADR_0019_RULES.map(rule => rule.id)).toEqual(['B4']);
+        expect(ADR_0019_RULES[0].detect).toBe(findDbPathMutations)
+    });
+
     test('flags storagePaths / database / collections / logPath assignments', () => {
         expect(findDbPathMutations('aiConfig.storagePaths.graph = testPath;').map(h => h.line)).toEqual([1]);
         expect(findDbPathMutations("aiConfig.engines.chroma.database = `graph-${process.pid}`;").map(h => h.line)).toEqual([1]);

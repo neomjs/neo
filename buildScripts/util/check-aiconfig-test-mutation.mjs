@@ -384,6 +384,21 @@ export function findCloneCaptures(content) {
 }
 
 /**
+ * @summary AiConfig catalog rules enforced by this guard, with each id attached to the
+ * executable detector the scanner invokes.
+ *
+ * The restore-capture detector is intentionally absent: it is a separate correctness class and
+ * does not claim an AiConfig catalog id. Keeping B4 on the detector object prevents a detached
+ * file-level id list from agreeing with comments while the executable rule changes underneath it.
+ * @type {ReadonlyArray<{id: String, detect: Function}>}
+ */
+export const ADR_0019_RULES = Object.freeze([
+    Object.freeze({id: 'B4', detect: findDbPathMutations})
+]);
+
+const B4_RULE = ADR_0019_RULES[0];
+
+/**
  * @summary Scans one file's content for both rules, applying the allowlist to Class-A only.
  *
  * The allowlist is scoped to Class-A and stays that way. Every entry justifies a DB-PATH mutation
@@ -404,7 +419,7 @@ export function findCloneCaptures(content) {
  */
 export function scanFileContent(file, content, {allowlist = ALLOWLIST} = {}) {
     return {
-        dbPathHits: allowlist.has(file) ? [] : findDbPathMutations(content),
+        dbPathHits: allowlist.has(file) ? [] : B4_RULE.detect(content),
         cloneHits : findCloneCaptures(content)
     }
 }

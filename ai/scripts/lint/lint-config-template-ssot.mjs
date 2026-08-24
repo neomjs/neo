@@ -63,6 +63,9 @@ const SCAN_ROOT_REL                   = 'ai';
 const TEST_SCAN_ROOT_REL              = 'test';
 const DEPLOY_SCAN_ROOT_REL            = 'ai/deploy';
 const SELF_REL_FILE                   = 'ai/scripts/lint/lint-config-template-ssot.mjs';
+const ADR_0019_REL_FILE               = 'learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md';
+const ANTIPATTERN_GUARD_REL_FILE      = 'buildScripts/util/check-aiconfig-antipatterns.mjs';
+const TEST_MUTATION_GUARD_REL_FILE    = 'buildScripts/util/check-aiconfig-test-mutation.mjs';
 
 // The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
 // verdict to stay reproducible at PR time (scanned ⊆ watched as a mechanical fact, not YAML
@@ -76,7 +79,13 @@ export const SCAN_SURFACE = Object.freeze([
     // sibling parity spec DEMAND the workflow watch it; leaving it undeclared would let the spec
     // report a satisfied invariant over an incomplete picture of what this lint actually reads —
     // the same shape as the unprojected clock these rules exist to catch, one layer up.
-    `${DEPLOY_SCAN_ROOT_REL}/**`
+    `${DEPLOY_SCAN_ROOT_REL}/**`,
+    // The AiConfig catalog and both sibling guard declarations are verdict inputs for the
+    // tag-to-executable-rule ownership check. If any changes without this lint running, the
+    // two-way contract can drift on the exact commit that introduced the disagreement.
+    ADR_0019_REL_FILE,
+    ANTIPATTERN_GUARD_REL_FILE,
+    TEST_MUTATION_GUARD_REL_FILE
 ]);
 const CONFIG_TEMPLATE_KIND_CACHE         = new Map();
 const SERVICE_EXPORT_CONFIG_TEMPLATE_REL = Object.freeze({
@@ -241,6 +250,53 @@ function shouldScanAiConfigImplementation(file) {
 }
 
 /**
+ * @summary The A4 catalog rule object consumed by the config-template scanner.
+ * @type {{id: String, detect: Function}}
+ */
+const INLINE_ENV_LEAF_RULE = Object.freeze({id: 'A4', detect: detectInlineEnvLeaves});
+
+/**
+ * @summary Executable implementation rules for direct AiConfig misuse.
+ *
+ * Catalog ids live on the same objects as their predicates. Descriptive ids cover additional
+ * SSOT failure shapes that the ADR decision sentence governs but its A/B/C catalog does not name;
+ * the ADR ownership validator deliberately projects only A/B/C ids.
+ * @type {ReadonlyArray<{id: String, kind: String, pattern: RegExp}>}
+ */
+export const AI_CONFIG_IMPLEMENTATION_RULES = Object.freeze([
+    Object.freeze({
+        id     : 'B1',
+        kind   : 'export',
+        pattern: /\bexport\s+(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*AiConfig(?:\?\.|\.)/
+    }),
+    Object.freeze({
+        id     : 'B5',
+        kind   : 'config-pass-through',
+        pattern: /\b[A-Za-z_$][\w$]*Config[\w$]*\s*:\s*AiConfig(?:\?\.|\.)/
+    }),
+    Object.freeze({
+        id     : 'B5',
+        kind   : 'config-parameter-default',
+        pattern: /[({,]\s*[A-Za-z_$][\w$]*Config[\w$]*\s*=\s*AiConfig(?:\?\.|\.)/
+    }),
+    Object.freeze({
+        id     : 'B3',
+        kind   : 'defensive-optional-chain',
+        pattern: /\bAiConfig\?\.|\bAiConfig(?:\.[A-Za-z_$][\w$]*)+\?\./
+    }),
+    Object.freeze({
+        id     : 'TYPE-COERCION',
+        kind   : 'type-coercion',
+        pattern: /\b(?:Number|Boolean)\s*\(\s*AiConfig(?:\?\.|\.)/
+    }),
+    Object.freeze({
+        id     : 'HIDDEN-DEFAULT',
+        kind   : 'hidden-default',
+        pattern: /\bAiConfig(?:\?\.|\.[A-Za-z_$][\w$]*)[^;\n]*(?:\?\?|\|\|)/
+    })
+]);
+
+/**
  * @summary Detects single-line `leaf(...)` defaults that read `process.env` inline.
  *
  * Pure: operates on source text, so it is unit-testable without touching disk. Env access
@@ -288,30 +344,10 @@ export function detectAiConfigImplementationViolations(source) {
         if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*') || trimmed.startsWith('*/')) return;
         if (!/\bAiConfig(?:\?\.|\.)/.test(trimmed)) return;
 
-        const push = kind => violations.push({line: index + 1, kind, text: trimmed});
-
-        if (/\bexport\s+(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*AiConfig(?:\?\.|\.)/.test(trimmed)) {
-            push('export');
-        }
-
-        if (/\b[A-Za-z_$][\w$]*Config[\w$]*\s*:\s*AiConfig(?:\?\.|\.)/.test(trimmed)) {
-            push('config-pass-through');
-        }
-
-        if (/[({,]\s*[A-Za-z_$][\w$]*Config[\w$]*\s*=\s*AiConfig(?:\?\.|\.)/.test(trimmed)) {
-            push('config-parameter-default');
-        }
-
-        if (/\bAiConfig\?\.|\bAiConfig(?:\.[A-Za-z_$][\w$]*)+\?\./.test(trimmed)) {
-            push('defensive-optional-chain');
-        }
-
-        if (/\b(?:Number|Boolean)\s*\(\s*AiConfig(?:\?\.|\.)/.test(trimmed)) {
-            push('type-coercion');
-        }
-
-        if (/\bAiConfig(?:\?\.|\.[A-Za-z_$][\w$]*)[^;\n]*(?:\?\?|\|\|)/.test(trimmed)) {
-            push('hidden-default');
+        for (const rule of AI_CONFIG_IMPLEMENTATION_RULES) {
+            if (rule.pattern.test(trimmed)) {
+                violations.push({line: index + 1, kind: rule.kind, rule: rule.id, text: trimmed})
+            }
         }
     });
 
@@ -2093,6 +2129,416 @@ function stripStringsAndLineComment(line) {
 }
 
 /**
+ * @summary Collects environment names owned by `leaf(default, env, type)` declarations.
+ * @param {String} source Config source.
+ * @returns {Set<String>} Declared environment names.
+ */
+export function collectConfigEnvNamesFromSource(source) {
+    const names = new Set(),
+          ast   = parseModule(source);
+
+    walkAstScoped(ast, node => {
+        if (node.type !== 'CallExpression') return;
+
+        const isLeaf = node.callee?.type === 'Identifier' && node.callee.name === 'leaf' ||
+            node.callee?.type === 'MemberExpression' &&
+            !node.callee.computed && node.callee.property?.name === 'leaf';
+
+        if (!isLeaf) return;
+
+        const envArg = node.arguments?.[1];
+        if (envArg?.type === 'Literal' && typeof envArg.value === 'string' && envArg.value) {
+            names.add(envArg.value)
+        }
+    });
+
+    return names;
+}
+
+/**
+ * @summary Builds the repository-wide set of env names already bound by AiConfig leaves.
+ * @param {String} [rootDir] Repo root.
+ * @returns {Set<String>} Declared environment names.
+ */
+export function collectDeclaredAiConfigEnvNames(rootDir = ROOT_DIR) {
+    const names = new Set();
+
+    walkMjsFiles(path.join(rootDir, SCAN_ROOT_REL))
+        .filter(file => [CONFIG_BASE_BASENAME, CONFIG_TEMPLATE_BASENAME].includes(path.basename(file)))
+        .forEach(file => {
+            collectConfigEnvNamesFromSource(fs.readFileSync(file, 'utf8')).forEach(name => names.add(name))
+        });
+
+    return names;
+}
+
+/**
+ * @summary Classifies a source module as a thread entrypoint from executable ownership shape.
+ *
+ * A direct `process.argv[1]`/`import.meta.url` guard or an unguarded top-level `main()` call is a
+ * checkable execution boundary. File names are deliberately not authority: `Agent.mjs` and
+ * `runAgent.mjs` differ by behaviour, not by a reader deciding that one name sounds entry-like.
+ * @param {Object} options
+ * @param {String} options.source Module source.
+ * @param {Object} [options.ast] Parsed module.
+ * @returns {Boolean}
+ */
+export function isThreadEntrypoint({source, ast = parseModule(source)}) {
+    const callsMain = expression => {
+        if (!expression) return false;
+        if (expression.type === 'AwaitExpression' || expression.type === 'ChainExpression') {
+            return callsMain(expression.argument ?? expression.expression)
+        }
+        if (expression.type !== 'CallExpression') return false;
+        if (expression.callee?.type === 'Identifier' && expression.callee.name === 'main') return true;
+        return expression.callee?.type === 'MemberExpression' && callsMain(expression.callee.object)
+    };
+
+    for (const statement of ast.body) {
+        if (statement.type === 'ExpressionStatement' && callsMain(statement.expression)) return true;
+
+        if (statement.type === 'IfStatement') {
+            const condition = source.slice(statement.test.start, statement.test.end),
+                  hasArgv   = /process\s*\.\s*argv\s*\[\s*1\s*]/.test(condition),
+                  hasModule = /import\s*\.\s*meta\s*\.\s*url|fileURLToPath\s*\(\s*import\s*\.\s*meta\s*\.\s*url/.test(condition);
+
+            if (hasArgv && hasModule) return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @summary Collects `process.env.NAME` / `process.env['NAME']` references from an AST subtree.
+ * @param {Object} node AST subtree.
+ * @param {Set<String>} [out] Accumulator.
+ * @returns {Set<String>} Environment names.
+ */
+function collectProcessEnvNames(node, out = new Set()) {
+    if (!node || typeof node !== 'object') return out;
+
+    if (node.type === 'MemberExpression' && node.object?.type === 'MemberExpression' &&
+        node.object.object?.type === 'Identifier' && node.object.object.name === 'process' &&
+        !node.object.computed && node.object.property?.name === 'env'
+    ) {
+        const name = node.computed ? node.property?.value : node.property?.name;
+        if (typeof name === 'string' && name) out.add(name)
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (['loc', 'start', 'end', 'type'].includes(key)) continue;
+        if (Array.isArray(value)) {
+            value.forEach(child => collectProcessEnvNames(child, out));
+        } else {
+            collectProcessEnvNames(value, out)
+        }
+    }
+
+    return out;
+}
+
+/**
+ * @summary Detects C1's module-evaluated competing-resolver shape in non-entrypoint modules.
+ *
+ * Import location is intentionally irrelevant. The violation requires an exported module-scope
+ * value that re-reads an env name already owned by an AiConfig leaf; a bare `AiConfig` import
+ * therefore stays green while `DEFAULT_DB_PATH = process.env.NEO_DB_PATH || ...; export
+ * {DEFAULT_DB_PATH}` is red. An exported function that reads env only when invoked is not A1's
+ * module-evaluation shape and remains outside C1.
+ * @param {String} source Module source.
+ * @param {Object} options
+ * @param {Set<String>} options.configEnvNames Env names bound by AiConfig leaves.
+ * @param {Object} [options.ast] Parsed module.
+ * @returns {Array<{line: Number, kind: String, rule: String, binding: String, env: String, text: String}>}
+ */
+export function detectNonEntrypointConfigResolvers(
+    source,
+    {configEnvNames, ast = parseModule(source)} = {}
+) {
+    if (isThreadEntrypoint({source, ast})) return [];
+
+    const declarations = new Map(),
+          exported     = new Set(),
+          lines        = source.split('\n');
+
+    const recordDeclaration = declaration => {
+        if (declaration?.type === 'VariableDeclaration') {
+            declaration.declarations.forEach(item => {
+                if (item.id?.type === 'Identifier') declarations.set(item.id.name, item)
+            })
+        }
+    };
+
+    for (const statement of ast.body) {
+        if (statement.type === 'VariableDeclaration') {
+            recordDeclaration(statement)
+        }
+
+        if (statement.type !== 'ExportNamedDeclaration') continue;
+
+        recordDeclaration(statement.declaration);
+
+        if (statement.declaration?.type === 'VariableDeclaration') {
+            statement.declaration.declarations.forEach(item => {
+                if (item.id?.type === 'Identifier') exported.add(item.id.name)
+            })
+        }
+
+        statement.specifiers?.forEach(specifier => {
+            if (specifier.local?.name) exported.add(specifier.local.name)
+        })
+    }
+
+    const declaredNames = configEnvNames instanceof Set ? configEnvNames : new Set(),
+          violations    = [];
+
+    for (const binding of exported) {
+        const declaration = declarations.get(binding);
+        if (!declaration) continue;
+
+        const envNames = [...collectProcessEnvNames(declaration.init)]
+            .filter(name => declaredNames.has(name));
+
+        for (const env of envNames) {
+            const line = declaration.loc?.start?.line || 1;
+            violations.push({
+                line,
+                kind: 'competing-config-resolver',
+                rule: 'C1',
+                binding,
+                env,
+                text: lines[line - 1]?.trim() || ''
+            })
+        }
+    }
+
+    return violations;
+}
+
+const MODULE_SCOPE_CAPTURE_RULE = Object.freeze({id: 'B2', detect: detectModuleScopeAiConfigCaptures});
+const C1_RESOLVER_RULE          = Object.freeze({id: 'C1', detect: detectNonEntrypointConfigResolvers});
+const TEST_CONFIG_RULES         = Object.freeze([
+    Object.freeze({id: 'C3', detect: detectTestConfigOverlayImports}),
+    Object.freeze({id: 'B1', detect: detectTestConfigProviderExports})
+]);
+
+/**
+ * @summary AiConfig catalog rule objects executed by this guard.
+ * @type {ReadonlyArray<Object>}
+ */
+export const ADR_0019_RULES = Object.freeze([
+    INLINE_ENV_LEAF_RULE,
+    ...AI_CONFIG_IMPLEMENTATION_RULES.filter(rule => /^[A-C]\d+$/.test(rule.id)),
+    MODULE_SCOPE_CAPTURE_RULE,
+    C1_RESOLVER_RULE,
+    ...TEST_CONFIG_RULES
+]);
+
+/**
+ * @summary Reads catalog ids from an exported array of executable rule objects.
+ *
+ * A detached string array is deliberately rejected. Every element must be an object carrying both
+ * an `id` literal and the `pattern` or `detect` property the owning scanner invokes.
+ * @param {String} source Guard module source.
+ * @returns {String[]} Catalog ids in declaration order.
+ */
+export function collectCatalogRuleIdsFromSource(source) {
+    const ast = parseModule(source);
+
+    for (const statement of ast.body) {
+        const declaration = statement.type === 'ExportNamedDeclaration'
+                  ? statement.declaration
+                  : statement,
+              declarator = declaration?.type === 'VariableDeclaration'
+                  ? declaration.declarations.find(item => item.id?.name === 'ADR_0019_RULES')
+                  : null;
+
+        if (!declarator) continue;
+
+        const expression = declarator.init?.type === 'CallExpression' &&
+              declarator.init.callee?.type === 'MemberExpression' &&
+              declarator.init.callee.object?.name === 'Object' &&
+              declarator.init.callee.property?.name === 'freeze'
+            ? declarator.init.arguments[0]
+            : declarator.init;
+
+        if (expression?.type !== 'ArrayExpression') {
+            throw new Error('ADR_0019_RULES must be an exported array of executable rule objects')
+        }
+
+        return expression.elements.map(element => {
+            if (element?.type !== 'CallExpression' ||
+                element.callee?.type !== 'MemberExpression' ||
+                element.callee.object?.name !== 'Object' ||
+                element.callee.property?.name !== 'freeze' ||
+                element.arguments[0]?.type !== 'ObjectExpression'
+            ) {
+                throw new Error('ADR_0019_RULES entries must be Object.freeze({...}) rule objects')
+            }
+
+            const properties = element.arguments[0].properties,
+                  idProperty = properties.find(property => property.key?.name === 'id'),
+                  executable = properties.some(property => ['pattern', 'detect'].includes(property.key?.name));
+
+            if (idProperty?.value?.type !== 'Literal' || typeof idProperty.value.value !== 'string' || !executable) {
+                throw new Error('Each ADR_0019_RULES object requires a string id plus pattern/detect')
+            }
+
+            return idProperty.value.value
+        })
+    }
+
+    throw new Error('Guard source does not export ADR_0019_RULES')
+}
+
+/**
+ * @summary Builds the named guard registry consumed by the catalog's two-way ownership check.
+ * @param {Object} [options] Injectable rule arrays/sources for mutation tests.
+ * @param {String} [options.rootDir] Repo root.
+ * @returns {Map<String,Set<String>>} Guard name to enforced catalog ids.
+ */
+export function createAdr0019GuardRegistry({
+    rootDir = ROOT_DIR,
+    antipatternRules,
+    antipatternSource = fs.readFileSync(path.join(rootDir, ANTIPATTERN_GUARD_REL_FILE), 'utf8'),
+    testMutationRules,
+    testMutationSource = fs.readFileSync(path.join(rootDir, TEST_MUTATION_GUARD_REL_FILE), 'utf8'),
+    configSsotRules = ADR_0019_RULES
+} = {}) {
+    const antipatternIds = antipatternRules
+              ? antipatternRules.map(rule => rule.id)
+              : collectCatalogRuleIdsFromSource(antipatternSource),
+          testMutationIds = testMutationRules
+              ? testMutationRules.map(rule => rule.id)
+              : collectCatalogRuleIdsFromSource(testMutationSource);
+
+    return new Map([
+        ['check-aiconfig-antipatterns', new Set(antipatternIds)],
+        ['check-aiconfig-test-mutation', new Set(testMutationIds)],
+        ['lint-config-template-ssot', new Set(configSsotRules.map(rule => rule.id))]
+    ])
+}
+
+/**
+ * @summary Parses the AiConfig catalog ids and machine-owned enforcement tags.
+ * @param {String} source ADR source.
+ * @returns {Array<{id: String, tag: String, guards: String[], unenforced: Boolean, line: Number}>}
+ */
+export function parseAdr0019CatalogRows(source) {
+    const rows  = [],
+          lines = source.split('\n');
+    let   inCatalog = false;
+
+    lines.forEach((line, index) => {
+        if (/^## 3\.\s/.test(line)) {
+            inCatalog = true;
+            return
+        }
+        if (inCatalog && /^### Group D\/E\b/.test(line)) {
+            inCatalog = false;
+            return
+        }
+        if (!inCatalog || !/^\|/.test(line)) return;
+
+        const cells = line.split(/(?<!\\)\|/);
+        if (cells.length < 5) return;
+
+        const id = cells[1].match(/\b([A-C]\d+)\b/)?.[1];
+        if (!id) return;
+
+        const tag          = cells[3].trim(),
+              guardedMatch = tag.match(/\[guarded:\s*([^\]]+)\]/),
+              unenforced   = /\[unenforced(?::[^\]]+)?\]/.test(tag),
+              guards       = guardedMatch
+                  ? guardedMatch[1].split(',').map(value => value.trim()).filter(Boolean)
+                  : [];
+
+        rows.push({id, tag, guards, unenforced, line: index + 1})
+    });
+
+    return rows;
+}
+
+/**
+ * @summary Validates the catalog's tag-to-executable-rule relation in both directions.
+ *
+ * A tagged guard must execute the named id (no overstatement), and every executable catalog id
+ * must name that guard in the ADR (no understatement). `[unenforced: reason]` is the explicit
+ * negative state; a live/proposed/file tag with neither state is rejected as unverifiable prose.
+ * @param {Object} options
+ * @param {String} options.adrSource ADR source.
+ * @param {Map<String,Set<String>>} [options.guardRegistry] Injectable guard registry.
+ * @returns {{rows: Object[], violations: Object[]}}
+ */
+export function validateAdr0019GuardOwnership({
+    adrSource,
+    guardRegistry = createAdr0019GuardRegistry()
+}) {
+    const rows       = parseAdr0019CatalogRows(adrSource),
+          rowsById   = new Map(),
+          violations = [];
+
+    for (const row of rows) {
+        if (rowsById.has(row.id)) {
+            violations.push({id: row.id, kind: 'duplicate-row', line: row.line});
+            continue;
+        }
+        rowsById.set(row.id, row);
+
+        if (row.guards.length === 0 && !row.unenforced) {
+            violations.push({id: row.id, kind: 'unverifiable-tag', line: row.line, tag: row.tag})
+        }
+
+        for (const guard of row.guards) {
+            const ids = guardRegistry.get(guard);
+            if (!ids) {
+                violations.push({id: row.id, guard, kind: 'unknown-guard', line: row.line});
+            } else if (!ids.has(row.id)) {
+                violations.push({id: row.id, guard, kind: 'overstates-enforcement', line: row.line})
+            }
+        }
+
+        if (row.unenforced) {
+            for (const [guard, ids] of guardRegistry) {
+                if (ids.has(row.id)) {
+                    violations.push({id: row.id, guard, kind: 'understates-enforcement', line: row.line})
+                }
+            }
+        }
+    }
+
+    for (const [guard, ids] of guardRegistry) {
+        for (const id of ids) {
+            const row = rowsById.get(id);
+            if (!row) {
+                violations.push({id, guard, kind: 'guard-id-missing-from-adr'});
+            } else if (!row.guards.includes(guard)) {
+                violations.push({id, guard, kind: 'understates-enforcement', line: row.line})
+            }
+        }
+    }
+
+    return {rows, violations};
+}
+
+/**
+ * @summary Reads the AiConfig decision catalog and applies two-way guard-ownership validation.
+ * @param {Object} [options]
+ * @param {String} [options.rootDir] Repo root.
+ * @param {String} [options.adrSource] Injected ADR source.
+ * @param {Map<String,Set<String>>} [options.guardRegistry] Injectable registry.
+ * @returns {{rows: Object[], violations: Object[]}}
+ */
+export function lintAdr0019GuardOwnership({
+    rootDir      = ROOT_DIR,
+    adrSource   = fs.readFileSync(path.join(rootDir, ADR_0019_REL_FILE), 'utf8'),
+    guardRegistry
+} = {}) {
+    return validateAdr0019GuardOwnership({adrSource, guardRegistry})
+}
+
+/**
  * @summary Core lint: scans config templates and partitions inline-env leaf defaults into
  * baselined, new (unbaselined), and stale-baseline sets.
  * @param {Object} [options]
@@ -2110,7 +2556,7 @@ export function lintConfigTemplateSsot({rootDir = ROOT_DIR, files, baseline = BA
     const violations = [];
 
     for (const {file, source} of records) {
-        for (const hit of detectInlineEnvLeaves(source)) {
+        for (const hit of INLINE_ENV_LEAF_RULE.detect(source)) {
             violations.push({file, ...hit});
         }
     }
@@ -2194,7 +2640,7 @@ export async function lintAiConfigModuleScopeCaptures({
 
         const configPathKindsByIdentifier = await buildConfigPathKindsByIdentifier({rootDir, file, source});
 
-        for (const hit of detectModuleScopeAiConfigCaptures(source, {configPathKindsByIdentifier})) {
+        for (const hit of MODULE_SCOPE_CAPTURE_RULE.detect(source, {configPathKindsByIdentifier})) {
             violations.push({file, ...hit});
         }
     }
@@ -2208,6 +2654,39 @@ export async function lintAiConfigModuleScopeCaptures({
         newViolations: violations.filter(v => !baselineKeys.has(keyOf(v))),
         staleBaseline: baseline.filter(b => !violationKeys.has(keyOf(b)))
     };
+}
+
+/**
+ * @summary Scans non-entrypoint modules for exported resolvers that compete with AiConfig leaves.
+ * @param {Object} [options]
+ * @param {String} [options.rootDir] Repo root.
+ * @param {Array<{file: String, source: String}>} [options.files] Injected implementation records.
+ * @param {Set<String>} [options.configEnvNames] Injected leaf-owned env set.
+ * @returns {{violations: Object[]}}
+ */
+export function lintNonEntrypointConfigResolvers({
+    rootDir       = ROOT_DIR,
+    files,
+    configEnvNames = collectDeclaredAiConfigEnvNames(rootDir)
+} = {}) {
+    const records = files || walkMjsFiles(path.join(rootDir, SCAN_ROOT_REL))
+        .map(abs => ({
+            file  : normalizeFile(path.relative(rootDir, abs)),
+            source: fs.readFileSync(abs, 'utf8')
+        }))
+        .filter(({file}) => shouldScanAiConfigImplementation(file));
+
+    const violations = [];
+
+    for (const {file, source} of records) {
+        if (!shouldScanAiConfigImplementation(file)) continue;
+
+        for (const hit of C1_RESOLVER_RULE.detect(source, {configEnvNames})) {
+            violations.push({file, ...hit})
+        }
+    }
+
+    return {violations};
 }
 
 /**
@@ -2229,10 +2708,12 @@ export function lintTestConfigAuthority({rootDir = ROOT_DIR, files} = {}) {
     for (const {file, source} of records) {
         const ast = parseModule(source);
 
-        violations.push(
-            ...detectTestConfigOverlayImports(source, {file, rootDir, ast}),
-            ...detectTestConfigProviderExports(source, {file, rootDir, ast})
-        );
+        TEST_CONFIG_RULES.forEach(rule => {
+            violations.push(...rule.detect(source, {file, rootDir, ast}).map(hit => ({
+                ...hit,
+                rule: rule.id
+            })))
+        })
     }
 
     return {violations};
@@ -2257,7 +2738,7 @@ const TEST_CONFIG_OVERLAY_FIX_HINT = 'Tests resolve committed config templates, 
 /**
  * @summary CLI wrapper. Returns an exit code (0 clean, 1 on new violations or stale baseline rows).
  * @param {Object} [options] Forwarded to {@link lintConfigTemplateSsot}.
- * @returns {{exitCode: Number, violations: Object[], newViolations: Object[], staleBaseline: Object[], testConfig: Object}}
+ * @returns {{exitCode: Number, violations: Object[], newViolations: Object[], staleBaseline: Object[], testConfig: Object, c1Resolvers: Object, adrOwnership: Object}}
  */
 export async function runLint(options = {}) {
     const {
@@ -2268,7 +2749,11 @@ export async function runLint(options = {}) {
               implementationBaseline = AI_CONFIG_IMPLEMENTATION_BASELINE,
               moduleScopeFiles,
               moduleScopeBaseline    = AI_CONFIG_MODULE_SCOPE_BASELINE,
-              testConfigFiles
+              testConfigFiles,
+              c1Files,
+              configEnvNames,
+              adrSource,
+              guardRegistry
           } = options,
           result               = lintConfigTemplateSsot({rootDir, files, baseline}),
           implementationResult = lintAiConfigImplementationSsot({
@@ -2281,7 +2766,13 @@ export async function runLint(options = {}) {
               files   : moduleScopeFiles,
               baseline: moduleScopeBaseline
           }),
+          c1Result = lintNonEntrypointConfigResolvers({
+              rootDir,
+              files: c1Files,
+              configEnvNames
+          }),
           testConfigResult = lintTestConfigAuthority({rootDir, files: testConfigFiles}),
+          adrOwnershipResult = lintAdr0019GuardOwnership({rootDir, adrSource, guardRegistry}),
           parityResult     = await detectConfigLeafParityViolations({rootDir}),
           composeDefaultViolations = await detectComposeDefaultRestatements({rootDir}),
           projectionViolations     = await detectUnprojectedBehaviorBindingClocks({rootDir}),
@@ -2290,7 +2781,9 @@ export async function runLint(options = {}) {
               implementationResult.staleBaseline.length > 0,
           hasModuleScopeFailures = moduleScopeResult.newViolations.length > 0 ||
               moduleScopeResult.staleBaseline.length > 0,
+          hasC1Failures = c1Result.violations.length > 0,
           hasTestConfigFailures = testConfigResult.violations.length > 0,
+          hasAdrOwnershipFailures = adrOwnershipResult.violations.length > 0,
           hasComposeDefaultFailures = composeDefaultViolations.length > 0,
           hasProjectionFailures     = projectionViolations.length > 0,
           hasParityFailures = Object.keys(parityResult.missing).length > 0 ||
@@ -2311,16 +2804,18 @@ export async function runLint(options = {}) {
     }
 
     if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures &&
-        !hasModuleScopeFailures && !hasTestConfigFailures && !hasParityFailures &&
+        !hasModuleScopeFailures && !hasC1Failures && !hasTestConfigFailures && !hasAdrOwnershipFailures && !hasParityFailures &&
         !hasComposeDefaultFailures && !hasProjectionFailures
     ) {
-        console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), ${testConfigResult.violations.length} test config-authority violation(s), all baselined or target-zero.`);
+        console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), ${c1Result.violations.length} C1 competing resolver(s), ${testConfigResult.violations.length} test config-authority violation(s), ${adrOwnershipResult.violations.length} ADR ownership mismatch(es), all baselined or target-zero.`);
         return {
             exitCode: 0,
             ...result,
             implementation : implementationResult,
             moduleScope    : moduleScopeResult,
+            c1Resolvers    : c1Result,
             testConfig     : testConfigResult,
+            adrOwnership   : adrOwnershipResult,
             composeDefaults: {violations: composeDefaultViolations},
             projection     : {violations: projectionViolations}
         };
@@ -2389,6 +2884,17 @@ export async function runLint(options = {}) {
         console.error('');
     }
 
+    if (c1Result.violations.length > 0) {
+        console.error(`[lint-config-template-ssot] FAILED - ${c1Result.violations.length} non-entrypoint competing config resolver(s):\n`);
+
+        for (const v of c1Result.violations) {
+            console.error(`- ${v.file}:${v.line}  (${v.rule}/${v.env})`);
+            console.error(`    ${v.text}`);
+        }
+
+        console.error('\nRead the AiConfig leaf at the use site. A non-entrypoint must not export a second resolver for an env the leaf already owns (ADR 0019 C1).\n');
+    }
+
     if (testConfigResult.violations.length > 0) {
         console.error(`[lint-config-template-ssot] FAILED - ${testConfigResult.violations.length} test config-authority violation(s):\n`);
 
@@ -2400,12 +2906,24 @@ export async function runLint(options = {}) {
         console.error(`\n${TEST_CONFIG_OVERLAY_FIX_HINT}\n`);
     }
 
+    if (adrOwnershipResult.violations.length > 0) {
+        console.error(`[lint-config-template-ssot] FAILED - ${adrOwnershipResult.violations.length} ADR-0019 catalog ownership mismatch(es):\n`);
+
+        for (const v of adrOwnershipResult.violations) {
+            console.error(`- ${v.id}${v.guard ? ` / ${v.guard}` : ''}: ${v.kind}${v.line ? ` (ADR line ${v.line})` : ''}`)
+        }
+
+        console.error('\nEach §3 row must use `[guarded: <guard>]` for executable rule objects or `[unenforced: <reason>]`; declarations and tags must agree both ways.\n');
+    }
+
     return {
         exitCode: 1,
         ...result,
         implementation : implementationResult,
         moduleScope    : moduleScopeResult,
+        c1Resolvers    : c1Result,
         testConfig     : testConfigResult,
+        adrOwnership   : adrOwnershipResult,
         composeDefaults: {violations: composeDefaultViolations}
     };
 }
@@ -2420,6 +2938,8 @@ async function main() {
         console.log('(outside the BASELINE), when a BASELINE row no longer matches a violation,');
         console.log('when ai/ implementation code adds mechanical ADR-19 AiConfig SSOT violations,');
         console.log('when ai/ implementation code adds module-scope AiConfig leaf captures,');
+        console.log('when a non-entrypoint exports a competing resolver for an AiConfig-owned env,');
+        console.log('when ADR-0019 catalog tags disagree with executable guard rule objects,');
         console.log('when test code imports an ignored overlay / exports a config-template-derived authority,');
         console.log('when Compose restates a config default / derived-retired env,');
         console.log('or when a declared config path leaves a template surface without updating the snapshot.');
