@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-08-24T05:05:09.459Z",
-  "releasesLastFetched": "2026-08-24T04:52:54.893Z",
+  "lastSync": "2026-08-24T06:00:16.568Z",
+  "releasesLastFetched": "2026-08-24T05:43:50.101Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -96884,7 +96884,7 @@
       "path": "resources/content/issues/chunk-10/issue-16136.md",
       "closedAt": null,
       "updatedAt": "2026-08-11T21:43:31Z",
-      "contentHash": "d7b3dcff634dafeb54f3060ae9e1adf8c6741ea9702604dde182d5cefd107e22",
+      "contentHash": "d4c76ffe3b19f3cbc7cf00b28daa05c50521391df2e6e8244fd2156ba741a46a",
       "milestone": null,
       "commentsTotal": 2
     },
@@ -97117,10 +97117,10 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-11/issue-16196.md",
       "closedAt": null,
-      "updatedAt": "2026-07-30T21:55:32Z",
-      "contentHash": "35e669acb99c897929cdf9388497c35b7c89a7c32fed66b2320e8bba1ec7d5a9",
+      "updatedAt": "2026-08-24T05:41:03Z",
+      "contentHash": "66ae2bb70802089e9c21083604ef37b5762cbd0c3530f0aecfeb1483fd4ed3f9",
       "milestone": null,
-      "commentsTotal": 0
+      "commentsTotal": 1
     },
     "16197": {
       "state": "CLOSED",
@@ -102460,11 +102460,11 @@
       "commentsTotal": 0
     },
     "17283": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-17/issue-17283.md",
-      "closedAt": null,
-      "updatedAt": "2026-08-24T04:47:01Z",
-      "contentHash": "d1a03ddd7fbe28019ffd480e33a4ab6e15b58664f98b27b49fd014e786c2d3a2",
+      "closedAt": "2026-08-24T05:05:16Z",
+      "updatedAt": "2026-08-24T05:05:16Z",
+      "contentHash": "00fb1099d3e560ec883638282371c589af6de25620e3e74d98ba98cdcb363421",
       "milestone": null,
       "commentsTotal": 3
     },
@@ -108127,15 +108127,6 @@
     }
   },
   "pulls": {
-    "17623": {
-      "state": "MERGED",
-      "path": "resources/content/pulls/chunk-14/pr-17623.md",
-      "closedAt": "2026-08-23T17:38:05Z",
-      "mergedAt": "2026-08-23T17:38:05Z",
-      "milestone": null,
-      "updatedAt": "2026-08-23T17:40:37Z",
-      "contentHash": "4f00a439dd9920f8f4a17f07a39848c50c33051f631ae0a9eccdf3dbc4d5a0af"
-    },
     "17624": {
       "state": "MERGED",
       "path": "resources/content/pulls/chunk-14/pr-17624.md",
@@ -108153,15 +108144,6 @@
       "milestone": null,
       "updatedAt": "2026-08-23T18:18:09Z",
       "contentHash": "37d169bba662323af64783506df6fede32491b08784891259a0171713448c809"
-    },
-    "17628": {
-      "state": "MERGED",
-      "path": "resources/content/pulls/chunk-14/pr-17628.md",
-      "closedAt": "2026-08-23T17:38:53Z",
-      "mergedAt": "2026-08-23T17:38:53Z",
-      "milestone": null,
-      "updatedAt": "2026-08-23T17:39:00Z",
-      "contentHash": "bbef194c26f03c4c40c4c2137d8f05d983b566749df3a84d09a71062fb7773ee"
     },
     "17632": {
       "state": "MERGED",
@@ -108396,6 +108378,24 @@
       "milestone": null,
       "updatedAt": "2026-08-24T04:54:21Z",
       "contentHash": "dc5a1b0b3c57f8f19d28db7d320c13cfd4d87584a370b35e6984a4a4f3439c43"
+    },
+    "17677": {
+      "state": "OPEN",
+      "path": "resources/content/pulls/chunk-14/pr-17677.md",
+      "closedAt": null,
+      "mergedAt": null,
+      "milestone": null,
+      "updatedAt": "2026-08-24T05:36:25Z",
+      "contentHash": "ea3d73cae67d75f9b2fdd25dfc26a03287352f1d840510d5c3d3e01ea6ac0770"
+    },
+    "17678": {
+      "state": "OPEN",
+      "path": "resources/content/pulls/chunk-14/pr-17678.md",
+      "closedAt": null,
+      "mergedAt": null,
+      "milestone": null,
+      "updatedAt": "2026-08-24T05:56:46Z",
+      "contentHash": "afb7426d403b4f2d8832180efddbda69048a8b8f9be7f1685525e3949c1b71a1"
     }
   },
   "discussions": {
@@ -110508,8 +110508,8 @@
       "path": "resources/content/discussions/chunk-2/discussion-17454.md",
       "closed": false,
       "closedAt": null,
-      "contentHash": "9aed960e6913d318806c2cef64756dda35924fc11768a30f2676af40fff13984",
-      "updatedAt": "2026-08-24T05:02:24Z"
+      "contentHash": "2ef1fa70c276f3fd34b4d129c6c0858db39c0188b1f7696d459f4af8b9eed7aa",
+      "updatedAt": "2026-08-24T05:34:20Z"
     },
     "17468": {
       "number": 17468,
