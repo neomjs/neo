@@ -877,7 +877,12 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
     const entrypoints = [{name: 'ai:probe', rel: 'ai/scripts/maintenance/backup.mjs', via: 'npm'}];
 
     test('an edge already in the ledger passes', () => {
-        const result = runLint({entrypoints, authorityByScript: {}, ledger: KNOWN_BACKUP_EDGES});
+        const result = runLint({
+            entrypoints,
+            authorityByScript: {},
+            ledger           : KNOWN_BACKUP_EDGES,
+            knownConflicts   : []
+        });
 
         expect(result.exitCode).toBe(0);
         expect(result.appeared).toEqual([]);
@@ -888,7 +893,12 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
         // identity for a fictional one: the total is identical, the closure is no sounder, and a
         // count-based gate stays green through it.
         const substituted = [...KNOWN_BACKUP_EDGES.slice(1), 'ai/invented/Module.mjs::dynamic-import'],
-              result      = runLint({entrypoints, authorityByScript: {}, ledger: substituted});
+              result      = runLint({
+                  entrypoints,
+                  authorityByScript: {},
+                  ledger           : substituted,
+                  knownConflicts   : []
+              });
 
         expect(substituted, 'the same number of entries').toHaveLength(KNOWN_BACKUP_EDGES.length);
         expect(result.exitCode, 'and it must still fail').toBe(1);
@@ -896,17 +906,31 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
         expect(result.resolved, 'and the one that vanished').toEqual(['ai/invented/Module.mjs::dynamic-import']);
     });
 
-    test('a ledger entry that no longer reproduces is reported, not silently kept', () => {
-        // The other direction. A ledger that only grows is a record; one that reports its own dead
-        // entries is a ratchet, because the next author is told exactly what to delete.
+    test('a ledger entry that no longer reproduces fails with its exact identity', () => {
+        // The other direction. A ledger that only grows is a record; a ratchet makes its own dead
+        // authority red, because a green instruction can remain ignored indefinitely.
         const result = runLint({
             entrypoints,
             authorityByScript: {},
-            ledger           : [...KNOWN_BACKUP_EDGES, 'ai/gone/Module.mjs::unparseable']
+            ledger           : [...KNOWN_BACKUP_EDGES, 'ai/gone/Module.mjs::unparseable'],
+            knownConflicts   : []
         });
 
-        expect(result.exitCode, 'a stale entry is not a failure on its own').toBe(0);
+        expect(result.exitCode, 'stale authority must fail the same gate that found it').toBe(1);
         expect(result.resolved).toEqual(['ai/gone/Module.mjs::unparseable']);
+    });
+
+    test('a known conflict that no longer reproduces fails with its exact identity', () => {
+        const identity = 'ai/gone/Module.mjs::retired-task::authority-conflict-in-plane',
+              result   = runLint({
+                  entrypoints,
+                  authorityByScript: {},
+                  ledger           : KNOWN_BACKUP_EDGES,
+                  knownConflicts   : [identity]
+              });
+
+        expect(result.exitCode, 'stale conflict authority must not survive on green').toBe(1);
+        expect(result.resolvedConflicts).toEqual([identity]);
     });
 
     test('an unlisted authority conflict fails; a ticketed one is held and still printed', () => {
@@ -920,10 +944,16 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
                       taskName: 'githubWorkflowSync', authorityClass: 'container-plane'
                   }
               },
+              ledger      = [KNOWN_BACKUP_EDGES[0]],
               identity    = 'ai/scripts/maintenance/syncGithubWorkflow.mjs::githubWorkflowSync::'
                   + 'authority-conflict-in-plane';
 
-        const unlisted = runLint({entrypoints: roots, authorityByScript: conflicting, ledger: KNOWN_BACKUP_EDGES});
+        const unlisted = runLint({
+            entrypoints      : roots,
+            authorityByScript: conflicting,
+            ledger,
+            knownConflicts   : []
+        });
 
         expect(unlisted.exitCode).toBe(1);
         expect(unlisted.conflicts).toHaveLength(1);
@@ -931,7 +961,7 @@ test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
         const held = runLint({
             entrypoints      : roots,
             authorityByScript: conflicting,
-            ledger           : KNOWN_BACKUP_EDGES,
+            ledger,
             knownConflicts   : [identity]
         });
 

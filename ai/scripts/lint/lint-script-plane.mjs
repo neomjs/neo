@@ -122,11 +122,6 @@ export const UNRESOLVED_EDGE_LEDGER = Object.freeze([
     'ai/scripts/maintenance/defragChromaDB.mjs::dynamic-import::loadConfig',
     'ai/scripts/maintenance/purgeTestCollections.mjs::dynamic-import::resolveChromaEndpoint',
 
-    // A specifier pointing at a module that no longer exists there — the flat-SDK migration left it
-    // behind. Not this lane's to repair; the edge is listed so its disappearance is visible.
-    'ai/scripts/maintenance/buildKbAgentFaqs.mjs::unresolved-specifier::'
-        + '../../mcp/server/knowledge-base/services/KBRecorderService.mjs',
-
     // Dispatch through a value the closure cannot name, with a capability behind the edge. The
     // callee is part of the identity, so the reader knows WHAT could not be followed.
     'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch::createAgent->agentFactory',
@@ -394,7 +389,8 @@ export function buildPlaneProjection({
 /**
  * @summary Runs the lint over every npm-declared `ai/scripts` entrypoint.
  * @param {Object} [options]
- * @returns {{exitCode: Number, conflicts: Object[], unresolved: Number, planes: Object}}
+ * @returns {{exitCode: Number, conflicts: Object[], edges: String[], appeared: String[],
+ * resolved: String[], resolvedConflicts: String[], planes: Object}}
  */
 export function runLint({
     entrypoints       = readEntrypoints(),
@@ -433,13 +429,16 @@ export function runLint({
     });
 
     const
-        known         = new Set(ledger),
-        knownConflict = new Set(knownConflicts),
-        appeared      = [...edges].filter(id => !known.has(id)).sort(),
-        resolved      = [...known].filter(id => !edges.has(id)).sort(),
-        newConflicts  = conflicts.filter(finding => !knownConflict.has(conflictIdentity(finding))),
-        heldConflicts = conflicts.filter(finding => knownConflict.has(conflictIdentity(finding))),
-        byVia         = via => entrypoints.filter(entry => entry.via === via).length;
+        known             = new Set(ledger),
+        knownConflict     = new Set(knownConflicts),
+        appeared          = [...edges].filter(id => !known.has(id)).sort(),
+        resolved          = [...known].filter(id => !edges.has(id)).sort(),
+        newConflicts      = conflicts.filter(finding => !knownConflict.has(conflictIdentity(finding))),
+        heldConflicts     = conflicts.filter(finding => knownConflict.has(conflictIdentity(finding))),
+        resolvedConflicts = knownConflicts
+            .filter(id => !conflicts.some(finding => conflictIdentity(finding) === id))
+            .sort(),
+        byVia             = via => entrypoints.filter(entry => entry.via === via).length;
 
     console.log(`[lint-script-plane] ${entrypoints.length} executable root(s) — `
         + `${byVia('npm')} npm-declared, ${byVia('workflow')} workflow-invoked, `
@@ -447,24 +446,30 @@ export function runLint({
     console.log(`  host-edge ${planes['host-edge']} · container-plane ${planes['container-plane']} `
         + `· shared-primitive ${planes['shared-primitive']} · unresolved ${planes.unresolved}`);
 
-    if (resolved.length > 0) {
-        console.log(`\n  ${resolved.length} ledger edge(s) no longer present — remove them from `
-            + 'UNRESOLVED_EDGE_LEDGER:');
-        resolved.forEach(id => console.log(`    - ${id}`))
-    }
-
     heldConflicts.forEach(finding => {
         console.log(`\n  KNOWN conflict, ticketed and held: ${finding.entrypoint} (${finding.taskName})`);
         console.log(`    ${finding.message}`)
     });
 
-    knownConflicts.filter(id => !conflicts.some(finding => conflictIdentity(finding) === id))
-        .forEach(id => console.log(`\n  KNOWN conflict no longer reproduces — remove it from `
-            + `KNOWN_AUTHORITY_CONFLICTS:\n    - ${id}`));
-
-    if (newConflicts.length === 0 && appeared.length === 0) {
+    if (newConflicts.length === 0 && appeared.length === 0 && resolved.length === 0
+        && resolvedConflicts.length === 0) {
         console.log(`\n  OK — no new authority conflicts; ${edges.size} unresolved edge(s), all known.`);
-        return {exitCode: 0, conflicts, edges: [...edges], appeared, resolved, planes}
+        return {exitCode: 0, conflicts, edges: [...edges], appeared, resolved, resolvedConflicts, planes}
+    }
+
+    if (resolved.length > 0) {
+        console.error(`\n[lint-script-plane] FAILED — stale unresolved-edge ledger authority `
+            + `(${resolved.length}):\n`);
+        resolved.forEach(id => console.error(`    - ${id}`));
+        console.error('\n  Remove stale authority from UNRESOLVED_EDGE_LEDGER. A ledger that only grows');
+        console.error('  is a record, not a ratchet.\n')
+    }
+
+    if (resolvedConflicts.length > 0) {
+        console.error(`\n[lint-script-plane] FAILED — stale known-conflict authority `
+            + `(${resolvedConflicts.length}):\n`);
+        resolvedConflicts.forEach(id => console.error(`    - ${id}`));
+        console.error('\n  Remove stale authority from KNOWN_AUTHORITY_CONFLICTS.\n')
     }
 
     if (newConflicts.length > 0) {
@@ -490,7 +495,7 @@ export function runLint({
         console.error('  the reason. Never swap one identity for another to keep a total steady.\n')
     }
 
-    return {exitCode: 1, conflicts, edges: [...edges], appeared, resolved, planes}
+    return {exitCode: 1, conflicts, edges: [...edges], appeared, resolved, resolvedConflicts, planes}
 }
 
 // Import-safe, per the house pattern in `lint-guard-ci-parity.mjs`: the workflow scan-root parity
