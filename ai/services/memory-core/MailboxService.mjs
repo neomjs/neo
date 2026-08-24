@@ -2418,10 +2418,14 @@ class MailboxService extends Base {
               wakeSuppressedBySender = wakeSuppressed === null || wakeSuppressed === undefined ? null : wakeSuppressed;
 
         priority       = priority       ?? (operatorSteering ? 'high' : 'normal');
-        // A broadcast cannot be action-required for everyone — if it were, it would be addressed to
-        // someone. So `AGENT:*` fan-out is quiet by DEFAULT, and a wake is the sender's election via
-        // explicit `wakeSuppressed: false`. That is the polarity `learn/agentos/A2A.md` already
-        // describes; what changed is that the implementation now covers it.
+        // Broadcasts are PRESUMED quiet; an all-hands interrupt is the sender's explicit
+        // `wakeSuppressed: false`. That is the polarity `learn/agentos/A2A.md` already describes;
+        // what changed is that the implementation now covers it.
+        //
+        // The earlier framing here — "a broadcast cannot be action-required for everyone" — read as
+        // a universal and is not one: the presumption is rebuttable per message, which is the whole
+        // point of the election. Corrected because the sentence was quoted onward into three other
+        // surfaces before anyone noticed it overstated the rule.
         //
         // This supersedes a four-tag allowlist that delivered the same sentence for claim-class
         // subjects only. The routine broadcast vocabulary is far wider — `pr-merged`,
