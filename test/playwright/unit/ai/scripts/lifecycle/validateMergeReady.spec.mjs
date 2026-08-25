@@ -15,10 +15,11 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
     // The gate itself is fail-closed on an unresolved verdict, which its own arms assert explicitly
     // rather than relying on this builder's silence.
     const openSource = overrides => ({
-        state             : 'OPEN',
-        mergedAt          : null,
-        crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
-        holdVerdict       : {held: false, holders: []},
+        state              : 'OPEN',
+        mergedAt           : null,
+        crossFamilyVerdict : {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
+        holdVerdict        : {held: false, holders: []},
+        nonRequiredFailures: [],
         ...overrides
     });
 
@@ -63,6 +64,58 @@ test.describe('validateMergeReady — strict merge-readiness contract', () => {
         }));
         expect(result.strictMergeReady).toBe(false);
         expect(result.blockers.join(' ')).toContain('CI checks');
+    });
+
+    test('a failing non-required check blocks and names every failing context', () => {
+        const result = validateMergeReady(openSource({
+            reviewDecision     : 'APPROVED',
+            checksGreen        : true,
+            mergeStateStatus   : 'CLEAN',
+            reviewRequests     : [],
+            nonRequiredFailures: ['lint-pr-body [Agent PR Body Lint]', 'CodeQL']
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers).toContain("non-required check 'lint-pr-body [Agent PR Body Lint]' is failing.");
+        expect(result.blockers).toContain("non-required check 'CodeQL' is failing.");
+    });
+
+    test('a fetched empty non-required failure set leaves the all-green control unchanged', () => {
+        const result = validateMergeReady(openSource({
+            reviewDecision     : 'APPROVED',
+            checksGreen        : true,
+            mergeStateStatus   : 'CLEAN',
+            reviewRequests     : [],
+            nonRequiredFailures: []
+        }));
+
+        expect(result).toMatchObject({strictMergeReady: true, blockers: []});
+    });
+
+    test('an unresolved non-required failure population fails closed', () => {
+        const result = validateMergeReady(openSource({
+            reviewDecision     : 'APPROVED',
+            checksGreen        : true,
+            mergeStateStatus   : 'CLEAN',
+            reviewRequests     : [],
+            nonRequiredFailures: undefined
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.join(' ')).toContain('nonRequiredFailures was not resolved');
+    });
+
+    test('a malformed non-required failure label cannot disappear into a green result', () => {
+        const result = validateMergeReady(openSource({
+            reviewDecision     : 'APPROVED',
+            checksGreen        : true,
+            mergeStateStatus   : 'CLEAN',
+            reviewRequests     : [],
+            nonRequiredFailures: [null]
+        }));
+
+        expect(result.strictMergeReady).toBe(false);
+        expect(result.blockers.join(' ')).toContain('unreadable label');
     });
 
     test('a DIRTY merge state (conflict / stale base) blocks', () => {
@@ -149,10 +202,11 @@ test.describe('validateMergeReady — the approval anchor', () => {
     // The gate itself is fail-closed on an unresolved verdict, which its own arms assert explicitly
     // rather than relying on this builder's silence.
     const openSource = overrides => ({
-        state             : 'OPEN',
-        mergedAt          : null,
-        crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
-        holdVerdict       : {held: false, holders: []},
+        state              : 'OPEN',
+        mergedAt           : null,
+        crossFamilyVerdict : {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt'], authorLogin: 'neo-opus-grace'},
+        holdVerdict        : {held: false, holders: []},
+        nonRequiredFailures: [],
         ...overrides
     });
 
@@ -238,13 +292,14 @@ test.describe('validateMergeReady — the cross-family mandate', () => {
     // Deliberately NOT the shared `openSource` builder: these arms are about the verdict field, so
     // inheriting a healthy default would be the one thing that makes them vacuous.
     const green = overrides => ({
-        state           : 'OPEN',
-        mergedAt        : null,
-        reviewDecision  : 'APPROVED',
-        checksGreen     : true,
-        mergeStateStatus: 'CLEAN',
-        reviewRequests  : [],
-        holdVerdict     : {held: false, holders: []},
+        state              : 'OPEN',
+        mergedAt           : null,
+        reviewDecision     : 'APPROVED',
+        checksGreen        : true,
+        mergeStateStatus   : 'CLEAN',
+        reviewRequests     : [],
+        holdVerdict        : {held: false, holders: []},
+        nonRequiredFailures: [],
         ...overrides
     });
 
@@ -307,13 +362,14 @@ test.describe('validateMergeReady — the reviewer-hold gate', () => {
     // Not the shared builder: these arms are about the hold field, so inheriting a healthy default
     // is the one thing that would make them vacuous.
     const green = overrides => ({
-        state             : 'OPEN',
-        mergedAt          : null,
-        reviewDecision    : 'APPROVED',
-        checksGreen       : true,
-        mergeStateStatus  : 'CLEAN',
-        reviewRequests    : [],
-        crossFamilyVerdict: {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt']},
+        state              : 'OPEN',
+        mergedAt           : null,
+        reviewDecision     : 'APPROVED',
+        checksGreen        : true,
+        mergeStateStatus   : 'CLEAN',
+        reviewRequests     : [],
+        crossFamilyVerdict : {crossFamily: true, authorFamily: 'claude', approvingFamilies: ['gpt']},
+        nonRequiredFailures: [],
         ...overrides
     });
 
