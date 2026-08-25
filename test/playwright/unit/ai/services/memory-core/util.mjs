@@ -1,29 +1,53 @@
 /**
- * @summary Clears process-singleton Memory Core lifecycle and collection bindings between specs.
+ * @summary Clears process-singleton Memory Core lifecycle, collection bindings, and in-flight
+ * background work between specs.
  *
  * Memory Core specs mutate `aiConfig.collections.*` and `aiConfig.storagePaths.graph` per file.
  * A graph-only cleanup must still clear the Memory Core lifecycle promise plus Chroma collection
  * handles, otherwise the next `--workers=1` spec can reuse a collection binding resolved by an
  * earlier spec while resolving config leaf names from the later spec.
  *
+ * ## Why in-flight projection timers belong here
+ *
+ * `MemoryService.addMemory` schedules its graph projection through
+ * `_scheduleMemoryGraphProjection`, whose first attempt runs at `delayMs = 0` and is `unref()`d so a
+ * one-shot CLI can exit without waiting on the backoff chain. Unref'd means it does not hold the
+ * event loop open either, so a spec file can END with those timers still pending — they then fire
+ * during whichever file runs next and land on ITS `GraphService` spies, as foreign `upsertNode`
+ * calls the victim cannot account for or defend against.
+ *
+ * The cancellation itself already exists: `MemoryService._clearGraphProjectionTimers()` is extracted
+ * from `destroy()` precisely so teardown can call it. This helper is where a spec reaches it, so the
+ * isolation stops being something each file has to remember — the same reasoning that makes
+ * per-worker collection names automatic rather than per-spec.
+ *
  * @param {Object} [SDK] Optional `ai/services.mjs` aggregate import for callers that already hold it.
  */
 export async function resetMemoryCoreLifecycle(SDK) {
-    let ChromaManager, LifecycleService, StorageRouter;
+    let ChromaManager, LifecycleService, MemoryService, StorageRouter;
 
     if (SDK) {
         ChromaManager    = SDK.Memory_ChromaManager;
         LifecycleService = SDK.Memory_LifecycleService;
+        MemoryService    = SDK.Memory_Service;
         StorageRouter    = SDK.Memory_StorageRouter;
     } else {
+        // Individual modules, never the `ai/services.mjs` barrel: importing the aggregate opens the
+        // Memory Core graph DB as a side effect of class setup (#17383).
         ChromaManager    = (await import('../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        MemoryService    = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
         StorageRouter    = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
     }
 
     if (LifecycleService) {
         LifecycleService._initPromise = null;
     }
+
+    // Cancel BEFORE the collection handles below are nulled: a projection that fires afterwards
+    // would re-resolve them against the next spec's config leaves, which is the binding mismatch
+    // this helper exists to prevent.
+    MemoryService?._clearGraphProjectionTimers?.();
 
     if (StorageRouter) {
         StorageRouter._initPromise = null;
