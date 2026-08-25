@@ -772,12 +772,21 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
             .rejects.toThrow(/'dimension' must be a positive integer, got "4" \(string\)/);
     });
 
-    test('pack streams: peak RSS stays bounded well below the JSONL it rewrites', async () => {
+    test('pack STREAMS the JSONL and never reads it whole', async () => {
         // The defect this closes could not be seen by any small fixture: the old implementation read the
         // whole JSONL into ONE utf-8 string, and the real 2.81 GiB export is 5.62x Node's
         // MAX_STRING_LENGTH (536,870,888) — so the shipped path threw ERR_STRING_TOO_LONG on the corpus
-        // it was written for while passing every 3-row test. This asserts the SHAPE (bounded retention)
-        // rather than re-running the corpus; the full-corpus receipt lives on the PR.
+        // it was written for while passing every 3-row test.
+        //
+        // This asserts the MECHANISM, not a memory reading. The previous version bounded
+        // `process.memoryUsage().rss` growth at `jsonlBytes * 4`, and that instrument could never
+        // decide this question: measured on the real packer, the STREAMING path costs 4-17x the file
+        // in RSS (transient fp16/batch buffers plus V8 heap growth, none of which is returned), while
+        // a whole-file read costs only ~1.4-2.7x. So the "bad" implementation sat comfortably under a
+        // bound the good one exceeded, and what the arm actually sampled was process history — the
+        // same call reads ~7.4 MB cold and ~1.8 MB warm, which is why it reddened unrelated PRs.
+        //
+        // A stream read and a whole-file read are distinguishable exactly, so the arm asks that.
         const dir   = path.join(workRoot, 'stream-bound'),
               jsonl = path.join(dir, `${KB_BACKUP_FILE_PREFIX}stream.jsonl`),
               ids   = Array.from({length: 4000}, (_, i) => `kb-${i}`);
@@ -785,16 +794,64 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         await fsExtra.ensureDir(dir);
         fs.writeFileSync(jsonl, jsonlFixture(ids));
 
-        const jsonlBytes = fs.statSync(jsonl).size,
-              before     = process.memoryUsage().rss;
+        // Patched on `fs-extra`, which is what the implementation imports as its `fs`. Patching
+        // node:fs here would observe nothing and the arm would be vacuous.
+        //
+        // ALL THREE whole-file seams are observed, not just the sync one. A partially refactored path
+        // could open a stream — satisfying the positive control below — and still slurp the JSONL
+        // through `readFile` or `promises.readFile`, leaving "never reads it whole" green while the
+        // ERR_STRING_TOO_LONG defect is back. The contract names the family, so the arm watches the
+        // family.
+        const originals = {
+                  createReadStream: fsExtra.createReadStream,
+                  readFileSync    : fsExtra.readFileSync,
+                  readFile        : fsExtra.readFile,
+                  promisesReadFile: fsExtra.promises.readFile
+              },
+              streamedFrom  = [],
+              readWholeFrom = [];
 
-        const packed = await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: FIXTURE_DIMENSION});
+        fsExtra.createReadStream = (target, ...rest) => {
+            streamedFrom.push(String(target));
+            return originals.createReadStream(target, ...rest)
+        };
+
+        fsExtra.readFileSync = (target, ...rest) => {
+            readWholeFrom.push(String(target));
+            return originals.readFileSync(target, ...rest)
+        };
+
+        fsExtra.readFile = (target, ...rest) => {
+            readWholeFrom.push(String(target));
+            return originals.readFile(target, ...rest)
+        };
+
+        fsExtra.promises.readFile = (target, ...rest) => {
+            readWholeFrom.push(String(target));
+            return originals.promisesReadFile(target, ...rest)
+        };
+
+        let packed;
+
+        try {
+            packed = await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: FIXTURE_DIMENSION});
+        } finally {
+            // Every patched function restored, including the nested promises seam.
+            fsExtra.createReadStream  = originals.createReadStream;
+            fsExtra.readFileSync      = originals.readFileSync;
+            fsExtra.readFile          = originals.readFile;
+            fsExtra.promises.readFile = originals.promisesReadFile
+        }
 
         expect(packed.recordCount).toBe(4000);
         // Sidecar size is exact arithmetic, so a streaming bug that dropped or duplicated a row shows here.
         expect(fs.statSync(path.join(dir, ARTIFACT_VECTORS_FILENAME)).size).toBe(4000 * FIXTURE_DIMENSION * 2);
-        // Growth must not scale with the file: a whole-file read would retain at least its own bytes.
-        expect(process.memoryUsage().rss - before).toBeLessThan(jsonlBytes * 4);
+
+        // The JSONL is opened as a stream …
+        expect(streamedFrom, 'the JSONL is read through a stream').toContain(jsonl);
+        // … and never slurped whole through ANY of the three seams. This is the assertion that fails
+        // if the implementation reverts, on the sync path or either promise path.
+        expect(readWholeFrom, 'the JSONL reaches no whole-file read seam').not.toContain(jsonl);
     });
 
     test('a REORDERED v2 JSONL aborts the real download BEFORE any import runs', async () => {
