@@ -12,7 +12,7 @@ info:
     `run_playwright_test` executes a spec, and a spec is arbitrary JavaScript,
     so what it reads and writes is bounded by the process this server runs in
     — not by the path guard. `write_file` plus `run_playwright_test` therefore
-    composes past the jail without either call violating it (#16481).
+    composes past the jail without either call violating it.
 
     Real containment needs process or container isolation for the executor.
     Until that exists, treat this surface as: jailed arguments, unjailed
@@ -35,7 +35,7 @@ tags:
   - name: IO
     description: File IO capabilities
   - name: Execution
-    description: Execution sandbox
+    description: Runs code with this server's host trust; arguments are jailed, execution is not
 
 paths:
   /healthcheck:
@@ -217,9 +217,9 @@ paths:
       # surface keeps describing runner isolation while the real limit lives one call away.
       x-neo-tool-summary: "Executes one Playwright spec. EXECUTION IS NOT JAILED — the spec runs with this server's host trust."
       description: |
-        Runs the Playwright runner isolated to the requested spec file to test pass/fail conditions.
+        Runs one Playwright spec to test pass/fail conditions. EXECUTION IS NOT JAILED.
 
-        EXECUTION IS NOT JAILED. The path argument is validated against the project root; the spec
+        The path argument is validated against the project root; the spec
         that runs is arbitrary JavaScript, so what it reads and writes is bounded by this server's
         host process, not by that root. Combined with write_file this reaches outside the project
         root without either call violating a guard. Do not pass this tool input you would not grant

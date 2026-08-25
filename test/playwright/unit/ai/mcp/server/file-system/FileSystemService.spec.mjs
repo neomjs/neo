@@ -2,6 +2,7 @@ import {test, expect}    from '@playwright/test';
 import fs                from 'fs-extra';
 import os                from 'os';
 import path              from 'path';
+import * as yaml         from 'js-yaml';
 import FileSystemService from '../../../../../../../ai/mcp/server/file-system/services/FileSystemService.mjs';
 
 /**
@@ -285,5 +286,64 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
     test('#16508 an in-suite symlink resolving outside the Playwright suite is refused', async () => {
         await expect(FileSystemService.runPlaywrightTest({absolutePath: path.join(aliasInSuite, path.basename(hostile))}))
             .rejects.toThrow(/403 Forbidden: Can only execute Playwright specs/);
+    });
+});
+
+/**
+ * The executor's advertised surface — ADR 0041. ticket-ref-ok: these arms enforce that ADR's §3
+ * obligations verbatim; without the anchor a future reader cannot tell why the honesty is mandatory
+ * rather than stylistic, and would reasonably relax it.
+ *
+ * `run_playwright_test` runs arbitrary JavaScript with the server's host trust. That is an accepted
+ * contract, not a defect — but acceptance is only honest while every projected surface says so, and
+ * the surface is projected TWICE: `tools/list` reads the compacted `x-neo-tool-summary`, the full
+ * schema reads `description`. A warning on one is a warning one call away from the path that matters.
+ *
+ * These arms pin the honesty, because prose regresses silently and a reader who stops at the first
+ * sentence is the reader this exists for.
+ */
+test.describe('ai/mcp/server/file-system advertised executor surface', () => {
+    const spec = yaml.load(fs.readFileSync(
+        path.resolve(process.cwd(), 'ai/mcp/server/file-system/openapi.yaml'), 'utf-8'
+    ));
+
+    const operation = spec.paths['/run_playwright_test'].post;
+
+    test('no surface describing the executor claims isolation', () => {
+        const surfaces = [
+            operation.description,
+            operation.summary,
+            operation['x-neo-tool-summary'],
+            spec.tags.find(tag => tag.name === 'Execution').description
+        ];
+
+        for (const text of surfaces) {
+            // 'isolated'/'sandbox' is the exact word the prior text opened with, and it is what a
+            // caller who reads one sentence takes away.
+            expect(text, `executor surface must not claim containment: ${text}`)
+                .not.toMatch(/\bisolat(ed|ion)\b|\bsandbox(ed)?\b|\bcontained\b/i);
+        }
+    });
+
+    test('BOTH projections carry the limit — the compact one and the full one', () => {
+        // ToolService projects `description` for the full schema and `x-neo-tool-summary` for the
+        // compacted `tools/list`. Warning only the full one leaves ordinary discovery uninformed.
+        expect(operation['x-neo-tool-summary']).toMatch(/NOT JAILED/);
+        expect(operation.description).toMatch(/NOT JAILED/);
+        // Leading, not buried: the first sentence is what a scanning reader receives.
+        expect(operation.description.trim().split('\n')[0]).toMatch(/NOT JAILED/);
+    });
+
+    test('no internal ticket reference rides the projected payload', () => {
+        // The MCP description budget forbids internal cross-refs: they reach every consuming agent's
+        // context and rot when the referenced item closes.
+        const projected = [operation.description, operation['x-neo-tool-summary'], spec.info.description].join('\n');
+
+        expect(projected).not.toMatch(/#\d{4,}/);
+    });
+
+    test('the compacted summary stays inside the tools/list budget', () => {
+        expect(operation['x-neo-tool-summary'].length).toBeLessThanOrEqual(120);
+        expect(operation.description.length).toBeLessThanOrEqual(1024);
     });
 });
