@@ -96,7 +96,8 @@ async function produceAuthInfo({baseUrl, login = 'octocat', providerId = 4242, t
         aiConfig         : {auth: {
             gitlabApiBaseUrl      : baseUrl,
             patCacheTtlSeconds    : 300,
-            patValidationTimeoutMs: 5000
+            patValidationTimeoutMs: 5000,
+            patDiskCachePath      : '',
         }},
         logger           : {info: () => {}, warn: () => {}, error: () => {}},
         InvalidTokenError: FakeInvalidTokenError
@@ -143,6 +144,7 @@ async function produceGithubAuthInfo({baseUrl = 'https://api.github.com', login 
             githubApiBaseUrl      : baseUrl,
             patCacheTtlSeconds    : 300,
             patValidationTimeoutMs: 5000,
+            patDiskCachePath      : '',
             allowedUsers          : []
         }},
         logger           : {info: () => {}, warn: () => {}, error: () => {}},

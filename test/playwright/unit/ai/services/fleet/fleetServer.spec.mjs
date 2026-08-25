@@ -61,6 +61,7 @@ function createConfig({authMiddleware=null, auth={}}={}) {
             githubApiBaseUrl       : 'https://api.github.test',
             patCacheTtlSeconds     : 60,
             patValidationTimeoutMs : 5_000,
+            patDiskCachePath       : '',
             allowedUsers           : [],
             ...auth
         },
