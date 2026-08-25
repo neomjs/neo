@@ -760,12 +760,6 @@
             "reason": "stdin-driven decision CLI; side effects are stdout/stderr and process.exit behind the guard() tail"
         },
         {
-            "identity": "ai/scripts/lint/prStackingGuard.mjs",
-            "eligibility": "eligible",
-            "source": "ai/scripts/lint/prStackingGuard.mjs:1-14",
-            "reason": "pure exported helpers and shared regex constants; no I/O or process state at module scope"
-        },
-        {
             "identity": "ai/scripts/maintenance/communityBatchPushClient.mjs",
             "eligibility": "eligible",
             "source": "ai/scripts/maintenance/communityBatchPushClient.mjs:242-244",
