@@ -870,6 +870,7 @@
                 "ai/scripts/migrations/repairStaleEmbeddings.mjs",
                 "ai/scripts/lifecycle/backfill-memory-summaries.mjs",
                 "ai/scripts/lifecycle/summarize-sessions.mjs",
+                "ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs",
                 "ai/scripts/maintenance/aggregate-temporal-summary.mjs",
                 "ai/scripts/maintenance/auditGraphIntegrity.mjs",
                 "ai/scripts/maintenance/backup.mjs",
@@ -1203,6 +1204,7 @@
                 "ai/scripts/migrations/normalizeGraphIdentities.mjs",
                 "ai/scripts/migrations/priorityBackfill.mjs",
                 "ai/scripts/migrations/rebucketArchive.mjs",
+                "ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs",
                 "ai/scripts/migrations/refetchStaleDiscussions.mjs",
                 "ai/scripts/migrations/refetchStalePulls.mjs",
                 "ai/scripts/migrations/refetchTruncatedIssues.mjs",
@@ -1480,6 +1482,7 @@
                 "ai:migration-census-report",
                 "ai:purge-no-content-graph-memories",
                 "ai:purge-test-collections",
+                "ai:reconcile-raw-memory-identities",
                 "ai:reseed",
                 "ai:restore",
                 "ai:run-sandman",
@@ -1600,7 +1603,8 @@
             "surface": "subprocess-launch",
             "identities": [
                 "test/playwright/unit/ai/scripts/maintenance/compactGraphLog.spec.mjs::spawnSync::ai/scripts/maintenance/compactGraphLog.mjs::1",
-                "test/playwright/unit/ai/scripts/migrations/canonicalizeStoredAgentIdentities.spec.mjs::spawnSync::ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs::1"
+                "test/playwright/unit/ai/scripts/migrations/canonicalizeStoredAgentIdentities.spec.mjs::spawnSync::ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs::1",
+                "test/playwright/unit/ai/scripts/migrations/reconcileRawMemoryGraphIdentities.spec.mjs::spawnSync::ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs::1"
             ],
             "disposition": "cloud",
             "source": "#17525 tracked test-launch census",

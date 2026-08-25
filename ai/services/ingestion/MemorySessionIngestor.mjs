@@ -1,7 +1,13 @@
-import crypto                                                            from 'crypto';
-import Base                                                              from '../../../src/core/Base.mjs';
+import crypto                                                                       from 'crypto';
+import Base                                                                         from '../../../src/core/Base.mjs';
 import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRouter} from '../../services.mjs';
-import logger                                                            from '../../mcp/server/memory-core/logger.mjs';
+import logger                                                                       from '../../mcp/server/memory-core/logger.mjs';
+import {
+    canonicalRawMemoryGraphId,
+    normalizeRawMemoryUserId,
+    parseRawMemoryGraphId,
+    RAW_MEMORY_NODE_LABEL
+} from '../memory-core/helpers/rawMemoryGraphIdentity.mjs';
 
 /**
  * Stable deep-stringify — sorts object keys recursively so logically-identical payloads
@@ -26,16 +32,35 @@ function stableStringify(value) {
 }
 
 /**
+ * @summary Reads one globally unique graph id for mutation safety, bypassing read-side RLS only to
+ * prevent a hidden tenant row from being overwritten. The row is never returned to a tool caller.
+ * @param {String} id
+ * @returns {Object|null}
+ */
+function readGraphNodeForIdentityGuard(id) {
+    const cached = GraphService.db?.nodes?.get(id);
+
+    if (cached) {
+        return cached
+    }
+
+    const row = GraphService.db?.storage?.db
+        ?.prepare('SELECT data FROM Nodes WHERE id = ?')
+        .get(id);
+
+    return row?.data ? JSON.parse(row.data) : null
+}
+
+/**
  * @summary Service that lifts Memory Core artifacts (session summaries + raw per-turn memories)
- * into the Native Edge Graph as first-class SESSION and MEMORY nodes — the **structural layer**
+ * into the Native Edge Graph as first-class SESSION and AGENT_MEMORY nodes — the **structural layer**
  * downstream consumers (mailbox `IN_REPLY_TO`, identity `AUTHORED_BY`, thread reconstruction,
  * and concept-edge reach-back) traverse.
  *
- * Prior to this service, memories + summaries existed only as Chroma rows — extracted entities
- * (concepts, classes, methods) were graph citizens but their source memories were not, leaving
- * edges from extracted nodes dangling at the extraction boundary. Lifting Memory and Session to
- * graph nodes keyed by Chroma IDs closes that asymmetry: every Memory Core artifact becomes
- * structurally traversable in the **Projection Layer** of the Native Graph.
+ * Raw turns already enter the graph at write time as `AGENT_MEMORY` nodes keyed by the durable
+ * WAL/Chroma UUID. REM enriches that existing identity with session/provenance topology; it never
+ * mints a second `memory:<uuid>` node. The prefixed form remains accepted as extractor/lazy-edge
+ * input grammar and resolves through Chroma to the bare canonical identity.
  *
  * This class mirrors the deterministic-ingestion pattern established by `ConceptIngestor`,
  * `IssueIngestor`, and `FileSystemIngestor` — a singleton with a single public
@@ -121,7 +146,8 @@ class MemorySessionIngestor extends Base {
     /**
      * Main entry point. Upserts a SESSION node keyed by the agent-logical `session.meta.sessionId`,
      * then fetches the raw per-turn memories belonging to that session from the Chroma memory
-     * collection and upserts a MEMORY node per row with an `ORIGINATES_IN(Memory → Session)` edge.
+     * collection and enriches one AGENT_MEMORY node per row with an
+     * `ORIGINATES_IN(AGENT_MEMORY → Session)` edge.
      *
      * Deterministic: output depends only on (session metadata, memory metadata). No LLM calls.
      * Idempotent: re-running on the same session produces identical graph state (skip path via
@@ -161,8 +187,8 @@ class MemorySessionIngestor extends Base {
 
         try {
             const
-                agentSessionId    = session.meta.sessionId,
-                sessionNodeId     = `session:${agentSessionId}`,
+                agentSessionId     = session.meta.sessionId,
+                sessionNodeId      = `session:${agentSessionId}`,
                 sessionPayloadHash = this.computeSessionPayloadHash(session),
                 existingSession    = GraphService.db?.nodes?.get(sessionNodeId);
 
@@ -172,8 +198,8 @@ class MemorySessionIngestor extends Base {
                     type      : 'SESSION',
                     name      : session.meta.title || agentSessionId,
                     properties: {
-                        chromaId    : session.id,
-                        createdAt   : session.meta.createdAt,
+                        chromaId : session.id,
+                        createdAt: session.meta.createdAt,
                         // Provenance marker distinguishing live REM-cycle ingestion from lazy
                         // back-fill. Queries discriminating between the two sources use
                         // `liveIngested` vs `backfilled` on the node's properties.
@@ -204,28 +230,70 @@ class MemorySessionIngestor extends Base {
                     const
                         memoryChromaId    = rawMemories.ids[i],
                         meta              = rawMemories.metadatas?.[i] || {},
-                        memoryNodeId      = `memory:${memoryChromaId}`,
-                        memoryPayloadHash = this.computeMemoryPayloadHash(meta),
-                        existingMemory    = GraphService.db?.nodes?.get(memoryNodeId);
+                        memoryNodeId      = canonicalRawMemoryGraphId(memoryChromaId),
+                        memoryPayloadHash = this.computeMemoryPayloadHash(meta);
 
-                    if (existingMemory?.properties?.payloadHash === memoryPayloadHash) {
+                    GraphService.db?.getAdjacentNodes(memoryNodeId, 'both');
+
+                    const
+                        existingMemory     = readGraphNodeForIdentityGuard(memoryNodeId),
+                        existingProperties = existingMemory?.isRecord
+                            ? existingMemory.get('properties')
+                            : existingMemory?.properties,
+                        hasIncomingUserId  = Object.hasOwn(meta, 'userId') && meta.userId !== undefined,
+                        incomingUserId     = meta.userId === null ? null : normalizeRawMemoryUserId(meta.userId);
+
+                    const existingLabel = existingMemory?.isRecord
+                        ? existingMemory.get('label')
+                        : existingMemory?.label;
+
+                    if (existingMemory && existingLabel !== RAW_MEMORY_NODE_LABEL) {
+                        throw new Error(`canonical raw-memory id is occupied by ${existingLabel || 'an unlabeled node'}`)
+                    }
+
+                    if (
+                        existingMemory &&
+                        Object.hasOwn(existingProperties || {}, 'userId') &&
+                        existingProperties.userId !== undefined
+                    ) {
+                        const existingUserId = existingProperties.userId === null
+                            ? null
+                            : normalizeRawMemoryUserId(existingProperties.userId);
+
+                        if (!hasIncomingUserId && existingUserId != null) {
+                            throw new Error('canonical raw-memory userId has no Chroma provenance')
+                        }
+
+                        if (hasIncomingUserId && !Object.is(existingUserId, incomingUserId)) {
+                            throw new Error('canonical raw-memory userId conflicts with Chroma provenance')
+                        }
+                    }
+
+                    if (existingProperties?.payloadHash === memoryPayloadHash) {
                         stats.memoriesSkipped++;
                         continue;
                     }
 
+                    const projectedProperties = {
+                        ...(existingProperties || {}),
+                        chromaId : memoryChromaId,
+                        createdAt: meta.createdAt,
+                        // Provenance marker — see sibling comment in the SESSION upsert.
+                        liveIngested: true,
+                        payloadHash : memoryPayloadHash,
+                        sessionId   : meta.sessionId ?? agentSessionId
+                    };
+
+                    if (hasIncomingUserId) {
+                        projectedProperties.userId = incomingUserId
+                    }
+
                     GraphService.upsertNode({
-                        id        : memoryNodeId,
-                        type      : 'MEMORY',
-                        name      : memoryChromaId.slice(0, 12),
-                        properties: {
-                            chromaId    : memoryChromaId,
-                            createdAt   : meta.createdAt,
-                            // Provenance marker — see sibling comment in the SESSION upsert.
-                            liveIngested: true,
-                            payloadHash : memoryPayloadHash,
-                            sessionId   : meta.sessionId ?? agentSessionId,
-                            userId      : meta.userId
-                        }
+                        id              : memoryNodeId,
+                        type            : RAW_MEMORY_NODE_LABEL,
+                        name            : existingMemory ? undefined : memoryChromaId.slice(0, 12),
+                        semanticVectorId: memoryChromaId,
+                        properties      : projectedProperties
                     });
 
                     GraphService.linkNodes(memoryNodeId, sessionNodeId, 'ORIGINATES_IN', 1.0);
@@ -249,18 +317,15 @@ class MemorySessionIngestor extends Base {
     }
 
     /**
-     * Back-fills a single MEMORY or SESSION graph node from its Chroma source row — the per-row
+     * Back-fills a single raw-memory or SESSION graph node from its Chroma source row — the per-row
      * analog of `syncSessionToGraph` (which is batch-per-session). Invoked by the lazy
      * back-fill mechanism when `GraphService.linkNodes` encounters a missing target matching
      * the `memory:` or `session:` prefix pattern.
      *
-     * **Graph-node-id convention:** the canonical form is lowercase (`memory:<chromaId>`,
-     * `session:<sessionId>`) matching the IDs produced by `syncSessionToGraph`. This method
-     * accepts **case-insensitive** prefix matching so it can consume edges queued with the
-     * uppercase convention used by `SemanticGraphExtractor`'s lazy-edges queue without requiring
-     * a canonical-format migration. The back-filled node always lands under the
-     * lowercase canonical ID; callers whose edge had the uppercase form should have their edge
-     * target re-normalized at the same call site via the `linkNodes` prefix-normalization path.
+     * **Graph-node-id convention:** raw memories land under their bare WAL/Chroma UUID, while
+     * Sessions retain `session:<sessionId>`. This method accepts case-insensitive
+     * `memory:<id>` input so extractor/lazy-edge producers need no grammar migration; successful
+     * Chroma resolution returns the bare canonical id to the caller.
      *
      * **Memory → Session dependency:** a Memory's `sessionId` metadata points at its parent
      * Session. Back-filling a Memory whose parent Session is absent would dangle the
@@ -286,8 +351,8 @@ class MemorySessionIngestor extends Base {
      * @returns {Promise<Object>} Result descriptor:
      *     `{success: Boolean, reason: String, graphNodeId?: String, error?: String}`. Possible
      *     `reason` values: `'unrecognized-prefix'`, `'already-exists'`, `'backfilled'`,
-     *     `'backfilled-minimal'`, `'no-collection'`, `'chroma-fetch-failed'`,
-     *     `'chroma-row-not-found'`.
+     *     `'backfilled-minimal'`, `'canonical-label-conflict'`, `'no-collection'`,
+     *     `'chroma-fetch-failed'`, `'chroma-row-not-found'`.
      */
     async ingestSingleRow(graphNodeId, {memoryCollection = null, summaryCollection = null} = {}) {
         const parsed = this.parseGraphNodeId(graphNodeId);
@@ -296,10 +361,42 @@ class MemorySessionIngestor extends Base {
             return {success: false, reason: 'unrecognized-prefix', graphNodeId};
         }
 
-        const {type, bareId, canonicalGraphId} = parsed;
+        const {type, bareId, canonicalGraphId, legacyGraphId} = parsed;
 
-        if (GraphService.db?.nodes?.get(canonicalGraphId)) {
+        GraphService.db?.getAdjacentNodes(canonicalGraphId, 'both');
+
+        const existingCanonical = readGraphNodeForIdentityGuard(canonicalGraphId);
+
+        if (existingCanonical && type === 'MEMORY') {
+            const label = existingCanonical.isRecord
+                ? existingCanonical.get('label')
+                : existingCanonical.label;
+
+            if (label !== RAW_MEMORY_NODE_LABEL) {
+                return {
+                    success    : false,
+                    reason     : 'canonical-label-conflict',
+                    graphNodeId: canonicalGraphId,
+                    error      : `canonical raw-memory id is occupied by ${label || 'an unlabeled node'}`
+                }
+            }
+        }
+
+        if (existingCanonical) {
             return {success: true, reason: 'already-exists', graphNodeId: canonicalGraphId};
+        }
+
+        if (type === 'MEMORY' && legacyGraphId) {
+            GraphService.db?.getAdjacentNodes(legacyGraphId, 'both');
+
+            const legacy = readGraphNodeForIdentityGuard(legacyGraphId);
+
+            // MEMORY nodes without raw Chroma provenance are semantic/curated ontology and remain
+            // distinct. A Chroma-backed legacy projection continues below and resolves to the bare
+            // AGENT_MEMORY identity.
+            if (legacy && !legacy.properties?.chromaId) {
+                return {success: true, reason: 'already-exists', graphNodeId: legacyGraphId}
+            }
         }
 
         try {
@@ -315,13 +412,13 @@ class MemorySessionIngestor extends Base {
     }
 
     /**
-     * Parses a graph-node ID into its canonical (lowercase) form + type + bare identifier.
+     * Parses a graph-node ID into its persistence target + type + bare identifier.
      * Case-insensitive on the `memory:` / `session:` prefix so we can consume edges queued with
-     * either convention. Returns `null` for unrecognized prefixes; callers treat that as
-     * "not a back-fillable node — fall through to the existing cull path".
+     * either convention. Raw memories resolve to a bare UUID; Sessions resolve to a lowercase
+     * prefixed id. Returns `null` for unrecognized prefixes.
      *
      * @param {String} id Raw graph-node ID from a call site
-     * @returns {{type: String, bareId: String, canonicalGraphId: String}|null}
+     * @returns {{type: String, bareId: String, canonicalGraphId: String, legacyGraphId: String|undefined}|null}
      * @protected
      */
     parseGraphNodeId(id) {
@@ -332,8 +429,16 @@ class MemorySessionIngestor extends Base {
         const lower = id.toLowerCase();
 
         if (lower.startsWith('memory:')) {
-            const bareId = id.slice(7);
-            return {type: 'MEMORY', bareId, canonicalGraphId: 'memory:' + bareId};
+            const parsed = parseRawMemoryGraphId(id);
+
+            return parsed
+                ? {
+                    type            : 'MEMORY',
+                    bareId          : parsed.chromaId,
+                    canonicalGraphId: parsed.canonicalGraphId,
+                    legacyGraphId   : parsed.legacyGraphId
+                }
+                : null
         }
 
         if (lower.startsWith('session:')) {
@@ -345,12 +450,12 @@ class MemorySessionIngestor extends Base {
     }
 
     /**
-     * Fetches a single Memory row from Chroma and upserts it as a MEMORY graph node, recursively
+     * Fetches a single Memory row from Chroma and upserts it as an AGENT_MEMORY graph node, recursively
      * ensuring the parent Session node exists so the `ORIGINATES_IN` edge terminates cleanly.
      * Private helper for `ingestSingleRow`.
      *
      * @param {String} chromaId Chroma memory row ID (the bare ID, no `memory:` prefix)
-     * @param {String} canonicalGraphId Canonical graph-node ID (`memory:<chromaId>`)
+     * @param {String} canonicalGraphId Canonical bare graph-node UUID.
      * @param {Object} collections
      * @param {Object} [collections.memoryCollection]
      * @param {Object} [collections.summaryCollection]
@@ -377,8 +482,8 @@ class MemorySessionIngestor extends Base {
         }
 
         const
-            meta         = raw.metadatas?.[0] || {},
-            sessionId    = meta.sessionId,
+            meta          = raw.metadatas?.[0] || {},
+            sessionId     = meta.sessionId,
             sessionNodeId = sessionId ? 'session:' + sessionId : null;
 
         // Recursively ensure parent Session exists before creating the Memory edge. Without this
@@ -390,16 +495,17 @@ class MemorySessionIngestor extends Base {
         const payloadHash = this.computeMemoryPayloadHash(meta);
 
         GraphService.upsertNode({
-            id        : canonicalGraphId,
-            type      : 'MEMORY',
-            name      : chromaId.slice(0, 12),
-            properties: {
-                backfilled : true,
+            id              : canonicalGraphId,
+            type            : RAW_MEMORY_NODE_LABEL,
+            name            : chromaId.slice(0, 12),
+            semanticVectorId: chromaId,
+            properties      : {
+                backfilled: true,
                 chromaId,
-                createdAt  : meta.createdAt,
+                createdAt : meta.createdAt,
                 payloadHash,
                 sessionId,
-                userId     : meta.userId
+                userId    : meta.userId
             }
         });
 
@@ -469,12 +575,12 @@ class MemorySessionIngestor extends Base {
             type      : 'SESSION',
             name      : meta.title || sessionId,
             properties: {
-                backfilled : true,
+                backfilled: true,
                 chromaId,
-                createdAt  : meta.createdAt,
+                createdAt : meta.createdAt,
                 payloadHash,
                 sessionId,
-                userId     : meta.userId
+                userId    : meta.userId
             }
         });
 

@@ -1158,12 +1158,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         const originalIngest        = MemorySessionIngestor.ingestSingleRow;
 
-        // Mock the ingestor to simulate a successful back-fill — upsert a node and return success.
+        // Mock the ingestor to simulate a verified raw-row back-fill.
         MemorySessionIngestor.ingestSingleRow = async (id) => {
-            const normalized = id.toLowerCase().startsWith('memory:') ? 'memory:' + id.slice(7) :
-                               id.toLowerCase().startsWith('session:') ? 'session:' + id.slice(8) : id;
-            await GraphService.upsertNode({id: normalized, type: 'MEMORY', name: normalized, properties: {backfilled: true}});
-            return {success: true, reason: 'backfilled', graphNodeId: normalized};
+            expect(id).toBe('memory:lazy-xyz');
+            await GraphService.upsertNode({id: 'lazy-xyz', type: 'AGENT_MEMORY', name: 'lazy-xyz', properties: {backfilled: true, chromaId: 'lazy-xyz'}});
+            return {success: true, reason: 'backfilled', graphNodeId: 'lazy-xyz'};
         };
 
         try {
@@ -1172,9 +1171,10 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             const ok = await GraphService.linkNodesAsync('NodeSrc', 'memory:lazy-xyz', 'MENTIONED_IN', 1.0);
 
             expect(ok).toBe(true);
-            expect(GraphService.db.nodes.get('memory:lazy-xyz')).toBeTruthy();
+            expect(GraphService.db.nodes.get('lazy-xyz')?.label).toBe('AGENT_MEMORY');
+            expect(GraphService.db.nodes.get('memory:lazy-xyz')).toBeFalsy();
             const edge = GraphService.db.edges.items.find(e =>
-                e.source === 'NodeSrc' && e.target === 'memory:lazy-xyz' && e.type === 'MENTIONED_IN'
+                e.source === 'NodeSrc' && e.target === 'lazy-xyz' && e.type === 'MENTIONED_IN'
             );
             expect(edge).toBeTruthy();
         } finally {
@@ -1182,34 +1182,63 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
     });
 
-    test('linkNodesAsync normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
+    test('linkNodesAsync resolves an uppercase raw-memory request to the bare canonical node', async () => {
         const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         const originalIngest        = MemorySessionIngestor.ingestSingleRow;
 
         MemorySessionIngestor.ingestSingleRow = async (id) => {
-            // The resolver is called with the already-normalized id; verify that fact.
+            // Prefix grammar is normalized before the Chroma-backed resolver sees it, but the
+            // verified raw row returns the existing AGENT_MEMORY identity.
             expect(id).toBe('memory:upper-case-id');
-            await GraphService.upsertNode({id: 'memory:upper-case-id', type: 'MEMORY', name: 'UC', properties: {backfilled: true}});
-            return {success: true, reason: 'backfilled', graphNodeId: 'memory:upper-case-id'};
+            await GraphService.upsertNode({id: 'upper-case-id', type: 'AGENT_MEMORY', name: 'UC', properties: {backfilled: true, chromaId: 'upper-case-id'}});
+            return {success: true, reason: 'backfilled', graphNodeId: 'upper-case-id'};
         };
 
         try {
             await GraphService.upsertNode({id: 'NodeSrc2', type: 'TEST', name: 'Src', properties: {}});
 
-            // Caller passes uppercase prefix — linkNodesAsync normalizes before ensureNodeExists.
+            // Caller passes uppercase prefix. The persisted edge must follow the resolver's returned
+            // canonical identity, not the pre-resolution prefix normalization.
             const ok = await GraphService.linkNodesAsync('NodeSrc2', 'MEMORY:upper-case-id', 'REFERENCED_BY', 1.0);
 
             expect(ok).toBe(true);
-            // Edge lands against canonical lowercase id, not the uppercase input.
-            expect(GraphService.db.nodes.get('memory:upper-case-id')).toBeTruthy();
+            expect(GraphService.db.nodes.get('upper-case-id')?.label).toBe('AGENT_MEMORY');
+            expect(GraphService.db.nodes.get('memory:upper-case-id')).toBeFalsy();
             expect(GraphService.db.nodes.get('MEMORY:upper-case-id')).toBeFalsy();
             const edge = GraphService.db.edges.items.find(e =>
-                e.target === 'memory:upper-case-id' && e.type === 'REFERENCED_BY'
+                e.target === 'upper-case-id' && e.type === 'REFERENCED_BY'
             );
             expect(edge).toBeTruthy();
         } finally {
             MemorySessionIngestor.ingestSingleRow = originalIngest;
         }
+    });
+
+    test('linkNodesAsync preserves a cache-cold semantic MEMORY node with no raw Chroma provenance', async () => {
+        await GraphService.upsertNode({id: 'NodeSemanticSrc', type: 'TEST', name: 'Src', properties: {}});
+        GraphService.db.storage.addNodes([{
+            id        : 'memory:semantic-cold',
+            label     : 'MEMORY',
+            properties: {concept: 'curated', userId: null}
+        }]);
+        GraphService.db.nodes.remove('memory:semantic-cold');
+        GraphService.db.vicinityLoadedNodes.delete('memory:semantic-cold');
+
+        const ok = await GraphService.linkNodesAsync(
+            'NodeSemanticSrc',
+            'MEMORY:semantic-cold',
+            'REFERENCED_BY',
+            1.0
+        );
+
+        expect(ok).toBe(true);
+        expect(GraphService.db.nodes.get('memory:semantic-cold')?.label).toBe('MEMORY');
+        expect(GraphService.db.nodes.get('semantic-cold')).toBeFalsy();
+        expect(GraphService.db.edges.items.some(edge =>
+            edge.source === 'NodeSemanticSrc' &&
+            edge.target === 'memory:semantic-cold' &&
+            edge.type === 'REFERENCED_BY'
+        )).toBe(true)
     });
 
     test('linkNodesAsync returns false when back-fill fails (hallucinated target)', async () => {

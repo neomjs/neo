@@ -203,11 +203,46 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
             memoriesUpserted : 1,
             sessionUpserted  : true
         });
-        expect(GraphService.db.nodes.get('memory:snapshot-memory')?.properties)
-            .toMatchObject({chromaId: 'snapshot-memory', sessionId: 'agent-session-snapshot'})
+        const memoryNode = GraphService.db.nodes.get('snapshot-memory');
+
+        expect(memoryNode?.label).toBe('AGENT_MEMORY');
+        expect(memoryNode?.properties)
+            .toMatchObject({chromaId: 'snapshot-memory', sessionId: 'agent-session-snapshot'});
+        expect(GraphService.db.nodes.get('memory:snapshot-memory')).toBeFalsy()
     });
 
-    test('should upsert one SESSION node plus N MEMORY nodes plus N ORIGINATES_IN edges', async () => {
+    test('syncSessionToGraph preserves a cache-cold non-memory bare-id occupant', async () => {
+        GraphService.db.storage.addNodes([{
+            id        : 'forward-collision',
+            label     : 'CONCEPT',
+            properties: {name: 'keep', userId: 'tobiu'}
+        }]);
+        GraphService.db.nodes.remove('forward-collision');
+        GraphService.db.vicinityLoadedNodes.delete('forward-collision');
+
+        const stats = await MemorySessionIngestor.syncSessionToGraph({
+            id  : 'summary-forward-collision',
+            meta: {
+                sessionId: 'session-forward-collision',
+                createdAt: '2026-04-21T09:00:00Z',
+                userId   : 'tobiu'
+            }
+        }, {
+            rawMemories: {
+                ids      : ['forward-collision'],
+                metadatas: [{sessionId: 'session-forward-collision', userId: 'tobiu'}]
+            }
+        });
+
+        expect(stats.memoriesUpserted).toBe(0);
+        expect(stats.errors).toEqual([expect.stringContaining('canonical raw-memory id is occupied by CONCEPT')]);
+        expect(JSON.parse(
+            GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('forward-collision').data
+        ).label).toBe('CONCEPT');
+        expect(GraphService.db.edges.items.some(edge => edge.source === 'forward-collision')).toBe(false)
+    });
+
+    test('should upsert one SESSION node plus N AGENT_MEMORY nodes plus N ORIGINATES_IN edges', async () => {
         const session = {
             id  : 'chroma-summary-2',
             meta: {
@@ -241,24 +276,25 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(sessionNode.properties.userId).toBe('tobiu');
 
         for (const memId of ['mem-a', 'mem-b', 'mem-c']) {
-            const node = GraphService.db.nodes.get(`memory:${memId}`);
+            const node = GraphService.db.nodes.get(memId);
             expect(node).toBeDefined();
-            expect(node.label).toBe('MEMORY');
+            expect(node.label).toBe('AGENT_MEMORY');
             expect(node.properties.chromaId).toBe(memId);
             expect(node.properties.sessionId).toBe('agent-session-2');
+            expect(GraphService.db.nodes.get(`memory:${memId}`)).toBeFalsy()
         }
 
         // Cross-session bleed guard: the memory belonging to a different session must not land.
         // `GraphService.db.nodes.get` returns `null` on miss (not `undefined` — custom collection
         // contract), so `toBeFalsy` covers both null and undefined rather than asserting a
         // specific absent-shape that depends on internal Collection implementation details.
-        expect(GraphService.db.nodes.get('memory:mem-x')).toBeFalsy();
+        expect(GraphService.db.nodes.get('mem-x')).toBeFalsy();
 
         const originatesIn = GraphService.db.edges.items.filter(e => e.type === 'ORIGINATES_IN');
         expect(originatesIn.length).toBe(3);
         for (const edge of originatesIn) {
             expect(edge.target).toBe('session:agent-session-2');
-            expect(['memory:mem-a', 'memory:mem-b', 'memory:mem-c']).toContain(edge.source);
+            expect(['mem-a', 'mem-b', 'mem-c']).toContain(edge.source);
         }
     });
 
@@ -362,7 +398,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(secondStats.memoriesUpserted).toBe(1);
         expect(secondStats.memoriesSkipped).toBe(0);
 
-        const node = GraphService.db.nodes.get('memory:mem-mut');
+        const node = GraphService.db.nodes.get('mem-mut');
         expect(node.properties.createdAt).toBe('2026-04-21T14:05:00Z');
     });
 
@@ -427,7 +463,28 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(result.graphNodeId).toBe('memory:abc');
     });
 
-    test('ingestSingleRow backfills Memory and recursively creates parent Session', async () => {
+    test('ingestSingleRow refuses a non-AGENT_MEMORY bare-id occupant', async () => {
+        GraphService.db.storage.addNodes([{
+            id        : 'raw-collision',
+            label     : 'CONCEPT',
+            properties: {name: 'keep'}
+        }]);
+        GraphService.db.nodes.remove('raw-collision');
+        GraphService.db.vicinityLoadedNodes.delete('raw-collision');
+
+        const result = await MemorySessionIngestor.ingestSingleRow('memory:raw-collision');
+
+        expect(result).toMatchObject({
+            success    : false,
+            reason     : 'canonical-label-conflict',
+            graphNodeId: 'raw-collision'
+        });
+        expect(JSON.parse(
+            GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('raw-collision').data
+        ).label).toBe('CONCEPT')
+    });
+
+    test('ingestSingleRow resolves a legacy memory: request onto the canonical AGENT_MEMORY node', async () => {
         // Seed the parent Session node so GraphService.linkNodes's foreign-key check will pass
         // when backfillMemory emits the ORIGINATES_IN edge. The backfillSession helper upserts
         // the session node first, but the FK-verify in linkNodes reads from SQLite — which the
@@ -444,12 +501,14 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
 
         expect(result.success).toBe(true);
         expect(result.reason).toBe('backfilled');
-        expect(result.graphNodeId).toBe('memory:mem-xyz');
+        expect(result.graphNodeId).toBe('mem-xyz');
 
-        const memoryNode = GraphService.db.nodes.get('memory:mem-xyz');
+        const memoryNode = GraphService.db.nodes.get('mem-xyz');
         expect(memoryNode).toBeTruthy();
+        expect(memoryNode.label).toBe('AGENT_MEMORY');
         expect(memoryNode.properties.backfilled).toBe(true);
         expect(memoryNode.properties.sessionId).toBe('sess-xyz');
+        expect(GraphService.db.nodes.get('memory:mem-xyz')).toBeFalsy();
 
         const sessionNode = GraphService.db.nodes.get('session:sess-xyz');
         expect(sessionNode).toBeTruthy();
@@ -457,7 +516,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
 
         // ORIGINATES_IN edge from Memory → Session
         const edge = GraphService.db.edges.items.find(e =>
-            e.source === 'memory:mem-xyz' && e.target === 'session:sess-xyz' && e.type === 'ORIGINATES_IN'
+            e.source === 'mem-xyz' && e.target === 'session:sess-xyz' && e.type === 'ORIGINATES_IN'
         );
         expect(edge).toBeTruthy();
     });
@@ -493,7 +552,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(node.properties.sessionId).toBe('sess-unknown');
     });
 
-    test('ingestSingleRow normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
+    test('ingestSingleRow accepts uppercase MEMORY: input and resolves the bare canonical id', async () => {
         const memoryCollection = stubMemoryCollection([
             {id: 'mem-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T10:00:00Z', userId: 'tobiu'}}
         ]);
@@ -501,14 +560,14 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
             {id: 'chroma-summary-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu'}}
         ]);
 
-        // Caller passes the uppercase prefix (Gemini's extractor convention); the
-        // back-fill must land under the canonical lowercase form so the node is discoverable
-        // by the existing ingestor's `session:`/`memory:` ID contract.
+        // Caller passes the uppercase prefix used by the extractor. Prefix grammar remains an
+        // accepted request shape; verified Chroma provenance chooses the durable bare UUID.
         const result = await MemorySessionIngestor.ingestSingleRow('MEMORY:mem-upper', {memoryCollection, summaryCollection});
 
         expect(result.success).toBe(true);
-        expect(result.graphNodeId).toBe('memory:mem-upper');
-        expect(GraphService.db.nodes.get('memory:mem-upper')).toBeTruthy();
+        expect(result.graphNodeId).toBe('mem-upper');
+        expect(GraphService.db.nodes.get('mem-upper')?.label).toBe('AGENT_MEMORY');
+        expect(GraphService.db.nodes.get('memory:mem-upper')).toBeFalsy();
         expect(GraphService.db.nodes.get('MEMORY:mem-upper')).toBeFalsy();
     });
 
@@ -524,9 +583,10 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
 
         const sessionNode = GraphService.db.nodes.get('session:agent-live');
-        const memoryNode  = GraphService.db.nodes.get('memory:mem-live');
+        const memoryNode  = GraphService.db.nodes.get('mem-live');
 
         expect(sessionNode.properties.liveIngested).toBe(true);
+        expect(memoryNode.label).toBe('AGENT_MEMORY');
         expect(memoryNode.properties.liveIngested).toBe(true);
         // `backfilled` should remain undefined on live-ingested nodes; the two markers are
         // mutually exclusive provenance tags.
