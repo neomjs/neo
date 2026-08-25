@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
+import os             from 'os';
 import path           from 'path';
 import {
     classifyLine,
@@ -30,6 +31,25 @@ function siteStartingWith(prefix) {
     expect(hit, `no registry entry starts with ${prefix}`).toBeTruthy();
 
     return hit[1];
+}
+
+/**
+ * Runs the production discovery seam against one disposable source file.
+ *
+ * @param {String} source Fixture source.
+ * @returns {Object[]} Discovered candidates.
+ */
+function discoverFixture(source) {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-retry-bounds-template-'));
+
+    try {
+        ['ai', 'src', 'apps', 'buildScripts'].forEach(dir => fs.ensureDirSync(path.join(rootDir, dir)));
+        fs.writeFileSync(path.join(rootDir, 'ai/templateFixture.mjs'), source);
+
+        return discoverCandidates({rootDir})
+    } finally {
+        fs.removeSync(rootDir)
+    }
 }
 
 test.describe('lint-retry-bounds — discovery + explicit bound classification (#16443)', () => {
@@ -257,6 +277,20 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
         }).join(' ')).toMatch(/does not exist/);
     });
 
+    test('the witness contract is source-keyed — inline rationale or a resolvable path', () => {
+        expect(REGISTRY.$schema.witness).toMatch(/Source-keyed contract/);
+
+        expect(validateEntry('ai/example.mjs#schedule:deadbeef', {
+            kind   : 'not-a-retry',
+            witness: 'The exponent is byte-unit conversion evaluated once; no retry loop exists.'
+        })).toEqual([]);
+
+        expect(validateEntry('ai/example.mjs#schedule:deadbeef', {
+            kind   : 'not-a-retry',
+            witness: 'Guarded by ai/agent/Loop.mjs#processEvent'
+        })).toEqual([])
+    });
+
     test('every live witness resolves', () => {
         Object.entries(SITES).forEach(([key, entry]) => {
             expect(unresolvedWitnessPaths(key, entry.witness)).toEqual([]);
@@ -270,6 +304,50 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
         // Multi-line template state carries, so a prose continuation line is not scanned as code.
         expect(stripLiterals('const s = `line one', false).inTemplate).toBe(true);
         expect(stripLiterals('  2. **Feature Namespace:** prose', true).code.trim()).toBe('');
+    });
+
+    test('a growth expression in a continuation-line template substitution IS discovered', () => {
+        const candidates = discoverFixture([
+            'export function schedule(base, attempt) {',
+            '    return `status:',
+            '        ${base * 2 ** attempt}',
+            '    `',
+            '}'
+        ].join('\n'));
+
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0]).toMatchObject({
+            file   : 'ai/templateFixture.mjs',
+            line   : 3,
+            pattern: 'exponent',
+            symbol : 'schedule'
+        })
+    });
+
+    test('nested templates do not leak later markdown bold into discovery', () => {
+        const candidates = discoverFixture([
+            'export function render(items, issueId, changes) {',
+            '    const prompt = `header',
+            '        ${items.map(item => `',
+            '            ${item}',
+            '        `).join("\\n")}',
+            '    `;',
+            '    return `Closes #${issueId}\\n\\n**AI Generated PR**\\n${changes.map(change => `- ${change}`).join("\\n")}`',
+            '}'
+        ].join('\n'));
+
+        expect(candidates).toEqual([])
+    });
+
+    test('regex quote glyphs inside a substitution do not corrupt later literal state', () => {
+        const candidates = discoverFixture([
+            'export function quoteForShell(value) {',
+            '    const escaped = `"${value.replace(/[()%!^"<>&|]/g, match => `^${match}`)}"`;',
+            '    return `see the base ** attempt note in the docs`',
+            '}'
+        ].join('\n'));
+
+        expect(candidates).toEqual([])
     });
 
     test('comment lines are excluded by shape, including block continuations', () => {
