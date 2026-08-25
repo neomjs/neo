@@ -12198,6 +12198,8 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17777](https://neomjs.com/raw/news/pulls/17777.md)
+- [Pull Request #17776](https://neomjs.com/raw/news/pulls/17776.md)
 - [Pull Request #17775](https://neomjs.com/raw/news/pulls/17775.md)
 - [Pull Request #17774](https://neomjs.com/raw/news/pulls/17774.md)
 - [Pull Request #17772](https://neomjs.com/raw/news/pulls/17772.md)
@@ -17973,6 +17975,7 @@ Here you find problem-to-solution records from Neo.mjs pull requests.
 
 Here you find Ideation Sandbox and architectural discussion records.
 
+- [Discussion #17778](https://neomjs.com/raw/news/discussions/17778.md)
 - [Discussion #17756](https://neomjs.com/raw/news/discussions/17756.md)
 - [Discussion #17710](https://neomjs.com/raw/news/discussions/17710.md)
 - [Discussion #17644](https://neomjs.com/raw/news/discussions/17644.md)
