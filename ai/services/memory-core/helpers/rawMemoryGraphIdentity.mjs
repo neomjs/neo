@@ -1,5 +1,3 @@
-import {normalizeUserId} from '../../../mcp/server/shared/services/RequestContextService.mjs';
-
 /**
  * @module ai/services/memory-core/helpers/rawMemoryGraphIdentity
  * @summary Owns the one Native Edge Graph identity for a raw Memory Core turn.
@@ -81,6 +79,22 @@ export function parseRawMemoryGraphId(graphNodeId) {
 }
 
 /**
+ * @summary Normalizes the raw-memory tenant key without importing the Base-backed request-context
+ * service into storage-free helpers or direct migration CLI bootstrap.
+ * @param {String|null|undefined} input AgentIdentity-shaped or canonical user id.
+ * @returns {String|undefined} Canonical user id, or undefined for nullish input.
+ */
+export function normalizeRawMemoryUserId(input) {
+    if (input == null) {
+        return undefined
+    }
+
+    const value = String(input);
+
+    return value.startsWith('@') ? value.slice(1) : value
+}
+
+/**
  * @param {*} left
  * @param {*} right
  * @returns {Boolean}
@@ -128,7 +142,7 @@ export function mergeRawMemoryProjectionProperties({
     const add = (source, label, fields = Object.keys(source || {}), overwrite = new Set()) => {
         for (const key of fields) {
             const rawValue = source?.[key];
-            const value    = key === 'userId' ? normalizeUserId(rawValue) : rawValue;
+            const value    = key === 'userId' ? normalizeRawMemoryUserId(rawValue) : rawValue;
 
             if (value === undefined) {
                 continue

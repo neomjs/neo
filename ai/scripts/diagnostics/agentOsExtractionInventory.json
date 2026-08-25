@@ -1600,7 +1600,8 @@
             "surface": "subprocess-launch",
             "identities": [
                 "test/playwright/unit/ai/scripts/maintenance/compactGraphLog.spec.mjs::spawnSync::ai/scripts/maintenance/compactGraphLog.mjs::1",
-                "test/playwright/unit/ai/scripts/migrations/canonicalizeStoredAgentIdentities.spec.mjs::spawnSync::ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs::1"
+                "test/playwright/unit/ai/scripts/migrations/canonicalizeStoredAgentIdentities.spec.mjs::spawnSync::ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs::1",
+                "test/playwright/unit/ai/scripts/migrations/reconcileRawMemoryGraphIdentities.spec.mjs::spawnSync::ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs::1"
             ],
             "disposition": "cloud",
             "source": "#17525 tracked test-launch census",

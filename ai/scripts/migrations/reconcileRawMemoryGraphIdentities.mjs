@@ -26,13 +26,12 @@
 
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {normalizeUserId}
-                       from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {
     canonicalRawMemoryGraphId,
     LEGACY_RAW_MEMORY_NODE_LABEL,
     legacyRawMemoryGraphId,
     mergeRawMemoryProjectionProperties,
+    normalizeRawMemoryUserId,
     RAW_MEMORY_NODE_LABEL
 } from '../../services/memory-core/helpers/rawMemoryGraphIdentity.mjs';
 
@@ -189,7 +188,7 @@ function valuesEqual(left, right) {
  */
 function resolveUserIdEvidence(values) {
     const normalized = values
-        .map(value => value === null ? null : normalizeUserId(value))
+        .map(value => value === null ? null : normalizeRawMemoryUserId(value))
         .filter(value => value !== undefined);
     const distinct = [...new Set(normalized)];
 

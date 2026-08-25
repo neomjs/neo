@@ -12,6 +12,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import {spawnSync}    from 'node:child_process';
 import Database       from 'better-sqlite3';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
@@ -102,6 +103,19 @@ test.describe('reconcileRawMemoryGraphIdentities migration', () => {
         expect(() => parseArgs(['--unknown'])).toThrow(/unknown argument/)
     });
 
+    test('the direct CLI help path stays boot-safe before Neo class initialization', () => {
+        const result = spawnSync(process.execPath, [
+            'ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs',
+            '--help'
+        ], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain('[--db <path>] [--apply --offline]')
+    });
+
     test('the Chroma census walks every page rather than treating one full page as complete', async () => {
         const rows = Array.from({length: 4500}, (_, index) => ({
             id      : `row-${index}`,
@@ -134,7 +148,7 @@ test.describe('reconcileRawMemoryGraphIdentities migration', () => {
         ];
         const graphNodes = [
             {id: 'agent-only', label: 'AGENT_MEMORY', userId: 'u', properties: {chromaId: 'agent-only', sessionId: 's-a', userId: 'u'}},
-            {id: 'memory:legacy-only', label: 'MEMORY', userId: 'u', properties: {chromaId: 'legacy-only', sessionId: 's-b', userId: 'u'}},
+            {id: 'memory:legacy-only', label: 'MEMORY', userId: 'u', properties: {chromaId: 'legacy-only', sessionId: 's-b', userId: '@u'}},
             {id: 'dual', label: 'AGENT_MEMORY', userId: 'u', properties: {chromaId: 'dual', sessionId: 's-c', userId: 'u', miniSummary: 'keep', name: 'Memory: timestamp'}},
             {id: 'memory:dual', label: 'MEMORY', userId: 'u', properties: {chromaId: 'dual', sessionId: 's-c', userId: 'u', backfilled: true, name: 'dual'}},
             {id: 'tomb', label: 'AGENT_MEMORY', userId: 'u', properties: {archivedAt: '2026-01-01T00:00:00Z'}},

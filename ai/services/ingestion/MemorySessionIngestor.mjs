@@ -2,9 +2,9 @@ import crypto                                                                   
 import Base                                                                         from '../../../src/core/Base.mjs';
 import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRouter} from '../../services.mjs';
 import logger                                                                       from '../../mcp/server/memory-core/logger.mjs';
-import {normalizeUserId}                                                            from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {
     canonicalRawMemoryGraphId,
+    normalizeRawMemoryUserId,
     parseRawMemoryGraphId,
     RAW_MEMORY_NODE_LABEL
 } from '../memory-core/helpers/rawMemoryGraphIdentity.mjs';
@@ -241,7 +241,7 @@ class MemorySessionIngestor extends Base {
                             ? existingMemory.get('properties')
                             : existingMemory?.properties,
                         hasIncomingUserId  = Object.hasOwn(meta, 'userId') && meta.userId !== undefined,
-                        incomingUserId     = meta.userId === null ? null : normalizeUserId(meta.userId);
+                        incomingUserId     = meta.userId === null ? null : normalizeRawMemoryUserId(meta.userId);
 
                     const existingLabel = existingMemory?.isRecord
                         ? existingMemory.get('label')
@@ -258,7 +258,7 @@ class MemorySessionIngestor extends Base {
                     ) {
                         const existingUserId = existingProperties.userId === null
                             ? null
-                            : normalizeUserId(existingProperties.userId);
+                            : normalizeRawMemoryUserId(existingProperties.userId);
 
                         if (!hasIncomingUserId && existingUserId != null) {
                             throw new Error('canonical raw-memory userId has no Chroma provenance')
