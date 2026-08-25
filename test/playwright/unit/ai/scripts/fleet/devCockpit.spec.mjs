@@ -734,7 +734,12 @@ test.describe('ai/scripts/fleet/devCockpit — admission-token alias-guard armin
                         ...process.env,
                         NEO_FLEET_PLANE_BASE          : 'http://127.0.0.1:9',
                         NEO_FLEET_PLANE_BEARER        : 'a-distinct-plane-credential',
-                        NEO_MCP_HEALTHCHECK_TOKEN_FILE: tokenFile
+                        NEO_MCP_HEALTHCHECK_TOKEN_FILE: tokenFile,
+                        // The viewer claim resolves BEFORE plane admission; without this pin a
+                        // gh-less environment refuses earlier with an unrelated message. The env
+                        // chain alone satisfies the claim, so the witness reaches the stage it
+                        // exists to observe: the dead-plane admission refusal.
+                        NEO_AGENT_IDENTITY            : 'admission-teeth-witness'
                     },
                     stdio: ['ignore', 'pipe', 'pipe']
                 });
