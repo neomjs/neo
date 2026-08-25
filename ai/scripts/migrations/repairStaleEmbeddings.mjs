@@ -223,10 +223,26 @@ export async function repairBatch({collection, targets, metadataById, embed}) {
  * @param {Number} [options.batchSize=DEFAULT_BATCH_SIZE] Rows per provider request.
  * @returns {Promise<{repairedIds: String[], remainingIds: String[], failure: Error|null}>}
  */
-export async function repairTargets({collection, targets, metadataById, embed, batchSize = DEFAULT_BATCH_SIZE}) {
+export async function repairTargets({
+    collection, targets, metadataById, embed, batchSize = DEFAULT_BATCH_SIZE, shouldYield = () => false
+}) {
     const repairedIds = [];
 
     for (let index = 0; index < targets.length; index += batchSize) {
+        // Consulted at the BATCH boundary, which is the only point where stopping is safe: each batch
+        // is one upsert carrying vectors and markers together, so yielding between batches leaves no
+        // half-written row. The remainder is returned rather than swallowed — a yielded run is
+        // partial, and a partial run that reported success would be the failure this lane keeps
+        // producing.
+        if (index > 0 && shouldYield()) {
+            return {
+                repairedIds,
+                remainingIds: targets.slice(index).map(target => target.id),
+                failure     : null,
+                yielded     : true
+            }
+        }
+
         const batch = targets.slice(index, index + batchSize);
 
         try {
@@ -235,12 +251,13 @@ export async function repairTargets({collection, targets, metadataById, embed, b
             return {
                 repairedIds,
                 remainingIds: targets.slice(index).map(target => target.id),
-                failure
+                failure,
+                yielded     : false
             }
         }
     }
 
-    return {repairedIds, remainingIds: [], failure: null}
+    return {repairedIds, remainingIds: [], failure: null, yielded: false}
 }
 
 /**
@@ -265,6 +282,26 @@ function report(label, census) {
 }
 
 /**
+ * @summary Reports stale rows the repair cannot reconstruct, as unrepaired residue.
+ *
+ * Separate from the informational pre-run line because this is a terminal disposition: these rows are
+ * stale, were not repaired, and no re-run will reach them — the reconstruction has nothing to work
+ * with. Naming them here and exiting non-zero is what stops "the run finished" from being read as
+ * "the corpus is clean".
+ *
+ * @param {String[]} emptyInputIds Ids whose stored metadata carries no name and no body.
+ * @returns {void}
+ */
+function reportUnrepairable(emptyInputIds) {
+    console.error(
+        `\n  UNREPAIRED       ${emptyInputIds.length} stale row(s) cannot be reconstructed — their stored ` +
+        'metadata carries no name and no body, so no provider input can be rebuilt for them. They stay ' +
+        'stale and a re-run will not reach them.'
+    );
+    console.error(`                   ${emptyInputIds.slice(0, 10).join(', ')}${emptyInputIds.length > 10 ? ' …' : ''}`);
+}
+
+/**
  * @summary Entry point.
  * @returns {Promise<void>}
  */
@@ -281,6 +318,8 @@ async function main() {
     // here would pull ChromaManager and the memory-core embedding service into every one of them.
     const {default: ChromaManager}        = await import('../../services/knowledge-base/ChromaManager.mjs'),
           {default: TextEmbeddingService} = await import('../../services/memory-core/TextEmbeddingService.mjs'),
+          {default: KBRecorderService}    = await import('../../services/knowledge-base/KBRecorderService.mjs'),
+          {default: aiConfig}             = await import('../../mcp/server/knowledge-base/config.mjs'),
           {default: mcConfig}             = await import('../../mcp/server/memory-core/config.mjs');
 
     console.log(`Provider-input format in force: ${EMBEDDING_INPUT_FORMAT_ID}`);
@@ -319,26 +358,83 @@ async function main() {
         return
     }
 
+    // "Nothing to repair" is a claim about the whole stale population, so it may only be reached when
+    // nothing was selected AND nothing was found unreconstructable. A run that selected zero targets
+    // while holding stale rows it cannot rebuild is an UNREPAIRED residue, not a clean sweep — and
+    // exiting 0 on it is how a partial state comes to wear the terminal phrase.
     if (plan.selectedCount === 0) {
-        console.log('\nnothing to repair.');
+        if (plan.emptyInputIds.length === 0) {
+            console.log('\nnothing to repair.');
+            return
+        }
+
+        reportUnrepairable(plan.emptyInputIds);
+
+        // The after-census still runs: the operator compares two numbers from one instrument, and
+        // omitting it here would leave the residue unquantified against the corpus.
+        report(`${label} — after`, (await scanCollection(collection, where)).census);
+        process.exitCode = 1;
         return
     }
 
     const metadataById = new Map(rows.map(row => [row.id, row.metadata]));
 
-    const {repairedIds, remainingIds, failure} = await repairTargets({
-        collection,
-        targets: plan.targets,
-        metadataById,
-        embed  : texts => TextEmbeddingService.embedTexts(texts, mcConfig.embeddingProvider, {
-            operationLabel: 'knowledge base stale-embedding repair',
-            operationStage: 'kb-stale-embedding-repair',
-            service       : 'knowledge-base'
+    const {
+        createLeaseYieldVoter,
+        resolveHeavyMaintenanceLeasePath,
+        withHeavyMaintenanceLease
+    } = await import('../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs');
+
+    // Days of provider compute is exactly the class the shared lease exists to serialise, so this
+    // takes the same ownership every other heavy KB script takes rather than racing the
+    // orchestrator's own kbSync. `KBRecorderService` is passed as the provider-activity recorder so
+    // the operator and recovery plane can see the work while it runs — an unrecorded multi-day
+    // provider burn is indistinguishable from a hung plane.
+    const outcome = await withHeavyMaintenanceLease(
+        acquisition => repairTargets({
+            collection,
+            targets: plan.targets,
+            metadataById,
+            embed  : texts => TextEmbeddingService.embedTexts(texts, mcConfig.embeddingProvider, {
+                operationLabel          : 'knowledge base stale-embedding repair',
+                operationStage          : 'kb-stale-embedding-repair',
+                providerActivityRecorder: KBRecorderService,
+                service                 : 'knowledge-base'
+            }),
+            batchSize  : options.batchSize,
+            shouldYield: createLeaseYieldVoter(acquisition)?.vote ?? (() => false)
         }),
-        batchSize: options.batchSize
-    });
+        {
+            leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: aiConfig.orchestrator.dataDir}),
+            owner       : 'kbStaleEmbeddingRepair',
+            reason      : 'manual-cli',
+            staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+            metadata    : {script: 'ai/scripts/migrations/repairStaleEmbeddings.mjs'}
+        }
+    );
+
+    // A HELD lease is not a completed run and must not read as one: nothing was repaired, and the
+    // stale population is untouched.
+    if (outcome.status === 'held') {
+        const held = outcome.lease;
+
+        console.error(
+            `\n  DEFERRED         heavy-maintenance lease held by '${held?.owner}' ` +
+            `(reason='${held?.reason}', pid=${held?.pid}, acquiredAt=${held?.acquiredAt}). Nothing was repaired.`
+        );
+        process.exitCode = 1;
+        return
+    }
+
+    const {repairedIds, remainingIds, failure, yielded} = outcome.result;
 
     console.log(`\n  repaired         ${repairedIds.length}`);
+
+    if (yielded) {
+        // A cooperative yield is PARTIAL. Re-running resumes, but this run did not finish.
+        console.error(`  YIELDED          released the lease at a batch boundary; ${remainingIds.length} row(s) not repaired this run.`);
+        process.exitCode = 1;
+    }
 
     if (failure) {
         // Reported as a remainder with a count, never as a completed run.
@@ -354,6 +450,14 @@ async function main() {
 
     if (after.staleCount > 0) {
         console.log(`\n  ${after.staleCount} stale row(s) remain — re-run to continue.`);
+    }
+
+    // Residue survives into the terminal disposition even when every SELECTED row repaired. Rows that
+    // could not be reconstructed are stale, were not repaired, and a re-run will not reach them, so a
+    // success exit would tell the operator the corpus is clean when it is not.
+    if (plan.emptyInputIds.length > 0) {
+        reportUnrepairable(plan.emptyInputIds);
+        process.exitCode = 1;
     }
 }
 

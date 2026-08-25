@@ -245,6 +245,101 @@ test.describe('repairStaleEmbeddings — a partial run is never reported as a co
         expect(collection.upsertCalls, 'nothing was written').toHaveLength(0)
     });
 
+    test('a cooperative YIELD stops at a batch boundary and returns the remainder', async () => {
+        // The lease vote is consulted between batches, never inside one: a batch is a single upsert
+        // carrying vectors and markers together, so yielding between them leaves no half-written row.
+        const collection = createFakeCollection(
+            Array.from({length: 6}, (_, index) => staleRow(`row-${index}`))
+        );
+
+        const {rows} = await scanCollection(collection, null);
+
+        let batches = 0;
+
+        const {repairedIds, remainingIds, yielded, failure} = await repairTargets({
+            collection,
+            targets     : planStaleEmbeddingRepair({rows}).targets,
+            metadataById: new Map(rows.map(row => [row.id, row.metadata])),
+            batchSize   : 2,
+            embed       : texts => { batches++; return fakeEmbed(texts) },
+            // Vote to yield once the first batch has landed.
+            shouldYield : () => batches >= 1
+        });
+
+        expect(yielded, 'a yielded run is partial, and says so').toBe(true);
+        expect(failure).toBeNull();
+        expect(repairedIds).toEqual(['row-0', 'row-1']);
+        expect(remainingIds).toEqual(['row-2', 'row-3', 'row-4', 'row-5']);
+
+        // The rows it did repair are whole: vector AND marker, never one without the other.
+        expect(collection.store.get('row-0').metadata[EMBEDDING_INPUT_FORMAT_METADATA_KEY]).toBe(EMBEDDING_INPUT_FORMAT_ID);
+        expect(collection.store.get('row-2').embedding, 'untouched rows keep their old vector').toEqual([0, 0, 0])
+    });
+
+    test('the yield vote is never consulted mid-batch, so no batch is split', async () => {
+        const collection = createFakeCollection(
+            Array.from({length: 4}, (_, index) => staleRow(`row-${index}`))
+        );
+
+        const {rows} = await scanCollection(collection, null);
+
+        const {repairedIds} = await repairTargets({
+            collection,
+            targets     : planStaleEmbeddingRepair({rows}).targets,
+            metadataById: new Map(rows.map(row => [row.id, row.metadata])),
+            batchSize   : 4,
+            embed       : fakeEmbed,
+            // Always voting to yield must still not interrupt the first batch.
+            shouldYield : () => true
+        });
+
+        expect(repairedIds, 'the first batch runs whole before any yield can apply').toHaveLength(4)
+    });
+
+    test('ZERO-TARGET RESIDUE: nothing selected but stale rows unreconstructable is NOT a clean sweep', async () => {
+        // The disposition this defends: `selectedCount === 0` alongside a non-empty `emptyInputIds`
+        // is an UNREPAIRED residue. Reading it as "nothing to repair" would report a clean corpus
+        // while stale rows no re-run can reach stay queryable and stay stale.
+        const collection     = createFakeCollection([{id: 'empty', embedding: [0, 0, 0], metadata: {tenantId: 'tenant-a'}}]),
+              {rows, census} = await scanCollection(collection, null),
+              plan           = planStaleEmbeddingRepair({rows});
+
+        expect(census.staleCount, 'the row IS stale — it carries no current marker').toBe(1);
+        expect(plan.selectedCount).toBe(0);
+        expect(plan.emptyInputIds).toEqual(['empty']);
+
+        // Both halves decide the terminal disposition, which is why they are asserted together:
+        // selection alone would say "done", the census alone would say "dirty".
+        expect(plan.selectedCount === 0 && plan.emptyInputIds.length > 0).toBe(true)
+    });
+
+    test('MIXED: a run that repairs some AND cannot reconstruct others leaves the residue stale', async () => {
+        const collection = createFakeCollection([
+            staleRow('fixable'),
+            {id: 'empty', embedding: [0, 0, 0], metadata: {tenantId: 'tenant-a'}}
+        ]);
+
+        const {rows} = await scanCollection(collection, null),
+              plan   = planStaleEmbeddingRepair({rows});
+
+        expect(plan.targets.map(target => target.id)).toEqual(['fixable']);
+        expect(plan.emptyInputIds).toEqual(['empty']);
+
+        await repairTargets({
+            collection,
+            targets     : plan.targets,
+            metadataById: new Map(rows.map(row => [row.id, row.metadata])),
+            embed       : fakeEmbed
+        });
+
+        // The repaired row is current; the unreconstructable one is still stale, so the after-census
+        // is non-zero and a success disposition would contradict the instrument.
+        const after = await scanCollection(collection, null);
+
+        expect(after.census.staleCount, 'residue survives into the after-census').toBe(1);
+        expect(after.census.currentCount).toBe(1)
+    });
+
     test('a limit leaves a reported remainder rather than a short run reading as done', async () => {
         const collection = createFakeCollection([staleRow('a'), staleRow('b'), staleRow('c')]),
               {rows}     = await scanCollection(collection, null),

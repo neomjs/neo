@@ -3,7 +3,9 @@ import Neo                     from '../../../../../../src/Neo.mjs';
 import * as core               from '../../../../../../src/core/_export.mjs';
 import {buildChunkRowMetadata} from '../../../../../../ai/services/knowledge-base/helpers/chunkRowMetadata.mjs';
 import {
+    EMBEDDING_INPUT_CHUNK_FIELDS as FORMAT_FIELDS,
     EMBEDDING_INPUT_FORMAT_ID,
+    FORMAT_PROBE_CHUNKS,
     buildEmbeddingInputText
 } from '../../../../../../ai/services/knowledge-base/helpers/embeddingInputFormat.mjs';
 import {
@@ -62,12 +64,31 @@ test.describe('staleEmbeddingRepair — a rebuilt provider input matches what in
         expect(rebuildEmbeddingInputFromRowMetadata(metadata)).not.toContain('in null')
     });
 
-    test('a field the format reads is enumerated — an unlisted one would rebuild as undefined', () => {
-        // The fidelity property above is only as strong as this list, so it is asserted directly
-        // rather than left implicit in the round trip.
-        for (const field of ['className', 'content', 'description', 'kind', 'name', 'type']) {
-            expect(EMBEDDING_INPUT_CHUNK_FIELDS).toContain(field)
-        }
+    /**
+     * MUTATION-SENSITIVE guard, and the reason it is not another copy of the list.
+     *
+     * `FORMAT_PROBE_CHUNKS` belongs to the format module, whose own contract is that a new format
+     * branch must arrive with a probe covering it — otherwise `EMBEDDING_INPUT_FORMAT_ID` would not
+     * change and rows would claim a format they were not built from. Round-tripping *that* set here
+     * means a branch reading a new field fails THIS test automatically, without anyone remembering
+     * the repair exists: the probe carries the field, the projection drops it, and the two inputs
+     * diverge.
+     *
+     * A test repeating the repair's own field list cannot do that — it agrees with the projection by
+     * construction, which is exactly how a second authority stays green while drifting.
+     */
+    for (const [index, chunk] of FORMAT_PROBE_CHUNKS.entries()) {
+        test(`the format's OWN probe #${index} round-trips — a new format branch fails here`, () => {
+            const metadata = buildChunkRowMetadata(chunk);
+
+            expect(rebuildEmbeddingInputFromRowMetadata(metadata)).toBe(buildEmbeddingInputText(chunk))
+        });
+    }
+
+    test('the projected field set IS the format\'s, not a copy', () => {
+        // Identity, not equality: a re-declared array with the same members today is the second
+        // authority this guard exists to forbid.
+        expect(EMBEDDING_INPUT_CHUNK_FIELDS).toBe(FORMAT_FIELDS)
     });
 
     test('the format marker is NOT copied back onto the rebuilt chunk', () => {

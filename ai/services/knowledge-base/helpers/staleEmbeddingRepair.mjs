@@ -21,21 +21,18 @@
  * @module ai/services/knowledge-base/helpers/staleEmbeddingRepair
  */
 
-import {buildEmbeddingInputText, EMBEDDING_INPUT_FORMAT_METADATA_KEY} from './embeddingInputFormat.mjs';
-import {classifyRowFormat}                                            from './staleEmbeddingCensus.mjs';
+import {
+    buildEmbeddingInputText,
+    EMBEDDING_INPUT_CHUNK_FIELDS,
+    EMBEDDING_INPUT_FORMAT_METADATA_KEY
+}                          from './embeddingInputFormat.mjs';
+import {classifyRowFormat} from './staleEmbeddingCensus.mjs';
 
-/**
- * @summary The chunk fields {@link buildEmbeddingInputText} reads.
- *
- * Enumerated rather than inferred, because the fidelity property below is only as strong as this
- * list: a field the format starts reading without being added here would rebuild as `undefined` and
- * change the provider input silently. The format module's own probe set exists for the same reason
- * and against the same failure.
- * @type {String[]}
- */
-export const EMBEDDING_INPUT_CHUNK_FIELDS = Object.freeze([
-    'className', 'content', 'description', 'kind', 'name', 'type'
-]);
+// The projected field set is the FORMAT's, imported rather than restated. A copy here would be a
+// second authority: a field the format starts reading would change the format id (marking rows
+// stale) while this projection dropped it, so the repair would write a vector built from a string
+// ingestion never produces — a current marker over a wrong vector, invisible to every census.
+export {EMBEDDING_INPUT_CHUNK_FIELDS};
 
 /**
  * @summary Inverts the row-metadata copy for the fields the provider-input format reads.
