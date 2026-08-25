@@ -796,7 +796,18 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
 
         // Patched on `fs-extra`, which is what the implementation imports as its `fs`. Patching
         // node:fs here would observe nothing and the arm would be vacuous.
-        const originals     = {createReadStream: fsExtra.createReadStream, readFileSync: fsExtra.readFileSync},
+        //
+        // ALL THREE whole-file seams are observed, not just the sync one. A partially refactored path
+        // could open a stream — satisfying the positive control below — and still slurp the JSONL
+        // through `readFile` or `promises.readFile`, leaving "never reads it whole" green while the
+        // ERR_STRING_TOO_LONG defect is back. The contract names the family, so the arm watches the
+        // family.
+        const originals = {
+                  createReadStream: fsExtra.createReadStream,
+                  readFileSync    : fsExtra.readFileSync,
+                  readFile        : fsExtra.readFile,
+                  promisesReadFile: fsExtra.promises.readFile
+              },
               streamedFrom  = [],
               readWholeFrom = [];
 
@@ -810,12 +821,26 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
             return originals.readFileSync(target, ...rest)
         };
 
+        fsExtra.readFile = (target, ...rest) => {
+            readWholeFrom.push(String(target));
+            return originals.readFile(target, ...rest)
+        };
+
+        fsExtra.promises.readFile = (target, ...rest) => {
+            readWholeFrom.push(String(target));
+            return originals.promisesReadFile(target, ...rest)
+        };
+
         let packed;
 
         try {
             packed = await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: FIXTURE_DIMENSION});
         } finally {
-            Object.assign(fsExtra, originals)
+            // Every patched function restored, including the nested promises seam.
+            fsExtra.createReadStream  = originals.createReadStream;
+            fsExtra.readFileSync      = originals.readFileSync;
+            fsExtra.readFile          = originals.readFile;
+            fsExtra.promises.readFile = originals.promisesReadFile
         }
 
         expect(packed.recordCount).toBe(4000);
@@ -824,8 +849,9 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
 
         // The JSONL is opened as a stream …
         expect(streamedFrom, 'the JSONL is read through a stream').toContain(jsonl);
-        // … and never slurped whole. This is the assertion that fails if the implementation reverts.
-        expect(readWholeFrom, 'the JSONL is never read as one string').not.toContain(jsonl);
+        // … and never slurped whole through ANY of the three seams. This is the assertion that fails
+        // if the implementation reverts, on the sync path or either promise path.
+        expect(readWholeFrom, 'the JSONL reaches no whole-file read seam').not.toContain(jsonl);
     });
 
     test('a REORDERED v2 JSONL aborts the real download BEFORE any import runs', async () => {
