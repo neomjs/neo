@@ -336,24 +336,6 @@ committed.
   the input format does not change any chunk id. Re-ingestion therefore re-embeds
   nothing. `parserVersion` **is** a hash input, which makes it the only mechanism
   that re-mints ids today, and nothing schedules it.
-- **A caller's abort does not order itself against the drain, so "the queued item
-  will not be dispatched" is not a lane guarantee.** When a caller aborts from
-  *inside* the provider-timeout notification — the shape a circuit-open takes,
-  where the hook defers the abort rather than raising synchronously — two
-  macrotasks become live at once after the in-flight request rejects: the queue
-  removing the waiting item, and the drain selecting and dispatching it. Both are
-  scheduled by the lane itself, so no caller-side `await` sequences them, and
-  either can win. The consequence is the one that matters for a reader:
-  **a span may still reach a provider that has just proved unresponsive**, and
-  code (or a test) that assumes otherwise is asserting a race rather than a
-  contract. Distinct from the native-Ollama case, where the abort lands *after*
-  dispatch and the concern is that server-side work outlives it — that one is
-  about work already sent, this one about whether it is sent at all. The
-  synchronous-abort path in the same queue is ordered and does hold the
-  guarantee; only the deferred path is open. Measured while repairing the arm in
-  `test/playwright/unit/ai/services/memory-core/TextEmbeddingService.retry.spec.mjs`
-  that pinned the winner: it failed roughly a third of isolated runs, and its own
-  scope note already recorded that the fixture could not sequence the two.
 
 ## Related
 
