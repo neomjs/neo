@@ -77,7 +77,13 @@ class SourceRegistry extends Base {
      * Registers a Parser class under the given `parserId`. Re-registering the same id
      * overwrites the prior class.
      *
-     * @param {Object}  ParserClass            Parser class.
+     * **Dispatch is static.** The registry stores the class itself and never instantiates it, so
+     * `parseIngestionFile` / `parse` must be declared `static` — an instance method on the prototype
+     * is unreachable. An object literal carrying those methods is equally valid; "class" here names
+     * the convention, not a requirement. See `TENANT_PARSER_ERROR_CODES.notDispatchable`, which
+     * refuses the unreachable shape for tenant-declared parsers.
+     *
+     * @param {Object}  ParserClass            Parser class, or any object carrying static-side `parseIngestionFile`/`parse`.
      * @param {Object} [options]
      * @param {String} [options.parserId]      Stable registry id. Defaults to the class's `className` final segment.
      * @returns {String} The resolved `parserId` used as the registry key.

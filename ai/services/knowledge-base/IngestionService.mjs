@@ -1806,10 +1806,17 @@ class IngestionService extends Base {
      * is the same defect shape as a census reporting `0` instead of `unknown`, minus even a
      * suspicious number to notice.
      *
+     * **Dispatch is static, and the naming here invites otherwise.** `resolveFileChunks` calls
+     * `parseIngestionFile` / `parse` on the resolved value itself and never instantiates it, so a
+     * class declaring either as an instance method is truthy with both probes reading `undefined` —
+     * the same silent `raw-text` degradation described above, reached from a parser that loaded
+     * perfectly. `loadTenantParser` refuses that shape with `KB_TENANT_PARSER_NOT_DISPATCHABLE`
+     * rather than returning it into a chain that will skip it.
+     *
      * @param {Object} options
      * @param {String} options.parserId
      * @param {Object} [options.tenantContext]
-     * @returns {Promise<Object|null>} The tenant's parser class, or null when it declared none.
+     * @returns {Promise<Object|null>} The tenant's parser class (static-side methods), or null when it declared none.
      * @protected
      */
     async resolveTenantParser({parserId, tenantContext} = {}) {

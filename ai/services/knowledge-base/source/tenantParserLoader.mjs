@@ -59,12 +59,13 @@ import path from 'node:path';
  * @type {Object<String,String>}
  */
 export const TENANT_PARSER_ERROR_CODES = Object.freeze({
-    escapesRoot: 'KB_TENANT_PARSER_SPECIFIER_ESCAPES_ROOT',
-    loadFailed : 'KB_TENANT_PARSER_LOAD_FAILED',
-    noExport   : 'KB_TENANT_PARSER_NO_CLASS_EXPORT',
-    notFound   : 'KB_TENANT_PARSER_NOT_FOUND',
-    rootNotSet : 'KB_TENANT_PARSER_ROOT_NOT_SET',
-    unsafeShape: 'KB_TENANT_PARSER_SPECIFIER_UNSAFE'
+    escapesRoot    : 'KB_TENANT_PARSER_SPECIFIER_ESCAPES_ROOT',
+    loadFailed     : 'KB_TENANT_PARSER_LOAD_FAILED',
+    noExport       : 'KB_TENANT_PARSER_NO_CLASS_EXPORT',
+    notDispatchable: 'KB_TENANT_PARSER_NOT_DISPATCHABLE',
+    notFound       : 'KB_TENANT_PARSER_NOT_FOUND',
+    rootNotSet     : 'KB_TENANT_PARSER_ROOT_NOT_SET',
+    unsafeShape    : 'KB_TENANT_PARSER_SPECIFIER_UNSAFE'
 });
 
 /**
@@ -227,6 +228,31 @@ export async function loadTenantParser({
             `tenant parser '${specifier}' loaded from '${absolutePath}' but exposes no ` +
             `${exportName ? `\`${exportName}\` export` : 'default export'}. A parser module must ` +
             'export its class.'
+        )
+    }
+
+    // Exporting something is not the same as exporting something dispatchable. `resolveFileChunks`
+    // reads `parseIngestionFile` / `parse` off this value directly, so a class carrying either on
+    // `prototype` is truthy while both probes read `undefined`: the not-registered throw is skipped
+    // and the file degrades to a whole-file `raw-text` chunk, which INGESTS SUCCESSFULLY. Refusing
+    // here keeps that case inside the coded taxonomy instead of the one silent path it left open.
+    if (typeof ParserClass.parseIngestionFile !== 'function' && typeof ParserClass.parse !== 'function') {
+        const
+            prototype   = ParserClass.prototype,
+            onPrototype = typeof prototype?.parseIngestionFile === 'function' ||
+                          typeof prototype?.parse             === 'function';
+
+        throw refuse(
+            TENANT_PARSER_ERROR_CODES.notDispatchable,
+            `tenant parser '${specifier}' loaded from '${absolutePath}' but exposes no callable ` +
+            '`parseIngestionFile` or `parse`. ' +
+            (onPrototype
+                // The whole defect, and it is invisible from the symptom: the method IS present.
+                ? 'Dispatch is static: the parser is called on the exported class itself and is never ' +
+                  'instantiated, so an instance method declared on the prototype is unreachable. ' +
+                  'Declare it `static`, or export an object literal.'
+                : 'Declare a `static parseIngestionFile(file, {tenantContext})`, or export an object ' +
+                  'literal carrying that method.')
         )
     }
 
