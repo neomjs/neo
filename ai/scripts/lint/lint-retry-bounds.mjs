@@ -174,11 +174,13 @@ export function classifyLine(line, inBlockComment) {
  * a boolean "inside template" cannot represent the nested-template/substitution shape. Losing the
  * substitution depth at a newline made a nested backtick close the OUTER template; later markdown
  * then leaked out as code. The stack retains template text, `${...}` brace depth, nested templates,
- * and strings inside substitutions until their actual delimiters close.
+ * until their actual delimiters close.
  *
  * Single-quote/double-quote state outside a substitution deliberately does NOT carry: an
  * unterminated quote is a syntax error, so treating it as open would silently blank the rest of the
- * file. Quotes inside a multi-line substitution do carry as part of that substitution's context.
+ * file. The same rule applies inside substitutions: without modelling regex literals, a quote glyph
+ * in `/["']/` cannot safely become resumable string state. Substitution code therefore carries only
+ * brace/template structure across lines, matching the pre-existing scanner boundary.
  *
  * **`${…}` substitutions are PRESERVED.** They are executable code that merely lives inside a
  * template, and blanking them cost a real site: `src/form/field/FileUpload.mjs` computes
@@ -190,6 +192,7 @@ export function classifyLine(line, inBlockComment) {
  *                                      focused single-line contract; production passes `state` back.
  * @returns {{code: String, inTemplate: Boolean, state: Object}} Line with literal TEXT blanked,
  *                                                               substitutions kept, and next state.
+ * `inTemplate` is reporting-only; callers must pass `state` to resume without losing substitutions.
  */
 export function stripLiterals(line, state = false) {
     const contexts = state && typeof state === 'object' && Array.isArray(state.contexts)
@@ -215,7 +218,7 @@ export function stripLiterals(line, state = false) {
 
         if (context?.type === 'template') {
             if (char === '$' && line[i + 1] === '{' && !isEscaped(i)) {
-                contexts.push({type: 'substitution', braceDepth: 1, quote: null});
+                contexts.push({type: 'substitution', braceDepth: 1});
                 out += '  ';
                 i++
             } else if (char === '`' && !isEscaped(i)) {
@@ -229,17 +232,7 @@ export function stripLiterals(line, state = false) {
         }
 
         if (context?.type === 'substitution') {
-            if (context.quote) {
-                if (char === context.quote && !isEscaped(i)) {
-                    context.quote = null;
-                    out          += char
-                } else {
-                    out += ' '
-                }
-            } else if ((char === '\'' || char === '"') && !isEscaped(i)) {
-                context.quote = char;
-                out          += char
-            } else if (char === '`' && !isEscaped(i)) {
+            if (char === '`' && !isEscaped(i)) {
                 contexts.push({type: 'template'});
                 out += char
             } else if (char === '{') {

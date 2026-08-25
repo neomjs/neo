@@ -339,6 +339,17 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
         expect(candidates).toEqual([])
     });
 
+    test('regex quote glyphs inside a substitution do not corrupt later literal state', () => {
+        const candidates = discoverFixture([
+            'export function quoteForShell(value) {',
+            '    const escaped = `"${value.replace(/[()%!^"<>&|]/g, match => `^${match}`)}"`;',
+            '    return `see the base ** attempt note in the docs`',
+            '}'
+        ].join('\n'));
+
+        expect(candidates).toEqual([])
+    });
+
     test('comment lines are excluded by shape, including block continuations', () => {
         expect(classifyLine('  const a = 2 ** b;', false).isCode).toBe(true);
         expect(classifyLine('  // 2 ** b', false).isCode).toBe(false);
