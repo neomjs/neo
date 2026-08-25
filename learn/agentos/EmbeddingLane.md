@@ -336,6 +336,33 @@ committed.
   the input format does not change any chunk id. Re-ingestion therefore re-embeds
   nothing. `parserVersion` **is** a hash input, which makes it the only mechanism
   that re-mints ids today, and nothing schedules it.
+- **"Nothing is dispatched into a provider that just timed out" is a real
+  guarantee, and it hangs by one thread — a caller hook that cannot throw.** The
+  two local providers have different admission machinery (native Ollama: a capped
+  slot released on provider settlement; OpenAI-compatible: a single-lane queue
+  whose drain selects the next task immediately after a rejection), and
+  `TextEmbeddingService.notifyProviderTimeout` exists so they owe the caller one
+  identical *ordering* promise: the caller's circuit is told **synchronously**,
+  before admission advances, so the drain cannot select the next span first.
+  Expressing that ordering per-provider instead of once is what let it exist in
+  only one of them.
+  Its containment cell states the exception precisely: a hook that opens its
+  circuit and *then* throws is contained, but **a hook that throws before opening
+  its circuit is outside the guarantee** — this layer will not invent fallback
+  circuit authority, so a later dispatch becomes possible and it is the caller's
+  contract to keep. Today that exception is unreachable: exactly one production
+  hook implements it, and its only pre-`abort()` statement builds an `Error` from
+  a literal and a constant, so it cannot throw. **That is a property of that hook,
+  not of the lane** — a future hook that resolves config, reads a getter, or
+  formats a message before aborting re-enters the exception, and the failure is
+  silent: a span reaches a provider already known to be dead, and nothing in the
+  ordering says so. If you write one of these, abort first and do everything else
+  after.
+  Do not read this as the native-Ollama stranding case, which is the opposite
+  side of the same boundary: that one needs a request **already dispatched** and
+  concerns server-side work outliving the client's abort. This one is about
+  whether the next span is dispatched at all, so if it never is, the other
+  mechanism has nothing to strand.
 
 ## Related
 
