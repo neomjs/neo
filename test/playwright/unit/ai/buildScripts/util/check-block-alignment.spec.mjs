@@ -566,8 +566,9 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
 
 /**
  * Real-git integration for the --staged diff-scope. In lint-staged (pre-commit) mode the check
- * reports only drift on the author's staged-ADDED lines — a grandfathered misalignment on an
- * untouched line must not block an unrelated commit — reusing the shared stagedDiff helper.
+ * reports drift in the RUNS the author touched — including untouched sibling lines inside such a
+ * run, since alignment is a property of the run — while a run they never touched must not block an
+ * unrelated commit, reusing the shared stagedDiff helper.
  */
 test.describe('check-block-alignment.mjs --staged diff-scope (#13720)', () => {
     let stagedDir;
