@@ -6,6 +6,11 @@ on:
     paths:
       - 'AGENTS.md'
       - '.agents/ANTIGRAVITY_RULES.md'
+      # The Claude entry point (#17175). It is a symlink to AGENTS.md today, so editing the CONTENT
+      # already triggers via the line above — but repointing the symlink, or replacing it with an
+      # @-import file, changes what the seat loads while touching neither watched path. That is the
+      # exact shape PR #17156 had, and it rode green because nothing watched this path.
+      - '.claude/CLAUDE.md'
       # Combined-budget members (#15257's pr-review loaded surface). A guard that does not RUN on the
       # edit it exists to catch is not a guard — the +135 B drift that put dev over its own gate was
       # a guide edit, and nothing was watching.
@@ -19,6 +24,11 @@ on:
     paths:
       - 'AGENTS.md'
       - '.agents/ANTIGRAVITY_RULES.md'
+      # The Claude entry point (#17175). It is a symlink to AGENTS.md today, so editing the CONTENT
+      # already triggers via the line above — but repointing the symlink, or replacing it with an
+      # @-import file, changes what the seat loads while touching neither watched path. That is the
+      # exact shape PR #17156 had, and it rode green because nothing watched this path.
+      - '.claude/CLAUDE.md'
       # Combined-budget members (#15257's pr-review loaded surface). A guard that does not RUN on the
       # edit it exists to catch is not a guard — the +135 B drift that put dev over its own gate was
       # a guide edit, and nothing was watching.
