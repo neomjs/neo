@@ -150,6 +150,44 @@ test.describe('NL relocation — admission and digest meet in the container grap
                       replayed = saved.saved ? markNlTransactionReplayed({archiveId: saved.archiveId, now: 99}) : null,
                       afterMark = saved.saved ? getNlTransaction({archiveId: saved.archiveId}) : null;
 
+                // CUSTODY: a caller cannot mint its own custodian. Sent through the REAL dispatcher, because
+                // one of the two layers that block this lives in the dispatcher's schema parse (undeclared
+                // keys are stripped) and the other in the store (it never reads a caller custodian).
+                // Measured: each layer alone is sufficient, so this arm reds only when both are removed.
+                let forgedSave = null, forgedError = null;
+
+                try {
+                    forgedSave = await callTool('save_nl_transaction', {
+                        appSessionId: 'app-forge',
+                        name        : 'forged',
+                        custodian   : 'neo-someone-else',
+                        transaction : {
+                            txId: 'tx-forge', status: 'committed', committedAt: 4243,
+                            originWriter: {agentId: 'claimed-agent', sessionId: 'claimed-session'},
+                            ops: [{method: 'setConfigs', args: [{id: 'c9'}]}]
+                        }
+                    });
+                } catch (error) {
+                    forgedError = error.message;
+                }
+
+                const forgedRead = forgedSave?.archiveId ? getNlTransaction({archiveId: forgedSave.archiveId}) : null;
+
+                // POSITIVE CONTROL for the projection: a custodian written through the graph directly IS
+                // surfaced by the read, so "the forged one is absent" is a measurement rather than a field
+                // the reader never returns.
+                const custodyControlId = 'custody-control-archive';
+
+                GraphService.upsertNode({
+                    id        : getNlTransactionArchiveNodeId(custodyControlId),
+                    type      : NL_TRANSACTION_ARCHIVE_NODE_TYPE,
+                    name      : custodyControlId,
+                    updatedAt : 1,
+                    properties: {archiveId: custodyControlId, custodian: 'neo-real-custodian', replayCount: 0}
+                });
+
+                const custodyControl = getNlTransaction({archiveId: custodyControlId});
+
                 // A SUCCESSFUL read of a real graph that holds no such node — the only thing entitled to
                 // be called not-found.
                 const absent = getNlTransaction({archiveId: 'no-such-archive-anywhere'});
@@ -232,6 +270,16 @@ test.describe('NL relocation — admission and digest meet in the container grap
                         admitted      : dispatch?.admitted ?? null,
                         refused       : dispatch?.refused ?? null,
                         readableTokens: dispatchTokens
+                    },
+                    custody     : {
+                        error             : forgedError,
+                        saved             : forgedSave?.saved ?? null,
+                        storedCustodian   : forgedRead?.custodian ?? null,
+                        forgedValueLanded : forgedRead?.custodian === 'neo-someone-else',
+                        // The caller's DECLARATION survives, because replay needs it — it is simply not a
+                        // security claim any more.
+                        declaredWriter    : forgedRead?.originWriter?.agentId ?? null,
+                        controlCustodian  : custodyControl?.custodian ?? null
                     },
                     controlRowPresent: Boolean(controlRow) && controlRow.properties?.timestamp === 5004,
                     readStatus  : read.status,
@@ -398,6 +446,28 @@ test.describe('NL relocation — admission and digest meet in the container grap
         // `sequenceId` is dropped from the OpenAPI item shape: the dispatcher strips undeclared fields, so
         // the row would store and read back with a null token and group under nothing.
         expect(out.dispatch.readableTokens).toEqual(['66666666-6666-4666-8666-666666666666'])
+    });
+
+    test('a caller cannot mint its own custody, but its DECLARATION still survives for replay', () => {
+        // The two halves of RA-4's custody requirement, separated on purpose. `originWriter` names a
+        // browser-plane agent the container cannot authenticate, so it stays a declaration and replay keeps
+        // consuming it. `custodian` is derived from the request context and is absent from the request
+        // schema, so the dispatcher's Zod facade strips a caller's attempt before the store ever sees it.
+        expect(out.custody.error).toBeNull();
+        expect(out.custody.saved).toBe(true);
+
+        // The forged value did NOT become custody.
+        expect(out.custody.forgedValueLanded).toBe(false);
+        expect(out.custody.storedCustodian).toBeNull();
+
+        // …and the declaration is untouched, which is the half that must NOT be locked down: replay
+        // reconstructs from it.
+        expect(out.custody.declaredWriter).toBe('claimed-agent');
+
+        // POSITIVE CONTROL: the reader does surface a custodian when the row carries one, so the null above
+        // is "nothing was stored" rather than "this field is never returned". Without it, deleting the
+        // projection line would leave the assertions green.
+        expect(out.custody.controlCustodian).toBe('neo-real-custodian')
     });
 
     test('the replay mark stays synchronous — the property that replaces the old atomic UPDATE', () => {

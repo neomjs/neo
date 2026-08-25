@@ -2664,11 +2664,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # CUSTODY DECISION for the four Neural Link operations below: they are INTERNAL NL-CLIENT
+  # capabilities, not generic agent tools. The intended caller is the host's own archive client — the
+  # archive read exists only to serve host-initiated replay, and the telemetry channel is write-only with
+  # no read companion. Nothing else in the swarm calls them.
+  #
+  # So all four sit in `extended` rather than `read`/`write`: withheld from the default loaded surface
+  # (`defaultVisibleTiers: [read, write]`) and still reachable on demand via `get_mcp_tool_handbook`.
+  # That is access control, not removal — the host client passes no tool projection and is unaffected.
+  #
+  # Access control is the ONLY custody lever available to the telemetry operation, because this ticket
+  # forbids storing identity in a telemetry row at all (no `agent_id`, asserted). The archive can do
+  # better and does: it stamps an authenticated `custodian` the caller cannot supply.
   /neural-link/transactions/save:
     post:
       summary: Save NL transaction archive
       operationId: save_nl_transaction
-      x-neo-tool-tier: write
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-neo-tool-summary: Archive one committed Neural Link transaction; answers a named refusal instead of throwing.
       description: "Requires status committed, at least one op, and an originWriter carrying agentId and sessionId. The container mints archiveId. A refusal answers saved false with a named reason."
@@ -2691,7 +2703,7 @@ paths:
     post:
       summary: Read NL transaction archive
       operationId: get_nl_transaction
-      x-neo-tool-tier: read
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-neo-tool-summary: Read one archived Neural Link transaction by archiveId; status found, not-found, or unavailable.
       description: "The record travels flat on the found arm. not-found means the store answered and held no such record; unavailable means it could not be read, and carries a reason."
@@ -2714,7 +2726,7 @@ paths:
     post:
       summary: Mark NL transaction replayed
       operationId: mark_nl_transaction_replayed
-      x-neo-tool-tier: write
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-neo-tool-summary: Mark one Neural Link archive replayed; answers the new replayCount or a named failure.
       description: "Increments replayCount and stamps lastReplayedAt. updated false carries status not-found or unavailable; an unknown archiveId is never created."
@@ -2737,7 +2749,7 @@ paths:
     post:
       summary: Admit NL action telemetry
       operationId: admit_nl_actions
-      x-neo-tool-tier: write
+      x-neo-tool-tier: extended
       x-pass-as-object: true
       x-neo-tool-summary: Write-only admission for Neural Link action telemetry; drops every field outside the admitted set.
       description: "The CALLER mints sequenceId as a bare-UUID correlation token; the container mints the storage row id. Admits only sequenceId, sessionId, timestamp, tool, success, durationMs, appName and targets of classNames plus componentIds. A row that cannot be stored is counted as refused, never thrown. No read companion exists."
@@ -2810,7 +2822,14 @@ components:
         name:           {type: string, nullable: true}
         sourceTxId:     {type: string, nullable: true}
         appSessionId:   {type: string, nullable: true}
-        originWriter:   {type: object, nullable: true}
+        originWriter:
+          type: object
+          nullable: true
+          description: "Caller-DECLARED app-plane writer, from the App Worker session. Load-bearing for replay; not an authenticated claim — the container has no view of that namespace."
+        custodian:
+          type: string
+          nullable: true
+          description: "Authenticated identity that submitted the archive, derived from the request context. Absent from the request schema, so a caller cannot supply it. Null when no context was bound."
         committedAt:    {type: number, nullable: true}
         archivedAt:     {type: number, nullable: true}
         ops:            {type: array, items: {type: object}}

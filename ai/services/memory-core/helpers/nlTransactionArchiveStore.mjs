@@ -1,5 +1,6 @@
-import crypto       from 'crypto';
-import GraphService from '../GraphService.mjs';
+import crypto                from 'crypto';
+import GraphService          from '../GraphService.mjs';
+import RequestContextService from '../../../mcp/server/shared/services/RequestContextService.mjs';
 
 /**
  * @module ai/services/memory-core/helpers/nlTransactionArchiveStore
@@ -114,6 +115,31 @@ export function saveNlTransaction({appSessionId = null, name = null, transaction
                 name          : trimmedName,
                 appSessionId,
                 originWriter,
+                // CUSTODY, and it is a different fact from `originWriter` rather than a duplicate of it.
+                //
+                // `originWriter.agentId` comes from the App Worker's own session context
+                // (`src/ai/client/InstanceService.mjs`), so it names a BROWSER-plane agent — a namespace the
+                // container has no view of and therefore cannot authenticate. Checking it against the
+                // authenticated MCP identity would refuse every legitimate save, because the two are not
+                // the same kind of name. So `originWriter` stays what it always was: a caller DECLARATION,
+                // load-bearing for replay and worth nothing as a security claim.
+                //
+                // `custodian` is the identity that actually submitted the write, read from the request
+                // context. A caller cannot supply it, and it is defended TWICE — measured, because my first
+                // two mutation attempts each left the proof green:
+                //   1. `custodian` is absent from `SaveNlTransactionRequest`, and the Zod facade strips
+                //      undeclared keys — the same property that keeps the injected clock host-side.
+                //   2. This function never reads a caller-supplied custodian; it destructures only
+                //      `appSessionId` / `name` / `transaction` / `now`.
+                // Either layer alone blocks a forged value, so the composition arm reds only when BOTH are
+                // removed. Keep both: layer 1 is the wire contract, layer 2 survives a schema edit.
+                // `null` when no context is bound, which is a legitimate state for container-internal
+                // writers and is recorded as such rather than fabricated.
+                //
+                // Net effect: a forged `originWriter` is now ATTRIBUTABLE. That is the honest bound — the
+                // container cannot stop a caller declaring one, only record who declared it.
+                custodian     : RequestContextService.getUserId() ?? null,
+                custodySource : RequestContextService.getSource() ?? null,
                 committedAt   : Number.isFinite(transaction.committedAt) ? transaction.committedAt : null,
                 archivedAt    : now,
                 ops           : transaction.ops,
@@ -188,6 +214,7 @@ export function getNlTransaction({archiveId} = {}) {
         sourceTxId    : p.sourceTxId ?? null,
         appSessionId  : p.appSessionId ?? null,
         originWriter  : p.originWriter ?? null,
+        custodian     : p.custodian ?? null,
         committedAt   : p.committedAt ?? null,
         archivedAt    : p.archivedAt ?? null,
         ops           : Array.isArray(p.ops) ? p.ops : [],

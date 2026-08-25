@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import YAML           from 'yaml';
 import fs             from 'node:fs';
 import path           from 'node:path';
 
@@ -122,6 +123,51 @@ test.describe('Neural Link relocation invariants', () => {
         // POSITIVE CONTROL: the matcher does find operations, so an empty telemetry-read list is a
         // measurement rather than a broken regex.
         expect(nlOperations.length).toBe(4);
+    });
+
+    test('the four NL operations stay OUT of the default agent tool surface', () => {
+        // The custody decision, pinned. These are internal NL-client capabilities: the archive read serves
+        // host-initiated replay and the telemetry channel is write-only, so neither belongs in the surface
+        // an ordinary agent loads by default. `extended` withholds them from that surface while leaving
+        // them reachable on demand — access control, not removal.
+        //
+        // For the telemetry operation this is the ONLY custody lever available, because the ticket forbids
+        // storing identity in a telemetry row at all. The archive additionally stamps a `custodian`.
+        const openapi = YAML.parse(fs.readFileSync(
+                  path.join(rootDir, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8'
+              )),
+              visibleTiers = openapi['x-neo-harness-tool-projection'].defaultVisibleTiers,
+              nlTiers      = {};
+
+        for (const item of Object.values(openapi.paths)) {
+            for (const operation of Object.values(item)) {
+                if (operation && /^(save_nl_transaction|get_nl_transaction|mark_nl_transaction_replayed|admit_nl_actions)$/.test(operation.operationId ?? '')) {
+                    nlTiers[operation.operationId] = operation['x-neo-tool-tier'];
+                }
+            }
+        }
+
+        // All four found — an empty map would make every assertion below vacuous.
+        expect(Object.keys(nlTiers).sort()).toEqual([
+            'admit_nl_actions', 'get_nl_transaction', 'mark_nl_transaction_replayed', 'save_nl_transaction'
+        ]);
+        expect(Object.values(nlTiers).filter(tier => visibleTiers.includes(tier))).toEqual([]);
+
+        // POSITIVE CONTROL: the default surface is not empty, and it does contain other operations — so
+        // "none of these four are in it" is a discrimination rather than a statement about a tier list
+        // nothing matches.
+        expect(visibleTiers.length).toBeGreaterThan(0);
+
+        const visibleOperations = Object.values(openapi.paths)
+            .flatMap(item => Object.values(item))
+            .filter(operation => operation && visibleTiers.includes(operation['x-neo-tool-tier']));
+
+        expect(visibleOperations.length).toBeGreaterThan(10);
+
+        // And a request schema that declared `custodian` would hand a caller the one field the archive
+        // authenticates. It must stay absent.
+        expect(Object.keys(openapi.components.schemas.SaveNlTransactionRequest.properties))
+            .not.toContain('custodian');
     });
 
     test('no Neural Link service imports the framework root — that is an entrypoint\'s job', () => {
