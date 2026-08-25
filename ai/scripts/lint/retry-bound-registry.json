@@ -16,7 +16,7 @@
             "max-window",
             "terminal-state"
         ],
-        "witness": "REQUIRED for every entry. Names the spec or the bounding construct that PROVES the classification. An entry without one is a suppression, not a classification.",
+        "witness": "REQUIRED for every entry. Source-keyed contract: the site key anchors the source; the witness may state a co-located construct/rationale inline or name a repo-relative path with an optional #symbol. Every named path/symbol must resolve. An entry without a witness is a suppression, not a classification.",
         "regenerate": "node ai/scripts/lint/lint-retry-bounds.mjs --list"
     },
     "sites": {

@@ -170,11 +170,15 @@ export function classifyLine(line, inBlockComment) {
  * them); they are a discovery-layer defect. Real false positives that survive this — easing curves,
  * power-law random — are genuine code and do get classified.
  *
- * Template literals spanning multiple lines carry their open state across the scan, because prompts
- * and rendered-report templates are exactly where multi-line markdown lives — leaving continuation
- * lines unstripped put five pure-prose entries in front of the classifier on the first run.
- * Single-quote/double-quote state deliberately does NOT carry: an unterminated `'` is a syntax
- * error, so treating it as open would silently blank the rest of the file.
+ * Template literals spanning multiple lines carry an OPAQUE context stack across the scan, because
+ * a boolean "inside template" cannot represent the nested-template/substitution shape. Losing the
+ * substitution depth at a newline made a nested backtick close the OUTER template; later markdown
+ * then leaked out as code. The stack retains template text, `${...}` brace depth, nested templates,
+ * and strings inside substitutions until their actual delimiters close.
+ *
+ * Single-quote/double-quote state outside a substitution deliberately does NOT carry: an
+ * unterminated quote is a syntax error, so treating it as open would silently blank the rest of the
+ * file. Quotes inside a multi-line substitution do carry as part of that substitution's context.
  *
  * **`${…}` substitutions are PRESERVED.** They are executable code that merely lives inside a
  * template, and blanking them cost a real site: `src/form/field/FileUpload.mjs` computes
@@ -182,47 +186,106 @@ export function classifyLine(line, inBlockComment) {
  * it. Nesting is tracked by depth so a substitution containing its own template (or an object
  * literal's braces) closes at the right brace rather than the first one.
  * @param {String} line Raw source line.
- * @param {Boolean} [inTemplate=false] Whether the scanner is inside a multi-line template literal.
- * @returns {{code: String, inTemplate: Boolean}} Line with literal TEXT blanked, substitutions kept.
+ * @param {Boolean|Object} [state=false] Prior opaque state. Boolean input remains supported for the
+ *                                      focused single-line contract; production passes `state` back.
+ * @returns {{code: String, inTemplate: Boolean, state: Object}} Line with literal TEXT blanked,
+ *                                                               substitutions kept, and next state.
  */
-export function stripLiterals(line, inTemplate = false) {
-    let out        = '',
-        quote      = inTemplate ? '`' : null,
-        substDepth = 0;
+export function stripLiterals(line, state = false) {
+    const contexts = state && typeof state === 'object' && Array.isArray(state.contexts)
+        ? state.contexts.map(context => ({...context}))
+        : state === true ? [{type: 'template'}] : [];
+
+    let out       = '',
+        rootQuote = null;
+
+    const isEscaped = index => {
+        let slashCount = 0;
+
+        for (let i = index - 1; i >= 0 && line[i] === '\\'; i--) {
+            slashCount++
+        }
+
+        return slashCount % 2 === 1
+    };
 
     for (let i = 0; i < line.length; i++) {
-        const char = line[i],
-              prev = line[i - 1];
+        const char    = line[i],
+              context = contexts.at(-1);
 
-        // Inside a `${...}` substitution the content is code: emit it verbatim and track brace depth
-        // so a nested template or object literal does not close the substitution early.
-        if (substDepth > 0) {
-            if (char === '{') substDepth++;
-            if (char === '}') substDepth--;
-            out += substDepth === 0 ? ' ' : char;
+        if (context?.type === 'template') {
+            if (char === '$' && line[i + 1] === '{' && !isEscaped(i)) {
+                contexts.push({type: 'substitution', braceDepth: 1, quote: null});
+                out += '  ';
+                i++
+            } else if (char === '`' && !isEscaped(i)) {
+                contexts.pop();
+                out += char
+            } else {
+                out += ' '
+            }
+
             continue;
         }
 
-        if (quote) {
-            if (quote === '`' && char === '$' && line[i + 1] === '{') {
-                substDepth = 1;
-                out       += '  ';
-                i++;
-            } else if (char === quote && prev !== '\\') {
-                quote = null;
-                out  += char;
+        if (context?.type === 'substitution') {
+            if (context.quote) {
+                if (char === context.quote && !isEscaped(i)) {
+                    context.quote = null;
+                    out          += char
+                } else {
+                    out += ' '
+                }
+            } else if ((char === '\'' || char === '"') && !isEscaped(i)) {
+                context.quote = char;
+                out          += char
+            } else if (char === '`' && !isEscaped(i)) {
+                contexts.push({type: 'template'});
+                out += char
+            } else if (char === '{') {
+                context.braceDepth++;
+                out += char
+            } else if (char === '}') {
+                context.braceDepth--;
+
+                if (context.braceDepth === 0) {
+                    contexts.pop();
+                    out += ' '
+                } else {
+                    out += char
+                }
             } else {
-                out += ' ';
+                out += char
             }
-        } else if (char === '\'' || char === '"' || char === '`') {
-            quote = char;
-            out  += char;
+
+            continue;
+        }
+
+        if (rootQuote) {
+            if (char === rootQuote && !isEscaped(i)) {
+                rootQuote = null;
+                out      += char
+            } else {
+                out += ' '
+            }
+        } else if ((char === '\'' || char === '"') && !isEscaped(i)) {
+            rootQuote = char;
+            out      += char
+        } else if (char === '`' && !isEscaped(i)) {
+            contexts.push({type: 'template'});
+            out += char
         } else {
-            out += char;
+            out += char
         }
     }
 
-    return {code: out, inTemplate: quote === '`'};
+    const nextState = {contexts};
+
+    return {
+        code      : out,
+        inTemplate: contexts.some(context => context.type === 'template'),
+        state     : nextState
+    }
 }
 
 /**
@@ -394,7 +457,7 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
                   lines = fs.readFileSync(file, 'utf8').split('\n');
 
             let inBlockComment = false,
-                inTemplate     = false;
+                literalState   = false;
 
             lines.forEach((line, index) => {
                 const state = classifyLine(line, inBlockComment);
@@ -404,31 +467,9 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
                 // one that a preceding code line left open.
                 if (!state.isCode) return;
 
-                const stripped = stripLiterals(line, inTemplate),
-                      wasOpen  = inTemplate;
+                const stripped = stripLiterals(line, literalState);
 
-                inTemplate = stripped.inTemplate;
-
-                // KNOWN FALSE NEGATIVE, retained deliberately (@neo-gpt-emmy's scanner escape).
-                //
-                // A growth expression inside a `${…}` substitution on a CONTINUATION line of a
-                // multi-line template is preserved by `stripLiterals` and then discarded here —
-                // discovered and dropped in the same pass. That is a real escape and it is not fixed.
-                //
-                // Removing this return does NOT fix it, which is the measured part. Doing so
-                // immediately surfaces `ai/demo-agents/dev.mjs:258` as a candidate whose match is
-                // `**AI Generated PR**` — markdown bold inside literal text, exactly what
-                // `stripLiterals` exists to blank. The cause is upstream: the template opened at
-                // dev.mjs:118 is never seen to close, so by 258 the scanner still believes it is
-                // inside a template; `stripLiterals(line, true)` then reads 258's OPENING backtick
-                // as a CLOSE and emits the whole literal as code.
-                //
-                // So this return is masking a `stripLiterals` state-tracking defect as well as the
-                // escape, and lifting it trades a known false negative for a false positive — which
-                // is the worse of the two, because a gate that cries wolf gets routed around. The
-                // real repair is multi-line template state tracking, which is outside the closure
-                // boundary set for this PR. Recorded rather than silently retained.
-                if (wasOpen) return;
+                literalState = stripped.state;
 
                 // Every match, not the first. `PATTERNS.find` returned one hit per line, so
                 // `(px - a) ** 2 + (py - b) ** 2` — two growth expressions — produced ONE obligation
@@ -521,7 +562,8 @@ export function unresolvedWitnessPaths(key, witness, rootDir = ROOT_DIR) {
  * @summary A `retry-growth` entry must name lifetime AND carrier; a `not-a-retry` entry must not,
  * because a bound carrier for something that never retries is a claim nobody can witness. BOTH
  * require a witness — that requirement is what keeps this a classification registry rather than a
- * suppression allowlist.
+ * suppression allowlist. Witness semantics are owned by `retry-bound-registry.json#$schema.witness`;
+ * this validator enforces the shape and resolves every path/symbol the witness chooses to name.
  * @param {String} key Registry key.
  * @param {Object} entry Registry entry.
  * @returns {String[]} Problems; empty when valid.
