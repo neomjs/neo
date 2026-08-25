@@ -282,10 +282,10 @@ test.describe('repairStaleEmbeddings — dry-run is the default and the flags re
 
 test.describe('a poison-generation bump repairs NOTHING — the corrected finding, pinned', () => {
     /**
-     * #17428's original reading was that bumping the poison strategy family would re-embed the
-     * affected rows. It does not: that value scopes poison/suppression evidence only. The correction
-     * is pinned here as behaviour so the next reader cannot re-derive the wrong version from the
-     * docblock, which is exactly how it was mis-read the first time.
+     * An intuitive reading of the poison-generation machinery is that bumping the strategy family
+     * would re-embed the affected rows. It does not: that value scopes poison/suppression evidence
+     * only. The correction is pinned here as behaviour so the next reader cannot re-derive the wrong
+     * version from the docblock, which is exactly how it was mis-read the first time.
      */
     test('selection is unmoved by poison-generation metadata on the row', async () => {
         const withPoison = {
