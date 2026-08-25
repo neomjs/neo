@@ -1027,12 +1027,17 @@ class VdomLifecycle extends Base {
                     && !me.isChildUpdating(resolve)
                     && vnode
                 ) {
-                    // Check for merged child updates and adjust the update depth accordingly
-                    // let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
-                    //
-                    // if (adjustedDepth !== null) {
-                    //     me.updateDepth = adjustedDepth;
-                    // }
+                    // Absorb the depth that merged children asked for before dispatching.
+                    // executeVdomUpdate() records this owner's updateDepth into `depths`, and the
+                    // collision filter deletes a merged child's own payload whenever this owner
+                    // claims to cover it. That claim only holds once the children's requirements
+                    // are folded in here, so a child which merged with updateDepth: -1 keeps its
+                    // subtree instead of being pruned by an owner that stopped short of it.
+                    let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
+
+                    if (adjustedDepth !== null) {
+                        me.updateDepth = adjustedDepth
+                    }
 
                     // Verify that the critical rendering path => CSS files for the new tree is in place.
                     // Call-time `Neo.currentWorker` resolution, one read per invocation — the

@@ -40,6 +40,13 @@ const createMockComponent = (id, parentId, vdom) => {
     return component;
 };
 
+/**
+ * These arms certify the arithmetic of `VDomUpdate.getAdjustedUpdateDepth()` and its composition with
+ * `TreeBuilder`, by calling both directly against mock components. They deliberately do NOT cover the
+ * wiring: nothing here asserts that anything in production ever applies the adjusted depth, so they
+ * stay green whether or not the dispatch site calls it. `MergedUpdateDepth.spec.mjs` owns that half,
+ * driving `update()` -> `updateVdom()` -> `executeVdomUpdate()` and reading the resulting deltas.
+ */
 test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
     test.beforeEach(() => {
         VDomUpdate.mergedCallbackMap.clear();
