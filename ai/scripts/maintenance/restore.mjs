@@ -878,9 +878,10 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
  * `BUNDLE_EMPTY`, `BUNDLE_INCOMPLETE`, `BUNDLE_INVALID`, or `BUNDLE_UNVERIFIABLE`. `RESTORABLE`
  * asserts the bundle is structurally valid, non-empty, and complete across the canonical recovery
- * substrates. `priorStateEvidence` remains independently true for an incomplete non-empty bundle,
- * preserving the initialization interlock without authorizing recovery. `rowTotal` reports the
- * observed vector rows, and
+ * substrates. `priorStateEvidence` is the root-level disjunction over every examined bundle: one
+ * incomplete non-empty candidate keeps it true even when a newer empty or invalid candidate remains
+ * the reported failure. This preserves the initialization interlock without authorizing recovery.
+ * `rowTotal` reports the newest candidate's observed vector rows, and
  * `bundleRoot` names WHICH bundle earned the verdict — no longer necessarily the newest one present.
  * That strength lives here rather than in a caller so a shell gate consumes one authoritative verdict
  * instead of re-reading metadata and growing a second predicate able to disagree with this one.
@@ -890,7 +891,9 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * On failure the reported `code`/`bundleRoot`/`reason` describe the NEWEST bundle rather than an
  * invented aggregate, so a single-bundle root answers exactly as it did before this function learned
  * to look further back, and `redeployPreflight`'s refusal still prints the most recent cause.
- * `skipped` lists every rejected candidate newest-first; `examined` counts full validations spent.
+ * `priorStateEvidence` is the deliberate exception because the initialization interlock asks whether
+ * ANY examined bundle proves a prior plane. `skipped` lists every rejected candidate newest-first;
+ * `examined` counts full validations spent.
  *
  * It exists so a caller gating on this probe branches on a value rather than
  * pattern-matching English out of `reason`, which would silently stop working the moment the prose
@@ -961,7 +964,8 @@ export async function verifyLatestBackupRestorable({
 
     const skipped  = [];
     let   examined = 0,
-          newest   = null;
+          newest        = null,
+          sawPriorState = false;
 
     for (const bundleName of bundleNames) {
         if (examined >= maxBundlesExamined) {
@@ -979,6 +983,11 @@ export async function verifyLatestBackupRestorable({
 
         const verdict = await probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt});
 
+        // Authorization belongs to one candidate; prior-state belongs to the root. A populated but
+        // incomplete older bundle must keep the initialization interlock closed even when the newest
+        // candidate is empty, invalid, or the scan stops before finding an authorized recovery source.
+        sawPriorState ||= verdict.priorStateEvidence === true;
+
         if (verdict.recoverySourceAuthorized) {
             // Reporting rather than hiding. The operator's repair for the incident was `rm -rf` on the
             // unusable newest directory; a fallback that silently succeeded would have removed the
@@ -990,7 +999,7 @@ export async function verifyLatestBackupRestorable({
                 );
             }
 
-            return {...verdict, skipped, examined}
+            return {...verdict, priorStateEvidence: sawPriorState, skipped, examined}
         }
 
         // FAIL CLOSED on an unobservable candidate. Walking backwards is only justified when the
@@ -1008,7 +1017,7 @@ export async function verifyLatestBackupRestorable({
                 `Reason: ${verdict.reason}`
             );
 
-            return {...verdict, skipped, examined}
+            return {...verdict, priorStateEvidence: sawPriorState, skipped, examined}
         }
 
         // The WHOLE verdict, not a projection of it. Rebuilding a reduced `{code, reason, bundleRoot}`
@@ -1019,12 +1028,10 @@ export async function verifyLatestBackupRestorable({
         skipped.push({bundleName, code: verdict.code, reason: verdict.reason});
     }
 
-    // No candidate survived. The verdict keeps the NEWEST bundle's own result rather than inventing an
-    // aggregate one: consumers (`redeployPreflight.evaluateRedeployPreconditions`) branch on
-    // `RESTORABLE` vs everything-else and log the code as the refusal cause, so the most recent
-    // failure remains the most useful thing to print — and a single-bundle root reports exactly what
-    // it reported before this function learned to look further back.
-    return {...newest, skipped, examined}
+    // No candidate survived. Failure provenance remains the NEWEST bundle's result; only the
+    // root-level prior-state fact aggregates across the walk so initialization cannot erase an older
+    // populated bundle from consideration.
+    return {...newest, priorStateEvidence: sawPriorState, skipped, examined}
 }
 
 /**

@@ -1288,6 +1288,73 @@ test.describe('verifyLatestBackupRestorable — falls back past an unusable newe
         expect(verdict.skipped[0].code).toBe('BUNDLE_INCOMPLETE');
     });
 
+    test('#16567 a newer empty bundle cannot erase prior-state evidence from populated older history', async () => {
+        const incompleteName = 'backup-2026-08-05T01-00-00',
+              emptyName      = 'backup-2026-08-06T02-00-00',
+              incompleteMeta = {
+                  embeddingAdvisories: [],
+                  embedding          : {counts: {kb: 0, memories: 32462, summaries: 1777}},
+                  integrity          : [
+                      {bundleCount: 0,     sourceCount: 0,     status: 'empty', subsystem: 'kb'},
+                      {bundleCount: 34239, sourceCount: 34239, status: 'pass',  subsystem: 'mc'},
+                      {bundleCount: 12,    sourceCount: 12,    status: 'pass',  subsystem: 'graph'}
+                  ],
+                  streamedCounts: {memories: 32462, summaries: 1777}
+              },
+              emptyMeta = {
+                  embeddingAdvisories: [],
+                  embedding          : {counts: {kb: 0, memories: 0, summaries: 0}},
+                  integrity          : ['kb', 'mc', 'graph'].map(subsystem => ({
+                      bundleCount: 0,
+                      sourceCount: 0,
+                      status     : 'empty',
+                      subsystem
+                  })),
+                  streamedCounts: {}
+              },
+              bundles = {
+                  [emptyName]     : emptyMeta,
+                  [incompleteName]: incompleteMeta
+              },
+              validateFn = async bundleRoot => bundles[path.basename(bundleRoot)];
+
+        fs.mkdirSync(path.join(probeRoot, incompleteName), {recursive: true});
+
+        // Positive control: the populated incomplete bundle proves prior state by itself.
+        const alone = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, validateFn});
+
+        expect(alone.code).toBe('BUNDLE_INCOMPLETE');
+        expect(alone.priorStateEvidence).toBe(true);
+        expect(alone.recoverySourceAuthorized).toBe(false);
+
+        // Probe: failure provenance stays on the empty newest bundle, while root-level prior-state
+        // evidence remains true because the older populated bundle was also examined.
+        fs.mkdirSync(path.join(probeRoot, emptyName), {recursive: true});
+
+        const stacked = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, validateFn});
+
+        expect(stacked.code).toBe('BUNDLE_EMPTY');
+        expect(stacked.bundleRoot).toContain(emptyName);
+        expect(stacked.priorStateEvidence).toBe(true);
+        expect(stacked.recoverySourceAuthorized).toBe(false);
+        expect(stacked.skipped.map(item => item.code)).toEqual(['BUNDLE_EMPTY', 'BUNDLE_INCOMPLETE']);
+
+        const {evaluateRedeployPreconditions, PRIMARY_VOLUME_STATE} =
+                  await import('../../../../../../ai/scripts/maintenance/redeployPreflight.mjs'),
+              outcome = evaluateRedeployPreconditions({
+                  emptySubsystems         : stacked.emptySubsystems,
+                  initializeRequested     : true,
+                  markerPresent           : false,
+                  primaryVolumeState      : PRIMARY_VOLUME_STATE.ABSENT,
+                  priorStateEvidence      : stacked.priorStateEvidence,
+                  recoverySourceAuthorized: stacked.recoverySourceAuthorized,
+                  verdictCode             : stacked.code
+              });
+
+        expect(outcome.proceed).toBe(false);
+        expect(outcome.decision).toBe('REFUSE_ALREADY_INITIALIZED');
+    });
+
     test('REGRESSION GUARD: a legacy bundle carrying no bundle-meta.json but real rows stays restorable', async () => {
         // `validateBundle` documents meta-absence as the LEGACY bundle contract, returning
         // `{legacy: true}` rather than failing. An earlier draft of this change rejected meta-less
