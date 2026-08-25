@@ -2,11 +2,13 @@ import Base                   from '../../../src/core/Base.mjs';
 import StorageRouter          from './managers/StorageRouter.mjs';
 import {resolveRowTimestamp}  from './helpers/resolveRowTimestamp.mjs';
 import {resolveSharingPolicy} from './helpers/resolveSharingPolicy.mjs';
-import crypto                 from 'crypto';
-import GraphService           from './GraphService.mjs';
-import logger                 from '../../mcp/server/memory-core/logger.mjs';
-import SessionService         from './SessionService.mjs';
-import TurnPresenceService    from './TurnPresenceService.mjs';
+import {canonicalRawMemoryGraphId, RAW_MEMORY_NODE_LABEL}
+                              from './helpers/rawMemoryGraphIdentity.mjs';
+import crypto              from 'crypto';
+import GraphService        from './GraphService.mjs';
+import logger              from '../../mcp/server/memory-core/logger.mjs';
+import SessionService      from './SessionService.mjs';
+import TurnPresenceService from './TurnPresenceService.mjs';
 import {withTimeout,
         WITH_TIMEOUT_CODE} from './helpers/withTimeout.mjs';
 
@@ -1008,12 +1010,14 @@ class MemoryService extends Base {
      * @private
      */
     async _projectMemoryToGraph({memoryId, timestamp, sessionId, segmentKey, walDir, requestIdentity, memoryProperties}) {
+        const graphNodeId = canonicalRawMemoryGraphId(memoryId);
+
         GraphService.upsertNode({
-            id              : memoryId,
-            type            : 'AGENT_MEMORY',
+            id              : graphNodeId,
+            type            : RAW_MEMORY_NODE_LABEL,
             name            : `Memory: ${timestamp}`,
             description     : `Agent thought flow inside session ${sessionId}.`,
-            semanticVectorId: memoryId,
+            semanticVectorId: graphNodeId,
             // Archive-aware: a tombstone set while this record was graph-pending (the projection-lag
             // window) is replayed onto the node here, so a deferred projection cannot reintroduce an
             // archived row un-tombstoned. See _withArchiveState + the durable ARCHIVED_AGENT_IDENTITY marker.
@@ -1024,7 +1028,7 @@ class MemoryService extends Base {
         // Fallback-only identities remain scalar metadata so single-tenant/unseeded callers
         // keep working without hallucinated graph edges to nodes that do not exist.
         if (requestIdentity) {
-            GraphService.linkNodes(memoryId, requestIdentity, 'AUTHORED_BY', 1.0, {
+            GraphService.linkNodes(graphNodeId, requestIdentity, 'AUTHORED_BY', 1.0, {
                 timestamp,
                 userId      : normalizeUserId(requestIdentity),
                 sharedEntity: true
@@ -1032,9 +1036,9 @@ class MemoryService extends Base {
         }
 
         // Link this memory dynamically to the active context frontier.
-        GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
+        GraphService.linkNodes('frontier', graphNodeId, 'SPAWNED_MEMORY', 0.8);
 
-        await appendWalGraphProjectionMarker({id: memoryId, segmentKey}, {dir: walDir});
+        await appendWalGraphProjectionMarker({id: graphNodeId, segmentKey}, {dir: walDir});
     }
 
     /**

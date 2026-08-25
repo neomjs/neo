@@ -12,6 +12,7 @@ import { normalizeUserId }             from '../../mcp/server/shared/services/Re
 import fsExtra                         from 'fs-extra';
 import {isDeepStrictEqual}             from 'node:util';
 import {projectNode}                   from './nodeProjection.mjs';
+import {LEGACY_RAW_MEMORY_NODE_LABEL}  from './helpers/rawMemoryGraphIdentity.mjs';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -817,10 +818,10 @@ class GraphService extends Base {
      * identity `AUTHORED_BY` edge creators use this async path; existing sync callers remain
      * unaffected.
      *
-     * **Prefix normalization:** if either endpoint uses the uppercase `MEMORY:`/`SESSION:`
-     * prefix, the back-filled node lands under the canonical lowercase ID and the edge is
-     * created against the canonical form. Callers should expect the edge's actual source/target
-     * in SQLite to be the normalized lowercase variant regardless of the input case.
+     * **Prefix resolution:** uppercase `MEMORY:`/`SESSION:` input is normalized before lookup.
+     * SESSION persists lowercase-prefixed. A Chroma-backed MEMORY request resolves to the existing
+     * bare `AGENT_MEMORY` UUID; a semantic MEMORY node without raw provenance remains prefixed.
+     * The edge always uses the resolver's returned persisted id.
      *
      * @param {String} source Source node ID
      * @param {String} target Target node ID
@@ -837,19 +838,62 @@ class GraphService extends Base {
 
         const
             normalizedSource = this.normalizeGraphNodeId(source),
-            normalizedTarget = this.normalizeGraphNodeId(target);
+            normalizedTarget = this.normalizeGraphNodeId(target),
+            resolvedSource   = await this.resolveNodeId(normalizedSource),
+            resolvedTarget   = await this.resolveNodeId(normalizedTarget);
 
-        const
-            sourceReady = await this.ensureNodeExists(normalizedSource),
-            targetReady = await this.ensureNodeExists(normalizedTarget);
-
-        if (!sourceReady || !targetReady) {
-            logger.warn(`[GraphService] linkNodesAsync: endpoint resolution failed (source=${sourceReady}, target=${targetReady}) — ${normalizedSource} -> ${normalizedTarget}`);
+        if (!resolvedSource || !resolvedTarget) {
+            logger.warn(`[GraphService] linkNodesAsync: endpoint resolution failed (source=${resolvedSource || false}, target=${resolvedTarget || false}) — ${normalizedSource} -> ${normalizedTarget}`);
             return false;
         }
 
-        this.linkNodes(normalizedSource, normalizedTarget, relationship, weight, properties);
+        this.linkNodes(resolvedSource, resolvedTarget, relationship, weight, properties);
         return true;
+    }
+
+    /**
+     * @summary Resolves a requested graph id to the persisted node id that owns it.
+     *
+     * Prefix case is normalized first. A prefixed `MEMORY` node with `chromaId` is a legacy raw
+     * projection, so Chroma-backed ingestion resolves it to the bare `AGENT_MEMORY` UUID even when
+     * the legacy node still exists. A `MEMORY` node without `chromaId` is semantic/curated graph
+     * content and remains under its prefixed id.
+     *
+     * @param {String} graphNodeId Requested graph id.
+     * @returns {Promise<String|null>} Persisted node id, or null when resolution failed.
+     */
+    async resolveNodeId(graphNodeId) {
+        if (!this.db?.storage?.db || !graphNodeId) {
+            return null
+        }
+
+        const normalized = this.normalizeGraphNodeId(graphNodeId);
+
+        // Match upsertNode's cold-cache discipline before classifying a prefixed node as missing.
+        // A semantic MEMORY row may exist only in SQLite after LRU eviction; Chroma absence is not
+        // authority to cull it.
+        this.db.getAdjacentNodes(normalized, 'both');
+
+        const
+            existing   = this.db.nodes.get(normalized),
+            label      = existing?.isRecord ? existing.get('label') : existing?.label,
+            properties = existing?.isRecord ? existing.get('properties') : existing?.properties,
+            legacyRaw  = label === LEGACY_RAW_MEMORY_NODE_LABEL && Boolean(properties?.chromaId);
+
+        if (existing && !legacyRaw) {
+            return normalized
+        }
+
+        const {default: MemorySessionIngestor} = await import('../../services/ingestion/MemorySessionIngestor.mjs');
+        const result                           = await MemorySessionIngestor.ingestSingleRow(normalized);
+
+        if (result.success && this.db.nodes.has(result.graphNodeId || normalized)) {
+            return result.graphNodeId || normalized
+        }
+
+        // A prefixed MEMORY without a matching raw Chroma row can still be a durable semantic node.
+        // Preserve it rather than treating Chroma absence as deletion authority.
+        return existing ? normalized : null
     }
 
     /**
@@ -871,32 +915,14 @@ class GraphService extends Base {
      *     back-filled); `false` otherwise.
      */
     async ensureNodeExists(graphNodeId) {
-        if (!this.db?.storage?.db || !graphNodeId) {
-            return false;
-        }
-
-        if (this.db.nodes.has(graphNodeId)) {
-            return true;
-        }
-
-        const {default: MemorySessionIngestor} = await import('../../services/ingestion/MemorySessionIngestor.mjs');
-        const result                           = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
-
-        if (!result.success) {
-            if (result.reason !== 'unrecognized-prefix') {
-                logger.warn(`[GraphService] ensureNodeExists: back-fill failed for ${graphNodeId} — ${result.reason}${result.error ? ' (' + result.error + ')' : ''}`);
-            }
-            return false;
-        }
-
-        return this.db.nodes.has(result.graphNodeId || graphNodeId);
+        return Boolean(await this.resolveNodeId(graphNodeId))
     }
 
     /**
-     * Normalizes a graph node ID's prefix to its canonical lowercase form. Non-`memory:` /
-     * non-`session:` IDs pass through unchanged. Used by `linkNodesAsync` to accept edges
-     * queued with the uppercase `MEMORY:`/`SESSION:` convention without polluting the
-     * graph with case-variant duplicate nodes.
+     * Normalizes graph-node PREFIX GRAMMAR to lowercase before endpoint resolution. Non-`memory:`
+     * / non-`session:` IDs pass through unchanged. A verified raw-memory request may subsequently
+     * resolve to its bare UUID via {@link GraphService#resolveNodeId}; semantic `MEMORY` nodes and
+     * SESSION nodes retain their prefixed persisted identities.
      *
      * @param {String} id Raw graph node ID
      * @returns {String} Normalized ID (lowercase prefix when recognized, unchanged otherwise)

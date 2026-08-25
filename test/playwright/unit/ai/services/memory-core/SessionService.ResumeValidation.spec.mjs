@@ -75,7 +75,7 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
 
     test('#13458: stalled Chroma metadata read falls through to graph fallback', async () => {
         const sessionId     = `graph-fallback-${crypto.randomUUID()}`;
-        const memoryNodeId  = `memory:${sessionId}`;
+        const memoryNodeId  = crypto.randomUUID();
         const timestamp     = new Date().toISOString();
         const GraphService  = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;

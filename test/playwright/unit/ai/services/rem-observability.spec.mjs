@@ -239,8 +239,8 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
     });
 
     test.describe('GraphService.getSessionEntityCount(sessionId)', () => {
-        test('counts INBOUND edges to canonical-lowercase session node (matches MemorySessionIngestor:226 writer direction)', () => {
-            // V-B-A precedent: MemorySessionIngestor.mjs:226 writes
+        test('counts INBOUND edges to canonical-lowercase session node (matches MemorySessionIngestor writer direction)', () => {
+            // V-B-A precedent: MemorySessionIngestor writes
             // `GraphService.linkNodes(memoryNodeId, sessionNodeId, 'ORIGINATES_IN', 1.0)` —
             // session is the TARGET. SemanticGraphExtractor.mjs:88 LLM prompt directs
             // *"emit provenance edges linking them back to the source Memory or Session"*.
@@ -281,10 +281,10 @@ test.describe('ai/services REM observability axis helpers (#12068 Sub 2 Part A)'
             expect(GraphService.getSessionEntityCount('bare-id')).toBe(3);
         });
 
-        test('real-substrate writer-contract vector — mirrors MemorySessionIngestor.linkNodes(memory→session) edge shape', () => {
-            // This vector simulates a real ORIGINATES_IN edge as MemorySessionIngestor:226
-            // would write it: source = `memory:<id>`, target = `session:<id>` (both
-            // lowercase post-normalize). The helper's SQL filter (`target = ?`) MUST
+        test('real-substrate writer-contract vector — mirrors AGENT_MEMORY→session edge shape', () => {
+            // This vector simulates a real ORIGINATES_IN edge as MemorySessionIngestor
+            // writes it: source = the bare raw-memory UUID, target = `session:<id>`.
+            // The helper's SQL filter (`target = ?`) MUST
             // match the canonical target-side session-id to return non-zero — proves
             // the helper is aligned with the writer's actual graph contract.
             let queriedTarget = null;

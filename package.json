@@ -70,6 +70,7 @@
         "ai:prune-worktrees:schedule-dangerous": "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --include-dirty --interval-ms 21600000",
         "ai:purge-no-content-graph-memories"   : "node ./ai/scripts/maintenance/purgeNoContentGraphMemories.mjs",
         "ai:purge-test-collections"            : "node ./ai/scripts/maintenance/purgeTestCollections.mjs",
+        "ai:reconcile-raw-memory-identities"   : "node ./ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs",
         "ai:lint-agents"                       : "node ./ai/scripts/lint/lint-agents.mjs",
         "ai:lint-config-template-ssot"         : "node ./ai/scripts/lint/lint-config-template-ssot.mjs",
         "ai:lint-fleet-vocabulary-parity"      : "node ./ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
