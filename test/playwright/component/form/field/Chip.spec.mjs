@@ -79,11 +79,13 @@ test.describe('Neo.form.field.Chip', () => {
             removeAlpha = field.getByRole('button', {name: 'Remove Alpha'}),
             removeBeta  = field.getByRole('button', {name: 'Remove Beta'});
 
-        await expect(chips).toHaveCount(2);
-        await expect.poll(() => page.evaluate(id => Neo.worker.App.getConfigs({
+        const getValueLength = () => page.evaluate(id => Neo.worker.App.getConfigs({
             id,
             keys: 'value'
-        }), componentId).then(value => value.length)).toBe(2);
+        }), componentId).then(value => value.length);
+
+        await expect(chips).toHaveCount(2);
+        await expect.poll(getValueLength).toBe(2);
 
         const closeGlyphStyle = await removeAlpha.evaluate(element => ({
             content   : getComputedStyle(element, '::before').content,
@@ -100,9 +102,11 @@ test.describe('Neo.form.field.Chip', () => {
         await page.keyboard.press('Space');
         await expect(chips).toHaveCount(1);
         await expect(removeAlpha).toHaveCount(0);
+        await expect.poll(getValueLength).toBe(1);
 
         await removeBeta.click();
-        await expect(chips).toHaveCount(0)
+        await expect(chips).toHaveCount(0);
+        await expect.poll(getValueLength).toBe(0)
     });
 
     test('Tab traverses chip buttons in value order before the input', async ({page}) => {
