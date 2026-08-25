@@ -1,0 +1,43 @@
+{
+  "$comment": "Consumer receipt. Pins the canonical revision this repo is synced to. The guard measures this repo against subject.skillTreeHash; canonicalRevision names the commit in neomjs/neo-agent-skills that published it.",
+  "receiptVersion": 1,
+  "subject": {
+    "skillTree": ".agents/skills",
+    "skillTreeHash": "13d8e935f964fe99a3558ad82932be49722b7ee6",
+    "skillTreeHashAlgorithm": "git-tree-sha1",
+    "manifest": ".agents/skills/skills.manifest.json",
+    "manifestSha256": "21cbeb4f96a33c15ae8e12cf28d5dc02707e2b7d90958097109829bf98c47108",
+    "manifestSchema": ".agents/skills/skills.manifest.schema.json",
+    "skillCount": 38,
+    "fileCount": 134
+  },
+  "excludes": {
+    "maintainerConstitution": "AGENTS.md and the maintainer constitution are NOT covered by this receipt. They keep their own revision authority in the D#17644 / Brain substrate and project into seat/session substrate, never into a consuming repo's committed tree.",
+    "rationale": "Appending the maintainer constitution to a fork's committed AGENTS.md makes unreachable internal commands active authority for every fork agent. Falsified in D#17756; the contributor surface and the maintainer constitution are separate custody."
+  },
+  "provenance": {
+    "sourceRepository": "neomjs/neo",
+    "sourcePath": ".agents/skills",
+    "graduatedFrom": "D#17756",
+    "ticket": "neomjs/neo#17784",
+    "epic": "neomjs/neo#17500"
+  },
+  "distribution": {
+    "transport": "committed-bytes",
+    "transportRationale": "Install-time materialization is falsified: `npm ci --ignore-scripts` is deliberate practice in three neomjs/neo workflows and skips `prepare` as well as `postinstall`, yielding zero skills silently with no error.",
+    "consumerPath": ".agents/skills",
+    "pathMapping": "identity",
+    "enrollment": "registry-predicate",
+    "enrollmentRationale": "Enrollment is rows in the canonical org registry. Exclusions are explicit rows carrying a reason; absence never means exempt. No population integer is hardcoded anywhere in the mechanism — a hardcoded count produced a wrong-by-half population (21 vs a measured 52) that survived multiple revisions unexamined.",
+    "harnessExposure": "manifest-declared",
+    "harnessExposureRationale": "Repo distribution and harness exposure are two axes. Every enrolled repo carries the same canonical tree with no per-repo subsets; each harness receives the manifest-declared projection, so per-harness subsets are legitimate and a sync guard must permit them."
+  },
+  "enforcement": {
+    "seat": "reusable-ci",
+    "notSeat": "husky",
+    "notSeatRationale": "check-chore-sync.mjs and mergeInheritance.mjs honour --no-verify, so hook-based guards are feedback, not authority. Binding authority is reusable CI plus required branch protection.",
+    "custodyTicket": "neomjs/neo#17783"
+  },
+  "canonicalRepository": "neomjs/neo-agent-skills",
+  "canonicalRevision": "302375c4d45ba5f4266cf4a1b5876466b6f8fbed"
+}
