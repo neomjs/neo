@@ -148,6 +148,12 @@ If you determine the ticket is stale or harmful, you MUST execute the Rejection 
 - **Architecture Exploration / Epic Tickets:** **DO NOT close the ticket.** It must be preserved so the Swarm can formally evaluate the paradox. Apply `not-code-ready` + `needs-re-triage` (or a sharper reason: `needs-design` / `deferred-by-design`) so the survey filters it while open.
 - **1:1 Implementation Tickets (Including Substrate):** If the ticket is a narrow, final declined implementation task (e.g., `already-resolved`, `duplicate`, `invalid-or-negative-roi`), you MUST close the ticket as `not_planned` to prevent preserving bad payloads as future traps, even if the ticket prescribes substrate edits.
 
+### 4.1 Reverse-dependency sweep — OWNER (every close path points here)
+
+Before ANY close, run `gh search issues --repo neomjs/neo --state open "#<N>"` and re-anchor each hit whose gate or AC cites `#N`. Closing disposes of this ticket's scope, never of the open tickets gated on it, and a dead gate reads as healthy waiting on every surface. Record the result even when empty — "swept, none" and "never swept" look identical afterwards. Anchor: #17026 closed superseded, #17037's gate on its receipts became unsatisfiable the same day and sat validly-blocked-forever until an operator escalation found ~70% of the gated substrate removable. Consumer-side mirror: `successor-risk-audit.md` §5.
+
+**Sunset:** retire when prose gates migrate to `blocked_by` relations — the graph then carries this mechanically.
+
 ### Autonomous Protocol (Headless)
 1.  **Label Application:** Use the MCP tool `manage_issue_labels (action: add)` to apply `not-code-ready` + `needs-re-triage` (or the sharper reason) to the GitHub Issue — the gate that drops the rejected-but-open ticket from the survey.
 2.  **Architectural Feedback:** Use the `manage_issue_comment` MCP tool to post a detailed critique on the PR. You MUST use the `[ARCH_ALIGNMENT]` markdown tag to explain *why* the ROI is negative and why the premise is architecturally flawed.

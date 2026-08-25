@@ -29,3 +29,6 @@ If the ticket predates, cites, conflicts with, or depends on an accepted ADR / D
 
 ## 4. Stale Renewal vs. Exemption Discipline
 If `stale` is present and the ticket remains valid, post a renewal comment and remove `stale` as a routine intake action. Do NOT auto-apply `no auto close`—applying exemption requires explicit parked/blocked rationale.
+
+## 5. Gate-Producer Liveness
+Gate waits on evidence another ticket must PRODUCE (`before #M's receipts exist`, `blocked until #M ships`)? `gh issue view <M> --json state,stateReason` before treating it as binding. Closed, or reshaped past the cited evidence, routes to `needs-relinking`, never `valid-as-written` — a dead producer makes the gate unsatisfiable while the ticket still reads as patient. Consumer side of [`ticket-intake-workflow.md`](./ticket-intake-workflow.md) §4.1; both sides exist because the closer may not sweep, and a gate can die after any sweep.

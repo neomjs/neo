@@ -312,7 +312,10 @@ After §3-§8, choose exactly one row:
 
 The former RC2 `COMMENTED` closure packet is retired: it existed so a second ordinary round could be spent closing rather than re-opening, and there is no second ordinary round to close. The semantic-surface freeze it enforced now lives in the disposition rule above, and the managed path refuses the packet it was guarding against.
 
-**D+S completeness:** source-coordinate falsifiers; salvage map; disposition-shaped successor landing pad; successor citation to the map. `Disposition`: `implementation-off` (refile implementation) | `ticket-prescription-off` (amend ticket) | `ticket-premise-dead` (close ticket). One validated terminal D+S may exceed the ordinary budget.
+**D+S completeness:** source-coordinate falsifiers; salvage map; disposition-shaped successor landing pad; successor citation to the map. `Disposition`: `implementation-off` (refile implementation) | `ticket-prescription-off` (amend ticket) | `ticket-premise-dead` (close ticket).
+
+<!-- trigger: a D+S disposition closes a ticket -> run the reverse-dependency sweep, owner: ../../ticket-intake/references/ticket-intake-workflow.md §4.1 (open tickets whose gates cite the closing #N go dead silently) -->
+ One validated terminal D+S may exceed the ordinary budget.
 
 This is architectural judgment after defects are identified; it is not another defect audit.
 
