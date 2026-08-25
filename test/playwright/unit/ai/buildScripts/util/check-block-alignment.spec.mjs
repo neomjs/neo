@@ -620,9 +620,10 @@ test.describe('check-block-alignment.mjs --staged diff-scope (#13720)', () => {
 
 /**
  * Real-git integration for the scoped pre-commit REPAIR (`--fix --staged`): the hook converts from
- * reject to repair, rewriting ONLY drift on the author's staged-added lines. A grandfathered
- * misalignment on an untouched line stays byte-identical; a git detection failure reports and never
- * writes (fail-closed); pure `--fix` stays the deliberate whole-file pass. The detector is untouched —
+ * reject to repair, rewriting drift in the RUNS the author touched. A run they never touched stays
+ * byte-identical — which is what these arms pin, and it still holds now that ownership is the run
+ * rather than the line; a git detection failure reports and never writes (fail-closed); pure `--fix`
+ * stays the deliberate whole-file pass. The detector is untouched —
  * the entire pre-existing suite above runs unmodified against the new disposition surface.
  */
 test.describe('check-block-alignment.mjs --fix --staged scoped repair (#17201)', () => {
@@ -651,7 +652,7 @@ test.describe('check-block-alignment.mjs --fix --staged scoped repair (#17201)',
         fs.rmSync(stagedDir, {recursive: true, force: true});
     });
 
-    test('rewrites only staged-added-line drift; a grandfathered misalignment stays byte-identical (AC1)', () => {
+    test('rewrites drift in the touched run only; a grandfathered run stays byte-identical (AC1)', () => {
         const file = path.join(stagedDir, 'src.mjs');
         // Committed: a misaligned import pair (line 1 drifts) — grandfathered, never owned again.
         fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');

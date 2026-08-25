@@ -25,9 +25,9 @@ import {getStagedAddedLines, isWorkingTreeCleanFor} from './stagedDiff.mjs';
  *
  * Usage:
  *   node buildScripts/util/check-block-alignment.mjs <file.mjs> [...]                # check; exit 1 on drift
- *   node buildScripts/util/check-block-alignment.mjs --staged <file.mjs> [...]       # check, scoped to staged-added lines
+ *   node buildScripts/util/check-block-alignment.mjs --staged <file.mjs> [...]       # check, scoped to runs the author touched
  *   node buildScripts/util/check-block-alignment.mjs --fix <file.mjs> [...]          # rewrite whole-file (deliberate pass)
- *   node buildScripts/util/check-block-alignment.mjs --fix --staged <file.mjs> [...] # pre-commit repair: rewrite only staged-added lines
+ *   node buildScripts/util/check-block-alignment.mjs --fix --staged <file.mjs> [...] # pre-commit repair: rewrite runs the author touched
  */
 
 // ───────────────────────────── import-`from` (v1) ─────────────────────────────
@@ -635,11 +635,14 @@ function detectCommentOnlyFragmentation(lines, runs) {
  * evaluators are chained — each sees the prior's fixed lines — which is safe because none changes the
  * line COUNT and the three line-shapes (import / property / declaration) are disjoint.
  *
- * Dispositions: check mode reports drift (scoped to staged-added lines under `--staged`); pure
- * `--fix` rewrites whole-file as a deliberate pass; `--fix --staged` (the pre-commit repair)
- * rewrites ONLY violations on the author's staged-added lines, so a grandfathered misalignment on an
- * untouched line is never sprayed into an unrelated commit. The scoped repair fails CLOSED: without
- * a reliable staged-line set it reports and writes nothing (`'unfixable'`).
+ * Dispositions: check mode reports drift (scoped to touched RUNS under `--staged`); pure `--fix`
+ * rewrites whole-file as a deliberate pass; `--fix --staged` (the pre-commit repair) rewrites every
+ * violation in a run the author touched — including its untouched sibling lines, because alignment
+ * is a property of the run and a staged line is often the widest, hence the only correct one. A run
+ * the author never touched stays byte-identical, so grandfathered drift is still never sprayed into
+ * an unrelated commit. Ownership is computed once by {@link violationsInTouchedRuns} and shared by
+ * both scoped paths. The scoped repair fails CLOSED: without a reliable staged-line set it reports
+ * and writes nothing (`'unfixable'`).
  * @param {String}  file
  * @param {Boolean} fix
  * @param {String}  [gitRoot]   Repository root for staged-line scoping (check `--staged` and `--fix --staged`).
@@ -774,9 +777,10 @@ function processFile(file, fix, gitRoot = null, scopedFix = false) {
         return 'fixed';
     }
 
-    // Staged (pre-commit) check mode: report only drift the author introduced on staged-added lines,
-    // so a grandfathered misalignment on an untouched line never blocks an unrelated commit. Fail
-    // CLOSED: a null detection (git read failure) reports the whole file rather than suppressing drift.
+    // Staged (pre-commit) check mode: report drift in the runs the author touched, so a run they
+    // never touched never blocks an unrelated commit. Same ownership function as the scoped repair —
+    // a check quieter than its own fixer reports green on a file it would rewrite. Fail CLOSED: a
+    // null detection (git read failure) reports the whole file rather than suppressing drift.
     const added    = gitRoot ? getStagedAddedLines(file, gitRoot) : null;
     const reported = added ? violationsInTouchedRuns(allViolations, allRuns, added) : allViolations;
 
@@ -795,9 +799,9 @@ const
     staged = args.includes('--staged'),
     files  = args.filter(arg => arg !== '--fix' && arg !== '--staged');
 
-// --staged (pre-commit) mode: resolve the repo root once so processFile can scope drift to the
-// author's staged-added lines — in check mode for the REPORT set, in `--fix --staged` mode for the
-// REWRITE set. Fail-closed: a rev-parse failure → null gitRoot → check mode reports whole-file and
+// --staged (pre-commit) mode: resolve the repo root once so processFile can scope drift to the runs
+// the author touched — in check mode for the REPORT set, in `--fix --staged` mode for the REWRITE
+// set. Fail-closed: a rev-parse failure → null gitRoot → check mode reports whole-file and
 // the scoped repair refuses to write (drift is neither suppressed nor half-repaired by a git failure).
 let gitRoot = null;
 if (staged) {
