@@ -1,9 +1,9 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig}      from '@playwright/test';
-import {existsSync}        from 'node:fs';
-import path                from 'path';
-import {fileURLToPath}     from 'url';
+import {defineConfig}                             from '@playwright/test';
+import {existsSync}                               from 'node:fs';
+import path                                       from 'path';
+import {fileURLToPath}                            from 'url';
 import {CHROMA_CLI_ENTRYPOINT, resolvePackageDir} from './chromaProcess.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -182,9 +182,37 @@ export function buildProjects({brainPresent}) {
     }];
 }
 
-const brainPresent = hasBrainTier(repoRoot);
+/**
+ * @summary Builds the environment-specific unit-run policy without hiding CI semantics in module state.
+ *
+ * CI's measured four-worker run remains the isolation instrument; local workers stay unconstrained because
+ * local ordering cannot prove that surface. Retries remain held at two, while `failOnFlakyTests` makes a
+ * green-after-retry outcome disqualifying instead of silently moving either measurement variable.
+ * @param {Object} options
+ * @param {Boolean} options.isCI
+ * @returns {Object}
+ */
+export function buildUnitRunPolicy({isCI}) {
+    const reporter = [['json', {outputFile: path.join(__dirname, 'test-results/unit/test-results.json')}]];
 
-assertBrainTierForEnvironment({brainPresent, isCI: !!process.env.CI});
+    isCI && reporter.unshift(['github']);
+
+    return {
+        failOnFlakyTests: isCI,
+        forbidOnly      : isCI,
+        reporter,
+        // Keep the measured `workers: 4` flip and its held retry variable together. A retry-pass is
+        // now disqualifying in CI; changing either count would move the experiment instead.
+        retries: isCI ? 2 : 0,
+        workers: isCI ? 4 : undefined
+    }
+}
+
+const
+    isCI         = !!process.env.CI,
+    brainPresent = hasBrainTier(repoRoot);
+
+assertBrainTierForEnvironment({brainPresent, isCI});
 
 if (!brainPresent) {
     console.info('[playwright.config.unit] Brain-tier set not installed (see package.brain.json) — skipping chroma-setup + unit-brain* projects. Run `npm run install-brain` to arm them.');
@@ -194,21 +222,7 @@ export default defineConfig({
     testDir      : path.join(__dirname, 'unit'),
     outputDir    : path.join(__dirname, 'test-results/unit'),
     fullyParallel: true,
-    forbidOnly   : !!process.env.CI,
-    retries      : process.env.CI ? 2 : 0,
-    // Re-land of the measured ~2.7× win. `1` was not a preference — it was the mask: single-worker
-    // ordering hides cross-file isolation defects, three of which were found and fixed by the
-    // enabler leaves before this flip became re-attemptable.
-    //
-    // Local is NOT the instrument. The local runner cannot hold a wide unit run (the Chroma/web-server
-    // lifecycle contends), and single-worker local green says nothing about ordering that only exists
-    // at four. The falsifier lives in CI, which is why this ships as a probe rather than a claim.
-    //
-    // Read `retries: 2` above together with this line: a retry can convert an isolation flake into a
-    // reported pass, so a green sample is only evidence when its retry count is ZERO. Green-after-retry
-    // is the failure this flip exists to surface, wearing a pass.
-    workers : process.env.CI ? 4 : undefined,
-    reporter: [['json', {outputFile: path.join(__dirname, 'test-results/unit/test-results.json')}]],
+    ...buildUnitRunPolicy({isCI}),
     use     : {trace: 'on-first-retry'},
     projects: buildProjects({brainPresent})
 });

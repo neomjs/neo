@@ -16,6 +16,7 @@ import unitConfig, {
     brainHookTestMatch,
     brainTestMatch,
     buildProjects,
+    buildUnitRunPolicy,
     hasBrainTier,
     knowledgeBaseConfigTemplateTestMatch,
     memoryCoreConfigTemplateTestMatch,
@@ -100,6 +101,33 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: true})).toThrow(/silent coverage loss/);
         expect(() => assertBrainTierForEnvironment({brainPresent: true,  isCI: true})).not.toThrow();
         expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: false})).not.toThrow();
+    });
+
+    test('CI treats retry-pass outcomes as attributed failures without moving retries or workers (#17229)', () => {
+        const
+            ci    = buildUnitRunPolicy({isCI: true}),
+            local = buildUnitRunPolicy({isCI: false});
+
+        expect(ci.failOnFlakyTests).toBe(true);
+        expect(ci.forbidOnly).toBe(true);
+        expect(ci.retries).toBe(2);
+        expect(ci.workers).toBe(4);
+        expect(ci.reporter.map(([name]) => name)).toEqual(['github', 'json']);
+        expect(ci.reporter[1]).toEqual(local.reporter[0]);
+
+        expect(local.failOnFlakyTests).toBe(false);
+        expect(local.forbidOnly).toBe(false);
+        expect(local.retries).toBe(0);
+        expect(local.workers).toBeUndefined();
+        expect(local.reporter.map(([name]) => name)).toEqual(['json']);
+
+        expect({
+            failOnFlakyTests: unitConfig.failOnFlakyTests,
+            forbidOnly      : unitConfig.forbidOnly,
+            reporter        : unitConfig.reporter,
+            retries         : unitConfig.retries,
+            workers         : unitConfig.workers
+        }).toEqual(buildUnitRunPolicy({isCI: !!process.env.CI}))
     });
 
     test('hasBrainTier requires all three roots AND their consumable entrypoints — an empty husk is not armed', () => {
