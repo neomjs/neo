@@ -119,14 +119,20 @@ test.describe('agent-preflight utility', () => {
         expect(validatePrBody(validBody).valid).toBe(true)
     });
 
-    test('keeps the local stacked-ticket regexes byte-aligned with hosted lint', () => {
+    test('keeps stacked-ticket parsing on one owning implementation, delegated end-to-end', () => {
         const hostedWorkflow = readFileSync(
             path.join(process.cwd(), '.github/workflows/agent-pr-body-lint.yml'),
             'utf8'
         );
+        const guardModule = readFileSync(
+            path.join(process.cwd(), 'ai/scripts/lint/prStackingGuard.mjs'),
+            'utf8'
+        );
 
-        expect(hostedWorkflow).toContain(DECLARED_TICKET_PATTERN.toString());
-        expect(hostedWorkflow).toContain(COMMIT_TICKET_PATTERN.toString())
+        // Hosted lint no longer parses declared tickets itself — it delegates to the committed
+        // CLI, whose module re-exports the shared patterns this file enforces author-side.
+        expect(hostedWorkflow).toContain('ai/scripts/lint/lint-pr-stacking.mjs');
+        expect(guardModule).toContain("export const DECLARED_TICKET_LINE_PATTERN");
     });
 
     test('parses the NUL-delimited branch log used by the stacked-PR guard', () => {

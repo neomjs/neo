@@ -169,77 +169,6 @@ jobs:
                 : "`Resolves #N` (mandatory closing keyword — `Refs`/`Related` alone is NOT sufficient)");
             }
 
-            // ──────────────────────────────────────────────────────────────────────
-            // Stacked-PR guard (#15352). A PR branched off another feature branch —
-            // rather than `dev` — carries that branch's commits. It is INVISIBLE to
-            // every other gate: GitHub computes the file diff from the merge-base, so
-            // the reviewed surface is correct; CI is green (the code is fine, it is
-            // just someone else's, in this PR); and this body lint's own `Resolves`
-            // check passes (the body is honest about intent). The foreign commits
-            // surface ONLY in the Commits tab, which reviewers do not read.
-            //
-            // The signal is the TICKET a commit claims, never a count: a legitimate PR
-            // has many commits and a stacked one can have two. Every commit's trailing
-            // `(#K)` must be a ticket this PR's body declares (`Resolves`/`Refs`/
-            // `Related`). A commit with no `(#K)` suffix is the ticket gate's business,
-            // not this one's — skipped here.
-            const declaredTickets = new Set(
-              [...body.matchAll(/\b(?:Resolves|Refs|Related):?\s+#(\d+)/gi)].map(m => m[1])
-            );
-
-            const foreignCommits = [];
-
-            if (declaredTickets.size > 0) {
-              const commits = await github.paginate(github.rest.pulls.listCommits, {
-                owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100
-              });
-
-              for (const c of commits) {
-                const subject = (c.commit.message || "").split("\n")[0];
-                const ticket  = subject.match(/\(#(\d+)\)\s*$/);
-                // no ticket suffix → ticket gate's concern, not the stacking check
-                if (ticket && !declaredTickets.has(ticket[1])) {
-                  foreignCommits.push({ sha: c.sha.slice(0, 10), ticket: ticket[1], subject: subject.slice(0, 72) });
-                }
-              }
-            }
-
-            if (foreignCommits.length > 0) {
-              const declaredList = [...declaredTickets].map(t => `#${t}`).join(", ");
-              const rows = foreignCommits.map(c => `- \`${c.sha}\` claims **#${c.ticket}** — \`${c.subject}\``).join("\n");
-              const stackedBody = [
-                `## 🚨 Stacked-PR Guard: foreign commits in PR #${pr.number}`,
-                ``,
-                `@${author} — this PR's commit list contains ${foreignCommits.length} commit(s) for ticket(s) its body does not declare.`,
-                `The body declares ${declaredList}. The commits below claim other tickets:`,
-                ``,
-                rows,
-                ``,
-                `**This almost always means the branch was cut from another feature branch instead of \`dev\`** — a`,
-                `\`git checkout dev\` that failed silently (e.g. \`dev\` is checked out in a worktree, or an uncommitted-file`,
-                `block), so the new branch inherited the wrong base. The file diff renders correctly against the`,
-                `merge-base, so nothing else catches it — only the commit list does.`,
-                ``,
-                `**Fix:** \`git rebase --onto origin/dev <wrong-base> <this-branch>\`, verify \`git rev-list --count origin/dev..HEAD\``,
-                `equals only your commits, then \`git push --force-with-lease\`. Verify the BASE, not the branch name.`,
-                ``,
-                `<sub>Resolves #15352. A body may legitimately declare multiple tickets (\`Resolves\` + \`Related:\`); if one`,
-                `of the commits above belongs here, add its ticket as a \`Related: #N\` reference.</sub>`
-              ].join("\n");
-
-              if (context.payload.action === "opened") {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, body: stackedBody
-                });
-              }
-
-              core.setFailed(
-                `PR #${pr.number} carries ${foreignCommits.length} foreign commit(s) — ` +
-                foreignCommits.map(c => `${c.sha} (#${c.ticket})`).join(", ") +
-                `. Body declares ${declaredList}. Likely branched off a feature branch, not dev. See follow-up comment.`
-              );
-              return;
-            }
 
             if (missingVisible.length === 0 && missingInvisible.length === 0) {
               console.log("✅ PR body contains all required anchors.");
@@ -314,3 +243,11 @@ jobs:
                 ? `A follow-up comment on PR #${pr.number} carries the full guidance.`
                 : `(No follow-up comment is posted on \`${context.payload.action}\` events — this annotation is the diagnostic.)`
             ].join('\n'));
+
+      - name: Stacked-PR guard
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node ./ai/scripts/lint/lint-pr-stacking.mjs
