@@ -566,8 +566,9 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
 
 /**
  * Real-git integration for the --staged diff-scope. In lint-staged (pre-commit) mode the check
- * reports only drift on the author's staged-ADDED lines — a grandfathered misalignment on an
- * untouched line must not block an unrelated commit — reusing the shared stagedDiff helper.
+ * reports drift in the RUNS the author touched — including untouched sibling lines inside such a
+ * run, since alignment is a property of the run — while a run they never touched must not block an
+ * unrelated commit, reusing the shared stagedDiff helper.
  */
 test.describe('check-block-alignment.mjs --staged diff-scope (#13720)', () => {
     let stagedDir;
@@ -620,9 +621,10 @@ test.describe('check-block-alignment.mjs --staged diff-scope (#13720)', () => {
 
 /**
  * Real-git integration for the scoped pre-commit REPAIR (`--fix --staged`): the hook converts from
- * reject to repair, rewriting ONLY drift on the author's staged-added lines. A grandfathered
- * misalignment on an untouched line stays byte-identical; a git detection failure reports and never
- * writes (fail-closed); pure `--fix` stays the deliberate whole-file pass. The detector is untouched —
+ * reject to repair, rewriting drift in the RUNS the author touched. A run they never touched stays
+ * byte-identical — which is what these arms pin, and it still holds now that ownership is the run
+ * rather than the line; a git detection failure reports and never writes (fail-closed); pure `--fix`
+ * stays the deliberate whole-file pass. The detector is untouched —
  * the entire pre-existing suite above runs unmodified against the new disposition surface.
  */
 test.describe('check-block-alignment.mjs --fix --staged scoped repair (#17201)', () => {
@@ -651,7 +653,7 @@ test.describe('check-block-alignment.mjs --fix --staged scoped repair (#17201)',
         fs.rmSync(stagedDir, {recursive: true, force: true});
     });
 
-    test('rewrites only staged-added-line drift; a grandfathered misalignment stays byte-identical (AC1)', () => {
+    test('rewrites drift in the touched run only; a grandfathered run stays byte-identical (AC1)', () => {
         const file = path.join(stagedDir, 'src.mjs');
         // Committed: a misaligned import pair (line 1 drifts) — grandfathered, never owned again.
         fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
@@ -866,5 +868,144 @@ test.describe('check-block-alignment.mjs --fix --staged index-vs-worktree precon
 
         expect(result.output).toContain('No files were rewritten');
         expect(result.output).not.toContain('already repaired before the refusal');
+    });
+});
+
+/**
+ * A one-line edit inside an EXISTING aligned run.
+ *
+ * The scoped repair masked whole-file violations by staged-added LINE, and alignment is a property
+ * of a RUN of >= 2 lines — so the most common edit shape there is escaped entirely. Two ways, and
+ * the second is the one that makes a violation-seeded mask insufficient:
+ *
+ *   1. a one-line addition presents as a 1-member run, so the rule has nothing to group;
+ *   2. WIDENING a line makes that line the widest, hence CORRECT — the violations land on its
+ *      untouched siblings, so a mask seeded from violated-AND-staged lines matches nothing at all.
+ *
+ * Membership therefore decides ownership: touch any line of a run and every violation in that run
+ * is yours. Untouched runs elsewhere stay untouched, which the grandfathering arm above still pins.
+ */
+test.describe('check-block-alignment.mjs --fix --staged run-scoped ownership', () => {
+    let stagedDir;
+
+    const git = (...a) => execFileSync('git', a, {cwd: stagedDir, stdio: 'ignore'});
+
+    const run = (args, cwd = stagedDir) => {
+        try {
+            return {status: 0, output: execFileSync('node', [scriptPath, ...args], {cwd, encoding: 'utf8', stdio: 'pipe'})};
+        } catch (error) {
+            return {status: error.status, output: (error.stderr || '') + (error.stdout || '')};
+        }
+    };
+
+    // Commit `before`, stage `after`, run the pre-commit repair, return the resulting lines.
+    const editAndRepair = (before, after) => {
+        const file = path.join(stagedDir, 'src.mjs');
+
+        fs.writeFileSync(file, before.join('\n') + '\n', 'utf8');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'baseline');
+
+        fs.writeFileSync(file, after.join('\n') + '\n', 'utf8');
+        git('add', 'src.mjs');
+
+        const result = run(['--fix', '--staged', 'src.mjs']);
+
+        return {result, lines: fs.readFileSync(file, 'utf8').split('\n')};
+    };
+
+    test.beforeEach(() => {
+        stagedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-blockalign-runscope-'));
+        git('init');
+        git('config', 'user.email', 'test@example.com');
+        git('config', 'user.name', 'Test User');
+    });
+
+    test.afterEach(() => {
+        fs.rmSync(stagedDir, {recursive: true, force: true});
+    });
+
+    test('widening ONE import inside an existing run repairs its untouched siblings', () => {
+        const {result, lines} = editAndRepair([
+            "import Base       from './core/Base.mjs';",
+            "import NeoArray   from './util/Array.mjs';",
+            "import Store      from './data/Store.mjs';",
+            "import Collection from './collection/Base.mjs';"
+        ], [
+            "import Base       from './core/Base.mjs';",
+            "import NeoArray   from './util/Array.mjs';",
+            "import StoreWithAMuchLongerName from './data/Store.mjs';",
+            "import Collection from './collection/Base.mjs';"
+        ]);
+
+        expect(result.status).toBe(0);
+        // Three siblings widen to the column the staged line established. Before this, the repair
+        // exited 0 having written nothing — the block shipped misaligned.
+        expect(result.output).toContain('Aligned 3 line(s)');
+        expect(lines[0]).toBe("import Base                     from './core/Base.mjs';");
+        expect(lines[1]).toBe("import NeoArray                 from './util/Array.mjs';");
+        expect(lines[2]).toBe("import StoreWithAMuchLongerName from './data/Store.mjs';");
+        expect(lines[3]).toBe("import Collection               from './collection/Base.mjs';");
+    });
+
+    test('the same holds for an object-literal colon run', () => {
+        const {result, lines} = editAndRepair([
+            'const config = {',
+            '    db  : 1,',
+            '    port: 2',
+            '};'
+        ], [
+            'const config = {',
+            '    db  : 1,',
+            '    connectionPoolSize: 2',
+            '};'
+        ]);
+
+        expect(result.status).toBe(0);
+        expect(lines[1]).toBe('    db                : 1,');
+        expect(lines[2]).toBe('    connectionPoolSize: 2');
+    });
+
+    test('the same holds for an `=` declaration run', () => {
+        const {result, lines} = editAndRepair([
+            'const',
+            '    a  = 1,',
+            '    bb = 2;'
+        ], [
+            'const',
+            '    a  = 1,',
+            '    bbLongerName = 2;'
+        ]);
+
+        expect(result.status).toBe(0);
+        expect(lines[1]).toBe('    a            = 1,');
+        expect(lines[2]).toBe('    bbLongerName = 2;');
+    });
+
+    test('a run the author never touched stays byte-identical — ownership widened to the run, not to the file', () => {
+        const {result, lines} = editAndRepair([
+            "import a from 'a';",
+            "import bb from 'b';",
+            '',
+            'const config = {',
+            '    db  : 1,',
+            '    port: 2',
+            '};'
+        ], [
+            "import a from 'a';",
+            "import bb from 'b';",
+            '',
+            'const config = {',
+            '    db  : 1,',
+            '    connectionPoolSize: 2',
+            '};'
+        ]);
+
+        expect(result.status).toBe(0);
+        // The mutation control for the three arms above: if widening had leaked to the whole file,
+        // this grandfathered import pair would have been rewritten too.
+        expect(lines[0]).toBe("import a from 'a';");
+        expect(lines[1]).toBe("import bb from 'b';");
+        expect(lines[5]).toBe('    connectionPoolSize: 2');
     });
 });
