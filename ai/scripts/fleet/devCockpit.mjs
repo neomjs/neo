@@ -62,11 +62,12 @@
  * Admission-token teeth arming (live mode): the fleet entry refuses to boot when its resolved
  * plane bearer IS the deployment's bootstrap/healthcheck admission token — but only when it can
  * SEE the admission token, and nothing on the host journey exported its env binding before. So in
- * live mode the launcher resolves that binding itself ({@link resolveAdmissionTokenFileBinding},
- * precedence mirroring the Compose secret source exactly) and rides it into the same child-only
- * env channel. This NAMES existing custody — the file the deployment already materialized — and
- * never copies secret material; an unreadable home degrades the comparison exactly as the assert's
- * own documented semantics, announced loudly at boot rather than silently.
+ * live mode the launcher resolves that binding itself ({@link resolveAdmissionTokenFileBinding})
+ * and rides it into the same child-only channel: an already-exported pin passes through untouched,
+ * else the Compose secret-source chain (deployment override, then canonical home) supplies the
+ * deployment's own materialization. This NAMES existing custody — never copies secret material;
+ * an unreadable home degrades the comparison exactly as the assert's own documented semantics,
+ * announced loudly at boot rather than silently.
  *
  * **The operator-seat credential journey (seat-conflation honesty).** The implicit `gh auth token`
  * fallback resolves whatever identity the CHECKOUT's gh CLI is logged in as — on a multi-seat
@@ -86,7 +87,7 @@
  * plane — an occupied endpoint refuses with the remediation named.
  */
 import {spawn}        from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {accessSync, constants, readFileSync} from 'node:fs';
 import http           from 'node:http';
 import os             from 'node:os';
 import path           from 'node:path';
@@ -307,10 +308,16 @@ export const CANONICAL_ADMISSION_TOKEN_FILE = path.join(os.homedir(), '.neo-ai',
 /**
  * @summary Resolves the admission-token binding the live journey hands the fleet child — the
  * value `NEO_MCP_HEALTHCHECK_TOKEN_FILE` must carry for the entry's credential-class alias
- * comparison to arm against a real token. Precedence mirrors the Compose secret-source
- * interpolation exactly: an operator-pinned healthcheck file wins untouched; else the deployment
- * override `NEO_MCP_AUTH_TOKEN_FILE`; else the canonical home. Pure: reads only the injected env,
- * touches no secret material, and answers a PATH — never a token value.
+ * comparison to arm against a real token. Three levels, and they are NOT one inherited policy:
+ * the FIRST honors an operator's already-exported binding — the launcher's env spread passed
+ * that variable through to the child before this resolver existed, and an explicit pin outranks
+ * any derived value. The REMAINING two mirror the Compose secret-source interpolation
+ * (`${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}`): the deployment
+ * override, then the canonical home. The distinction is load-bearing — a pinned path can name a
+ * file Compose never materialized, so the guard could compare against a subject the deployment
+ * did not provision — which is exactly why the boot log prints WHICH level armed.
+ * Pure: reads only the injected env, touches no secret material, and answers a PATH — never a
+ * token value.
  * @param {Object}   [options]
  * @param {Object}   [options.env=process.env] Environment to resolve from.
  * @returns {{value: String, source: ('pinned'|'compose-override'|'canonical-home')}}
@@ -556,7 +563,9 @@ async function main() {
         admissionTokenFile = admissionBinding.value;
 
         try {
-            readFileSync(admissionTokenFile, 'utf8');
+            // Readability probe only — accessSync answers it without materializing secret bytes
+            // into the launcher's heap, which is the custody principle this feature lives by.
+            accessSync(admissionTokenFile, constants.R_OK);
             console.log(`[cockpit:live] admission-token alias guard armed (${admissionBinding.source}: ${admissionTokenFile})`)
         } catch (error) {
             console.log(`[cockpit:live] WARNING: admission-token alias guard DEGRADED — resolved home unreadable (${admissionBinding.source}: ${admissionTokenFile}: ${error.message}). Materialize ~/.neo-ai/secrets/mcp-auth-token or pin NEO_MCP_AUTH_TOKEN_FILE / NEO_MCP_HEALTHCHECK_TOKEN_FILE.`)

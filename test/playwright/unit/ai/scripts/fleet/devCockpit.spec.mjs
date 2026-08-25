@@ -28,7 +28,7 @@ const authenticatedOptions = overrides => ({
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
-// Both describe blocks below own the fixed :8083 endpoint. Under `fullyParallel`, separate describes
+// All describe blocks below own the fixed :8083 endpoint. Under `fullyParallel`, separate describes
 // can run in different workers; file-wide default mode orders them while preserving independent retries.
 test.describe.configure({mode: 'default'});
 
