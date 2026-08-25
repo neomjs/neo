@@ -76,11 +76,14 @@ test.describe('Neo.form.field.Chip', () => {
         const
             field       = page.locator(`#${componentId}`),
             chips       = field.locator('.neo-chip-field-values .neo-chip'),
-            input       = field.locator('input.neo-textfield-input'),
             removeAlpha = field.getByRole('button', {name: 'Remove Alpha'}),
             removeBeta  = field.getByRole('button', {name: 'Remove Beta'});
 
         await expect(chips).toHaveCount(2);
+        await expect.poll(() => page.evaluate(id => Neo.worker.App.getConfigs({
+            id,
+            keys: 'value'
+        }), componentId).then(value => value.length)).toBe(2);
 
         const closeGlyphStyle = await removeAlpha.evaluate(element => ({
             content   : getComputedStyle(element, '::before').content,
@@ -92,18 +95,33 @@ test.describe('Neo.form.field.Chip', () => {
         expect(closeGlyphStyle.content).not.toBe('normal');
 
         await removeAlpha.focus();
-        await page.keyboard.press('Tab');
-        await expect(removeBeta).toBeFocused();
-        await page.keyboard.press('Tab');
-        await expect(input).toBeFocused();
-
-        await removeAlpha.focus();
+        await expect(removeAlpha).toBeFocused();
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
         await page.keyboard.press('Space');
         await expect(chips).toHaveCount(1);
         await expect(removeAlpha).toHaveCount(0);
 
         await removeBeta.click();
         await expect(chips).toHaveCount(0)
+    });
+
+    test('Tab traverses chip buttons in value order before the input', async ({page}) => {
+        await page.evaluate(id => Neo.worker.App.setConfigs({
+            id,
+            value: ['alpha', 'beta']
+        }), componentId);
+
+        const
+            field       = page.locator(`#${componentId}`),
+            input       = field.locator('input.neo-textfield-input'),
+            removeAlpha = field.getByRole('button', {name: 'Remove Alpha'}),
+            removeBeta  = field.getByRole('button', {name: 'Remove Beta'});
+
+        await removeAlpha.focus();
+        await page.keyboard.press('Tab');
+        await expect(removeBeta).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(input).toBeFocused()
     });
 
     test('picker toggles several values, filters, and Backspace removes the last chip', async ({page}) => {
