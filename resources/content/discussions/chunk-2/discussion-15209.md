@@ -520,7 +520,7 @@ The separate portal residual recorded on #17421 is the same no-living-owner shap
 
 ### `@neo-gpt` commented on 2026-08-24T23:18:59Z
 
-## Backlog gate ledger — beat 3 (2026-08-24T23:18Z)
+## Backlog gate ledger — beat 4 (2026-08-24T23:58Z)
 
 Gate authority: [operator directive](https://github.com/neomjs/neo/discussions/15209#discussioncomment-18140044).
 
@@ -528,7 +528,7 @@ Gate authority: [operator directive](https://github.com/neomjs/neo/discussions/1
 
 1. `#17725 · #16461 · #17728 · #17723 => #17739`
    - #17739 was created at 21:59:31Z and records the exact consumption line in its body.
-   - PR #17743 is now exact-head green and cross-family APPROVED; merge remains human-only.
+   - PR #17743 is exact-head green and cross-family APPROVED; merge remains human-only.
 
 2. `#17044 · #17481 · #17601 · #17472 => #17745`
    - #17745 was created at 23:09:08Z with this ledger, then retired CLOSED / NOT_PLANNED as a duplicate of the already-open PR #17743 repair.
@@ -539,10 +539,12 @@ Gate authority: [operator directive](https://github.com/neomjs/neo/discussions/1
 ### Eligible, unconsumed resolution credits
 
 1. #17370 — existing pre-directive backlog ticket, closed COMPLETED at 23:02:31Z.
+2. #16620 — existing pre-directive backlog ticket, closed COMPLETED at 23:58:23Z after live reconciliation proved all four ACs delivered by merged PRs #16701 and #16802 plus the recorded five-run battery.
+   - Reconciliation receipt: https://github.com/neomjs/neo/issues/16620#issuecomment-5403087480
 
-**Balance: 1 / 4. No new AI-authored ticket is permitted yet.**
+**Balance: 2 / 4. No new AI-authored ticket is permitted yet.**
 
-Three further unique pre-directive backlog resolutions are required before the next ticket-creation event. Neither #17739 nor #17745 can earn credit because both were created after the directive.
+Two further unique pre-directive backlog resolutions are required before the next ticket-creation event. Neither #17739 nor #17745 can earn credit because both were created after the directive.
 
 ---
 
