@@ -746,6 +746,18 @@ function compareRequiredAndEmittedContexts(requiredContexts, emittedContexts) {
     return {requiredStates, emittedOnly};
 }
 
+/**
+ * @summary Names one emitted check strongly enough to distinguish generic job names across workflows.
+ * @param {Object} context Normalized emitted context.
+ * @returns {String}
+ */
+function getEmittedContextLabel(context) {
+    const name  = context?.name || 'unnamed-check',
+          owner = context?.workflow?.name || context?.integration;
+
+    return owner && owner !== name ? `${name} [${owner}]` : name;
+}
+
 function normalizeBoundPrincipals(identityAssertion) {
     const principals = identityAssertion?.principals || {};
 
@@ -916,6 +928,11 @@ async function buildMergeReadinessProjection({
     const checksVerdict = checkSourceReady
         ? selectedChecksGreen ? 'green' : 'not-green'
         : 'unknown';
+    const nonRequiredFailures = checkSourceReady
+        ? comparison.emittedOnly
+            .filter(item => item.state === 'failing')
+            .map(getEmittedContextLabel)
+        : undefined;
     const reviewRequests = reviewSourceReady
         ? snapshot.reviewRequests.nodes.map(item => item.login)
         : undefined;
@@ -1000,10 +1017,32 @@ async function buildMergeReadinessProjection({
         crossFamilyVerdict,
         holdVerdict,
         approvedAtOid,
-        headRefOid      : snapshot.headRefOid
+        headRefOid      : snapshot.headRefOid,
+        nonRequiredFailures
     });
     const sourceMergeReady    = predicate.strictMergeReady && sourceBlockers.length === 0;
     const certifiedMergeReady = sourceMergeReady && identityBindingComplete;
+    const certification       = identityBindingComplete
+        ? {
+            outcome          : sourceMergeReady ? 'issued' : 'withheld-artifact-not-ready',
+            code             : null,
+            missingPrincipals: [],
+            affects          : ['b-prime-certification']
+        }
+        : {
+            outcome          : 'unbound-certification-withheld',
+            code             : 'IDENTITY_BINDING_MISSING',
+            missingPrincipals: ['memoryCoreIdentity'],
+            affects          : ['b-prime-certification']
+        };
+    // GitHub gives a formal review's commit, but not the commit whose CHECKS the reviewer observed.
+    // Reporting the first beside an explicit "not observable" for the second prevents a re-anchored
+    // verdict from posing as re-verified evidence.
+    const approvalAnchors = {
+        verdictCommitOid       : approvedAtOid ?? null,
+        checksEvidenceCommitOid: null,
+        checksEvidenceStatus   : 'not-observable-from-review-source'
+    };
     const requiredSet         = {
         source  : `GET ${rulesPath}`,
         digest  : digestValue(requiredContexts),
@@ -1025,6 +1064,7 @@ async function buildMergeReadinessProjection({
         },
         requiredSet,
         contextStates: comparison.requiredStates,
+        approvalAnchors,
         predicate
     };
     const observationId = digestValue(observationCore);
@@ -1039,32 +1079,22 @@ async function buildMergeReadinessProjection({
         emittedOnly     : comparison.emittedOnly,
         checksGreen,
         checksVerdict,
-        verdict         : identityBindingComplete
-            ? sourceMergeReady ? 'merge-ready-observed' : 'not-merge-ready'
-            : 'unavailable',
-        statement       : !identityBindingComplete
-            ? `Observed GitHub checks verdict '${checksVerdict}' at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}; B-prime certification is unavailable because Memory Core identity is unbound.`
-            : certifiedMergeReady
-                // An advisory rides INSIDE the merge-ready sentence rather than after it. It fires
-                // only when everything else is green — exactly when nothing draws the eye — and the
-                // merge-ready statement travels beside `[merge-eligible]` to the human gate. A
-                // sentence that says "strict merge-ready" and stops is, at a stale anchor, true and
-                // misleading in the same breath.
-                // The plural agrees rather than hedging with a slash: this sentence is the whole
-                // deliverable — it travels beside `[merge-eligible]` to the human gate — so it is
-                // the one string where wording carries weight, and `1 advisory/advisories require`
-                // reads as generated text a reader discounts.
-                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} ${predicate.advisories.length === 1 ? 'advisory requires' : 'advisories require'} a reader judgement before merge — see 'advisories'.` : ''}`
-                : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
+        verdict         : sourceMergeReady ? 'merge-ready-observed' : 'not-merge-ready',
+        certification,
+        // Artifact truth leads; instrument truth follows as an independent clause. An unbound
+        // certifier is equally unbound on a perfect and a broken PR, so it cannot rewrite the
+        // artifact verdict or enter the blocker set.
+        statement       : sourceMergeReady
+            ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.${predicate.advisories.length > 0 ? ` ${predicate.advisories.length} ${predicate.advisories.length === 1 ? 'advisory requires' : 'advisories require'} a reader judgement before merge — see 'advisories'.` : ''}${!identityBindingComplete ? ' B-prime certification is unavailable because Memory Core identity is unbound; this does not change merge eligibility.' : ''}`
+            : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
         blockers: [
-            ...(!identityBindingComplete ? [{
-                code             : 'IDENTITY_BINDING_MISSING',
-                message          : 'Memory Core identity is unbound; GitHub checks remain readable but B-prime certification is unavailable.',
-                missingPrincipals: ['memoryCoreIdentity'],
-                affects          : ['b-prime-certification']
-            }] : []),
             ...sourceBlockers,
-            ...predicate.blockers.map(message => ({code: 'STRICT_MERGE_READINESS', message}))
+            ...predicate.blockers.map(message => ({
+                code: message.startsWith('non-required check ')
+                    ? 'NON_REQUIRED_CHECK_FAILING'
+                    : 'STRICT_MERGE_READINESS',
+                message
+            }))
         ],
         // Lifted to top level and coded, in the same shape as `blockers`, and the symmetry is the
         // point rather than tidiness. A blocker is discoverable three other ways — it flips

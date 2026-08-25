@@ -40,11 +40,14 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  *     withdraw at T1 by posting `[MERGE_HOLD]`; `reviewDecision` is a flattened snapshot with no
  *     notion of supersession and still reads APPROVED. This is rule 5's mirror — there a PENDING
  *     obligation was invisible, here a RETRACTED approval is.
+ *  8. `nonRequiredFailures` is fetched AND empty. Branch rules define the required subset, not the
+ *     complete safety set: a failing emitted check outside that subset is still a current-head failure
+ *     and must be named by the joined merge predicate rather than left for callers to rediscover.
  *
- * Fail-CLOSED contract: `state`, `mergedAt`, `checksGreen`, `mergeStateStatus`, and `reviewRequests`
- * that were NOT fetched (`undefined`) each block readiness — an un-queried field cannot certify a
- * green surface, and an omitted `reviewRequests` must never be read as "no outstanding reviewers".
- * Pass `mergedAt: null` and `reviewRequests: []` to assert fetched-and-empty values.
+ * Fail-CLOSED contract: `state`, `mergedAt`, `checksGreen`, `mergeStateStatus`, `reviewRequests`,
+ * and `nonRequiredFailures` that were NOT fetched (`undefined`) each block readiness — an un-queried
+ * field cannot certify a green surface. Pass `mergedAt: null`, `reviewRequests: []`, and
+ * `nonRequiredFailures: []` to assert fetched-and-empty values.
  *
  * @param {Object} [pr={}]
  * @param {String} [pr.state] GitHub PR state; only fetched `OPEN` passes.
@@ -58,6 +61,9 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  * @param {Object} [pr.crossFamilyVerdict] Verdict from `resolveCrossFamilyVerdict` — `{crossFamily, authorFamily, approvingFamilies, authorLogin}`. `undefined` (not resolved) fails closed; `crossFamily: null` (author family unresolved) blocks with its own reason rather than collapsing into pass or fail.
  * @param {String} [pr.approvedAtOid] Commit oid the approving review was submitted against. Optional: absent means the anchor is not reported, never that it is fresh.
  * @param {String} [pr.headRefOid] Current head oid, paired with `approvedAtOid` to surface a stale approval anchor.
+ * @param {String[]} [pr.nonRequiredFailures] Stable labels for failing emitted checks outside the
+ * required set. `undefined` means the population was not resolved and fails closed; `[]` asserts a
+ * fetched population with no failures.
  * @returns {{strictMergeReady: Boolean, blockers: String[], advisories: String[]}}
  */
 export function validateMergeReady(pr = {}) {
@@ -71,6 +77,7 @@ export function validateMergeReady(pr = {}) {
         disposedReviewers = [],
         approvedAtOid,
         headRefOid,
+        nonRequiredFailures,
         crossFamilyVerdict,
         holdVerdict
     } = pr;
@@ -160,6 +167,17 @@ export function validateMergeReady(pr = {}) {
         blockers.push(checksGreen === undefined
             ? 'checksGreen was not fetched — cannot certify CI; failing closed.'
             : 'not all required CI checks are green.');
+    }
+
+    if (nonRequiredFailures === undefined) {
+        blockers.push('nonRequiredFailures was not resolved — cannot certify the emitted non-required check population; failing closed.');
+    } else if (!Array.isArray(nonRequiredFailures)) {
+        blockers.push('nonRequiredFailures is malformed — expected a fetched array of failing emitted-check labels; failing closed.');
+    } else if (nonRequiredFailures.some(label => typeof label !== 'string' || !label.trim())) {
+        blockers.push('nonRequiredFailures contains an unreadable label — cannot name every failing emitted check; failing closed.');
+    } else {
+        [...new Set(nonRequiredFailures.map(label => label.trim()))]
+            .forEach(label => blockers.push(`non-required check '${label}' is failing.`));
     }
 
     if (mergeStateStatus === undefined) {

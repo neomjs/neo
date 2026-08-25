@@ -576,6 +576,12 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(result.principals).toEqual(PRINCIPALS);
         expect(result.checksVerdict).toBe('green');
         expect(result.predicate.strictMergeReady).toBe(true);
+        expect(result.certification).toEqual({
+            outcome          : 'issued',
+            code             : null,
+            missingPrincipals: [],
+            affects          : ['b-prime-certification']
+        });
         expect(Object.isFrozen(result)).toBe(true);
         expect(Object.isFrozen(result.requiredSet.contexts)).toBe(true);
         expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
@@ -590,6 +596,11 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
 
         expect(result.verdict).toBe('merge-ready-observed');
         expect(result.predicate.advisories).toEqual([]);
+        expect(result.approvalAnchors).toEqual({
+            verdictCommitOid       : HEAD,
+            checksEvidenceCommitOid: null,
+            checksEvidenceStatus   : 'not-observable-from-review-source'
+        });
     });
 
     test('#17339: an approval earned on a superseded commit is reported without blocking readiness', async () => {
@@ -612,6 +623,11 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(result.predicate.advisories).toHaveLength(1);
         expect(result.predicate.advisories[0]).toContain(HEAD);
         expect(result.predicate.advisories[0]).toContain(NEXT_HEAD);
+        expect(result.approvalAnchors).toEqual({
+            verdictCommitOid       : HEAD,
+            checksEvidenceCommitOid: null,
+            checksEvidenceStatus   : 'not-observable-from-review-source'
+        });
 
         // …and it REACHES the surface that travels to the merge gate. Nested inside `predicate` the
         // advisory fires only on an otherwise-green observation, so it competes with nothing and is
@@ -657,6 +673,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         // and a later COMMENTED/CHANGES_REQUESTED review does not become the anchor: only an
         // APPROVED review earns one.
         expect(result.predicate.advisories).toEqual([]);
+        expect(result.approvalAnchors.verdictCommitOid).toBe(HEAD);
     });
 
     test('#17339: an unfetched review connection yields silence, never a fresh-anchor claim', async () => {
@@ -667,6 +684,11 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         // for it is not making a weaker claim, and what must NOT happen is an advisory asserting
         // freshness it never observed.
         expect(result.predicate.advisories).toEqual([]);
+        expect(result.approvalAnchors).toEqual({
+            verdictCommitOid       : null,
+            checksEvidenceCommitOid: null,
+            checksEvidenceStatus   : 'not-observable-from-review-source'
+        });
 
         // The verdict, however, DID move with the §6.1 rule, and the two facts sit either side of
         // this module's fail-closed line. The same unfetched connection that leaves the anchor
@@ -806,37 +828,48 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         }
     });
 
-    test('#16902: returns a checks verdict but withholds B-prime when Memory Core identity is unbound', async () => {
+    test('#17373: certification availability stays named but cannot change artifact merge eligibility', async () => {
         const identityAssertion = {
             ok        : true,
             code      : 'OK',
             reason    : null,
             principals: {...PRINCIPALS, memoryCoreIdentity: null}
         };
-        const deps   = dependencies();
-        const result = await PullRequestService.getConversation({
+        const boundDeps   = dependencies();
+        const unboundDeps = dependencies();
+        const bound       = await project(boundDeps);
+        const unbound     = await PullRequestService.getConversation({
             pr_number : 16029,
             projection: 'merge-readiness',
             identityAssertion
-        }, deps);
+        }, unboundDeps);
 
-        expect(result.verdict).toBe('unavailable');
-        expect(result.checksVerdict).toBe('green');
-        expect(result.checksGreen).toBe(true);
-        expect(result.predicate.strictMergeReady).toBe(true);
-        expect(result.identityBinding).toEqual({complete: false, missing: ['memoryCoreIdentity']});
-        expect(result.principals.memoryCoreIdentity).toBeNull();
-        expect(result.blockers).toContainEqual(expect.objectContaining({
+        // Same PR, opposite instrument availability: artifact verdict and blockers are byte-identical.
+        expect(JSON.stringify(unbound.predicate)).toBe(JSON.stringify(bound.predicate));
+        expect(JSON.stringify(unbound.blockers)).toBe(JSON.stringify(bound.blockers));
+        expect(unbound.verdict).toBe('merge-ready-observed');
+        expect(unbound.verdict).toBe(bound.verdict);
+        expect(unbound.checksVerdict).toBe('green');
+        expect(unbound.checksGreen).toBe(true);
+        expect(unbound.identityBinding).toEqual({complete: false, missing: ['memoryCoreIdentity']});
+        expect(unbound.principals.memoryCoreIdentity).toBeNull();
+        expect(unbound.certification).toEqual({
+            outcome          : 'unbound-certification-withheld',
             code             : 'IDENTITY_BINDING_MISSING',
             missingPrincipals: ['memoryCoreIdentity'],
             affects          : ['b-prime-certification']
-        }));
-        expect(result.marker).toBeUndefined();
-        expect(result.audit).toContainEqual({
+        });
+        expect(unbound.statement).toContain('Observed strict merge-ready');
+        expect(unbound.statement).toContain('does not change merge eligibility');
+        expect(bound.certification.outcome).toBe('issued');
+        expect(unbound.marker).toBeUndefined();
+        expect(bound.marker).toMatch(/^\[merge-eligible]/);
+        expect(unbound.audit).toContainEqual({
             source : 'memory-core-identity',
             outcome: 'unbound-certification-withheld'
         });
-        expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
+        expect(boundDeps.calls()).toEqual({queryCall: 2, restCall: 2});
+        expect(unboundDeps.calls()).toEqual({queryCall: 2, restCall: 2});
     });
 
     test('#16902: latest workflow invocation supersedes an earlier failure on the same exact head', async () => {
@@ -878,7 +911,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(result.emittedContexts[0].workflow.runNumber).toBe(10);
     });
 
-    test('#16902: an optional latest failure makes the checks verdict non-green without changing B-prime', async () => {
+    test('#17373: an optional latest failure blocks the joined predicate and names its workflow', async () => {
         const optionalWorkflow = workflowFixture({
             id          : 288951422,
             name        : 'Agent PR Body Lint',
@@ -895,12 +928,17 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         }));
 
         expect(result.checksGreen).toBe(true);
-        expect(result.predicate.strictMergeReady).toBe(true);
-        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.predicate.strictMergeReady).toBe(false);
+        expect(result.verdict).toBe('not-merge-ready');
         expect(result.emittedOnly).toEqual([
             expect.objectContaining({name: 'lint-pr-body', state: 'failing'})
         ]);
         expect(result.checksVerdict).toBe('not-green');
+        expect(result.certification.outcome).toBe('withheld-artifact-not-ready');
+        expect(result.blockers).toContainEqual({
+            code   : 'NON_REQUIRED_CHECK_FAILING',
+            message: "non-required check 'lint-pr-body [Agent PR Body Lint]' is failing."
+        });
     });
 
     test('#16902: a newer attempt of one workflow run supersedes its earlier attempt', async () => {

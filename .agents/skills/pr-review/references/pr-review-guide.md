@@ -343,9 +343,11 @@ Before `manage_pr_review`, review relay, merge claim, or PR lane-state, re-run
 PR-scoped mailbox + live `state,mergedAt,reviewRequests`; wakes are not cache and
 acceptance can be A2A-only. Authority moved → hand off. Relay §9, not flattened
 `reviewDecision`; every requested seat must be disposed. Canonical
-`[merge-eligible]` requires the current positive B-prime observation marker;
-otherwise use `[merge-readiness-uncertified][no-positive-observation]`, or
-`[merge-readiness-uncertified][issuer-unavailable:cloud-mode]` in cloud.
+`[merge-eligible]` requires the current positive B-prime marker and zero joined
+predicate blockers; `NON_REQUIRED_CHECK_FAILING` means the required subset passed
+while another emitted check failed. Certification absence is instrument truth, not
+an artifact blocker: use `[merge-readiness-uncertified][no-positive-observation]`,
+or `[merge-readiness-uncertified][issuer-unavailable:cloud-mode]` in cloud.
 
 ## 11. Post-Review-Cycle Reviewer Pickup
 
