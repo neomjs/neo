@@ -431,7 +431,7 @@ Local inference via MLX Server / ML Studio is a first-class deployment target �
 #### Daemon Lifecycle Scripts (`buildScripts/ai/`)
 
 Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol operations:
-- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP). *(Note: the orchestrator's `golden-path` cadence task synthesizes the strategic roadmap into `sandman_handoff.md` directly via `GoldenPathSynthesizer.synthesizeGoldenPath()`; no separate standalone runner ships per #12078.)*
+- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (TEST_GAP, GUIDE_GAP). *(Note: the orchestrator's `golden-path` cadence task synthesizes the strategic roadmap into `sandman_handoff.md` directly via `GoldenPathSynthesizer.synthesizeGoldenPath()`; that path has no separate standalone runner.)*
 - Additional utilities: `syncKnowledgeBase.mjs`, `defragChromaDB.mjs`, `defragSQLiteDB.mjs`, `recreateGraphDb.mjs` — the maintenance toolkit for the vector and graph databases.
 
 ---
@@ -449,7 +449,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `epic-create`: Author Epic bodies as problem-scope + intended-solution — ACs live in the sub-tickets, subs are linked (not listed) so the body doesn't stale (creation-side dual of ticket-create).
 - `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness). You never review your own epic. A source-Discussion participant narrows rather than skips: cite Stages 1–2, run 2.5 from context, and run 3–5 in full — the Discussion is the epic's input, the decomposition is a transformation you have not seen.
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
-- `update-roadmap`: Post-release celebrate + plan-next-roadmap — cornerstones + rationale + an explicit deferred set scoped into a GitHub milestone with a named steward per epic (release-altitude analog of `epic-create`; sibling to the parked release-cut skill #10321).
+- `update-roadmap`: Post-release celebrate + plan-next-roadmap — cornerstones + rationale + an explicit deferred set scoped into a GitHub milestone with a named steward per epic (the release-altitude analog of `epic-create`; release cutting remains deliberately separate).
 - `blog-post`: Public-facing hero-piece authoring — narrative arc, sourcing every external claim (verify-before-assert; an authority's verbal statement is not a citable source), killing the three over-claim flavors (unsourced superlative / universal quantifier / misleading fraction), and a mandatory cross-family review bar (the blog sibling of the release-notes methodology).
 - `release-notes`: Release notes as an EPIC with mining-driven iterations — multi-source scope derivation (the tracker lags shipped reality), heavy per-arc Memory-Core mining, per-claim V-B-A, the precedent-SET quality bar — majors AND minors (hero chapters, named case studies with real timelines, War Stories, honest bounds, never downplay a release), and the `publish.mjs` flat-root staging lifecycle (staging file → atomic-hash → GitHub Release → chunk-N mirror).
 - `guide-authoring`: Per-sub enforcement for `learn/` guide quality — grounding discipline, rich narrative + benefits + lived voice, render-verified TD Mermaid, conceptual-vs-reference separation, generated-file hygiene, and no-rubber-stamp review.
@@ -476,7 +476,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
 - `post-review-pickup`: Mandatory active lane selection at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution). Requires explicit `lane-state: next-lane` declaration per AGENTS.md §15.6 self-select mandate.
-- `peer-naming`: The Social Name ritual (#11240 Layer 4) — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
+- `peer-naming`: The Social Name ritual's identity Layer 4 — peer-sketched → criterion-audited → bearer-assented → peer-unvetoed → operator-confirmed; codifies how a maintainer is *given* a name distinct from the `@handle` (name ≠ handle).
 
 **Meta:**
 - `create-skill`: Architectural blueprinting for new operational abilities.

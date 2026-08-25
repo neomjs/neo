@@ -8,11 +8,11 @@ selected by CITING this ledger's receipts, under the authority of ADR 0029 and t
 contract: WHATWG activation, `moveTo` throttling, and screen-topology permissions all vary by
 platform, and assumption is not evidence.
 
-Authority chain (this ledger sits at the BOTTOM): Discussion #15204 OQ2 `[RESOLVED_TO_AC]` (the
-ratified matrix contract) → issue #15243 (OPEN — owns the complete 7×3 result and the
-revalidation gate) → this ledger (the accumulating receipts its children produce). The ledger
-is registered hidden in the learn tree: an internal evidence surface, not a public-facing
-guide.
+Authority chain (this ledger sits at the BOTTOM): the source design discussion's OQ2
+`[RESOLVED_TO_AC]` decision (the ratified matrix contract) → the live matrix tracker (which owns
+the complete 7×3 result and revalidation gate) → this ledger (the accumulating receipts its
+children produce). The ledger is registered hidden in the learn tree: an internal evidence
+surface, not a public-facing guide.
 
 ## The grammar under test
 
@@ -111,10 +111,10 @@ carried honestly per footnote ²'s lesson: the rate is measured under CDP-synthe
 which this same suite proved distorts activation semantics — the real-input reap rate is
 unknown (the flagship demo's manual operation suggests real-mouse tear-outs succeed at a far
 higher rate). **RESOLVED (2026-07-18):** the race was attributed (a false re-entry — the exit's own layout
-choreography jumped the hysteresis read) and FIXED at mechanism in PR #15413 (Schmitt-trigger
-arming, merged); this ledger's own witness confirmed 6/6 survivals post-fix against the exact
+choreography jumped the hysteresis read) and FIXED at mechanism by the merged Schmitt-trigger
+arming repair; this ledger's own witness confirmed 6/6 survivals post-fix against the exact
 pre-fix baseline, and the post-rebase run holds 3/3. The `revalidationTrigger` question is
-resolved-as-fixed; rows 4–7 are measurable again as #15243 children.
+resolved-as-fixed; rows 4–7 are measurable again through their dedicated witness leaves.
 
 **Attribution hypothesis (source-anchored, falsifier-backed):** the boundary-EXIT reconfigures
 the exact geometry the hysteresis reads — the drag placeholder hides and the remaining items
@@ -164,10 +164,11 @@ target. The exact canonical full-journey control
 `DemoBPerspectivesNL.spec.mjs` failed because the intended popup never rendered the live
 CounterPane. The narrower `DemoBCrossWindowDragNL.spec.mjs` stayed green while logging three
 window connections, proving that its current receipt does not falsify competing-vessel identity.
-The composition repair belongs to #15396; this matrix does not absorb it. Row 4's former second
-gap (Demo B exposes no `Neo.data.Store`) is now CLOSED by the Fleet-surface receipt above.
+The composition repair belongs to the dedicated full-journey repair; this matrix does not absorb
+it. Row 4's former second gap (Demo B exposes no `Neo.data.Store`) is now CLOSED by the
+Fleet-surface receipt above.
 
-**#15396 green control (2026-07-19, verdicts still pending):** the matrix runner now includes the
+**Full-journey green control (2026-07-19, verdicts still pending):** the matrix runner now includes the
 full Demo B cross-window journey. Its macOS/Chrome headed round-trip externally observes exactly
 one `?popout=workbench` Playwright `Page`, instruments browser-realm `window.open` independently of
 the app counter, verifies that the same `Page` survives park → re-show → detached terminal, records

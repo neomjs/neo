@@ -20,6 +20,8 @@
  *     (the hallucinated-command class).
  *   - Tool-table refs under a Tools heading that resolve to no `ai/mcp/server/*​/openapi.yaml`
  *     operationId — the MCP-tool analogue of the hallucinated-command class.
+ *   - Ticket references under nested `learn/guides/` Markdown — guide prose describes the durable
+ *     mechanism; trackers own mutable ids. CSS/Mermaid hex-color values remain valid.
  *
  * **WARN (report-only, exit 0) — heuristics a human confirms:**
  *   - No Mermaid block at all (the bar wants >=1 diagram that carries the story).
@@ -28,9 +30,11 @@
  *     belongs in `tooling/`, not inlined into an explanation guide (Diátaxis).
  *   - `framework` identity-guard hits (Neo is an Application Engine + organism, never a framework).
  *
- * **Scope:** the conceptual-guide surfaces only — top-level `learn/agentos/*.md` and
- * `learn/benefits/*.md`. ADRs (`decisions/`), generated/reference docs (`tooling/`), and
- * process docs (`process/`) are deliberately excluded: they are reference, not narrative guides.
+ * **Scope:** the complete guide-quality rules run only over top-level `learn/agentos/*.md` and
+ * `learn/benefits/*.md`. The ticket-reference rule additionally traverses
+ * nested `learn/guides/` Markdown; widening every rule there would turn unrelated legacy debt into a
+ * hard gate. ADRs (`decisions/`), generated/reference docs (`tooling/`), and process docs
+ * (`process/`) remain deliberately excluded from the complete rule set.
  *
  * @see .agents/skills/guide-authoring/references/guide-authoring-bar.md (the discipline half)
  * @see learn/agentos/decisions/0008-skill-anatomy-and-authoring-contract.md
@@ -49,6 +53,12 @@ const ROOT_DIR   = path.resolve(__dirname, '../../..');
  * (`decisions/`, `tooling/`, `process/`) are reference/ADR substrate, intentionally excluded.
  */
 const GUIDE_DIRS = ['learn/agentos', 'learn/benefits'];
+
+/** Recursive narrative-guide tree scanned by the ticket-reference rule only. */
+const GUIDE_SERIES_DIR = 'learn/guides';
+
+/** CSS hexadecimal lengths that can otherwise be indistinguishable from numeric ticket ids. */
+const CSS_HEX_LENGTHS = new Set([4, 6, 8]);
 
 /**
  * Mermaid keywords that break the parser when reused as a node ID or `classDef` name.
@@ -227,6 +237,78 @@ function checkDeadScriptRefs(content, scriptKeys) {
 }
 
 /**
+ * Returns whether a character offset sits inside a Markdown inline-code span. Fenced code is
+ * tracked separately by {@link checkTicketIds}; this helper deliberately counts only unescaped
+ * backticks before the token on its line.
+ * @param {string} line
+ * @param {number} index
+ * @returns {boolean}
+ */
+function isInsideInlineCode(line, index) {
+    let count = 0;
+
+    for (let i = 0; i < index; i++) {
+        if (line[i] === '`' && line[i - 1] !== '\\') count++;
+    }
+
+    return count % 2 === 1;
+}
+
+/**
+ * Distinguishes an all-numeric CSS/Mermaid color from a ticket id. The numeric token is exempt
+ * only inside fenced/inline code AND after a CSS property or Mermaid `fill:`/`stroke:`/`color:`
+ * value anchor. A bare numeric hash token in either code shape still fails.
+ * @param {string} line
+ * @param {number} index
+ * @param {string} token
+ * @param {boolean} inFence
+ * @returns {boolean}
+ */
+function isSyntacticHexColor(line, index, token, inFence) {
+    const digits = token.slice(1);
+
+    if (!CSS_HEX_LENGTHS.has(digits.length) || (!inFence && !isInsideInlineCode(line, index))) {
+        return false;
+    }
+
+    const before = line.slice(0, index);
+
+    return /(?:^|[;{,])\s*(?:--[\w-]+|[A-Za-z-]+)\s*:[^#]*$/.test(before)
+        || /\b(?:fill|stroke|color)\s*:[^#]*$/i.test(before);
+}
+
+/**
+ * HARD check for mutable tracker references in durable `learn/guides/**` prose. Ticket-like
+ * tokens remain forbidden inside inline/fenced examples; only syntactic CSS/Mermaid colors are
+ * exempt because an all-numeric six-digit color is lexically identical to a future ticket id.
+ * @param {string} content
+ * @returns {Array<{severity: string, rule: string, line: number, detail: string}>}
+ */
+function checkTicketIds(content) {
+    const findings = [];
+    let   inFence  = false;
+
+    content.split('\n').forEach((line, i) => {
+        if (line.trim().startsWith('```')) {
+            inFence = !inFence;
+            return;
+        }
+
+        const pattern = /#[0-9]{4,}(?![0-9A-Za-z])/g;
+        let   match;
+
+        while ((match = pattern.exec(line)) !== null) {
+            if (isSyntacticHexColor(line, match.index, match[0], inFence)) continue;
+
+            findings.push({severity: 'HARD', rule: 'ticket-id', line: i + 1,
+                detail: `ticket reference "${match[0]}" rots in guides — describe the repair and cite stable files or authority documents instead`});
+        }
+    });
+
+    return findings;
+}
+
+/**
  * HARD check: tool-table rows that reference an MCP tool no server exposes — the OpenAPI-operation
  * analogue of {@link checkDeadScriptRefs}. Scoped to rows under a {@link TOOLS_HEADING} so config /
  * property / schema tables (same `| `name` |` shape) never false-positive. Generalizes the
@@ -346,6 +428,48 @@ function discoverGuides() {
     return files.sort();
 }
 
+/**
+ * Recursively discovers the narrative guide-series tree for the ticket-reference rule. Symlinks
+ * are not followed; only real directories and Markdown files participate.
+ * @returns {string[]} repo-relative file paths
+ */
+function discoverGuideSeries() {
+    const files = [];
+
+    function visit(dir) {
+        const absDir = path.join(ROOT_DIR, dir);
+        if (!existsSync(absDir)) return;
+
+        for (const entry of readdirSync(absDir, {withFileTypes: true})) {
+            const relative = path.join(dir, entry.name);
+
+            if (entry.isDirectory()) visit(relative);
+            else if (entry.isFile() && entry.name.endsWith('.md')) files.push(relative);
+        }
+    }
+
+    visit(GUIDE_SERIES_DIR);
+
+    return files.sort();
+}
+
+/**
+ * Returns whether an explicit CLI path resolves to a Markdown file inside the narrative guide
+ * tree. Resolving first prevents `learn/guides/../agentos` from inheriting the recursive rule.
+ * @param {string} file
+ * @returns {boolean}
+ */
+function isGuideSeriesFile(file) {
+    const absolute   = path.isAbsolute(file) ? path.resolve(file) : path.resolve(ROOT_DIR, file);
+    const seriesRoot = path.join(ROOT_DIR, GUIDE_SERIES_DIR);
+    const relative   = path.relative(seriesRoot, absolute);
+
+    return Boolean(relative)
+        && !relative.startsWith(`..${path.sep}`)
+        && !path.isAbsolute(relative)
+        && relative.endsWith('.md');
+}
+
 /** @returns {Set<string>} the defined `package.json` script names. */
 function loadScriptKeys() {
     const pkg = JSON.parse(readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
@@ -400,19 +524,32 @@ function parseArgs(argv = process.argv.slice(2)) {
 /**
  * CLI entry. Returns a numeric exit code (no `process.exit`) so tests can drive it directly.
  * @param {{files: string[], warnAsError: boolean}} [options] both keys optional (files defaults to discoverGuides())
- * @returns {{exitCode: number, hard: number, warn: number}}
+ * @returns {{exitCode: number, hard: number, warn: number, fullGuideCount: number, ticketIdGuideCount: number}}
  */
 function runLint(options = {}) {
     const scriptKeys   = loadScriptKeys();
     const operationIds = loadOperationIds();
-    const files        = options.files?.length ? options.files : discoverGuides();
+    const explicit     = Boolean(options.files?.length);
+    const fullFiles    = explicit ? options.files : discoverGuides();
+    const ticketFiles  = explicit ? options.files.filter(isGuideSeriesFile) : discoverGuideSeries();
+    const files        = new Map();
+
+    for (const file of fullFiles)   files.set(file, {...files.get(file), full: true});
+    for (const file of ticketFiles) files.set(file, {...files.get(file), ticketIds: true});
 
     let hard = 0, warn = 0;
 
-    for (const file of files) {
+    for (const [file, scope] of [...files.entries()].sort(([a], [b]) => a.localeCompare(b))) {
         const abs      = path.isAbsolute(file) ? file : path.join(ROOT_DIR, file);
         const content  = readFileSync(abs, 'utf8');
-        const findings = lintGuide(content, {filePath: file, fileDir: path.dirname(abs), scriptKeys, operationIds});
+        const findings = [];
+
+        if (scope.full) {
+            findings.push(...lintGuide(content, {filePath: file, fileDir: path.dirname(abs), scriptKeys, operationIds}));
+        }
+        if (scope.ticketIds) findings.push(...checkTicketIds(content));
+
+        findings.sort((a, b) => a.line - b.line);
 
         if (findings.length === 0) continue;
 
@@ -426,11 +563,11 @@ function runLint(options = {}) {
 
     const failed = hard > 0 || (options.warnAsError && warn > 0);
 
-    console.log(`\n[lint-guides] ${files.length} guide(s) scanned — ${hard} hard, ${warn} warning(s).`);
+    console.log(`\n[lint-guides] ${fullFiles.length} full guide(s) scanned; ${ticketFiles.length} guide-series ticket-id scan(s) — ${hard} hard, ${warn} warning(s).`);
     if (!failed) console.log('[lint-guides] OK');
     else         console.error(`[lint-guides] FAILED — ${hard} hard failure(s)${options.warnAsError ? ` + ${warn} warning(s) (--warn-as-error)` : ''}.`);
 
-    return {exitCode: failed ? 1 : 0, hard, warn};
+    return {exitCode: failed ? 1 : 0, hard, warn, fullGuideCount: fullFiles.length, ticketIdGuideCount: ticketFiles.length};
 }
 
 function main() {
@@ -438,8 +575,9 @@ function main() {
 
     if (options.help) {
         console.log('Usage: node ai/scripts/lint/lint-guides.mjs [files...] [--warn-as-error]');
-        console.log('  Mechanical guide-quality lint for learn/agentos/*.md + learn/benefits/*.md.');
-        console.log('  HARD (exit 1): mermaid reserved-word / self-loop, dead local links, dead ai:* script refs, openapi tool-parity.');
+        console.log('  Full guide-quality lint: learn/agentos/*.md + learn/benefits/*.md.');
+        console.log('  Recursive ticket-id lint: learn/guides/**/*.md (CSS/Mermaid colors exempt).');
+        console.log('  HARD (exit 1): mermaid reserved-word / self-loop, dead local links, dead ai:* script refs, openapi tool-parity, guide ticket ids.');
         console.log('  WARN:          no-mermaid, LR-squish, feature-list headings, "framework".');
         console.log('  --warn-as-error  treat warnings as failures too.');
         process.exit(0);
@@ -455,6 +593,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 export {
     FEATURE_LIST_HEADING,
     GUIDE_DIRS,
+    GUIDE_SERIES_DIR,
     LR_NODE_WARN,
     MERMAID_RESERVED,
     TOOLS_HEADING,
@@ -464,6 +603,8 @@ export {
     checkMermaidOrientation,
     checkOpenApiToolParity,
     checkProse,
+    checkTicketIds,
+    discoverGuideSeries,
     discoverGuides,
     extractMermaidBlocks,
     loadOperationIds,

@@ -223,4 +223,4 @@ We are actively exploring **"Deep E2E"** testing powered by the **Neural Link**.
 *   Verify state across multiple windows seamlessly.
 *   Hot-patch code during runtime for advanced assertions.
 
-This capability is tracked in **[Issue #8851](https://github.com/neomjs/neo/issues/8851)**. If this feature is important to your workflow, please leave a comment on the ticket to help us prioritize it.
+This remains the Neural Link-backed testing direction rather than a shipped fixture contract. Until it lands, treat the current component bridge's visibility limits as real and use a dedicated application harness for flows that need deeper worker-state access.
