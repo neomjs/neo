@@ -456,13 +456,30 @@ test.describe('orchestrator/scheduling/backup — receipt/retry reconciliation (
         ]);
     });
 
-    // CONTROL, and the discriminator this fix turns on. A success receipt OLDER than the streak is
-    // exactly the evidence the streak already accounts for — the lane succeeded, then began failing.
-    // Reddens any implementation that tests for a receipt's existence instead of its RECENCY.
-    test('a success receipt older than the streak does not suppress the negative', () => {
+    // The receipt's AGE decides nothing, and this arm is where that is enforced. `markFailed()`
+    // advances the streak and leaves `lastSuccessAt` standing, so a lane that genuinely succeeded
+    // and then began failing never reaches this branch at all — it has a recorded success. Reaching
+    // it with a success receipt of ANY age therefore means the two records disagree about whole-lane
+    // history, and the whole-history negative is falsified either way. Reddens any implementation
+    // that reintroduces a recency comparison to decide between the two codes.
+    test('a success receipt older than the streak yields the same conflict, not the negative', () => {
         expect(conflicted({
             lastBackup: {backup: {status: 'success'}, finishedAt: iso(STREAK_AT - DAY_MS), status: 'ok'}
-        }).reasonCodes).toEqual(['backup-retry-exhausted', 'backup-never-succeeded']);
+        }).reasonCodes).toEqual(['backup-retry-exhausted', 'backup-state-conflict']);
+    });
+
+    // CONTROL, and the discriminator the reconciliation actually turns on: the receipt's STATUS. A
+    // failed receipt proves a run happened, never that one succeeded, so the negative must survive
+    // it. Reddens any implementation that reads a receipt's mere presence as proof of success —
+    // which is the shape a recency test collapses into once the timestamps stop being consulted.
+    test('a failed receipt does not suppress the negative', () => {
+        expect(conflicted({
+            lastBackup: {backup: {status: 'failed'}, finishedAt: iso(STREAK_AT + DAY_MS), status: 'ok'}
+        }).reasonCodes).toEqual([
+            'backup-retry-exhausted',
+            'backup-last-run-failed',
+            'backup-never-succeeded'
+        ]);
     });
 
     // AC-3 (iii). The conflict must not launder an unrelated true negative. Reddens if the
