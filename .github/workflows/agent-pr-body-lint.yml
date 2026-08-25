@@ -250,4 +250,4 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_BRANCH: ${{ github.base_ref }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node ./ai/scripts/lint/lintPrStacking.mjs
+        run: node ./ai/scripts/lint/lint-pr-stacking.mjs

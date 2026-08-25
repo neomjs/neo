@@ -131,7 +131,7 @@ test.describe('agent-preflight utility', () => {
 
         // Hosted lint no longer parses declared tickets itself — it delegates to the committed
         // CLI, whose module re-exports the shared patterns this file enforces author-side.
-        expect(hostedWorkflow).toContain('ai/scripts/lint/lintPrStacking.mjs');
+        expect(hostedWorkflow).toContain('ai/scripts/lint/lint-pr-stacking.mjs');
         expect(guardModule).toContain("export const DECLARED_TICKET_LINE_PATTERN");
     });
 

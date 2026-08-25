@@ -16,7 +16,7 @@
  * **Commit/body agreement is a separate concern** about squash-provenance, never about branches;
  * it reports as a warning naming the consequence rather than failing the run.
  *
- * @see buildScripts/util/lintPrStacking.mjs — the committed CLI orchestrating these helpers
+ * @see ./lint-pr-stacking.mjs — the committed CLI orchestrating these helpers
  * @see .github/workflows/agent-pr-body-lint.yml — the calling workflow step
  */
 
@@ -125,26 +125,64 @@ export function buildAgreementWarning({mismatches, deliveredList}) {
  * here, because nothing open names it.
  *
  * @param {Object} params
- * @param {String[]} params.rangeCommits Commit shas in `origin/base..HEAD`, oldest first.
+ * @param {String[]} params.rangeCommits Commit shas in `origin/base..HEAD`, OLDEST FIRST — the
+ *   caller reverses `git log`'s newest-first output at the boundary, and this order is what makes
+ *   the returned parents oldest-first too.
  * @param {Array<{number: Number, headSha: String, headRefName: String}>} params.openPullRequests
  *   All open PRs in the repository.
  * @param {Number|String} [params.excludePrNumber] The PR under review — excluded so a run never
  *   detects “stacked on myself”.
- * @returns {{stacked: Boolean, parent: {number: Number, headRefName: String}|null}}
+ * @returns {{stacked: Boolean, parents: Array<{number: Number, headRefName: String, sha: String}>}}
+ *   Every detected parent ordered by cut position (oldest-first), each carrying its matched head
+ *   sha so the caller's rebase instruction names the exact commit.
  */
 export function findStackedParent({rangeCommits, openPullRequests, excludePrNumber}) {
     const selfNumber = excludePrNumber != null ? String(excludePrNumber) : null;
     // The PR under review is itself an open PR whose head sits at the top of its own range;
     // without this exclusion every run detects "stacked on myself".
-    const inRange = new Set(Array.isArray(rangeCommits) ? rangeCommits : []);
+    const commits = Array.isArray(rangeCommits) ? rangeCommits : [];
     const opens   = (Array.isArray(openPullRequests) ? openPullRequests : [])
         .filter(pull => selfNumber === null || String(pull?.number) !== selfNumber);
 
-    for (const pull of opens) {
-        if (pull?.headSha && inRange.has(pull.headSha)) {
-            return {stacked: true, parent: {number: pull.number, headRefName: String(pull.headRefName || '')}}
+    // Walk the range in order (not the API's arbitrary PR ordering) so multiple stacked parents
+    // come back oldest-first and the cut-point arithmetic has a deterministic answer.
+    const parents = [];
+
+    for (const sha of commits) {
+        const pull = opens.find(candidate => candidate?.headSha && candidate.headSha === sha);
+
+        if (pull) {
+            parents.push({number: pull.number, headRefName: String(pull.headRefName || ''), sha})
         }
     }
 
-    return {stacked: false, parent: null}
+    return {stacked: parents.length > 0, parents}
+}
+
+/**
+ * @summary Builds the stacked refusal's stderr text from the detected parents.
+ *
+ * Pure so the DIAGNOSTIC — the part that tells an author exactly how to recover — is unit-covered
+ * like the verdict behind it. The cut-point arithmetic lives here and nowhere else: rebase --onto
+ * origin/<base> <cut> replays every commit AFTER <cut>, so cutting at the OLDEST parent's head
+ * drops the entire stacked chain in one command, even three deep.
+ *
+ * @param {Object} params
+ * @param {Array<{number: Number, headRefName: String, sha: String}>} params.parents
+ *   Output of {@link findStackedParent}, oldest-first by cut position.
+ * @param {String} params.baseBranch The intended base branch name.
+ * @returns {String}
+ */
+export function buildStackedRefusal({parents, baseBranch}) {
+    const named = parents.map(parent =>
+        `- commit ${parent.sha.slice(0, 10)} is the head of open PR #${parent.number} (\`${parent.headRefName}\`)`
+    );
+    const cutSha = String(parents[0]?.sha || '').slice(0, 10);
+
+    return [
+        `[stacking-guard] STACKED (exit 1): this branch contains ${parents.length} open sibling PR head(s), oldest first:`,
+        ...named,
+        `— this branch was cut from stacked work, not off \`${baseBranch}\`.`,
+        'Fix: git rebase --onto origin/' + baseBranch + ' ' + cutSha + ' <this-branch>, then push --force-with-lease.'
+    ].join('\n')
 }

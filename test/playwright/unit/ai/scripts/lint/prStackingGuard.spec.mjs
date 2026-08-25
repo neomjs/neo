@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 
 import {
+    buildStackedRefusal,
     findAgreementMismatches,
     findStackedParent,
     parseDeclaredTickets
@@ -72,7 +73,7 @@ test.describe('prStackingGuard — commit/body agreement', () => {
 
 test.describe('prStackingGuard — stacking via open-sibling detection', () => {
 
-    test('a sibling OPEN PR head inside the range means stacked, parent named', () => {
+    test('a sibling OPEN PR head inside the range means stacked, parent named with its sha', () => {
         const verdict = findStackedParent({
             rangeCommits    : ['aaa111', 'bbb222'],
             openPullRequests: [
@@ -82,7 +83,26 @@ test.describe('prStackingGuard — stacking via open-sibling detection', () => {
         });
 
         expect(verdict.stacked).toBe(true);
-        expect(verdict.parent).toEqual({number: 1704, headRefName: 'origin/feature/parent'})
+        expect(verdict.parents).toEqual([
+            {number: 1704, headRefName: 'origin/feature/parent', sha: 'bbb222'}
+        ])
+    });
+
+    test('a deep stack names EVERY parent, oldest-first by cut position \u2014 the rebase instruction stays correct', () => {
+        // C on B on A: the range holds all three heads; the OLDEST parent is the cut-point.
+        // The API's arbitrary ordering in the fixture proves range order decides.
+        const verdict = findStackedParent({
+            rangeCommits    : ['sha-a', 'sha-b', 'sha-c'],
+            openPullRequests: [
+                {number: 3003, headSha: 'sha-c', headRefName: 'origin/c'},
+                {number: 1001, headSha: 'sha-a', headRefName: 'origin/a'},
+                {number: 2002, headSha: 'sha-b', headRefName: 'origin/b'}
+            ]
+        });
+
+        expect(verdict.stacked).toBe(true);
+        expect(verdict.parents.map(parent => parent.number)).toEqual([1001, 2002, 3003]);
+        expect(verdict.parents[0].sha).toBe('sha-a')
     });
 
     test('heads outside the range are other people\u2019s work in flight \u2014 never this PR\u2019s stack', () => {
@@ -93,12 +113,12 @@ test.describe('prStackingGuard — stacking via open-sibling detection', () => {
             ]
         });
 
-        expect(verdict).toEqual({stacked: false, parent: null})
+        expect(verdict).toEqual({stacked: false, parents: []})
     });
 
     test('no open PRs at all means nothing names a parent \u2014 clean, and honestly so', () => {
         expect(findStackedParent({rangeCommits: ['aaa111'], openPullRequests: []}))
-            .toEqual({stacked: false, parent: null})
+            .toEqual({stacked: false, parents: []})
     });
 
     test('the PR under review never counts as its own stacking parent', () => {
@@ -110,7 +130,7 @@ test.describe('prStackingGuard — stacking via open-sibling detection', () => {
             excludePrNumber : 42
         });
 
-        expect(verdict).toEqual({stacked: false, parent: null});
+        expect(verdict).toEqual({stacked: false, parents: []});
 
         const stillCatchesSibling = findStackedParent({
             rangeCommits    : ['aaa111', 'bbb222'],
@@ -122,6 +142,39 @@ test.describe('prStackingGuard — stacking via open-sibling detection', () => {
         });
 
         expect(stillCatchesSibling.stacked).toBe(true);
-        expect(stillCatchesSibling.parent.number).toBe(43)
+        expect(stillCatchesSibling.parents[0].number).toBe(43);
+        expect(stillCatchesSibling.parents[0].sha).toBe('bbb222')
+    })
+});
+
+test.describe('prStackedRefusal — the recovery diagnostic is unit-covered like the verdict', () => {
+
+    test('single parent: names the MATCHED head sha and cuts the rebase at it \u2014 never the oldest range commit', () => {
+        const message = buildStackedRefusal({
+            parents   : [{number: 1704, headRefName: 'origin/feature/parent', sha: 'bbb222f00d'}],
+            baseBranch: 'dev'
+        });
+
+        expect(message).toContain('commit bbb222f00d is the head of open PR #1704');
+        expect(message).toContain('`origin/feature/parent`');
+        expect(message).toContain('git rebase --onto origin/dev bbb222f00d <this-branch>');
+        // the falsified bug shape: at(-1) on newest-first output printed the OLDEST commit
+        expect(message).not.toContain('aaa111')
+    });
+
+    test('deep stack: lists every parent oldest-first and cuts at the oldest \u2014 one command drops the whole chain', () => {
+        const message = buildStackedRefusal({
+            parents   : [
+                {number: 1001, headRefName: 'origin/a', sha: 'sha-a111111'},
+                {number: 2002, headRefName: 'origin/b', sha: 'sha-b222222'},
+                {number: 3003, headRefName: 'origin/c', sha: 'sha-c333333'}
+            ],
+            baseBranch: 'dev'
+        });
+
+        expect(message).toContain('contains 3 open sibling PR head(s), oldest first:');
+        expect(message.indexOf('#1001')).toBeLessThan(message.indexOf('#2002'));
+        expect(message.indexOf('#2002')).toBeLessThan(message.indexOf('#3003'));
+        expect(message).toContain('git rebase --onto origin/dev sha-a11111 <this-branch>')
     })
 });

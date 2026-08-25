@@ -20,13 +20,14 @@
  * Requires `fetch-depth: 0` so `origin/<base>` exists locally.
  *
  * **Verdicts.**
- * - *Stacked* (exit 1): an open sibling PR's head is among the exclusive commits; the diagnostic
- *   names the parent PR and branch, with the rebase fix.
+ * - *Stacked* (exit 1): one or more open sibling PR heads sit among the exclusive commits; the
+ *   diagnostic names every parent oldest-first, with the rebase fix whose cut-point is the
+ *   OLDEST parent's head (rebase --onto replays what comes after it).
  * - *Agreement warnings* (stdout, non-failing): commits claiming tickets the body does not declare
  *   are listed with their squash-provenance consequence. A repointed close-target on a healthy
  *   branch produces these by design; failing them once re-created a known false positive.
  *
- * @see buildScripts/../ai/scripts/lint/prStackingGuard.mjs — the pure helpers this CLI orchestrates
+ * @see ./prStackingGuard.mjs — the pure helpers this CLI orchestrates
  * @see .github/workflows/agent-pr-body-lint.yml — the calling workflow step
  */
 
@@ -35,6 +36,7 @@ import process    from 'node:process';
 
 import {
     buildAgreementWarning,
+    buildStackedRefusal,
     findAgreementMismatches,
     findStackedParent,
     parseDeclaredTickets
@@ -54,6 +56,8 @@ const guard = () => {
 
     // ── Facts ────────────────────────────────────────────────────────────────────────────
     // Unit-separator pairing survives any subject content, unlike line-splitting on \n.
+    // git log emits newest-first; findStackedParent's contract (and the cut-point arithmetic
+    // below) wants oldest-first, so reverse here at the boundary.
     const rangeCommits = sh(
         `git log --format='%H%x1f%s' "origin/${baseBranch}..HEAD"`
     )
@@ -63,10 +67,11 @@ const guard = () => {
             const [sha, ...rest] = line.split('\x1f');
 
             return {sha, subject: rest.join('\x1f')}
-        });
+        })
+        .reverse();
 
     const openPullRequests = gh(
-        `"repos/{owner}/{repo}/pulls?state=open&per_page=100" --jq '.[] | {number: .number, headSha: .head.sha, headRefName: .head.ref}'`
+        `"repos/{owner}/{repo}/pulls?state=open&per_page=100" --paginate --jq '.[] | {number: .number, headSha: .head.sha, headRefName: .head.ref}'`
     )
         .split('\n')
         .filter(Boolean)
@@ -75,18 +80,14 @@ const guard = () => {
     const bodyText = gh(`"repos/{owner}/{repo}/pulls/${prNumber}" --jq .body`);
 
     // ── Stacking verdict ─────────────────────────────────────────────────────────────────
-    const {stacked, parent} = findStackedParent({
+    const {stacked, parents} = findStackedParent({
         rangeCommits   : rangeCommits.map(commit => commit.sha),
         openPullRequests,
         excludePrNumber: Number(prNumber)
     });
 
     if (stacked) {
-        console.error([
-            `[stacking-guard] STACKED (exit 1): commit ${rangeCommits.at(-1)?.sha.slice(0, 10)} is the head of open PR #${parent.number}`,
-            `(\`${parent.headRefName}\`) — this branch was cut from that PR's head, not off \`${baseBranch}\`.`,
-            'Fix: git rebase --onto origin/' + baseBranch + ' <cut-point> <this-branch>, then push --force-with-lease.'
-        ].join('\n'));
+        console.error(buildStackedRefusal({parents, baseBranch}));
 
         process.exit(1)
     }
