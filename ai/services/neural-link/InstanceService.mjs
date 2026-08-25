@@ -270,7 +270,14 @@ class InstanceService extends Base {
     async replayTransaction({sessionId, archiveId}) {
         const archive = await RecorderService.getTransactionArchive({archiveId});
 
-        if (!archive) {
+        // UNREACHABLE IS NOT ABSENT. Both used to answer `archive-not-found`, which told the caller a
+        // durable archive was gone whenever the store was merely out of reach — and "gone" is the one
+        // answer that invites them to stop looking for it.
+        if (archive?.status === 'unavailable') {
+            return {replayed: false, reason: archive.reason}
+        }
+
+        if (archive?.status !== 'found') {
             return {replayed: false, reason: 'archive-not-found'}
         }
 
@@ -282,11 +289,19 @@ class InstanceService extends Base {
             sourceTxId        : archive.sourceTxId
         });
 
-        if (result?.replayed) {
-            await RecorderService.recordTransactionReplay({archiveId})
+        if (!result?.replayed) {
+            return result
         }
 
-        return result
+        // THE MARK IS REPORTED, NOT ASSUMED. `replayed` stays true because the ops really were replayed —
+        // inverting it would deny work the App Worker actually did. What was missing is that the
+        // BOOKKEEPING could fail silently, leaving a replay that happened and a count that never moved,
+        // with nothing in the answer to say so.
+        const mark = await RecorderService.recordTransactionReplay({archiveId});
+
+        return mark?.updated === true
+            ? {...result, replayMarked: true, replayCount: mark.replayCount}
+            : {...result, replayMarked: false, replayMarkReason: mark?.reason ?? `archive-mark-${mark?.status ?? 'failed'}`}
     }
 
     /**

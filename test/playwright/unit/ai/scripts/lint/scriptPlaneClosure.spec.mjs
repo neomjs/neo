@@ -30,7 +30,7 @@ import {
  * The complete unresolved-edge population of `backup.mjs` — MEASURED against the live tree, which is
  * what makes the substitution arm below a real falsifier rather than a fixture arguing with itself.
  *
- * **Two edges, and the second one is why this fixture is worth keeping honest.** The config
+ * **Three edges, and the two later ones are why this fixture is worth keeping honest.** The config
  * provider's runtime-path dynamic import has always been here. The tenant-parser loader arrived with
  * per-tenant parser registration: `IngestionService` imports it statically, so every closure that
  * reaches that service now reaches the loader's runtime-path `import()` too — including a maintenance
@@ -41,10 +41,18 @@ import {
  * inner specifier is a static literal the closure follows anyway, so it adds a hop and removes
  * nothing. The edge is genuinely in the population; a fixture that said otherwise would be the
  * count-keeping this suite exists to prevent.
+ *
+ * The MCP client config arrived the same way, from the Neural Link data relocation. `RecorderService`
+ * no longer opens a host SQLite file — it calls Memory Core through `memoryCoreArchiveClient`, which
+ * reaches `ai/mcp/client/Client.mjs` and from there that config's runtime-path `import()`. So every
+ * closure through `services.host.mjs` now carries it, `backup.mjs` included. The client import is
+ * ALREADY lazy and load-bearing — a static one starts connection machinery at module load and hung two
+ * specs past ten minutes — and lazy does not remove the edge, for the reason the paragraph above gives.
  * @type {String[]}
  */
 const KNOWN_BACKUP_EDGES = [
     'ai/ConfigProvider.mjs::dynamic-import::load',
+    'ai/mcp/client/config.mjs::dynamic-import::load',
     'ai/services/knowledge-base/source/tenantParserLoader.mjs::dynamic-import::importModule'
 ];
 

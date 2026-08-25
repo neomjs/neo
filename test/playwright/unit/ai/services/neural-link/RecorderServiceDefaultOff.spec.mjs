@@ -5,44 +5,56 @@ import os             from 'node:os';
 import path           from 'node:path';
 
 /**
- * @summary Proves the Neural Link action-logging gate is OFF by default and opens NO handle on the
- * plane graph at boot, that the explicit opt-in still works, and — critically — that the
- * independent transaction archive/replay contract keeps working under the disabled default.
+ * @summary Proves the Neural Link action-logging gate is OFF by default, that a seat opens NO Memory
+ * Core connection at boot, that the independent transaction archive/replay contract keeps working under
+ * the disabled default — and that NO host-side database artifact is ever created.
  *
- * Child processes rather than in-process asserts, for two reasons. First, the gate is a config leaf
- * bound to `NEO_NL_ACTION_LOGGING` at module-load time, so a single process can only ever observe
- * one value — the sibling `RecorderService.spec.mjs` sets it to `true` process-wide and cannot
- * unset it. Second, the claims under test are about a real seat's behaviour: the defect the gate
- * guards was a WRITE HANDLE on a shared SQLite file, and the defect the archive tests guard was a
- * real `save_transaction` returning `archive-store-unavailable`. Asserting on config values, or
- * grepping source for the flag, would pass while both were broken.
+ * **The last guarantee is what changed and why this file was rewritten.** Its original subject was a
+ * WRITE HANDLE on a shared host SQLite file: it asserted `RecorderService.db` at boot, counted
+ * `openStore` calls to prove single-flight, and watched for the file appearing. The relocation removed
+ * that store entirely, so those assertions no longer describe anything. The invariant that replaces them
+ * is stronger and simpler: **the file must never exist at all**, whatever the gate says. A future change
+ * that quietly restores a host-local store — the friendly-looking fix when Memory Core is unreachable —
+ * re-creates the two realities this work removed, and this is the arm that catches it.
  *
- * Each guarantee gets its own probe because they are no longer separable in one run: with a lazy
- * connection, exercising the archive legitimately opens the store, so "no artifact at boot" and
- * "archive works" cannot be asserted from the same child.
+ * Child processes rather than in-process asserts, for the reason that still holds: the gate is a config
+ * leaf bound to `NEO_NL_ACTION_LOGGING` at module-load time, so a single process can only ever observe
+ * one value — the sibling `RecorderService.spec.mjs` sets it `true` process-wide and cannot unset it.
+ *
+ * Every child injects the archive transport. Without it a child either hangs waiting on a live
+ * connection (credential present) or dies on a missing environment variable — neither of which is the
+ * gate's behaviour, and both of which measure the harness instead of the subject.
  */
 test.describe('Neural Link action logging default', () => {
     const rootDir = path.resolve(import.meta.dirname, '../../../../../..');
 
     /**
-     * Boots RecorderService in a fresh child process against a throwaway database path.
+     * Boots RecorderService in a fresh child process with the archive transport injected.
      * @param {Object}  [options={}]
-     * @param {Object}  [options.extraEnv=null]        Additional env for the child
-     * @param {Boolean} [options.exerciseArchive=false] Also drive a real save + read-back
-     * @param {Boolean} [options.exerciseParallelBurst=false] Drive 8 CONCURRENT first-use saves
-     * @returns {Object} Observed child outcome
+     * @param {Object}  [options.extraEnv=null] Additional env for the child.
+     * @param {Boolean} [options.exerciseArchive=false] Also drive a save + read-back.
+     * @param {Boolean} [options.exerciseTelemetry=false] Also drive three logged actions.
+     * @param {Boolean} [options.injectTransport=true] When false, the child uses the REAL client path.
+     * @returns {Object} Observed child outcome.
      */
-    function bootRecorder({extraEnv = null, exerciseArchive = false, exerciseParallelBurst = false} = {}) {
+    function bootRecorder({extraEnv = null, exerciseArchive = false, exerciseTelemetry = false, injectTransport = true} = {}) {
         const
             dir         = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-nl-gate-')),
             dbPath      = path.join(dir, 'graph.sqlite'),
+            logsDir       = path.join(dir, 'logs'),
+            telemetryStep = exerciseTelemetry ? `
+                RecorderService.log({session_id: 's', sequence_id: 'a_1', timestamp: 1,
+                    tool: 'create_component', success: true,  duration_ms: 10, app_name: 'App'});
+                RecorderService.log({session_id: 's', sequence_id: 'a_1', timestamp: 2,
+                    tool: 'create_component', success: false, duration_ms: 5,  app_name: 'App'});
+                RecorderService.log({session_id: 's', sequence_id: 'a_1', timestamp: 3,
+                    tool: 'simulate_event',   success: true,  duration_ms: 7,  app_name: 'App'});
+            ` : '',
             archiveStep = exerciseArchive ? `
                 const archive = await RecorderService.saveTransactionArchive({
                     appSessionId: 'spec-session',
                     name        : 'spec-archive',
                     transaction : {
-                        // txId is REQUIRED: it feeds source_tx_id, which is NOT NULL. Omitting it
-                        // returned 'archive-save-failed' -- a fixture looser than the contract.
                         txId        : 'spec-tx',
                         status      : 'committed',
                         committedAt : 1234,
@@ -53,66 +65,78 @@ test.describe('Neural Link action logging default', () => {
                 const readBack = archive.saved
                     ? await RecorderService.getTransactionArchive({archiveId: archive.archiveId})
                     : null;
-                out.archiveSaved  = archive.saved;
-                out.archiveReason = archive.reason ?? null;
-                out.readBackOps   = readBack ? readBack.ops.length : null;
-                out.openedAfter   = Boolean(RecorderService.db);
+                out.archiveSaved    = archive.saved;
+                out.archiveReason   = archive.reason ?? null;
+                out.readBackStatus  = readBack?.status ?? null;
+                out.readBackOps     = readBack?.ops?.length ?? null;
             ` : '',
-            burstStep = exerciseParallelBurst ? `
-                let opens = 0;
-                const origOpen = RecorderService.openStore.bind(RecorderService);
-                RecorderService.openStore = (...args) => { opens++; return origOpen(...args); };
-                const mkSave = (i) => RecorderService.saveTransactionArchive({
-                    appSessionId: 'spec-session',
-                    name        : 'parallel-' + i,
-                    transaction : {
-                        txId        : 'spec-tx-' + i,
-                        status      : 'committed',
-                        committedAt : 1234,
-                        originWriter: {agentId: 'spec-agent', sessionId: 'spec-session'},
-                        ops         : [{kind: 'set', value: i}]
-                    }
-                });
-                const results = await Promise.all(Array.from({length: 8}, (_, i) => mkSave(i)));
-                out.parallelSaved   = results.filter(r => r.saved).length;
-                out.parallelReasons = [...new Set(results.map(r => r.reason ?? null))];
-                out.openCalls       = opens;
-                out.openedAfter     = Boolean(RecorderService.db);
-            ` : '',
-            // Neo must be bootstrapped before any `src/core` module loads -- `Compare.mjs` calls
+            // Neo must be bootstrapped before any `src/core` module loads — `Compare.mjs` calls
             // `Neo.gatekeep` at module scope, so importing RecorderService bare throws
             // "Neo is not defined". Same ordering the sibling specs get from `setup.mjs`.
-            // The child reports the path the CONFIG resolved, not the path this test suggested,
-            // because `memoryCoreDbPath` selects a test destination whenever the harness markers
-            // are inherited -- asserting on the suggested path passed vacuously in both cases.
             script = `
+                // Counts what ANY observer would see. A test harness installs exactly such a listener and
+                // fails the surrounding test on it, so surviving the rejection is not the same as never
+                // emitting one — and only the second property keeps an unrelated spec file green.
+                let unhandledRejections = 0;
+                process.on('unhandledRejection', () => { unhandledRejections++ });
+
                 import Neo       from ${JSON.stringify(path.join(rootDir, 'src/Neo.mjs'))};
                 import * as core from ${JSON.stringify(path.join(rootDir, 'src/core/_export.mjs'))};
                 const config          = (await import(${JSON.stringify(path.join(rootDir, 'ai/mcp/server/neural-link/config.mjs'))})).default;
+                const client          = await import(${JSON.stringify(path.join(rootDir, 'ai/services/neural-link/memoryCoreArchiveClient.mjs'))});
                 const RecorderService = (await import(${JSON.stringify(path.join(rootDir, 'ai/services/neural-link/RecorderService.mjs'))})).default;
+
+                // Counted BEFORE initAsync, so "no connection at boot" is measured rather than assumed.
+                let calls = 0;
+                const store = new Map();
+
+                ${injectTransport ? '' : '/* no seam: this child exercises the REAL client path */ if (false)'}
+                client.setArchiveTransport(async (operation, args) => {
+                    calls++;
+                    if (operation === 'save_nl_transaction') {
+                        store.set('a1', {archiveId: 'a1', ops: args.transaction.ops, sourceTxId: args.transaction.txId});
+                        return {saved: true, archiveId: 'a1', sourceTxId: args.transaction.txId, opCount: args.transaction.ops.length};
+                    }
+                    // The container answers with its discriminator on BOTH arms — a stub that returned a
+                    // bare record and a bare null would leave the caller's absent-vs-unreachable branch
+                    // untested here while still looking like a faithful fake.
+                    if (operation === 'get_nl_transaction') {
+                        const hit = store.get(args.archiveId);
+
+                        return hit ? {status: 'found', ...hit} : {status: 'not-found'};
+                    }
+                    return {updated: true, replayCount: 1, lastReplayedAt: 1};
+                });
+
                 await RecorderService.initAsync();
+
                 const out = {
-                    openedAtBoot: Boolean(RecorderService.db),
+                    callsAtBoot : calls,
                     resolvedPath: config.memoryCoreDbPath,
                     gateValue   : config.actionLoggingEnabled
                 };
-                ${archiveStep}${burstStep}
+                ${archiveStep}
+                ${telemetryStep}
+
+                // Drained AFTER the work: an unhandled rejection is reported on a later tick, so reading
+                // the counter synchronously would measure nothing and pass no matter what.
+                await new Promise(resolve => setTimeout(resolve, 50));
+                out.unhandledRejections = unhandledRejections;
+
                 process.stdout.write(JSON.stringify(out));
             `,
-            childEnv = {...process.env, NEO_MEMORY_DB_PATH: dbPath, ...(extraEnv || {})};
+            childEnv = {...process.env, NEO_MEMORY_DB_PATH: dbPath, NEO_NL_LOG_PATH: logsDir, ...(extraEnv || {})};
 
-        // Deleted rather than set to undefined: spawnSync stringifies an `undefined` value to the
-        // literal "undefined", which a boolean leaf would read as a set-and-truthy env -- making
-        // the default-off case prove the env instead of the default.
+        // Deleted rather than set to undefined: spawnSync stringifies an `undefined` value to the literal
+        // "undefined", which a boolean leaf reads as set-and-truthy — making the default-off case prove
+        // the env instead of the default.
         if (!extraEnv || !('NEO_NL_ACTION_LOGGING' in extraEnv)) {
             delete childEnv.NEO_NL_ACTION_LOGGING;
         }
 
-        // Drop the harness's test-mode markers so the child resolves the PRODUCTION path leaf --
-        // i.e. the unique `NEO_MEMORY_DB_PATH` above -- which is what a real seat does. Inheriting
-        // them made every child resolve the ONE shared `NEO_TELEMETRY_DB_PATH_TEST` file, which the
-        // sibling spec creates first (it sorts earlier), so the default-off case saw a pre-existing
-        // file authored by someone else and the assertion measured suite order, not the gate.
+        // Drop the harness's test-mode markers so the child resolves the PRODUCTION path leaf, which is
+        // what a real seat does. Inheriting them made every child resolve one shared file that a sibling
+        // spec creates first, so the assertion measured suite order rather than the gate.
         delete childEnv.UNIT_TEST_MODE;
         delete childEnv.NEO_TEST_CONFIG_TEMPLATES;
         delete childEnv.NEO_TELEMETRY_DB_PATH_TEST;
@@ -127,107 +151,136 @@ test.describe('Neural Link action logging default', () => {
 
         try { parsed = JSON.parse(result.stdout.trim().split('\n').pop()) } catch {}
 
+        const aggregatePath = path.join(logsDir, 'nl-action-aggregate.json');
+
+        let aggregate = null;
+
+        try { aggregate = JSON.parse(fs.readFileSync(aggregatePath, 'utf8')) } catch {}
+
         return {
             ...(parsed || {}),
-            // Existence of the path the config ACTUALLY chose -- the only file that can prove or
-            // disprove that a seat left an artifact behind.
-            fileExists: Boolean(parsed?.resolvedPath) && fs.existsSync(parsed.resolvedPath),
-            error     : parsed ? null : (result.stderr || '').split('\n').slice(-14).join('\n')
+            // Existence of the path the config ACTUALLY chose — the only file that can prove or disprove
+            // that a seat left a host-side artifact behind.
+            fileExists     : Boolean(parsed?.resolvedPath) && fs.existsSync(parsed.resolvedPath),
+            aggregateExists: fs.existsSync(aggregatePath),
+            aggregate,
+            error          : parsed ? null : (result.stderr || '').split('\n').slice(-14).join('\n')
         }
     }
 
-    test('unset: no connection and no database file at boot', () => {
-        const outcome = bootRecorder();
+    test('unset: the gate is off, nothing connects at boot, and no host database is created', () => {
+        const out = bootRecorder();
 
-        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
-        expect(outcome.gateValue).toBe(false);
-        expect(outcome.openedAtBoot).toBe(false);
-        // Guard against a vacuous pass: if the config resolved no path at all, absence of a file
-        // would prove nothing about the gate.
-        expect(outcome.resolvedPath).toBeTruthy();
-        expect(outcome.fileExists).toBe(false)
+        expect(out.error).toBeNull();
+        expect(out.gateValue).toBe(false);
+        expect(out.callsAtBoot).toBe(0);
+        expect(out.fileExists).toBe(false);
     });
 
-    test('enabled: connection open and database created at boot', () => {
-        const outcome = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}});
+    test('enabled: the gate flips, and STILL nothing connects at boot and no host database is created', () => {
+        const out = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}});
 
-        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
-        expect(outcome.gateValue).toBe(true);
-        expect(outcome.openedAtBoot).toBe(true);
-        expect(outcome.resolvedPath).toBeTruthy();
-        // Positive control for the test above: the same existence check on the same resolved path
-        // must flip to true, so a false there cannot be an artifact of checking a dead path.
-        expect(outcome.fileExists).toBe(true)
+        expect(out.error).toBeNull();
+        expect(out.gateValue).toBe(true);
+        // The relocation's real gain: opting IN to telemetry no longer opens anything at boot. The old
+        // implementation created a write handle and a file here.
+        expect(out.callsAtBoot).toBe(0);
+        expect(out.fileExists).toBe(false);
     });
 
-    test('unset: the transaction archive contract STILL works, opening the store on demand', () => {
-        const outcome = bootRecorder({exerciseArchive: true});
+    test('unset: the transaction archive contract STILL works while telemetry is off', () => {
+        const out = bootRecorder({exerciseArchive: true});
 
-        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
-        expect(outcome.gateValue).toBe(false);
-        // Still nothing at boot -- the telemetry guarantee is unchanged.
-        expect(outcome.openedAtBoot).toBe(false);
-        // The regression this test exists for: a valid committed transaction returned
-        // {saved:false, reason:'archive-store-unavailable'} when the gate sat above the connection.
-        expect(outcome.archiveReason).toBeNull();
-        expect(outcome.archiveSaved).toBe(true);
-        // Round-tripped, not merely accepted -- a save that cannot be read back is not a contract.
-        expect(outcome.readBackOps).toBe(1);
-        // And the store was opened lazily by that call rather than at boot.
-        expect(outcome.openedAfter).toBe(true)
+        expect(out.error).toBeNull();
+        expect(out.gateValue).toBe(false);
+        // The independence an earlier change established and this relocation must not quietly alter:
+        // the archive is reachable while the telemetry gate is off.
+        expect(out.archiveSaved).toBe(true);
+        expect(out.archiveReason).toBeNull();
+        // `found` rather than merely truthy: the read now always answers, so a check for "we got something
+        // back" would pass for an unreachable store too.
+        expect(out.readBackStatus).toBe('found');
+        expect(out.readBackOps).toBe(1);
+        expect(out.fileExists).toBe(false);
+    });
+
+    test('enabled: the seat keeps the per-tool aggregate genesis reads as its telemetry proof', () => {
+        const out = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}, exerciseTelemetry: true});
+
+        expect(out.error).toBeNull();
+
+        // The aggregate genesis used to get from `SELECT ... GROUP BY tool`, now produced by the seat
+        // itself. Counts only — no targets, no sessions, no arguments — so it cannot become the parallel
+        // record the relocation exists to remove.
+        expect(out.aggregate).toEqual([
+            {tool: 'create_component', count: 2, successCount: 1, durationMs: 15},
+            {tool: 'simulate_event',   count: 1, successCount: 1, durationMs: 7}
+        ]);
+
+        // A failed action is counted but not counted as a success — the distinction the probe's receipt
+        // reports, and the one a plain call-counter would lose.
+        expect(out.aggregate[0].count).toBeGreaterThan(out.aggregate[0].successCount);
+
+        // Still no host DATABASE: the aggregate is ephemeral accounting, not a relocated store.
+        expect(out.fileExists).toBe(false);
+    });
+
+    test('unset: the aggregate is governed by the same gate and is never written', () => {
+        // The arm that keeps the new artifact honest. `logPath` is configured in EVERY seat, so without
+        // the gate this file would appear in normal operation — a host-side data artifact the relocation
+        // is supposed to have removed. Three actions are driven here and must leave nothing behind.
+        const out = bootRecorder({exerciseTelemetry: true});
+
+        expect(out.error).toBeNull();
+        expect(out.gateValue).toBe(false);
+        expect(out.aggregateExists).toBe(false);
+
+        // POSITIVE CONTROL: the same reader DOES find the file when the gate is on, so this zero is a
+        // measurement of the gate rather than of a mistyped path.
+        expect(bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}, exerciseTelemetry: true}).aggregateExists).toBe(true);
+    });
+
+    test('no credential: the archive refuses BY NAME and the process survives', () => {
+        // THE REGRESSION THIS PINS. `Client.initAsync` throws when a required variable is missing, and
+        // that throw lands on a promise nobody holds — `Base` builds its ready promise with a resolver
+        // only and awaits `initAsync` in a detached chain. So the failure surfaced as an UNHANDLED
+        // REJECTION rather than as this module's named refusal: it killed a CI worker, and it failed a
+        // test in a completely unrelated spec file that had merely imported the recorder.
+        //
+        // Catching it after the fact cannot fully fix that — every observer sees an unhandled rejection,
+        // including a harness that fails the surrounding test. The client must therefore never be
+        // constructed without its credential, which is what this arm proves.
+        const out = bootRecorder({
+            exerciseArchive: true,
+            injectTransport: false,
+            extraEnv       : {NEO_MCP_REMOTE_TOKEN: ''}
+        });
+
+        // The child ran to completion and printed its result — i.e. it did not die.
+        expect(out.error).toBeNull();
+
+        // THE LOAD-BEARING ASSERTION. Not "the process survived" — a listener already guarantees that,
+        // so an arm asserting survival passes with the pre-flight deleted and proves nothing. What the
+        // pre-flight adds is that no rejection is EMITTED for anyone else to see.
+        expect(out.unhandledRejections).toBe(0);
+
+        expect(out.archiveSaved).toBe(false);
+        expect(out.archiveReason).toContain('archive-store-unavailable');
+
+        // Named, so an operator learns WHICH thing is unconfigured rather than that "something failed".
+        expect(out.archiveReason).toContain('NEO_MCP_REMOTE_TOKEN');
+
+        // And still no host-local fallback: refusing must not mean writing somewhere else.
+        expect(out.fileExists).toBe(false);
     });
 
     test('enabled: the transaction archive contract also works', () => {
-        const outcome = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}, exerciseArchive: true});
+        const out = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}, exerciseArchive: true});
 
-        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
-        expect(outcome.archiveSaved).toBe(true);
-        expect(outcome.readBackOps).toBe(1)
+        expect(out.error).toBeNull();
+        expect(out.archiveSaved).toBe(true);
+        expect(out.readBackStatus).toBe('found');
+        expect(out.readBackOps).toBe(1);
+        expect(out.fileExists).toBe(false);
     });
-
-    test('unset: 8 parallel first-use saves share exactly ONE store open (single-flight)', () => {
-        const outcome = bootRecorder({exerciseParallelBurst: true});
-
-        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
-        expect(outcome.gateValue).toBe(false);
-        expect(outcome.openedAtBoot).toBe(false);
-        // Every concurrent save lands, none refused -- reason asserted before saved so a
-        // rejection can never impersonate the race under test.
-        expect(outcome.parallelReasons).toEqual([null]);
-        expect(outcome.parallelSaved).toBe(8);
-        // The measured regression (review cycle 2): a bare check-then-open admitted one
-        // connection PER CALLER -- 32 parallel ensureStore calls returned 32 distinct
-        // connections against one shared file. Single-flight means exactly one real open.
-        expect(outcome.openCalls).toBe(1);
-        expect(outcome.openedAfter).toBe(true)
-    });
-
-    test('the genesis probe opts in, so its telemetry oracle keeps a source', () => {
-        // Structural tripwire ONLY -- a source-text check carries no behavioural claim. The
-        // behavioural chain lives elsewhere: genesisProbe.spec.mjs asserts the INVOKED
-        // createProbeEnvironments() output carries NEO_NL_ACTION_LOGGING='true', and the
-        // end-to-end non-empty-telemetry AC is annotated as a live residual on the gating
-        // ticket. This line exists so a blanket removal of the opt-in cannot land silently
-        // between those two.
-        const source = fs.readFileSync(path.join(rootDir, 'ai/scripts/diagnostics/genesisProbe.mjs'), 'utf8');
-
-        expect(source).toContain('NEO_NL_ACTION_LOGGING');
-        // Bound to the same env block that redirects writes into the disposable root, so enabling
-        // logging can never touch the canonical plane.
-        expect(source).toContain('NEO_MEMORY_DB_PATH')
-    });
-
-    test('the steady-state runbook retires the checkout-plane writer census (#16210)', () => {
-        // The old one-shot cutover moved checkout data after a process-name census. The Docker
-        // steady state never moves that plane, so retaining the census would imply the dangerous
-        // copy/move procedure still exists. Any future logical import needs its own reviewed,
-        // quiesced-writer workflow rather than reviving this partial proxy.
-        const runbook = fs.readFileSync(
-            path.join(rootDir, 'ai/scripts/lifecycle/local-agent-os/README.md'), 'utf8'
-        );
-
-        expect(runbook).not.toContain('memory-core|knowledge-base|neural-link');
-        expect(runbook).not.toContain('lsof .neo-ai-data');
-        expect(runbook).toContain('separately reviewed procedure and a quiesced writer plane')
-    })
 });

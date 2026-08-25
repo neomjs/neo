@@ -252,6 +252,17 @@ const memoryCoreToolTiers = ['read', 'write', 'extended', 'admin'];
 
 const expectedMemoryCoreToolTiers = {
     admit_community_batch        : 'write',
+    // Neural Link data relocated onto the one graph. The archive's read is `read` because a
+    // response carrying archive data is host-initiated round-trip data, not container-initiated access;
+    // the three writers are `write` rather than `admin` because a constrained tier beats a broad one.
+    // `extended`, not read/write: these four are internal NL-client capabilities, so they are withheld
+    // from the default loaded surface rather than advertised to every agent. For the telemetry operation
+    // that access control is the only custody lever available, because storing identity in a telemetry row
+    // is forbidden; the archive additionally stamps an authenticated custodian.
+    save_nl_transaction          : 'extended',
+    get_nl_transaction           : 'extended',
+    mark_nl_transaction_replayed : 'extended',
+    admit_nl_actions             : 'extended',
     healthcheck                  : 'read',
     get_community_source_health  : 'read',
     get_mcp_tool_handbook        : 'read',

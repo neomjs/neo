@@ -19,6 +19,7 @@ import * as core                         from '../../../../../../../src/core/_ex
 import fs                                from 'fs';
 import {snapshotAiConfig}                from '../../../services/memory-core/util.mjs';
 import {computeSessionTurnInputRevision} from '../../../../../../../ai/services/memory-core/helpers/turnDocumentText.mjs';
+import {NL_ACTION_TELEMETRY_NODE_TYPE}   from '../../../../../../../ai/services/memory-core/helpers/nlActionTelemetryStore.mjs';
 import {
     beginCorpusProjection,
     commitCorpusProjectionFacet,
@@ -43,58 +44,57 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let originalAppendFile;
     let graphEdgeIdsBeforeTest;
     let graphNodeIdsBeforeTest;
-    let hadNlActionLog;
     let   appendedContent = [];
     let   providerPrompt  = '';
     const freshVerifiedAt = new Date().toISOString();
 
-    function createNlActionLogTable() {
-        GraphService.db.storage.db.exec(`
-            CREATE TABLE IF NOT EXISTS nl_action_log (
-                id          TEXT PRIMARY KEY,
-                agent_id    TEXT NOT NULL,
-                session_id  TEXT,
-                sequence_id TEXT NOT NULL,
-                timestamp   INTEGER NOT NULL,
-                tool        TEXT NOT NULL,
-                args        TEXT NOT NULL,
-                result      TEXT,
-                success     INTEGER DEFAULT 0,
-                duration_ms INTEGER,
-                app_name    TEXT,
-                reward      REAL DEFAULT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_nl_action_log_sequence  ON nl_action_log(sequence_id);
-            CREATE INDEX IF NOT EXISTS idx_nl_action_log_session   ON nl_action_log(session_id);
-            CREATE INDEX IF NOT EXISTS idx_nl_action_log_timestamp ON nl_action_log(timestamp);
-        `);
-    }
-
-    function insertNlActionLogRow({
+    /**
+     * @summary Seeds one Neural Link telemetry row as the graph node the digest now reads.
+     *
+     * **`args` and `result` are gone from the fixture because they are gone from the wire.** Since the
+     * NL data relocation the recorder admits a bounded projection — `targets` — and raw arguments never
+     * leave the host, so a fixture that still handed the reader an `args` blob would be testing a parse
+     * step that no longer exists. Stating the targets directly is also more honest about what the digest
+     * actually consumes.
+     *
+     * Seeded through `GraphService` rather than `admitNlActions`, deliberately: these arms are about the
+     * DIGEST's judgment — which tools may mint evidence, which success rates qualify — and the
+     * writer↔reader agreement is proven end to end in `nlRelocationComposition.spec.mjs`. Going through
+     * the admission path here would also force UUID sequence ids and cost every arm its readable name.
+     * @param {Object} options
+     */
+    function insertNlActionTelemetryRow({
         id,
         sequenceId,
         timestamp,
         tool = 'create_component',
-        args = {},
-        result = {},
+        targets = {},
         success = 1
     }) {
-        GraphService.db.storage.db.prepare(`
-            INSERT INTO nl_action_log (
-                id, agent_id, session_id, sequence_id, timestamp,
-                tool, args, result, success, duration_ms, app_name
-            ) VALUES (
-                @id, 'neo-gpt-test', 'nl-action-digest-test', @sequenceId, @timestamp,
-                @tool, @args, @result, @success, 12, 'DreamServiceTest'
-            )
-        `).run({
-            id,
-            sequenceId,
-            timestamp,
-            tool,
-            args   : JSON.stringify(args),
-            result : JSON.stringify(result),
-            success: success ? 1 : 0
+        GraphService.upsertNode({
+            id        : `${NL_ACTION_TELEMETRY_NODE_TYPE}:${id}`,
+            type      : NL_ACTION_TELEMETRY_NODE_TYPE,
+            name      : tool,
+            updatedAt : timestamp,
+            properties: {
+                sequenceId,
+                sessionId : 'nl-action-digest-test',
+                timestamp,
+                tool,
+                success   : Boolean(success),
+                durationMs: 12,
+                appName   : 'DreamServiceTest',
+                targets   : {
+                    classNames  : targets.classNames   ?? [],
+                    componentIds: targets.componentIds ?? []
+                },
+                // The same shared disposition `admitNlActions` stamps. `upsertNode` scopes a row to the
+                // writing tenant otherwise, and the digest reads only what was deliberately shared — so a
+                // fixture missing this declares a PRIVATE row and the digest correctly refuses to see it.
+                // Omitting it here made two arms report zero qualifying sequences, which is the isolation
+                // boundary working rather than the digest breaking.
+                visibility: 'team'
+            }
         });
     }
 
@@ -137,10 +137,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
         await KBRecorderService.ready();
 
-        hadNlActionLog = Boolean(GraphService.db.storage?.db?.prepare(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'nl_action_log'"
-        ).get());
-
         // Monkey patch OpenAiCompatible
         originalGenerate = OpenAiCompatible.prototype.generate;
         OpenAiCompatible.prototype.generate = async function(prompt) {
@@ -180,23 +176,10 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test.afterEach(async () => {
+        // Telemetry rows are ordinary graph nodes now, so the fixture cleanup that already removes every
+        // node this test created removes them too — the bespoke table create/delete/restore dance the
+        // old `nl_action_log` fixture needed is simply gone.
         cleanupGraphFixtures();
-
-        if (GraphService.db?.storage?.db) {
-            const sqlite = GraphService.db.storage.db,
-                  exists = Boolean(sqlite.prepare(
-                      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'nl_action_log'"
-                  ).get());
-
-            if (exists) {
-                sqlite.prepare(
-                    "DELETE FROM nl_action_log WHERE agent_id = 'neo-gpt-test' AND session_id = 'nl-action-digest-test'"
-                ).run();
-                if (!hadNlActionLog) sqlite.exec('DROP TABLE nl_action_log;');
-            } else if (hadNlActionLog) {
-                createNlActionLogTable();
-            }
-        }
     });
 
     test.afterAll(async () => {
@@ -369,8 +352,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('executeNLActionDigest adds weak NL action VALIDATES evidence without erasing TEST_GAP (#9890)', async () => {
-        createNlActionLogTable();
-
         GraphService.upsertNode({
             id        : 'class-neo-button-base',
             type      : 'CLASS',
@@ -385,20 +366,18 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         const baseTimestamp = Date.now() - 5000;
         for (let i = 0; i < 4; i++) {
-            insertNlActionLogRow({
+            insertNlActionTelemetryRow({
                 id        : `nl-success-${i}`,
                 sequenceId: 'seq-weak-evidence',
                 timestamp : baseTimestamp + i,
-                args      : {parentId: 'root-container', config: {className: 'Neo.button.Base', componentId: 'button-instance-1'}},
-                result    : {ok: true}
+                targets   : {classNames: ['Neo.button.Base'], componentIds: ['button-instance-1']}
             });
         }
-        insertNlActionLogRow({
+        insertNlActionTelemetryRow({
             id        : 'nl-failure-0',
             sequenceId: 'seq-weak-evidence',
             timestamp : baseTimestamp + 10,
-            args      : {parentId: 'root-container', config: {className: 'Neo.button.Base', componentId: 'button-instance-1'}},
-            result    : {error: 'synthetic failure'},
+            targets   : {classNames: ['Neo.button.Base'], componentIds: ['button-instance-1']},
             success   : 0
         });
 
@@ -445,8 +424,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('executeNLActionDigest ignores sequences below the success threshold (#9890)', async () => {
-        createNlActionLogTable();
-
         GraphService.upsertNode({
             id        : 'class-low-success',
             type      : 'CLASS',
@@ -461,19 +438,19 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         const baseTimestamp = Date.now() - 5000;
         for (let i = 0; i < 3; i++) {
-            insertNlActionLogRow({
+            insertNlActionTelemetryRow({
                 id        : `low-success-${i}`,
                 sequenceId: 'seq-low-success',
                 timestamp : baseTimestamp + i,
-                args      : {className: 'Neo.grid.Container'}
+                targets   : {classNames: ['Neo.grid.Container']}
             });
         }
         for (let i = 0; i < 2; i++) {
-            insertNlActionLogRow({
+            insertNlActionTelemetryRow({
                 id        : `low-failure-${i}`,
                 sequenceId: 'seq-low-success',
                 timestamp : baseTimestamp + 10 + i,
-                args      : {className: 'Neo.grid.Container'},
+                targets   : {classNames: ['Neo.grid.Container']},
                 success   : 0
             });
         }
@@ -498,20 +475,22 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(classNode.properties.capabilityGap).not.toContain('[NL_ACTION_WEAK_EVIDENCE]');
     });
 
-    test('executeNLActionDigest skips cleanly when nl_action_log is absent (#9890)', async () => {
-        GraphService.db.storage.db.exec('DROP TABLE IF EXISTS nl_action_log;');
-
+    test('executeNLActionDigest degrades cleanly when no telemetry has been admitted (#9890)', async () => {
+        // The old shape of this arm dropped the `nl_action_log` TABLE and asserted a `skipped` verdict.
+        // There is no table to drop any more: telemetry is graph nodes, and the graph always exists. The
+        // property worth keeping is the one that always mattered — a seat with action logging off must
+        // leave the digest quiet rather than erroring — so the clean answer is now a completed pass over
+        // nothing, which is what an empty node set legitimately means.
         const result = await DreamService.executeNLActionDigest();
 
-        expect(result).toEqual({
-            status: 'skipped',
-            reason: 'nl-action-log-missing'
-        });
+        expect(result.status).toBe('completed');
+        expect(result.rowsRead).toBe(0);
+        expect(result.sequencesRead).toBe(0);
+        expect(result.qualifyingSequences).toBe(0);
+        expect(result.linkedEdges).toBe(0);
     });
 
     test('executeNLActionDigest ignores read-tool args and nested result payload targets (#9890)', async () => {
-        createNlActionLogTable();
-
         GraphService.upsertNode({
             id        : 'class-targeted-action',
             type      : 'CLASS',
@@ -535,18 +514,19 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             }
         });
 
-        insertNlActionLogRow({
+        // `Neo.panel.ResultOnly` reached this fixture through a tool RESULT, and results no longer cross
+        // the wire at all — so the over-harvest it guarded against is now impossible by construction, and
+        // the class is seeded here only to prove it still never becomes a target. What remains testable,
+        // and what this arm now pins, is the READ-TOOL gate: `get_component_tree` names real targets in
+        // its arguments, and a read tool must still mint no evidence from them.
+        insertNlActionTelemetryRow({
             id        : 'result-overharvest-regression',
             sequenceId: 'seq-result-overharvest',
             timestamp : Date.now() - 5000,
             tool      : 'get_component_tree',
-            args      : {className: 'Neo.button.TargetedAction', id: 'result-only-component'},
-            result    : {
-                root: {
-                    className: 'Neo.panel.ResultOnly',
-                    id       : 'result-only-component',
-                    children : [{className: 'Neo.panel.ResultOnly'}]
-                }
+            targets   : {
+                classNames  : ['Neo.button.TargetedAction'],
+                componentIds: ['result-only-component']
             }
         });
 
@@ -577,8 +557,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('executeNLActionDigest recomputes stale weak-evidence annotations (#9890)', async () => {
-        createNlActionLogTable();
-
         GraphService.upsertNode({
             id        : 'class-stale-nl-evidence',
             type      : 'CLASS',

@@ -111,13 +111,14 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
                   output = `${logs.stdout}\n${logs.stderr}`;
 
             expect(logs.status, `could not read ${service} parity boot logs:\n${output.slice(-2000)}`).toBe(0);
-            // Either arm is a valid positive marker, and one of them ALWAYS appears: the connected
-            // line when action logging is enabled, the disabled line when it is not (the default).
+            // Either arm is a valid positive marker, and one of them ALWAYS appears: the enabled
+            // line when action logging is on, the disabled line when it is not (the default). Neither
+            // reports a connection any more: the recorder opens nothing at boot.
             // The alternation keeps the guard intact across that config without pinning parity to a
             // non-default setting — the point is that RecorderService reported through the Neural
             // Link logger at all, which is what proves the sink is live.
             expect(output).toMatch(
-                /\[RecorderService\] (Connected to Memory Core nl_action_log\.|Action logging disabled; transaction archive available on demand\.)/
+                /\[RecorderService\] (Action logging enabled; telemetry admits to Memory Core, write-only\.|Action logging disabled; transaction archive available on demand\.)/
             );
             expect(output).not.toContain('file sink unavailable');
             expect(output).not.toContain("mkdir '/app/.neo-ai-data/logs'");

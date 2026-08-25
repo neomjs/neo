@@ -818,7 +818,6 @@
         "memoryCoreDbUseTestHarness",
         "neoRootDir",
         "port",
-        "pruneLogsAfterDays",
         "rpcTimeout"
     ]
 }

@@ -158,12 +158,14 @@ class ConfigBase extends ConfigProvider {
              * Default/info Bridge receive logs always use bounded routing metadata instead.
              * @type {number}
              */
-            bridgePayloadDebugMaxChars: leaf(4096, 'NEO_NL_BRIDGE_PAYLOAD_DEBUG_MAX_CHARS', 'number'),
-            /**
-             * Number of days to retain Action logs in the Neural Link Database.
-             * @type {number}
-             */
-            pruneLogsAfterDays: leaf(14, 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', 'number')
+            bridgePayloadDebugMaxChars: leaf(4096, 'NEO_NL_BRIDGE_PAYLOAD_DEBUG_MAX_CHARS', 'number')
+            // `pruneLogsAfterDays` lived here and is REMOVED, not relocated. It retained action logs in
+            // "the Neural Link Database" — the host SQLite file this relocation deletes — so after the cut
+            // it was a policy number naming a store that no longer exists, with no enforcer on either
+            // plane. Telemetry retention is now the container's and is enforced against the boundary its
+            // only reader can see (`nlActionTelemetryStore.pruneNlActionTelemetry`, driven by
+            // `GapInferenceEngine.inferNlActionDigest`). Re-declaring the days here would recreate the
+            // orphan: a host leaf for a container decision.
         },
         formulas: {
             'memoryCoreDbPath': data => data.memoryCoreDbUseTestDatabase || data.memoryCoreDbUseTestHarness ?

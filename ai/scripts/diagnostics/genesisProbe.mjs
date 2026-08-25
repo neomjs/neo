@@ -38,6 +38,17 @@ export const LOOPBACK_HOST         = '127.0.0.1';
 
 const MIN_TERMINATION_VERIFY_MS = 250;
 
+/**
+ * File name of the seat-local per-tool aggregate this probe reads as telemetry evidence.
+ *
+ * Deliberately duplicated rather than imported from `RecorderService`, which writes it: importing that
+ * module would pull the whole Neural Link service — and its MCP client — into this script's dependency
+ * closure, for a string. `relocationInvariants.spec.mjs` asserts the two literals still agree, so the
+ * duplication is guarded rather than trusted.
+ * @type {String}
+ */
+const NL_ACTION_AGGREGATE_FILE = 'nl-action-aggregate.json';
+
 const PUBLIC_FAILURES = Object.freeze({
     CHILD_TERMINATION_UNVERIFIED: 'A probe child could not be verified as stopped.',
     CLEANUP_FAILED              : 'The disposable diagnostics could not be fully erased.',
@@ -257,10 +268,11 @@ export function createProbeEnvironments({baseEnv = process.env, bearerToken, por
             HOST                                : LOOPBACK_HOST,
             MCP_HTTP_PORT                       : String(ports.mcp),
             NEO_MEMORY_DB_PATH                  : databasePath,
-            // Action logging is OFF by default per seat. The probe's per-tool telemetry
-            // oracle SELECTs from `nl_action_log`, so it must opt IN explicitly — and it is safe
-            // to do so because `NEO_MEMORY_DB_PATH` above already redirects every write into this
-            // run's disposable root, which `assertDiagnosticPathsWithinRoot` enforces below.
+            // Action logging is OFF by default per seat. The probe's per-tool telemetry oracle reads
+            // the seat's local aggregate, which is only written while this is on, so it must opt IN
+            // explicitly — and it is safe to do so because `NEO_NL_LOG_PATH` below already redirects
+            // that write into this run's disposable root, which `assertDiagnosticPathsWithinRoot`
+            // enforces. The counts never leave the root; they are deleted with it.
             NEO_NL_ACTION_LOGGING      : 'true',
             NEO_NL_AUTO_CONNECT        : 'true',
             NEO_NL_LOG_PATH            : logPath,
@@ -931,34 +943,50 @@ export async function waitForBigDataTopology({client, deadline, signal, timeoutM
 }
 
 /**
- * @summary Returns aggregate-only Neural Link call counts after the MCP process has released SQLite.
- * @param {String} databasePath
+ * @summary Returns aggregate-only Neural Link call counts, read after the MCP process has exited.
+ *
+ * **The source changed and the evidence did not.** This used to `SELECT ... GROUP BY tool` from the
+ * seat's local `nl_action_log` table; since the relocation that table does not exist, because telemetry
+ * now travels outbound to Memory Core. Pointing this at the container instead was refused deliberately —
+ * a remote telemetry READ would give the container a way to be asked about host activity, which is the
+ * direction this whole relocation exists to prevent. So the seat keeps its own ephemeral per-tool
+ * counters (`RecorderService.recordLocalAggregate`) under the disposable root, and they are deleted with
+ * it. Counts only: no targets, no sessions, no arguments.
+ *
+ * An unreadable or malformed file yields `[]`, which is the same "nothing recorded" answer a missing
+ * database gave before — absent evidence, never invented evidence.
+ * @param {String} aggregatePath Path to the seat-local aggregate written under the probe's log root.
  * @returns {Promise<Array<Object>>}
  */
-export async function readAggregateTelemetry(databasePath) {
+export async function readAggregateTelemetry(aggregatePath) {
+    let raw;
+
     try {
-        await fsPromises.access(databasePath)
+        raw = await fsPromises.readFile(aggregatePath, 'utf8')
     } catch {
         return []
     }
 
-    const Database = (await import('better-sqlite3')).default;
-    const db       = new Database(databasePath, {readonly: true});
+    // A file that exists but cannot be read THROWS, and the difference from the branch above is the
+    // point: absent means the seat recorded nothing, corrupt means the evidence was there and this
+    // probe failed to capture it. The old table read drew exactly this line — a missing database file
+    // returned nothing, a present-but-wrong one raised — and the caller turns the raise into a named
+    // capture failure. Collapsing both into `[]` would report a corrupted oracle as a quiet seat.
+    const rows = JSON.parse(raw);
 
-    try {
-        return db.prepare(`
-            SELECT
-                tool,
-                COUNT(*) AS count,
-                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
-                COALESCE(SUM(duration_ms), 0) AS durationMs
-            FROM nl_action_log
-            GROUP BY tool
-            ORDER BY tool
-        `).all()
-    } finally {
-        db.close()
+    if (!Array.isArray(rows)) {
+        throw new Error(`aggregate telemetry at ${aggregatePath} is not an array`)
     }
+
+    return rows
+        .filter(row => row && typeof row.tool === 'string')
+        .map(({tool, count, successCount, durationMs}) => ({
+            tool,
+            count       : Number(count)        || 0,
+            successCount: Number(successCount) || 0,
+            durationMs  : Number(durationMs)   || 0
+        }))
+        .sort((a, b) => a.tool.localeCompare(b.tool))
 }
 
 /**
@@ -972,7 +1000,7 @@ export async function readAggregateTelemetry(databasePath) {
  * @returns {Promise<Object>} Aggregate evidence, manifests, and private failures.
  */
 export async function finalizeDisposableRoot({
-    databasePath,
+    aggregatePath,
     deletionAuthorized,
     root
 }) {
@@ -990,10 +1018,12 @@ export async function finalizeDisposableRoot({
         }
     };
 
-    if (deletionAuthorized && databasePath) {
+    // Read BEFORE the root is deleted, and only when deletion is authorized — the same ordering the
+    // database read had, for the same reason: the evidence lives inside the root it is about.
+    if (deletionAuthorized && aggregatePath) {
         await capture(
             'Aggregate telemetry read',
-            () => readAggregateTelemetry(databasePath),
+            () => readAggregateTelemetry(aggregatePath),
             value => { telemetry = value }
         )
     }
@@ -1527,7 +1557,9 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
 
     if (state.root) {
         const finalization = await finalizeDisposableRoot({
-            databasePath,
+            // Written by the seat under its log root, which this probe pins to the disposable root — so
+            // the evidence is inside the thing being deleted, and goes away with it.
+            aggregatePath     : path.join(logPath, NL_ACTION_AGGREGATE_FILE),
             deletionAuthorized: state.cleanupDeletionAuthorized,
             root              : state.root
         });

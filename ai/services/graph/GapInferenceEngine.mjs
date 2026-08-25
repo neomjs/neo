@@ -2,6 +2,7 @@ import Base                                                             from '..
 import {Memory_Config as aiConfig, Memory_GraphService as GraphService} from '../../services.mjs';
 import KBRecorderService                                                from '../../services/knowledge-base/KBRecorderService.mjs';
 import logger                                                           from '../../mcp/server/memory-core/logger.mjs';
+import {NL_ACTION_TELEMETRY_NODE_TYPE, pruneNlActionTelemetry}          from '../memory-core/helpers/nlActionTelemetryStore.mjs';
 
 /**
  * Default freshness window for Concept Ontology source-grounding. Concepts with missing,
@@ -353,10 +354,12 @@ class GapInferenceEngine extends Base {
     /**
      * @summary Digests successful Neural Link action sequences into weak TEST_GAP evidence.
      *
-     * `nl_action_log` is structured relational telemetry from the Neural Link MCP server, not
-     * semantic prose. This pass therefore reads the existing SQLite table directly through the
-     * already-mounted Memory Core graph handle instead of importing `RecorderService` or opening a
-     * second MCP-side connection. Qualifying sequences create `NL_ACTION_SEQUENCE -> VALIDATES ->
+     * Neural Link action telemetry is structured relational data, not semantic prose. It used to live in
+     * an `nl_action_log` table that a HOST process wrote directly; since the data relocation the host
+     * admits it through Memory Core and it lands as `nl-action-telemetry` graph nodes. This pass still
+     * reads it directly through the already-mounted graph handle rather than importing `RecorderService`
+     * or opening a second MCP-side connection — only the shape being read changed, and the digest keeps
+     * grouping by the host-minted correlation token. Qualifying sequences create `NL_ACTION_SEQUENCE -> VALIDATES ->
      * CLASS/COMPONENT` edges with `evidenceKind: neural-link-action-sequence` and annotate existing
      * `[TEST_GAP]` strings with a weak-evidence marker. They never remove the gap: live agent
      * interaction is useful signal, but permanent Playwright coverage remains the stronger evidence.
@@ -370,10 +373,16 @@ class GapInferenceEngine extends Base {
             minSuccessRate = aiConfig.nlActionDigestMinSuccessRate,
             evidenceWeight = aiConfig.nlActionDigestEvidenceWeight,
             sinceTimestamp = Date.now() - lookbackMs,
+            // RETENTION, enforced here because this is where a live caller already runs on a schedule.
+            // The cutoff is the same boundary this digest reads from: a row below it cannot influence any
+            // consumer, so keeping it is pure growth. Deliberately BEFORE the read, so a sweep that
+            // stalls or fails cannot be skipped by an early return on an unavailable graph — and it
+            // reports separately, because retention failing is not the digest failing.
+            retention      = pruneNlActionTelemetry({olderThanTimestamp: sinceTimestamp}),
             rows           = this.readNlActionRows({sinceTimestamp, sequenceLimit});
 
         if (rows.status !== 'ok') {
-            return rows;
+            return {...rows, retention};
         }
 
         const sequences                    = this.groupNlActionRowsBySequence(rows.rows);
@@ -411,7 +420,8 @@ class GapInferenceEngine extends Base {
             targetMatches,
             linkedEdges,
             downgradedGaps,
-            resetWeakEvidenceAnnotations
+            resetWeakEvidenceAnnotations,
+            retention
         };
     }
 
@@ -420,6 +430,17 @@ class GapInferenceEngine extends Base {
      * @returns {Object}
      * @protected
      */
+    /**
+     * Both SELECTs below require `properties.visibility = 'team'`, which is this reader's ROW-VISIBILITY
+     * boundary rather than a filter for convenience.
+     *
+     * `GraphService.upsertNode` stamps `Nodes.user_id` from the writing context, so telemetry rows are
+     * tenant-scoped unless their writer declares otherwise — and `admitNlActions` declares team visibility
+     * deliberately, because this digest is a swarm-wide pass over shared CLASS/COMPONENT nodes. Reading
+     * with no predicate at all would have worked identically today and silently read every OTHER tenant's
+     * private rows the moment one existed. The predicate is what keeps "what this digest sees" equal to
+     * "what was deliberately shared".
+     */
     readNlActionRows({sinceTimestamp, sequenceLimit}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
@@ -427,22 +448,20 @@ class GapInferenceEngine extends Base {
         }
 
         try {
-            const table = sqlite.prepare(
-                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'nl_action_log'"
-            ).get();
-            if (!table) {
-                return {status: 'skipped', reason: 'nl-action-log-missing'};
-            }
-
             const safeLimit    = Math.max(1, Number(sequenceLimit) || aiConfig.nlActionDigestSequenceLimit);
             const sequenceRows = sqlite.prepare(`
-                SELECT sequence_id, MAX(timestamp) AS latest_timestamp
-                FROM nl_action_log
-                WHERE timestamp >= ?
+                SELECT json_extract(data, '$.properties.sequenceId')        AS sequence_id,
+                       MAX(json_extract(data, '$.properties.timestamp'))    AS latest_timestamp
+                FROM Nodes
+                WHERE json_extract(data, '$.label') = ?
+                  AND json_extract(data, '$.properties.timestamp') >= ?
+                  AND json_extract(data, '$.properties.visibility') = 'team'
                 GROUP BY sequence_id
+                HAVING sequence_id IS NOT NULL
                 ORDER BY latest_timestamp DESC
                 LIMIT ?
-            `).all(Number(sinceTimestamp) || 0, safeLimit);
+            `).all(NL_ACTION_TELEMETRY_NODE_TYPE, Number(sinceTimestamp) || 0, safeLimit);
+
             const sequenceIds = sequenceRows.map(row => row.sequence_id).filter(Boolean);
 
             if (sequenceIds.length === 0) {
@@ -451,16 +470,34 @@ class GapInferenceEngine extends Base {
 
             const placeholders = sequenceIds.map(() => '?').join(',');
             const rows         = sqlite.prepare(`
-                SELECT sequence_id, session_id, timestamp, tool, args, result, success, duration_ms, app_name
-                FROM nl_action_log
-                WHERE sequence_id IN (${placeholders})
-                ORDER BY timestamp ASC
-            `).all(...sequenceIds);
+                SELECT data
+                FROM Nodes
+                WHERE json_extract(data, '$.label') = ?
+                  AND json_extract(data, '$.properties.visibility') = 'team'
+                  AND json_extract(data, '$.properties.sequenceId') IN (${placeholders})
+            `).all(NL_ACTION_TELEMETRY_NODE_TYPE, ...sequenceIds)
+                .map(row => JSON.parse(row.data)?.properties || {})
+                // Re-shaped to the row contract the rest of this digest already speaks, so the grouping,
+                // scoring and linking below are untouched by where the telemetry now lives. `success` is
+                // stored as a boolean and compared here as 1/0, which is the column semantic it replaces.
+                .map(properties => ({
+                    sequence_id: properties.sequenceId ?? null,
+                    session_id : properties.sessionId  ?? null,
+                    timestamp  : properties.timestamp  ?? null,
+                    tool       : properties.tool       ?? null,
+                    success    : properties.success === true ? 1 : 0,
+                    duration_ms: properties.durationMs ?? null,
+                    app_name   : properties.appName    ?? null,
+                    targets    : properties.targets    ?? {classNames: [], componentIds: []}
+                }))
+                // The table applied `ORDER BY timestamp ASC`; JSON extraction does not, and
+                // `buildNlActionSequenceEvidence` reads first/last timestamps positionally.
+                .sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
 
             return {status: 'ok', rows};
         } catch (err) {
             logger.debug('[GapInferenceEngine] NL action digest skipped:', err.message);
-            return {status: 'skipped', reason: 'nl-action-log-read-failed', error: err.message};
+            return {status: 'skipped', reason: 'nl-action-telemetry-read-failed', error: err.message};
         }
     }
 
@@ -533,9 +570,15 @@ class GapInferenceEngine extends Base {
         const targets = {classNames: new Set(), componentIds: new Set()};
 
         for (const row of rows) {
+            // The validation-tool gate stays HERE even though the projection moved to the host. Which
+            // tools may mint weak evidence is this digest's judgment, not the recorder's, and a host that
+            // decided it could quietly widen what counts as validation.
             if (!this.isNlActionValidationTool(row.tool)) continue;
 
-            this.collectNlActionTargets(this.parseJsonValue(row.args), row.tool, targets);
+            const projected = row.targets || {};
+
+            if (Array.isArray(projected.classNames))   projected.classNames  .forEach(value => targets.classNames  .add(value));
+            if (Array.isArray(projected.componentIds)) projected.componentIds.forEach(value => targets.componentIds.add(value));
         }
 
         return targets;
@@ -561,57 +604,11 @@ class GapInferenceEngine extends Base {
     }
 
     /**
-     * @param {*} value Parsed JSON value.
-     * @param {String} tool Neural Link tool name.
-     * @param {Object} targets Mutable target accumulator.
-     * @protected
+     * `collectNlActionTargets` and `parseJsonValue` lived here and are gone rather than kept: raw `args`
+     * no longer reach the container, so both had nothing left to parse. The allowlist itself was not
+     * deleted — it moved verbatim to `RecorderService.projectTargets`, which is now the only place the
+     * arguments still exist.
      */
-    collectNlActionTargets(value, tool, targets) {
-        if (!value || typeof value !== 'object' || Array.isArray(value)) return;
-
-        const isComponentTool = /component|instance/i.test(tool || '');
-
-        for (const [key, item] of Object.entries(value)) {
-            if (key === 'className' && typeof item === 'string' && item.length > 0) {
-                targets.classNames.add(item);
-            } else if ((key === 'componentId' || key === 'component_id') && typeof item === 'string' && item.length > 0) {
-                targets.componentIds.add(item);
-            } else if (key === 'componentIds' && Array.isArray(item)) {
-                item.filter(componentId => typeof componentId === 'string' && componentId.length > 0)
-                    .forEach(componentId => targets.componentIds.add(componentId));
-            } else if (key === 'id' && isComponentTool && typeof item === 'string' && item.length > 0) {
-                targets.componentIds.add(item);
-            }
-        }
-
-        for (const key of ['config', 'properties']) {
-            const item = value[key];
-            if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-
-            if (typeof item.className === 'string' && item.className.length > 0) {
-                targets.classNames.add(item.className);
-            }
-
-            if (typeof item.componentId === 'string' && item.componentId.length > 0) {
-                targets.componentIds.add(item.componentId);
-            }
-        }
-    }
-
-    /**
-     * @param {String|null} text
-     * @returns {*}
-     * @protected
-     */
-    parseJsonValue(text) {
-        if (text == null || text === '') return null;
-        if (typeof text !== 'string') return text;
-        try {
-            return JSON.parse(text);
-        } catch {
-            return null;
-        }
-    }
 
     /**
      * @param {Object} targets
