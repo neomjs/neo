@@ -867,6 +867,7 @@
                 "ai/daemons/embed/daemon.mjs",
                 "ai/daemons/message/daemon.mjs",
                 "ai/scripts/diagnostics/staleEmbeddingCensus.mjs",
+                "ai/scripts/migrations/repairStaleEmbeddings.mjs",
                 "ai/scripts/lifecycle/backfill-memory-summaries.mjs",
                 "ai/scripts/lifecycle/summarize-sessions.mjs",
                 "ai/scripts/maintenance/aggregate-temporal-summary.mjs",
@@ -1154,6 +1155,7 @@
                 "ai/scripts/diagnostics/mailboxReadStateProbe.mjs",
                 "ai/scripts/diagnostics/pilotPlaneTerminal.mjs",
                 "ai/scripts/diagnostics/staleEmbeddingCensus.mjs",
+                "ai/scripts/migrations/repairStaleEmbeddings.mjs",
                 "ai/scripts/diagnostics/validateConceptEdges.mjs",
                 "ai/scripts/diagnostics/walReplayPlan.mjs",
                 "ai/scripts/diagnostics/walSnapshotClone.mjs",
@@ -1482,6 +1484,7 @@
                 "ai:restore",
                 "ai:run-sandman",
                 "ai:stale-embedding-census",
+                "ai:stale-embedding-repair",
                 "ai:summarize-sessions",
                 "ai:sync-kb"
             ],
