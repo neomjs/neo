@@ -3,12 +3,18 @@ import fs             from 'node:fs';
 import path           from 'node:path';
 
 /**
- * @summary The three architectural invariants the Neural Link data relocation establishes, pinned so a
- * later change reds instead of silently undoing them.
+ * @summary The architectural invariants the Neural Link data relocation establishes, pinned so a later
+ * change reds instead of silently undoing them.
  *
- * All three are source-shape assertions rather than behavioural ones, because all three are about what
- * the codebase may CONTAIN — an import, an operation, a dependency direction. A behavioural test cannot
- * observe the absence of a capability that was never added; only a scan of the surface can.
+ * Every one is a source-shape assertion rather than a behavioural one, because every one is about what
+ * the codebase may CONTAIN — an import, an operation, a dependency direction, a process-wide listener. A
+ * behavioural test cannot observe the absence of a capability that was never added; only a scan of the
+ * surface can.
+ *
+ * The last two arrived as REGRESSIONS this relocation introduced and review caught: a library module that
+ * imported the framework root, and one that claimed process-wide rejections it could not prove were its
+ * own. They are pinned here rather than fixed and forgotten, because both are the kind of thing the next
+ * module in this directory would copy from its neighbour.
  *
  * **Every arm carries a positive control.** A grep-based invariant that finds nothing proves nothing
  * until the same pattern is shown finding something, and this file exists precisely to hold a set of
@@ -116,5 +122,59 @@ test.describe('Neural Link relocation invariants', () => {
         // POSITIVE CONTROL: the matcher does find operations, so an empty telemetry-read list is a
         // measurement rather than a broken regex.
         expect(nlOperations.length).toBe(4);
+    });
+
+    test('no Neural Link service imports the framework root — that is an entrypoint\'s job', () => {
+        // A process ENTRYPOINT imports `Neo` together with the core and boots the framework. Nothing in
+        // this directory is one: every module here is loaded BY an entrypoint. A library that imports the
+        // framework root alone declares a dependency it does not own — it half-states the boot — and reads
+        // as license for the next module to do the same. The nine service classes here need `Neo` for
+        // `setupClass` and none of them imports it; they reach it as the global their `src/core/Base.mjs`
+        // import guarantees.
+        const importsNeo = /^\s*import\s+[^;]*from\s+['"][^'"]*src\/Neo\.mjs['"]/m,
+              scanned    = readModules('ai/services/neural-link'),
+              offenders  = scanned.filter(m => importsNeo.test(m.source)).map(m => m.file);
+
+        expect(offenders).toEqual([]);
+
+        // The scan read a POPULATION. A renamed directory would empty it and report every module clean.
+        expect(scanned.length).toBeGreaterThan(9);
+
+        // POSITIVE CONTROL: a real entrypoint in the sibling tree, which imports the root AND the core
+        // exactly as an entrypoint should. So the pattern finds this import when it is present, and the
+        // empty list above is a measurement. Anchored to statement position, it also does not fire on the
+        // several modules here that merely NAME `src/Neo.mjs` in a comment.
+        const entrypoint = fs.readFileSync(path.join(rootDir, 'ai/mcp/server/neural-link/mcp-server.mjs'), 'utf8');
+
+        expect(importsNeo.test(entrypoint)).toBe(true);
+        expect(/from\s+'[^']*src\/core\/_export\.mjs'/.test(entrypoint)).toBe(true);
+    });
+
+    test('no Neural Link service claims process-wide rejections it cannot prove are its own', () => {
+        // `Neo.create` awaits `initAsync` in a detached chain whose promise has no reject path, so an
+        // async initialization failure reaches the process. Catching it with a process-level listener means
+        // deciding ownership from timing — every unrelated subsystem failing inside the same window gets
+        // claimed. `ArchiveMcpClient` overrides `initAsync` instead, which needs no ownership guess.
+        //
+        // This is the primary proof that an unrelated rejection stays unclaimed, and it is the stronger
+        // one: claiming requires a REGISTRATION, so a directory with none cannot claim anything. Hence
+        // every registration form, not just `on` — a zero that `prependListener` walks through is not a
+        // zero. The behavioural half cannot be written: the harness installs its own listener for this
+        // event, so any rejection reaching the process fails the surrounding test first.
+        const installsListener = /^\s*process\.(on|once|addListener|prependListener|prependOnceListener)\(\s*['"]unhandledRejection/m,
+              scanned          = readModules('ai/services/neural-link'),
+              offenders        = scanned.filter(m => installsListener.test(m.source)).map(m => m.file);
+
+        expect(offenders).toEqual([]);
+
+        // Same guard: an empty scan would make this zero a statement about nothing.
+        expect(scanned.length).toBeGreaterThan(9);
+
+        // POSITIVE CONTROL: a module that legitimately owns one, because it IS the process — so the
+        // pattern finds a real listener, and the zero above is a measurement rather than a regex that
+        // matches nothing anywhere.
+        const runner = fs.readFileSync(path.join(rootDir, 'ai/scripts/lifecycle/nightlyE2eRunner.mjs'), 'utf8');
+
+        expect(installsListener.test(runner)).toBe(true);
     });
 });

@@ -1,4 +1,3 @@
-import Neo    from '../../../src/Neo.mjs';
 import logger from '../../mcp/server/neural-link/logger.mjs';
 
 /**
@@ -19,7 +18,15 @@ import logger from '../../mcp/server/neural-link/logger.mjs';
  *
  * **One client, reused.** The connection is created on first use and kept, because the archive path is
  * called once per committed transaction and a per-call connect would pay handshake cost on a hot path.
- * A failed connect is not cached — the next call retries rather than inheriting a dead client.
+ * The IN-FLIGHT attempt is cached too, not just the finished client, so concurrent first callers share one
+ * handshake. A failed connect is not cached — the next call retries rather than inheriting a dead client.
+ *
+ * **No `Neo` import, deliberately.** This module is a library, not a process entrypoint: it defines no
+ * class of its own and nothing runs it directly. Entrypoints import `Neo` together with the core and boot
+ * the framework; a non-entrypoint that imports the framework ROOT alone declares a dependency it does not
+ * own and half-states one it does. The `Neo` referenced below is the framework global, and the dynamic
+ * `ArchiveMcpClient` import is the edge that guarantees it — that class extends `Client`, which imports
+ * `src/core/Base.mjs`. Every sibling service in this directory reaches `Neo.setupClass` the same way.
  */
 
 /**
@@ -28,7 +35,7 @@ import logger from '../../mcp/server/neural-link/logger.mjs';
  * `ready()` has no reject path of its own — it is settled by `afterSetIsReady`, so an unreachable ingress
  * or a stalled handshake produces a PENDING promise rather than an error. Without a deadline this module
  * would hang the caller instead of refusing it, which is the opposite of the ledger's requirement that an
- * unreachable Memory Core fail loud with a named reason. Overridable per call for tests.
+ * unreachable Memory Core fail loud with a named reason. Overridable via `setArchiveConnect` for tests.
  * @type {Number}
  */
 export const CONNECT_DEADLINE_MS = 5000;
@@ -45,6 +52,16 @@ const SERVER_NAME = 'memory-core';
  * @type {Object|null}
  */
 let client = null;
+
+/**
+ * The connect attempt currently in flight, or `null` when none is.
+ *
+ * Caching only the FINISHED client left the window that matters uncovered: every caller arriving during a
+ * handshake started its own, so two committed transactions landing together opened two connections and
+ * only the last one stayed reachable for `close()`.
+ * @type {Promise<Object>|null}
+ */
+let pending = null;
 
 /**
  * Injected transport, or `null` to use the real Memory Core client.
@@ -68,23 +85,41 @@ export function setArchiveTransport(fn) {
 }
 
 /**
- * @summary Resolves the shared Memory Core client, connecting on first use.
- * @returns {Promise<Object>} A ready client.
- * @throws {Error} when the connection cannot be established — the caller turns this into a named refusal.
+ * Overrides for the CONNECT lifecycle, or `null` to use the real client and deadline.
+ * @type {{createClient: Function|null, deadlineMs: Number|null}|null}
  */
-async function getClient({deadlineMs = CONNECT_DEADLINE_MS} = {}) {
-    if (client) {
-        return client;
-    }
+let connectSeam = null;
 
+/**
+ * @summary Overrides how a client is constructed and how long it may take. Test seam.
+ *
+ * `setArchiveTransport` cannot reach these properties: it replaces `call`, so it bypasses the connect
+ * lifecycle entirely and every arm below it observes a client that already exists. Single-flight, deadline
+ * expiry and orphan cleanup are only observable where the client is BUILT, which is why this seam names
+ * the constructor rather than the transport.
+ * @param {Object} [options]
+ * @param {Function|null} [options.createClient] `() => client`, called once per attempt.
+ * @param {Number|null} [options.deadlineMs] Deadline override.
+ * @returns {void}
+ */
+export function setArchiveConnect({createClient = null, deadlineMs = null} = {}) {
+    connectSeam = createClient || deadlineMs ? {createClient, deadlineMs} : null;
+}
+
+/**
+ * @summary Constructs the real archive client, refusing before construction when it cannot be configured.
+ * @returns {Promise<Object>} An unsettled client whose `initAsync` is already running.
+ * @throws {Error} when the credential the client requires is absent.
+ */
+async function createRealClient() {
     // DYNAMIC import, and it is load-bearing rather than stylistic. Importing the MCP client statically
     // pulls its transport stack in at module load, so merely importing `RecorderService` — which every
     // Neural Link unit spec does — starts connection machinery and hangs the suite before a single
     // assertion runs. Measured: two specs that pass on `dev` never terminated. The host's own SQLite
     // access was dynamic for the same class of reason.
-    const {default: Client}       = await import('../../mcp/client/Client.mjs'),
-          {default: ClientConfig} = await import('../../mcp/client/config.mjs'),
-          missingEnv              = (ClientConfig.mcpServers?.[SERVER_NAME]?.requiredEnv ?? [])
+    const {default: ArchiveMcpClient} = await import('./ArchiveMcpClient.mjs'),
+          {default: ClientConfig}     = await import('../../mcp/client/config.mjs'),
+          missingEnv                  = (ClientConfig.mcpServers?.[SERVER_NAME]?.requiredEnv ?? [])
               .filter(key => !process.env[key]);
 
     // PRE-FLIGHT THE CREDENTIAL, and this is not belt-and-braces for the guard below. `Client.initAsync`
@@ -99,80 +134,91 @@ async function getClient({deadlineMs = CONNECT_DEADLINE_MS} = {}) {
         )
     }
 
-    let next, timer, graceTimer, rejectDetached,
-        settled = false;
-
-    // THE FAILURE IS NOT OBSERVABLE ON `ready()`, and assuming it was is the bug this guard replaces.
-    // `Base` builds its ready promise with a RESOLVER ONLY — there is no reject path — and then awaits
-    // `initAsync` inside a detached `Promise.resolve().then(...)` chain (`src/core/Base.mjs`). So a missing
-    // credential or a refused connection, both of which `Client.initAsync` throws, reject a promise nobody
-    // holds: Node's default policy then kills the process. A possession session must not die because a
-    // telemetry archive could not reach Memory Core, and a process-scoped listener is the only place that
-    // rejection can be seen.
-    const detached = new Promise((resolve, reject) => { rejectDetached = reject }),
-
-          /**
-           * Claims the connect failure, re-raising anything that is not ours.
-           * @param {*} reason
-           */
-          onUnhandled = reason => {
-              // A connected client's later rejection belongs to someone else. Re-raise it so installing
-              // this listener never converts another subsystem's fatal error into silence — suppressing
-              // failures we do not own is not a side effect this module gets to have.
-              if (next.connected === true) {
-                  setImmediate(() => { throw reason });
-                  return
-              }
-
-              if (settled) {
-                  // Ours, but late: the deadline already answered the caller with a named refusal, so the
-                  // arriving error is that same failure and re-raising it would kill the host for a
-                  // question already answered. It is logged rather than lost.
-                  logger.warn(`[NeuralLink] Memory Core connect failed after the deadline: ${reason?.message ?? reason}`);
-                  return
-              }
-
-              rejectDetached(reason instanceof Error ? reason : new Error(String(reason)))
-          };
-
-    process.on('unhandledRejection', onUnhandled);
-
-    next = Neo.create(Client, {
+    // THE FAILURE IS OWNED, not intercepted. `Base` builds its ready promise with a RESOLVER ONLY and
+    // awaits `initAsync` in a detached chain, so a refused connection used to reject a promise nobody
+    // held — which is why this module once installed a process-wide `unhandledRejection` listener and
+    // decided, from the client's `connected` flag alone, whether an arriving rejection was its own. It
+    // could not know: any unrelated subsystem failing during the handshake window was claimed as an
+    // archive refusal. `ArchiveMcpClient` catches its own `initAsync` throw instead, so the outcome is a
+    // property to READ and no other subsystem's failure is ever in scope.
+    return Neo.create(ArchiveMcpClient, {
         clientName: 'Neo.ai.NeuralLink.ArchiveClient',
         serverName: SERVER_NAME,
         env       : process.env
-    });
+    })
+}
+
+/**
+ * @summary Opens ONE client and waits for it to settle, or fails with a named reason.
+ * @param {Number} deadlineMs How long the attempt may stay unsettled.
+ * @returns {Promise<Object>} A connected client.
+ * @throws {Error} when the connection cannot be established — the caller turns this into a named refusal.
+ */
+async function connect(deadlineMs) {
+    // An injected client short-circuits construction ENTIRELY rather than being substituted at the end:
+    // a spec proving the lifecycle has no Memory Core credential, and the pre-flight above would refuse it
+    // before its own client was ever built.
+    const next = connectSeam?.createClient ? connectSeam.createClient() : await createRealClient();
+
+    let timer;
 
     try {
         await Promise.race([
-            next.ready(),
-            detached,
+            // `ready()` settling means the attempt FINISHED, which is not the same as succeeded.
+            next.ready().then(() => {
+                if (next.initError) {
+                    throw next.initError
+                }
+            }),
             new Promise((resolve, reject) => {
                 timer = setTimeout(() => reject(new Error(
                     `Memory Core connection did not settle within ${deadlineMs}ms — unreachable ingress or a ` +
-                    `stalled handshake. Framework readiness cannot report which, because initialization ` +
-                    `rejection is not wired into it.`
+                    `stalled handshake.`
                 )), deadlineMs);
             })
         ]);
-    } finally {
-        settled = true;
-        clearTimeout(timer);
+    } catch (error) {
+        // ORPHAN CLEANUP. A deadline can fire while the handshake is still in flight, and the client that
+        // completes afterwards would hold a socket nothing will ever use or close, because the caller was
+        // already answered with a refusal and this attempt is never cached. `ready()` always settles now,
+        // so this always runs; closing a client that never connected is a no-op by contract.
+        next.ready().then(() => next.close?.()).catch(reason => {
+            logger.warn(`[NeuralLink] Abandoned archive client did not close: ${reason?.message ?? reason}`)
+        });
 
-        // The listener OUTLIVES the attempt on purpose. A deadline can fire while the connect is still
-        // in flight, and removing the listener at that moment would hand the still-pending rejection back
-        // to the default policy — turning the timeout we just reported cleanly into a process death a few
-        // seconds later. One deadline of grace covers that window; after it, default behaviour resumes.
-        graceTimer = setTimeout(() => process.removeListener('unhandledRejection', onUnhandled), deadlineMs);
-        graceTimer.unref?.()
+        throw error
+    } finally {
+        clearTimeout(timer)
     }
 
-    // Assigned only after `ready()` settles: caching a half-open client would make every later call fail
-    // against a connection that never completed, and the failure would look like a server problem. A
-    // timed-out attempt is deliberately NOT cached, so the next call retries rather than inheriting it.
-    client = next;
+    return next;
+}
 
-    return client;
+/**
+ * @summary Resolves the shared Memory Core client, connecting on first use.
+ * @returns {Promise<Object>} A ready client.
+ * @throws {Error} when the connection cannot be established — the caller turns this into a named refusal.
+ */
+async function getClient() {
+    if (client) {
+        return client;
+    }
+
+    // SINGLE-FLIGHT. The in-flight attempt is the cache during the only window where callers can collide;
+    // caching just the finished client left every caller arriving mid-handshake to start its own. The
+    // client is published only once the attempt SUCCEEDS — a half-open one would make every later call
+    // fail against a connection that never completed, and the failure would read as a server problem.
+    // A settled attempt clears the slot, so a failure is retried rather than inherited.
+    pending ??= connect(connectSeam?.deadlineMs ?? CONNECT_DEADLINE_MS)
+        .then(next => {
+            client = next;
+            return next
+        })
+        .finally(() => {
+            pending = null
+        });
+
+    return await pending;
 }
 
 /**
@@ -294,7 +340,9 @@ export async function resetArchiveClient() {
     const current = client;
 
     client       = null;
+    pending      = null;
     injectedCall = null;
+    connectSeam  = null;
 
     await current?.close?.();
 }
