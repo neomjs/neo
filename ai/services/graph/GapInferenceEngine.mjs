@@ -2,7 +2,7 @@ import Base                                                             from '..
 import {Memory_Config as aiConfig, Memory_GraphService as GraphService} from '../../services.mjs';
 import KBRecorderService                                                from '../../services/knowledge-base/KBRecorderService.mjs';
 import logger                                                           from '../../mcp/server/memory-core/logger.mjs';
-import {NL_ACTION_TELEMETRY_NODE_TYPE}                                  from '../memory-core/helpers/nlActionTelemetryStore.mjs';
+import {NL_ACTION_TELEMETRY_NODE_TYPE, pruneNlActionTelemetry}          from '../memory-core/helpers/nlActionTelemetryStore.mjs';
 
 /**
  * Default freshness window for Concept Ontology source-grounding. Concepts with missing,
@@ -373,10 +373,16 @@ class GapInferenceEngine extends Base {
             minSuccessRate = aiConfig.nlActionDigestMinSuccessRate,
             evidenceWeight = aiConfig.nlActionDigestEvidenceWeight,
             sinceTimestamp = Date.now() - lookbackMs,
+            // RETENTION, enforced here because this is where a live caller already runs on a schedule.
+            // The cutoff is the same boundary this digest reads from: a row below it cannot influence any
+            // consumer, so keeping it is pure growth. Deliberately BEFORE the read, so a sweep that
+            // stalls or fails cannot be skipped by an early return on an unavailable graph — and it
+            // reports separately, because retention failing is not the digest failing.
+            retention      = pruneNlActionTelemetry({olderThanTimestamp: sinceTimestamp}),
             rows           = this.readNlActionRows({sinceTimestamp, sequenceLimit});
 
         if (rows.status !== 'ok') {
-            return rows;
+            return {...rows, retention};
         }
 
         const sequences                    = this.groupNlActionRowsBySequence(rows.rows);
@@ -414,7 +420,8 @@ class GapInferenceEngine extends Base {
             targetMatches,
             linkedEdges,
             downgradedGaps,
-            resetWeakEvidenceAnnotations
+            resetWeakEvidenceAnnotations,
+            retention
         };
     }
 

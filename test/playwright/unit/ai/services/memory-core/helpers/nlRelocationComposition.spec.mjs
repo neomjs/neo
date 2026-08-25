@@ -36,7 +36,9 @@ test.describe('NL relocation — admission and digest meet in the container grap
                 import Neo       from ${rel('src/Neo.mjs')};
                 import * as core from ${rel('src/core/_export.mjs')};
 
-                const {admitNlActions} = await import(${rel('ai/services/memory-core/helpers/nlActionTelemetryStore.mjs')});
+                const {
+                    NL_ACTION_TELEMETRY_NODE_TYPE, admitNlActions, pruneNlActionTelemetry
+                } = await import(${rel('ai/services/memory-core/helpers/nlActionTelemetryStore.mjs')});
 
                 // THE WIRE, not a direct call. The store helper and the digest agreed with each other
                 // while the SCHEMA between them silently dropped the correlation token, so a composition
@@ -144,6 +146,41 @@ test.describe('NL relocation — admission and digest meet in the container grap
                 const legacyMark = markNlTransactionReplayed({archiveId: legacyId, now: 101}),
                       legacyRaw  = GraphService.getNodeRecord({id: legacyNode});
 
+                // RETENTION, against the real store. Two admitted rows straddling a cutoff, plus a row with
+                // NO timestamp written directly — the shape a comparison-based delete is most likely to
+                // sweep by accident.
+                admitNlActions({actions: [
+                    {sequenceId: '44444444-4444-4444-8444-444444444444', sessionId: 's1', timestamp: 1000,
+                     tool: 'create_component', success: true, durationMs: 1, appName: 'App',
+                     targets: {classNames: [], componentIds: []}},
+                    {sequenceId: '55555555-5555-4555-8555-555555555555', sessionId: 's1', timestamp: 9000,
+                     tool: 'create_component', success: true, durationMs: 1, appName: 'App',
+                     targets: {classNames: [], componentIds: []}}
+                ]});
+
+                GraphService.upsertNode({
+                    id        : 'nl-action-telemetry:no-timestamp-row',
+                    type      : NL_ACTION_TELEMETRY_NODE_TYPE,
+                    name      : 'create_component',
+                    updatedAt : 1,
+                    properties: {sessionId: 's1', tool: 'create_component', success: true, visibility: 'team'}
+                });
+
+                const sqliteHandle = GraphService.db.storage.db,
+                      countRows    = () => sqliteHandle.prepare(
+                          "SELECT COUNT(*) AS n FROM Nodes WHERE json_extract(data, '$.label') = ?"
+                      ).get(NL_ACTION_TELEMETRY_NODE_TYPE).n,
+                      hasRow       = token => sqliteHandle.prepare(
+                          "SELECT COUNT(*) AS n FROM Nodes WHERE json_extract(data, '$.properties.sequenceId') = ?"
+                      ).get(token).n > 0;
+
+                // A missing cutoff must refuse rather than mean "everything is expired".
+                const beforeNoCutoff = countRows(),
+                      noCutoff       = pruneNlActionTelemetry({}),
+                      afterNoCutoff  = countRows();
+
+                const pruned = pruneNlActionTelemetry({olderThanTimestamp: 5000});
+
                 // UNREACHABLE, probed last because it breaks the reader for everything after it. Patching
                 // the graph writer is the only way to produce a throw against a real, healthy graph, and a
                 // throw is the case that used to be indistinguishable from absence.
@@ -189,6 +226,14 @@ test.describe('NL relocation — admission and digest meet in the container grap
                         markCount        : replayed?.replayCount ?? null,
                         opsSurviveMark   : afterMark?.ops?.length ?? null,
                         legacyMarked     : legacyMark.updated,
+                        retentionDeleted : pruned.deleted,
+                        retentionStatus  : pruned.status,
+                        expiredRowGone   : !hasRow('44444444-4444-4444-8444-444444444444'),
+                        freshRowKept     : hasRow('55555555-5555-4555-8555-555555555555'),
+                        noTimestampKept  : Boolean(GraphService.getNodeRecord({id: 'nl-action-telemetry:no-timestamp-row'})),
+                        noCutoffStatus   : noCutoff.status,
+                        noCutoffDeleted  : noCutoff.deleted,
+                        noCutoffWipedAny : afterNoCutoff !== beforeNoCutoff,
                         legacyOpsType    : Array.isArray(legacyRaw?.properties?.ops)
                             ? 'array-the-mark-wrote'
                             : typeof legacyRaw?.properties?.ops,
@@ -374,7 +419,26 @@ test.describe('NL relocation — admission and digest meet in the container grap
             // caused by BOOKKEEPING, which is the worst kind to ship silently.
             legacyMarked     : true,
             legacyOpsType    : 'string',
-            legacyReplayCount: 1
+            legacyReplayCount: 1,
+            // RETENTION HAS A LIVE ENFORCER AND AN EXPIRY PROOF. A retention policy whose only caller is a
+            // test is not enforcement, so this asserts the deletion itself: one row below the cutoff is
+            // gone, one above it survives, and a row carrying NO timestamp is untouched — a
+            // comparison-based delete over a null is how a prune becomes a wipe.
+            retentionStatus  : 'ok',
+            // The returned count is NOT the proof — measured: deleting the `removeNodes` call leaves
+            // `retentionDeleted: 1` unchanged and only `expiredRowGone` moves. The deletion is asserted
+            // against the store.
+            retentionDeleted: 1,
+            expiredRowGone  : true,
+            freshRowKept    : true,
+            // A property, not a claim about the WHERE clause: SQLite's `NULL < ?` is already falsy, so
+            // this survives with or without the query's `IS NOT NULL` guard (measured). It is asserted
+            // because the property is what a future coalescing rewrite would break.
+            noTimestampKept  : true,
+            // And a missing cutoff REFUSES rather than treating everything as expired.
+            noCutoffStatus  : 'skipped',
+            noCutoffDeleted : 0,
+            noCutoffWipedAny: false
         });
     });
 });

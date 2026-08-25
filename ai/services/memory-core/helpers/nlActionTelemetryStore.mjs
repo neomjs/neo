@@ -162,3 +162,75 @@ export function admitNlActions({actions = [], now = Date.now()} = {}) {
 
     return {admitted, refused};
 }
+
+/**
+ * @summary Deletes admitted telemetry older than a cutoff. The retention path the relocation owes.
+ *
+ * **Who enforces retention, and why it is here.** The host used to prune its own SQLite log; the log is
+ * gone, so the policy had no store and no enforcer — an unused leaf beside graph nodes that grew forever.
+ * Retention is now the container's, enforced from the digest run (`GapInferenceEngine.inferNlActionDigest`,
+ * scheduled cycle-scoped by `DreamService`), which is a live production caller rather than a method waiting
+ * for one.
+ *
+ * **The cutoff is the digest's own lookback, deliberately NOT a second policy number.** The digest is this
+ * telemetry's only production consumer and it reads `nlActionDigestLookbackMs` back; a row older than that
+ * is already unreadable by everything that reads it. Declaring a separate retention window would put two
+ * same-meaning leaves in the config SSOT — a named antipattern there — and let them drift into a state
+ * where rows are kept precisely as long as nothing can use them. So the caller passes the window it
+ * already resolved.
+ *
+ * Deletes by ID through `GraphService.removeNodes` rather than by SQL `DELETE`, so the in-memory node cache
+ * and the row leave together; a direct `DELETE` would strand the cached copies and the next read would
+ * serve rows that no longer exist on disk.
+ *
+ * @param {Object} options
+ * @param {Number} options.olderThanTimestamp Rows whose `timestamp` is strictly below this are deleted.
+ * @param {Number} [options.limit=5000] Bound on one sweep, so a long-neglected store cannot stall a cycle.
+ * @returns {{status: String, deleted: Number, reason: String|undefined}}
+ */
+export function pruneNlActionTelemetry({olderThanTimestamp, limit = 5000} = {}) {
+    const sqlite = GraphService.db?.storage?.db;
+
+    if (!sqlite) {
+        return {status: 'skipped', deleted: 0, reason: 'graph-sqlite-unavailable'};
+    }
+
+    if (!Number.isFinite(olderThanTimestamp)) {
+        // A missing cutoff must never mean "prune everything". Refusing is the only safe reading.
+        return {status: 'skipped', deleted: 0, reason: 'no-cutoff'};
+    }
+
+    try {
+        // Mirrors the reader's selection (`readNlActionRows`) so retention and readability cannot disagree
+        // about which rows are in scope.
+        //
+        // The `IS NOT NULL` clause is EXPLICITNESS, not today's enforcer, and I measured that rather than
+        // assuming it: SQLite evaluates `NULL < ?` as NULL, which is falsy in `WHERE`, so a row with no
+        // `timestamp` is already never selected — dropping the clause changes nothing. It stays because the
+        // obvious future edit is a coalescing comparison (`COALESCE(timestamp, 0) < ?`), which WOULD sweep
+        // every null-timestamp row on the first run, and this clause is what makes that rewrite fail
+        // loudly instead of silently deleting them.
+        const expired = sqlite.prepare(`
+            SELECT id
+            FROM Nodes
+            WHERE json_extract(data, '$.label') = ?
+              AND json_extract(data, '$.properties.timestamp') IS NOT NULL
+              AND json_extract(data, '$.properties.timestamp') < ?
+            LIMIT ?
+        `).all(NL_ACTION_TELEMETRY_NODE_TYPE, olderThanTimestamp, Math.max(1, Number(limit) || 1))
+            .map(row => row.id)
+            .filter(id => typeof id === 'string' && id !== '');
+
+        if (expired.length === 0) {
+            return {status: 'ok', deleted: 0};
+        }
+
+        GraphService.removeNodes(expired);
+
+        return {status: 'ok', deleted: expired.length};
+    } catch (error) {
+        // Retention is maintenance: it must not fail the digest that hosts it, and a silent no-op would
+        // read as "nothing to prune" forever.
+        return {status: 'failed', deleted: 0, reason: error.message};
+    }
+}
