@@ -41,6 +41,7 @@ function liveConfig({authMiddleware}) {
             pinFirstProviderSubject: false,
             githubApiBaseUrl       : 'https://api.github.test',
             patCacheTtlSeconds     : 60,
+            patDiskCachePath       : '',
             patValidationTimeoutMs : 5_000,
             allowedUsers           : []
         },
