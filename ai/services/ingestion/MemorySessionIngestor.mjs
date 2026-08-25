@@ -418,7 +418,7 @@ class MemorySessionIngestor extends Base {
      * prefixed id. Returns `null` for unrecognized prefixes.
      *
      * @param {String} id Raw graph-node ID from a call site
-     * @returns {{type: String, bareId: String, canonicalGraphId: String, legacyGraphId?: String}|null}
+     * @returns {{type: String, bareId: String, canonicalGraphId: String, legacyGraphId: String|undefined}|null}
      * @protected
      */
     parseGraphNodeId(id) {

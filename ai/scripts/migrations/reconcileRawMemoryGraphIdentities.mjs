@@ -183,7 +183,7 @@ function valuesEqual(left, right) {
 /**
  * @summary Resolves independently stored RLS identity observations without treating missing
  * evidence as agreement. Explicit `null` remains the global tenant; `undefined` means absent.
- * @param {*[]} values
+ * @param {Array<*>} values
  * @returns {{conflict: Boolean, userId: String|null}}
  */
 function resolveUserIdEvidence(values) {
@@ -201,7 +201,7 @@ function resolveUserIdEvidence(values) {
 /**
  * @param {Object|null|undefined} value
  * @param {String} key
- * @param {*[]} target
+ * @param {Array<*>} target
  * @returns {void}
  */
 function appendOwnValue(value, key, target) {
@@ -218,7 +218,7 @@ function appendOwnValue(value, key, target) {
  * is an unresolved conflict and blocks the whole migration.
  *
  * @param {Object[]} edges
- * @param {(String|null)[]} expectedUserIds Tenant evidence from every raw-memory endpoint moved.
+ * @param {Array<String|null>} expectedUserIds Tenant evidence from every raw-memory endpoint moved.
  * @returns {{properties: Object|null, conflicts: String[], userId: String|null}}
  */
 function mergeEdgeEvidence(edges, expectedUserIds = []) {
