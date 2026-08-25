@@ -1,0 +1,26 @@
+# Calls the canonical substrate guard. The logic lives in neomjs/neo-agent-skills so that every
+# enrolled repo runs the same guard rather than 48 copies that drift apart — which is the exact
+# failure this contract exists to close, reproduced one level up.
+#
+# A red here means the skill tree no longer matches the revision this repo's
+# AGENT_SUBSTRATE_REVISION.json pins, or the .claude façade no longer matches what
+# .agents/skills/skills.manifest.json declares. Re-sync from canonical; do not edit in place.
+
+name: substrate-sync
+
+on:
+  pull_request:
+    paths:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - 'AGENT_SUBSTRATE_REVISION.json'
+  push:
+    branches: [dev, main]
+    paths:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
+      - 'AGENT_SUBSTRATE_REVISION.json'
+
+jobs:
+  substrate:
+    uses: neomjs/neo-agent-skills/.github/workflows/verify-substrate-sync.yml@main
