@@ -1904,6 +1904,13 @@
     "path": "discussions/chunk-2/discussion-17778.md"
   },
   {
+    "type": "discussions",
+    "id": 17780,
+    "version": null,
+    "chunkNumber": 2,
+    "path": "discussions/chunk-2/discussion-17780.md"
+  },
+  {
     "type": "issues",
     "id": 1,
     "version": "v1.0.3-beta",
@@ -83305,6 +83312,13 @@
     "version": null,
     "chunkNumber": 19,
     "path": "issues/chunk-19/issue-17773.md"
+  },
+  {
+    "type": "issues",
+    "id": 17779,
+    "version": null,
+    "chunkNumber": 19,
+    "path": "issues/chunk-19/issue-17779.md"
   },
   {
     "type": "pulls",
