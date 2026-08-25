@@ -153,7 +153,7 @@ class ValueList extends ChipList {
     }
 
     /**
-     * @summary Renders only selected records and trims recycled components after removals.
+     * @summary Renders only selected records and retires unused components after their removal delta settles.
      * @param {Boolean} silent=false
      */
     createItems(silent=false) {
@@ -170,11 +170,12 @@ class ValueList extends ChipList {
             listItem && vdom.cn.push(listItem)
         });
 
-        while (me.items?.length > records.length) {
-            me.items.pop().destroy()
-        }
-
-        !silent && me.promiseUpdate().then(() => me.fire('createItems'))
+        !silent && me.promiseUpdate().then(() => {
+            if (!me.isDestroyed) {
+                me.trimRenderedItems();
+                me.fire('createItems')
+            }
+        })
     }
 
     /**
@@ -202,6 +203,35 @@ class ValueList extends ChipList {
      */
     onStoreSort() {
         this.createItems()
+    }
+
+    /**
+     * @summary Retires items only after this exact VNode flight has stopped referencing them.
+     * @param {Object} data
+     * @param {Set<String>|null} mergedChildIds
+     * @protected
+     */
+    resolveVdomUpdate(data, mergedChildIds) {
+        this.trimRenderedItems();
+        super.resolveVdomUpdate(data, mergedChildIds)
+    }
+
+    /**
+     * @summary Trims only items absent from both the DOM-confirmed VNode and the current desired VDOM.
+     * @protected
+     */
+    trimRenderedItems() {
+        let me = this;
+
+        if (me.isDestroyed) {
+            return
+        }
+
+        let renderedCount = Math.max(me.vnode?.childNodes?.length || 0, me.vdom.cn.length);
+
+        while (me.items?.length > renderedCount) {
+            me.items.pop().destroy()
+        }
     }
 
     /**

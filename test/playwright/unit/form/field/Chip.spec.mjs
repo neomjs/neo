@@ -15,6 +15,7 @@ import ChipField       from '../../../../../src/form/field/Chip.mjs';
 import FormContainer   from '../../../../../src/form/Container.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import StoreManager    from '../../../../../src/manager/Store.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 
 test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
     let field, form;
@@ -78,7 +79,7 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         expect(field.isDirty).toBe(false)
     });
 
-    test('replaces its owned Store only after the shared chip projection detaches', () => {
+    test('replaces its owned Store only after the shared chip projection detaches', async () => {
         field = createField();
 
         const
@@ -119,6 +120,9 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         field.store = ['Delta', 'Epsilon'];
 
         expect(field.getSubmitValue()).toEqual([]);
+
+        await Promise.resolve();
+
         expect(field.valueList.items).toHaveLength(0)
     });
 
@@ -273,7 +277,7 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         expect(field.valueList.items.map(item => item.text)).toEqual(['Alpha', 'Beta'])
     });
 
-    test('the selected subset rebuilds on sort and reconciles a removed Store record', () => {
+    test('the selected subset rebuilds on sort and reconciles a removed Store record', async () => {
         field = createField();
         field.value = ['beta'];
 
@@ -285,6 +289,9 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         field.store.remove('beta');
 
         expect(field.getSubmitValue()).toEqual([]);
+
+        await Promise.resolve();
+
         expect(field.valueList.items).toHaveLength(0)
     });
 
@@ -311,7 +318,7 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         expect(selectCount).toBe(0)
     });
 
-    test('native chip removal and empty-input Backspace update the same value array', () => {
+    test('native chip removal and empty-input Backspace update the same value array', async () => {
         field = createField();
         field.value = ['alpha', 'beta'];
 
@@ -332,6 +339,10 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         expect(field.valueList.items[0]).toBe(firstChip);
         expect(field.valueList.items[0].value).toBe('beta');
         expect(firstChip.isDestroyed).not.toBe(true);
+        expect(secondChip.isDestroyed).not.toBe(true);
+
+        await Promise.resolve();
+
         expect(secondChip.isDestroyed).toBe(true);
 
         const keyData = {};
@@ -347,5 +358,129 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         expect(field.valueList.items[0].disabled).toBe(true);
         field.valueList.items[0].onCloseButtonClick({});
         expect(field.getSubmitValue()).toEqual(['gamma'])
+    });
+
+    test('reuses a pending retired chip when selection returns before the removal delta settles', async () => {
+        field = createField();
+        field.value = ['alpha'];
+
+        const chip = field.valueList.items[0];
+
+        field.value = [];
+
+        expect(chip.isDestroyed).not.toBe(true);
+        expect(field.valueList.vdom.cn).toHaveLength(0);
+
+        field.value = ['gamma'];
+
+        expect(field.valueList.items[0]).toBe(chip);
+        expect(chip.value).toBe('gamma');
+
+        await Promise.resolve();
+
+        expect(chip.isDestroyed).not.toBe(true)
+    });
+
+    test('does not retire or emit after same-turn owner destruction', async () => {
+        field = createField();
+        field.value = ['alpha'];
+
+        await Promise.resolve();
+
+        const valueList        = field.valueList;
+        let   createItemsCount = 0;
+
+        valueList.on('createItems', () => createItemsCount++);
+
+        field.value = [];
+        field.destroy();
+        field = null;
+
+        await Promise.resolve();
+
+        expect(valueList.isDestroyed).toBe(true);
+        expect(createItemsCount).toBe(0)
+    });
+
+    test('retires each chip only after the VNode flight which removes it settles', async () => {
+        const
+            allowVdomUpdatesInTests = Neo.config.allowVdomUpdatesInTests,
+            originalUpdateBatch     = VdomHelper.updateBatch,
+            flights                 = [];
+
+        Neo.config.allowVdomUpdatesInTests = true;
+
+        try {
+            field = createField();
+            field.value = ['alpha', 'beta', 'gamma'];
+
+            await field.initVnode(true);
+            field.mounted = true;
+            await field.valueList.promiseUpdate();
+            await expect.poll(() => [
+                field.isVdomUpdating,
+                field.needsVdomUpdate,
+                field.valueList.isVdomUpdating,
+                field.valueList.needsVdomUpdate
+            ]).toEqual([false, false, false, false]);
+
+            const [firstChip, secondChip, thirdChip] = field.valueList.items;
+
+            VdomHelper.updateBatch = data => data.updates[field.valueList.id]
+                ? new Promise((resolve, reject) => flights.push({data, reject, resolve}))
+                : originalUpdateBatch.call(VdomHelper, data);
+
+            field.valueList.selectedKeys = ['alpha', 'beta'];
+            await expect.poll(() => flights.length).toBe(1);
+
+            field.valueList.selectedKeys = ['alpha'];
+
+            flights[0].resolve(await originalUpdateBatch.call(VdomHelper, flights[0].data));
+            await expect.poll(() => flights.length).toBe(2);
+
+            expect(firstChip.isDestroyed).not.toBe(true);
+            expect(secondChip.isDestroyed).not.toBe(true);
+            expect(thirdChip.isDestroyed).toBe(true);
+
+            flights[1].resolve(await originalUpdateBatch.call(VdomHelper, flights[1].data));
+            await expect.poll(() => secondChip.isDestroyed).toBe(true);
+
+            expect(firstChip.isDestroyed).not.toBe(true);
+            expect(field.valueList.items).toEqual([firstChip]);
+
+            VdomHelper.updateBatch = originalUpdateBatch;
+            field.valueList.selectedKeys = ['alpha', 'beta'];
+            await field.valueList.promiseUpdate();
+            await expect.poll(() => [
+                field.valueList.isVdomUpdating,
+                field.valueList.needsVdomUpdate
+            ]).toEqual([false, false]);
+
+            const reboundChip = field.valueList.items[1];
+
+            flights.length = 0;
+            VdomHelper.updateBatch = data => data.updates[field.valueList.id]
+                ? new Promise((resolve, reject) => flights.push({data, reject, resolve}))
+                : originalUpdateBatch.call(VdomHelper, data);
+
+            field.valueList.selectedKeys = ['alpha'];
+            await expect.poll(() => flights.length).toBe(1);
+
+            field.valueList.selectedKeys = ['alpha', 'beta'];
+
+            flights[0].resolve(await originalUpdateBatch.call(VdomHelper, flights[0].data));
+            await expect.poll(() => flights.length).toBe(2);
+
+            expect(reboundChip.isDestroyed).not.toBe(true);
+
+            flights[1].resolve(await originalUpdateBatch.call(VdomHelper, flights[1].data));
+            await expect.poll(() => field.valueList.isVdomUpdating).toBe(false);
+
+            expect(reboundChip.isDestroyed).not.toBe(true);
+            expect(field.valueList.items).toEqual([firstChip, reboundChip])
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch;
+            Neo.config.allowVdomUpdatesInTests = allowVdomUpdatesInTests
+        }
     })
 });
