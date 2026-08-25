@@ -1112,7 +1112,7 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.consumerEdges.byDirection[CONSUMER_EDGE_DIRECTION.outsideToAgentOs]).toBeGreaterThan(0);
         expect(first.consumerEdges.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
         expect(first.workflowFiles.total).toBe(20);
-        expect(first.workflowFiles.occurrenceTotal).toBe(72);
+        expect(first.workflowFiles.occurrenceTotal).toBe(73);
         expect(first.workflowFiles.byDisposition).toEqual({move: 7, 'pin-fetch': 13, retire: 0});
         expect(first.workflowFiles.residue).toEqual({diskMinusAuthority: [], authorityMinusDisk: []});
         expect(first.workflowFiles.rows.map(row => row.identity)).toEqual(workflowFiles.sort());
