@@ -78,6 +78,7 @@ decision owns; *Parent* = the composition record that already aggregates it, whe
 | 0038 | Body ↔ Brain seam | FM client topology: the cockpit connects (three roles / two registries), four non-aliased identity facts, two never-aggregated grant families + at-rest coherence | amends 0020/0026/0034 |
 | 0039 | Brain / SDK package boundary | Two-plane SDK barrel: a host entrypoint cannot reach a durable store by import alone; one Proxy identity per service; static walk plus runtime denial witness | composes 0018 |
 | 0040 | Brain / repository boundary | The AgentOS extraction topology: `neomjs/neo-agent-brain` — Edge root + independent nested `cloud/`, no workspaces, two root authorities, two blocking receipts before any relocation, cut precedes v13.2 | realizes 0039 |
+| 0041 | Tool surface / host trust | The file-system executor runs unjailed and says so: the path guard binds arguments, never the process; isolation rejected on cost because a broken sandbox reporting success is worse than none; every projected surface states the limit | none |
 
 ## §3 Trajectory Invariants
 
