@@ -18,10 +18,13 @@ import Neo                   from '../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../src/core/_export.mjs';
 import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
-import {drainMemoryWal}      from './util.mjs';
 import {mkdtemp, rm}         from 'node:fs/promises';
 import os                    from 'node:os';
 import path                  from 'node:path';
+import {
+    drainMemoryWal,
+    resetMemoryCoreLifecycle
+} from './util.mjs';
 
 /**
  * The leak-test for `archiveMemoriesByAgentIdentity` (the tombstone + recall-exclusion op).
@@ -90,6 +93,19 @@ function createSpyCollection() {
         }
     };
 }
+
+// FILE scope, not describe scope: the hazard is this FILE ending with background work still queued,
+// so the hook has to outlive every describe in it rather than one of them.
+//
+// Seeding through `addMemory` schedules a graph projection on an `unref()`d zero-delay timer. Unref'd
+// means it does not hold the event loop open, so the worker can move to the next spec file with the
+// callback still pending — it then fires against THAT file's `GraphService` spies as foreign
+// `upsertNode` calls, which is a failure the victim cannot account for or defend against. Under a
+// light run the callback usually completes inside this file and the leak is invisible; it needs
+// full-suite load to slip across the boundary, which is why the isolated two-file pair passes.
+test.afterAll(async () => {
+    await resetMemoryCoreLifecycle();
+});
 
 test.describe('MemoryService — archiveMemoriesByAgentIdentity tombstone + recall-exclusion (#13384)', () => {
     let spyCollection, originalGetMemoryCollection, GraphService, originalDb, originalUpsertNode, originalLinkNodes;

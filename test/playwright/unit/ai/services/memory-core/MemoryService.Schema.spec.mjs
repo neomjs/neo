@@ -42,6 +42,12 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
     });
 
     test.beforeEach(() => {
+        // Never INHERIT a pending projection from a previous spec file in this worker. The spies
+        // installed below are what a late timer would land on, so the clear has to happen BEFORE
+        // them or the foreign nodes are already counted. Producer-side cancellation is the other
+        // half; this half also defends against producers nobody has named yet.
+        MemoryService._clearGraphProjectionTimers();
+
         collectionAddCalls = [];
         linkNodesCalls     = [];
         upsertNodeCalls = [];

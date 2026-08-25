@@ -14,6 +14,9 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import {
+    resetMemoryCoreLifecycle
+} from './util.mjs';
 
 /**
  * @summary Lifecycle coverage for the MemoryService graph-projection drain loop + retry timers.
@@ -29,6 +32,19 @@ test.describe('Neo.ai.services.memory-core.MemoryService — graph-projection li
 
     test.beforeAll(async () => {
         MemoryService = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        // Never INHERIT a live interval or pending retry from a previous spec file in this worker.
+        //
+        // The `afterEach` below defends every LATER spec and never this one: an earlier file whose
+        // retry chain has not exhausted leaves `graphProjectionRetryTimers.size >= 1`, and the
+        // `expect(size).toBe(1)` arm below then reads 2 — passing in isolation every time, which is
+        // what makes it read as flake rather than as leakage.
+        //
+        // The durable lesson is the asymmetry: a teardown-only convention looks like hygiene while
+        // protecting everyone except the file that wrote it.
+        MemoryService._clearGraphProjectionTimers();
     });
 
     test.afterEach(() => {
@@ -86,6 +102,29 @@ test.describe('Neo.ai.services.memory-core.MemoryService — graph-projection li
             expect(typeof timer.hasRef !== 'function' || timer.hasRef() === false).toBe(true);
 
             MemoryService._clearGraphProjectionTimers();
+            expect(MemoryService.graphProjectionRetryTimers.size).toBe(0);
+        } finally {
+            MemoryService._projectMemoryToGraph = originalProject;
+        }
+    });
+
+    test('resetMemoryCoreLifecycle cancels pending projection timers, so a spec file cannot end with queued work', async () => {
+        const originalProject = MemoryService._projectMemoryToGraph;
+
+        // Hang the projection so the scheduled timer stays pending + observable, exactly as the
+        // sibling arm above does.
+        MemoryService._projectMemoryToGraph = () => new Promise(() => {});
+
+        try {
+            MemoryService._scheduleMemoryGraphProjection({memoryId: 'reset-seam-test'}, 2);
+            expect(MemoryService.graphProjectionRetryTimers.size).toBe(1);
+
+            // The seam, not the primitive. `_clearGraphProjectionTimers` is already proven above;
+            // what this pins is that the shared spec helper REACHES it — the wiring a cross-file
+            // leak depends on, and the line whose silent removal would restore the leak while every
+            // other arm here stayed green.
+            await resetMemoryCoreLifecycle();
+
             expect(MemoryService.graphProjectionRetryTimers.size).toBe(0);
         } finally {
             MemoryService._projectMemoryToGraph = originalProject;
