@@ -282,6 +282,18 @@ export function describeBackupRetryState({
  * through `?.`, so an absent observation scored as a clean one and the verdict said `healthy` with
  * an empty `reasonCodes` on a plane holding no backup at all.
  *
+ * **The contract is symmetric, and both halves are load-bearing.** Bounding only the positive
+ * direction — *never `healthy` from an absent observation* — closes the false positive and licenses
+ * its mirror: a scorer can comply by reporting `backup-never-succeeded` instead, which is equally
+ * unfounded from the same unread input and considerably more expensive, because a definite negative
+ * reads as a finding and gets acted on. An absent or self-contradicting observation admits exactly
+ * one honest answer, so both directions are bound here: **it resolves to unknown or to an explicit
+ * conflict — never `healthy`, and never an invented negative.** A verdict may not assert a definite
+ * negative that newer evidence in its own snapshot contradicts; where the receipt and the retry
+ * ledger disagree, the disagreement is itself the finding.
+ * ticket-ref-ok: #17338 authored the asymmetric half of this contract; naming it is how a future
+ * editor knows the one-directional wording was tried and superseded rather than simply forgotten.
+ *
  * `observationStatus` carries that difference. It is deliberately NOT the field of the same name one
  * level up in the healthcheck payload: `maintenance.observationStatus` reports whether the
  * deployment-state bridge could be READ, this one whether the verdict's own input was PRESENT. Their
@@ -306,7 +318,14 @@ export function describeBackupMaintenanceHealth({
         retryRead    = retryState !== null && retryState !== undefined,
         staleAfterMs = backupIntervalMs > 0
             ? backupIntervalMs + Math.max(0, retryWindowMs)
-            : null;
+            : null,
+        // The receipt and the retry ledger are two records of the same lane, and only the receipt is
+        // written by the lane itself. A success receipt stamped AFTER the streak anchor is therefore
+        // proof the streak is stale, not proof the lane is broken — see the reconciliation note below.
+        receiptSuccessAtMs = lastBackup?.backup?.status === 'success' ? toEpochMs(lastBackup.finishedAt) : 0,
+        streakContradicted = receiptSuccessAtMs > 0
+            && retryState?.streakStartedAtMs > 0
+            && receiptSuccessAtMs > retryState.streakStartedAtMs;
 
     if (durability.posture === 'unmet') {
         reasonCodes.push('off-host-durability-unmet')
@@ -326,8 +345,27 @@ export function describeBackupMaintenanceHealth({
     }
     // `unanchored` is the expected pre-first-run state: it stays pending rather than turning every
     // fresh deployment into a never-succeeded incident before the lane has had one opportunity.
+    //
+    // `backup-never-succeeded` is a DEFINITE NEGATIVE — it asserts a fact about the whole history of
+    // the lane, from one derived ledger. When this snapshot also carries a success receipt stamped
+    // after the streak anchor, the two disagree and the receipt is the owner's record: it is written
+    // by the lane, whereas `failureStreakStartedAt` is only closed by `TaskStateService.markCompleted()`
+    // on the task-state path. Emitting the negative there would fabricate a claim the snapshot's own
+    // newer evidence contradicts, so the disagreement is reported AS a disagreement instead.
+    // `backup-state-conflict` keeps the block `degraded` — the divergence is a defect in its own
+    // right and must stay visible; it simply stops the verdict inventing which side is true.
+    //
+    // THE CO-DEFECT this branch reports, and how it gets retired. `TaskStateService.markCompleted()`
+    // writes `lastSuccessAt` AND clears `failureStreakStartedAt` in one call, so a lane completing
+    // through the task-state path cannot reach the state reconciled here: an open streak with no
+    // recorded success, while receipts keep succeeding, means the lane writes its receipt without
+    // going through that path. Repairing the writer is not this function's job, and needs no
+    // calendar reminder to be picked up — **this code is the observer.** `backup-state-conflict` is
+    // emitted only when the two records have actually diverged, so its first live appearance in a
+    // healthcheck is the trigger; fix the writer then, and this branch becomes dead code the moment
+    // the ledger stops disagreeing with the receipt.
     if (retryState && retryState.phase !== BACKUP_RETRY_PHASE.unanchored && !retryState.lastSuccessAt) {
-        reasonCodes.push('backup-never-succeeded')
+        reasonCodes.push(streakContradicted ? 'backup-state-conflict' : 'backup-never-succeeded')
     }
     if (staleAfterMs !== null && retryState?.lastSuccessAgeMs > staleAfterMs) {
         reasonCodes.push('backup-success-overdue')
