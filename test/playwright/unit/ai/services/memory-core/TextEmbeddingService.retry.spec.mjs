@@ -1281,11 +1281,27 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             signal: controller.signal
         }).then(() => null, error => error);
 
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await Promise.all([repoA, repoB]);
+        const [, errorB] = await Promise.all([repoA, repoB]);
 
         expect(hookCalls.length, 'the deferred hook still received the timeout').toBeGreaterThanOrEqual(1);
-        expect(requestCount, 'queue-level abort removal alone keeps B at zero calls here').toBe(1);
+
+        // Deliberately NOT `expect(requestCount).toBe(1)`.
+        //
+        // Deferring the abort to a macrotask puts two macrotasks in an unordered race after A's
+        // timeout rejects: the drain selecting and dispatching B, and the queued abort removing it.
+        // Nothing this fixture can await sequences them — which is exactly what the scope note above
+        // says, so pinning the winner here asserted the property that paragraph disclaims. It sampled
+        // a coin flip: ~37% of ISOLATED runs saw B dispatch (6 of 16), and the fixed sleep this
+        // replaces only shifted the odds rather than ordering anything.
+        //
+        // Nothing is uncovered by dropping it. The non-deferred sibling directly above still pins
+        // `requestCount` to 1 — that path IS sequenced — and the deferred ordering guarantee is
+        // exercised in production composition by
+        // `daemons/orchestrator/services/TenantRepoSyncService.spec.mjs` (the run-scoped circuit
+        // sweep). What this arm still owns is the fixture-controlled half: the deferred hook fires,
+        // and the queued repository fails rather than silently succeeding — true whether or not B
+        // reached the provider.
+        expect(errorB, 'the queued repository fails, rather than silently succeeding').toBeTruthy();
     });
 
     test('a mid-batch provider failure carries the completed prefix on the ORIGINAL error (#17112)', async () => {
