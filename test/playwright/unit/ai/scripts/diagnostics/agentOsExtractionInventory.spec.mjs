@@ -1216,7 +1216,7 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(human).toContain('package.brain.json::devDependencies::better-sqlite3 @');
         expect(human).toContain('consumer-edge identities:');
         expect(human).toContain('preclassified source classes:');
-        expect(human).toContain('workflow-file identities: 20 · occurrences 72');
+        expect(human).toContain('workflow-file identities: 20 · occurrences 73');
         expect(human).toContain('pin-fetch: 13');
         expect(human).toContain('Engine→AgentOS forbidden packages:');
 
