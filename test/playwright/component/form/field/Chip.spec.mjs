@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 
-let componentId;
+let componentId, componentSequence = 0;
 
 async function loadStylesheets(page, hrefs) {
     await page.evaluate(async hrefs => {
@@ -20,8 +20,10 @@ async function loadStylesheets(page, hrefs) {
 }
 
 async function createChipField(page) {
-    const result = await page.evaluate(() => Neo.worker.App.createNeoInstance({
+    const id     = `chip-field-component-${++componentSequence}`,
+          result = await page.evaluate(id => Neo.worker.App.createNeoInstance({
         importPath   : '../form/field/Chip.mjs',
+        id,
         ntype        : 'chipfield',
         parentId     : 'component-test-viewport',
         displayField : 'name',
@@ -43,7 +45,7 @@ async function createChipField(page) {
                 {id: 'gamma', name: 'Gamma'}
             ]
         }
-    }));
+    }), id);
 
     if (!result.success) {
         throw new Error(`Component creation failed: ${result.error.message}`)

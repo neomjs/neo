@@ -136,6 +136,7 @@ class Chip extends ComboBox {
         me.valueList = Neo.create(ValueList, {
             appName     : me.appName,
             displayField: me.displayField,
+            id          : `${me.id}-value-list`,
             parentId    : me.id,
             removable   : !me.disabled && !me.readOnly,
             selectedKeys: me.getValueKeys(),
