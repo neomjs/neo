@@ -65,9 +65,10 @@ test.describe('Neural Link action logging default', () => {
                 const readBack = archive.saved
                     ? await RecorderService.getTransactionArchive({archiveId: archive.archiveId})
                     : null;
-                out.archiveSaved  = archive.saved;
-                out.archiveReason = archive.reason ?? null;
-                out.readBackOps   = readBack ? readBack.ops.length : null;
+                out.archiveSaved    = archive.saved;
+                out.archiveReason   = archive.reason ?? null;
+                out.readBackStatus  = readBack?.status ?? null;
+                out.readBackOps     = readBack?.ops?.length ?? null;
             ` : '',
             // Neo must be bootstrapped before any `src/core` module loads — `Compare.mjs` calls
             // `Neo.gatekeep` at module scope, so importing RecorderService bare throws
@@ -96,8 +97,15 @@ test.describe('Neural Link action logging default', () => {
                         store.set('a1', {archiveId: 'a1', ops: args.transaction.ops, sourceTxId: args.transaction.txId});
                         return {saved: true, archiveId: 'a1', sourceTxId: args.transaction.txId, opCount: args.transaction.ops.length};
                     }
-                    if (operation === 'get_nl_transaction') return store.get(args.archiveId) ?? null;
-                    return {updated: true};
+                    // The container answers with its discriminator on BOTH arms — a stub that returned a
+                    // bare record and a bare null would leave the caller's absent-vs-unreachable branch
+                    // untested here while still looking like a faithful fake.
+                    if (operation === 'get_nl_transaction') {
+                        const hit = store.get(args.archiveId);
+
+                        return hit ? {status: 'found', ...hit} : {status: 'not-found'};
+                    }
+                    return {updated: true, replayCount: 1, lastReplayedAt: 1};
                 });
 
                 await RecorderService.initAsync();
@@ -189,6 +197,9 @@ test.describe('Neural Link action logging default', () => {
         // the archive is reachable while the telemetry gate is off.
         expect(out.archiveSaved).toBe(true);
         expect(out.archiveReason).toBeNull();
+        // `found` rather than merely truthy: the read now always answers, so a check for "we got something
+        // back" would pass for an unreachable store too.
+        expect(out.readBackStatus).toBe('found');
         expect(out.readBackOps).toBe(1);
         expect(out.fileExists).toBe(false);
     });
@@ -268,6 +279,7 @@ test.describe('Neural Link action logging default', () => {
 
         expect(out.error).toBeNull();
         expect(out.archiveSaved).toBe(true);
+        expect(out.readBackStatus).toBe('found');
         expect(out.readBackOps).toBe(1);
         expect(out.fileExists).toBe(false);
     });

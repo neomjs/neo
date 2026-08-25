@@ -142,18 +142,29 @@ export function saveNlTransaction({appSessionId = null, name = null, transaction
 }
 
 /**
- * @summary Reads one archived transaction back, or `null` when it does not exist.
+ * @summary Reads one archived transaction back, discriminating ABSENCE from UNREACHABILITY.
  *
- * The returned shape is the host contract's record, rebuilt from the node's `properties` — `ops` and
- * `originWriter` come back as the structures they went in as, because the graph stores them as values
- * rather than as the JSON strings the SQLite columns held.
+ * **Why a status rather than `null`.** The previous shape answered `null` for three different facts: the
+ * archive does not exist, the graph threw, and the caller passed no id. A replay then reported
+ * `archive-not-found` for a graph that was merely unavailable — which reads as "that archive is gone" to
+ * the one caller whose next move depends on the difference. Not-found is now reserved for a SUCCESSFUL
+ * read that found no record; a throw is `unavailable` and carries the reason. `status` and the
+ * `unavailable` spelling follow {@link Neo.ai.services.memory-core.GraphService#ensureStructuralEdge},
+ * which already discriminates its outcomes this way.
+ *
+ * The record stays FLAT on the success arm rather than nesting under a `record` key, because
+ * `saveNlTransaction` above already answers flat-with-a-discriminator and every shipped consumer reads
+ * these fields at the top level.
+ *
+ * An absent or non-string `archiveId` is `not-found` rather than a fourth state: no record can bear it,
+ * and the wire schema already requires the field.
  * @param {Object} options
  * @param {String} options.archiveId
- * @returns {Object|null}
+ * @returns {Object} `{status: 'found', …record}`, `{status: 'not-found'}`, or `{status: 'unavailable', reason}`.
  */
 export function getNlTransaction({archiveId} = {}) {
     if (typeof archiveId !== 'string' || archiveId === '') {
-        return null;
+        return {status: 'not-found'};
     }
 
     let record;
@@ -161,16 +172,17 @@ export function getNlTransaction({archiveId} = {}) {
     try {
         record = GraphService.getNodeRecord({id: getNlTransactionArchiveNodeId(archiveId)});
     } catch (error) {
-        return null;
+        return {status: 'unavailable', reason: `archive-store-unavailable: ${error.message}`};
     }
 
     if (!record || record.type !== NL_TRANSACTION_ARCHIVE_NODE_TYPE) {
-        return null;
+        return {status: 'not-found'};
     }
 
     const p = record.properties || {};
 
     return {
+        status        : 'found',
         archiveId     : p.archiveId ?? archiveId,
         name          : p.name ?? null,
         sourceTxId    : p.sourceTxId ?? null,
@@ -188,19 +200,40 @@ export function getNlTransaction({archiveId} = {}) {
  * @summary Marks one archive as replayed: increments its count and stamps the time.
  *
  * Read-modify-upsert rather than an in-place UPDATE, because the graph has no row to update. The read is
- * what makes the increment honest — an absent archive returns `{updated: false}` instead of creating a
- * node with `replayCount: 1`, which would invent a replay of something never archived.
+ * what makes the increment honest — an absent archive is refused instead of creating a node with
+ * `replayCount: 1`, which would invent a replay of something never archived. A failure to mark is
+ * reported with the same `status` vocabulary as the read, so a caller can tell "there is nothing to mark"
+ * from "the store could not be reached".
+ *
+ * **Atomicity, stated precisely.** The old store did this in ONE statement — `SET replay_count =
+ * replay_count + 1` — which read and wrote the row itself. What keeps the read-modify-write below
+ * equivalent for concurrent marks is that BOTH halves are SYNCHRONOUS: `getNodeRecord` and `upsertNode`
+ * return without awaiting, so no other JS can run in the gap and no increment can be lost.
+ * ⚠️ An `await` introduced between them would silently break that, which is why a spec pins it.
+ *
+ * What this does NOT claim is the old statement's cross-process property, and a graph transaction would
+ * not restore it: `GraphService` serves both halves from `this.db.nodes`, a process-wide cache, so
+ * another process's increment is invisible to this read rather than merely unserialised. Restoring it
+ * needs row-level increment plus cache coherence inside `GraphService` — a change to the graph writer
+ * itself, which does not belong in this relocation.
+ *
+ * **Only the two changed keys are written.** Spreading the whole read-back record into `properties` was
+ * both redundant — `upsertNode` merges into existing properties — and unsafe: the read REBUILDS the
+ * record with defaults (`ops: []` when the stored value is not an array), so a mark could have written
+ * that default back over a real payload. A replay mark must not be able to damage the archive it marks.
  * @param {Object} options
  * @param {String} options.archiveId
  * @param {Number} [options.now=Date.now()] Injected clock.
- * @returns {{updated: Boolean}}
+ * @returns {Object} `{updated: true, replayCount, lastReplayedAt}`, or `{updated: false, status, reason?}`.
  */
 export function markNlTransactionReplayed({archiveId, now = Date.now()} = {}) {
     const existing = getNlTransaction({archiveId});
 
-    if (!existing) {
-        return {updated: false};
+    if (existing.status !== 'found') {
+        return {updated: false, status: existing.status, ...(existing.reason ? {reason: existing.reason} : {})};
     }
+
+    const replayCount = existing.replayCount + 1;
 
     try {
         GraphService.upsertNode({
@@ -208,11 +241,13 @@ export function markNlTransactionReplayed({archiveId, now = Date.now()} = {}) {
             type      : NL_TRANSACTION_ARCHIVE_NODE_TYPE,
             name      : existing.name ?? existing.archiveId,
             updatedAt : now,
-            properties: {...existing, replayCount: existing.replayCount + 1, lastReplayedAt: now}
+            properties: {replayCount, lastReplayedAt: now}
         });
     } catch (error) {
-        return {updated: false};
+        return {updated: false, status: 'unavailable', reason: `archive-store-unavailable: ${error.message}`};
     }
 
-    return {updated: true};
+    // The new count travels back so a caller can record what it observed rather than re-reading — the
+    // re-read is the one thing guaranteed to race with the next mark.
+    return {updated: true, replayCount, lastReplayedAt: now};
 }

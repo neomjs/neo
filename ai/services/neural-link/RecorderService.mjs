@@ -363,9 +363,14 @@ class RecorderService extends Base {
 
     /**
      * @summary Reads one archived transaction back for replay, from the container graph.
+     *
+     * Carries the read's own discrimination through unchanged: `not-found` means the graph answered and
+     * held no record, `unavailable` means it could not be asked. A caller deciding whether to refuse a
+     * replay or to retry it needs those apart.
      * @param {Object} params
      * @param {String} params.archiveId
-     * @returns {Promise<Object|null>}
+     * @returns {Promise<Object>} `{status: 'found', …record}`, `{status: 'not-found'}`, or
+     * `{status: 'unavailable', reason}`.
      */
     async getTransactionArchive({archiveId} = {}) {
         return await getTransactionArchiveViaMemoryCore({archiveId})
@@ -375,7 +380,9 @@ class RecorderService extends Base {
      * @summary Records that an archived transaction was replayed.
      * @param {Object} params
      * @param {String} params.archiveId
-     * @returns {Promise<Object>} `{updated: Boolean}`
+     * @returns {Promise<Object>} `{updated: true, replayCount, lastReplayedAt}`, or
+     * `{updated: false, status, reason?}` — the replay already happened, so the caller reports this
+     * rather than retrying it.
      */
     async recordTransactionReplay({archiveId} = {}) {
         return await recordTransactionReplayViaMemoryCore({archiveId})

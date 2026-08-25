@@ -279,40 +279,54 @@ export async function saveTransactionArchive({appSessionId = null, name = null, 
 }
 
 /**
- * @summary Reads one archived transaction back.
+ * @summary Reads one archived transaction back, preserving WHY a read produced no record.
+ *
+ * A transport failure is `unavailable`, never `not-found`. Collapsing the two made a replay report
+ * `archive-not-found` for an archive that exists and is simply out of reach — the caller then believes a
+ * durable fact is gone, which is the one wrong answer this path can give.
  * @param {Object} options
  * @param {String} options.archiveId
- * @returns {Promise<Object|null>} The archive record, or `null` when unknown or unreachable.
+ * @returns {Promise<Object>} `{status: 'found', …record}`, `{status: 'not-found'}`, or
+ * `{status: 'unavailable', reason}`.
  */
 export async function getTransactionArchive({archiveId} = {}) {
     if (typeof archiveId !== 'string' || archiveId === '') {
-        return null;
+        return {status: 'not-found'};
     }
 
     try {
-        return await call('get_nl_transaction', {archiveId});
+        const payload = await call('get_nl_transaction', {archiveId});
+
+        // A server that answered with no payload at all is not a server that reported absence. The
+        // container always sends a status; a bare `null` here means the reply itself was empty.
+        return payload ?? {status: 'unavailable', reason: 'archive-store-unavailable: empty reply'};
     } catch (error) {
-        // `null` is the contract's "no archive" answer and an unreachable store cannot produce one, so
-        // the caller correctly refuses the replay with `archive-not-found` rather than replaying nothing.
-        return null;
+        return {status: 'unavailable', reason: `archive-store-unavailable: ${error.message}`};
     }
 }
 
 /**
- * @summary Marks one archive as replayed.
+ * @summary Marks one archive as replayed, reporting WHY a mark did not land.
+ *
+ * The caller has already replayed by the time this runs, so a bare `{updated: false}` left it unable to
+ * say whether the replay went unrecorded because the archive was gone or because the store was
+ * unreachable — and unable to tell the user anything at all.
  * @param {Object} options
  * @param {String} options.archiveId
- * @returns {Promise<Object>} `{updated: Boolean}`.
+ * @returns {Promise<Object>} `{updated: true, replayCount, lastReplayedAt}`, or
+ * `{updated: false, status, reason?}`.
  */
 export async function recordTransactionReplay({archiveId} = {}) {
     if (typeof archiveId !== 'string' || archiveId === '') {
-        return {updated: false};
+        return {updated: false, status: 'not-found'};
     }
 
     try {
-        return await call('mark_nl_transaction_replayed', {archiveId});
+        const payload = await call('mark_nl_transaction_replayed', {archiveId});
+
+        return payload ?? {updated: false, status: 'unavailable', reason: 'archive-store-unavailable: empty reply'};
     } catch (error) {
-        return {updated: false};
+        return {updated: false, status: 'unavailable', reason: `archive-store-unavailable: ${error.message}`};
     }
 }
 

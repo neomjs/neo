@@ -60,16 +60,20 @@ test.describe('Neo.ai.services.neural-link.InstanceService - server boundary', (
             recorderCalls.push({type: 'save', payload});
             return {saved: true, archiveId: 'archive-1', sourceTxId: payload.transaction.txId}
         };
+        // The archive read answers with its DISCRIMINATOR, as the container does — `not-found` only ever
+        // means a successful read that held no record. A fixture that returned a bare record or `null`
+        // would let the caller's unreachable-vs-absent branch pass untested in both directions.
         RecorderService.getTransactionArchive = ({archiveId}) => archiveId === 'archive-1' ? {
+            status      : 'found',
             archiveId,
             committedAt : 1234,
             ops         : [{forward: {tool: 'set_instance_properties', args: {id: 'leaf', properties: {x: 1}}}}],
             originWriter: {agentId: 'agent-a', sessionId: 'sess-a'},
             sourceTxId  : 'batch:add-grid'
-        } : null;
+        } : {status: 'not-found'};
         RecorderService.recordTransactionReplay = payload => {
             recorderCalls.push({type: 'replay', payload});
-            return {updated: true}
+            return {updated: true, replayCount: 3, lastReplayedAt: 9999}
         }
     });
 
@@ -218,7 +222,11 @@ test.describe('Neo.ai.services.neural-link.InstanceService - server boundary', (
 
         const result = await InstanceService.replayTransaction({sessionId: 's1', archiveId: 'archive-1'});
 
-        expect(result).toEqual({replayed: true, txId: 'replay:archive-1', ops: 1});
+        // `replayMarked` + the count the mark ESTABLISHED travel back, so a caller never has to assume the
+        // bookkeeping landed.
+        expect(result).toEqual({
+            replayed: true, txId: 'replay:archive-1', ops: 1, replayMarked: true, replayCount: 3
+        });
         expect(calls).toEqual([{
             sessionId: 's1',
             op       : 'replay_transaction',
@@ -238,5 +246,61 @@ test.describe('Neo.ai.services.neural-link.InstanceService - server boundary', (
             .toEqual({replayed: false, reason: 'archive-not-found'});
         expect(calls).toEqual([]);
         expect(recorderCalls).toEqual([])
+    });
+
+    test('an UNREACHABLE store is refused as unreachable, never as a missing archive', async () => {
+        RecorderService.getTransactionArchive = () => ({
+            status: 'unavailable', reason: 'archive-store-unavailable: ingress unreachable'
+        });
+
+        const result = await InstanceService.replayTransaction({sessionId: 's1', archiveId: 'archive-1'});
+
+        // The distinction is the whole point: `archive-not-found` tells the caller a durable archive is
+        // GONE and invites them to stop looking. Both outcomes still fail closed — no replay is dispatched
+        // against ops nobody read — but they no longer say the same thing.
+        expect(result.replayed).toBe(false);
+        expect(result.reason).toContain('archive-store-unavailable');
+        expect(result.reason).not.toContain('archive-not-found');
+        expect(calls).toEqual([]);
+        expect(recorderCalls).toEqual([])
+    });
+
+    test('a replay whose MARK fails still reports the replay, and reports the mark as failed', async () => {
+        ConnectionService.call = async (sessionId, op, payload) => {
+            calls.push({sessionId, op, payload});
+            return {replayed: true, txId: `replay:${payload.archiveId}`, ops: payload.ops.length}
+        };
+        RecorderService.recordTransactionReplay = payload => {
+            recorderCalls.push({type: 'replay', payload});
+            return {updated: false, status: 'unavailable', reason: 'archive-store-unavailable: ingress lost'}
+        };
+
+        const result = await InstanceService.replayTransaction({sessionId: 's1', archiveId: 'archive-1'});
+
+        // `replayed` stays TRUE because the App Worker really did replay the ops — inverting it would deny
+        // work that happened, and a caller retrying on that would replay twice. What changed is that the
+        // failed bookkeeping is no longer invisible: previously this exact case returned a clean
+        // `replayed: true` with a count that never moved and nothing to say so.
+        expect(result.replayed).toBe(true);
+        expect(result.replayMarked).toBe(false);
+        expect(result.replayMarkReason).toContain('archive-store-unavailable');
+        expect(result.replayCount).toBeUndefined();
+        expect(recorderCalls).toEqual([{type: 'replay', payload: {archiveId: 'archive-1'}}])
+    });
+
+    test('a mark that fails WITHOUT a reason still names its status', async () => {
+        ConnectionService.call = async (sessionId, op, payload) => {
+            calls.push({sessionId, op, payload});
+            return {replayed: true, txId: 'replay:archive-1', ops: payload.ops.length}
+        };
+        RecorderService.recordTransactionReplay = () => ({updated: false, status: 'not-found'});
+
+        const result = await InstanceService.replayTransaction({sessionId: 's1', archiveId: 'archive-1'});
+
+        // The store omits `reason` for not-found, since there is no failure to explain. The caller must
+        // still say something — an undefined `replayMarkReason` beside `replayMarked: false` is the silence
+        // this whole change removes.
+        expect(result.replayMarked).toBe(false);
+        expect(result.replayMarkReason).toBe('archive-mark-not-found')
     });
 });

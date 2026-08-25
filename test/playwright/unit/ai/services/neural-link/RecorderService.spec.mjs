@@ -222,8 +222,8 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
 
         stubTransport({
             save_nl_transaction         : {saved: true, archiveId: 'arch-1', sourceTxId: 'tx-1', opCount: 1},
-            get_nl_transaction          : {archiveId: 'arch-1', ops: transaction.ops, committedAt: 1_700_000_000_000, sourceTxId: 'tx-1', originWriter: transaction.originWriter, replayCount: 0},
-            mark_nl_transaction_replayed: {updated: true}
+            get_nl_transaction          : {status: 'found', archiveId: 'arch-1', ops: transaction.ops, committedAt: 1_700_000_000_000, sourceTxId: 'tx-1', originWriter: transaction.originWriter, replayCount: 0},
+            mark_nl_transaction_replayed: {updated: true, replayCount: 1, lastReplayedAt: 99}
         });
 
         const saved = await RecorderService.saveTransactionArchive({appSessionId: 'app-1', name: ' named ', transaction});
@@ -239,8 +239,43 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
         // rather than the archive.
         expect(archive).toMatchObject({ops: transaction.ops, sourceTxId: 'tx-1', originWriter: transaction.originWriter});
 
-        expect(await RecorderService.recordTransactionReplay({archiveId: 'arch-1'})).toEqual({updated: true});
+        expect(archive.status).toBe('found');
+
+        expect(await RecorderService.recordTransactionReplay({archiveId: 'arch-1'}))
+            .toEqual({updated: true, replayCount: 1, lastReplayedAt: 99});
         expect(calls[2].operation).toBe('mark_nl_transaction_replayed');
+    });
+
+    test('an unreachable store is UNAVAILABLE on read, not an absent archive', async () => {
+        setArchiveTransport(async () => { throw new Error('ingress unreachable') });
+
+        const archive = await RecorderService.getTransactionArchive({archiveId: 'arch-1'}),
+              mark    = await RecorderService.recordTransactionReplay({archiveId: 'arch-1'});
+
+        // Both used to collapse into the contract's ordinary "no archive" answers — `null` and
+        // `{updated: false}` — which made an out-of-reach store indistinguishable from a deleted archive
+        // at every caller above.
+        expect(archive.status).toBe('unavailable');
+        expect(archive.reason).toContain('archive-store-unavailable');
+        expect(mark).toMatchObject({updated: false, status: 'unavailable'});
+        expect(mark.reason).toContain('archive-store-unavailable');
+
+        // POSITIVE CONTROL: the same seam yields a genuine not-found, so `unavailable` above is a
+        // discrimination rather than the only answer this path can produce.
+        setArchiveTransport(async () => ({status: 'not-found'}));
+
+        expect((await RecorderService.getTransactionArchive({archiveId: 'arch-1'})).status).toBe('not-found')
+    });
+
+    test('a reply carrying no payload is unavailable, never a silent absence', async () => {
+        // MCP resolves with empty content for a server that answered nothing at all. Reading that as
+        // not-found would report an archive gone on the strength of a reply that said nothing.
+        setArchiveTransport(async () => null);
+
+        expect(await RecorderService.getTransactionArchive({archiveId: 'arch-1'}))
+            .toMatchObject({status: 'unavailable'});
+        expect(await RecorderService.recordTransactionReplay({archiveId: 'arch-1'}))
+            .toMatchObject({updated: false, status: 'unavailable'})
     });
 
     test('a non-data op is refused BEFORE the wire, naming the offending path', async () => {

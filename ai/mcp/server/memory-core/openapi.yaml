@@ -2818,9 +2818,16 @@ components:
           type: string
     GetNlTransactionResponse:
       type: object
-      nullable: true
-      description: The archived record, or null when the archiveId is unknown.
+      required:
+        - status
+      description: The archived record when found. `not-found` means the store answered and held no such record; `unavailable` means it could not be read.
       properties:
+        status:
+          type: string
+          enum: [found, not-found, unavailable]
+        reason:
+          type: string
+          description: Present only when status is unavailable.
         archiveId:      {type: string}
         name:           {type: string, nullable: true}
         sourceTxId:     {type: string, nullable: true}
@@ -2845,6 +2852,19 @@ components:
       properties:
         updated:
           type: boolean
+        replayCount:
+          type: number
+          description: Present only when updated is true — the count this mark established.
+        lastReplayedAt:
+          type: number
+          description: Present only when updated is true.
+        status:
+          type: string
+          enum: [not-found, unavailable]
+          description: Present only when updated is false.
+        reason:
+          type: string
+          description: Present only when status is unavailable.
     AdmitNlActionsRequest:
       type: object
       required:

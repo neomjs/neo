@@ -56,8 +56,10 @@ test.describe('NL relocation — admission and digest meet in the container grap
 
                 const admitSchema = validator.buildZodSchema(openApiDoc, admitOperation),
                       overWire    = payload => admitSchema.parse(payload);
-                const {saveNlTransaction, getNlTransaction, markNlTransactionReplayed} =
-                    await import(${rel('ai/services/memory-core/helpers/nlTransactionArchiveStore.mjs')});
+                const {
+                    NL_TRANSACTION_ARCHIVE_NODE_TYPE, getNlTransactionArchiveNodeId,
+                    saveNlTransaction, getNlTransaction, markNlTransactionReplayed
+                } = await import(${rel('ai/services/memory-core/helpers/nlTransactionArchiveStore.mjs')});
                 const {Memory_GraphService: GraphService} = await import(${rel('ai/services.mjs')});
 
                 await GraphService.ready?.();
@@ -119,6 +121,41 @@ test.describe('NL relocation — admission and digest meet in the container grap
                       replayed = saved.saved ? markNlTransactionReplayed({archiveId: saved.archiveId, now: 99}) : null,
                       afterMark = saved.saved ? getNlTransaction({archiveId: saved.archiveId}) : null;
 
+                // A SUCCESSFUL read of a real graph that holds no such node — the only thing entitled to
+                // be called not-found.
+                const absent = getNlTransaction({archiveId: 'no-such-archive-anywhere'});
+
+                // A stored record whose \`ops\` is NOT an array. This is the shape that makes the mark's
+                // write dangerous: the read REBUILDS \`ops\` as [] for it, so a mark that writes the whole
+                // read-back record replaces a real payload with an empty one. A well-formed archive cannot
+                // expose that — spreading its own array back is harmless — so this is the only fixture
+                // that can tell the two implementations apart.
+                const legacyId   = 'legacy-shaped-archive',
+                      legacyNode = getNlTransactionArchiveNodeId(legacyId);
+
+                GraphService.upsertNode({
+                    id        : legacyNode,
+                    type      : NL_TRANSACTION_ARCHIVE_NODE_TYPE,
+                    name      : legacyId,
+                    updatedAt : 1,
+                    properties: {archiveId: legacyId, ops: 'a-json-string-from-the-old-column', replayCount: 0}
+                });
+
+                const legacyMark = markNlTransactionReplayed({archiveId: legacyId, now: 101}),
+                      legacyRaw  = GraphService.getNodeRecord({id: legacyNode});
+
+                // UNREACHABLE, probed last because it breaks the reader for everything after it. Patching
+                // the graph writer is the only way to produce a throw against a real, healthy graph, and a
+                // throw is the case that used to be indistinguishable from absence.
+                const realGetNodeRecord = GraphService.getNodeRecord;
+
+                GraphService.getNodeRecord = () => { throw new Error('graph gone') };
+
+                const unreachableRead = getNlTransaction({archiveId: saved.archiveId}),
+                      unreachableMark = markNlTransactionReplayed({archiveId: saved.archiveId, now: 100});
+
+                GraphService.getNodeRecord = realGetNodeRecord;
+
                 // Read back through the raw store, NOT the digest: proves the control row exists and is
                 // in-window, so the digest's silence about it is the predicate rather than an empty seed.
                 const controlRow = GraphService.getNodeRecord({id: 'nl-action-telemetry:private-other-tenant'});
@@ -140,6 +177,22 @@ test.describe('NL relocation — admission and digest meet in the container grap
                         ops        : readBack?.ops?.length ?? null,
                         updated    : replayed?.updated ?? null,
                         replayCount: afterMark?.replayCount ?? null
+                    },
+                    outcomes    : {
+                        foundStatus      : readBack?.status ?? null,
+                        absentStatus     : absent.status,
+                        absentHasReason  : Object.hasOwn(absent, 'reason'),
+                        unreachableStatus: unreachableRead.status,
+                        unreachableNamed : String(unreachableRead.reason ?? '').startsWith('archive-store-unavailable'),
+                        markStatus       : unreachableMark.status,
+                        markUpdated      : unreachableMark.updated,
+                        markCount        : replayed?.replayCount ?? null,
+                        opsSurviveMark   : afterMark?.ops?.length ?? null,
+                        legacyMarked     : legacyMark.updated,
+                        legacyOpsType    : Array.isArray(legacyRaw?.properties?.ops)
+                            ? 'array-the-mark-wrote'
+                            : typeof legacyRaw?.properties?.ops,
+                        legacyReplayCount: legacyRaw?.properties?.replayCount ?? null
                     }
                 }));
             `,
@@ -251,6 +304,77 @@ test.describe('NL relocation — admission and digest meet in the container grap
             ops        : 1,
             updated    : true,
             replayCount: 1
+        });
+    });
+
+    test('the replay mark stays synchronous — the property that replaces the old atomic UPDATE', () => {
+        // The old store incremented in ONE statement (`SET replay_count = replay_count + 1`), which read
+        // and wrote the row itself. This is a read-modify-write over two `GraphService` calls, and the only
+        // thing making it equivalent for concurrent marks is that BOTH halves are synchronous: no other JS
+        // can run in the gap, so no increment can be lost. An `await` introduced between them would restore
+        // the lost-update window silently — no test would red and no reviewer would see it in the diff.
+        //
+        // Source-shape, because the failure it guards is a FUTURE edit rather than current behaviour.
+        // `async` is part of the pattern rather than assumed absent: the control below reads an
+        // `export async function`, and an extractor that only matched the sync spelling would return null
+        // there and quietly pass both `not.toContain` assertions above. It did, until the control failed.
+        const bodyOf = (source, name) => {
+                  const start = source.search(new RegExp('export (?:async )?function ' + name + '\\b'));
+
+                  if (start < 0) return null;
+
+                  const end = source.indexOf('\n}', start);
+
+                  return end < 0 ? null : source.slice(start, end)
+              },
+              storeSource = fs.readFileSync(
+                  path.join(rootDir, 'ai/services/memory-core/helpers/nlTransactionArchiveStore.mjs'), 'utf8'
+              ),
+              markBody    = bodyOf(storeSource, 'markNlTransactionReplayed');
+
+        // The extractor found a real body — an empty slice would make every assertion below vacuous.
+        expect(markBody).toContain('GraphService.upsertNode');
+        expect(markBody).toContain('getNlTransaction(');
+        expect(markBody).not.toContain('await');
+        expect(markBody).not.toContain('async');
+
+        // POSITIVE CONTROL: the same extractor over a function that genuinely awaits. Without it, a
+        // `bodyOf` that silently returned a too-short slice would satisfy both `not.toContain` assertions
+        // while checking nothing.
+        const clientSource = fs.readFileSync(
+                  path.join(rootDir, 'ai/services/neural-link/memoryCoreArchiveClient.mjs'), 'utf8'
+              ),
+              awaitingBody = bodyOf(clientSource, 'recordTransactionReplay');
+
+        expect(awaitingBody).toContain('await');
+        expect(bodyOf(storeSource, 'noSuchFunctionExists')).toBeNull()
+    });
+
+    test('absence and unreachability are distinguishable against a REAL graph', () => {
+        // All four rows come from one live graph in one child process, which is what makes this a
+        // discrimination rather than four independent fixtures agreeing with themselves: the same reader
+        // answers `found`, `not-found` and `unavailable` depending only on the graph's actual state.
+        expect(out.outcomes).toEqual({
+            foundStatus : 'found',
+            absentStatus: 'not-found',
+            // Not-found carries NO reason — there is no failure to explain, and a reason here would invite
+            // a caller to treat a plain absence as an error.
+            absentHasReason  : false,
+            unreachableStatus: 'unavailable',
+            unreachableNamed : true,
+            markStatus       : 'unavailable',
+            markUpdated      : false,
+            markCount        : 1,
+            opsSurviveMark   : 1,
+            // THE MARK MUST NOT DAMAGE WHAT IT MARKS, and `opsSurviveMark` above does NOT prove that —
+            // measured, not assumed: restoring the old whole-record spread leaves it green, because
+            // spreading a well-formed archive's own array back is harmless. Only a record whose stored
+            // `ops` is not an array can separate the two, since the read rebuilds that as `[]` and the old
+            // mark wrote the rebuild. A replay mark writing an empty payload over a real one is data loss
+            // caused by BOOKKEEPING, which is the worst kind to ship silently.
+            legacyMarked     : true,
+            legacyOpsType    : 'string',
+            legacyReplayCount: 1
         });
     });
 });
