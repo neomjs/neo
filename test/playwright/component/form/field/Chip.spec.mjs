@@ -67,25 +67,24 @@ test.describe('Neo.form.field.Chip', () => {
         }
     });
 
-    test('native chip buttons remove by pointer and keyboard', async ({page}) => {
+    test('native chip button removes by keyboard', async ({page}) => {
         await page.evaluate(id => Neo.worker.App.setConfigs({
             id,
-            value: ['alpha', 'beta']
+            value: ['alpha']
         }), componentId);
 
         const
             field       = page.locator(`#${componentId}`),
             chips       = field.locator('.neo-chip-field-values .neo-chip'),
-            removeAlpha = field.getByRole('button', {name: 'Remove Alpha'}),
-            removeBeta  = field.getByRole('button', {name: 'Remove Beta'});
+            removeAlpha = field.getByRole('button', {name: 'Remove Alpha'});
 
         const getValueLength = () => page.evaluate(id => Neo.worker.App.getConfigs({
             id,
             keys: 'value'
         }), componentId).then(value => value.length);
 
-        await expect(chips).toHaveCount(2);
-        await expect.poll(getValueLength).toBe(2);
+        await expect(chips).toHaveCount(1);
+        await expect.poll(getValueLength).toBe(1);
 
         const closeGlyphStyle = await removeAlpha.evaluate(element => ({
             content   : getComputedStyle(element, '::before').content,
@@ -100,10 +99,29 @@ test.describe('Neo.form.field.Chip', () => {
         await expect(removeAlpha).toBeFocused();
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
         await page.keyboard.press('Space');
-        await expect(chips).toHaveCount(1);
+        await expect(chips).toHaveCount(0);
         await expect(removeAlpha).toHaveCount(0);
-        await expect.poll(getValueLength).toBe(1);
+        await expect.poll(getValueLength).toBe(0)
+    });
 
+    test('native chip button removes by pointer', async ({page}) => {
+        await page.evaluate(id => Neo.worker.App.setConfigs({
+            id,
+            value: ['beta']
+        }), componentId);
+
+        const
+            field          = page.locator(`#${componentId}`),
+            chips          = field.locator('.neo-chip-field-values .neo-chip'),
+            removeBeta     = field.getByRole('button', {name: 'Remove Beta'}),
+            getValueLength = () => page.evaluate(id => Neo.worker.App.getConfigs({
+                id,
+                keys: 'value'
+            }), componentId).then(value => value.length);
+
+        await expect(chips).toHaveCount(1);
+        await expect.poll(getValueLength).toBe(1);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
         await removeBeta.click();
         await expect(chips).toHaveCount(0);
         await expect.poll(getValueLength).toBe(0)
