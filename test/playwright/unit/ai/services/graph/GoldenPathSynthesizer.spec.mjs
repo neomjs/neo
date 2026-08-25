@@ -2102,41 +2102,33 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('D2 admission withholds before both stores and preserves the last-known-good handoff (#17627)', async () => {
-        const originalEnabled             = aiConfig.orchestrator.corpusProjection.enabled;
-        const originalReceiptPathOverride = aiConfig.orchestrator.corpusProjection.receiptPathOverride;
-        const originalSourceRepository    = aiConfig.orchestrator.corpusProjection.sourceRepository;
-        const originalSourceRef           = aiConfig.orchestrator.corpusProjection.sourceRef;
-        const originalGetGraphCollection  = StorageRouter.getGraphCollection;
-        const receiptDir                  = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-path-projection-gate-'));
-        const receiptPath                 = path.join(receiptDir, 'projection.json');
-        const HEAD_A                      = 'a'.repeat(40);
-        const HEAD_B                      = 'b'.repeat(40);
-        const {
-            beginCorpusProjection,
-            commitCorpusProjectionFacet,
-            createCorpusProjectionReceipt
-        } = await import('../../../../../../ai/services/graph/corpusProjectionContract.mjs');
-        const {writeCorpusProjectionReceipt} = await import('../../../../../../ai/services/graph/corpusProjectionReceiptStore.mjs');
+        const originalGetCorpusProjectionAdmission = Synthesizer.getCorpusProjectionAdmission;
+        const originalGetGraphCollection           = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection         = StorageRouter.getSummaryCollection;
 
-        let receipt = createCorpusProjectionReceipt({
-            sourceRepository: 'https://github.com/neomjs/neo.git',
-            sourceRef       : 'refs/heads/dev',
-            freshnessSlaMs  : 4 * 60 * 60 * 1000
-        });
-        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_A});
-        for (const facet of ['issues', 'pulls', 'discussions']) {
-            receipt = commitCorpusProjectionFacet({receipt, facet})
-        }
-        receipt = beginCorpusProjection({receipt, availableRevision: HEAD_B});
-        receipt = commitCorpusProjectionFacet({receipt, facet: 'discussions'});
-        await writeCorpusProjectionReceipt(receiptPath, receipt);
+        let admissionCalls         = 0,
+            graphCollectionReads   = 0,
+            summaryCollectionReads = 0;
 
-        aiConfig.orchestrator.corpusProjection.enabled = true;
-        aiConfig.orchestrator.corpusProjection.receiptPathOverride = receiptPath;
-        aiConfig.orchestrator.corpusProjection.sourceRepository = 'https://github.com/neomjs/neo.git';
-        aiConfig.orchestrator.corpusProjection.sourceRef = 'refs/heads/dev';
+        Synthesizer.getCorpusProjectionAdmission = async () => {
+            admissionCalls++;
+
+            return {
+                admitted      : false,
+                fallback      : 'last-known-good',
+                reasonCode    : 'required-facet-stale',
+                requiredFacets: ['issues', 'discussions'],
+                staleFacets   : ['issues'],
+                fingerprint   : 'd2-required-facet-stale'
+            }
+        };
         StorageRouter.getGraphCollection = async () => {
+            graphCollectionReads++;
             throw new Error('D2 gate read Chroma despite a stale required facet')
+        };
+        StorageRouter.getSummaryCollection = async () => {
+            summaryCollectionReads++;
+            throw new Error('D2 gate read summaries despite a stale required facet')
         };
         fs.writeFileSync(tmpHandoffFile, '# Last-known-good handoff\n', 'utf8');
 
@@ -2152,14 +2144,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
                     staleFacets: ['issues']
                 }
             });
+            expect(admissionCalls).toBe(1);
+            expect(graphCollectionReads).toBe(0);
+            expect(summaryCollectionReads).toBe(0);
             expect(fs.readFileSync(tmpHandoffFile, 'utf8')).toBe('# Last-known-good handoff\n')
         } finally {
-            aiConfig.orchestrator.corpusProjection.enabled = originalEnabled;
-            aiConfig.orchestrator.corpusProjection.receiptPathOverride = originalReceiptPathOverride;
-            aiConfig.orchestrator.corpusProjection.sourceRepository = originalSourceRepository;
-            aiConfig.orchestrator.corpusProjection.sourceRef = originalSourceRef;
-            StorageRouter.getGraphCollection = originalGetGraphCollection;
-            fs.rmSync(receiptDir, {recursive: true, force: true})
+            Synthesizer.getCorpusProjectionAdmission = originalGetCorpusProjectionAdmission;
+            StorageRouter.getGraphCollection         = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection       = originalGetSummaryCollection
         }
     });
 
