@@ -667,6 +667,14 @@ class ConfigBase extends ConfigProvider {
                 // a rejected credential, and every seat's turn-opening call inherits that risk.
                 // `0` restores fail-closed-on-transport behaviour exactly.
                 patStaleGraceSeconds  : leaf(3600, 'NEO_AUTH_PAT_STALE_GRACE_SECONDS', 'number'),
+                // Restart-durable home of the GitHub-PAT validation cache (hash-keyed; the raw
+                // bearer token never touches disk). Empty disables the tier entirely: admission
+                // then survives an outage only for as long as the process stays up. When set, a
+                // redeploy during a provider outage admits previously-validated identities from
+                // this file — gated by a status-code-only validity probe against `/rate_limit` —
+                // instead of locking every seat out for the incident's duration. Explicitly named
+                // per profile (the wake-receiver-manifest precedent): no hidden default derives it.
+                patDiskCachePath      : leaf('', 'NEO_AUTH_PAT_DISK_CACHE_PATH', 'string'),
                 // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.
                 allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
                 // Optional username allowlist for PAT modes ('gitlab-pat' / 'github-pat'). Empty means any resolved user.

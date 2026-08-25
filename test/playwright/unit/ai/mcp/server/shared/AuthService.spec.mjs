@@ -1,3 +1,4 @@
+import {createHash} from 'crypto';
 import {setup} from '../../../../../setup.mjs';
 
 const appName = 'AuthServicePatTest';
@@ -38,6 +39,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         auth: {
             gitlabApiBaseUrl      : 'https://gitlab.example.com/',
             patCacheTtlSeconds    : 300,
+            patDiskCachePath      : '',
             patValidationTimeoutMs: 5000
         }
     };
@@ -332,6 +334,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
             aiConfig         : {auth: {
                 gitlabApiBaseUrl      : 'https://gitlab.example.com',
                 patCacheTtlSeconds    : 0,
+                patDiskCachePath      : '',
                 patValidationTimeoutMs: 5000
             }},
             logger,
@@ -364,6 +367,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
         mode                  : 'gitlab-pat',
         gitlabApiBaseUrl      : 'https://gitlab.example.com',
         patCacheTtlSeconds    : 300,
+        patDiskCachePath      : '',
         patValidationTimeoutMs: 5000
     }};
 
@@ -557,6 +561,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT veri
         auth: {
             githubApiBaseUrl      : 'https://github.example.com/',
             patCacheTtlSeconds    : 300,
+            patDiskCachePath      : '',
             patValidationTimeoutMs: 5000
         }
     };
@@ -736,6 +741,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT veri
 
         const noCacheVerifier = AuthService.createGithubPatVerifier({
             aiConfig         : withAuth({patCacheTtlSeconds: 0}),
+            patDiskCachePath : '',
             logger,
             InvalidTokenError: FakeInvalidTokenError
         });
@@ -760,6 +766,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
         mode                  : 'github-pat',
         githubApiBaseUrl      : 'https://api.github.com',
         patCacheTtlSeconds    : 300,
+        patDiskCachePath      : '',
         patValidationTimeoutMs: 5000
     }};
 
@@ -1205,6 +1212,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — first provider 
                     trustProxyIdentity      : false,
                     githubApiBaseUrl        : 'https://api.github.com',
                     patCacheTtlSeconds      : 300,
+                    patDiskCachePath        : '',
                     patValidationTimeoutMs  : 5000,
                     allowedUsers            : [],
                     allowedClientIds        : [],
@@ -1658,6 +1666,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
           baseCfg = {
               githubApiBaseUrl      : 'https://api.github.com',
               patCacheTtlSeconds    : 300,
+              patDiskCachePath      : '',
               patValidationTimeoutMs: 5000,
               patStaleGraceSeconds  : 3600
           };
@@ -1704,6 +1713,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
     test('an UNREACHABLE provider serves the previously-validated identity', async () => {
         // ttl 0 → the entry is stale immediately, so the second call must re-validate and fail.
         const verifier = makeVerifier({patCacheTtlSeconds: 0});
+        patDiskCachePath      : '',
 
         await primeThenExpire(verifier, [{throws: Object.assign(new Error('socket hang up'), {code: 'ECONNRESET'})}]);
 
@@ -1714,6 +1724,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
 
     test('a 5xx is the provider FAILING TO ANSWER, not rejecting — served stale', async () => {
         const verifier = makeVerifier({patCacheTtlSeconds: 0});
+        patDiskCachePath      : '',
 
         await primeThenExpire(verifier, [{status: 503}]);
 
@@ -1724,6 +1735,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         // The whole fix is worthless if this passes. A test covering only the timeout path would go
         // green while the change silently accepted revoked credentials.
         const verifier = makeVerifier({patCacheTtlSeconds: 0});
+        patDiskCachePath      : '',
 
         await primeThenExpire(verifier, [{status: 401}]);
 
@@ -1736,6 +1748,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         // exactly when many agents share one source address — this deployment's normal condition,
         // and the failure the whole path exists to prevent. The fix reintroduced its own bug.
         const verifier = makeVerifier({patCacheTtlSeconds: 0});
+        patDiskCachePath      : '',
 
         await primeThenExpire(verifier, [{status: 403}]);
 
@@ -1744,6 +1757,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
 
     test('401 remains the ONLY authoritative rejection, and it evicts', async () => {
         const verifier = makeVerifier({patCacheTtlSeconds: 0});
+        patDiskCachePath      : '',
 
         await primeThenExpire(verifier, [{status: 401}, {throws: new Error('unreachable')}]);
 
@@ -1754,6 +1768,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
 
     test('grace 0 restores fail-closed-on-transport exactly — a deployment can opt out', async () => {
         const verifier = makeVerifier({patCacheTtlSeconds: 0, patStaleGraceSeconds: 0});
+        patDiskCachePath      : '',
 
         await primeThenExpire(verifier, [{throws: new Error('unreachable')}]);
 
@@ -1762,6 +1777,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
 
     test('a token past ttl + grace is rejected — the window is bounded, not unlimited', async () => {
         const verifier = makeVerifier({patCacheTtlSeconds: 0, patStaleGraceSeconds: 0.001});
+        patDiskCachePath      : '',
 
         stubFetch([{status: 200}]);
         await verifier.verifyAccessToken('tok');
@@ -1780,6 +1796,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
             aiConfig: {auth: {
                 gitlabApiBaseUrl      : 'https://gitlab.example.com/',
                 patCacheTtlSeconds    : 0,
+                patDiskCachePath      : '',
                 patValidationTimeoutMs: 5000,
                 patStaleGraceSeconds  : 3600
             }},
@@ -1804,6 +1821,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         const gitlabCfg = {auth: {
             gitlabApiBaseUrl      : 'https://gitlab.example.com/',
             patCacheTtlSeconds    : 0,
+            patDiskCachePath      : '',
             patValidationTimeoutMs: 5000,
             patStaleGraceSeconds  : 3600,
             allowedClientIds      : ['mcp-oauth-app']
@@ -1842,6 +1860,7 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         const verifier = AuthService.createGithubPatVerifier({
             // A REALISTIC ttl, not 0 — the stale entry must reconstruct a future expiry.
             aiConfig: withAuth({patCacheTtlSeconds: 1, patStaleGraceSeconds: 3600}),
+            patDiskCachePath: '',
             logger,
             InvalidTokenError
         });
@@ -1882,4 +1901,202 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
 
         await expect(verifier.verifyAccessToken('never-seen')).rejects.toThrow(FakeInvalidTokenError);
     });
+});
+
+/**
+ * Outage-survival tiers for the GitHub-PAT verifier: the in-memory stale tier was already covered
+ * above; these arms pin the DISK tier — a redeploy (cold process) meeting a provider outage admits
+ * previously-validated identities from the durable store, gated by a status-code-only validity
+ * probe against `/rate_limit`. Fail-closed is preserved on every unresolved shape.
+ */
+test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT outage survival', () => {
+    let AuthService, patCache;
+    let originalFetch;
+    let tempDir;
+
+    class FakeInvalidTokenError extends Error {}
+
+    const logger   = {info: () => {}, warn: () => {}, error: () => {}};
+    const baseAuth = {
+        githubApiBaseUrl      : 'https://github.example.com',
+        patCacheTtlSeconds    : 300,
+        patDiskCachePath      : '',
+        patValidationTimeoutMs: 5000,
+        patStaleGraceSeconds  : 3600
+    };
+
+    const tokenHash = token => createHash('sha256').update(token).digest('hex');
+
+    const writeSeed = async (token, user, verifiedAt) => {
+        const file = path.join(tempDir, 'pat-validation-cache.json');
+
+        await patCache.writePatValidationCache(file, new Map([[tokenHash(token), {user, scopes: [], verifiedAt}]]));
+
+        return file
+    };
+
+    test.beforeAll(async () => {
+        AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+        patCache    = await import('../../../../../../../ai/mcp/server/shared/helpers/patValidationCache.mjs');
+    });
+
+    test.beforeEach(async () => {
+        originalFetch = globalThis.fetch;
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pat-outage-'));
+    });
+
+    test.afterEach(async () => {
+        globalThis.fetch = originalFetch;
+        fs.rmSync(tempDir, {recursive: true, force: true})
+    });
+
+    const stubOutage = (rateLimitStatus = 200) => {
+        const calls = [];
+
+        globalThis.fetch = async (url, opts = {}) => {
+            calls.push({url: String(url), headers: opts.headers});
+
+            if (String(url).endsWith('/user')) {
+                return {ok: false, status: 503}
+            }
+
+            return {ok: true, status: rateLimitStatus}
+        };
+
+        return calls
+    };
+
+    test('a cold process during a /user outage admits the disk-cached identity behind a passing validity probe', async () => {
+        const file     = await writeSeed('survivor-token', {id: 7, login: 'eos', name: 'Eos'}, Date.now());
+        const calls    = stubOutage(200);
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+        const info = await verifier.verifyAccessToken('survivor-token');
+
+        expect(info.userId).toBe('eos');
+        // The honesty field: this session was NOT freshly provider-validated.
+        expect(info.validationState).toBe('stale-validated');
+        // Both endpoints were consulted, in order.
+        expect(calls.some(call => call.url.endsWith('/user'))).toBe(true);
+        const probe = calls.find(call => call.url.endsWith('/rate_limit'));
+        expect(probe).toBeTruthy();
+        expect(probe.headers.Authorization).toBe('Bearer survivor-token')
+    });
+
+    test('no disk entry + outage refuses exactly as before — fail-closed preserved', async () => {
+        const file     = path.join(tempDir, 'absent.json');
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        stubOutage(200);
+
+        await expect(verifier.verifyAccessToken('unknown-token')).rejects.toThrow(FakeInvalidTokenError)
+    });
+
+    test('a 401 from the validity probe evicts BOTH tiers and refuses — revocation outranks survival', async () => {
+        const file     = await writeSeed('revoked-token', {id: 8, login: 'ghost'}, Date.now());
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        globalThis.fetch = async url => String(url).endsWith('/user')
+            ? {ok: false, status: 503}
+            : {ok: false, status: 401};
+
+        await expect(verifier.verifyAccessToken('revoked-token')).rejects.toThrow(/validity check/);
+
+        const {entries} = await patCache.readPatValidationCache(file);
+        expect(entries.size).toBe(0)
+    });
+
+    test('the validity probe itself failing leaves admission UNRESOLVED — never a guess', async () => {
+        const file     = await writeSeed('walled-token', {id: 9, login: 'walled'}, Date.now());
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        // 403 on the probe: on a shared egress this may be a primary rate-limit breach, not a
+        // refusal — so it must neither admit nor evict.
+        stubOutage(403);
+
+        await expect(verifier.verifyAccessToken('walled-token')).rejects.toThrow(FakeInvalidTokenError);
+
+        const {entries} = await patCache.readPatValidationCache(file);
+        expect(entries.get(tokenHash('walled-token'))?.user.login).toBe('walled')
+    });
+
+    test('an entry past ttl + stale grace is not admitted even with a passing probe', async () => {
+        const old      = Date.now() - (301 + 3601) * 1000;
+        const file     = await writeSeed('ancient-token', {id: 10, login: 'ancient'}, old);
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        stubOutage(200);
+
+        await expect(verifier.verifyAccessToken('ancient-token')).rejects.toThrow(FakeInvalidTokenError)
+    });
+
+    test('a fresh validation writes through to the disk store', async () => {
+        const file     = path.join(tempDir, 'write-through.json');
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        globalThis.fetch = async url => {
+            if (String(url).endsWith('/user')) {
+                return {
+                    ok     : true,
+                    headers: {get: () => null},
+                    json   : async () => ({id: 11, login: 'fresh-writer'})
+                }
+            }
+
+            return {ok: true, status: 200}
+        };
+
+        await verifier.verifyAccessToken('fresh-token');
+
+        const {entries} = await patCache.readPatValidationCache(file);
+        expect(entries.get(tokenHash('fresh-token'))?.user.login).toBe('fresh-writer')
+    });
+
+    test('feature off (no path): an outage behaves exactly as dev today — no reads, no writes, hard refusal', async () => {
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        stubOutage(200);
+
+        await expect(verifier.verifyAccessToken('anyone')).rejects.toThrow(FakeInvalidTokenError)
+    });
+
+    test('pin establishment never rides the disk tier — the pin comes from a FRESH validation or not at all', async () => {
+        const file     = await writeSeed('pinned-attempt', {id: 12, login: 'impostor'}, Date.now());
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : {auth: {...baseAuth, patDiskCachePath: file, pinFirstProviderSubject: true}},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        stubOutage(200);
+
+        await expect(verifier.establishPinnedProviderSubject('pinned-attempt')).rejects.toThrow(FakeInvalidTokenError)
+    })
 });

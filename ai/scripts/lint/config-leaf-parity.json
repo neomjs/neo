@@ -183,6 +183,7 @@
         "auth.localBearerToken",
         "auth.mode",
         "auth.patCacheTtlSeconds",
+        "auth.patDiskCachePath",
         "auth.patStaleGraceSeconds",
         "auth.patValidationTimeoutMs",
         "auth.pinFirstProviderSubject",
