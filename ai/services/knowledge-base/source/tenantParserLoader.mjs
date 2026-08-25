@@ -231,30 +231,54 @@ export async function loadTenantParser({
         )
     }
 
-    // Exporting something is not the same as exporting something dispatchable. `resolveFileChunks`
-    // reads `parseIngestionFile` / `parse` off this value directly, so a class carrying either on
-    // `prototype` is truthy while both probes read `undefined`: the not-registered throw is skipped
-    // and the file degrades to a whole-file `raw-text` chunk, which INGESTS SUCCESSFULLY. Refusing
-    // here keeps that case inside the coded taxonomy instead of the one silent path it left open.
-    if (typeof ParserClass.parseIngestionFile !== 'function' && typeof ParserClass.parse !== 'function') {
-        const
-            prototype   = ParserClass.prototype,
-            onPrototype = typeof prototype?.parseIngestionFile === 'function' ||
-                          typeof prototype?.parse             === 'function';
-
-        throw refuse(
-            TENANT_PARSER_ERROR_CODES.notDispatchable,
-            `tenant parser '${specifier}' loaded from '${absolutePath}' but exposes no callable ` +
-            '`parseIngestionFile` or `parse`. ' +
-            (onPrototype
-                // The whole defect, and it is invisible from the symptom: the method IS present.
-                ? 'Dispatch is static: the parser is called on the exported class itself and is never ' +
-                  'instantiated, so an instance method declared on the prototype is unreachable. ' +
-                  'Declare it `static`, or export an object literal.'
-                : 'Declare a `static parseIngestionFile(file, {tenantContext})`, or export an object ' +
-                  'literal carrying that method.')
-        )
-    }
+    assertDispatchableParser(ParserClass, `tenant parser '${specifier}' loaded from '${absolutePath}'`);
 
     return ParserClass
+}
+
+/**
+ * @summary Refuses a resolved parser value that nothing can dispatch on.
+ *
+ * **The property is "callable on the value that gets dispatched", not "static".** `resolveFileChunks`
+ * reads `parseIngestionFile` / `parse` off the resolved value directly, and three shapes satisfy
+ * that: a constructor carrying static methods, an object literal, and — the repository's own idiom
+ * for registry-registered classes — a `Neo.setupClass` singleton, whose export IS an instance and
+ * whose prototype methods are therefore reachable on it. Only a plain constructor whose methods live
+ * on `prototype` fails, because the constructor is never instantiated.
+ *
+ * That case is truthy with both probes reading `undefined`, so the `KB_PARSER_NOT_REGISTERED` throw
+ * is skipped and the file degrades to a whole-file `raw-text` chunk, which INGESTS SUCCESSFULLY.
+ * Refusing keeps it inside the coded taxonomy instead of the one silent path it left open.
+ *
+ * Exported because a tenant can declare a parser two ways — a `parserModule` this loader imports, or
+ * a live `ParserClass` reference in the JS-config tier — and both converge on one consumer. Guarding
+ * only the branch this module owns leaves the other one degrading exactly as before.
+ *
+ * @param {*} parser The resolved parser value.
+ * @param {String} subject How to name the parser in the refusal, e.g. `tenant parser 'X.mjs'`.
+ * @returns {*} The parser, when it is dispatchable.
+ * @throws {Error} Coded `TENANT_PARSER_ERROR_CODES.notDispatchable`.
+ */
+export function assertDispatchableParser(parser, subject) {
+    if (typeof parser?.parseIngestionFile === 'function' || typeof parser?.parse === 'function') {
+        return parser
+    }
+
+    const
+        prototype   = parser?.prototype,
+        onPrototype = typeof prototype?.parseIngestionFile === 'function' ||
+                      typeof prototype?.parse             === 'function';
+
+    throw refuse(
+        TENANT_PARSER_ERROR_CODES.notDispatchable,
+        `${subject} but exposes no callable \`parseIngestionFile\` or \`parse\`. ` +
+        (onPrototype
+            // The whole defect, and it is invisible from the symptom: the method IS present.
+            ? 'The methods are declared on the prototype, and the value that gets dispatched is the ' +
+              'constructor itself — it is never instantiated, so they are unreachable. Declare them ' +
+              '`static`, export a singleton instance (`Neo.setupClass` with `singleton: true`), or ' +
+              'export an object literal.'
+            : 'Declare `parseIngestionFile(file, {tenantContext})` on the exported value — as a ' +
+              '`static` method, on a singleton instance, or on an object literal.')
+    )
 }

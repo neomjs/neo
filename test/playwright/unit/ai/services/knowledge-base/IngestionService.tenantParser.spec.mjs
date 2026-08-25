@@ -365,6 +365,97 @@ test.describe('IngestionService — a tenant-declared parser reaches dispatch (#
         expect(chunks[0].producedBy).toBe('InlineParser');
     });
 
+    test('a live ParserClass with a prototype-only method is REFUSED — the other tenant entry path', async () => {
+        // The two declaration forms converge on one consumer, so a guard placed only under
+        // `parserModule` leaves this branch degrading to raw-text exactly as before. This is the
+        // shape the loader refuses, arriving through the tier the loader never sees.
+        class PrototypeOnlyParser {
+            async parseIngestionFile(file) {
+                return [{producedBy: 'PrototypeOnlyParser', sourcePath: file.sourcePath}]
+            }
+        }
+
+        graphStub.store.set('kb-config:tenant-a', {
+            id        : 'kb-config:tenant-a',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {version: 1, customParsers: [{parserId: 'ac-inline-proto', ParserClass: PrototypeOnlyParser}]}
+        });
+
+        let chunks, error;
+
+        try {
+            chunks = await Service.resolveFileChunks({
+                file         : sourceFile({parserId: 'ac-inline-proto'}),
+                fileIndex    : 0,
+                tenantContext: {tenantId: 'tenant-a'}
+            })
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(chunks, 'it must not silently become a whole-file chunk').toBeUndefined();
+        expect(error?.code).toBe('KB_TENANT_PARSER_NOT_DISPATCHABLE')
+    });
+
+    test('a live ParserClass that is a SINGLETON INSTANCE dispatches — instance methods are reachable', async () => {
+        // The property is "callable on the value that gets dispatched", not "static". A
+        // `Neo.setupClass` singleton exports an INSTANCE — the idiom every built-in Source uses — so
+        // its ordinary instance methods resolve through the prototype and dispatch fine. A guard
+        // written against "static" would refuse the repository's own shape.
+        const singletonParser = new (class SingletonParser {
+            async parseIngestionFile(file) {
+                return [{producedBy: 'SingletonParser', sourcePath: file.sourcePath}]
+            }
+        })();
+
+        graphStub.store.set('kb-config:tenant-a', {
+            id        : 'kb-config:tenant-a',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {version: 1, customParsers: [{parserId: 'ac-inline-singleton', ParserClass: singletonParser}]}
+        });
+
+        const chunks = await Service.resolveFileChunks({
+            file         : sourceFile({parserId: 'ac-inline-singleton'}),
+            fileIndex    : 0,
+            tenantContext: {tenantId: 'tenant-a'}
+        });
+
+        expect(chunks[0].producedBy).toBe('SingletonParser')
+    });
+
+    test('the GLOBAL registry path still dispatches — the control that is not vacuous', async () => {
+        // A control that drives a file with no `parserId` never reaches the global registry at all,
+        // so it cannot detect the guard widening into that path. This one registers a parser there
+        // and dispatches THROUGH it, which is the only way the assertion can fail if the boundary
+        // moves.
+        class GlobalParser {
+            static async parseIngestionFile(file) {
+                return [{producedBy: 'GlobalParser', sourcePath: file.sourcePath}]
+            }
+        }
+
+        const registryIdsBefore = [...Service.sourceRegistry.getParserIds()];
+
+        Service.sourceRegistry.registerParser(GlobalParser, {parserId: 'ac-global'});
+
+        try {
+            // No tenant declaration for this id, so resolution falls through to the global registry.
+            await Service.setTenantConfig({tenantId: 'tenant-a', config: {customParsers: []}});
+
+            const chunks = await Service.resolveFileChunks({
+                file         : sourceFile({parserId: 'ac-global'}),
+                fileIndex    : 0,
+                tenantContext: {tenantId: 'tenant-a'}
+            });
+
+            expect(chunks[0].producedBy, 'the global path dispatches, unchanged by the tenant guard').toBe('GlobalParser')
+        } finally {
+            Service.sourceRegistry._parsers.delete('ac-global')
+        }
+
+        expect(Service.sourceRegistry.getParserIds()).toEqual(registryIdsBefore)
+    });
+
     test('NEGATIVE CONTROL: with no tenant declaration the registry is untouched and the global path answers', async () => {
         // AC5/AC6 — a zero-config deployment must behave exactly as before. The loader existing is
         // not allowed to change what an undeclared tenant resolves.

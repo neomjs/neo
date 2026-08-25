@@ -75,13 +75,15 @@ class SourceRegistry extends Base {
      * Registers a Parser class under the given `parserId`. Re-registering the same id
      * overwrites the prior class.
      *
-     * **Dispatch is static.** The registry stores the class itself and never instantiates it, so
-     * `parseIngestionFile` / `parse` must be declared `static` — an instance method on the prototype
-     * is unreachable. An object literal carrying those methods is equally valid; "class" here names
-     * the convention, not a requirement. See `TENANT_PARSER_ERROR_CODES.notDispatchable`, which
-     * refuses the unreachable shape for tenant-declared parsers.
+     * **The registered value is what gets dispatched.** The registry stores it as given and never
+     * instantiates it, so `parseIngestionFile` / `parse` must be callable on that value. Three shapes
+     * satisfy this: a constructor carrying `static` methods, an object literal, and a
+     * `Neo.setupClass` singleton — whose export IS an instance, which is the idiom every Source in
+     * this directory uses. Only a plain constructor whose methods live on `prototype` fails, because
+     * nothing instantiates it. See `TENANT_PARSER_ERROR_CODES.notDispatchable`, which refuses that
+     * shape for tenant-declared parsers.
      *
-     * @param {Object}  ParserClass            Parser class, or any object carrying static-side `parseIngestionFile`/`parse`.
+     * @param {Object}  ParserClass            The value to dispatch on: a constructor with static methods, a singleton instance, or an object literal.
      * @param {Object} [options]
      * @param {String} [options.parserId]      Stable registry id. Defaults to the class's `className` final segment.
      * @returns {String} The resolved `parserId` used as the registry key.

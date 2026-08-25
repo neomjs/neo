@@ -66,6 +66,14 @@ A registered parser implements one of two methods — the ingestion service (`re
 1. **`parseIngestionFile(file, {tenantContext})` → `parsed-chunk-v1[]`** *(recommended for new parsers).* Receives the push envelope's `files` entry plus the resolved tenant context (`tenantId`, `repoSlug`, `visibility`, …), and returns `parsed-chunk-v1` records directly — no adapter, no signature ambiguity.
 2. **`parse(content, sourcePath, type, hierarchy)` → legacy chunks** *(the contract Neo's built-in `SourceParser` uses).* Returns chunks of the legacy `{type, kind, name, content, source, …}` shape; the ingestion service adapts each into `parsed-chunk-v1` via `legacyChunkToParsedRecord` (it defaults `rootKind: 'external-source'` and `hashInputs: ['kind','name','content','sourcePath','parserId','parserVersion']`).
 
+**Whatever you register is what gets dispatched.** `resolveFileChunks` calls the parse method on the registered value and never instantiates it, so the method has to be callable on that value. Three shapes work:
+
+- a **singleton** — `export default Neo.setupClass(MyParser)` with `singleton: true` exports an *instance*, so ordinary instance methods are reachable. This is the idiom every built-in Source in `ai/services/knowledge-base/source/` uses;
+- a **constructor carrying `static` methods**;
+- a plain **object literal** with the methods on it.
+
+The shape that fails is a plain, non-singleton class whose parse method sits on the prototype: the constructor is what gets registered, nothing instantiates it, and the method is unreachable. That parser used to fall through to `raw-text` — which *ingests successfully*, leaving whole-file chunks, no error, and a plausible chunk count with nothing to notice. A tenant-declared parser in that shape is now refused with `KB_TENANT_PARSER_NOT_DISPATCHABLE` instead.
+
 If a pushed file names a `parserId` that is not registered, the ingestion service returns `KB_PARSER_NOT_REGISTERED` for that file. A raw file with no `parserId` falls through to the built-in `raw-text` handling — the whole file becomes a single chunk.
 
 ## The parser-execution boundary
