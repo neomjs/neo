@@ -2670,14 +2670,8 @@ paths:
       operationId: save_nl_transaction
       x-neo-tool-tier: write
       x-pass-as-object: true
-      x-neo-tool-summary: Archive one COMMITTED Neural Link transaction in the container graph; refuses uncommitted, op-less, or origin-writer-less input by name.
-      description: |
-        The container-plane home for the transaction archive Neural Link used to write to its own host
-        SQLite file. Host-initiated: the host asks, the container stores. Admission requires
-        `status: committed`, at least one op, and an origin writer carrying both agentId and sessionId;
-        a refusal answers `{saved: false, reason}` rather than throwing, so an unarchivable transaction
-        cannot take down the possession session that produced it. There is no host-local fallback on
-        purpose — one would re-create the two realities this relocation removes.
+      x-neo-tool-summary: Archive one committed Neural Link transaction; answers a named refusal instead of throwing.
+      description: "Requires status committed, at least one op, and an originWriter carrying agentId and sessionId. The container mints archiveId. A refusal answers saved false with a named reason."
       tags: [NeuralLink]
       requestBody:
         required: true
@@ -2699,13 +2693,8 @@ paths:
       operationId: get_nl_transaction
       x-neo-tool-tier: read
       x-pass-as-object: true
-      x-neo-tool-summary: Read one archived Neural Link transaction by archiveId; answers null when it does not exist.
-      description: |
-        The archive's read half, which is what makes replay a host-initiated round trip rather than
-        container-initiated access to the host. Returns the record shape `#14829` shipped — ops and
-        originWriter as structures, plus replayCount and lastReplayedAt — or `null` for an unknown
-        archiveId. A response carrying archive data is in-contract; the write-only rule applies to the
-        action-telemetry channel, not to this one.
+      x-neo-tool-summary: Read one archived Neural Link transaction by archiveId; status found, not-found, or unavailable.
+      description: "The record travels flat on the found arm. not-found means the store answered and held no such record; unavailable means it could not be read, and carries a reason."
       tags: [NeuralLink]
       requestBody:
         required: true
@@ -2727,11 +2716,8 @@ paths:
       operationId: mark_nl_transaction_replayed
       x-neo-tool-tier: write
       x-pass-as-object: true
-      x-neo-tool-summary: Increment one archive's replay count and stamp the time; answers updated false for an unknown archiveId.
-      description: |
-        Records that a replay happened, preserving `#14829`'s replay-mark semantics across the
-        relocation. An unknown archiveId answers `{updated: false}` rather than creating a row, so the
-        count can never claim a replay of something that was never archived.
+      x-neo-tool-summary: Mark one Neural Link archive replayed; answers the new replayCount or a named failure.
+      description: "Increments replayCount and stamps lastReplayedAt. updated false carries status not-found or unavailable; an unknown archiveId is never created."
       tags: [NeuralLink]
       requestBody:
         required: true
@@ -2753,16 +2739,8 @@ paths:
       operationId: admit_nl_actions
       x-neo-tool-tier: write
       x-pass-as-object: true
-      x-neo-tool-summary: WRITE-ONLY admission for Neural Link action telemetry; the server generates the correlation token and row id, and drops every field outside the admitted set.
-      description: |
-        The optional, policy-gated telemetry half of the NL relocation. Write-only by contract: there is
-        no companion read operation, and its absence is asserted rather than pending. The admitted set is
-        sequenceId, sessionId, timestamp, tool, success, durationMs, appName and a bounded `targets`
-        projection of classNames and componentIds. Everything else is DROPPED — no agentId, no raw args,
-        no result, no reward. `sequenceId` is a fresh server-generated token rather than the host's former
-        `${agentId}_${turnId}`, so correlation no longer carries identity, and the storage row id is
-        generated server-side so one caller cannot address another's row. A row that cannot be stored is
-        counted as refused rather than aborting the batch.
+      x-neo-tool-summary: Write-only admission for Neural Link action telemetry; drops every field outside the admitted set.
+      description: "The CALLER mints sequenceId as a bare-UUID correlation token; the container mints the storage row id. Admits only sequenceId, sessionId, timestamp, tool, success, durationMs, appName and targets of classNames plus componentIds. A row that cannot be stored is counted as refused, never thrown. No read companion exists."
       tags: [NeuralLink]
       requestBody:
         required: true
@@ -2872,6 +2850,10 @@ components:
       properties:
         actions:
           type: array
+          # Bounded MECHANICALLY, not just described: the host admits exactly one row per tool call
+          # (`RecorderService` fire-and-forget), so this cap is headroom for a batching caller rather
+          # than a limit production approaches. Without it "bounded" was a word in a description.
+          maxItems: 100
           description: Bounded batch of action rows. Fields outside the admitted set are dropped rather than stored.
           items:
             type: object

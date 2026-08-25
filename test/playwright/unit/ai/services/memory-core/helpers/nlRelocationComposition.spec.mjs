@@ -114,6 +114,33 @@ test.describe('NL relocation — admission and digest meet in the container grap
                                 .map(([id, rows]) => [id, rows.length]).sort()
                           : null;
 
+                // PRODUCTION DISPATCH, the one hop the arms above still skip. Everything so far enters at
+                // the store helper with a schema-validated payload, which proves the schema and the store
+                // agree — but not that the SERVER routes the operation to them. \`callTool\` is the real
+                // memory-core dispatcher: it resolves the operation, parses the args with the schema
+                // compiled from this OpenAPI document, and invokes the bound handler. A telemetry channel
+                // that is correct at the helper and unrouted at the dispatcher is indistinguishable from a
+                // working one, from every unit arm on either side.
+                const {callTool} = await import(${rel('ai/mcp/server/memory-core/toolService.mjs')}),
+                      TOKEN_C    = '66666666-6666-4666-8666-666666666666';
+
+                let dispatch = null, dispatchError = null;
+
+                try {
+                    dispatch = await callTool('admit_nl_actions', {actions: [{
+                        sequenceId: TOKEN_C, sessionId: 's1', timestamp: 8000, tool: 'create_component',
+                        success: true, durationMs: 7, appName: 'App',
+                        targets: {classNames: ['Neo.button.Base'], componentIds: ['btn-9']}
+                    }]});
+                } catch (error) {
+                    dispatchError = error.message;
+                }
+
+                // Read back through the DIGEST's own reader, windowed above every other row so this arm
+                // measures the dispatched row alone.
+                const dispatchRead   = engine.readNlActionRows({sinceTimestamp: 7999, sequenceLimit: 10}),
+                      dispatchTokens = (dispatchRead.rows ?? []).map(row => row.sequence_id);
+
                 const saved    = saveNlTransaction({appSessionId: 'app-1', name: 'spec', transaction: {
                           txId: 'tx-1', status: 'committed', committedAt: 4242,
                           originWriter: {agentId: 'a', sessionId: 's'},
@@ -200,6 +227,12 @@ test.describe('NL relocation — admission and digest meet in the container grap
                 process.stdout.write(JSON.stringify({
                     admit,
                     wireKeys,
+                    dispatch    : {
+                        error         : dispatchError,
+                        admitted      : dispatch?.admitted ?? null,
+                        refused       : dispatch?.refused ?? null,
+                        readableTokens: dispatchTokens
+                    },
                     controlRowPresent: Boolean(controlRow) && controlRow.properties?.timestamp === 5004,
                     readStatus  : read.status,
                     rowCount    : read.rows?.length ?? null,
@@ -350,6 +383,21 @@ test.describe('NL relocation — admission and digest meet in the container grap
             updated    : true,
             replayCount: 1
         });
+    });
+
+    test('telemetry survives PRODUCTION DISPATCH, not only the store helper', () => {
+        // The gap every other arm leaves open: the schema and the store can agree perfectly while the
+        // server never routes the operation to them, and no unit arm on either side can see that. This
+        // enters through the real memory-core dispatcher and comes back out of the digest's own reader,
+        // so the whole production path — resolve, schema-parse, handle, store, read — is one assertion.
+        expect(out.dispatch.error).toBeNull();
+        expect(out.dispatch.admitted).toBe(1);
+        expect(out.dispatch.refused).toBe(0);
+
+        // The correlation token SURVIVED the dispatcher's own schema parse. This is the arm that reds if
+        // `sequenceId` is dropped from the OpenAPI item shape: the dispatcher strips undeclared fields, so
+        // the row would store and read back with a null token and group under nothing.
+        expect(out.dispatch.readableTokens).toEqual(['66666666-6666-4666-8666-666666666666'])
     });
 
     test('the replay mark stays synchronous — the property that replaces the old atomic UPDATE', () => {

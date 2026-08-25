@@ -50,6 +50,15 @@ test.describe('Neural Link archive client connect lifecycle', () => {
         return instance
     }
 
+    // BOTH hooks, and the before-hook is the load-bearing one. Playwright reuses a worker process across
+    // spec files, so this module's cached client survives from whichever NL spec ran before this file — and
+    // `getClient` short-circuits on a cached client without ever consulting the seam, which makes every arm
+    // below assert against a connection it did not create. Seen as a cross-file failure that passed in
+    // isolation; an afterEach alone cannot cover state this file did not create.
+    test.beforeEach(async () => {
+        await resetArchiveClient()
+    });
+
     test.afterEach(async () => {
         await resetArchiveClient()
     });
