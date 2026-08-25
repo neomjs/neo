@@ -91,12 +91,15 @@ function alignedImportLine({clause, source}, fromColumn) {
 function evaluateImportAlignment(lines, maskedLines = []) {
     const
         violations = [],
+        runs       = [],
         fixedLines = lines.slice();
 
     // Only runs that ARE groups are numbered, so "group 2 of 3" counts what a reader can see.
     const groups = collectImportRuns(lines, maskedLines).filter(run => run.length >= 2);
 
     groups.forEach((run, groupIndex) => {
+        runs.push({kind: 'import', group: groupIndex + 1, lineIndices: run.map(entry => entry.lineIndex)});
+
         // The `from` column = widest `import <clause>` in the run + one space.
         const fromColumn = Math.max(...run.map(entry => IMPORT_PREFIX.length + entry.clause.length)) + 1;
 
@@ -115,7 +118,7 @@ function evaluateImportAlignment(lines, maskedLines = []) {
         }
     });
 
-    return {violations, fixedLines};
+    return {violations, fixedLines, runs};
 }
 
 // ─────────────────────────── object-literal colons (v1b) ───────────────────────────
@@ -185,8 +188,9 @@ function collectPropertyRuns(lines, maskedLines = []) {
  */
 function evaluateColonAlignment(lines, maskedLines = []) {
     const
-        violations = [],
-        fixedLines = lines.slice();
+        violations    = [],
+        alignmentRuns = [],
+        fixedLines    = lines.slice();
 
     const runs = collectPropertyRuns(lines, maskedLines),
           // Only runs that ARE alignment groups are counted, so "group 2 of 3" matches what a reader
@@ -197,6 +201,8 @@ function evaluateColonAlignment(lines, maskedLines = []) {
         const colonMembers = run.filter(entry => entry.kind === 'colon'),
               indent       = run[0].indent,
               keyWidth     = Math.max(...colonMembers.map(entry => entry.key.length));
+
+        alignmentRuns.push({kind: 'object-colon', group: groupIndex + 1, lineIndices: colonMembers.map(entry => entry.lineIndex)});
 
         for (const entry of colonMembers) {
             const expected = `${indent}${entry.key.padEnd(keyWidth)}: ${entry.value}`;
@@ -213,7 +219,7 @@ function evaluateColonAlignment(lines, maskedLines = []) {
         }
     });
 
-    return {violations, fixedLines, notices: detectCommentOnlyFragmentation(lines, groups)};
+    return {violations, fixedLines, runs: alignmentRuns, notices: detectCommentOnlyFragmentation(lines, groups)};
 }
 
 // ─────────────────────────── `=` declaration blocks (v1b) ───────────────────────────
@@ -392,6 +398,7 @@ function collectAssignmentRuns(lines, maskedLines = []) {
 function evaluateAssignmentAlignment(lines, maskedLines = []) {
     const
         violations = [],
+        runs       = [],
         fixedLines = lines.slice();
 
     // Only runs that ARE groups are numbered, so "group 2 of 3" counts what a reader can see.
@@ -402,6 +409,8 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
 
     groups.forEach(({entries, mode}, groupIndex) => {
         const simpleParts = entries;
+
+        runs.push({kind: 'assignment', group: groupIndex + 1, lineIndices: simpleParts.map(part => part.lineIndex)});
 
         const
             keywordWidth = mode === 'keyword' ? Math.max(...simpleParts.map(part => part.keyword.length)) : 0,
@@ -428,7 +437,7 @@ function evaluateAssignmentAlignment(lines, maskedLines = []) {
         }
     });
 
-    return {violations, fixedLines};
+    return {violations, fixedLines, runs};
 }
 
 // ───────────────────────────────── driver ─────────────────────────────────
@@ -646,8 +655,50 @@ function detectCommentOnlyFragmentation(lines, runs) {
  */
 const unfixableReasons = new Map();
 
+/**
+ * @summary Widens a line-scoped staged mask to the enclosing alignment RUN.
+ *
+ * Alignment is a property of a run of >= 2 consecutive lines, and the staged view is a set of
+ * individual added lines. Intersecting the two directly asks a block-scoped rule to answer from a
+ * line-scoped input, and it degrades to silence in the most common edit shape there is: adding or
+ * widening ONE line inside a run that already exists.
+ *
+ * Two distinct ways that fails, and the second is why seeding from violations alone is not enough:
+ *
+ * 1. A one-line addition presents as a 1-member run, so the rule has nothing to group.
+ * 2. **Widening a line makes that line CORRECT.** The widest member defines the column, so the edited
+ *    line carries no violation at all — its untouched siblings do. A mask seeded from
+ *    violated-AND-staged lines therefore matches nothing, and the repair writes nothing while
+ *    reporting success.
+ *
+ * So membership decides ownership, not violation: if any line of a run was staged, the author has
+ * taken responsibility for that run and every violation in it is theirs to repair. Untouched runs
+ * elsewhere in the file stay untouched, which is the scoping intent `--staged` was added for.
+ *
+ * Both the scoped repair and the scoped report call this, so the two can never disagree about which
+ * drift belongs to a commit — a check quieter than its own fixer is how a gate reports green on a
+ * file it would rewrite.
+ *
+ * @param {Array<{lineIndex: Number, kind: String, group: Number}>} violations Whole-file violations.
+ * @param {Array<{kind: String, group: Number, lineIndices: Number[]}>} runs Whole-file alignment runs.
+ * @param {Set<Number>} added 1-based staged-added line numbers.
+ * @returns {Array<Object>} The subset of `violations` whose run contains at least one staged line.
+ */
+function violationsInTouchedRuns(violations, runs, added) {
+    // `kind` scopes the group number: import group 1 and object-colon group 1 are different runs.
+    const identity = ({kind, group}) => `${kind}#${group}`;
+
+    const touched = new Set(
+        runs.filter(run => run.lineIndices.some(lineIndex => added.has(lineIndex + 1)))
+            .map(identity)
+    );
+
+    return violations.filter(violation => touched.has(identity(violation)));
+}
+
 function processFile(file, fix, gitRoot = null, scopedFix = false) {
     const allViolations = [];
+    const allRuns       = [];
     const originalLines = fs.readFileSync(file, 'utf8').split('\n');
     const maskedLines   = computeTemplateLiteralLineMask(originalLines);
     let   lines         = originalLines;
@@ -655,8 +706,9 @@ function processFile(file, fix, gitRoot = null, scopedFix = false) {
     const allNotices = [];
 
     for (const evaluate of EVALUATORS) {
-        const {violations, fixedLines, notices} = evaluate(lines, maskedLines);
+        const {violations, fixedLines, notices, runs} = evaluate(lines, maskedLines);
         allViolations.push(...violations);
+        runs    && allRuns.push(...runs);
         notices && allNotices.push(...notices);
         lines = fixedLines;
     }
@@ -701,7 +753,7 @@ function processFile(file, fix, gitRoot = null, scopedFix = false) {
                 return 'unfixable';
             }
 
-            const owned = allViolations.filter(v => added.has(v.lineIndex + 1));
+            const owned = violationsInTouchedRuns(allViolations, allRuns, added);
 
             if (owned.length === 0) return 'clean';
 
@@ -726,7 +778,7 @@ function processFile(file, fix, gitRoot = null, scopedFix = false) {
     // so a grandfathered misalignment on an untouched line never blocks an unrelated commit. Fail
     // CLOSED: a null detection (git read failure) reports the whole file rather than suppressing drift.
     const added    = gitRoot ? getStagedAddedLines(file, gitRoot) : null;
-    const reported = added ? allViolations.filter(v => added.has(v.lineIndex + 1)) : allViolations;
+    const reported = added ? violationsInTouchedRuns(allViolations, allRuns, added) : allViolations;
 
     if (reported.length === 0) return 'clean';
 
