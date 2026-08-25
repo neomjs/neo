@@ -12197,6 +12197,8 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17769](https://neomjs.com/raw/news/pulls/17769.md)
+- [Pull Request #17768](https://neomjs.com/raw/news/pulls/17768.md)
 - [Pull Request #17767](https://neomjs.com/raw/news/pulls/17767.md)
 - [Pull Request #17766](https://neomjs.com/raw/news/pulls/17766.md)
 - [Pull Request #17765](https://neomjs.com/raw/news/pulls/17765.md)
