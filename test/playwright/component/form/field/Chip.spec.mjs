@@ -127,6 +127,48 @@ test.describe('Neo.form.field.Chip', () => {
         await expect.poll(getValueLength).toBe(0)
     });
 
+    test('removing one chip updates and activates the recycled survivor', async ({page}) => {
+        await page.evaluate(id => Neo.worker.App.setConfigs({
+            id,
+            value: ['alpha', 'beta']
+        }), componentId);
+
+        const
+            field       = page.locator(`#${componentId}`),
+            chips       = field.locator('.neo-chip-field-values .neo-chip'),
+            removeAlpha = field.getByRole('button', {name: 'Remove Alpha'});
+
+        await expect(chips).toHaveCount(2);
+
+        const
+            valueListId     = await field.locator('.neo-chip-field-values').getAttribute('id'),
+            getSelectedKeys = () => page.evaluate(id => Neo.worker.App.getConfigs({
+                id,
+                keys: 'selectedKeys'
+            }), valueListId);
+
+        await expect.poll(getSelectedKeys).toEqual(['alpha', 'beta']);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        await removeAlpha.click();
+        await expect(chips).toHaveCount(1);
+        await expect.poll(getSelectedKeys).toEqual(['beta']);
+
+        const removeBeta = field.getByRole('button', {name: 'Remove Beta'});
+
+        await expect(removeBeta).toBeVisible();
+
+        const survivorId = await removeBeta.locator('..').getAttribute('id');
+
+        await expect.poll(() => page.evaluate(id => Neo.worker.App.getConfigs({
+            id,
+            keys: 'value'
+        }), survivorId)).toBe('beta');
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        await removeBeta.click();
+        await expect(chips).toHaveCount(0);
+        await expect.poll(getSelectedKeys).toEqual([])
+    });
+
     test('Tab traverses chip buttons in value order before the input', async ({page}) => {
         await page.evaluate(id => Neo.worker.App.setConfigs({
             id,

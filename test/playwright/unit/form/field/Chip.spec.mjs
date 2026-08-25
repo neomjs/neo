@@ -317,6 +317,7 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
 
         const
             firstChip   = field.valueList.items[0],
+            secondChip  = field.valueList.items[1],
             closeButton = firstChip.vdom.cn[2],
             clickData   = {};
 
@@ -328,6 +329,10 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
 
         expect(clickData.cancelBubble).toBe(true);
         expect(field.getSubmitValue()).toEqual(['beta']);
+        expect(field.valueList.items[0]).toBe(firstChip);
+        expect(field.valueList.items[0].value).toBe('beta');
+        expect(firstChip.isDestroyed).not.toBe(true);
+        expect(secondChip.isDestroyed).toBe(true);
 
         const keyData = {};
 
