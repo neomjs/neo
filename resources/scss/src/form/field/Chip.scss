@@ -1,0 +1,36 @@
+.neo-chipfield {
+    height: auto;
+
+    .neo-input-wrapper {
+        align-items: center;
+        flex-wrap  : wrap;
+        gap        : 4px;
+        overflow   : visible;
+        padding    : 2px 4px;
+
+        .neo-chip-field-values {
+            background: none;
+            border    : 0;
+            display   : flex;
+            flex-flow : row wrap;
+            gap       : 4px;
+            overflow  : visible;
+
+            &:empty {
+                display: none;
+            }
+
+            .neo-list-item {
+                padding: 0;
+            }
+        }
+
+        .neo-textfield-input {
+            flex      : 1 1 80px;
+            min-height: var(--textfield-input-height);
+            min-width : 80px;
+            padding   : var(--textfield-input-padding);
+            width     : auto;
+        }
+    }
+}

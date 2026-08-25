@@ -40,9 +40,9 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.hidePickerOnSelect,
-            labelText: 'hidePickerOnSelect',
-            listeners: {change: me.onConfigChange.bind(me, 'hidePickerOnSelect')},
+            checked  : me.exampleComponent.editable,
+            labelText: 'editable',
+            listeners: {change: me.onConfigChange.bind(me, 'editable')},
             style    : {marginTop: '10px'}
         }, {
             module        : Radio,
@@ -106,9 +106,9 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.placeholderText
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.typeAhead,
-            labelText: 'typeAhead',
-            listeners: {change: me.onConfigChange.bind(me, 'typeAhead')},
+            checked  : me.exampleComponent.readOnly,
+            labelText: 'readOnly',
+            listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
             style    : {marginTop: '10px'}
         }, {
             module   : NumberField,
@@ -129,7 +129,9 @@ class MainContainer extends ConfigurationViewport {
             labelPosition: 'inline',
             labelText    : 'US States',
             labelWidth   : 80,
-            width        : 200,
+            value        : ['CA', 'NY'],
+            valueField   : 'abbreviation',
+            width        : 300,
 
             store: {
                 module: MainStore

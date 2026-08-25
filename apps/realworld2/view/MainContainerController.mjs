@@ -191,11 +191,27 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @summary Loads the shared tag vocabulary into the active consumer.
      *
+     * Home renders the raw strings in its existing tag list. The editor hands that same string
+     * array directly to `form.field.Chip`: the field's Store promotion owns record construction,
+     * so the app never maintains a second hand-mapped tag model.
+     * @param {Neo.component.Base|null} target=this.getReference('home')
      */
-    getTags() {
+    getTags(target=this.getReference('home')) {
         TagApi.get().then(data => {
-            this.getReference('home').getTagList().tags = data.json.tags;
+            const
+                tags     = data.json.tags,
+                tagField = target?.getReference?.('tags'),
+                tagList  = target?.getTagList?.();
+
+            if (tagList) {
+                tagList.tags = tags
+            }
+
+            if (tagField) {
+                tagField.store = tags
+            }
         });
     }
 
@@ -319,6 +335,9 @@ class MainContainerController extends ComponentController {
             });
 
             switch (newView.reference) {
+                case 'editor':
+                    me.getTags(newView);
+                    break;
                 case 'gallery':
                     newView.getArticles();
                     break;
