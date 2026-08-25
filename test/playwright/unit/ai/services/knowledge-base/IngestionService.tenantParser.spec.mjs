@@ -76,7 +76,7 @@ const PARSER_NAMED = `export class Custom {
 export default null;
 `;
 
-// The broken shape (#17300). The method is present the whole time — it lives on `prototype`, so
+// The broken shape. The method is present the whole time — it lives on `prototype`, so
 // `ParserClass.parseIngestionFile` reads `undefined` while the class itself stays truthy.
 const PARSER_INSTANCE_METHOD = `export default class ParserInstance {
     async parseIngestionFile(file) {
@@ -409,7 +409,7 @@ test.describe('IngestionService — a tenant-declared parser reaches dispatch (#
     });
 
     /**
-     * #17300. Dispatch reads `parseIngestionFile` / `parse` off the resolved value itself, so a class
+     * Dispatch reads `parseIngestionFile` / `parse` off the resolved value itself, so a class
      * carrying either on `prototype` is truthy while both probes read `undefined`: the
      * `KB_PARSER_NOT_REGISTERED` throw is skipped, and the file degrades to a whole-file `raw-text`
      * chunk. Green load, green sweep, quietly worse corpus, and no anomalous count to notice.

@@ -3,7 +3,6 @@ import Base from '../../../../src/core/Base.mjs';
 /**
  * @summary Data-driven registry for Knowledge Base Source + Parser classes.
  *
- * Phase 0/1B substrate of Epic [#11624](https://github.com/neomjs/neo/issues/11624) (Cloud-Native KB Ingestion).
  * Replaces the hardcoded source-list at [`DatabaseService.createKnowledgeBase`](../DatabaseService.mjs)
  * with a registry that supports:
  *
@@ -20,10 +19,9 @@ import Base from '../../../../src/core/Base.mjs';
  * receive the current list of Source classes in registration order. Order matters only
  * for determinism of byte-equivalence fixtures, not for correctness of KB content.
  *
- * **Parser registry shape:** Parsers register by `parserId` (the stable string consumers
- * thread through `parsed-chunk-v1.parserId`). Phase 0/1B ships the API surface + config
- * pipeline; runtime parser-execution wiring lands in Phase 2 / Phase 3 (per
- * [#11626](https://github.com/neomjs/neo/issues/11626) / [#11627](https://github.com/neomjs/neo/issues/11627)).
+ * **Parser registry shape:** Parsers register by `parserId` — the stable string consumers thread
+ * through `parsed-chunk-v1.parserId`. This class owns the API surface and the config pipeline;
+ * runtime parser execution is dispatched by `IngestionService.resolveFileChunks`.
  *
  * @class Neo.ai.services.knowledge-base.source.SourceRegistry
  * @extends Neo.core.Base

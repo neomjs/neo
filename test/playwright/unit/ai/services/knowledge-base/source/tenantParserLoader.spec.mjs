@@ -31,7 +31,7 @@ test.describe('tenantParserLoader — a tenant names a module BELOW a deployment
         fs.mkdirSync(path.join(tmpRoot, 'outside'), {recursive: true});
 
         // The loadable fixtures carry a static `parseIngestionFile` because the loader's contract is
-        // now "returns a DISPATCHABLE parser" (#17300) — an empty class is the exact shape it refuses,
+        // now "returns a DISPATCHABLE parser" — an empty class is the exact shape it refuses,
         // so a stub without one would make these positive controls assert the refusal instead.
         const dispatchable = name => `export default class ${name} { static parseIngestionFile() { return [] } }\n`;
 
@@ -133,7 +133,7 @@ test.describe('tenantParserLoader — a tenant names a module BELOW a deployment
         expect(code).toBe(TENANT_PARSER_ERROR_CODES.noExport);
     });
 
-    test('a class whose parse method is an INSTANCE method is refused, not returned (#17300)', async () => {
+    test('a class whose parse method is an INSTANCE method is refused, not returned', async () => {
         // Exporting something is not exporting something dispatchable. This class is truthy and its
         // method is present, but dispatch reads it off the class itself, so `prototype` is
         // unreachable and the file would degrade to a whole-file raw-text chunk.
