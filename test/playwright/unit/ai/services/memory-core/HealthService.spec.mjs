@@ -397,8 +397,8 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         summaryGetCalls    = 0;
         summaryUnavailableOnCall = null;
 
-        const memoryCollection  = makeCollection(() => memoryCount);
-        const summaryCollection = makeCollection(() => summaryCount);
+        const memoryCollection          = makeCollection(() => memoryCount);
+        const summaryCollection         = makeCollection(() => summaryCount);
         const temporalSummaryCollection = makeCollection(() => 0);
 
         originals = {
@@ -415,8 +415,8 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             // that count's latency tracked whatever the rest of the suite had written, and a retry got
             // a fresh worker talking to the same slow collection.
             getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection,
-            getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus,
-            loopbackConnectProbe     : HealthService.loopbackConnectProbe
+            getDatabaseStatus           : ChromaLifecycleService.getDatabaseStatus,
+            loopbackConnectProbe        : HealthService.loopbackConnectProbe
         };
 
         ChromaManager.connected = true;
@@ -2189,11 +2189,13 @@ test.describe('HealthService #16240 — an empty-verdict bundle is not a recover
 
     const EMPTY_VERDICT = [
         {subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0},
-        {subsystem: 'mc', status: 'empty', sourceCount: 0, bundleCount: 0}
+        {subsystem: 'mc', status: 'empty', sourceCount: 0, bundleCount: 0},
+        {subsystem: 'graph', status: 'empty', sourceCount: 0, bundleCount: 0}
     ];
     const CLEAN_VERDICT = [
         {subsystem: 'kb', status: 'pass', sourceCount: 61206, bundleCount: 61206},
-        {subsystem: 'mc', status: 'pass', sourceCount: 31173, bundleCount: 31173}
+        {subsystem: 'mc', status: 'pass', sourceCount: 31173, bundleCount: 31173},
+        {subsystem: 'graph', status: 'pass', sourceCount: 34239, bundleCount: 34239}
     ];
 
     test.beforeAll(async () => {
@@ -2533,10 +2535,10 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const result = await buildWakeFeaturesBlock();
 
         expect(result).toEqual({
-            gateState            : 'unknown',
-            gateTrippedAt        : null,
-            gateTrippedBy        : null,
-            daemonRunning        : false,
+            gateState    : 'unknown',
+            gateTrippedAt: null,
+            gateTrippedBy: null,
+            daemonRunning: false,
             // Names what the read actually did. `no-pulse-file` is exactly ENOENT — never a claim
             // about configuration, which this block does not consult. It separates a read that
             // answered from one that could not happen, the same conflation the subscription note

@@ -14,6 +14,7 @@ import mcConfig from '../../mcp/server/memory-core/config.mjs';
 import AiConfig from '../../config.mjs';
 
 import {classifyRowVector}                          from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {summarizeBundleIntegrity}                   from '../../services/memory-core/helpers/bundleIntegrity.mjs';
 import {HEAL_LEDGER_DIR_NAME, HEAL_LEDGER_FILENAME} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {INCIDENT_LEDGER_BUNDLE_MEMBERS}             from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
@@ -451,8 +452,9 @@ export async function runRestore({
  * @summary The only per-candidate verdicts that authorize {@link verifyLatestBackupRestorable} to
  * keep walking backwards.
  *
- * Both members are POSITIVE findings about a bundle the validator actually read: it parsed and held
- * no recoverable rows (`BUNDLE_EMPTY`), or it parsed far enough to be judged malformed
+ * All three members are POSITIVE findings about a bundle the validator actually read: it held no
+ * recoverable rows (`BUNDLE_EMPTY`), carried prior-state rows but failed the all-substrate recovery
+ * contract (`BUNDLE_INCOMPLETE`), or was parsed far enough to be judged malformed
  * (`BUNDLE_INVALID`). Everything else — notably `BUNDLE_UNVERIFIABLE` — means the probe failed to
  * observe the candidate, which is not evidence about the candidate and must stop the walk.
  *
@@ -460,7 +462,7 @@ export async function runRestore({
  * continue-eligible; a new code fails closed until someone decides otherwise.
  * @type {Set<String>}
  */
-export const CONTINUE_ELIGIBLE_BUNDLE_VERDICTS = new Set(['BUNDLE_EMPTY', 'BUNDLE_INVALID']);
+export const CONTINUE_ELIGIBLE_BUNDLE_VERDICTS = new Set(['BUNDLE_EMPTY', 'BUNDLE_INCOMPLETE', 'BUNDLE_INVALID']);
 
 export class BundleContentError extends Error {
     /**
@@ -853,7 +855,7 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * ## Why it stops for an unreadable candidate
  *
  * Walking backwards is only justified by a POSITIVE finding: the validator reached this bundle and
- * judged its content unusable (`BUNDLE_EMPTY` / `BUNDLE_INVALID` — see
+ * judged its content unusable (`BUNDLE_EMPTY` / `BUNDLE_INCOMPLETE` / `BUNDLE_INVALID` — see
  * {@link CONTINUE_ELIGIBLE_BUNDLE_VERDICTS}). A permissions failure, a vanished mount, fd
  * exhaustion, or a defect inside the validator all mean *"I could not tell"*, and an earlier
  * revision of this walk collapsed those into `BUNDLE_INVALID` and continued — so a newer, perfectly
@@ -872,13 +874,18 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  *     Cap on bundles validated. Read as a default parameter (evaluated per call, so an overlay change
  *     is honoured without a reload). Exhausting it warns which candidates went unexamined rather than
  *     reporting a clean "nothing restorable".
- * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, rowTotal: Number|undefined, embeddingAdvisories: Object[], skipped: Object[], examined: Number}>}
+ * @returns {Promise<{restorable: Boolean, priorStateEvidence: Boolean, recoverySourceAuthorized: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, rowTotal: Number|undefined, embeddingAdvisories: Object[], skipped: Object[], examined: Number}>}
  * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
- * `BUNDLE_EMPTY`, `BUNDLE_INVALID`, or `BUNDLE_UNVERIFIABLE`. `RESTORABLE` asserts the bundle is BOTH
- * structurally valid and non-empty; `rowTotal` reports the row count it was decided on, and
+ * `BUNDLE_EMPTY`, `BUNDLE_INCOMPLETE`, `BUNDLE_INVALID`, or `BUNDLE_UNVERIFIABLE`. `RESTORABLE`
+ * asserts the bundle is structurally valid, non-empty, and complete across the canonical recovery
+ * substrates. `priorStateEvidence` remains independently true for an incomplete non-empty bundle,
+ * preserving the initialization interlock without authorizing recovery. `rowTotal` reports the
+ * observed vector rows, and
  * `bundleRoot` names WHICH bundle earned the verdict — no longer necessarily the newest one present.
  * That strength lives here rather than in a caller so a shell gate consumes one authoritative verdict
  * instead of re-reading metadata and growing a second predicate able to disagree with this one.
+ * `restorable` remains a compatibility alias of `recoverySourceAuthorized`; it must never be used
+ * as prior-state evidence now that the two questions have separate fields.
  *
  * On failure the reported `code`/`bundleRoot`/`reason` describe the NEWEST bundle rather than an
  * invented aggregate, so a single-bundle root answers exactly as it did before this function learned
@@ -918,7 +925,17 @@ export async function verifyLatestBackupRestorable({
         // path RELATIVE to the compose project directory, so a deployment run from a different host
         // checkout addresses a directory that never existed rather than an empty one. Reporting "no
         // bundle" for bundles sitting safely in a prior checkout would answer about the wrong subject.
-        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt, skipped: [], examined: 0};
+        return {
+            restorable              : false,
+            priorStateEvidence      : false,
+            recoverySourceAuthorized: false,
+            code                    : 'BUNDLE_ROOT_MISSING',
+            bundleRoot              : null,
+            reason                  : `backup root not found: ${backupRoot}`,
+            checkedAt,
+            skipped                 : [],
+            examined                : 0
+        };
     }
 
     // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
@@ -929,7 +946,17 @@ export async function verifyLatestBackupRestorable({
         .reverse();
 
     if (bundleNames.length === 0) {
-        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt, skipped: [], examined: 0};
+        return {
+            restorable              : false,
+            priorStateEvidence      : false,
+            recoverySourceAuthorized: false,
+            code                    : 'NO_BUNDLES',
+            bundleRoot              : null,
+            reason                  : `no backup-* bundles under ${backupRoot}`,
+            checkedAt,
+            skipped                 : [],
+            examined                : 0
+        };
     }
 
     const skipped  = [];
@@ -952,7 +979,7 @@ export async function verifyLatestBackupRestorable({
 
         const verdict = await probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt});
 
-        if (verdict.restorable) {
+        if (verdict.recoverySourceAuthorized) {
             // Reporting rather than hiding. The operator's repair for the incident was `rm -rf` on the
             // unusable newest directory; a fallback that silently succeeded would have removed the
             // pressure to notice it at all, so every bundle passed over travels with the verdict.
@@ -1013,7 +1040,8 @@ export async function verifyLatestBackupRestorable({
  * @param {Object}    options.logger Log sink.
  * @param {Function}  options.validateFn Bundle validator seam.
  * @param {String}    options.checkedAt Shared ISO timestamp for the whole walk.
- * @returns {Promise<Object>} `RESTORABLE`, `BUNDLE_EMPTY`, or `BUNDLE_INVALID` for this bundle alone.
+ * @returns {Promise<Object>} `RESTORABLE`, `BUNDLE_EMPTY`, `BUNDLE_INCOMPLETE`, or `BUNDLE_INVALID`
+ *     for this bundle alone.
  *     `collectionCounts` and `emptyCollections` are present on EVERY return, and are `null` on the
  *     paths where nothing could be measured (`BUNDLE_INVALID` / `BUNDLE_UNVERIFIABLE`). `null` and
  *     `[]` are different answers: `[]` means the collections were counted and none were empty,
@@ -1036,70 +1064,82 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
     };
 
     try {
-        const meta = await validateFn(bundleRoot, layout, logger),
-              // Non-emptiness is decided HERE, from the validator's own streaming pass, because a
-              // structurally-parseable bundle is not the same thing as a usable recovery source.
-              // A bundle carrying only the six required directories and a minimal meta parsed clean
-              // and returned `RESTORABLE` — the ticket's explicitly forbidden precondition, and the
-              // exact shape of the incident: the one bundle in the ledger completed after the plane
-              // was already empty. `code` has to be stronger than the prose it replaced.
-              //
-              // Vector-collection rows are the measure because they ARE the recovery payload. A
-              // bundle whose corpus is empty cannot restore a corpus, whatever else it contains.
-              collectionCounts = meta?.streamedCounts ?? {},
-              rowTotal         = Object.values(collectionCounts).reduce((sum, count) => sum + count, 0),
-              // A SUM cannot distinguish complete from partial. `rowTotal` clears the zero test on
-              // ANY single populated collection, so a KB-only export vouches for five collections it
-              // says nothing about — measured live: a 112MB KB-export-only artifact reported
-              // RESTORABLE. The per-collection facts are reported alongside the aggregate so
-              // a consumer can ask the question the total cannot answer.
-              //
-              // `restorable` deliberately still keys on the aggregate, and NOT because the question is
-              // merely unsettled: making a partially-empty bundle non-`RESTORABLE` would break a
-              // safety interlock. `evaluateRedeployPreconditions` reads this verdict in TWO
-              // incompatible roles — as PROOF OF PRIOR STATE (any populated collection shows the plane
-              // existed; it is one of the `priorEvidence` items that REFUSE `--initialize`), and as
-              // AUTHORIZATION TO PROCEED with a container-affecting redeploy (which does want
-              // completeness). Tightening the shared boolean breaks the first to serve the second: a
-              // host with a KB-only bundle and no marker would fall through to
-              // REFUSE_NO_VERIFIED_BUNDLE, whose message instructs the operator to pass
-              // `--initialize` — and `--initialize` would then PROCEED, because the bundle no longer
-              // counts as prior evidence, discarding a plane that had a real backup.
-              //
-              // So completeness is published as its OWN fact rather than folded into the boolean.
-              // Consumers that need a recovery source read `emptyCollections`; the interlock keeps
-              // reading `restorable`. Splitting the verdict's two roles is the real repair — it
-              // changes a consumed surface and does not belong under an incident-time additive
-              // change. Until that split lands, `emptyCollections` is a REPORTING fact only: a
-              // consumer that treats it as an authorization signal recreates the same interlock
-              // break from the outside.
-              emptyCollections = Object.entries(collectionCounts)
-                  .filter(([, count]) => !(count > 0))
-                  .map(([collection]) => collection)
-                  .sort();
+        const meta                     = await validateFn(bundleRoot, layout, logger),
+              observedCollectionCounts = meta?.streamedCounts ?? {},
+              declaredCollectionCounts = meta?.embedding?.counts,
+              // Schema-v1 declared counts are validated against the streamed rows in BOTH
+              // directions, and unlike the sparse observed map they retain zero-valued members.
+              // They remain reporting evidence; substrate authorization comes from the existing
+              // bundle-integrity SSOT below.
+              collectionCounts         = declaredCollectionCounts
+                  ? {...declaredCollectionCounts}
+                  : observedCollectionCounts,
+              rowTotal                  = Object.values(observedCollectionCounts)
+                  .reduce((sum, count) => sum + count, 0),
+              emptyCollections          = declaredCollectionCounts
+                  ? Object.entries(collectionCounts)
+                      .filter(([, count]) => !(count > 0))
+                      .map(([collection]) => collection)
+                      .sort()
+                  : null,
+              integrity                 = summarizeBundleIntegrity(meta?.integrity),
+              emptySubsystems           = integrity.emptySubsystems,
+              integrityRowsPresent      = Array.isArray(meta?.integrity)
+                  && meta.integrity.some(entry => entry?.sourceCount > 0 || entry?.bundleCount > 0),
+              priorStateEvidence        = rowTotal > 0 || integrityRowsPresent,
+              // Legacy bundles predate `bundle-meta.integrity`; preserve their established
+              // non-empty compatibility contract. Every current bundle must earn authorization
+              // through the shared all-substrate survivability rule.
+              recoverySourceAuthorized  = priorStateEvidence
+                  && (meta?.legacy === true || integrity.restorable === true);
 
-        if (rowTotal === 0) {
+        if (!priorStateEvidence) {
             return {
-                restorable         : false,
-                code               : 'BUNDLE_EMPTY',
+                restorable              : false,
+                priorStateEvidence,
+                recoverySourceAuthorized: false,
+                code                    : 'BUNDLE_EMPTY',
                 bundleRoot,
-                reason             : `bundle parses but carries zero recoverable rows: ${bundleRoot}`,
+                reason                  : `bundle parses but carries zero recoverable rows: ${bundleRoot}`,
                 checkedAt,
                 collectionCounts,
                 emptyCollections,
+                emptySubsystems,
                 rowTotal,
-                embeddingAdvisories: meta?.embeddingAdvisories ?? []
+                embeddingAdvisories     : meta?.embeddingAdvisories ?? []
+            }
+        }
+
+        if (!recoverySourceAuthorized) {
+            return {
+                restorable: false,
+                priorStateEvidence,
+                recoverySourceAuthorized,
+                code      : 'BUNDLE_INCOMPLETE',
+                bundleRoot,
+                reason    : emptySubsystems.length > 0
+                    ? `bundle has empty recovery subsystem(s): ${emptySubsystems.join(', ')} (${bundleRoot})`
+                    : `bundle carries prior-state rows but recovery-source completeness could not be established: ${bundleRoot}`,
+                checkedAt,
+                collectionCounts,
+                emptyCollections,
+                emptySubsystems,
+                rowTotal,
+                embeddingAdvisories    : meta?.embeddingAdvisories ?? []
             }
         }
 
         return {
             restorable         : true,
+            priorStateEvidence,
+            recoverySourceAuthorized,
             code               : 'RESTORABLE',
             bundleRoot,
             reason             : null,
             checkedAt,
             collectionCounts,
             emptyCollections,
+            emptySubsystems,
             rowTotal,
             embeddingAdvisories: meta?.embeddingAdvisories ?? []
         };
@@ -1121,8 +1161,10 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
                   : `bundle verdict could not be established: ${error?.message ?? String(error)}`;
 
         return {
-            restorable: false,
-            code      : contentJudged ? 'BUNDLE_INVALID' : 'BUNDLE_UNVERIFIABLE',
+            restorable              : false,
+            priorStateEvidence      : false,
+            recoverySourceAuthorized: false,
+            code                    : contentJudged ? 'BUNDLE_INVALID' : 'BUNDLE_UNVERIFIABLE',
             bundleRoot,
             reason,
             checkedAt,
@@ -1136,6 +1178,7 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
             // making the same mistake this whole verdict exists to remove.
             collectionCounts   : null,
             emptyCollections   : null,
+            emptySubsystems    : null,
             embeddingAdvisories: error.embeddingAdvisories ?? [],
             // Structured, so a consumer distinguishes the two states without matching English.
             // `errorCode` carries the syscall errno when the platform supplied one (EACCES, EMFILE…).
