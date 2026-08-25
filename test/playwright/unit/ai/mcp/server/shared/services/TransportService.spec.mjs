@@ -724,6 +724,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                     githubApiBaseUrl       : 'https://api.github.test',
                     patCacheTtlSeconds     : 300,
                     patValidationTimeoutMs : 5000,
+                    patDiskCachePath       : '',
                     allowedUsers           : [],
                     allowedClientIds       : [],
                     pinFirstProviderSubject: true,

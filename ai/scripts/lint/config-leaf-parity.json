@@ -85,7 +85,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 73,
+            "remainingUniqueKeys": 74,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",
@@ -118,6 +118,7 @@
                 "NEO_AUTH_HOST",
                 "NEO_AUTH_ISSUER_URL",
                 "NEO_AUTH_PAT_CACHE_TTL_SECONDS",
+                "NEO_AUTH_PAT_DISK_CACHE_PATH",
                 "NEO_AUTH_PAT_VALIDATION_TIMEOUT_MS",
                 "NEO_AUTH_PORT",
                 "NEO_AUTH_REALM",
@@ -183,6 +184,7 @@
         "auth.localBearerToken",
         "auth.mode",
         "auth.patCacheTtlSeconds",
+        "auth.patDiskCachePath",
         "auth.patStaleGraceSeconds",
         "auth.patValidationTimeoutMs",
         "auth.pinFirstProviderSubject",

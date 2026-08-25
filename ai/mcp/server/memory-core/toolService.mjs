@@ -12,6 +12,7 @@ import HealthService, {
 import MemoryService                 from '../../../services/memory-core/MemoryService.mjs';
 import SessionService                from '../../../services/memory-core/SessionService.mjs';
 import SummaryService                from '../../../services/memory-core/SummaryService.mjs';
+import {getAuthValidationStaleness}  from '../shared/services/AuthService.mjs';
 import MailboxService                from '../../../services/memory-core/MailboxService.mjs';
 import PermissionService             from '../../../services/memory-core/PermissionService.mjs';
 import WakeSubscriptionService       from '../../../services/memory-core/WakeSubscriptionService.mjs';
@@ -308,11 +309,16 @@ export function composeMemoryCoreHealthcheck({
         response       = {...health, memoryWalDrain, plane, vectorGeneration, maintenance, corpusProjectionFreshness},
         drainStalled   = memoryWalDrain.state === 'stalled',
         backupDegraded = backupHealth?.status === 'degraded',
-        projectionDegraded = corpusProjectionFreshness?.posture === 'degraded';
+        projectionDegraded = corpusProjectionFreshness?.posture === 'degraded',
+        // Admission staleness (a provider validation outage being survived on cached identities)
+        // degrades the verdict the SAME way the other partial-health signals do: the plane serves,
+        // and the truth label says so. Read per-call so the signal clears the moment any fresh
+        // provider validation lands.
+        authDegraded   = getAuthValidationStaleness().size > 0;
 
     let composed = response;
 
-    if (drainStalled || backupDegraded || projectionDegraded) {
+    if (drainStalled || backupDegraded || projectionDegraded || authDegraded) {
         const details = Array.isArray(health.details)
             ? health.details.filter(detail => detail !== ALL_FEATURES_OPERATIONAL_DETAIL)
             : [];
@@ -340,6 +346,16 @@ export function composeMemoryCoreHealthcheck({
                 : 'see corpusProjectionFreshness';
 
             details.push(`Core corpus projection freshness is degraded: ${reasonCodes}.`)
+        }
+
+        if (authDegraded) {
+            const rows = [...getAuthValidationStaleness().entries()]
+                .map(([mode, {since, user}]) => `${mode} (identity '${user}', stale since ${new Date(since).toISOString()})`);
+
+            details.push(
+                'Provider PAT admission is degraded — identities are being served from the ' +
+                `validation cache while the provider cannot be asked: ${rows.join('; ')}.`
+            )
         }
 
         composed = {

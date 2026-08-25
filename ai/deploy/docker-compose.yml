@@ -176,7 +176,10 @@ services:
       # layer and the orchestrator reads its own empty one, so every observation surfaces as
       # `unavailable/absent` forever — a silent no-op, because a successful LOCAL write is
       # indistinguishable from a delivered one at the writer.
-      - shared-heap-observation-data:/app/.neo-ai-data/heap-observation
+      # Restart-durable admission cache (hash-keyed; no token material). DISTINCT per service:
+      # the deployment contract is one writer per path, which dissolves cross-process cache
+      # contention structurally instead of locking.
+      - auth-cache-data:/app/.neo-ai-data/auth
     depends_on:
       chroma:
         condition: service_healthy
@@ -322,7 +325,10 @@ services:
       # layer and the orchestrator reads its own empty one, so every observation surfaces as
       # `unavailable/absent` forever — a silent no-op, because a successful LOCAL write is
       # indistinguishable from a delivered one at the writer.
-      - shared-heap-observation-data:/app/.neo-ai-data/heap-observation
+      # Restart-durable admission cache (hash-keyed; no token material). DISTINCT per service:
+      # the deployment contract is one writer per path, which dissolves cross-process cache
+      # contention structurally instead of locking.
+      - auth-cache-data:/app/.neo-ai-data/auth
     depends_on:
       chroma:
         condition: service_healthy
@@ -630,6 +636,8 @@ services:
       - NEO_AUTH_PAT_VALIDATION_TIMEOUT_MS
       - NEO_AUTH_ALLOWED_CLIENT_IDS
       - NEO_AUTH_ALLOWED_USERS
+      # Restart-durable admission cache; fleet owns this path exclusively (one writer per path).
+      - NEO_AUTH_PAT_DISK_CACHE_PATH=/app/.neo-ai-data/auth/fleet-pat-validation-cache.json
       # One secret-file carrier feeds both the pre-listen provider-subject pin and readiness.
       # Never interpolate the direct PAT or an OIDC client secret into rendered Compose.
       - NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE=/run/secrets/mcp-auth-token
@@ -641,6 +649,10 @@ services:
       # One Fleet-owned root co-locates registry, tenant descriptors, encryption/signing keys, and
       # ciphertext. No graph/MC/KB private volume is mounted into this service.
       - fleet-data:/app/.neo-ai-data/fleet
+      # Restart-durable admission cache (hash-keyed; no token material). DISTINCT per service:
+      # the deployment contract is one writer per path, which dissolves cross-process cache
+      # contention structurally instead of locking.
+      - auth-cache-data:/app/.neo-ai-data/auth
     secrets:
       - mcp-auth-token
     networks:
@@ -743,6 +755,10 @@ networks:
     driver: bridge
 
 volumes:
+  # Restart-durable PAT admission caches (hash-keyed, no token material). One distinct file per
+  # PAT-auth service; the mount exists so a redeploy during a provider outage keeps the warm
+  # identities that let the plane admit while GitHub cannot be asked.
+  auth-cache-data:
   chroma-data:
   fleet-data:
   orchestrator-state:

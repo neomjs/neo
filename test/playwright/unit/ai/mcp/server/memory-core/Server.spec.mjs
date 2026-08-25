@@ -271,8 +271,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         try {
             const auth = isGitlab
-                ? {gitlabApiBaseUrl: baseUrl, patCacheTtlSeconds: 300, patValidationTimeoutMs: 5000}
-                : {githubApiBaseUrl: baseUrl, patCacheTtlSeconds: 300, patValidationTimeoutMs: 5000, allowedUsers: []};
+                ? {gitlabApiBaseUrl: baseUrl, patCacheTtlSeconds: 300, patValidationTimeoutMs: 5000, patDiskCachePath: ''}
+                : {githubApiBaseUrl: baseUrl, patCacheTtlSeconds: 300, patValidationTimeoutMs: 5000, allowedUsers: [], patDiskCachePath: ''};
 
             const verifier = isGitlab
                 ? AuthService.createGitlabPatVerifier({aiConfig: {auth}, logger: silentLogger, InvalidTokenError: FakeInvalidTokenError})
@@ -456,6 +456,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 githubApiBaseUrl            : 'https://api.github.test',
                 patCacheTtlSeconds          : 300,
                 patValidationTimeoutMs      : 5000,
+                patDiskCachePath            : '',
                 allowedUsers,
                 allowedClientIds            : [],
                 pinFirstProviderSubject     : false,

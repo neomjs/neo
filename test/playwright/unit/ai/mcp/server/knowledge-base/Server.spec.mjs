@@ -279,6 +279,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
                 trustProxyIdentity          : false,
                 githubApiBaseUrl            : 'https://api.github.test',
                 patCacheTtlSeconds          : 300,
+                patDiskCachePath            : '',
                 patValidationTimeoutMs      : 5000,
                 allowedUsers,
                 allowedClientIds            : [],

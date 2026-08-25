@@ -26,11 +26,18 @@ test.describe('optional Fleet server composition', () => {
         expect(fleet.environment).toContain('NEO_AUTH_MODE=${NEO_AUTH_MODE:-github-pat}');
         expect(fleet.environment).toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE=/run/secrets/mcp-auth-token');
         expect(fleet.environment).toContain('NEO_MCP_HEALTHCHECK_TOKEN_FILE=/run/secrets/mcp-auth-token');
-        expect(fleet.volumes).toEqual(['fleet-data:/app/.neo-ai-data/fleet']);
+        // Restart-durable admission cache: fleet owns its path exclusively — the
+        // one-writer-per-path deployment contract, pinned here so it cannot silently regress.
+        expect(fleet.environment).toContain('NEO_AUTH_PAT_DISK_CACHE_PATH=/app/.neo-ai-data/auth/fleet-pat-validation-cache.json');
+        expect(fleet.volumes).toEqual([
+            'fleet-data:/app/.neo-ai-data/fleet',
+            'auth-cache-data:/app/.neo-ai-data/auth'
+        ]);
         expect(fleet.secrets).toEqual(['mcp-auth-token']);
         expect(fleet.expose).toEqual(['8083']);
         expect(fleet).not.toHaveProperty('ports');
         expect(compose.volumes).toHaveProperty('fleet-data');
+        expect(compose.volumes).toHaveProperty('auth-cache-data');
         expect(compose.secrets['mcp-auth-token']).toEqual({environment: 'NEO_MCP_HEALTHCHECK_TOKEN'});
         expect(fleet.healthcheck.test).toContain('./ai/scripts/diagnostics/fleetHealthcheck.mjs');
         expect(fleet.healthcheck.test).toContain('/app/.neo-ai-data/fleet')

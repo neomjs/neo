@@ -3,6 +3,7 @@ import {createHash}                                  from 'crypto';
 import {readFileSync, statSync}                      from 'fs';
 import {isLocalBearerToken, matchesLocalBearerToken} from '../helpers/localBearer.mjs';
 import {readSeatTokenRegistry, verifySeatToken}      from '../helpers/seatToken.mjs';
+import {readPatValidationCache, writePatValidationCache} from '../helpers/patValidationCache.mjs';
 
 /**
  * @summary Installs the configured Streamable HTTP authentication strategy.
@@ -63,6 +64,22 @@ import {readSeatTokenRegistry, verifySeatToken}      from '../helpers/seatToken.
  */
 export function isAuthoritativeRejection(status) {
     return status === 401
+}
+
+// Admission-staleness registry, keyed by PAT mode. A verifier writes an entry when it admits a
+// session WITHOUT a fresh provider validation (stale tier), and deletes it on the next fresh one.
+// The healthcheck surface reads this through {@link getAuthValidationStaleness} so a plane serving
+// on cached validations reports `degraded` — honest about riding the outage window instead of
+// presenting as fully healthy while nobody can be asked.
+const AUTH_VALIDATION_STALENESS = new Map();
+
+/**
+ * @summary Reads the live admission-staleness registry. Pure accessor — callers compose their own
+ * degradation verdicts from it; nothing here decides what `degraded` means for another surface.
+ * @returns {Map<String, {since: Number, user: String}>}
+ */
+export function getAuthValidationStaleness() {
+    return AUTH_VALIDATION_STALENESS
 }
 
 class AuthService extends Base {
@@ -1001,9 +1018,160 @@ class AuthService extends Base {
             requireUser         = allowedUsers.length > 0,
             pinSubject          = aiConfig.auth.pinFirstProviderSubject === true,
             staleGraceMs        = Math.max(0, Number(aiConfig.auth.patStaleGraceSeconds) || 0) * 1000,
+            diskCachePath       = aiConfig.auth.patDiskCachePath.trim(),
             cache               = new Map(); // tokenHash -> {user, scopes, expiresAt} (cache-freshness, ms)
 
         let pinnedProviderSubject = null;
+        // Lazily-loaded mirror of the on-disk store; null until the first transport-failure fallback
+        // (or first write-through) needs it. A plane that never sees an outage never pays the read.
+        // SINGLE-FLIGHT: concurrent first validations share one load, so two writers mutate the
+        // SAME map rather than two independent snapshots whose last rename would drop a row.
+        let diskEntries     = null;
+        let diskLoadPromise = null;
+        // Serialized write chain: logical updates (set/evict) are whole-map rewrites, so unchained
+        // concurrent rewrites would last-wins over each other. Deployment contract: one path is
+        // owned by exactly one service process — profiles bind DISTINCT paths per PAT-auth service,
+        // which dissolves cross-process contention structurally instead of locking.
+        let diskWriteChain = Promise.resolve();
+
+        const loadDiskEntries = async () => {
+            if (!diskCachePath) {
+                return null
+            }
+
+            if (diskEntries !== null) {
+                return diskEntries
+            }
+
+            if (!diskLoadPromise) {
+                diskLoadPromise = readPatValidationCache(diskCachePath)
+                    .then(({entries, warning}) => {
+                        if (warning) {
+                            logger.warn(`[AuthService] PAT disk cache at ${diskCachePath}: ${warning}. Admission degrades to provider-only until the next successful validation rewrites it.`)
+                        }
+
+                        diskEntries = entries;
+
+                        return diskEntries
+                    })
+                    .catch(error => {
+                        diskLoadPromise = null;
+
+                        throw error
+                    })
+            }
+
+            return diskLoadPromise
+        };
+
+        const persistDiskEntries = async () => {
+            if (!diskCachePath) {
+                return
+            }
+
+            // Chain onto the previous rewrite: every mutation observes the map state AFTER the
+            // prior one landed, so set-then-evict from interleaved validations cannot reorder into
+            // losing either decision.
+            diskWriteChain = diskWriteChain.then(async () => {
+                try {
+                    await writePatValidationCache(diskCachePath, diskEntries ?? new Map())
+                } catch (error) {
+                    // Losing the durable copy is a degradation to announce, never an admission
+                    // failure — the credential was just VALIDATED; failing the request over its
+                    // own cache write would invert the priority.
+                    logger.warn(`[AuthService] PAT disk cache write failed (admission continues): ${error.message}`)
+                }
+            });
+
+            await diskWriteChain
+        };
+
+        /**
+         * The outage-survival tier beneath `serveStale`: the in-memory entry is gone or past grace
+         * (the redeploy shape — a cold process during a provider outage), so a previously-validated
+         * identity from DISK may be admitted — but only while the provider itself still vouches for
+         * the credential's validity through `/rate_limit`.
+         *
+         * **Boundary ruling (status code only).** The probe consumes ONLY the response status:
+         * `200` proves validity, `401` is an authoritative revocation, anything else — `403`
+         * included, which on a shared-egress deployment may be a primary rate-limit breach rather
+         * than a refusal (see {@link isAuthoritativeRejection}) — means the provider still cannot
+         * answer cleanly. The body is never parsed and never logged: remaining-rate-limit numbers
+         * are GitHub-read data, and pulling them plane-side would cross the host-edge settlement
+         * this admission path deliberately stays inside.
+         *
+         * @returns {Promise<Object|null>} Stale-validated AuthInfo, or null when no disk tier applies.
+         */
+        const admitFromDiskWhenProviderAgrees = async (token, tokenHash, establishPin, reason) => {
+            if (!diskCachePath || establishPin) {
+                return null
+            }
+
+            const entries = await loadDiskEntries();
+            const entry   = entries.get(tokenHash);
+
+            if (!entry || Date.now() > entry.verifiedAt + ttlMs + staleGraceMs) {
+                return null
+            }
+
+            // CURRENT admission policy reapplies to cached identities: a subject removed from the
+            // allowlist before a restart is not readmitted because the provider happens to be down
+            // when they return. The persisted identity is evidence of WHO was validated, never a
+            // grant that outlives the policy that admitted it.
+            if (requireUser && !allowedUsers.includes(entry.user?.login)) {
+                entries.delete(tokenHash);
+                cache.delete(tokenHash);
+                await persistDiskEntries();
+                throw new InvalidTokenError('GitHub user is not allowed')
+            }
+
+            let status = 0;
+
+            try {
+                const response = await fetch(`${apiBaseUrl}/rate_limit`, {
+                    headers: {
+                        'Authorization'       : `Bearer ${token}`,
+                        'User-Agent'          : 'neo-agent-os',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    },
+                    signal: AbortSignal.timeout(validationTimeoutMs)
+                });
+
+                status = response.status
+            } catch {
+                status = 0
+            }
+
+            // Same doctrine as `isAuthoritativeRejection`: ONLY `401` is the provider answering
+            // "no". A `403` here is deliberately NOT an eviction — on this deployment's shared
+            // source address a primary rate-limit breach also answers `403`, so treating it as a
+            // refusal would lock every seat out precisely during the congestion an outage window
+            // produces. Any non-200 therefore means "the provider still cannot answer cleanly",
+            // which leaves admission exactly where it was: unresolved.
+            if (status === 401) {
+                entries.delete(tokenHash);
+                cache.delete(tokenHash);
+                await persistDiskEntries();
+                throw new InvalidTokenError('GitHub PAT rejected by the provider validity check')
+            }
+
+            if (status !== 200) {
+                return null
+            }
+
+            logger.warn(
+                `[AuthService] GitHub provider unreachable (${reason}); admitting identity ` +
+                `'${entry.user?.login}' from the DISK validation cache (status-code-only validity proof), ` +
+                `${Math.round((Date.now() - entry.verifiedAt) / 1000)}s since last fresh validation.`
+            );
+
+            AUTH_VALIDATION_STALENESS.set('github-pat', {
+                since: Date.now(),
+                user : entry.user?.login || ''
+            });
+
+            return admitProviderSubject(buildInfo(token, entry.user, entry.scopes, 'stale-validated'), false)
+        };
 
         /**
          * Decides whether an expired-but-known token may still be admitted because the PROVIDER —
@@ -1023,6 +1191,11 @@ class AuthService extends Base {
                 return null
             }
 
+            AUTH_VALIDATION_STALENESS.set('github-pat', {
+                since: Date.now(),
+                user : entry.user?.login || ''
+            });
+
             // Logged rather than silent: an operator must be able to tell a stale-served request
             // from a freshly validated one, or "auth is fine" becomes unfalsifiable during exactly
             // the outage this exists to survive.
@@ -1039,7 +1212,7 @@ class AuthService extends Base {
         // GitHub `/user` does not return the PAT's own expiry, so we use the re-validation
         // horizon: one cache window from now (Unix seconds). Built per-call so `expiresAt`
         // stays request-fresh on cache hits.
-        const buildInfo = (token, user, scopes) => ({
+        const buildInfo = (token, user, scopes, validationState = 'fresh') => ({
             token,
             clientId : user.login,
             scopes,
@@ -1049,6 +1222,10 @@ class AuthService extends Base {
             // Provenance tag read by RequestContextService.getSource(); distinguishes a GitHub-PAT
             // identity from OIDC / gitlab-pat / stdio env-var / gh-CLI sources.
             source   : 'github-pat',
+            // Admission honesty: 'stale-validated' marks a session admitted while the provider's
+            // validation endpoint could not be asked — machine-readable at the transport boundary
+            // so staleness is observable, never silent.
+            validationState,
             // Provider-neutral identity metadata consumed by Memory Core's request-time
             // AgentIdentity auto-provisioner. The raw bearer token remains in AuthInfo only for
             // the SDK middleware boundary and is never copied into graph identity properties.
@@ -1128,6 +1305,15 @@ class AuthService extends Base {
                     // credential, for every seat, on the first call of every turn.
                     if (isAuthoritativeRejection(userResponse.status)) {
                         cache.delete(tokenHash);
+
+                        // A provider "no" must reach every tier — a disk entry surviving an
+                        // authoritative revocation would be the stale tier softening the one
+                        // answer it exists never to soften.
+                        if (diskCachePath) {
+                            (await loadDiskEntries()).delete(tokenHash);
+                            await persistDiskEntries()
+                        }
+
                         throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
                     }
 
@@ -1135,6 +1321,14 @@ class AuthService extends Base {
 
                     if (stale) {
                         return admitProviderSubject(buildInfo(token, stale.user, stale.scopes), establishPin)
+                    }
+
+                    // In-memory tier exhausted (cold process or past grace) — the disk tier, gated
+                    // by the provider's own validity answer, is the redeploy-during-outage shape.
+                    const diskStale = await admitFromDiskWhenProviderAgrees(token, tokenHash, establishPin, `HTTP ${userResponse.status}`);
+
+                    if (diskStale) {
+                        return diskStale
                     }
 
                     throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
@@ -1148,11 +1342,23 @@ class AuthService extends Base {
 
                 if (typeof user.login !== 'string' || user.login.trim().length === 0) {
                     cache.delete(tokenHash);
+
+                    if (diskCachePath) {
+                        (await loadDiskEntries()).delete(tokenHash);
+                        await persistDiskEntries()
+                    }
+
                     throw new InvalidTokenError('GitHub PAT validation returned no provider login')
                 }
 
                 if (requireUser && !allowedUsers.includes(user.login)) {
                     cache.delete(tokenHash);
+
+                    if (diskCachePath) {
+                        (await loadDiskEntries()).delete(tokenHash);
+                        await persistDiskEntries()
+                    }
+
                     throw new InvalidTokenError('GitHub user is not allowed')
                 }
 
@@ -1161,6 +1367,23 @@ class AuthService extends Base {
                 const info = admitProviderSubject(buildInfo(token, user, scopes), establishPin);
 
                 cache.set(tokenHash, {user, scopes, expiresAt: Date.now() + ttlMs});
+                AUTH_VALIDATION_STALENESS.delete('github-pat');
+
+                // Write-through: the disk tier is only as good as its last affirmative answer. A
+                // revoked token must also leave THIS store on the authoritative path below.
+                // Persisted subject is NORMALIZED to the fields buildInfo consumes — the full
+                // provider response (plan flags, profile URLs, email scopes) never reaches disk;
+                // identity-disclosure bound is exactly these three fields plus scopes + timestamp.
+                if (diskCachePath) {
+                    const entries = await loadDiskEntries();
+
+                    entries.set(tokenHash, {
+                        user      : {id: user.id, login: user.login, name: user.name},
+                        scopes,
+                        verifiedAt: Date.now()
+                    });
+                    await persistDiskEntries()
+                }
 
                 logger.info(`[AuthService] GitHub PAT validated for user: ${user.name || user.login}`);
 
@@ -1181,6 +1404,19 @@ class AuthService extends Base {
 
                 if (stale) {
                     return admitProviderSubject(buildInfo(token, stale.user, stale.scopes), establishPin)
+                }
+
+                // Same disk tier on the unreachable branch: a cold process meeting an outage is the
+                // incident shape this whole fallback exists for.
+                const diskStale = await admitFromDiskWhenProviderAgrees(
+                    token,
+                    tokenHash,
+                    establishPin,
+                    signal.aborted ? `timeout after ${validationTimeoutMs}ms` : 'network error'
+                );
+
+                if (diskStale) {
+                    return diskStale
                 }
 
                 cache.delete(tokenHash);
