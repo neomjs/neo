@@ -106,7 +106,7 @@ test.describe('Neo.ai.services.memory-core.MemoryService — graph-projection li
         }
     });
 
-    test('resetMemoryCoreLifecycle cancels pending projection timers, so a spec file cannot end with queued work (#15874)', async () => {
+    test('resetMemoryCoreLifecycle cancels pending projection timers, so a spec file cannot end with queued work', async () => {
         const originalProject = MemoryService._projectMemoryToGraph;
 
         // Hang the projection so the scheduled timer stays pending + observable, exactly as the
