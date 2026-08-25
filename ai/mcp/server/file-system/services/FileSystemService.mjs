@@ -1,7 +1,7 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs           from 'fs/promises';
+import path         from 'path';
 import { execFile } from 'child_process';
-import util from 'util';
+import util         from 'util';
 
 /**
  * `execFile`, not `exec`. `exec` spawns a shell, which would make every argument a fragment of a
@@ -127,7 +127,7 @@ class FileSystemService {
 
     static async readFile({absolutePath}) {
         const safePath = await ensureSandboxed(absolutePath);
-        const buffer = await fs.readFile(safePath);
+        const buffer   = await fs.readFile(safePath);
         return { content: buffer.toString('utf-8') };
     }
 
@@ -139,12 +139,12 @@ class FileSystemService {
 
     static async listDirectory({absolutePath}) {
         const safePath = await ensureSandboxed(absolutePath);
-        const entries = await fs.readdir(safePath, { withFileTypes: true });
+        const entries  = await fs.readdir(safePath, { withFileTypes: true });
 
         return entries.map(entry => ({
-            name: entry.name,
+            name       : entry.name,
             isDirectory: entry.isDirectory(),
-            isFile: entry.isFile()
+            isFile     : entry.isFile()
         }));
     }
 
@@ -161,11 +161,36 @@ class FileSystemService {
         }
     }
 
+    /**
+     * @summary Runs one Playwright spec only when its canonical path is inside the project suite.
+     * @param {Object} options
+     * @param {String} options.absolutePath The caller-selected spec path.
+     * @returns {Promise<String>} The Playwright runner output.
+     * @throws {Error} If the canonical path is outside the project or Playwright suite, or if
+     *   canonical Playwright suite containment cannot be established.
+     */
     static async runPlaywrightTest({absolutePath}) {
         const safePath = await ensureSandboxed(absolutePath);
+        let   suiteRoot;
 
-        // Strict guard: ensure it's actually a test file in the playwright directory
-        if (!safePath.includes('test/playwright/')) {
+        // `safePath` proves project containment, not suite containment. If the suite boundary
+        // itself cannot be canonicalized, that second verdict is unknown and must fail closed with
+        // the guard's vocabulary rather than escape as a retry-looking filesystem error.
+        try {
+            suiteRoot = await fs.realpath(path.resolve(process.cwd(), 'test/playwright'))
+        } catch (error) {
+            throw new Error(
+                `403 Forbidden: Playwright suite containment could not be established (${error?.code ?? 'unknown'}). ` +
+                `Refusing the operation — this is NOT a verdict that the path is inside the suite.`
+            );
+        }
+
+        const relative = path.relative(suiteRoot, safePath);
+
+        // `safePath` and `suiteRoot` are both canonical. Compare on a segment boundary so a sibling
+        // such as `/atest/playwright/` cannot impersonate the suite, and keep the suite root itself
+        // excluded because it is a directory rather than a spec.
+        if (relative === '' || path.isAbsolute(relative) || relative.split(path.sep)[0] === '..') {
             throw new Error('403 Forbidden: Can only execute Playwright specs within the test/playwright/ directory.');
         }
 
