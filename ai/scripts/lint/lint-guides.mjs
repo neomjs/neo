@@ -60,6 +60,9 @@ const GUIDE_SERIES_DIR = 'learn/guides';
 /** CSS hexadecimal lengths that can otherwise be indistinguishable from numeric ticket ids. */
 const CSS_HEX_LENGTHS = new Set([4, 6, 8]);
 
+/** CSS properties whose value grammar commonly carries raw hexadecimal colors. */
+const CSS_COLOR_PROPERTY = /^(?:--[\w-]+|accent-color|background(?:-color)?|border(?:-(?:block|inline)(?:-(?:start|end))?|-(?:top|right|bottom|left))?(?:-color)?|box-shadow|caret-color|color|column-rule(?:-color)?|fill|flood-color|lighting-color|outline(?:-color)?|scrollbar-color|stop-color|stroke|text-decoration(?:-color)?|text-emphasis(?:-color)?|text-shadow)$/i;
+
 /**
  * Mermaid keywords that break the parser when reused as a node ID or `classDef` name.
  * `graph`/`flowchart` are also legal as the diagram-type declaration on the FIRST block line,
@@ -271,9 +274,10 @@ function isSyntacticHexColor(line, index, token, inFence) {
         return false;
     }
 
-    const before = line.slice(0, index);
+    const before      = line.slice(0, index);
+    const declaration = before.match(/(?:^|[;{])\s*([-\w]+)\s*:[^#]*$/);
 
-    return /(?:^|[;{,])\s*(?:--[\w-]+|[A-Za-z-]+)\s*:[^#]*$/.test(before)
+    return Boolean(declaration && CSS_COLOR_PROPERTY.test(declaration[1]))
         || /\b(?:fill|stroke|color)\s*:[^#]*$/i.test(before);
 }
 

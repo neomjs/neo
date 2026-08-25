@@ -175,6 +175,26 @@ test.describe('ai/scripts/lint-guides (#14354 — mechanical guide-quality lint)
         expect(found[0].detail).toContain('#56789');
     });
 
+    test('checkTicketIds: CSS-length ticket ids after prose labels remain HARD in code', () => {
+        const content = [
+            '```text',
+            'Related: #9473',
+            'Ticket: #123456',
+            'issue: #12345678',
+            '```',
+            'Refs: `#8856` in the body'
+        ].join('\n');
+        const found = checkTicketIds(content);
+
+        expect(found.map(f => [f.line, f.detail.match(/#[0-9]+/)[0]])).toEqual([
+            [2, '#9473'],
+            [3, '#123456'],
+            [4, '#12345678'],
+            [6, '#8856']
+        ]);
+        expect(found.every(f => f.severity === 'HARD' && f.rule === 'ticket-id')).toBe(true);
+    });
+
     test('discoverGuideSeries: recursively reaches nested guides without widening the full-guide surface', () => {
         const files = discoverGuideSeries();
 
