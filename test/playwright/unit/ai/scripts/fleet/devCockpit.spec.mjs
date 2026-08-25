@@ -28,6 +28,10 @@ const authenticatedOptions = overrides => ({
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
+// Both describe blocks below own the fixed :8083 endpoint. Under `fullyParallel`, separate describes
+// can run in different workers; file-wide default mode orders them while preserving independent retries.
+test.describe.configure({mode: 'default'});
+
 /**
  * The boot-plan witnesses for the one-command cockpit launcher: the pure decision seam
  * (refuse-on-authority-violation, refuse-on-incompatible-occupant, reuse-on-fleet-identity,
@@ -35,11 +39,6 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * listener, and a closed port — a listener is never presumed to be a fleet server.
  */
 test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', () => {
-    // Two witnesses below OWN the real :8083 endpoint (the composed boot and the reuse
-    // falsifier). Parallel workers would race them onto the same port — and under the
-    // authenticated-reuse contract the loser correctly REFUSES, failing the wrong test.
-    test.describe.configure({mode: 'serial'});
-
     test('a non-default fleet port REFUSES with the named endpoint-authority reason', () => {
         const plan = planCockpitBoot({fleetPort: 9999});
 
@@ -309,9 +308,6 @@ test.describe('ai/scripts/fleet/devCockpit — the live-by-default boot plan', (
  * fail-fast, and the never-adopt-an-incumbent refusal.
  */
 test.describe('ai/scripts/fleet/devCockpit — the live-plane journey (cockpit:live)', () => {
-    // The composed witnesses below own :8083 in turn (serial, same discipline as the boot-plan suite).
-    test.describe.configure({mode: 'serial'});
-
     test('resolveLivePlaneConfig: env pin wins and the gh seam is never consulted', async () => {
         const resolved = await resolveLivePlaneConfig({
             env        : {NEO_FLEET_PLANE_BASE: 'http://127.0.0.1:4000', NEO_FLEET_PLANE_BEARER: 'env-token'},
