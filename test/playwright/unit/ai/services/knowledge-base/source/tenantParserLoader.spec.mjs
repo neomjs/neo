@@ -30,11 +30,17 @@ test.describe('tenantParserLoader — a tenant names a module BELOW a deployment
         fs.mkdirSync(path.join(root, 'nested'), {recursive: true});
         fs.mkdirSync(path.join(tmpRoot, 'outside'), {recursive: true});
 
-        fs.writeFileSync(path.join(root, 'Good.mjs'), 'export default class Good {}\n');
-        fs.writeFileSync(path.join(root, 'nested', 'Deep.mjs'), 'export default class Deep {}\n');
-        fs.writeFileSync(path.join(root, 'Named.mjs'), 'export class Custom {}\nexport default null;\n');
+        // The loadable fixtures carry a static `parseIngestionFile` because the loader's contract is
+        // now "returns a DISPATCHABLE parser" — an empty class is the exact shape it refuses,
+        // so a stub without one would make these positive controls assert the refusal instead.
+        const dispatchable = name => `export default class ${name} { static parseIngestionFile() { return [] } }\n`;
+
+        fs.writeFileSync(path.join(root, 'Good.mjs'), dispatchable('Good'));
+        fs.writeFileSync(path.join(root, 'nested', 'Deep.mjs'), dispatchable('Deep'));
+        fs.writeFileSync(path.join(root, 'Named.mjs'), 'export class Custom { static parseIngestionFile() { return [] } }\nexport default null;\n');
         fs.writeFileSync(path.join(root, 'NoExport.mjs'), 'export const notAClass = 1;\n');
-        fs.writeFileSync(path.join(tmpRoot, 'outside', 'Evil.mjs'), 'export default class Evil {}\n');
+        fs.writeFileSync(path.join(root, 'Instance.mjs'), 'export default class Instance { parseIngestionFile() { return [] } }\n');
+        fs.writeFileSync(path.join(tmpRoot, 'outside', 'Evil.mjs'), dispatchable('Evil'));
     });
 
     test.afterEach(() => fs.rmSync(tmpRoot, {recursive: true, force: true}));
@@ -125,6 +131,19 @@ test.describe('tenantParserLoader — a tenant names a module BELOW a deployment
         try { await loadTenantParser({specifier: 'NoExport.mjs', root}) } catch (error) { code = error.code }
 
         expect(code).toBe(TENANT_PARSER_ERROR_CODES.noExport);
+    });
+
+    test('a class whose parse method is an INSTANCE method is refused, not returned', async () => {
+        // Exporting something is not exporting something dispatchable. This class is truthy and its
+        // method is present, but dispatch reads it off the class itself, so `prototype` is
+        // unreachable and the file would degrade to a whole-file raw-text chunk.
+        let error;
+
+        try { await loadTenantParser({specifier: 'Instance.mjs', root}) } catch (caught) { error = caught }
+
+        expect(error?.code).toBe(TENANT_PARSER_ERROR_CODES.notDispatchable);
+        expect(error.message).toMatch(/static/i);
+        expect(error.message).toMatch(/prototype|instance method/i);
     });
 
     test('a named export is taken when the declaration asks for one', async () => {

@@ -9,8 +9,11 @@ import {
 }                            from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import SourceRegistry     from './source/_export.mjs';
-import {loadTenantParser} from './source/tenantParserLoader.mjs';
+import SourceRegistry       from './source/_export.mjs';
+import {
+    assertDispatchableParser,
+    loadTenantParser
+}                           from './source/tenantParserLoader.mjs';
 import {normalizeTenantRepoConfig}
                             from './helpers/tenantRepoAccessContract.mjs';
 import {normalizeSettlementCounts}
@@ -1806,10 +1809,21 @@ class IngestionService extends Base {
      * is the same defect shape as a census reporting `0` instead of `unknown`, minus even a
      * suspicious number to notice.
      *
+     * **The dispatched value must carry the method itself.** `resolveFileChunks` calls
+     * `parseIngestionFile` / `parse` on the resolved value and never instantiates it. A constructor
+     * carrying static methods, an object literal, and a `Neo.setupClass` singleton (whose export IS
+     * an instance) all satisfy that; only a plain constructor whose methods live on `prototype` does
+     * not — it is truthy with both probes reading `undefined`, which is the same silent `raw-text`
+     * degradation described above reached from a parser that loaded perfectly.
+     *
+     * Both declaration forms are validated: `loadTenantParser` refuses a `parserModule` export, and
+     * the live `ParserClass` branch below is checked by the same predicate, because a guard under
+     * only one of them leaves the other degrading unchanged.
+     *
      * @param {Object} options
      * @param {String} options.parserId
      * @param {Object} [options.tenantContext]
-     * @returns {Promise<Object|null>} The tenant's parser class, or null when it declared none.
+     * @returns {Promise<Object|null>} The tenant's parser, or null when it declared none.
      * @protected
      */
     async resolveTenantParser({parserId, tenantContext} = {}) {
@@ -1836,9 +1850,15 @@ class IngestionService extends Base {
         }
 
         // A live class reference still wins — the JS-config tier is unchanged by this path, and
-        // caching an object the caller already handed us would buy nothing.
+        // caching an object the caller already handed us would buy nothing. It is validated for
+        // dispatchability all the same: both declaration forms converge on `resolveFileChunks`, so a
+        // guard placed only under `parserModule` would leave this branch degrading to raw-text
+        // exactly as before.
         if (entry.ParserClass) {
-            return entry.ParserClass
+            return assertDispatchableParser(
+                entry.ParserClass,
+                `tenant parser '${parserId}' was declared as a live ParserClass`
+            )
         }
 
         if (!entry.parserModule) {

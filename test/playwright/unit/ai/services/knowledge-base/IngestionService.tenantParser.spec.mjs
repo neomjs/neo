@@ -76,6 +76,32 @@ const PARSER_NAMED = `export class Custom {
 export default null;
 `;
 
+// The broken shape. The method is present the whole time — it lives on `prototype`, so
+// `ParserClass.parseIngestionFile` reads `undefined` while the class itself stays truthy.
+const PARSER_INSTANCE_METHOD = `export default class ParserInstance {
+    async parseIngestionFile(file) {
+        return [{producedBy: 'ParserInstance', sourcePath: file.sourcePath}]
+    }
+}
+`;
+
+// `parse` is the second probe in the dispatch chain, so an instance-only `parse` degrades the same
+// way. The refusal must not be written against `parseIngestionFile` alone.
+const PARSER_INSTANCE_PARSE = `export default class ParserInstanceParse {
+    async parse(file) {
+        return [{producedBy: 'ParserInstanceParse', sourcePath: file.sourcePath}]
+    }
+}
+`;
+
+// The shape a tenant reaches for when they read the contract as data rather than as a class.
+const PARSER_OBJECT_LITERAL = `export default {
+    async parseIngestionFile(file) {
+        return [{producedBy: 'ParserLiteral', sourcePath: file.sourcePath}]
+    }
+};
+`;
+
 function createGraphStub() {
     const store = new Map();
 
@@ -113,6 +139,9 @@ test.describe('IngestionService — a tenant-declared parser reaches dispatch (#
         fs.writeFileSync(path.join(parserRoot, 'ParserOne.mjs'), PARSER_ONE);
         fs.writeFileSync(path.join(parserRoot, 'ParserTwo.mjs'), PARSER_TWO);
         fs.writeFileSync(path.join(parserRoot, 'Named.mjs'), PARSER_NAMED);
+        fs.writeFileSync(path.join(parserRoot, 'Instance.mjs'), PARSER_INSTANCE_METHOD);
+        fs.writeFileSync(path.join(parserRoot, 'InstanceParse.mjs'), PARSER_INSTANCE_PARSE);
+        fs.writeFileSync(path.join(parserRoot, 'Literal.mjs'), PARSER_OBJECT_LITERAL);
         fs.writeFileSync(path.join(tmpRoot, 'outside', 'Evil.mjs'), PARSER_ONE);
     });
 
@@ -336,6 +365,97 @@ test.describe('IngestionService — a tenant-declared parser reaches dispatch (#
         expect(chunks[0].producedBy).toBe('InlineParser');
     });
 
+    test('a live ParserClass with a prototype-only method is REFUSED — the other tenant entry path', async () => {
+        // The two declaration forms converge on one consumer, so a guard placed only under
+        // `parserModule` leaves this branch degrading to raw-text exactly as before. This is the
+        // shape the loader refuses, arriving through the tier the loader never sees.
+        class PrototypeOnlyParser {
+            async parseIngestionFile(file) {
+                return [{producedBy: 'PrototypeOnlyParser', sourcePath: file.sourcePath}]
+            }
+        }
+
+        graphStub.store.set('kb-config:tenant-a', {
+            id        : 'kb-config:tenant-a',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {version: 1, customParsers: [{parserId: 'ac-inline-proto', ParserClass: PrototypeOnlyParser}]}
+        });
+
+        let chunks, error;
+
+        try {
+            chunks = await Service.resolveFileChunks({
+                file         : sourceFile({parserId: 'ac-inline-proto'}),
+                fileIndex    : 0,
+                tenantContext: {tenantId: 'tenant-a'}
+            })
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(chunks, 'it must not silently become a whole-file chunk').toBeUndefined();
+        expect(error?.code).toBe('KB_TENANT_PARSER_NOT_DISPATCHABLE')
+    });
+
+    test('a live ParserClass that is a SINGLETON INSTANCE dispatches — instance methods are reachable', async () => {
+        // The property is "callable on the value that gets dispatched", not "static". A
+        // `Neo.setupClass` singleton exports an INSTANCE — the idiom every built-in Source uses — so
+        // its ordinary instance methods resolve through the prototype and dispatch fine. A guard
+        // written against "static" would refuse the repository's own shape.
+        const singletonParser = new (class SingletonParser {
+            async parseIngestionFile(file) {
+                return [{producedBy: 'SingletonParser', sourcePath: file.sourcePath}]
+            }
+        })();
+
+        graphStub.store.set('kb-config:tenant-a', {
+            id        : 'kb-config:tenant-a',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {version: 1, customParsers: [{parserId: 'ac-inline-singleton', ParserClass: singletonParser}]}
+        });
+
+        const chunks = await Service.resolveFileChunks({
+            file         : sourceFile({parserId: 'ac-inline-singleton'}),
+            fileIndex    : 0,
+            tenantContext: {tenantId: 'tenant-a'}
+        });
+
+        expect(chunks[0].producedBy).toBe('SingletonParser')
+    });
+
+    test('the GLOBAL registry path still dispatches — the control that is not vacuous', async () => {
+        // A control that drives a file with no `parserId` never reaches the global registry at all,
+        // so it cannot detect the guard widening into that path. This one registers a parser there
+        // and dispatches THROUGH it, which is the only way the assertion can fail if the boundary
+        // moves.
+        class GlobalParser {
+            static async parseIngestionFile(file) {
+                return [{producedBy: 'GlobalParser', sourcePath: file.sourcePath}]
+            }
+        }
+
+        const registryIdsBefore = [...Service.sourceRegistry.getParserIds()];
+
+        Service.sourceRegistry.registerParser(GlobalParser, {parserId: 'ac-global'});
+
+        try {
+            // No tenant declaration for this id, so resolution falls through to the global registry.
+            await Service.setTenantConfig({tenantId: 'tenant-a', config: {customParsers: []}});
+
+            const chunks = await Service.resolveFileChunks({
+                file         : sourceFile({parserId: 'ac-global'}),
+                fileIndex    : 0,
+                tenantContext: {tenantId: 'tenant-a'}
+            });
+
+            expect(chunks[0].producedBy, 'the global path dispatches, unchanged by the tenant guard').toBe('GlobalParser')
+        } finally {
+            Service.sourceRegistry._parsers.delete('ac-global')
+        }
+
+        expect(Service.sourceRegistry.getParserIds()).toEqual(registryIdsBefore)
+    });
+
     test('NEGATIVE CONTROL: with no tenant declaration the registry is untouched and the global path answers', async () => {
         // AC5/AC6 — a zero-config deployment must behave exactly as before. The loader existing is
         // not allowed to change what an undeclared tenant resolves.
@@ -377,5 +497,124 @@ test.describe('IngestionService — a tenant-declared parser reaches dispatch (#
 
         expect(error?.code).toBe('KB_TENANT_PARSER_ROOT_NOT_SET');
         expect(error.message).toContain('NEO_KB_TENANT_PARSER_ROOT');
+    });
+
+    /**
+     * Dispatch reads `parseIngestionFile` / `parse` off the resolved value itself, so a class
+     * carrying either on `prototype` is truthy while both probes read `undefined`: the
+     * `KB_PARSER_NOT_REGISTERED` throw is skipped, and the file degrades to a whole-file `raw-text`
+     * chunk. Green load, green sweep, quietly worse corpus, and no anomalous count to notice.
+     *
+     * The observable is deliberately the coded refusal AND the absence of a raw-text chunk. Asserting
+     * only that it throws would pass against a deployment that threw for any other reason.
+     */
+    test('an instance-method parser is REFUSED with a coded reason, not degraded to raw-text', async () => {
+        await Service.setTenantConfig({
+            tenantId: 'tenant-a',
+            config  : {customParsers: [{parserId: 'ac-instance', parserModule: 'Instance.mjs'}]}
+        });
+
+        let chunks, error;
+
+        try {
+            chunks = await Service.resolveFileChunks({
+                file         : sourceFile({parserId: 'ac-instance'}),
+                fileIndex    : 0,
+                tenantContext: {tenantId: 'tenant-a'}
+            })
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(chunks, 'the file must not silently become a whole-file chunk').toBeUndefined();
+        expect(error?.code).toBe('KB_TENANT_PARSER_NOT_DISPATCHABLE');
+
+        // The remediation is the entire defect and is invisible from the symptom, so the message has
+        // to carry the static-vs-instance distinction rather than just naming the module.
+        expect(error.message).toContain('Instance.mjs');
+        expect(error.message).toMatch(/static/i);
+        expect(error.message).toMatch(/instance method|prototype/i);
+    });
+
+    test('the refusal covers the `parse` probe too, not just `parseIngestionFile`', async () => {
+        await Service.setTenantConfig({
+            tenantId: 'tenant-a',
+            config  : {customParsers: [{parserId: 'ac-instance-parse', parserModule: 'InstanceParse.mjs'}]}
+        });
+
+        let chunks, error;
+
+        try {
+            chunks = await Service.resolveFileChunks({
+                file         : sourceFile({parserId: 'ac-instance-parse'}),
+                fileIndex    : 0,
+                tenantContext: {tenantId: 'tenant-a'}
+            })
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(chunks).toBeUndefined();
+        expect(error?.code).toBe('KB_TENANT_PARSER_NOT_DISPATCHABLE');
+    });
+
+    /**
+     * The three declared shapes as one table. Only the lookup surface differs between them — the
+     * method is present in all three — so a test that exercised only the corrected shapes would prove
+     * nothing: they already pass today.
+     */
+    for (const {shape, module: parserModule, dispatches, producedBy} of [
+        {shape: 'static-method class', module: 'ParserOne.mjs', dispatches: true,  producedBy: 'ParserOne'},
+        {shape: 'object literal',      module: 'Literal.mjs',   dispatches: true,  producedBy: 'ParserLiteral'},
+        {shape: 'instance-method class', module: 'Instance.mjs', dispatches: false, producedBy: null}
+    ]) {
+        test(`shape table: a ${shape} ${dispatches ? 'dispatches' : 'is refused'}`, async () => {
+            const parserId = `ac-table-${parserModule}`;
+
+            await Service.setTenantConfig({
+                tenantId: 'tenant-a',
+                config  : {customParsers: [{parserId, parserModule}]}
+            });
+
+            let chunks, error;
+
+            try {
+                chunks = await Service.resolveFileChunks({
+                    file         : sourceFile({parserId}),
+                    fileIndex    : 0,
+                    tenantContext: {tenantId: 'tenant-a'}
+                })
+            } catch (caught) {
+                error = caught
+            }
+
+            if (dispatches) {
+                expect(error).toBeUndefined();
+                expect(chunks[0].producedBy).toBe(producedBy)
+            } else {
+                expect(error?.code).toBe('KB_TENANT_PARSER_NOT_DISPATCHABLE');
+                expect(chunks).toBeUndefined()
+            }
+        });
+    }
+
+    test('NEGATIVE CONTROL: a zero-tenant deployment is untouched by the refusal', async () => {
+        // The refusal is scoped to tenant-declared parsers. The global registry is populated once at
+        // import time from static declarations, so a deployment that declares no tenant parser must
+        // resolve exactly as before — including the raw-text fallback for an unparsed file, which
+        // stays correct when nothing was declared.
+        const registryIdsBefore = [...Service.sourceRegistry.getParserIds()];
+
+        await Service.setTenantConfig({tenantId: 'tenant-a', config: {customParsers: []}});
+
+        const chunks = await Service.resolveFileChunks({
+            file         : sourceFile({parserId: undefined}),
+            fileIndex    : 0,
+            tenantContext: {tenantId: 'tenant-a'}
+        });
+
+        expect(chunks).toHaveLength(1);
+        expect(chunks[0].producedBy).toBeUndefined();
+        expect(Service.sourceRegistry.getParserIds()).toEqual(registryIdsBefore);
     });
 });
