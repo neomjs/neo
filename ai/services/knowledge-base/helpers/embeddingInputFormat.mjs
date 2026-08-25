@@ -71,12 +71,31 @@ export function buildEmbeddingInputText(chunk) {
  *
  * @type {Object[]}
  */
-const FORMAT_PROBE_CHUNKS = Object.freeze([
+export const FORMAT_PROBE_CHUNKS = Object.freeze([
     {kind: 'method', name: 'probeA', className: 'ProbeClass', content: 'probe body'},
     {kind: 'method', name: 'probeA', className: 'ProbeClass', content: 'probe body', type: 'src'},
     {kind: 'class-config', name: 'probeB', content: 'probe body'},
     {kind: 'method', name: 'probeC', className: 'ProbeClass', content: 'probe body', description: 'probe description'},
     {kind: 'method', name: 'probeD', className: 'ProbeClass'}
+]);
+
+/**
+ * @summary The chunk fields {@link buildEmbeddingInputText} reads — the format's own field authority.
+ *
+ * Declared **here**, beside the function that reads them, because anything reconstructing a chunk in
+ * order to reproduce a provider input must project exactly this set. A consumer keeping its own copy
+ * would be a second authority, and the failure that creates is silent in the worst direction: a field
+ * newly read by the format changes {@link EMBEDDING_INPUT_FORMAT_ID} — correctly marking every
+ * existing row stale — while the consumer's projection drops it, so the *repair* for that staleness
+ * writes a vector built from a different string than ingestion produces. A current marker over a
+ * wrong vector is invisible to every future census, which is worse than the staleness it replaced.
+ *
+ * Adding a branch to the format is therefore three edits in this one file: the branch, its probe in
+ * {@link FORMAT_PROBE_CHUNKS}, and this list.
+ * @type {String[]}
+ */
+export const EMBEDDING_INPUT_CHUNK_FIELDS = Object.freeze([
+    'className', 'content', 'description', 'kind', 'name', 'type'
 ]);
 
 /**
