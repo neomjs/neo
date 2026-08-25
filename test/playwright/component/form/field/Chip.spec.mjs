@@ -62,7 +62,10 @@ test.describe('Neo.form.field.Chip', () => {
 
     test.afterEach(async ({page}) => {
         if (componentId) {
-            await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), componentId);
+            const destroyedId = componentId;
+
+            await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), destroyedId);
+            await expect(page.locator(`#${destroyedId}`)).toHaveCount(0);
             componentId = null
         }
     });
