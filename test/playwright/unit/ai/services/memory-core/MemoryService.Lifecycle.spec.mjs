@@ -35,11 +35,13 @@ test.describe('Neo.ai.services.memory-core.MemoryService — graph-projection li
     test.beforeEach(() => {
         // Never INHERIT a live interval or pending retry from a previous spec file in this worker.
         //
-        // The `afterEach` below defended every LATER spec and never this one: an earlier file whose
-        // real retry chain has not exhausted leaves `graphProjectionRetryTimers.size >= 1`, and the
-        // `expect(size).toBe(1)` arm below then reads 2. Reported by @neo-kimi-iris on #15874 with 4
-        // reproductions across 5 full-tree runs, passing in isolation every time — the ticket's own
-        // decisive control.
+        // The `afterEach` below defends every LATER spec and never this one: an earlier file whose
+        // retry chain has not exhausted leaves `graphProjectionRetryTimers.size >= 1`, and the
+        // `expect(size).toBe(1)` arm below then reads 2 — passing in isolation every time, which is
+        // what makes it read as flake rather than as leakage.
+        //
+        // The durable lesson is the asymmetry: a teardown-only convention looks like hygiene while
+        // protecting everyone except the file that wrote it.
         MemoryService._clearGraphProjectionTimers();
     });
 

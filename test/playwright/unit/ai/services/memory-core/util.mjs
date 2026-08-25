@@ -33,7 +33,7 @@ export async function resetMemoryCoreLifecycle(SDK) {
         StorageRouter    = SDK.Memory_StorageRouter;
     } else {
         // Individual modules, never the `ai/services.mjs` barrel: importing the aggregate opens the
-        // Memory Core graph DB as a side effect of class setup (#17383).
+        // Memory Core graph DB as a side effect of class setup.
         ChromaManager    = (await import('../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         MemoryService    = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
@@ -47,7 +47,19 @@ export async function resetMemoryCoreLifecycle(SDK) {
     // Cancel BEFORE the collection handles below are nulled: a projection that fires afterwards
     // would re-resolve them against the next spec's config leaves, which is the binding mismatch
     // this helper exists to prevent.
-    MemoryService?._clearGraphProjectionTimers?.();
+    //
+    // Loud, not optional-chained. A silently-skipped cancellation is the precise failure this helper
+    // exists to close, so an unreachable primitive has to fail HERE rather than surface later as
+    // foreign nodes in an unrelated spec that cannot account for them. `?.` would let a future
+    // aggregate drop the cancellation and leave the next file to discover it.
+    if (typeof MemoryService?._clearGraphProjectionTimers !== 'function') {
+        throw new Error(
+            'resetMemoryCoreLifecycle: MemoryService._clearGraphProjectionTimers is unreachable, so ' +
+            'in-flight graph projections cannot be cancelled and would leak into the next spec file.'
+        );
+    }
+
+    MemoryService._clearGraphProjectionTimers();
 
     if (StorageRouter) {
         StorageRouter._initPromise = null;
