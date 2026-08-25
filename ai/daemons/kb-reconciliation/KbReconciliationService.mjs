@@ -11,6 +11,7 @@ import logger            from '../../mcp/server/knowledge-base/logger.mjs';
 import {
     diffTenantChunks,
     diffTenantManifest,
+    diffTenantParserIdentity,
     formatReconciliationDetail,
     resolveOrphanVersionGap
 } from '../../services/knowledge-base/helpers/kbReconciliationEngine.mjs';
@@ -217,9 +218,21 @@ class KbReconciliationService extends Base {
             const currentVersion  = await this.fetchTenantConfigVersion(tenantId),
                   rows            = await this.fetchTenantRows(collection, tenantId),
                   manifestsByRepo = await this.fetchTenantManifests(tenantId),
-                  configDiff      = diffTenantChunks({rows, currentVersion, orphanVersionGap}),
-                  manifestDiff    = diffTenantManifest({rows, manifestsByRepo}),
-                  diff            = this.combineDiffs({configDiff, manifestDiff});
+                  declaredByRepo  = await this.fetchTenantDeclaredParsers(tenantId),
+                  // The manifest already records the paths the current push yields per repo, which is
+                  // exactly tier 1's question. A repo with no manifest is therefore *unknown* rather
+                  // than *empty*: `diffTenantParserIdentity` skips tier 1 for it and every row falls
+                  // to the replacement-gated tier, so a missing manifest can never mark a whole repo
+                  // actionable.
+                  yieldedPathsByRepo = Object.fromEntries(
+                      Object.entries(manifestsByRepo || {})
+                          .filter(([, manifest]) => Array.isArray(manifest?.pathsAfterPush))
+                          .map(([repo, manifest]) => [repo, manifest.pathsAfterPush])
+                  ),
+                  configDiff        = diffTenantChunks({rows, currentVersion, orphanVersionGap}),
+                  manifestDiff      = diffTenantManifest({rows, manifestsByRepo}),
+                  parserDiff        = diffTenantParserIdentity({rows, tenantId, declaredByRepo, yieldedPathsByRepo}),
+                  diff              = this.combineDiffs({configDiff, manifestDiff, parserDiff});
 
             if (diff.totalOrphanCount === 0) {
                 return // clean tenant — emit nothing
@@ -233,7 +246,7 @@ class KbReconciliationService extends Base {
 
             this.recordReconcileMetric({tenantId, repoSlug, diff, currentVersion, autoTombstone, tombstonedCount});
 
-            logger.info(`[KbReconciliationService] tenant ${tenantId}: ${diff.staleCount} config-stale chunk(s), ${diff.manifestOrphanCount} manifest-orphan chunk(s), ${diff.actionableCount} actionable, ${tombstonedCount} tombstoned (autoTombstone=${autoTombstone})`)
+            logger.info(`[KbReconciliationService] tenant ${tenantId}: ${diff.staleCount} config-stale chunk(s), ${diff.manifestOrphanCount} manifest-orphan chunk(s), ${diff.parserOrphanCount} parser-identity orphan chunk(s), ${diff.actionableCount} actionable, ${tombstonedCount} tombstoned (autoTombstone=${autoTombstone})`)
         } catch (err) {
             logger.error(`[KbReconciliationService] Reconciliation failed for tenant ${tenantId}: ${err.message}`)
         }
@@ -308,6 +321,40 @@ class KbReconciliationService extends Base {
     }
 
     /**
+     * @summary Test-stubbable seam — the `{parserId, parserVersion}` each of a tenant's repos
+     * currently declares, keyed by `repoSlug`.
+     *
+     * **The `parserVersion` default is load-bearing, not tidiness.** Chunk construction stamps
+     * `file.parserVersion || '1.0.0'` (`IngestionService.mjs:2402`, `:2430`), so a repo that declares
+     * no version produces rows stamped `'1.0.0'`. Resolving the declared pair without that same
+     * default would compare `undefined` against `'1.0.0'` and classify every row of such a repo as a
+     * parser orphan — a reclaim of the entire repo, caused by a comparison the producer never made.
+     *
+     * **A repo declaring no `parserId` is omitted rather than defaulted.** Omission makes it
+     * *unknown* to the classifier, which skips it; inventing an id would make its rows comparable to
+     * a pair nothing declared. Same reasoning as `yieldedPathsByRepo`'s unknown-vs-empty rule.
+     *
+     * @param {String} tenantId
+     * @returns {Promise<Object<String, {parserId: String, parserVersion: String}>>}
+     * @protected
+     */
+    async fetchTenantDeclaredParsers(tenantId) {
+        const config         = await IngestionService.getTenantConfig({tenantId}),
+              declaredByRepo = {};
+
+        for (const repo of config?.tenantRepos || []) {
+            if (typeof repo?.repoSlug === 'string' && repo.repoSlug && typeof repo?.parserId === 'string' && repo.parserId) {
+                declaredByRepo[repo.repoSlug] = {
+                    parserId     : repo.parserId,
+                    parserVersion: repo.parserVersion || '1.0.0'
+                }
+            }
+        }
+
+        return declaredByRepo
+    }
+
+    /**
      * @summary Combines config-stale and manifest-orphan diff axes into one delete/telemetry contract.
      * @param {Object} params
      * @param {Object} params.configDiff Result from `diffTenantChunks`.
@@ -315,21 +362,27 @@ class KbReconciliationService extends Base {
      * @returns {{staleOrphans: Array, manifestOrphans: Array, staleCount: Number, manifestOrphanCount: Number, totalOrphanCount: Number, actionableIds: Array<String>, actionableCount: Number}}
      * @protected
      */
-    combineDiffs({configDiff, manifestDiff} = {}) {
+    combineDiffs({configDiff, manifestDiff, parserDiff} = {}) {
         const actionableIds = [...new Set([
             ...(configDiff?.actionableIds || []),
-            ...(manifestDiff?.actionableIds || [])
+            ...(manifestDiff?.actionableIds || []),
+            ...(parserDiff?.actionableIds || [])
         ])];
+        // De-duplicated by id on purpose: one row can be an orphan under more than one signal, and
+        // `totalOrphanCount` answers "how many rows", never "how many classifications".
         const orphanIds = new Set([
             ...(configDiff?.staleOrphans || []).map(orphan => orphan.id),
-            ...(manifestDiff?.manifestOrphans || []).map(orphan => orphan.id)
+            ...(manifestDiff?.manifestOrphans || []).map(orphan => orphan.id),
+            ...(parserDiff?.parserOrphans || []).map(orphan => orphan.id)
         ].filter(id => typeof id === 'string' && id.length > 0));
 
         return {
             staleOrphans       : configDiff?.staleOrphans || [],
             manifestOrphans    : manifestDiff?.manifestOrphans || [],
+            parserOrphans      : parserDiff?.parserOrphans || [],
             staleCount         : configDiff?.staleCount || 0,
             manifestOrphanCount: manifestDiff?.orphanCount || 0,
+            parserOrphanCount  : parserDiff?.parserOrphanCount || 0,
             totalOrphanCount   : orphanIds.size,
             actionableIds,
             actionableCount    : actionableIds.length
