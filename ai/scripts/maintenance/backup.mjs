@@ -23,7 +23,8 @@ import {
     Memory_LifecycleService
 } from '../../services.mjs';
 
-import {buildSourceReceipt}             from '../../services/shared/captureReceipt.mjs';
+import {RECOVERY_SUBSTRATES} from '../../services/memory-core/helpers/bundleIntegrity.mjs';
+import {buildSourceReceipt}  from '../../services/shared/captureReceipt.mjs';
 import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
@@ -801,7 +802,7 @@ export function classifyIntegrityStatus(status) {
  * Declared above both consumers rather than between them, so neither reads as the authority.
  * @member {String[]} RECOVERY_SUBSTRATES
  */
-export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
+export {RECOVERY_SUBSTRATES};
 
 /**
  * Verifies row-count parity between source collections and the JSONL files written into the

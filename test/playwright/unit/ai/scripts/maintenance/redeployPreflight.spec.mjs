@@ -5,7 +5,7 @@ import os             from 'os';
 import path           from 'path';
 
 import {
-    evaluateRedeployPreconditions,
+    evaluateRedeployPreconditions as evaluateRawRedeployPreconditions,
     INITIALIZATION_MARKER_FILENAME,
     observePrimaryStoreVolume,
     PRIMARY_STORE_VOLUME_NAME,
@@ -18,6 +18,22 @@ import {
 const DEPLOY_SCRIPT = new URL('../../../../../../ai/examples/cloud-deployment/deploy-pipeline.sh', import.meta.url);
 
 const silent = {error: () => {}, log: () => {}, warn: () => {}};
+
+/**
+ * @summary Supplies the split probe facts older truth-table fixtures collapsed into one code.
+ * @param {Object} options Truth-table inputs.
+ * @returns {Object}
+ */
+const evaluateRedeployPreconditions = options => {
+    const authorized = options.verdictCode === 'RESTORABLE';
+
+    return evaluateRawRedeployPreconditions({
+        emptySubsystems         : authorized ? [] : null,
+        priorStateEvidence      : authorized,
+        recoverySourceAuthorized: authorized,
+        ...options
+    })
+};
 
 /**
  * Every refusal code the probe can return. Rows 3 and 5 must hold for ALL of them — a gate that
@@ -127,7 +143,7 @@ test.describe('redeploy preflight — the truth table (#16055 AC2/AC3/AC4)', () 
 
         expect(outcome.proceed).toBe(false);
         expect(outcome.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
-        expect(outcome.reason).toContain('verified restorable bundle')
+        expect(outcome.reason).toContain('bundle containing prior-state rows')
     });
 
     test('--initialize refuses when the independently durable primary-store volume exists', () => {
@@ -173,6 +189,60 @@ test.describe('redeploy preflight — the truth table (#16055 AC2/AC3/AC4)', () 
         expect(outcome.writeMarker).toBe(true);
     });
 
+    test('#16567 an incomplete bundle blocks redeploy without reopening --initialize', () => {
+        const bundleFacts = {
+            emptySubsystems         : ['kb'],
+            priorStateEvidence      : true,
+            recoverySourceAuthorized: false,
+            verdictCode             : 'BUNDLE_INCOMPLETE'
+        };
+
+        const ordinary = evaluateRedeployPreconditions({
+            ...bundleFacts,
+            initializeRequested: false,
+            markerPresent      : false
+        });
+
+        expect(ordinary.proceed).toBe(false);
+        expect(ordinary.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_INCOMPLETE_RECOVERY_SOURCE);
+        expect(ordinary.reason).toContain('kb');
+        expect(ordinary.reason).not.toMatch(/--initialize/);
+
+        // Prior rows still prove that a plane existed. Tightening authorization must not turn an
+        // incomplete bundle into permission to initialize over that plane.
+        const initialize = evaluateRedeployPreconditions({
+            ...bundleFacts,
+            initializeRequested: true,
+            markerPresent      : false,
+            primaryVolumeState : PRIMARY_VOLUME_STATE.ABSENT
+        });
+
+        expect(initialize.proceed).toBe(false);
+        expect(initialize.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
+    });
+
+    test('#16567 incoherent authorization never becomes a deploy or initialization permission', () => {
+        const incoherent = {
+            emptySubsystems         : null,
+            priorStateEvidence      : false,
+            recoverySourceAuthorized: true,
+            verdictCode             : 'RESTORABLE'
+        };
+
+        expect(evaluateRedeployPreconditions({
+            ...incoherent,
+            initializeRequested: false,
+            markerPresent      : false
+        }).decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_INCOMPLETE_RECOVERY_SOURCE);
+
+        expect(evaluateRedeployPreconditions({
+            ...incoherent,
+            initializeRequested: true,
+            markerPresent      : false,
+            primaryVolumeState : PRIMARY_VOLUME_STATE.ABSENT
+        }).decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
+    });
+
     test('every (marker × flag × code) combination resolves to a declared decision', () => {
         // Completeness rather than spot-checks: an unhandled combination would fall through to
         // whatever the last branch happens to be, and the failure would be silent.
@@ -199,6 +269,15 @@ test.describe('redeploy preflight — the truth table (#16055 AC2/AC3/AC4)', () 
                 }
             }
         }
+
+        decisions.add(evaluateRedeployPreconditions({
+            emptySubsystems         : ['kb'],
+            initializeRequested     : false,
+            markerPresent           : false,
+            priorStateEvidence      : true,
+            recoverySourceAuthorized: false,
+            verdictCode             : 'BUNDLE_INCOMPLETE'
+        }).decision);
 
         // All decisions reachable — otherwise the table has dead rows and the coverage above is
         // measuring less than it appears to.
@@ -347,12 +426,45 @@ test.describe('redeploy preflight — wiring and marker durability (#16055 AC2)'
 
                       return {reason: 'unexpected', state: PRIMARY_VOLUME_STATE.PRESENT}
                   },
-                  probeFn: async () => ({code: 'NO_BUNDLES', reason: 'none', restorable: false})
+                  probeFn: async () => ({
+                      code                    : 'NO_BUNDLES',
+                      reason                  : 'none',
+                      priorStateEvidence      : false,
+                      recoverySourceAuthorized: false,
+                      restorable              : false
+                  })
               });
 
         expect(result.proceed).toBe(false);
         expect(primaryProbeCalls).toBe(0);
         expect(result.primaryVolumeState).toBeNull();
+        expect(await readInitializationMarker({backupRoot})).toBe(false);
+    });
+
+    test('#16567 the runner threads both bundle facts into the refusal receipt', async () => {
+        const backupRoot = path.join(workRoot, 'backups'),
+              result     = await runRedeployPreflight({
+                  backupRoot,
+                  initializeRequested: false,
+                  logger             : silent,
+                  probeFn            : async () => ({
+                      bundleRoot              : path.join(backupRoot, 'backup-incomplete'),
+                      code                    : 'BUNDLE_INCOMPLETE',
+                      emptySubsystems         : ['kb'],
+                      priorStateEvidence      : true,
+                      recoverySourceAuthorized: false,
+                      restorable              : false,
+                      rowTotal                : 42
+                  })
+              });
+
+        expect(result.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_INCOMPLETE_RECOVERY_SOURCE);
+        expect(result.proceed).toBe(false);
+        expect(result.priorStateEvidence).toBe(true);
+        expect(result.recoverySourceAuthorized).toBe(false);
+        expect(result.emptySubsystems).toEqual(['kb']);
+        expect(result.reason).toContain('kb');
+        expect(result.reason).not.toMatch(/--initialize/);
         expect(await readInitializationMarker({backupRoot})).toBe(false);
     });
 
@@ -364,7 +476,13 @@ test.describe('redeploy preflight — wiring and marker durability (#16055 AC2)'
                   reason    : 'volume-not-found',
                   state     : PRIMARY_VOLUME_STATE.ABSENT
               }),
-              probeFn              = async () => ({code: 'NO_BUNDLES', reason: 'none', restorable: false});
+              probeFn              = async () => ({
+                  code                    : 'NO_BUNDLES',
+                  reason                  : 'none',
+                  priorStateEvidence      : false,
+                  recoverySourceAuthorized: false,
+                  restorable              : false
+              });
 
         const first = await runRedeployPreflight({
             backupRoot,

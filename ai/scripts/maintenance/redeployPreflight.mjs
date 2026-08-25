@@ -88,12 +88,13 @@ export const INITIALIZATION_MARKER_FILENAME = '.deployment-initialized';
  * @type {Object}
  */
 export const REDEPLOY_PREFLIGHT_DECISION = Object.freeze({
-    PROCEED_INITIALIZING      : 'PROCEED_INITIALIZING',
-    PROCEED_MARKER_RECOVERED  : 'PROCEED_MARKER_RECOVERED',
-    PROCEED_VERIFIED          : 'PROCEED_VERIFIED',
-    REFUSE_ALREADY_INITIALIZED: 'REFUSE_ALREADY_INITIALIZED',
-    REFUSE_NO_VERIFIED_BUNDLE : 'REFUSE_NO_VERIFIED_BUNDLE',
-    REFUSE_PLANE_STATE_UNKNOWN: 'REFUSE_PLANE_STATE_UNKNOWN'
+    PROCEED_INITIALIZING             : 'PROCEED_INITIALIZING',
+    PROCEED_MARKER_RECOVERED         : 'PROCEED_MARKER_RECOVERED',
+    PROCEED_VERIFIED                 : 'PROCEED_VERIFIED',
+    REFUSE_ALREADY_INITIALIZED       : 'REFUSE_ALREADY_INITIALIZED',
+    REFUSE_INCOMPLETE_RECOVERY_SOURCE: 'REFUSE_INCOMPLETE_RECOVERY_SOURCE',
+    REFUSE_NO_VERIFIED_BUNDLE        : 'REFUSE_NO_VERIFIED_BUNDLE',
+    REFUSE_PLANE_STATE_UNKNOWN       : 'REFUSE_PLANE_STATE_UNKNOWN'
 });
 
 /**
@@ -107,6 +108,9 @@ export const REDEPLOY_PREFLIGHT_DECISION = Object.freeze({
  * @param {Boolean} options.markerPresent Whether this host has recorded a prior deployment.
  * @param {Boolean} options.initializeRequested Whether the operator passed the explicit flag.
  * @param {String|null} [options.primaryVolumeState=null] Docker primary-volume observation.
+ * @param {Boolean} options.priorStateEvidence Whether the bundle proves a plane existed.
+ * @param {Boolean} options.recoverySourceAuthorized Whether the bundle is complete enough to restore.
+ * @param {String[]|null} [options.emptySubsystems=null] Named empty recovery substrates, when measured.
  * @param {String} options.verdictCode A `verifyLatestBackupRestorable` code.
  * @returns {{decision: String, proceed: Boolean, writeMarker: Boolean, reason: String}}
  */
@@ -114,9 +118,16 @@ export function evaluateRedeployPreconditions({
     markerPresent,
     initializeRequested,
     primaryVolumeState = null,
+    priorStateEvidence,
+    recoverySourceAuthorized,
+    emptySubsystems = null,
     verdictCode
 }) {
-    const restorable = verdictCode === 'RESTORABLE';
+    // Authorization cannot coherently exist without prior state. A malformed caller presenting
+    // that cross-product cell is refused on both paths: the claim blocks initialization, while the
+    // missing corroborating fact prevents an ordinary deploy.
+    const bundleProvesPriorState   = priorStateEvidence === true || recoverySourceAuthorized === true,
+          bundleAuthorizesRecovery = priorStateEvidence === true && recoverySourceAuthorized === true;
 
     if (initializeRequested) {
         const priorEvidence = [];
@@ -124,8 +135,8 @@ export function evaluateRedeployPreconditions({
         if (markerPresent) {
             priorEvidence.push('the initialization marker')
         }
-        if (restorable) {
-            priorEvidence.push('a verified restorable bundle')
+        if (bundleProvesPriorState) {
+            priorEvidence.push('a bundle containing prior-state rows')
         }
         if (primaryVolumeState === PRIMARY_VOLUME_STATE.PRESENT) {
             priorEvidence.push('the Compose-labeled primary-store volume')
@@ -165,7 +176,7 @@ export function evaluateRedeployPreconditions({
     }
 
     // Row 4 — the ordinary verified redeploy.
-    if (markerPresent && restorable) {
+    if (markerPresent && bundleAuthorizesRecovery) {
         return {
             decision   : REDEPLOY_PREFLIGHT_DECISION.PROCEED_VERIFIED,
             proceed    : true,
@@ -177,12 +188,28 @@ export function evaluateRedeployPreconditions({
     // Row 2 — no marker but a verified bundle. The bundle PROVES prior state, so the missing marker
     // is the anomaly rather than the deployment. Recorded rather than refused, otherwise a host that
     // lost its marker independently of its bundles could never deploy again.
-    if (restorable) {
+    if (bundleAuthorizesRecovery) {
         return {
             decision   : REDEPLOY_PREFLIGHT_DECISION.PROCEED_MARKER_RECOVERED,
             proceed    : true,
             writeMarker: true,
             reason     : 'No initialization marker, but a verified restorable bundle proves a prior deployment; recording the marker.'
+        }
+    }
+
+    // A partially populated bundle proves the plane existed but does not authorize a deploy. This
+    // refusal deliberately never recommends `--initialize`: the same prior-state fact blocks that
+    // destructive declaration above, and suggesting it here would reopen the exact interlock.
+    if (bundleProvesPriorState) {
+        const detail = Array.isArray(emptySubsystems) && emptySubsystems.length > 0
+            ? `empty recovery subsystem(s): ${emptySubsystems.join(', ')}`
+            : 'recovery-source completeness could not be established';
+
+        return {
+            decision   : REDEPLOY_PREFLIGHT_DECISION.REFUSE_INCOMPLETE_RECOVERY_SOURCE,
+            proceed    : false,
+            writeMarker: false,
+            reason     : `A bundle proves prior deployment but cannot authorize recovery (${detail}). No plane mutation is authorized.`
         }
     }
 
@@ -376,10 +403,13 @@ export async function runRedeployPreflight({
               ? await primaryVolumeProbeFn({composeProject})
               : {reason: 'not-required-for-ordinary-redeploy', state: null},
           outcome       = evaluateRedeployPreconditions({
+              emptySubsystems         : verdict.emptySubsystems ?? null,
               initializeRequested,
               markerPresent,
-              primaryVolumeState: primaryVolume.state,
-              verdictCode       : verdict.code
+              primaryVolumeState      : primaryVolume.state,
+              priorStateEvidence      : verdict.priorStateEvidence === true,
+              recoverySourceAuthorized: verdict.recoverySourceAuthorized === true,
+              verdictCode             : verdict.code
           });
 
     if (outcome.proceed && outcome.writeMarker) {
@@ -397,11 +427,15 @@ export async function runRedeployPreflight({
         primaryVolumeName      : primaryVolume.volumeName ?? null,
         primaryVolumeReason    : primaryVolume.reason,
         primaryVolumeState     : primaryVolume.state,
-        // The probe's own verdict travels with the decision so a deploy log records WHY, not just
-        // whether. `rowTotal` is what `RESTORABLE` was decided on.
-        verdictCode  : verdict.code,
-        verdictReason: verdict.reason ?? null,
-        rowTotal     : verdict.rowTotal ?? null
+        // The probe's own split facts travel with the decision so a deploy log records WHY, not just
+        // whether. Vector rows plus the integrity census prove prior state; the integrity-derived
+        // authorization is separate.
+        emptySubsystems         : verdict.emptySubsystems ?? null,
+        priorStateEvidence      : verdict.priorStateEvidence === true,
+        recoverySourceAuthorized: verdict.recoverySourceAuthorized === true,
+        verdictCode             : verdict.code,
+        verdictReason           : verdict.reason ?? null,
+        rowTotal                : verdict.rowTotal ?? null
     }
 }
 

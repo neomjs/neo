@@ -36,6 +36,16 @@
  */
 
 /**
+ * @summary The complete recovery-substrate census carried by `bundle-meta.integrity`.
+ *
+ * Shared with the backup producer so the writer and every survivability reader cannot drift onto
+ * different populations. Optional copied artifacts are deliberately absent; only the three
+ * row-count-verified recovery substrates belong to this contract.
+ * @type {String[]}
+ */
+export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
+
+/**
  * @summary Names the subsystems whose export brought back no rows.
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
  * @returns {String[]} Subsystem names, empty when none or when the block is absent.
@@ -53,6 +63,10 @@ export function emptySubsystems(integrity) {
  * verdict recorded. A boolean would force absent evidence into one of the decided answers, and
  * either choice is a lie — `false` condemns historical bundles, `true` re-creates the false-green
  * this module exists to end.
+ *
+ * Completeness includes the census itself. Missing, duplicate, unknown, or non-`pass` rows return
+ * `null`; a list whose known members all pass but which omits a recovery substrate is not proof that
+ * the omitted substrate passed. A known `empty` remains the stronger negative and returns `false`.
  *
  * ANY empty subsystem disqualifies the whole bundle. A partial restore is not a restore: recovering
  * memories while the knowledge base comes back with nothing is a silently incomplete system, which is
@@ -72,7 +86,24 @@ export function isBundleRestorable(integrity) {
         return null;
     }
 
-    return emptySubsystems(integrity).length === 0;
+    // One established empty is already a complete negative verdict, even when another row is
+    // unreadable. Nothing can make a bundle containing no KB (for example) a complete recovery
+    // source, so the known negative outranks the unknown sibling.
+    if (emptySubsystems(integrity).length > 0) {
+        return false
+    }
+
+    const seen = new Set();
+
+    for (const entry of integrity) {
+        if (!RECOVERY_SUBSTRATES.includes(entry?.subsystem) || seen.has(entry.subsystem) || entry.status !== 'pass') {
+            return null
+        }
+
+        seen.add(entry.subsystem)
+    }
+
+    return seen.size === RECOVERY_SUBSTRATES.length ? true : null
 }
 
 /**

@@ -920,9 +920,14 @@ test.describe('adversarial IO + encoding edges', () => {
 test.describe('backup receipt — the integrity verdict travels with the status', () => {
     const EMPTY = [
         {subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0},
-        {subsystem: 'mc', status: 'empty', sourceCount: 0, bundleCount: 0}
+        {subsystem: 'mc', status: 'empty', sourceCount: 0, bundleCount: 0},
+        {subsystem: 'graph', status: 'empty', sourceCount: 0, bundleCount: 0}
     ];
-    const CLEAN = [{subsystem: 'kb', status: 'pass', sourceCount: 61206, bundleCount: 61206}];
+    const CLEAN = [
+        {subsystem: 'kb', status: 'pass', sourceCount: 61206, bundleCount: 61206},
+        {subsystem: 'mc', status: 'pass', sourceCount: 32462, bundleCount: 32462},
+        {subsystem: 'graph', status: 'pass', sourceCount: 34239, bundleCount: 34239}
+    ];
 
     test('a zero-row bundle is marked NOT restorable, and names which subsystems brought back nothing', () => {
         const receipt = buildBackupReceipt({
@@ -935,7 +940,7 @@ test.describe('backup receipt — the integrity verdict travels with the status'
         expect(receipt.backup.status).toBe('success');
         // …and the receipt now also says it is not a recovery source, with the reason named.
         expect(receipt.integrity.restorable).toBe(false);
-        expect(receipt.integrity.emptySubsystems).toEqual(['kb', 'mc']);
+        expect(receipt.integrity.emptySubsystems).toEqual(['kb', 'mc', 'graph']);
     });
 
     test('the projection KEY is wire-stable at schemaVersion 1 — a receipt reader must not lose the field', () => {

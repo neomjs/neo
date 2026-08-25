@@ -1110,11 +1110,17 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
     async function buildMeta({rows, currentId = 'kb-id', previousId = null}) {
         const bundleTree   = path.join(root, 'tree'),
               kbDir        = path.join(bundleTree, 'kb'),
+              mcDir        = path.join(bundleTree, 'mc'),
+              graphDir     = path.join(bundleTree, 'graph'),
               predecessors = path.join(root, 'published');
 
         fs.mkdirSync(kbDir,        {recursive: true});
+        fs.mkdirSync(mcDir,        {recursive: true});
+        fs.mkdirSync(graphDir,     {recursive: true});
         fs.mkdirSync(predecessors, {recursive: true});
         fs.writeFileSync(path.join(kbDir, 'kb-data.jsonl'), '{"id":"r"}\n'.repeat(rows));
+        fs.writeFileSync(path.join(mcDir, 'mc-data.jsonl'), '{"id":"r"}\n'.repeat(rows));
+        fs.writeFileSync(path.join(graphDir, 'graph-data.jsonl'), '{"id":"r"}\n'.repeat(rows));
 
         if (previousId) {
             const dir = path.join(predecessors, 'backup-2026-08-02T10-00-00.000Z');
@@ -1126,8 +1132,8 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
 
         return {
             integrity: await verifyBundleIntegrity(
-                {kb: kbDir, mc: path.join(bundleTree, 'no-mc'), graph: path.join(bundleTree, 'no-graph')},
-                {kb: rows}
+                {kb: kbDir, mc: mcDir, graph: graphDir},
+                {kb: rows, mc: rows, graph: rows}
             ),
             capture  : await buildCaptureBlock({
                 subsystems: {kb: {count: rows, collectionId: currentId}},
@@ -1191,6 +1197,17 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
     test('an ABSENT integrity block stays UNKNOWN — absence is a third answer, not a quiet false', async () => {
         expect(isBundleRestorable(undefined)).toBeNull();
         expect(summarizeBundleIntegrity(undefined)).toEqual({emptySubsystems: [], restorable: null});
+    });
+
+    test('#16567 an unestablished subsystem stays UNKNOWN instead of authorizing recovery', () => {
+        const integrity = [
+            {status: 'pass', subsystem: 'kb'},
+            {status: 'skipped', subsystem: 'mc'},
+            {status: 'pass', subsystem: 'graph'}
+        ];
+
+        expect(isBundleRestorable(integrity)).toBeNull();
+        expect(summarizeBundleIntegrity(integrity)).toEqual({emptySubsystems: [], restorable: null});
     });
 
     test('MIXED Memory Core: one re-embedded collection does not carry its sibling\'s verdict', async () => {

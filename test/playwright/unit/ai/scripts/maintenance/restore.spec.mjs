@@ -969,6 +969,69 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         expect(populated.rowTotal).toBeGreaterThan(0);
     });
 
+    test('#16567 a declared zero collection proves prior state but cannot authorize recovery', async () => {
+        const bundleRoot = path.join(probeRoot, 'backup-2026-08-05T00-00-00');
+
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
+            fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
+        }
+
+        const row = collection => JSON.stringify({
+            id       : `${collection}-1`,
+            embedding: new Array(4096).fill(0.1),
+            metadata : {collection}
+        }) + '\n';
+
+        fs.writeFileSync(path.join(bundleRoot, 'mc', 'memory-backup.jsonl'), row('memories'));
+        fs.writeFileSync(path.join(bundleRoot, 'mc', 'summary-backup.jsonl'), row('summaries'));
+        fsExtra.writeJsonSync(path.join(bundleRoot, 'bundle-meta.json'), {
+            bundleVersion: 1,
+            embedding    : {
+                counts       : {kb: 0, memories: 1, summaries: 1},
+                dimension    : 4096,
+                schemaVersion: 1
+            },
+            integrity : [
+                {bundleCount: 0, sourceCount: 0, status: 'empty', subsystem: 'kb'},
+                {bundleCount: 2, sourceCount: 2, status: 'pass', subsystem: 'mc'},
+                {bundleCount: 1, sourceCount: 1, status: 'pass', subsystem: 'graph'}
+            ],
+            subsystems: {},
+            topology  : {chromaUnified: true, shared_topology: true}
+        });
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.code).toBe('BUNDLE_INCOMPLETE');
+        expect(verdict.priorStateEvidence).toBe(true);
+        expect(verdict.recoverySourceAuthorized).toBe(false);
+        expect(verdict.emptySubsystems).toEqual(['kb']);
+    });
+
+    test('#16567 a populated graph alone still proves prior state', async () => {
+        const bundleRoot = path.join(probeRoot, 'backup-2026-08-05T01-00-00');
+
+        fs.mkdirSync(bundleRoot, {recursive: true});
+
+        const verdict = await verifyLatestBackupRestorable({
+            backupRoot: probeRoot,
+            logger    : silent,
+            validateFn: async () => ({
+                embeddingAdvisories: [],
+                integrity          : [
+                    {status: 'skipped', subsystem: 'kb'},
+                    {status: 'skipped', subsystem: 'mc'},
+                    {bundleCount: 1, sourceCount: 1, status: 'pass', subsystem: 'graph'}
+                ],
+                streamedCounts: {}
+            })
+        });
+
+        expect(verdict.code).toBe('BUNDLE_INCOMPLETE');
+        expect(verdict.priorStateEvidence).toBe(true);
+        expect(verdict.recoverySourceAuthorized).toBe(false);
+    });
+
     test('the per-collection fields are present on EVERY verdict, and `null` means unmeasured — not "none empty"', async () => {
         // Found in review by @neo-opus-vega. The fields shipped on RESTORABLE and BUNDLE_EMPTY but were
         // ABSENT from the catch path, which made absence indistinguishable from "measured, none empty":
@@ -994,27 +1057,32 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
                   return dir
               },
               withCounts = counts => JSON.stringify({
-                  streamedCounts: counts,
-                  topology      : {chromaUnified: true, shared_topology: true}
+                  embedding: {
+                      counts,
+                      dimension    : 4096,
+                      schemaVersion: 1
+                  },
+                  topology: {chromaUnified: true, shared_topology: true}
               });
 
         // MEASURED, some empty -> both fields populated, emptyCollections names WHICH.
         const measuredRoot = caseRoot('per-collection-measured');
 
         writeMeta(measuredRoot, 'backup-2026-07-10T00-00-00',
-            withCounts({'neo-knowledge-base': 5, 'neo-agent-memory': 0}));
+            withCounts({kb: 0, memories: 1, summaries: 0}));
 
         const populated = await verifyLatestBackupRestorable({backupRoot: measuredRoot, logger: silent});
 
         // The counts come from the validator's own streaming pass, not from the fixture's meta — so
         // this pins the SHAPE contract rather than a collection roster the validator owns.
-        expect(populated.code).toBe('RESTORABLE');
+        expect(populated.code).toBe('BUNDLE_INCOMPLETE');
         expect(populated.collectionCounts, 'measured must be an object, never null').not.toBe(null);
         expect(Object.keys(populated.collectionCounts).length).toBeGreaterThan(0);
 
-        // MEASURED, none empty -> emptyCollections is [], which is NOT the same answer as null.
+        // MEASURED zero members remain present in the declared census rather than disappearing from
+        // the sparse streamed map — zero members are part of the reporting contract.
         expect(Array.isArray(populated.emptyCollections), 'measured must be an array, never null').toBe(true);
-        expect(populated.emptyCollections).toEqual([]);
+        expect(populated.emptyCollections).toEqual(['kb', 'summaries']);
         expect(populated.emptyCollections).not.toBe(null);
 
         // UNMEASURED -> both `null`. This is the assertion the omission would have failed, and the one
@@ -1195,6 +1263,96 @@ test.describe('verifyLatestBackupRestorable — falls back past an unusable newe
             'backup-2026-07-03T00-00-00',
             'backup-2026-07-02T00-00-00'
         ]);
+    });
+
+    test('#16567 an incomplete newest bundle falls through to older complete history', async () => {
+        writeValidBundle('backup-2026-07-01T00-00-00');
+        const incomplete = writeValidBundle('backup-2026-07-02T00-00-00');
+
+        fsExtra.writeJsonSync(path.join(incomplete, 'bundle-meta.json'), {
+            bundleVersion: 1,
+            integrity    : [
+                {bundleCount: 0, sourceCount: 0, status: 'empty', subsystem: 'kb'},
+                {bundleCount: 1, sourceCount: 1, status: 'pass', subsystem: 'mc'},
+                {bundleCount: 1, sourceCount: 1, status: 'pass', subsystem: 'graph'}
+            ],
+            topology: {chromaUnified: true, shared_topology: true}
+        });
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.code).toBe('RESTORABLE');
+        expect(verdict.recoverySourceAuthorized).toBe(true);
+        expect(verdict.bundleRoot).toContain('backup-2026-07-01T00-00-00');
+        expect(verdict.skipped).toHaveLength(1);
+        expect(verdict.skipped[0].code).toBe('BUNDLE_INCOMPLETE');
+    });
+
+    test('#16567 a newer empty bundle cannot erase prior-state evidence from populated older history', async () => {
+        const incompleteName = 'backup-2026-08-05T01-00-00',
+              emptyName      = 'backup-2026-08-06T02-00-00',
+              incompleteMeta = {
+                  embeddingAdvisories: [],
+                  embedding          : {counts: {kb: 0, memories: 32462, summaries: 1777}},
+                  integrity          : [
+                      {bundleCount: 0,     sourceCount: 0,     status: 'empty', subsystem: 'kb'},
+                      {bundleCount: 34239, sourceCount: 34239, status: 'pass',  subsystem: 'mc'},
+                      {bundleCount: 12,    sourceCount: 12,    status: 'pass',  subsystem: 'graph'}
+                  ],
+                  streamedCounts: {memories: 32462, summaries: 1777}
+              },
+              emptyMeta = {
+                  embeddingAdvisories: [],
+                  embedding          : {counts: {kb: 0, memories: 0, summaries: 0}},
+                  integrity          : ['kb', 'mc', 'graph'].map(subsystem => ({
+                      bundleCount: 0,
+                      sourceCount: 0,
+                      status     : 'empty',
+                      subsystem
+                  })),
+                  streamedCounts: {}
+              },
+              bundles = {
+                  [emptyName]     : emptyMeta,
+                  [incompleteName]: incompleteMeta
+              },
+              validateFn = async bundleRoot => bundles[path.basename(bundleRoot)];
+
+        fs.mkdirSync(path.join(probeRoot, incompleteName), {recursive: true});
+
+        // Positive control: the populated incomplete bundle proves prior state by itself.
+        const alone = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, validateFn});
+
+        expect(alone.code).toBe('BUNDLE_INCOMPLETE');
+        expect(alone.priorStateEvidence).toBe(true);
+        expect(alone.recoverySourceAuthorized).toBe(false);
+
+        // Probe: failure provenance stays on the empty newest bundle, while root-level prior-state
+        // evidence remains true because the older populated bundle was also examined.
+        fs.mkdirSync(path.join(probeRoot, emptyName), {recursive: true});
+
+        const stacked = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, validateFn});
+
+        expect(stacked.code).toBe('BUNDLE_EMPTY');
+        expect(stacked.bundleRoot).toContain(emptyName);
+        expect(stacked.priorStateEvidence).toBe(true);
+        expect(stacked.recoverySourceAuthorized).toBe(false);
+        expect(stacked.skipped.map(item => item.code)).toEqual(['BUNDLE_EMPTY', 'BUNDLE_INCOMPLETE']);
+
+        const {evaluateRedeployPreconditions, PRIMARY_VOLUME_STATE} =
+                  await import('../../../../../../ai/scripts/maintenance/redeployPreflight.mjs'),
+              outcome = evaluateRedeployPreconditions({
+                  emptySubsystems         : stacked.emptySubsystems,
+                  initializeRequested     : true,
+                  markerPresent           : false,
+                  primaryVolumeState      : PRIMARY_VOLUME_STATE.ABSENT,
+                  priorStateEvidence      : stacked.priorStateEvidence,
+                  recoverySourceAuthorized: stacked.recoverySourceAuthorized,
+                  verdictCode             : stacked.code
+              });
+
+        expect(outcome.proceed).toBe(false);
+        expect(outcome.decision).toBe('REFUSE_ALREADY_INITIALIZED');
     });
 
     test('REGRESSION GUARD: a legacy bundle carrying no bundle-meta.json but real rows stays restorable', async () => {
