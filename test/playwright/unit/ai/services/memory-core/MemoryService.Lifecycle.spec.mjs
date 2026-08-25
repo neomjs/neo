@@ -11,10 +11,12 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import {resetMemoryCoreLifecycle} from './util.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import {
+    resetMemoryCoreLifecycle
+} from './util.mjs';
 
 /**
  * @summary Lifecycle coverage for the MemoryService graph-projection drain loop + retry timers.

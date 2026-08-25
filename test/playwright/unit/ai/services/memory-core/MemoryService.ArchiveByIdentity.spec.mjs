@@ -18,10 +18,13 @@ import Neo                   from '../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../src/core/_export.mjs';
 import MemoryService         from '../../../../../../ai/services/memory-core/MemoryService.mjs';
 import StorageRouter         from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
-import {drainMemoryWal, resetMemoryCoreLifecycle} from './util.mjs';
 import {mkdtemp, rm}         from 'node:fs/promises';
 import os                    from 'node:os';
 import path                  from 'node:path';
+import {
+    drainMemoryWal,
+    resetMemoryCoreLifecycle
+} from './util.mjs';
 
 /**
  * The leak-test for `archiveMemoriesByAgentIdentity` (the tombstone + recall-exclusion op).
