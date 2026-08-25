@@ -1,6 +1,7 @@
-import {test, expect} from '@playwright/test';
-import {spawnSync}    from 'node:child_process';
-import path           from 'node:path';
+import {test, expect}                                  from '@playwright/test';
+import {spawnSync}                                     from 'node:child_process';
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import path                                            from 'node:path';
 
 import {
     checkDeadLinks,
@@ -9,6 +10,8 @@ import {
     checkMermaidOrientation,
     checkOpenApiToolParity,
     checkProse,
+    checkTicketIds,
+    discoverGuideSeries,
     extractMermaidBlocks,
     lintGuide,
     parseArgs
@@ -19,9 +22,9 @@ import {
  * Tests the pure check functions against hand-built inputs so reviewer
  * V-B-A is cheap, plus the two boundaries a guide lint MUST get right to be trustworthy:
  *   - true positives fire (reserved-word Mermaid, self-loops, dead links, hallucinated `ai:*` refs,
- *     hallucinated MCP tool-table refs);
+ *     hallucinated MCP tool-table refs, rotting guide ticket references);
  *   - false positives DON'T (the `graph LR` declaration line, real `package.json` scripts, fenced code,
- *     config/property tables outside a Tools heading).
+ *     config/property tables outside a Tools heading, CSS/Mermaid hex colors).
  */
 test.describe('ai/scripts/lint-guides (#14354 — mechanical guide-quality lint)', () => {
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lint/lint-guides.mjs');
@@ -133,6 +136,96 @@ test.describe('ai/scripts/lint-guides (#14354 — mechanical guide-quality lint)
 
     test('checkDeadScriptRefs: bare prose mention (no backtick / no "npm run") is NOT flagged', () => {
         expect(checkDeadScriptRefs('The ai:foo namespace is conceptual.', new Set())).toHaveLength(0);
+    });
+
+    test('checkTicketIds: prose, inline code, fenced code and multiple references are HARD with exact lines', () => {
+        const content = [
+            '# Guide',
+            'The old path came from #12345 and PR #23456.',
+            'Inline `#34567` still rots.',
+            '```text',
+            'Replay #45678 rather than explaining the mechanism.',
+            '```'
+        ].join('\n');
+        const found = checkTicketIds(content);
+
+        expect(found).toHaveLength(4);
+        expect(found.map(f => f.line)).toEqual([2, 2, 3, 5]);
+        expect(found.every(f => f.severity === 'HARD' && f.rule === 'ticket-id')).toBe(true);
+        expect(found.map(f => f.detail).join(' ')).toContain('#45678');
+    });
+
+    test('checkTicketIds: CSS/Mermaid colors stay green without exempting a bare code ticket id', () => {
+        const content = [
+            '```mermaid',
+            'flowchart TD',
+            '  classDef pane fill:#3498db,stroke:#282829,color:#1234',
+            '```',
+            '```css',
+            '.pane { border: 1px solid #282829; color: #1234; }',
+            '```',
+            'The literal `color: #282829` is a color.',
+            'The literal `#56789` is still a tracker reference.',
+            'Short fragments #123 and alphanumeric hashes #123abc are not ticket ids.'
+        ].join('\n');
+        const found = checkTicketIds(content);
+
+        expect(found).toHaveLength(1);
+        expect(found[0]).toMatchObject({line: 9, severity: 'HARD', rule: 'ticket-id'});
+        expect(found[0].detail).toContain('#56789');
+    });
+
+    test('checkTicketIds: CSS-length ticket ids after prose labels remain HARD in code', () => {
+        const content = [
+            '```text',
+            'Related: #9473',
+            'Ticket: #123456',
+            'issue: #12345678',
+            '```',
+            'Refs: `#8856` in the body'
+        ].join('\n');
+        const found = checkTicketIds(content);
+
+        expect(found.map(f => [f.line, f.detail.match(/#[0-9]+/)[0]])).toEqual([
+            [2, '#9473'],
+            [3, '#123456'],
+            [4, '#12345678'],
+            [6, '#8856']
+        ]);
+        expect(found.every(f => f.severity === 'HARD' && f.rule === 'ticket-id')).toBe(true);
+    });
+
+    test('discoverGuideSeries: recursively reaches nested guides without widening the full-guide surface', () => {
+        const files = discoverGuideSeries();
+
+        expect(files).toContain('learn/guides/testing/ComponentTesting.md');
+        expect(files).toContain('learn/guides/userinteraction/events/CustomEvents.md');
+        expect(files.some(file => file.startsWith('learn/agentos/'))).toBe(false);
+    });
+
+    test('CLI: the default discovery path makes one nested scratch guide red, then green', () => {
+        const seriesRoot = path.resolve(process.cwd(), 'learn/guides');
+        mkdirSync(seriesRoot, {recursive: true});
+
+        const scratchDir  = mkdtempSync(path.join(seriesRoot, '.ticket-id-red-'));
+        const scratchFile = path.join(scratchDir, 'ScratchGuide.md');
+
+        try {
+            writeFileSync(scratchFile, '# Scratch\n\nThe shortcut lives in #98765.\n');
+
+            const red = spawnSync('node', [scriptPath], {cwd: process.cwd(), encoding: 'utf8'});
+            expect(red.status).toBe(1);
+            expect(red.stdout).toContain(path.relative(process.cwd(), scratchFile));
+            expect(red.stdout).toContain('[ticket-id] line 3');
+
+            writeFileSync(scratchFile, '# Scratch\n\nThe shortcut is described by its mechanism.\n');
+
+            const green = spawnSync('node', [scriptPath], {cwd: process.cwd(), encoding: 'utf8'});
+            expect(green.status).toBe(0);
+            expect(green.stdout).toContain('guide-series ticket-id scan(s)');
+        } finally {
+            rmSync(scratchDir, {recursive: true, force: true});
+        }
     });
 
     test('checkProse: feature-list heading + "framework" warn; fenced code is ignored', () => {

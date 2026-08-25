@@ -38,6 +38,8 @@ Measured against `resources/content/release-notes/chunk-2/v13.0.0.md` ("Memory B
 
 A guide is *explanation*; it does NOT inline tool catalogs, payload specs, CLI flag tables, or config formats. That *reference* is extracted to `tooling/` — preferentially **generated** from source (`openapi.yaml`, config schema) so it cannot stale. Link to it; never dump it. Before deleting inlined reference, verify the target actually holds the specific content (no-info-loss). Describe the **current paradigm**; demote or omit superseded manual procedures (e.g. manual restore is a backstop, not the data-integrity story) even when the old tool still exists.
 
+- **Guides describe; trackers decide.** Never cite ticket or PR ids in `learn/guides/**`, including code. Describe the durable mechanism and cite stable files or decision authority; `ai:lint-guides` enforces a HARD failure.
+
 ## 5. Mechanics — register the guide; never commit the pipeline-owned SEO output — `MACHINE-ENFORCEABLE-CANDIDATE`
 
 - **File + registration (the inputs you edit).** A new guide is `learn/<section>/<slug>.md`, registered in **two source inputs**: (1) `learn/tree.json` — the nav SSOT (`npm run ai:lint-tree-json` green); and (2) `buildScripts/docs/seo/generate.mjs` — **add + rank the guide in the `PRIORITIES` map** (e.g. `['agentos/IdentityFirewall', 1.0]`). That map is where a guide's SEO weight is set.
