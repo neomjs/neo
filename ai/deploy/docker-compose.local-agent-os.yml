@@ -36,6 +36,9 @@ services:
       # already vouches for the network hop; this is the receiver-side DNS-rebinding boundary.
       # Keep the admission exact and local — never broaden it to a wildcard.
       NEO_MCP_ALLOWED_HOSTS: kb-server
+      # Restart-durable admission cache — DISTINCT per service: one writer per path is the
+      # deployment contract that dissolves cross-process cache contention structurally.
+      NEO_AUTH_PAT_DISK_CACHE_PATH: /app/.neo-ai-data/auth/kb-pat-validation-cache.json
     secrets:
       - mcp-auth-token
     # N=1 tenant bootstrap: query-time tenant-config resolution reads
@@ -54,6 +57,8 @@ services:
       # directly as `mc-server`, while Fleet uses the authenticated `ingress` route. Both names
       # need receiver-side admission; Fleet's outbound internal-host allowance is a separate gate.
       NEO_MCP_ALLOWED_HOSTS: mc-server,ingress
+      # Distinct from the kb-server path: one writer per path (see the kb-server note).
+      NEO_AUTH_PAT_DISK_CACHE_PATH: /app/.neo-ai-data/auth/mc-pat-validation-cache.json
     secrets:
       - mcp-auth-token
     # `healthcheck.test` is a LIST, so this override REPLACES the base command rather than extending

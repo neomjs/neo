@@ -1024,22 +1024,44 @@ class AuthService extends Base {
         let pinnedProviderSubject = null;
         // Lazily-loaded mirror of the on-disk store; null until the first transport-failure fallback
         // (or first write-through) needs it. A plane that never sees an outage never pays the read.
-        let diskEntries = null;
+        // SINGLE-FLIGHT: concurrent first validations share one load, so two writers mutate the
+        // SAME map rather than two independent snapshots whose last rename would drop a row.
+        let diskEntries     = null;
+        let diskLoadPromise = null;
+        // Serialized write chain: logical updates (set/evict) are whole-map rewrites, so unchained
+        // concurrent rewrites would last-wins over each other. Deployment contract: one path is
+        // owned by exactly one service process — profiles bind DISTINCT paths per PAT-auth service,
+        // which dissolves cross-process contention structurally instead of locking.
+        let diskWriteChain = Promise.resolve();
 
         const loadDiskEntries = async () => {
-            if (!diskCachePath || diskEntries !== null) {
+            if (!diskCachePath) {
+                return null
+            }
+
+            if (diskEntries !== null) {
                 return diskEntries
             }
 
-            const {entries, warning} = await readPatValidationCache(diskCachePath);
+            if (!diskLoadPromise) {
+                diskLoadPromise = readPatValidationCache(diskCachePath)
+                    .then(({entries, warning}) => {
+                        if (warning) {
+                            logger.warn(`[AuthService] PAT disk cache at ${diskCachePath}: ${warning}. Admission degrades to provider-only until the next successful validation rewrites it.`)
+                        }
 
-            if (warning) {
-                logger.warn(`[AuthService] PAT disk cache at ${diskCachePath}: ${warning}. Admission degrades to provider-only until the next successful validation rewrites it.`)
+                        diskEntries = entries;
+
+                        return diskEntries
+                    })
+                    .catch(error => {
+                        diskLoadPromise = null;
+
+                        throw error
+                    })
             }
 
-            diskEntries = entries;
-
-            return diskEntries
+            return diskLoadPromise
         };
 
         const persistDiskEntries = async () => {
@@ -1047,14 +1069,21 @@ class AuthService extends Base {
                 return
             }
 
-            try {
-                await writePatValidationCache(diskCachePath, diskEntries ?? new Map())
-            } catch (error) {
-                // Losing the durable copy is a degradation to announce, never an admission failure —
-                // the credential was just VALIDATED; failing the request over its own cache write
-                // would invert the priority.
-                logger.warn(`[AuthService] PAT disk cache write failed (admission continues): ${error.message}`)
-            }
+            // Chain onto the previous rewrite: every mutation observes the map state AFTER the
+            // prior one landed, so set-then-evict from interleaved validations cannot reorder into
+            // losing either decision.
+            diskWriteChain = diskWriteChain.then(async () => {
+                try {
+                    await writePatValidationCache(diskCachePath, diskEntries ?? new Map())
+                } catch (error) {
+                    // Losing the durable copy is a degradation to announce, never an admission
+                    // failure — the credential was just VALIDATED; failing the request over its
+                    // own cache write would invert the priority.
+                    logger.warn(`[AuthService] PAT disk cache write failed (admission continues): ${error.message}`)
+                }
+            });
+
+            await diskWriteChain
         };
 
         /**
@@ -1083,6 +1112,17 @@ class AuthService extends Base {
 
             if (!entry || Date.now() > entry.verifiedAt + ttlMs + staleGraceMs) {
                 return null
+            }
+
+            // CURRENT admission policy reapplies to cached identities: a subject removed from the
+            // allowlist before a restart is not readmitted because the provider happens to be down
+            // when they return. The persisted identity is evidence of WHO was validated, never a
+            // grant that outlives the policy that admitted it.
+            if (requireUser && !allowedUsers.includes(entry.user?.login)) {
+                entries.delete(tokenHash);
+                cache.delete(tokenHash);
+                await persistDiskEntries();
+                throw new InvalidTokenError('GitHub user is not allowed')
             }
 
             let status = 0;
@@ -1331,10 +1371,17 @@ class AuthService extends Base {
 
                 // Write-through: the disk tier is only as good as its last affirmative answer. A
                 // revoked token must also leave THIS store on the authoritative path below.
+                // Persisted subject is NORMALIZED to the fields buildInfo consumes — the full
+                // provider response (plan flags, profile URLs, email scopes) never reaches disk;
+                // identity-disclosure bound is exactly these three fields plus scopes + timestamp.
                 if (diskCachePath) {
                     const entries = await loadDiskEntries();
 
-                    entries.set(tokenHash, {user, scopes, verifiedAt: Date.now()});
+                    entries.set(tokenHash, {
+                        user      : {id: user.id, login: user.login, name: user.name},
+                        scopes,
+                        verifiedAt: Date.now()
+                    });
                     await persistDiskEntries()
                 }
 

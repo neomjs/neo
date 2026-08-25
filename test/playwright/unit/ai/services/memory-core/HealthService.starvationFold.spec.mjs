@@ -415,3 +415,41 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
         HealthService.clearCache();
     });
 });
+
+test.describe('composeMemoryCoreHealthcheck — admission-staleness is a CONSUMED degradation signal (#17304)', () => {
+    test('a seeded auth-staleness entry degrades the composed verdict, names the identity, and clears latch-free', async () => {
+        const {composeMemoryCoreHealthcheck} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+        const {getAuthValidationStaleness}   = await import('../../../../../../ai/mcp/server/shared/services/AuthService.mjs');
+
+        const healthyBase = {status: 'healthy', details: ['All features are operational']};
+        const compose     = () => composeMemoryCoreHealthcheck({
+            health              : healthyBase,
+            memoryWalDrain      : {state: 'idle'},
+            plane               : {id: 'test-plane', dataRoot: '/tmp/test-plane'},
+            deploymentInspection: {ok: false, status: 'unavailable'}
+        });
+
+        // Baseline without staleness: the empty registry must compose healthy — proving the
+        // signal's PRESENCE, not the import, is what degrades.
+        expect(compose().status).toBe('healthy');
+
+        const registry = getAuthValidationStaleness();
+        registry.set('github-pat', {since: Date.now(), user: 'eos'});
+
+        try {
+            const degradedResponse = compose();
+
+            expect(degradedResponse.status).toBe('degraded');
+            expect(degradedResponse.details.some(detail => detail.includes('Provider PAT admission is degraded'))).toBe(true);
+            expect(degradedResponse.details.some(detail => detail.includes("'eos'"))).toBe(true);
+            // The base payload was never mutated (upstream cache stays pristine).
+            expect(healthyBase.status).toBe('healthy')
+        } finally {
+            registry.delete('github-pat')
+        }
+
+        // Latch-free by per-request construction: a fresh provider validation restores healthy.
+        expect(compose().status).toBe('healthy');
+        expect(compose().details).toContain('All features are operational')
+    })
+});

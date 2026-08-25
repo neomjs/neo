@@ -294,6 +294,7 @@ Supply these values per service/profile as needed:
 | `NEO_FLEET_HEALTHCHECK_URL` | Fleet healthcheck CLI | Optional override for the exact authenticated `/fleet/probe` URL. |
 | `NEO_MCP_HEALTHCHECK_TOKEN` | Generic Fleet Compose secret source | Provider bearer supplied to Docker Compose; only the secret carrier name appears in rendered configuration. |
 | `NEO_MCP_HEALTHCHECK_TOKEN_FILE` | Fleet container + healthcheck CLI | Required in-container secret-file bearer carrier; the Fleet probe never accepts the credential on argv. |
+| `NEO_AUTH_PAT_DISK_CACHE_PATH` | PAT-auth MCP/Fleet services | Optional restart-durable admission-cache file (hash-keyed, no token material). Empty (default) keeps the tier off; when set, each service MUST own a distinct path — one writer per file — on durable storage, so a redeploy during a provider outage admits previously-validated identities instead of locking every seat out. |
 
 The top-level AI config template is [`ai/config.template.mjs`](../../ai/config.template.mjs).
 The cloud-ingestion tenant config guide is
