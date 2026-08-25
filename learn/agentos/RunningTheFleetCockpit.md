@@ -170,6 +170,20 @@ The launcher resolves the plane binding itself, naming every source it used:
    Nothing serving there fails fast with the plane-start command
    (`docker compose --env-file .env -f ai/deploy/docker-compose.yml -f ai/deploy/docker-compose.local-agent-os.yml --profile cloud --profile ingress --profile fleet up -d --wait`,
    see [`local-agent-os/README.md`](../../ai/scripts/lifecycle/local-agent-os/README.md)).
+4. **Admission-token teeth** — the live launcher also resolves the deployment's
+   bootstrap/healthcheck admission token and rides it into the fleet child's environment, arming
+   the credential-class alias guard: a plane bearer that IS the admission token now refuses this
+   boot exactly as production would, instead of passing silently. The resolution mirrors the
+   Compose secret source exactly — an already-exported `NEO_MCP_HEALTHCHECK_TOKEN_FILE` wins, then
+   the deployment override `NEO_MCP_AUTH_TOKEN_FILE`, then the canonical home
+   (`~/.neo-ai/secrets/mcp-auth-token`) — and it names its source in the boot log. Nothing is
+   copied: the export points at the custody home the deployment already materialized. An unreadable
+   home cannot arm the comparison; the boot says so loudly (a named DEGRADED line) rather than
+   silently skipping.
+
+The standalone `npm run ai:fleet-server` journey has no launcher to arm the guard for you: export
+the binding yourself (`NEO_MCP_HEALTHCHECK_TOKEN_FILE=~/.neo-ai/secrets/mcp-auth-token npm run ai:fleet-server`)
+whenever that entry targets a containerized plane.
 
 Live mode **never adopts an incumbent** fleet transport: an existing server on `:8083` cannot
 report which plane it reads through `/fleet/probe`, so adopting it could point the cockpit at the
