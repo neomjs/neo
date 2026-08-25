@@ -450,3 +450,80 @@ test.describe('repairStaleEmbeddings — the page walk is exercised, not assumed
         expect(census.staleCount).toBe(4500)
     })
 });
+
+/**
+ * Production-bound wiring evidence for the heavy-maintenance contracts, mirroring the source-inspection
+ * arms the other manual heavy scripts carry (`syncGithubWorkflow.spec.mjs`, `offHostSync.spec.mjs`).
+ *
+ * These live at the source level deliberately. The lease acquisition, owner, resolved leaves and the
+ * recorder handoff all sit inside the guarded `main()`, which is not exported — importing this module
+ * runs nothing, which is the property that keeps the unit specs above provider-free. The `shouldYield`
+ * arms prove `repairTargets` HONOURS a vote; only these prove `main()` actually supplies one, and that
+ * distinction is what a reviewer caught: the runtime wiring existed with no assertion reaching it.
+ */
+test.describe('repairStaleEmbeddings — heavy-maintenance wiring is present in the shipped script', () => {
+    const scriptPath = new URL(
+        '../../../../../../ai/scripts/migrations/repairStaleEmbeddings.mjs', import.meta.url
+    ).pathname;
+
+    /** @returns {Promise<String>} The shipped script's source. */
+    const readScript = async () => (await import('node:fs/promises')).readFile(scriptPath, 'utf8');
+
+    test('the apply path acquires the lease, owns it by name, and resolves its leaves at the use site', async () => {
+        const source = await readScript();
+
+        const
+            leaseIndex    = source.indexOf('await withHeavyMaintenanceLease('),
+            ownerIndex    = source.indexOf("owner       : 'kbStaleEmbeddingRepair'"),
+            leasePathIdx  = source.indexOf('resolveHeavyMaintenanceLeasePath({dataDir: aiConfig.orchestrator.dataDir})'),
+            staleAfterIdx = source.indexOf('aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs'),
+            applyGate     = source.indexOf("if (!options.apply) {");
+
+        expect(leaseIndex,    'the lease call must exist').toBeGreaterThan(-1);
+        expect(ownerIndex,    'the run must own the lease under its own name, not a borrowed one').toBeGreaterThan(-1);
+        expect(leasePathIdx,  'the lease path is resolved from the orchestrator leaf at the use site').toBeGreaterThan(-1);
+        expect(staleAfterIdx, 'staleAfterMs comes from the resolved leaf, never a literal').toBeGreaterThan(-1);
+
+        // Ordering is the load-bearing part: the dry-run return must precede the lease, or a dry run
+        // would take a deployment-wide lease to do nothing.
+        expect(applyGate).toBeGreaterThan(-1);
+        expect(applyGate, 'the dry-run gate returns BEFORE any lease is acquired').toBeLessThan(leaseIndex);
+    });
+
+    test('the provider call is recorded, so a multi-day burn is visible to the operator', async () => {
+        const source = await readScript();
+
+        expect(source).toContain('providerActivityRecorder: KBRecorderService');
+        // The recorder must reach the embed call, not merely be imported.
+        expect(
+            source.indexOf('providerActivityRecorder: KBRecorderService'),
+            'the recorder is passed inside the embedTexts options'
+        ).toBeGreaterThan(source.indexOf('TextEmbeddingService.embedTexts('));
+    });
+
+    test('the yield vote is built from THIS run\'s acquisition and handed to the batch loop', async () => {
+        const source = await readScript();
+
+        expect(source).toContain('createLeaseYieldVoter(acquisition)');
+        expect(source).toContain('shouldYield: createLeaseYieldVoter(acquisition)?.vote');
+    });
+
+    test('a HELD lease is an explicit non-success disposition, not a silent no-op', async () => {
+        const source = await readScript();
+
+        expect(source).toContain("outcome.status === 'held'");
+        expect(source).toContain('Nothing was repaired.');
+        // A held run that exited 0 would tell a caller the corpus was reconciled.
+        expect(source.indexOf('process.exitCode = 1', source.indexOf("outcome.status === 'held'"))).toBeGreaterThan(-1);
+    });
+
+    test('POSITIVE CONTROL: the matcher really is reading this script', async () => {
+        // Without this, every assertion above would also pass against an empty string — the failure
+        // mode where a source scan reports a clean bill because it read nothing.
+        const source = await readScript();
+
+        expect(source.length).toBeGreaterThan(2000);
+        expect(source).toContain('export async function repairTargets');
+        expect(source, 'a token that must NOT be present, so the matcher can fail').not.toContain('withHeavyMaintenanceLeaseNotWired');
+    })
+});
