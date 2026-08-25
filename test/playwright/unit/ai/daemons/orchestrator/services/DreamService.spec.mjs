@@ -87,7 +87,13 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 targets   : {
                     classNames  : targets.classNames   ?? [],
                     componentIds: targets.componentIds ?? []
-                }
+                },
+                // The same shared disposition `admitNlActions` stamps. `upsertNode` scopes a row to the
+                // writing tenant otherwise, and the digest reads only what was deliberately shared — so a
+                // fixture missing this declares a PRIVATE row and the digest correctly refuses to see it.
+                // Omitting it here made two arms report zero qualifying sequences, which is the isolation
+                // boundary working rather than the digest breaking.
+                visibility: 'team'
             }
         });
     }

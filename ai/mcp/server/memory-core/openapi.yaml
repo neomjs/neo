@@ -2856,6 +2856,9 @@ components:
           items:
             type: object
             properties:
+              sequenceId:
+                type: string
+                description: "Host-minted opaque correlation token, shared by every action in one sequence. Must be a bare UUID; anything else is refused and counted, because this is the one field that could carry agent identity into the graph."
               sessionId:  {type: string, nullable: true}
               timestamp:  {type: number, nullable: true}
               tool:       {type: string, nullable: true}

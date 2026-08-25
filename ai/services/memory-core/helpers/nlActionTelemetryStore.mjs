@@ -136,7 +136,22 @@ export function admitNlActions({actions = [], now = Date.now()} = {}) {
                 type      : NL_ACTION_TELEMETRY_NODE_TYPE,
                 name      : projected.tool ?? NL_ACTION_TELEMETRY_NODE_TYPE,
                 updatedAt : now,
-                properties: projected
+                properties: {
+                    ...projected,
+                    // EXPLICIT shared disposition, not an accident of who happened to write the row.
+                    // `upsertNode` stamps `Nodes.user_id` from the requesting context, which would make
+                    // this telemetry private to the seat that produced it — and its only consumer is
+                    // `GapInferenceEngine`, a swarm-wide digest that mints evidence on shared CLASS and
+                    // COMPONENT nodes. Private rows would leave that digest reading nothing, and the
+                    // tempting fix — dropping the RLS predicate from the reader — silently turns every
+                    // OTHER tenant's private rows readable too. Declaring team visibility here lets the
+                    // reader keep its predicate: what it sees is what was deliberately shared.
+                    //
+                    // Safe to share because the admitted set is already bounded to counts and targets:
+                    // no arguments, no results, no agent identity. That is what makes this a disposition
+                    // rather than a leak.
+                    visibility: 'team'
+                }
             });
 
             admitted++;

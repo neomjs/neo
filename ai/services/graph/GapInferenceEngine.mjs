@@ -423,6 +423,17 @@ class GapInferenceEngine extends Base {
      * @returns {Object}
      * @protected
      */
+    /**
+     * Both SELECTs below require `properties.visibility = 'team'`, which is this reader's ROW-VISIBILITY
+     * boundary rather than a filter for convenience.
+     *
+     * `GraphService.upsertNode` stamps `Nodes.user_id` from the writing context, so telemetry rows are
+     * tenant-scoped unless their writer declares otherwise — and `admitNlActions` declares team visibility
+     * deliberately, because this digest is a swarm-wide pass over shared CLASS/COMPONENT nodes. Reading
+     * with no predicate at all would have worked identically today and silently read every OTHER tenant's
+     * private rows the moment one existed. The predicate is what keeps "what this digest sees" equal to
+     * "what was deliberately shared".
+     */
     readNlActionRows({sinceTimestamp, sequenceLimit}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
@@ -437,6 +448,7 @@ class GapInferenceEngine extends Base {
                 FROM Nodes
                 WHERE json_extract(data, '$.label') = ?
                   AND json_extract(data, '$.properties.timestamp') >= ?
+                  AND json_extract(data, '$.properties.visibility') = 'team'
                 GROUP BY sequence_id
                 HAVING sequence_id IS NOT NULL
                 ORDER BY latest_timestamp DESC
@@ -454,6 +466,7 @@ class GapInferenceEngine extends Base {
                 SELECT data
                 FROM Nodes
                 WHERE json_extract(data, '$.label') = ?
+                  AND json_extract(data, '$.properties.visibility') = 'team'
                   AND json_extract(data, '$.properties.sequenceId') IN (${placeholders})
             `).all(NL_ACTION_TELEMETRY_NODE_TYPE, ...sequenceIds)
                 .map(row => JSON.parse(row.data)?.properties || {})

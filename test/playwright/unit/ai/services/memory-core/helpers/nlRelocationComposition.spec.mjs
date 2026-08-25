@@ -37,6 +37,25 @@ test.describe('NL relocation — admission and digest meet in the container grap
                 import * as core from ${rel('src/core/_export.mjs')};
 
                 const {admitNlActions} = await import(${rel('ai/services/memory-core/helpers/nlActionTelemetryStore.mjs')});
+
+                // THE WIRE, not a direct call. The store helper and the digest agreed with each other
+                // while the SCHEMA between them silently dropped the correlation token, so a composition
+                // that starts at the helper certifies a path production never takes. Everything below is
+                // admitted through the operation's real compiled schema first.
+                const YAML       = (await import('yaml')).default,
+                      validator  = await import(${rel('ai/mcp/validation/openApiValidator.mjs')}),
+                      fsMod      = await import('node:fs'),
+                      openApiDoc = YAML.parse(fsMod.readFileSync(${rel('ai/mcp/server/memory-core/openapi.yaml')}, 'utf8'));
+
+                let admitOperation = null;
+                for (const [p, item] of Object.entries(openApiDoc.paths)) {
+                    for (const [method, op] of Object.entries(item)) {
+                        if (op.operationId === 'admit_nl_actions') admitOperation = {path: p, method, ...op};
+                    }
+                }
+
+                const admitSchema = validator.buildZodSchema(openApiDoc, admitOperation),
+                      overWire    = payload => admitSchema.parse(payload);
                 const {saveNlTransaction, getNlTransaction, markNlTransactionReplayed} =
                     await import(${rel('ai/services/memory-core/helpers/nlTransactionArchiveStore.mjs')});
                 const {Memory_GraphService: GraphService} = await import(${rel('ai/services.mjs')});
@@ -46,7 +65,7 @@ test.describe('NL relocation — admission and digest meet in the container grap
                 const TOKEN_A = '11111111-1111-4111-8111-111111111111',
                       TOKEN_B = '22222222-2222-4222-8222-222222222222';
 
-                const admit = admitNlActions({actions: [
+                const admit = admitNlActions(overWire({actions: [
                     {sequenceId: TOKEN_A, sessionId: 's1', timestamp: 5000, tool: 'create_component',
                      success: true, durationMs: 3, appName: 'App',
                      targets: {classNames: ['Neo.button.Base'], componentIds: ['btn-1']}},
@@ -59,7 +78,30 @@ test.describe('NL relocation — admission and digest meet in the container grap
                     // The identity-shaped token the host must never send.
                     {sequenceId: 'agent-7_turn-2', sessionId: 's1', timestamp: 5003, tool: 'create_component',
                      success: true, durationMs: 1, appName: 'App', targets: {classNames: [], componentIds: []}}
-                ]});
+                ]}));
+
+                // Recorded separately so a failure names WHICH boundary lost the token. The schema
+                // dropping it and the store refusing it produce the same admitted count, and only this
+                // tells them apart.
+                const wireKeys = Object.keys(overWire({actions: [{
+                    sequenceId: TOKEN_A, sessionId: 's1', timestamp: 1, tool: 't',
+                    success: true, durationMs: 1, appName: 'A', targets: {classNames: [], componentIds: []}
+                }]}).actions[0]).sort();
+
+                // ISOLATION CONTROL: a telemetry row that is NOT team-visible. Written through the same
+                // GraphService the admission uses, so the only difference is the disposition itself.
+                GraphService.upsertNode({
+                    id        : 'nl-action-telemetry:private-other-tenant',
+                    type      : 'nl-action-telemetry',
+                    name      : 'create_component',
+                    updatedAt : 5004,
+                    properties: {
+                        sequenceId: '33333333-3333-4333-8333-333333333333',
+                        sessionId : 'other-tenant', timestamp: 5004, tool: 'create_component',
+                        success   : true, durationMs: 1, appName: 'Other',
+                        targets   : {classNames: [], componentIds: []}
+                    }
+                });
 
                 const engine = (await import(${rel('ai/services/graph/GapInferenceEngine.mjs')})).default,
                       read   = engine.readNlActionRows({sinceTimestamp: 1000, sequenceLimit: 10}),
@@ -77,8 +119,14 @@ test.describe('NL relocation — admission and digest meet in the container grap
                       replayed = saved.saved ? markNlTransactionReplayed({archiveId: saved.archiveId, now: 99}) : null,
                       afterMark = saved.saved ? getNlTransaction({archiveId: saved.archiveId}) : null;
 
+                // Read back through the raw store, NOT the digest: proves the control row exists and is
+                // in-window, so the digest's silence about it is the predicate rather than an empty seed.
+                const controlRow = GraphService.getNodeRecord({id: 'nl-action-telemetry:private-other-tenant'});
+
                 process.stdout.write(JSON.stringify({
                     admit,
+                    wireKeys,
+                    controlRowPresent: Boolean(controlRow) && controlRow.properties?.timestamp === 5004,
                     readStatus  : read.status,
                     rowCount    : read.rows?.length ?? null,
                     groups,
@@ -121,6 +169,21 @@ test.describe('NL relocation — admission and digest meet in the container grap
         out = runComposition()
     });
 
+    test('THE WIRE: the correlation token survives OpenAPI/Zod normalization', () => {
+        // The boundary this suite originally skipped, and the one that was broken. Zod strips undeclared
+        // keys, so an operation schema that never declares `sequenceId` silently deletes the token before
+        // the handler sees it — and the handler then refuses every row for a value the wire removed.
+        // Both halves stayed green because both were called directly. @neo-gpt-emmy found this by running
+        // the compiler; the arm exists so nobody has to find it that way again.
+        expect(out.wireKeys).toEqual([
+            'appName', 'durationMs', 'sequenceId', 'sessionId', 'success', 'targets', 'timestamp', 'tool'
+        ]);
+
+        // Stated as its own assertion because it is the one key whose absence is silent: the batch still
+        // parses, still dispatches, and still reports a count.
+        expect(out.wireKeys).toContain('sequenceId');
+    });
+
     test('every admitted row is readable by the digest, through the real store', () => {
         expect(out.admit.admitted).toBe(3);
         expect(out.readStatus).toBe('ok');
@@ -153,6 +216,17 @@ test.describe('NL relocation — admission and digest meet in the container grap
             app_name   : 'App',
             targets    : {classNames: ['Neo.button.Base'], componentIds: ['btn-1']}
         });
+    });
+
+    test('ISOLATION: a telemetry row without the shared disposition is invisible to the digest', () => {
+        // Two identities, one store. The admitted rows declare `visibility: 'team'`; the control row is
+        // written through the same GraphService without it. A reader with no RLS predicate returns all
+        // four sequences and looks perfectly healthy — which is exactly how a privacy hole ships.
+        expect(out.storedTokens).not.toContain('33333333-3333-4333-8333-333333333333');
+
+        // POSITIVE CONTROL: the control row IS in the store and IS within the lookback window, so its
+        // absence above is the predicate working rather than the row never having been written.
+        expect(out.controlRowPresent).toBe(true);
     });
 
     test('an identity-shaped token is refused, and never reaches the graph', () => {
