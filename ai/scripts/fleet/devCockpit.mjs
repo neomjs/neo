@@ -59,6 +59,16 @@
  * a log line. Bearer VALIDITY stays with the fleet entry's plane-side verified admission (one
  * verification authority); this launcher fails fast only on "no plane serving there at all".
  *
+ * Admission-token teeth arming (live mode): the fleet entry refuses to boot when its resolved
+ * plane bearer IS the deployment's bootstrap/healthcheck admission token — but only when it can
+ * SEE the admission token, and nothing on the host journey exported its env binding before. So in
+ * live mode the launcher resolves that binding itself ({@link resolveAdmissionTokenFileBinding})
+ * and rides it into the same child-only channel: an already-exported pin passes through untouched,
+ * else the Compose secret-source chain (deployment override, then canonical home) supplies the
+ * deployment's own materialization. This NAMES existing custody — never copies secret material;
+ * an unreadable home degrades the comparison exactly as the assert's own documented semantics,
+ * announced loudly at boot rather than silently.
+ *
  * **The operator-seat credential journey (seat-conflation honesty).** The implicit `gh auth token`
  * fallback resolves whatever identity the CHECKOUT's gh CLI is logged in as — on a multi-seat
  * machine that is typically an AGENT seat's account, so the plane admits the session as that
@@ -77,8 +87,10 @@
  * plane — an occupied endpoint refuses with the remediation named.
  */
 import {spawn}        from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {accessSync, constants, readFileSync} from 'node:fs';
 import http           from 'node:http';
+import os             from 'node:os';
+import path           from 'node:path';
 
 const FLEET_PORT_DEFAULT = 8083;
 
@@ -281,6 +293,51 @@ function isLoopbackPlaneBase(planeBase) {
 }
 
 /**
+ * @summary The canonical host custody home of the deployment's bootstrap/healthcheck admission
+ * token — the file the canonical local profile sources its `mcp-auth-token` Compose secret from.
+ * Host source and container target (`/run/secrets/mcp-auth-token`) are separate namespace
+ * contracts that happen to render from one materialization: this constant names ONLY the host
+ * half, so an export built on it names existing custody instead of copying secret material into
+ * a new location. Deployment-edge spawn-boundary constant (same family as
+ * {@link CANONICAL_LOCAL_PLANE_BASE}), not config: the config leaf binds the env var, this is the
+ * documented filesystem home behind its default.
+ * @type {String}
+ */
+export const CANONICAL_ADMISSION_TOKEN_FILE = path.join(os.homedir(), '.neo-ai', 'secrets', 'mcp-auth-token');
+
+/**
+ * @summary Resolves the admission-token binding the live journey hands the fleet child — the
+ * value `NEO_MCP_HEALTHCHECK_TOKEN_FILE` must carry for the entry's credential-class alias
+ * comparison to arm against a real token. Three levels, and they are NOT one inherited policy:
+ * the FIRST honors an operator's already-exported binding — the launcher's env spread passed
+ * that variable through to the child before this resolver existed, and an explicit pin outranks
+ * any derived value. The REMAINING two mirror the Compose secret-source interpolation
+ * (`${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}`): the deployment
+ * override, then the canonical home. The distinction is load-bearing — a pinned path can name a
+ * file Compose never materialized, so the guard could compare against a subject the deployment
+ * did not provision — which is exactly why the boot log prints WHICH level armed.
+ * Pure: reads only the injected env, touches no secret material, and answers a PATH — never a
+ * token value.
+ * @param {Object}   [options]
+ * @param {Object}   [options.env=process.env] Environment to resolve from.
+ * @returns {{value: String, source: ('pinned'|'compose-override'|'canonical-home')}}
+ */
+export function resolveAdmissionTokenFileBinding({env = process.env} = {}) {
+    const pinned          = env.NEO_MCP_HEALTHCHECK_TOKEN_FILE?.trim(),
+          composeOverride = env.NEO_MCP_AUTH_TOKEN_FILE?.trim();
+
+    if (pinned) {
+        return {value: pinned, source: 'pinned'}
+    }
+
+    if (composeOverride) {
+        return {value: composeOverride, source: 'compose-override'}
+    }
+
+    return {value: CANONICAL_ADMISSION_TOKEN_FILE, source: 'canonical-home'}
+}
+
+/**
  * @summary Resolves the live journey's plane binding — the pure decision seam the witnesses pin.
  *
  * Precedence, each half named in the notes so a boot log always shows WHICH source armed the run:
@@ -432,21 +489,28 @@ export async function probePlaneIdentity({planeBase, fetchImpl = globalThis.fetc
 /**
  * @summary Builds the fleet child's environment — the ONE place launch-resolved credentials cross
  * into a process. The transport bearer + handshake arm always ride; the live plane binding rides
- * only in live mode. Custody rule: this env goes to the fleet child ALONE — the webpack child
- * keeps the launcher's own environment untouched, so a gh/file-materialized plane bearer never
- * reaches a process that does not need it. Pure: the input env is copied, never mutated.
+ * only in live mode, and the admission-token binding rides only WITH it (the alias comparison is
+ * meaningful exactly when a containerized plane is targeted). Custody rule: this env goes to the
+ * fleet child ALONE — the webpack child keeps the launcher's own environment untouched, so a
+ * gh/file-materialized plane bearer never reaches a process that does not need it. Pure: the
+ * input env is copied, never mutated.
  * @param {Object}      options
- * @param {Object}      options.baseEnv            The launcher's environment to extend.
- * @param {String}      options.fleetBearer        The process-lifetime transport bearer.
- * @param {Object|null} [options.livePlane=null]   The resolved live binding ({planeBase, planeBearer}).
+ * @param {Object}      options.baseEnv                    The launcher's environment to extend.
+ * @param {String}      options.fleetBearer                The process-lifetime transport bearer.
+ * @param {Object|null} [options.livePlane=null]           The resolved live binding ({planeBase, planeBearer}).
+ * @param {String|null} [options.admissionTokenFile=null]  The resolved admission-token path; rides only with `livePlane`.
  * @returns {Object} The child environment.
  */
-export function buildFleetChildEnv({baseEnv, fleetBearer, livePlane = null}) {
+export function buildFleetChildEnv({baseEnv, fleetBearer, livePlane = null, admissionTokenFile = null}) {
     const env = {...baseEnv, NEO_FLEET_BEARER: fleetBearer, NEO_FLEET_BEARER_HANDSHAKE: '1'};
 
     if (livePlane) {
         env.NEO_FLEET_PLANE_BASE   = livePlane.planeBase;
-        env.NEO_FLEET_PLANE_BEARER = livePlane.planeBearer
+        env.NEO_FLEET_PLANE_BEARER = livePlane.planeBearer;
+
+        if (admissionTokenFile) {
+            env.NEO_MCP_HEALTHCHECK_TOKEN_FILE = admissionTokenFile
+        }
     }
 
     return env
@@ -468,7 +532,8 @@ async function main() {
 
     // Live journey first: resolve the plane binding and prove the plane serves BEFORE anything
     // spawns — a misresolved credential or an absent plane fails fast with no browser opened.
-    let livePlane = null;
+    let livePlane          = null,
+        admissionTokenFile = null;
 
     if (liveMode) {
         const resolved = await resolveLivePlaneConfig({env: process.env});
@@ -487,7 +552,24 @@ async function main() {
         }
 
         console.log(`[cockpit:live] ${planeProbe.detail} at ${resolved.planeBase}`);
-        livePlane = resolved
+        livePlane = resolved;
+
+        // The alias comparison in the fleet entry needs to SEE the deployment's admission token;
+        // a containerized-plane journey is exactly the case where that token exists host-side.
+        // Naming the source keeps the boot log honest about which contract armed the guard; an
+        // unreadable home cannot arm the comparison (the assert degrades to skip), so say so.
+        const admissionBinding = resolveAdmissionTokenFileBinding({env: process.env});
+
+        admissionTokenFile = admissionBinding.value;
+
+        try {
+            // Readability probe only — accessSync answers it without materializing secret bytes
+            // into the launcher's heap, which is the custody principle this feature lives by.
+            accessSync(admissionTokenFile, constants.R_OK);
+            console.log(`[cockpit:live] admission-token alias guard armed (${admissionBinding.source}: ${admissionTokenFile})`)
+        } catch (error) {
+            console.log(`[cockpit:live] WARNING: admission-token alias guard DEGRADED — resolved home unreadable (${admissionBinding.source}: ${admissionTokenFile}: ${error.message}). Materialize ~/.neo-ai/secrets/mcp-auth-token or pin NEO_MCP_AUTH_TOKEN_FILE / NEO_MCP_HEALTHCHECK_TOKEN_FILE.`)
+        }
     }
 
     const probe = fleetPort === FLEET_PORT_DEFAULT ? await probeFleetEndpoint(fleetPort) : null;
@@ -574,7 +656,7 @@ async function main() {
         // closing the launcher→page hand-off without an agent seam. The live plane binding (when
         // `--live` resolved one) rides the same child-only channel — never the webpack env.
         const fleet = spawn(fleetCmd[0], fleetCmd.slice(1), {
-            env  : buildFleetChildEnv({baseEnv: process.env, fleetBearer, livePlane}),
+            env  : buildFleetChildEnv({baseEnv: process.env, fleetBearer, livePlane, admissionTokenFile}),
             stdio: 'inherit'
         });
 

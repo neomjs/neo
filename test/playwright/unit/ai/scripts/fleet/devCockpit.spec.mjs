@@ -14,7 +14,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 import http from 'node:http';
 
-import {COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, buildFleetChildEnv, planCockpitBoot, probeFleetEndpoint, probePlaneIdentity, resolveLivePlaneConfig} from '../../../../../../ai/scripts/fleet/devCockpit.mjs';
+import {CANONICAL_ADMISSION_TOKEN_FILE, COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, buildFleetChildEnv, planCockpitBoot, probeFleetEndpoint, probePlaneIdentity, resolveAdmissionTokenFileBinding, resolveLivePlaneConfig} from '../../../../../../ai/scripts/fleet/devCockpit.mjs';
 import {startFleetBridgeServer}                                                                                                                       from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
 import {generateLocalBearerToken}                                                                                                                     from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 
@@ -28,7 +28,7 @@ const authenticatedOptions = overrides => ({
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
-// Both describe blocks below own the fixed :8083 endpoint. Under `fullyParallel`, separate describes
+// All describe blocks below own the fixed :8083 endpoint. Under `fullyParallel`, separate describes
 // can run in different workers; file-wide default mode orders them while preserving independent retries.
 test.describe.configure({mode: 'default'});
 
@@ -607,6 +607,155 @@ test.describe('ai/scripts/fleet/devCockpit — the live-plane journey (cockpit:l
             }
         } finally {
             await new Promise(resolve => incumbent.close(resolve))
+        }
+    })
+});
+
+/**
+ * The admission-token alias-guard arming witnesses: the launcher's binding resolver mirrors the
+ * Compose secret-source precedence, the child-env builder rides the binding only with a live
+ * plane binding, and a dev entry whose plane bearer aliases the armed token refuses pre-network
+ * with the credential-class ledger's named error — while a distinct bearer gets PAST the teeth.
+ */
+test.describe('ai/scripts/fleet/devCockpit — admission-token alias-guard arming', () => {
+    test('the binding resolver mirrors the Compose secret-source precedence exactly', () => {
+        const pinned = resolveAdmissionTokenFileBinding({env: {NEO_MCP_HEALTHCHECK_TOKEN_FILE: '/operator/pinned/token'}});
+
+        expect(pinned).toEqual({value: '/operator/pinned/token', source: 'pinned'});
+
+        // the pinned healthcheck var wins even when the deployment override is also present
+        expect(resolveAdmissionTokenFileBinding({env: {NEO_MCP_HEALTHCHECK_TOKEN_FILE: ' /pinned ', NEO_MCP_AUTH_TOKEN_FILE: '/override'}}))
+            .toEqual({value: '/pinned', source: 'pinned'});
+
+        expect(resolveAdmissionTokenFileBinding({env: {NEO_MCP_AUTH_TOKEN_FILE: '/deploy/override/token'}}))
+            .toEqual({value: '/deploy/override/token', source: 'compose-override'});
+
+        // whitespace-only values are not pins — they fall through like absent ones
+        expect(resolveAdmissionTokenFileBinding({env: {NEO_MCP_HEALTHCHECK_TOKEN_FILE: '   ', NEO_MCP_AUTH_TOKEN_FILE: '  '}}))
+            .toEqual({value: CANONICAL_ADMISSION_TOKEN_FILE, source: 'canonical-home'});
+
+        expect(resolveAdmissionTokenFileBinding({env: {}}))
+            .toEqual({value: CANONICAL_ADMISSION_TOKEN_FILE, source: 'canonical-home'});
+
+        expect(CANONICAL_ADMISSION_TOKEN_FILE)
+            .toBe(path.join(os.homedir(), '.neo-ai', 'secrets', 'mcp-auth-token'))
+    });
+
+    test('the child env rides the admission binding ONLY with a live plane binding', () => {
+        const base = {CARRY_ME: 'yes'};
+
+        const liveArmed = buildFleetChildEnv({
+            baseEnv           : base,
+            fleetBearer       : 'fleet-bearer',
+            livePlane         : {planeBase: 'http://127.0.0.1:3102', planeBearer: 'distinct-plane-token'},
+            admissionTokenFile: '/host/.neo-ai/secrets/mcp-auth-token'
+        });
+
+        expect(liveArmed.NEO_MCP_HEALTHCHECK_TOKEN_FILE).toBe('/host/.neo-ai/secrets/mcp-auth-token');
+        expect(liveArmed.NEO_FLEET_PLANE_BEARER).toBe('distinct-plane-token');
+
+        // no live plane → no admission export, whatever was resolved (in-process journeys stay unarmed)
+        const inProcess = buildFleetChildEnv({baseEnv: base, fleetBearer: 'fleet-bearer', admissionTokenFile: '/host/.neo-ai/secrets/mcp-auth-token'});
+
+        expect(inProcess.NEO_MCP_HEALTHCHECK_TOKEN_FILE).toBeUndefined();
+        expect(inProcess.NEO_FLEET_PLANE_BASE).toBeUndefined();
+
+        // an empty resolution never overwrites the operator's own environment copy
+        const emptyResolution = buildFleetChildEnv({
+            baseEnv           : {...base, NEO_MCP_HEALTHCHECK_TOKEN_FILE: '/operator/pinned/token'},
+            fleetBearer       : 'fleet-bearer',
+            livePlane         : {planeBase: 'http://127.0.0.1:3102', planeBearer: 't'},
+            admissionTokenFile: ''
+        });
+
+        expect(emptyResolution.NEO_MCP_HEALTHCHECK_TOKEN_FILE).toBe('/operator/pinned/token');
+
+        // input purity: baseEnv copied, never mutated
+        expect(base.CARRY_ME).toBe('yes');
+        expect(liveArmed).not.toBe(base)
+    });
+
+    test('the JS custody default and the Compose secret source render the same home \u2014 drift ratchet', () => {
+        const composeSource  = fs.readFileSync(path.join(repoRoot, 'ai/deploy/docker-compose.local-agent-os.yml'), 'utf8'),
+              launcherSource = fs.readFileSync(path.join(repoRoot, 'ai/scripts/fleet/devCockpit.mjs'), 'utf8');
+
+        expect(composeSource).toContain('${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}');
+        expect(launcherSource).toContain(`path.join(os.homedir(), '.neo-ai', 'secrets', 'mcp-auth-token')`)
+    });
+
+    test('a spawned dev entry whose plane bearer aliases the armed admission token REFUSES pre-network with the ledger error', async () => {
+        test.setTimeout(30000);
+
+        const secretsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'admission-teeth-')),
+              tokenFile  = path.join(secretsDir, 'mcp-auth-token');
+
+        fs.writeFileSync(tokenFile, 'aliased-admission-secret');
+
+        try {
+            const result = await new Promise(resolve => {
+                const child = spawn(process.execPath, [path.join(repoRoot, 'ai/services/fleet/devFleetServer.mjs')], {
+                    cwd: repoRoot,
+                    env: {
+                        ...process.env,
+                        NEO_FLEET_PLANE_BASE          : 'http://127.0.0.1:9',
+                        NEO_FLEET_PLANE_BEARER        : 'aliased-admission-secret',
+                        NEO_MCP_HEALTHCHECK_TOKEN_FILE: tokenFile
+                    },
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+
+                let output = '';
+                child.stdout.on('data', chunk => output += chunk);
+                child.stderr.on('data', chunk => output += chunk);
+                child.on('exit', code => resolve({code, output}))
+            });
+
+            expect(result.code).toBe(1);
+            expect(result.output).toContain('[FleetServer] fleet.planeBearer resolves to the deployment\'s bootstrap/healthcheck');
+            expect(result.output).toContain('dev server failed to start')
+        } finally {
+            fs.rmSync(secretsDir, {recursive: true, force: true})
+        }
+    });
+
+    test('a DISTINCT plane bearer passes the teeth \u2014 the boot advances to plane admission (and refuses only on the dead plane)', async () => {
+        test.setTimeout(30000);
+
+        const secretsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'admission-teeth-')),
+              tokenFile  = path.join(secretsDir, 'mcp-auth-token');
+
+        fs.writeFileSync(tokenFile, 'the-admission-secret');
+
+        try {
+            const result = await new Promise(resolve => {
+                const child = spawn(process.execPath, [path.join(repoRoot, 'ai/services/fleet/devFleetServer.mjs')], {
+                    cwd: repoRoot,
+                    env: {
+                        ...process.env,
+                        NEO_FLEET_PLANE_BASE          : 'http://127.0.0.1:9',
+                        NEO_FLEET_PLANE_BEARER        : 'a-distinct-plane-credential',
+                        NEO_MCP_HEALTHCHECK_TOKEN_FILE: tokenFile,
+                        // The viewer claim resolves BEFORE plane admission; without this pin a
+                        // gh-less environment refuses earlier with an unrelated message. The env
+                        // chain alone satisfies the claim, so the witness reaches the stage it
+                        // exists to observe: the dead-plane admission refusal.
+                        NEO_AGENT_IDENTITY            : 'admission-teeth-witness'
+                    },
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+
+                let output = '';
+                child.stdout.on('data', chunk => output += chunk);
+                child.stderr.on('data', chunk => output += chunk);
+                child.on('exit', code => resolve({code, output}))
+            });
+
+            // reaching the plane-mode refusal PROVES the credential-class comparison passed:
+            // the aliased twin above dies before this line with the ledger error instead.
+            expect(result.output).not.toContain('[FleetServer] fleet.planeBearer resolves to the deployment\'s bootstrap/healthcheck');
+            expect(result.output).toContain('[fleet] plane mode refused')
+        } finally {
+            fs.rmSync(secretsDir, {recursive: true, force: true})
         }
     })
 });
