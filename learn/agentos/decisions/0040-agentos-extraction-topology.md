@@ -220,6 +220,30 @@ fixture stays Engine (losing its live Brain imports per §2.3's whitebox tier), 
 specs split — pure UI/component specs stay with the Engine app, specs instantiating Fleet/MCP server
 implementations move with their service owner or become served-contract integration tests.
 
+**Amendment (2026-08-26, D#17756 → #17784): "the minimal Engine contributor surface" splits into two
+authority classes, and the separation is load-bearing.** §2.7's principle is confirmed; only its
+boundary description was underspecified, because it named one surface where there are two:
+
+- **The committed `AGENTS.md` is contributor-only**, rendered from a schema-bounded per-repo facts
+  source plus canonical *public-common* clauses. Ownership divides cleanly: the consuming repo owns
+  fact *values*; the canonical store owns the schema, the renderer, the cap, and the public clauses;
+  neither owns the other's bytes.
+- **The maintainer constitution is projected into seat/session substrate** (D#17644's layer) and is
+  **never** appended to a public fork's committed file.
+
+The falsifier that forced the split is concrete: appending the maintainer constitution to a fork's
+committed `AGENTS.md` makes unreachable internal commands — mailbox protocol, Memory Core saves, A2A
+lifecycle — *active authority* for every fork agent, none of which can execute them. The measured
+scale of the collision: a rendered contributor surface is ~2.9 KB against the 24.3 KB hand-copied
+constitution `neomjs/devindex` carried. A fact qualifies for the head only if it is (1) executable by
+a clean fork with no private infrastructure, (2) repo-specific or public-common rather than
+maintainer-institution policy, (3) mechanically falsifiable against the repo, and (4) required before
+the first safe contribution — so the schema **structurally rejects** Memory Core / A2A identities,
+lane-claim rules, and maintainer rotation. The cap is `additionalProperties: false`, not a prose
+promise: an uncapped head becomes a second constitution by accretion.
+
+Skill-tree custody follows the same rule and is decided in ADR 0041.
+
 ### §2.8 Conversion, canary, cut window
 
 - **Label provisioning + a one-ticket transfer canary** precede any bulk ticket conversion.
