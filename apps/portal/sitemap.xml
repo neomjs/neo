@@ -45,36 +45,6 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/benefits/brain/AIEngineeringTeam</loc>
-    <lastmod>2025-08-02T12:17:36+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/benefits/brain/IdentityRitualsCulture</loc>
-    <lastmod>2026-07-03T21:42:28+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/benefits/brain/AgentMemory</loc>
-    <lastmod>2026-07-03T21:42:28+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/benefits/brain/SelfEvolution</loc>
-    <lastmod>2026-07-03T21:42:28+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/benefits/brain/AgentOSOnYourCodebase</loc>
-    <lastmod>2026-07-03T21:42:28+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/benefits/brain/DeployingTheAgentOS</loc>
-    <lastmod>2026-07-03T21:42:28+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
     <loc>https://neomjs.com/learn/benefits/body/ApplicationEngine</loc>
     <lastmod>2026-07-03T21:42:28+02:00</lastmod>
     <priority>0.9</priority>
@@ -185,321 +155,68 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/StrategicWorkflows</loc>
-    <lastmod>2026-04-18T22:18:33+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/FlatPeerInstitution</loc>
-    <lastmod>2026-05-10T04:25:59+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
     <loc>https://neomjs.com/learn/agentos/FleetManagerArchitecture</loc>
     <lastmod>2026-08-14T09:57:02+02:00</lastmod>
-    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/RunningTheFleetCockpit</loc>
     <lastmod>2026-07-16T20:30:09+02:00</lastmod>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/SwarmIntelligence</loc>
-    <lastmod>2026-06-29T14:11:24+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/A2A</loc>
-    <lastmod>2026-04-21T02:06:34+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/IdentityFirewall</loc>
-    <lastmod>2026-06-04T10:23:25+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/Hooks</loc>
-    <lastmod>2026-06-30T02:43:18+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/ContentTrust</loc>
-    <lastmod>2026-06-30T01:30:28+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/MX</loc>
-    <lastmod>2026-05-27T14:09:31+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/ProgressiveDisclosureSkills</loc>
-    <lastmod>2026-06-30T01:29:51+02:00</lastmod>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/CoreSkills</loc>
-    <lastmod>2026-05-28T08:49:39+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/DreamPipeline</loc>
-    <lastmod>2026-06-29T21:02:21+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/rem-state-model</loc>
-    <lastmod>2026-05-17T10:56:07+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/ConceptOntology</loc>
-    <lastmod>2026-06-12T06:05:11Z</lastmod>
-    <priority>0.9</priority>
-  </url>
-  <url>
     <loc>https://neomjs.com/learn/agentos/NeuralLink</loc>
     <lastmod>2026-06-29T21:10:09+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/KnowledgeBase</loc>
-    <lastmod>2026-05-06T13:06:51+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/KnowledgeBaseEnhancement</loc>
-    <lastmod>2026-06-20T23:58:04+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/EmbeddingLane</loc>
-    <lastmod>2026-08-21T21:15:36+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/MemoryCore</loc>
-    <lastmod>2026-06-14T13:37:07Z</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/SeatMemoryLayer</loc>
-    <lastmod>2026-07-22T22:32:33+02:00</lastmod>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/SelfHealing</loc>
-    <lastmod>2026-05-22T10:31:51+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/GitHubWorkflow</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/CodeExecution</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/SharedDeployment</loc>
-    <lastmod>2026-06-14T13:37:07Z</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/ModelProviders</loc>
-    <lastmod>2026-06-04T18:04:49+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/OwnAgentTeam</loc>
-    <lastmod>2026-05-31T22:44:07+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/DeploymentCookbook</loc>
-    <lastmod>2026-05-29T23:50:52+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/AiConfigModel</loc>
-    <lastmod>2026-06-05T15:56:39+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/DockZoneModel</loc>
     <lastmod>2026-08-22T00:04:27+02:00</lastmod>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/WhyDeploy</loc>
-    <lastmod>2026-05-31T12:21:53+02:00</lastmod>
-    <priority>1.0</priority>
+    <loc>https://neomjs.com/learn/agentos/CoreSkills</loc>
+    <lastmod>2026-05-28T08:49:39+02:00</lastmod>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Day0Tutorial</loc>
-    <lastmod>2026-06-02T17:39:05+02:00</lastmod>
-    <priority>0.9</priority>
+    <loc>https://neomjs.com/learn/agentos/ProgressiveDisclosureSkills</loc>
+    <lastmod>2026-06-30T01:29:51+02:00</lastmod>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/TenantIngestionModel</loc>
-    <lastmod>2026-05-28T22:13:31+02:00</lastmod>
-    <priority>0.9</priority>
+    <loc>https://neomjs.com/learn/agentos/SeatMemoryLayer</loc>
+    <lastmod>2026-07-22T22:32:33+02:00</lastmod>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Configuration</loc>
-    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Security</loc>
-    <lastmod>2026-06-01T08:02:43+02:00</lastmod>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Overview</loc>
-    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/Troubleshooting</loc>
-    <lastmod>2026-06-02T17:39:05+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/ClientAuthentication</loc>
-    <lastmod>2026-06-02T21:34:35+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/McpInspectorCompatibility</loc>
-    <lastmod>2026-06-02T17:53:03+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/LlamaCppProfile</loc>
-    <lastmod>2026-06-01T12:41:43+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/CustomSources</loc>
-    <lastmod>2026-05-31T22:44:07+02:00</lastmod>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/CustomParsers</loc>
-    <lastmod>2026-05-31T22:44:07+02:00</lastmod>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/HookWiring</loc>
-    <lastmod>2026-05-31T22:44:07+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/PipelineWiring</loc>
-    <lastmod>2026-06-01T08:02:43+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/cloud-deployment/MigrationPath</loc>
-    <lastmod>2026-05-28T22:13:31+02:00</lastmod>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/Authorization</loc>
-    <lastmod>2026-05-07T19:22:00+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/GoogleAuthDemo</loc>
-    <lastmod>2026-05-07T19:22:00+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/AgentAgnosticMcpConfig</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/KnowledgeBaseMcpApi</loc>
-    <lastmod>2026-06-29T21:09:38+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/MemoryCoreMcpApi</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/MemoryCoreMcpAuth</loc>
-    <lastmod>2026-05-07T19:22:00+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/CommunitySourceRunbook</loc>
-    <lastmod>2026-07-19T10:18:56+02:00</lastmod>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/GraphBackfill</loc>
-    <lastmod>2026-05-09T12:33:18+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/ChromeDevToolsMcpServer</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/GitHubCLISetup</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/GitHubWorkflowServerGhAbsent</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/TroubleshootingToolCalls</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/AiToolingWslSetup</loc>
-    <lastmod>2026-03-31T02:29:29+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/WindowsSupport</loc>
-    <lastmod>2026-06-07T11:13:34Z</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/Introduction</loc>
-    <lastmod>2026-05-08T19:39:35+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/NeuralLinkCapabilityMatrix</loc>
-    <lastmod>2026-07-05T07:04:17+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/GenesisNeuralLinkProbe</loc>
-    <lastmod>2026-07-16T20:07:05+02:00</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/RestorationRunbook</loc>
-    <lastmod>2026-06-01T08:02:43+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/PilotPlaneRunbook</loc>
-    <lastmod>2026-07-27T12:33:11+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/tooling/WakeSubstrateIncidentProtocol</loc>
-    <lastmod>2026-05-22T19:28:26+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/decisions/0001-cross-process-cache-coherence</loc>
-    <lastmod>2026-05-09T13:18:06+02:00</lastmod>
-  </url>
-  <url>
-    <loc>https://neomjs.com/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot</loc>
-    <lastmod>2026-06-04T02:12:19+02:00</lastmod>
+    <loc>https://neomjs.com/learn/agentos/decisions/0018-neo-identity-source-of-truth-model</loc>
+    <lastmod>2026-08-24T16:48:10+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/decisions/0020-agent-harness-concept</loc>
     <lastmod>2026-06-13T01:17:15+02:00</lastmod>
   </url>
   <url>
-    <loc>https://neomjs.com/learn/agentos/decisions/0022-heavy-maintenance-scheduling-fairness</loc>
-    <lastmod>2026-06-20T09:42:44+02:00</lastmod>
+    <loc>https://neomjs.com/learn/agentos/decisions/0021-extended-nl-multi-writer-write-enforcement</loc>
+    <lastmod>2026-08-22T00:04:27+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/decisions/0029-docking-design</loc>
     <lastmod>2026-08-22T00:04:27+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0031-target-architecture-composition</loc>
+    <lastmod>2026-08-24T16:48:10+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0032-institution-cockpit-render-model</loc>
+    <lastmod>2026-08-24T16:48:10+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0034-electron-shell-architecture</loc>
+    <lastmod>2026-08-09T01:06:52+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0037-fleet-manager-outward-door-topology</loc>
+    <lastmod>2026-08-24T16:48:10+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0038-fm-client-topology</loc>
+    <lastmod>2026-08-24T16:48:10+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/CodebaseOverview</loc>
