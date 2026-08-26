@@ -201,11 +201,26 @@ lands.
 
 ### §2.7 Wave-one custody — what stays Engine, explicitly
 
-Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own decision), published
-`learn/agentos` content and every Portal/SEO/tree input derived from it, `resources/content`
-mirrors, `src/ai/**`, and the minimal Engine contributor surface. The extracted repository takes the
+Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own decision), every
+Portal/SEO/tree input derived from `learn/agentos` and the `resources/content` mirrors that publish
+it, `src/ai/**`, and the minimal Engine contributor surface. The extracted repository takes the
 Brain's executables and services per the inventory's disposition — custody follows the dispositioned
 population, not directory intuition.
+
+**`learn/agentos` splits by subject too, and this paragraph once said otherwise.** An earlier
+revision listed "published `learn/agentos` content" as one undivided Engine-staying category, which
+cannot survive its own coordinates: the Agent OS decision records live *inside*
+`learn/agentos/decisions/`, so a single clause answered both ways at once and the cut manifest could
+classify no `learn/agentos/**` row at all. The disposition is now explicit, and it is the same
+subject rule the next paragraph applies to tests and hooks rather than a new principle:
+
+| `learn/agentos` population | custody | why |
+|---|---|---|
+| Brain-owned learning guides; the Agent OS decision records under `learn/agentos/decisions/` | **extracted repository**, by exact-identity census | their subject is the Agent OS; a reader of a Brain ADR is working in the Brain |
+| rendered Portal / SEO / tree inputs; `resources/content` mirrors | **`neomjs/neo`** | their consumer is the published site, not the Agent OS |
+
+Neither half is a blanket directory move, and no `learn/agentos` path is left unclassified by
+omission.
 
 **Test and hook custody follows the SUBJECT, not the directory.** Lane-state, wake, presence, and
 Memory-Core context hooks under `.claude/hooks`, `.codex/hooks`, and `.kimi-code/hooks` are Agent OS
@@ -293,6 +308,15 @@ entrypoint class; a computed-import mechanism that bypasses the §2.4 dispositio
 change that reintroduces hoisting; a new out-of-`ai/` Brain-consumer class beyond the §2.3/§2.7
 dispositions (test infrastructure, app specs, tracked seat hooks); **any Engine `dependencies` or
 `devDependencies` edge on the extracted repository**; renaming the repository after creation.
+
+**Fired and discharged — `learn/agentos` custody, 2026-08-26.** The trigger above fired on operator
+direction that Brain-owned learning guides and the Agent OS decision records move to the extracted
+repository, with the CI-workflow consequences following. §2.7's `learn/agentos` table records the
+discharge. Two consequences worth stating rather than leaving to inference: the move itself is a
+separate receive leaf under the Wave-3 epic — **this amendment decides custody and relocates
+nothing** — and Epic #17500's earlier wave-one boundary, which kept all of `learn/agentos` Engine
+and listed moving it as out of scope, is **superseded** by this discharge on that same operator
+authority. Every other trigger in the list remains armed.
 
 **Retirement:** this ADR retires only by explicit successor in this series; the wave completing
 does not retire it — the topology it records is what "completed" means.
