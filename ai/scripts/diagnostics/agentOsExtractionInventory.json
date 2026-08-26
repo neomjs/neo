@@ -745,12 +745,6 @@
             "reason": "closure and task-authority imports are declarative; scanning and exit occur only under the direct-run guard"
         },
         {
-            "identity": "ai/scripts/lint/lint-skill-manifest.mjs",
-            "eligibility": "eligible",
-            "source": "ai/scripts/lint/lint-skill-manifest.mjs:1329-1334",
-            "reason": "git and filesystem scans plus exit handling stay inside guarded main"
-        },
-        {
             "identity": "ai/scripts/lint/lint-tree-json.mjs",
             "eligibility": "eligible",
             "source": "ai/scripts/lint/lint-tree-json.mjs:438-443",
@@ -897,7 +891,6 @@
                 "ai/scripts/lint/lint-openapi-service-parity.mjs",
                 "ai/scripts/lint/lint-retry-bounds.mjs",
                 "ai/scripts/lint/lint-script-plane.mjs",
-                "ai/scripts/lint/lint-skill-manifest.mjs",
                 "ai/scripts/lint/lint-tree-json.mjs",
                 "ai/scripts/lint/lint-pr-stacking.mjs",
                 "ai/scripts/maintenance/communityBatchPushClient.mjs",
@@ -1000,6 +993,19 @@
             ],
             "source": "AST devDependency importer census plus tool-usage census at origin/dev f47f337809",
             "rationale": "Engine build, browser asset, contributor, and Engine-owned test declarations stay with the Engine package"
+        },
+        {
+            "surface": "package-dependency",
+            "identities": [
+                "package.json::devDependencies::neo-agent-skills"
+            ],
+            "disposition": "stays-engine",
+            "manifestTargets": [
+                "engine",
+                "edge"
+            ],
+            "source": "D#17782 distribution contract plus the consumer wiring in neomjs/neo#17798",
+            "rationale": "the skill corpus is consumed, never authored, by either root: each declares the canonical package independently and its postinstall projects the skills into untracked surfaces, so no skill byte is tracked in either repository"
         },
         {
             "surface": "package-dependency",
@@ -1170,7 +1176,6 @@
                 "ai/scripts/lint/lint-openapi-service-parity.mjs",
                 "ai/scripts/lint/lint-retry-bounds.mjs",
                 "ai/scripts/lint/lint-script-plane.mjs",
-                "ai/scripts/lint/lint-skill-manifest.mjs",
                 "ai/scripts/lint/lint-tree-json.mjs",
                 "ai/scripts/lint/lint-pr-stacking.mjs",
                 "ai/scripts/lint/prStackingGuard.mjs",
@@ -1332,7 +1337,6 @@
             "identities": [
                 "ai/scripts/maintenance/defragChromaDB.mjs::dynamic-import::loadConfig",
                 "ai/scripts/maintenance/purgeTestCollections.mjs::dynamic-import::resolveChromaEndpoint",
-                "ai/services/knowledge-base/DatabaseService.mjs::unresolved-dispatch::createKnowledgeBase->SourceRegistry.getSources",
                 "ai/services/knowledge-base/source/tenantParserLoader.mjs::dynamic-import::importModule"
             ],
             "disposition": "cloud",
@@ -1450,6 +1454,7 @@
                 "create-component",
                 "generate-docs-json",
                 "install-brain",
+                "postinstall",
                 "prepare",
                 "server-start",
                 "test",
@@ -1491,7 +1496,6 @@
                 "ai:lint-npm-script-entrypoints",
                 "ai:lint-openapi-service-parity",
                 "ai:lint-retry-bounds",
-                "ai:lint-skill-manifest",
                 "ai:lint-tree-json",
                 "ai:mcp-healthcheck",
                 "ai:post-release-sync",
@@ -1506,7 +1510,6 @@
                 "ai:prune-worktrees:schedule-dangerous",
                 "ai:revalidation-sweep",
                 "ai:seat-cost-report",
-                "ai:skill-size-report",
                 "ai:structure-map",
                 "ai:sync-github-workflow"
             ],
@@ -1603,9 +1606,6 @@
                 ".github/workflows/skill-manifest-lint.yml::ai/scripts/lint/lint-agents.mjs::1",
                 ".github/workflows/skill-manifest-lint.yml::ai/scripts/lint/lint-agents.mjs::2",
                 ".github/workflows/skill-manifest-lint.yml::ai/scripts/lint/lint-agents.mjs::3",
-                ".github/workflows/skill-manifest-lint.yml::ai/scripts/lint/lint-skill-manifest.mjs::1",
-                ".github/workflows/skill-manifest-lint.yml::ai/scripts/lint/lint-skill-manifest.mjs::2",
-                ".github/workflows/skill-manifest-lint.yml::ai/scripts/lint/lint-skill-manifest.mjs::3",
                 ".github/workflows/substrate-size-guard.yml::ai/scripts/diagnostics/check-substrate-size.mjs::1",
                 ".github/workflows/substrate-size-guard.yml::ai/scripts/diagnostics/check-substrate-size.mjs::2",
                 ".github/workflows/tree-json-lint.yml::ai/scripts/lint/lint-tree-json.mjs::1",

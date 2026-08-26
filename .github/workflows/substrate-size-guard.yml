@@ -14,8 +14,6 @@ on:
       # Combined-budget members (#15257's pr-review loaded surface). A guard that does not RUN on the
       # edit it exists to catch is not a guard — the +135 B drift that put dev over its own gate was
       # a guide edit, and nothing was watching.
-      - '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md'
-      - '.agents/skills/pr-review/references/pr-review-guide.md'
       - 'ai/scripts/diagnostics/check-substrate-size.mjs'
       - '.github/workflows/substrate-size-guard.yml'
       - 'package.json'
@@ -32,8 +30,6 @@ on:
       # Combined-budget members (#15257's pr-review loaded surface). A guard that does not RUN on the
       # edit it exists to catch is not a guard — the +135 B drift that put dev over its own gate was
       # a guide edit, and nothing was watching.
-      - '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md'
-      - '.agents/skills/pr-review/references/pr-review-guide.md'
       - 'ai/scripts/diagnostics/check-substrate-size.mjs'
       - '.github/workflows/substrate-size-guard.yml'
       - 'package.json'

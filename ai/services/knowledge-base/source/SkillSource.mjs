@@ -3,7 +3,45 @@ import fs       from 'fs-extra';
 import path     from 'path';
 import fg       from 'fast-glob';
 import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
-import {parseSectionTriggers} from '../../../scripts/lint/lint-skill-manifest.mjs';
+
+/**
+ * @summary Indexes a skill document's trigger pointers by section.
+ *
+ * Lived in `ai/scripts/lint/lint-skill-manifest.mjs` until that lint retired with the corpus it
+ * validated — this extractor was its only importer, so the parser moved to its consumer rather than
+ * keeping a retired lint alive for one function. A trigger comment marks a section whose body is
+ * delegated to a sub-rule file; the Knowledge Base carries that pointer into the chunk metadata so a
+ * reader can follow it.
+ *
+ * @param {String} text Markdown source of one skill document.
+ * @returns {Object[]} One entry per section carrying a trigger comment.
+ */
+export function parseSectionTriggers(text) {
+    const index    = [];
+    const sections = text.split(/^(?=#{2,6}\s)/m);
+
+    for (const section of sections) {
+        if (!section.trim()) continue;
+
+        const headerMatch = section.match(/^(#{2,6})\s+([^\n]+)/);
+        if (!headerMatch) continue;
+
+        const anchor        = headerMatch[2].trim();
+        const bodySizeBytes = Buffer.byteLength(section, 'utf8');
+
+        const triggerMatch = section.match(/^<!-- trigger:\s+(.+?)\s+→\s+read\s+(.+?\.md)\s*-->$/m);
+        if (triggerMatch) {
+            index.push({
+                anchor,
+                trigger    : triggerMatch[1].trim(),
+                subRulePath: triggerMatch[2].trim(),
+                bodySizeBytes
+            });
+        }
+    }
+
+    return index;
+}
 
 /**
  * @summary Extracts knowledge chunks from Skill Markdown files.

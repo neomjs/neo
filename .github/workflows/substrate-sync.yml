@@ -1,0 +1,42 @@
+# Asserts the agent skill substrate is actually reachable in this checkout.
+#
+# Skills arrive as an npm dependency (`neo-agent-skills`) and are projected into `.claude/skills`
+# by that package's postinstall linker, as symlinks into `node_modules`. No skill bytes are
+# committed here, so there is nothing to compare trees against — the only question worth asking is
+# whether the projection happened.
+#
+# It is worth asking because it can silently not happen: `npm ci --ignore-scripts` skips both
+# `postinstall` and `prepare`, and is already deliberate practice in three of this repo's workflows.
+# That yields a resolved dependency and zero reachable skills — dependency resolution is not the
+# same as skills being reachable, and only this check tells them apart.
+#
+# Freshness is deliberately NOT checked here. `npm outdated` and dependabot are the ecosystem-native
+# surface; a bespoke lag gate is the machinery class that got the previous design rebuilt.
+
+name: substrate-sync
+
+permissions:
+  contents: read
+
+# No path filter, deliberately: a path-skipped workflow reports *pending* rather than success and can
+# therefore never be bound as a required status check.
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  substrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install
+        run: npm ci
+
+      - name: Assert skills are materialized and unshadowed
+        run: npx --no-install neo-agent-skills-materialize --check

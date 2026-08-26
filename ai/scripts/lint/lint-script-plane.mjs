@@ -125,8 +125,7 @@ export const UNRESOLVED_EDGE_LEDGER = Object.freeze([
     // Dispatch through a value the closure cannot name, with a capability behind the edge. The
     // callee is part of the identity, so the reader knows WHAT could not be followed.
     'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch::createAgent->agentFactory',
-    'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch::emitHandoff->handoffEmitter',
-    'ai/services/knowledge-base/DatabaseService.mjs::unresolved-dispatch::createKnowledgeBase->SourceRegistry.getSources'
+    'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch::emitHandoff->handoffEmitter'
 ]);
 
 /**
