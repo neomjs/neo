@@ -163,3 +163,9 @@ resources/content/computed-route.json
 
 *.orig
 *.patch
+
+# Skill substrate arrives as the neo-agent-skills npm dependency and is materialized by its
+# postinstall linker as symlinks into node_modules. Both paths are projection, never committed
+# bytes (neomjs/neo#17798).
+.agents/skills
+.claude/skills/
