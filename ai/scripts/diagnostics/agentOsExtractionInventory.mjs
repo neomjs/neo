@@ -1951,8 +1951,10 @@ export function runPlaneBoundaryProof({projectRoot = PROJECT_ROOT, execFile = ex
  * @param {String} config.skillsPackage.referenceClosure.ref Immutable owner-produced receipt coordinate.
  * @param {'red'|'green'} config.skillsPackage.referenceClosure.state Observed closure state at the cut.
  * @param {Object} config.enforcement One-time required-context read-back.
- * @param {String} config.enforcement.headSha Enforcement implementation/head SHA.
+ * @param {String} config.enforcement.ref Public coordinate of the read-back observation.
+ * @param {String} config.enforcement.rulesetDigest `sha256:<hex>` over the observed branch ruleset.
  * @param {String} config.enforcement.requiredContext Surviving required context.
+ * @param {Number} config.enforcement.integrationId Check-integration id owning that context.
  * @param {Object} config.learningCensus Immutable Brain-guide / ADR disposition census.
  * @param {String} config.learningCensus.ref Public census comment coordinate.
  * @param {String} config.learningCensus.commitSha Brain commit containing the census artifact.
@@ -2057,7 +2059,8 @@ export function buildWave3CutManifest({
         !VALID_REFERENCE_CLOSURE_STATE.has(skillsPackage.referenceClosure?.state)) {
         errors.push('skills-package-coordinate-missing')
     }
-    if (!GIT_SHA_RE.test(enforcement.headSha ?? '') || !enforcement.requiredContext) {
+    if (!enforcement.ref || !DIGEST_RE.test(enforcement.rulesetDigest ?? '') ||
+        !enforcement.requiredContext || !Number.isInteger(enforcement.integrationId)) {
         errors.push('enforcement-coordinate-missing')
     }
     if (!learningCensus.ref || !GIT_SHA_RE.test(learningCensus.commitSha ?? '') ||
@@ -2135,8 +2138,10 @@ export function buildWave3CutManifest({
                 }
             },
             enforcement: {
-                headSha        : enforcement.headSha ?? null,
-                requiredContext: enforcement.requiredContext ?? null
+                ref            : enforcement.ref ?? null,
+                rulesetDigest  : enforcement.rulesetDigest ?? null,
+                requiredContext: enforcement.requiredContext ?? null,
+                integrationId  : enforcement.integrationId ?? null
             },
             learningCensus: {
                 schemaVersion    : learningArtifact.schemaVersion ?? null,

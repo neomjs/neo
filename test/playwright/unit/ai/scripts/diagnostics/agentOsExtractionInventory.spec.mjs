@@ -272,8 +272,10 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
                     }
                 },
                 enforcement: {
-                    headSha        : 'e'.repeat(40),
-                    requiredContext: 'integration-parity'
+                    ref            : 'issuecomment-fixture#enforcement-read-back',
+                    rulesetDigest  : `sha256:${'e'.repeat(64)}`,
+                    requiredContext: 'integration-parity',
+                    integrationId  : 15368
                 },
                 learningCensus: {
                     ref         : 'discussioncomment-fixture#learning-census',
@@ -417,6 +419,41 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             'custody-correction-coordinate-missing',
             'rollback-pair-missing'
         ])
+    });
+
+    test('each enforcement read-back field is individually load-bearing', () => {
+        // The coarse fail-closed test above passes an ABSENT enforcement object, so it would stay
+        // green even if three of the four fields were never validated. These arms vary exactly one
+        // field at a time and assert the typed error appears — the non-vacuity half. Without them a
+        // future edit could drop `rulesetDigest` from validation and no test would notice.
+        const valid = {
+                ref            : 'issuecomment-fixture#enforcement-read-back',
+                rulesetDigest  : `sha256:${'e'.repeat(64)}`,
+                requiredContext: 'integration-parity',
+                integrationId  : 15368
+            },
+            // A ruleset observation is not a commit. The enforcement read-back has no implementing
+            // head to cite, so a SHA field there would carry a fiction; `ref` plus digest name where
+            // the observation lives and what it observed, which is what a read-back actually is.
+            invalidVariants = [
+                ['ref missing',            {...valid, ref            : ''}],
+                ['digest not sha256',      {...valid, rulesetDigest  : 'e'.repeat(64)}],
+                ['digest wrong length',    {...valid, rulesetDigest  : `sha256:${'e'.repeat(63)}`}],
+                ['requiredContext missing',{...valid, requiredContext: ''}],
+                ['integrationId absent',   {...valid, integrationId  : undefined}],
+                ['integrationId not int',  {...valid, integrationId  : '15368'}]
+            ];
+
+        invalidVariants.forEach(([label, enforcement]) => {
+            const receipt = buildWave3CutManifest({enforcement});
+
+            expect(receipt.errors, label).toContain('enforcement-coordinate-missing')
+        });
+
+        // Positive control: the same harness must NOT raise the enforcement error for a valid
+        // read-back, or every arm above would pass for the wrong reason.
+        expect(buildWave3CutManifest({enforcement: valid}).errors)
+            .not.toContain('enforcement-coordinate-missing')
     });
 
     test('Wave-3 tracker arithmetic rejects a stale source denominator', () => {
