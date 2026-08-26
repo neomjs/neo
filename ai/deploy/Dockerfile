@@ -98,6 +98,19 @@ RUN npm ci --ignore-scripts
 
 COPY --from=source /neo ./
 
+# `neo-agent-skills` ships the corpus; its postinstall linker is what projects it into
+# `.agents/skills` and `.claude/skills`. The `npm ci --ignore-scripts` above skips that hook by
+# design, so without this the image carries the package and NEITHER projection — SkillSource and
+# ContextAssembler would resolve nothing at runtime, in an image that otherwise looks correct.
+#
+# Runs after the source copy, not next to `npm ci`: the linker writes into the working tree, and
+# `COPY --from=source /neo ./` would land on top of it.
+#
+# The `--check` is not ceremony. A materialization that silently no-ops produces exactly the image
+# this comment exists to prevent, so the build fails here rather than shipping a corpus-less Brain.
+RUN npx --no-install neo-agent-skills-materialize \
+ && npx --no-install neo-agent-skills-materialize --check
+
 # The Brain tier is opt-in since the two-path install tier landed: the pruned lock gives the
 # base set, and the plane is a Brain environment by definition (Memory Core's graph storage
 # dynamically imports better-sqlite3; the KB rides the chromadb client). Arm it from the

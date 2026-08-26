@@ -7,14 +7,12 @@ on:
   pull_request:
     branches: [dev]
     paths:
-      - '.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md'
       - '.github/workflows/discussion-lifecycle-audit.yml'
       - 'ai/scripts/diagnostics/audit-discussion-lifecycle.mjs'
       - 'package.json'
   push:
     branches: [dev]
     paths:
-      - '.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md'
       - '.github/workflows/discussion-lifecycle-audit.yml'
       - 'ai/scripts/diagnostics/audit-discussion-lifecycle.mjs'
       - 'package.json'
