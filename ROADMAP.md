@@ -3,8 +3,8 @@
 The roadmap holds the **next-release scope only** — what ships next and why. Everything else has a canonical home:
 
 - **Vision & positioning:** [`.github/VISION.md`](.github/VISION.md)
-- **Architecture:** [Architecture Overview](learn/benefits/ArchitectureOverview.md) · [The Dream Pipeline & Golden Path](learn/agentos/DreamPipeline.md)
-- **Shipped history:** the [release notes](resources/content/release-notes/) ([v13.1.0](resources/content/release-notes/chunk-2/v13.1.0.md)) + the v13 architectural path ([`learn/agentos/v13-path.md`](learn/agentos/v13-path.md))
+- **Architecture:** [Engine and ecosystem overview](learn/benefits/ArchitectureOverview.md) · [Brain: Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)
+- **Shipped history:** the [Engine release notes](resources/content/release-notes/) ([v13.1.0](resources/content/release-notes/chunk-2/v13.1.0.md)) + the [v13 architectural path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/v13-path.md)
 
 ## Next: v13.2 — A Harness You Can Download, Run, and Steer
 

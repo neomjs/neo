@@ -1,6 +1,5 @@
-import {test, expect}           from '../../fixtures.mjs';
-import {NeuralLink_DataService} from '../../../../ai/services.mjs';
-import {createFleetWireOffer}   from '../../../../apps/agentos/config/fleetWireMethods.mjs';
+import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+import {createFleetWireOffer}                from '../../../../apps/agentos/config/fleetWireMethods.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -8,6 +7,8 @@ import {
     reloadRoster,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
+
+const {NeuralLink_DataService} = await loadNeuralLinkModules();
 
 const KEYBOARD_SOURCES = {
     roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
@@ -52,7 +53,7 @@ const KEYBOARD_ROSTER_ROWS = [
  */
 async function startRejectingFleetBridge() {
     const
-        {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+        {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
         requests                 = [];
 
     let rosterRows = KEYBOARD_ROSTER_ROWS;

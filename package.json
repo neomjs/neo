@@ -15,92 +15,8 @@
     },
     "scripts"        : {
         "add-config"                           : "node ./buildScripts/create/addConfig.mjs",
-        "agent-preflight"                      : "node ./ai/scripts/agent-preflight.mjs",
         "agent-push"                           : "node ./buildScripts/util/agent-push.mjs",
         "add-reactive-tags"                    : "node ./buildScripts/helpers/addReactiveTags.mjs",
-        "ai:agent"                             : "node ./ai/scripts/runners/runAgent.mjs",
-        "ai:analyze-nl-telemetry"              : "node ./ai/scripts/diagnostics/analyzeNlTelemetry.mjs",
-        "ai:audit-discussion-lifecycle"        : "node ./ai/scripts/diagnostics/audit-discussion-lifecycle.mjs",
-        "ai:audit-integrity"                   : "node ./ai/scripts/maintenance/auditGraphIntegrity.mjs",
-        "ai:backup"                            : "node ./ai/scripts/maintenance/backup.mjs",
-        "ai:benchmark-gemma4"                  : "node ./ai/scripts/benchmark/gemma4-rem-benchmark.mjs",
-        "ai:benchmark-setup-class"             : "node --expose-gc ./ai/scripts/benchmark/setupClass-cold-start.mjs",
-        "ai:bootstrap-codex-sandbox"           : "node ./ai/scripts/diagnostics/bootstrapCodexSandbox.mjs",
-        "ai:check-backup-integrity"            : "node ./ai/scripts/maintenance/backupCorruptionTimeline.mjs",
-        "ai:check-chroma-integrity"            : "node ./ai/scripts/maintenance/checkChromaIntegrity.mjs",
-        "ai:check-identity-facts"              : "node ./ai/scripts/diagnostics/check-identity-facts.mjs",
-        "ai:front-door-fingerprint"            : "node ./ai/scripts/lint/check-front-door-fingerprint.mjs",
-        "ai:check-retired-primitives"          : "node ./ai/scripts/diagnostics/check-retired-primitives.mjs",
-        "ai:check-substrate-size"              : "node ./ai/scripts/diagnostics/check-substrate-size.mjs",
-        "ai:compact-graphlog"                  : "node ./ai/scripts/maintenance/compactGraphLog.mjs",
-        "ai:config-print"                      : "node ./ai/scripts/diagnostics/printAiConfig.mjs",
-        "ai:restore"                           : "node ./ai/scripts/maintenance/restore.mjs",
-        "ai:reseed"                            : "node ./ai/scripts/maintenance/restore.mjs --operation reseed",
-        "ai:build-kb-faqs"                     : "node ./ai/scripts/maintenance/buildKbAgentFaqs.mjs",
-        "ai:lint-npm-script-entrypoints"       : "node ./ai/scripts/lint/lint-npm-script-entrypoints.mjs",
-        "ai:defrag-kb"                         : "node ./ai/scripts/maintenance/defragChromaDB.mjs --target knowledge-base",
-        "ai:defrag-memory"                     : "node ./ai/scripts/maintenance/defragChromaDB.mjs --target memory-core",
-        "ai:defrag-sqlite"                     : "node ./ai/scripts/maintenance/defragSQLiteDB.mjs",
-        "ai:download-kb"                       : "node ./ai/scripts/maintenance/downloadKnowledgeBase.mjs",
-        "ai:fleet-healthcheck"                 : "node ./ai/scripts/diagnostics/fleetHealthcheck.mjs",
-        "ai:fleet-server"                      : "node ./ai/services/fleet/devFleetServer.mjs",
-        "ai:gemini-incident-cost-ledger"       : "node ./ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs",
-        "ai:genesis-probe"                     : "node ./ai/scripts/diagnostics/genesisProbe.mjs",
-        "ai:graph-lifecycle-report"            : "node ./ai/scripts/maintenance/graphLifecycleReport.mjs",
-        "ai:ingest-tenant"                     : "node ./ai/scripts/maintenance/ingestTenant.mjs",
-        "ai:kb-push-client"                    : "node ./ai/scripts/maintenance/kbPushClient.mjs",
-        "ai:community-batch-push"              : "node ./ai/scripts/maintenance/communityBatchPushClient.mjs",
-        "ai:community-source-operator"         : "node ./ai/scripts/maintenance/communitySourceOperator.mjs",
-        "ai:mcp-healthcheck"                   : "node ./ai/scripts/diagnostics/mcpHealthcheck.mjs",
-        "ai:mcp-client"                        : "node ./ai/mcp/client/mcp-cli.mjs",
-        "ai:mcp-server-file-system"            : "node ./ai/mcp/server/file-system/mcp-server.mjs",
-        "ai:mcp-server-github-workflow"        : "node ./ai/mcp/server/github-workflow/mcp-server.mjs",
-        "ai:mcp-server-knowledge-base"         : "node ./ai/mcp/server/knowledge-base/mcp-server.mjs",
-        "ai:mcp-server-memory-core"            : "node ./ai/mcp/server/memory-core/mcp-server.mjs",
-        "ai:mcp-server-neural-link"            : "node ./ai/mcp/server/neural-link/mcp-server.mjs",
-        "ai:migration-census-report"           : "node ./ai/scripts/maintenance/migrationCensusReport.mjs",
-        "ai:probe-business-metrics"            : "node ./ai/scripts/maintenance/probeBusinessMetrics.mjs",
-        "ai:probe-community-activity-shadow"   : "node ./ai/scripts/maintenance/probeCommunityActivityShadow.mjs",
-        "ai:probe-dialog-gate"                 : "node ./ai/scripts/diagnostics/dialogGateRig.mjs",
-        "ai:probe-keep-alive"                  : "node ./ai/scripts/benchmark/keep-alive-probe.mjs",
-        "ai:provider-lane-composition"         : "node ./ai/scripts/diagnostics/providerLaneComposition.mjs",
-        "ai:provider-lane-election"            : "node ./ai/scripts/benchmark/provider-lane-election.mjs",
-        "ai:prune-worktrees"                   : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
-        "ai:prune-worktrees:dry-run"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run",
-        "ai:prune-worktrees:schedule-dangerous": "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --include-dirty --interval-ms 21600000",
-        "ai:purge-no-content-graph-memories"   : "node ./ai/scripts/maintenance/purgeNoContentGraphMemories.mjs",
-        "ai:purge-test-collections"            : "node ./ai/scripts/maintenance/purgeTestCollections.mjs",
-        "ai:reconcile-raw-memory-identities"   : "node ./ai/scripts/migrations/reconcileRawMemoryGraphIdentities.mjs",
-        "ai:lint-agents"                       : "node ./ai/scripts/lint/lint-agents.mjs",
-        "ai:lint-config-template-ssot"         : "node ./ai/scripts/lint/lint-config-template-ssot.mjs",
-        "ai:lint-fleet-vocabulary-parity"      : "node ./ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
-        "ai:lint-guides"                       : "node ./ai/scripts/lint/lint-guides.mjs",
-        "ai:lint-identity-engine-coherence"    : "node ./ai/scripts/lint/lint-identity-engine-coherence.mjs",
-        "ai:lint-identity-vocabulary"          : "node ./ai/scripts/lint/lint-identity-vocabulary.mjs",
-        "ai:lint-mcp-test-locations"           : "node ./ai/scripts/lint/lint-mcp-test-locations.mjs",
-        "ai:lint-openapi-service-parity"       : "node ./ai/scripts/lint/lint-openapi-service-parity.mjs",
-        "ai:lint-retry-bounds"                 : "node ./ai/scripts/lint/lint-retry-bounds.mjs",
-        "ai:lint-tree-json"                    : "node ./ai/scripts/lint/lint-tree-json.mjs",
-        "ai:kb-alerting"                       : "node ./ai/daemons/kb-alerting/daemon.mjs",
-        "ai:kb-reconciliation"                 : "node ./ai/daemons/kb-reconciliation/daemon.mjs",
-        "ai:kb-gc"                             : "node ./ai/daemons/kb-gc/daemon.mjs",
-        "ai:host-edge"                         : "node ./ai/daemons/orchestrator/hostEdge.mjs",
-        "ai:orchestrator"                      : "node ./ai/daemons/orchestrator/daemon.mjs",
-        "ai:post-release-sync"                 : "node ./ai/scripts/lifecycle/postReleaseSync.mjs",
-        "ai:wake-manifest"                     : "node ./ai/daemons/wake/buildReceiverManifest.mjs",
-        "ai:wake-receiver"                     : "node ./ai/daemons/wake/receiver.mjs",
-        "ai:revalidation-sweep"                : "node ./ai/scripts/lifecycle/revalidationSweep.mjs",
-        "ai:run-sandman"                       : "node ./ai/scripts/runners/runSandman.mjs",
-        "ai:seat-cost-report"                  : "node ./ai/scripts/diagnostics/seatCostReport.mjs",
-        "ai:server"                            : "chroma run --path ./.neo-ai-data/chroma/unified",
-        "ai:server-neural-link"                : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
-        "ai:check-content-identity"            : "node ./buildScripts/util/check-content-logical-identity.mjs --all",
-        "ai:stale-embedding-census"            : "node ./ai/scripts/diagnostics/staleEmbeddingCensus.mjs",
-        "ai:stale-embedding-repair"            : "node ./ai/scripts/migrations/repairStaleEmbeddings.mjs",
-        "ai:structure-map"                     : "node ./ai/scripts/diagnostics/structureMap.mjs",
-        "ai:summarize-sessions"                : "node ./ai/scripts/lifecycle/summarize-sessions.mjs",
-        "ai:sync-github-workflow"              : "node ./ai/scripts/maintenance/syncGithubWorkflow.mjs",
-        "ai:sync-kb"                           : "node ./ai/scripts/maintenance/syncKnowledgeBase.mjs",
         "build-all"                            : "node ./buildScripts/build/all.mjs -f -n",
         "build-all-questions"                  : "node ./buildScripts/build/all.mjs -f",
         "build-dist-esm"                       : "node ./buildScripts/build/esmodules.mjs",
@@ -118,18 +34,13 @@
         "create-app-minimal"                   : "node ./buildScripts/create/appMinimal.mjs",
         "create-class"                         : "node ./buildScripts/create/class.mjs",
         "create-component"                     : "node ./buildScripts/create/component.mjs",
-        "cockpit"                              : "node ./ai/scripts/fleet/devCockpit.mjs",
-        "cockpit:live"                         : "node ./ai/scripts/fleet/devCockpit.mjs --live",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
-        "install-brain"                        : "node ./buildScripts/util/installBrain.mjs",
         "postinstall"                          : "neo-agent-skills-materialize",
         "prepare"                              : "node ./buildScripts/util/prepare.mjs",
         "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                                 : "playwright test -c test/playwright/playwright.config.mjs",
         "test-components"                      : "playwright test -c test/playwright/playwright.config.component.mjs",
         "test-e2e"                             : "playwright test -c test/playwright/playwright.config.e2e.mjs",
-        "test-integration-unified"             : "playwright test -c test/playwright/playwright.config.integration.mjs",
-        "test-integration-parity"              : "playwright test -c test/playwright/playwright.config.integration-parity.mjs",
         "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
         "watch-themes"                         : "node ./buildScripts/helpers/watchThemes.mjs"
     },
@@ -209,8 +120,6 @@
     "homepage"       : "https://neomjs.com/",
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^7.3.0",
-        "@google/generative-ai"        : "^0.24.1",
-        "@modelcontextprotocol/sdk"    : "^1.29.0",
         "@playwright/test"             : "^1.61.1",
         "acorn"                        : "^8.17.0",
         "astring"                      : "^1.9.0",
@@ -218,7 +127,6 @@
         "chalk"                        : "^5.6.2",
         "commander"                    : "^15.0.0",
         "cssnano"                      : "^7.1.9",
-        "dotenv"                       : "^17.4.2",
         "envinfo"                      : "^7.21.0",
         "esbuild"                      : "^0.28.1",
         "fast-glob"                    : "^3.3.3",
@@ -245,8 +153,7 @@
         "webpack-cli"                  : "^7.1.0",
         "webpack-dev-server"           : "^6.0.0",
         "webpack-hook-plugin"          : "^1.0.7",
-        "ws"                           : "^8.21.0",
-        "zod"                          : "^4.4.3"
+        "ws"                           : "^8.21.0"
     },
     "overrides": {
         "gray-matter": {
@@ -269,39 +176,14 @@
             "node ./buildScripts/util/check-parse.mjs"
         ],
         "test/**/*.mjs": [
-            "node ./buildScripts/util/check-aiconfig-test-mutation.mjs",
             "node ./buildScripts/util/check-derived-domain.mjs",
             "node ./buildScripts/util/check-fixed-sleeps.mjs"
-        ],
-        "ai/**/*.mjs": [
-            "node ./buildScripts/util/check-atomic-write-shape.mjs"
         ],
         "{buildScripts,src}/**/*.mjs": [
             "node ./buildScripts/util/check-engine-brain-boundary.mjs"
         ],
         "resources/scss/**/*.scss": [
             "node ./buildScripts/util/check-theme-coverage.mjs"
-        ],
-        "{package.json,.husky/pre-commit,.github/workflows/*.yml,.github/workflows/*.yaml,ai/scripts/lint/lint-guard-ci-parity.mjs,ai/scripts/lint/guard-ci-parity-registry.json}": [
-            "node ./ai/scripts/lint/lint-guard-ci-parity.mjs"
-        ],
-        "ai/{services,services.mjs}/**": [
-            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
-        ],
-        "{ai/services/fleet/{mcpServers,harnessTypes,fleetWireMethods,fleetCockpitStatus}.mjs,apps/agentos/config/{mcpServers,harnessTypes,fleetWireMethods,cockpitSources}.mjs,ai/scripts/lint/lint-fleet-vocabulary-parity.mjs}": [
-            "node ./ai/scripts/lint/lint-fleet-vocabulary-parity.mjs"
-        ],
-        "ai/mcp/server/**/{toolService.mjs,*.mjs}": [
-            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
-        ],
-        "ai/mcp/ToolService.mjs": [
-            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
-        ],
-        "ai/scripts/{lint/lint-openapi-service-parity.mjs,diagnostics/mcpHandlerSignatureCensus.mjs}": [
-            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
-        ],
-        "ai/mcp/server/**/openapi.yaml": [
-            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
         ],
         "resources/content/archive/**/*.md": [
             "node ./buildScripts/util/check-content-logical-identity.mjs"

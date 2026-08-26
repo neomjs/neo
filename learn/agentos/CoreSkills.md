@@ -242,11 +242,11 @@ institutional memory.
 - If you want the loading mechanism, start with
   [Progressive Disclosure Skills](./ProgressiveDisclosureSkills.md).
 - If you want a concrete evidence workflow, read
-  [Strategic Workflows](./StrategicWorkflows.md).
+  [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md).
 - If you want local sub-agent delegation, read
-  [Swarm Intelligence & Sub-Agents](./SwarmIntelligence.md).
+  [Swarm Intelligence & Sub-Agents](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md).
 - If you want the governance boundary that keeps agents from becoming obedient
-  tools, read [Identity Firewall & Governance](./IdentityFirewall.md).
+  tools, read [Identity Firewall & Governance](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/IdentityFirewall.md).
 
 The core skills sit across those surfaces. They are what let the Brain work
 through multiple agents, multiple sessions, and multiple model families without

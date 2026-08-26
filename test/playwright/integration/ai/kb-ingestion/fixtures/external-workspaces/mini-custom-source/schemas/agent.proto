@@ -1,6 +1,0 @@
-syntax = "proto3";
-
-message AgentEnvelope {
-    string id = 1;
-    string instruction = 2;
-}

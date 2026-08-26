@@ -246,12 +246,8 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
             .toEqual([0.85, 0.15]);
 
         // 2) NL-verifiable switching: the same public seam a switcher UI calls
-        const {NeuralLink_InstanceService} = await import('../../../../ai/services.mjs');
-
-        const review = await NeuralLink_InstanceService.callMethod({
-            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Review']
-        });
-        expect(review?.result ?? review).toMatchObject({switched: true});
+        const review = await app.callMethod(holderId, 'activatePerspective', ['Review']);
+        expect(review).toMatchObject({switched: true});
 
         await expect.poll(primarySizes, {message: 'the Review switch must commit', timeout: 10000, intervals: [100]})
             .toEqual([0.45, 0.55]);
@@ -267,9 +263,7 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
         expect(detail?.id, 'the absent-item resolver returns one live AgentDetail component').toBeTruthy();
 
         // ...and back to the default duty
-        await NeuralLink_InstanceService.callMethod({
-            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Overview']
-        });
+        await app.callMethod(holderId, 'activatePerspective', ['Overview']);
 
         await expect.poll(primarySizes, {message: 'the Fleet switch must restore the default split', timeout: 10000, intervals: [100]})
             .toEqual([0.6078, 0.3922]);
@@ -290,10 +284,8 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
             .toEqual(Object.values(keepers));
 
         // a refused switch fails closed: worker truth unchanged, the refusal recorded
-        const ghost = await NeuralLink_InstanceService.callMethod({
-            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Ghost']
-        });
-        expect((ghost?.result ?? ghost)?.switched).toBe(false);
+        const ghost = await app.callMethod(holderId, 'activatePerspective', ['Ghost']);
+        expect(ghost?.switched).toBe(false);
         expect(await primarySizes()).toEqual([0.6078, 0.3922]);
         await expect(page.locator('.fm-preset-error'), 'a refused switch records its error in the same persistent toolbar')
             .toContainText('Ghost');

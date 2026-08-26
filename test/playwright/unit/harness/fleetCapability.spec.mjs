@@ -4,7 +4,9 @@ import {
     projectPublicAgentIntent,
     projectPublicCredentialIntent
 } from '../../../../harness/fleetCapability.mjs';
-import {
+import {loadAgentOsModule} from '../../fixtures.mjs';
+
+const {
     createFleetWireOffer,
     createFleetWireRequest,
     createFleetWireResponse,
@@ -12,7 +14,7 @@ import {
     FLEET_WIRE_METHODS,
     FLEET_WIRE_RESPONSE_STATES,
     inspectFleetWireResponse
-} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
+} = await loadAgentOsModule('ai/services/fleet/fleetWireMethods.mjs');
 
 const bearerToken = 'B'.repeat(43);
 

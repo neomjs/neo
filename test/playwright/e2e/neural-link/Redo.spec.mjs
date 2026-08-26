@@ -1,5 +1,4 @@
-import { test, expect }               from '../../fixtures.mjs';
-import { NeuralLink_InstanceService } from '../../../../ai/services.mjs';
+import {test, expect} from '../../fixtures.mjs';
 
 /**
  * @summary Live Neural Link proof for the `redo` MCP tool — the e2e counterpart to the unit specs
@@ -57,7 +56,7 @@ test.describe('Neural Link - redo (e2e)', () => {
         await expect(page.locator(`.neo-button:has-text("${label}")`)).toBeVisible({ timeout: 10000 });
 
         // undo → gone from the tree + DOM
-        const undoResult = await NeuralLink_InstanceService.undo({sessionId: app.sessionId});
+        const undoResult = await app.undo();
         expect(undoResult.undone, `undo returned: ${JSON.stringify(undoResult)}`).toBe(true);
 
         await expect.poll(async () => JSON.stringify(await app.getComponentTree()).includes(label), {
@@ -66,7 +65,7 @@ test.describe('Neural Link - redo (e2e)', () => {
         await expect(page.locator(`.neo-button:has-text("${label}")`)).toHaveCount(0);
 
         // redo → restored to the tree + DOM (asserted by the unique label; a create re-apply may mint a fresh id)
-        const redoResult = await NeuralLink_InstanceService.redo({sessionId: app.sessionId});
+        const redoResult = await app.redo();
         expect(redoResult.redone, `redo returned: ${JSON.stringify(redoResult)}`).toBe(true);
 
         await expect.poll(async () => JSON.stringify(await app.getComponentTree()).includes(label), {

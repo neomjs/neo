@@ -170,7 +170,7 @@ class AddAgentForm extends FormContainer {
         if (!bridge?.defineAgent) {
             me.flowStatus = {
                 state : 'gated',
-                reason: 'Fleet Registry bridge unavailable — agent setup fails closed. Start the fleet server (npm run ai:fleet-server).'
+                reason: 'Fleet Registry bridge unavailable — agent setup fails closed. Start the fleet server from the neo-agent-brain checkout.'
             }
         } else if (shellOwned) {
             me.flowStatus = {

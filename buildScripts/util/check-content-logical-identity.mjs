@@ -212,7 +212,7 @@ Fix: keep ONE artifact per logical name. Its correct home is the ordinal chunk A
 against COMPLETE bucket membership (§2.2.1) with §2.5's ordering — ascending GitHub ID within the
 version bucket. Do NOT resolve a divergent pair by keeping whichever copy looks newer: nothing on disk
 records which is current, so re-derive it from GitHub via
-\`PullRequestSyncer.repairDuplicateArtifacts\` (npm run ai:sync-github-workflow).`);
+\`PullRequestSyncer.repairDuplicateArtifacts\` from the neo-agent-brain checkout.`);
 
         process.exit(1)
     }

@@ -2,7 +2,7 @@
 
 Welcome, AI assistant! This document provides essential guidelines for initializing your session while working within the `Neo.mjs` repository. Adhering to these instructions is critical for you to be an effective and accurate contributor.
 
-**MCP Server Infrastructure:** Do not treat this boot guide as the MCP server inventory. The canonical Neo MCP server set is derived from `package.json` scripts matching `ai:mcp-server-*`; current functional entries include the `ai:mcp-server-neural-link` script (`neo-mjs-neural-link` in harness configs). Harness configs can expose a subset when the harness already provides native filesystem, browser, or debugging tools.
+**MCP Server Infrastructure:** The Agent OS and its `ai:*` commands live in the sibling [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository. Run every Agent OS command in this guide from that Brain checkout while keeping the Engine checkout as the target repository. Do not treat this boot guide as the MCP server inventory; derive that inventory from the Brain package scripts. Harness configs can expose a subset when the harness already provides native filesystem, browser, or debugging tools.
 
 All server tools have detailed, self-explanatory descriptions with usage examples. Consult the tool documentation to understand their capabilities.
 
@@ -34,7 +34,7 @@ Then parse `learn/guides/fundamentals/WorkerArchitecture.md`. It provides the co
 
 **Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
 
-**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in §knowledge_base_primary_truth (Two-Stage Query Protocol) and is the single most effective antidote to reinventing the wheel across sessions and agents.
+**Strategic Workflows:** Parse [`learn/agentos/StrategicWorkflows.md`](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) from the Brain repository. This is the canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in §knowledge_base_primary_truth (Two-Stage Query Protocol) and is the single most effective antidote to reinventing the wheel across sessions and agents.
 
 ### Step 2: Read the Core Concepts
 

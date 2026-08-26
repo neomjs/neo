@@ -27,7 +27,6 @@ on:
     paths:
       - 'src/**/*.mjs'
       - 'apps/**/*.mjs'
-      - 'ai/**/*.mjs'
       - 'examples/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'docs/output/class-hierarchy.json'
@@ -45,7 +44,6 @@ on:
     paths:
       - 'src/**/*.mjs'
       - 'apps/**/*.mjs'
-      - 'ai/**/*.mjs'
       - 'examples/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'docs/output/class-hierarchy.json'

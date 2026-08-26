@@ -1,8 +1,9 @@
-import {expect, test} from '@playwright/test';
-
-import {parseSseFrames as relayParseSseFrames} from '../../../../../../ai/services/fleet/fleetWakeSseConsumer.mjs';
+import {expect, test}      from '@playwright/test';
+import {loadAgentOsModule} from '../../../../fixtures.mjs';
 
 import {createFleetWakeStreamConsumer, parseSseFrames} from '../../../../../../apps/agentos/fleet/fleetWakeStreamConsumer.mjs';
+
+const {parseSseFrames: relayParseSseFrames} = await loadAgentOsModule('ai/services/fleet/fleetWakeSseConsumer.mjs');
 
 // The browser twin of the relay-side wake consumer. The realm boundary carries no imports, so the
 // frame parser is duplicated by construction — the PARITY block below is the binding. The consumer

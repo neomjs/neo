@@ -90,8 +90,8 @@ const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
 /**
  * @summary Picks the cold-case fallback line for SILENCE, from the topology that owns the truth.
  *
- * The generic "start it: npm run ai:fleet-server" advice is only ever right in the plain-browser
- * flow. Inside the shell it is actively wrong in every branch: the shell SELF-SUPPLIES its
+ * The generic manual-start advice is only ever right in the plain-browser flow. Inside the shell
+ * it is actively wrong in every branch: the shell SELF-SUPPLIES its
  * transport, so a manual start is what CAUSES the foreign-listener refusal — the fact object the
  * lifecycle owner hands over on the brain-health wire names which shell case is live instead.
  * `null` (no shell fact — plain browser, or an unreachable shell with no standing to assert one)
@@ -103,7 +103,7 @@ const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
  */
 function coldFallbackFor(transport) {
     if (!transport) {
-        return 'Fleet server offline — showing the static roster · start it: npm run ai:fleet-server'
+        return 'Fleet server offline — showing the static roster · start it from the neo-agent-brain checkout'
     }
 
     if (transport.phase === 'starting') {

@@ -1,5 +1,6 @@
-import { test, expect }                from '../../fixtures.mjs';
-import { NeuralLink_ComponentService } from '../../../../ai/services.mjs';
+import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+
+const {NeuralLink_ComponentService} = await loadNeuralLinkModules();
 
 /**
  * @summary Direct multi-window proof for the `create_component` Neural Link tool.

@@ -69,34 +69,6 @@ const
             tokenScope: 'none'
         },
         {
-            // Corpus generation is deliberately pull-only in CI. The child receives the READER
-            // identity, while the Publisher App remains unavailable until the final git push.
-            //
-            // SyncService isolates facets and persists each successful facet before returning one
-            // aggregate failure. An ephemeral runner would lose that progress if this child failure
-            // aborted the parent immediately, so the pipeline publishes the allowlisted progress
-            // first and then reports the original failure.
-            args                             : ['./ai/scripts/maintenance/syncGithubWorkflow.mjs', '--emit-only'],
-            command                          : process.execPath,
-            label                            : 'GitHub Workflow corpus',
-            publishGeneratedProgressOnFailure: true,
-            tokenScope                       : 'reader'
-        },
-        // `publishGeneratedProgressOnFailure` above OUTLIVED the stages that motivated it, and that
-        // is deliberate rather than leftover. Four DevIndex enrichment stages used to sit here; they
-        // enriched a separate product without producing the corpus this repository publishes, and
-        // without the deferral flag a denial on the first of them threw out of the loop, so
-        // `content indexes and SEO` — what makes the corpus consumable — never ran and the corpus
-        // generated above was discarded unpublished. One denied opt-in stargazer read froze
-        // `resources/content/**` on `dev` for nineteen hours that way, and every downstream consumer
-        // (portal data, KB ingestion) read the frozen corpus.
-        //
-        // Those stages now live in `neomjs/devindex`, so that exact scenario cannot recur here. The
-        // flag stays because the property it protects is structural, not DevIndex-specific: any stage
-        // that fails after corpus generation must not be able to discard an already-generated corpus.
-        // Deferring does NOT soften the failure — `deferredError` is rethrown after publish, so the
-        // run still exits non-zero and the standing alarm still fires.
-        {
             // `--include-labels` reaches `LabelService.listLabels`, which pages this repository's
             // labels over GraphQL. That is a credentialled read, so `none` was a mis-declaration —
             // not a deliberate denial — and it failed exactly as `scopedStageEnv` promises a

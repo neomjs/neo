@@ -1,12 +1,19 @@
-import {test, expect}                                            from '../../fixtures.mjs';
-import {NeuralLink_DataService}                                  from '../../../../ai/services.mjs';
-import FleetRegistryService                                      from '../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {startFleetBridgeServer}                                  from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {test, expect, loadAgentOsModule, loadNeuralLinkModules}  from '../../fixtures.mjs';
 import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
 import {listHarnessTypes}                                        from '../../../../apps/agentos/config/harnessTypes.mjs';
 import fs                                                        from 'fs';
 import os                                                        from 'os';
 import path                                                      from 'path';
+
+const [
+    {NeuralLink_DataService},
+    {default: FleetRegistryService},
+    {startFleetBridgeServer}
+] = await Promise.all([
+    loadNeuralLinkModules(),
+    loadAgentOsModule('ai/services/fleet/FleetRegistryService.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs')
+]);
 
 /**
  * @summary Verifies the agent-scoped Accounts configuration surface mounts end-to-end: the

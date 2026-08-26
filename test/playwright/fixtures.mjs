@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import path                     from 'node:path';
-import { fileURLToPath }        from 'node:url';
+import process                  from 'node:process';
+import {pathToFileURL}          from 'node:url';
 import { findBridgeScriptRoot } from './findBridgeScriptRoot.mjs';
 import * as RmaHelpers          from './util/RmaHelpers.mjs';
 
@@ -15,29 +16,78 @@ import * as RmaHelpers          from './util/RmaHelpers.mjs';
 import Neo       from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 
-// Imported per-service rather than from `ai/services.mjs`, deliberately.
-//
-// This fixture needs seven Neural Link symbols. `ai/services.mjs` re-exports them alongside the
-// knowledge-base, memory-core and ingestion families, so importing it pulls the entire Brain into
-// the test process of every project that uses this fixture — including `ai/graph/storage/SQLite.mjs`
-// and, through it, the native `better-sqlite3` binding. A downstream adopter's CI showed the cost:
-// every test passing, then `Statement::~Statement()` aborting at teardown, on a repository with zero
-// first-party SQLite importers that could not drop the dependency because this file demanded it.
-//
-// These modules import only `src/core/Base.mjs`, their own config and logger, `RuntimeFreshnessService`,
-// their siblings, and node builtins — no graph, no vector store, no native bindings.
-import NeuralLink_ComponentService   from '../../ai/services/neural-link/ComponentService.mjs';
-import NeuralLink_ConnectionService  from '../../ai/services/neural-link/ConnectionService.mjs';
-import NeuralLink_DataService        from '../../ai/services/neural-link/DataService.mjs';
-import NeuralLink_DockService        from '../../ai/services/neural-link/DockService.mjs';
-import NeuralLink_InstanceService    from '../../ai/services/neural-link/InstanceService.mjs';
-import NeuralLink_InteractionService from '../../ai/services/neural-link/InteractionService.mjs';
-import NeuralLink_RuntimeService     from '../../ai/services/neural-link/RuntimeService.mjs';
-import aiConfig                      from '../../ai/mcp/server/neural-link/config.template.mjs';
-import {BRIDGE_NPM_SCRIPT}           from '../../ai/services/neural-link/ConnectionService.mjs';
+let neuralLinkModulesPromise = null;
 
-// Resolved once at import: the answer is a property of where this file sits, which no test can move.
-const bridgeScriptRoot = findBridgeScriptRoot(path.dirname(fileURLToPath(import.meta.url)), BRIDGE_NPM_SCRIPT);
+/**
+ * @summary Imports one module from the explicitly provisioned Agent OS runtime checkout.
+ * @param {String} relativePath Repository-relative module path inside neo-agent-brain
+ * @param {Object} [env=process.env]
+ * @returns {Promise<Object>}
+ */
+export function loadAgentOsModule(relativePath, env = process.env) {
+    const runtimeRoot = env.NEO_AGENTOS_RUNTIME_ROOT;
+
+    if (typeof runtimeRoot !== 'string' || !path.isAbsolute(runtimeRoot)) {
+        throw new Error(
+            'Agent OS test modules require NEO_AGENTOS_RUNTIME_ROOT to name an absolute ' +
+            'neo-agent-brain checkout; Engine cwd fallback is forbidden.'
+        )
+    }
+
+    return import(pathToFileURL(path.join(runtimeRoot, relativePath)).href)
+}
+
+/**
+ * @summary Loads the Neural Link fixture implementation from an explicitly provisioned Brain root.
+ * Engine-only projects import this shared fixture for RMA and must not load Brain code as a side
+ * effect. Whitebox projects cross the repository boundary only when they request `neuralLink`.
+ * @param {Object} [env=process.env]
+ * @returns {Promise<Object>}
+ */
+export function loadNeuralLinkModules(env = process.env) {
+    const runtimeRoot = env.NEO_AGENTOS_RUNTIME_ROOT;
+
+    if (typeof runtimeRoot !== 'string' || !path.isAbsolute(runtimeRoot)) {
+        throw new Error(
+            'The neuralLink fixture requires NEO_AGENTOS_RUNTIME_ROOT to name an absolute ' +
+            'neo-agent-brain checkout; Engine cwd fallback is forbidden.'
+        )
+    }
+
+    neuralLinkModulesPromise ??= Promise.all([
+        loadAgentOsModule('ai/services/neural-link/ComponentService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/ConnectionService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/DataService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/DockService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/InstanceService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/InteractionService.mjs', env),
+        loadAgentOsModule('ai/services/neural-link/RuntimeService.mjs', env),
+        loadAgentOsModule('ai/mcp/server/neural-link/config.template.mjs', env)
+    ]).then(([component, connection, data, dock, instance, interaction, runtime, config]) => {
+        const bridgeScriptRoot = findBridgeScriptRoot(runtimeRoot, connection.BRIDGE_NPM_SCRIPT);
+
+        if (!bridgeScriptRoot) {
+            throw new Error(
+                `NEO_AGENTOS_RUNTIME_ROOT '${runtimeRoot}' does not declare ` +
+                `the Neural Link bridge script '${connection.BRIDGE_NPM_SCRIPT}'.`
+            )
+        }
+
+        return {
+            NeuralLink_ComponentService  : component.default,
+            NeuralLink_ConnectionService : connection.default,
+            NeuralLink_DataService       : data.default,
+            NeuralLink_DockService       : dock.default,
+            NeuralLink_InstanceService   : instance.default,
+            NeuralLink_InteractionService: interaction.default,
+            NeuralLink_RuntimeService    : runtime.default,
+            aiConfig                     : config.default,
+            bridgeScriptRoot
+        }
+    });
+
+    return neuralLinkModulesPromise
+}
 
 export const test = base.extend({
     /**
@@ -107,6 +157,18 @@ export const test = base.extend({
     },
 
     neuralLink: async ({ page }, use) => {
+        const {
+            NeuralLink_ComponentService,
+            NeuralLink_ConnectionService,
+            NeuralLink_DataService,
+            NeuralLink_DockService,
+            NeuralLink_InstanceService,
+            NeuralLink_InteractionService,
+            NeuralLink_RuntimeService,
+            aiConfig,
+            bridgeScriptRoot
+        } = await loadNeuralLinkModules();
+
         // This fixture is the second Bridge entrypoint, alongside the MCP server, so it owes the same
         // `cwd` the MCP server supplies via `--cwd`. `??=` yields to an entrypoint that already did.
         NeuralLink_ConnectionService.cwd ??= bridgeScriptRoot;
@@ -273,6 +335,22 @@ export const test = base.extend({
                      */
                     async createInstance(opts) {
                         return NeuralLink_InstanceService.createInstance({ sessionId, ...opts });
+                    },
+
+                    /**
+                     * Reverts the latest transaction for this App Worker session.
+                     * @returns {Promise<Object>}
+                     */
+                    async undo() {
+                        return NeuralLink_InstanceService.undo({sessionId});
+                    },
+
+                    /**
+                     * Replays the latest reverted transaction for this App Worker session.
+                     * @returns {Promise<Object>}
+                     */
+                    async redo() {
+                        return NeuralLink_InstanceService.redo({sessionId});
                     },
 
                     /**

@@ -1,4 +1,4 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test, loadAgentOsModule} from '../../fixtures.mjs';
 // The human-facing instant renders viewer-local through the ONE shared class (TOKENS.md T5) —
 // the expectation imports it instead of hard-coding the UTC wire form or a zone-dependent literal.
 import Neo        from '../../../../src/Neo.mjs';
@@ -88,7 +88,7 @@ function memoriesResult(params = {}) {
 }
 
 async function startMemoriesFleet() {
-    const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+    const {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
           requests                 = [],
           gates                    = {},
           options                  = authenticatedFleetOptions({

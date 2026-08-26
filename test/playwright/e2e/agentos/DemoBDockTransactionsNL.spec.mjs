@@ -1,5 +1,6 @@
-import {test, expect}               from '../../fixtures.mjs';
-import {NeuralLink_InstanceService} from '../../../../ai/services.mjs';
+import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+
+const {NeuralLink_InstanceService} = await loadNeuralLinkModules();
 
 /**
  * @summary Whitebox E2E witness for dock-mutation undo/redo through the Neural Link

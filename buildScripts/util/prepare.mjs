@@ -21,7 +21,6 @@ const
  * - **`--package-lock-only` short-circuits.** The guard exists so lock-maintenance runs mutate
  *   nothing — no hooks, no materialized configs. Preserved, and now expressed in JavaScript
  *   instead of shell test syntax.
- * - **husky first, then `initServerConfigs.mjs`.** Same order as the `&&` chain.
  * - **A husky failure fails the install**, exactly as the chain's left operand did. A lifecycle
  *   that silently proceeds past a failed hook installer is a hookless repo reporting ready.
  */
@@ -99,9 +98,7 @@ export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync}={
         return {skipped: null, stage: 'husky', status: huskyResult.status ?? 1}
     }
 
-    const configResult = spawnChecked(process.execPath, [path.join(root, 'ai', 'scripts', 'setup', 'initServerConfigs.mjs')]);
-
-    return {skipped: null, stage: 'initServerConfigs', status: configResult.status ?? 1}
+    return {skipped: null, stage: 'husky', status: 0}
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === __filename;

@@ -5,7 +5,6 @@ on:
     branches: [dev]
     paths:
       - 'src/**/*.mjs'
-      - 'ai/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'apps/**/*.mjs'
       - 'examples/**/*.mjs'
@@ -15,7 +14,6 @@ on:
     branches: [dev]
     paths:
       - 'src/**/*.mjs'
-      - 'ai/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'apps/**/*.mjs'
       - 'examples/**/*.mjs'
@@ -40,8 +38,8 @@ jobs:
           cache: 'npm'
 
       # Unlike the dependency-free lint workflows, this one runs catharsis (the docs-build's own type
-      # parser, a transitive dep of jsdoc-api). --ignore-scripts skips the heavy postinstall (KB pull /
-      # server-config setup) we don't need — only node_modules must be present.
+      # parser, a transitive dep of jsdoc-api). --ignore-scripts skips unrelated install lifecycle
+      # work — only node_modules must be present.
       - name: Install dependencies (catharsis)
         run: npm ci --ignore-scripts
 

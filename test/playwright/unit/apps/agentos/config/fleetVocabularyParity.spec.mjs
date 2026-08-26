@@ -1,13 +1,21 @@
-import {expect, test} from '@playwright/test';
-import {parse}        from 'acorn';
-import {readFileSync} from 'node:fs';
+import {expect, test}      from '@playwright/test';
+import {parse}             from 'acorn';
+import {readFileSync}      from 'node:fs';
+import {loadAgentOsModule} from '../../../../fixtures.mjs';
 
-import {compareFleetVocabulary} from '../../../../../../ai/scripts/lint/lint-fleet-vocabulary-parity.mjs';
-
-import * as authorityCockpit from '../../../../../../ai/services/fleet/fleetCockpitStatus.mjs';
-import * as authorityHarness from '../../../../../../ai/services/fleet/harnessTypes.mjs';
-import * as authorityMcp     from '../../../../../../ai/services/fleet/mcpServers.mjs';
-import * as authorityWire    from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
+const [
+    {compareFleetVocabulary},
+    authorityCockpit,
+    authorityHarness,
+    authorityMcp,
+    authorityWire
+] = await Promise.all([
+    loadAgentOsModule('ai/scripts/lint/lint-fleet-vocabulary-parity.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetCockpitStatus.mjs'),
+    loadAgentOsModule('ai/services/fleet/harnessTypes.mjs'),
+    loadAgentOsModule('ai/services/fleet/mcpServers.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetWireMethods.mjs')
+]);
 
 import * as twinHarness from '../../../../../../apps/agentos/config/harnessTypes.mjs';
 import * as twinMcp     from '../../../../../../apps/agentos/config/mcpServers.mjs';

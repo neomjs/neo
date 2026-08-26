@@ -320,7 +320,7 @@ function renderMarkdown(report, options) {
         `- Cutoff: \`${options.cutoff}\` (explicit previous-release boundary).`,
         '- PR source: `resources/content/pulls/**/*.md` with `state: MERGED` and `mergedAt >= cutoff`.',
         '- Issue source: `resources/content/issues/**/*.md` with `state: CLOSED` and `closedAt >= cutoff`.',
-        '- Freshness: local mirror only. Operators can run `npm run ai:sync-github-workflow`; otherwise use live GitHub count checks immediately before release cut.',
+        '- Freshness: local mirror only. Refresh it from the `neo-agent-brain` checkout, or use live GitHub count checks immediately before release cut.',
         '',
         '## Summary',
         '',

@@ -9,13 +9,14 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-
-import {createFleetServerApp} from '../../../../../../ai/services/fleet/fleetServer.mjs';
+import {test, expect}      from '@playwright/test';
+import Neo                 from '../../../../../../src/Neo.mjs';
+import * as core           from '../../../../../../src/core/_export.mjs';
+import {loadAgentOsModule} from '../../../../fixtures.mjs';
 
 import {createFleetWakeStreamConsumer} from '../../../../../../apps/agentos/fleet/fleetWakeStreamConsumer.mjs';
+
+const {createFleetServerApp} = await loadAgentOsModule('ai/services/fleet/fleetServer.mjs');
 
 // The L3 live non-destructive probe for the browser consumer: the REAL composed fleet server —
 // real admission chain, real events limiter, real fanout handshake (retry hint + state frame) —

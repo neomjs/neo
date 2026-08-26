@@ -13,22 +13,28 @@ setup({
     }
 });
 
-import {test, expect}           from '@playwright/test';
-import Neo                      from '../../../../../../src/Neo.mjs';
-import * as core                from '../../../../../../src/core/_export.mjs';
-import FleetRegistryService     from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {startFleetBridgeServer} from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
-import {
-    createFleetWireOffer,
-    createFleetWireRequest,
-    FLEET_WIRE_RESPONSE_STATES
-} from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
-import {installFleetBridge}       from '../../../../../../apps/agentos/fleet/installFleetBridge.mjs';
-import {generateLocalBearerToken} from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
-import RequestContextService      from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import fs                         from 'fs';
-import os                         from 'os';
-import path                       from 'path';
+import {test, expect}       from '@playwright/test';
+import Neo                  from '../../../../../../src/Neo.mjs';
+import * as core            from '../../../../../../src/core/_export.mjs';
+import {installFleetBridge} from '../../../../../../apps/agentos/fleet/installFleetBridge.mjs';
+import {loadAgentOsModule}  from '../../../../fixtures.mjs';
+import fs                   from 'fs';
+import os                   from 'os';
+import path                 from 'path';
+
+const [
+    {default: FleetRegistryService},
+    {startFleetBridgeServer},
+    {createFleetWireOffer, createFleetWireRequest, FLEET_WIRE_RESPONSE_STATES},
+    {generateLocalBearerToken},
+    {default: RequestContextService}
+] = await Promise.all([
+    loadAgentOsModule('ai/services/fleet/FleetRegistryService.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetWireMethods.mjs'),
+    loadAgentOsModule('ai/mcp/server/shared/helpers/localBearer.mjs'),
+    loadAgentOsModule('ai/mcp/server/shared/services/RequestContextService.mjs')
+]);
 
 // Full-chain integration (NO stubs): the browser wiring (installFleetBridge + real fetch) → the real
 // HTTP server → the real dispatch → the real FleetControlBridge → the real FleetRegistryService, against
@@ -176,8 +182,8 @@ test.describe('fleet transport — full-chain integration (real server + real re
 
     test('resolveViewerIdentity (whoami): the stamped viewer round-trips through the authenticated wire; refusal shapes are named, never a fallback identity', async () => {
         const
-            {default: FleetControlBridge}    = await import('../../../../../../ai/services/fleet/FleetControlBridge.mjs'),
-            {default: RequestContextService} = await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs'),
+            {default: FleetControlBridge}    = await loadAgentOsModule('ai/services/fleet/FleetControlBridge.mjs'),
+            {default: RequestContextService} = await loadAgentOsModule('ai/mcp/server/shared/services/RequestContextService.mjs'),
             url                              = `http://127.0.0.1:${server.address().port}/fleet`,
             priorSource                      = FleetControlBridge.viewerIdentitySource;
 
@@ -227,9 +233,9 @@ test.describe('fleet transport — full-chain integration (real server + real re
         // own unit battery does not cover is whether the TRANSPORT's stamped identity is what the
         // adapter's resolveBoundIdentity reads at the moment of the read — capture it in-flight.
         const
-            {readFleetMailboxMirror}         = await import('../../../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs'),
-            {default: FleetControlBridge}    = await import('../../../../../../ai/services/fleet/FleetControlBridge.mjs'),
-            {default: RequestContextService} = await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs'),
+            {readFleetMailboxMirror}         = await loadAgentOsModule('ai/services/fleet/fleetMailboxMirrorAdapter.mjs'),
+            {default: FleetControlBridge}    = await loadAgentOsModule('ai/services/fleet/FleetControlBridge.mjs'),
+            {default: RequestContextService} = await loadAgentOsModule('ai/mcp/server/shared/services/RequestContextService.mjs'),
             identitiesSeenByRead             = [];
 
         const priorSource = FleetControlBridge.mailboxMirrorSource;

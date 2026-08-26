@@ -1,11 +1,12 @@
-import {test, expect}                     from '../../fixtures.mjs';
-import {createFleetMailboxMirrorSnapshot} from '../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs';
+import {test, expect, loadAgentOsModule}  from '../../fixtures.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
     fleetE2ESuccess,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
+
+const {createFleetMailboxMirrorSnapshot} = await loadAgentOsModule('ai/services/fleet/fleetMailboxMirrorAdapter.mjs');
 
 const FILM_HOLD_MS = Math.max(0, Number(process.env.NEO_FILM_HOLD_MS) || 0);
 
@@ -17,7 +18,7 @@ const FILM_HOLD_MS = Math.max(0, Number(process.env.NEO_FILM_HOLD_MS) || 0);
  * @returns {Promise<Object>} Fixture controller, endpoint and close callback.
  */
 async function startNWindowFleet() {
-    const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs');
+    const {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs');
     let   generation               = 0;
 
     const options = authenticatedFleetOptions({

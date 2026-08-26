@@ -13,9 +13,10 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../../src/core/_export.mjs';
+import {test, expect}      from '@playwright/test';
+import Neo                 from '../../../../../../../../src/Neo.mjs';
+import * as core           from '../../../../../../../../src/core/_export.mjs';
+import {loadAgentOsModule} from '../../../../../../fixtures.mjs';
 
 test.describe('Fleet event-kind registry — derived DTO coverage + --fm-kind-* axis (#14639)', () => {
     let KindRegistry, FLEET_COCKPIT_EVENT_TYPES;
@@ -25,7 +26,7 @@ test.describe('Fleet event-kind registry — derived DTO coverage + --fm-kind-* 
 
         // DERIVE coverage from the DTO source constant — a new event type added there auto-fails
         // the coverage test below until the registry maps it, rather than a hardcoded second list.
-        ({FLEET_COCKPIT_EVENT_TYPES} = await import('../../../../../../../../ai/services/fleet/fleetCockpitStatus.mjs'))
+        ({FLEET_COCKPIT_EVENT_TYPES} = await loadAgentOsModule('ai/services/fleet/fleetCockpitStatus.mjs'))
     });
 
     test('every FLEET_COCKPIT_EVENT_TYPES kind resolves to a real --fm-kind-* token (derived from the DTO source)', () => {

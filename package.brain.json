@@ -1,8 +1,0 @@
-{
-    "$comment"       : "Brain-tier devDependencies — installed ONLY via `npm run install-brain` (buildScripts/util/installBrain.mjs), never by a base `npm install`. The boundary: Body contributors get build + Body tests + shared tooling without the native compile; the swarm, CI, and Brain workers opt in with one command. #16364. Versions are EXACT (no ranges) as the human-readable declaration; the install itself resolves ONLY from the committed exact closure in package-lock.brain.json (roots + full transitive graph), so the same checkout installs the same Brain graph on every machine. Edit this file and the closure must be regenerated — the installer refuses the drift by name.",
-    "devDependencies": {
-        "@chroma-core/default-embed": "0.1.9",
-        "better-sqlite3"            : "12.11.1",
-        "chromadb"                  : "3.5.0"
-    }
-}

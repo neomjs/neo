@@ -1,6 +1,7 @@
-import './configTemplateResolver.mjs';
 
 import {defineConfig, devices}             from '@playwright/test';
+import fs                                  from 'node:fs';
+import path                                from 'node:path';
 import {resolveFreePortSync}               from './resolveFreePort.mjs';
 import {activeLaunchArgs, requiresGlProbe} from './e2e/utils/gpuIntent.mjs';
 import {
@@ -40,6 +41,36 @@ const RUN_ID        = process.env.NEO_E2E_RUN_ID || null,
 
 process.env.NEO_E2E_LIFECYCLE_RUN_ID = LIFECYCLE_RECEIPT.runId;
 
+/**
+ * @summary Finds whitebox specs that request the external Brain fixture.
+ * @param {String} root Absolute e2e directory.
+ * @returns {RegExp[]} Exact file matchers for the Engine-only project's ignore set.
+ */
+export function discoverExternalBrainSpecs(root) {
+    const files = [];
+
+    for (const entry of fs.readdirSync(root, {withFileTypes: true})) {
+        const file = path.join(root, entry.name);
+
+        if (entry.isDirectory()) {
+            files.push(...discoverExternalBrainSpecs(file));
+        } else if (entry.name.endsWith('.spec.mjs') && /\bneuralLink\b/.test(fs.readFileSync(file, 'utf8'))) {
+            const relative = path.relative(path.resolve(import.meta.dirname, 'e2e'), file)
+                .split(path.sep)
+                .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('[\\\\/]');
+
+            files.push(new RegExp(`[\\\\/]${relative}$`))
+        }
+    }
+
+    return files
+}
+
+const externalBrainTestIgnore = process.env.NEO_AGENTOS_RUNTIME_ROOT
+    ? []
+    : discoverExternalBrainSpecs(path.resolve(import.meta.dirname, 'e2e'));
+
 const
     launchArgs     = activeLaunchArgs(),
     needsGlProbe   = requiresGlProbe(launchArgs),
@@ -57,6 +88,7 @@ const
 
 export default defineConfig({
     testDir      : './e2e',
+    testIgnore   : externalBrainTestIgnore,
     outputDir    : ARTIFACT_ROOT,
     fullyParallel: false, // Maintain serial execution for benchmarks
     workers      : 1,     // Maintain serial execution for benchmarks

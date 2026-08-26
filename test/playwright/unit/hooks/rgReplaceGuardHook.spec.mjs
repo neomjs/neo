@@ -14,25 +14,25 @@ test.describe('rgReplaceGuardHook — Claude PreToolUse Bash guard', () => {
     });
 
     test('flags clustered `rg -rn` as replace-not-recursion misuse', () => {
-        expect(findRgReplaceFootgun('rg -rn "escalateDiagnosis" ai/')).toMatchObject({
+        expect(findRgReplaceFootgun('rg -rn "renderTree" src/')).toMatchObject({
             flag  : '-rn',
             reason: 'clustered-short-replace'
         });
     });
 
     test('flags bare replace flag without enough replacement + pattern arguments', () => {
-        expect(findRgReplaceFootgun('rg -r "escalateDiagnosis" ai/')).toMatchObject({flag: '-r'});
+        expect(findRgReplaceFootgun('rg -r "renderTree" src/')).toMatchObject({flag: '-r'});
         expect(findRgReplaceFootgun('rg --replace')).toMatchObject({flag: '--replace'});
         expect(findRgReplaceFootgun('rg --replace replacement')).toMatchObject({flag: '--replace'});
-        expect(findRgReplaceFootgun('rg --replace "escalateDiagnosis" ai/')).toMatchObject({flag: '--replace'});
-        expect(findRgReplaceFootgun('rg --replace=escalateDiagnosis ai/')).toMatchObject({flag: '--replace=escalateDiagnosis'});
+        expect(findRgReplaceFootgun('rg --replace "renderTree" src/')).toMatchObject({flag: '--replace'});
+        expect(findRgReplaceFootgun('rg --replace=renderTree src/')).toMatchObject({flag: '--replace=renderTree'});
     });
 
     test('allows explicit replacement invocations', () => {
         expect(findRgReplaceFootgun('rg --replace "replacement" "pattern"')).toBeNull();
-        expect(findRgReplaceFootgun('rg --replace "replacement" "pattern" ai/')).toBeNull();
-        expect(findRgReplaceFootgun('rg --replace=replacement "pattern" ai/')).toBeNull();
-        expect(findRgReplaceFootgun('rg -r replacement pattern ai/')).toBeNull();
+        expect(findRgReplaceFootgun('rg --replace "replacement" "pattern" src/')).toBeNull();
+        expect(findRgReplaceFootgun('rg --replace=replacement "pattern" src/')).toBeNull();
+        expect(findRgReplaceFootgun('rg -r replacement pattern src/')).toBeNull();
     });
 
     test('does not flag other tools recursive flags', () => {

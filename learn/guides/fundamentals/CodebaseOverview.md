@@ -56,9 +56,9 @@ First, it is critical to understand the primary execution boundary. Neo.mjs oper
 
 > **Deep-Dive Guides:**
 > - [Architecture Overview](../../benefits/ArchitectureOverview.md) — How the Runtime Engine and Agent OS connect as a closed feedback loop
-> - [Swarm Intelligence](../../agentos/SwarmIntelligence.md) — Autonomous sub-agent delegation (profiles, capability gating, cost control)
+> - [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) — Autonomous sub-agent delegation (profiles, capability gating, cost control)
 > - [Progressive Disclosure Skills](../../agentos/ProgressiveDisclosureSkills.md) — The lifecycle governance rules, including review-intake lane discovery before reviewer-only cycles
-> - [The Dream Pipeline & Golden Path](../../agentos/DreamPipeline.md) — Offline forecasting engine that scores and prioritizes work
+> - [The Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) — Offline forecasting engine that scores and prioritizes work
 
 ### 1. The Frontend Engine: True Multithreading via Web Workers
 

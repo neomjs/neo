@@ -23,6 +23,7 @@ test.describe('AgentOS harness shell — left-rail keeper-view nav', () => {
 
         // Fleet is the default keeper-view: the CARD cockpit (fleet grid + health bar + activity stream)
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
+        await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 60000});
         expect(await page.locator('.fm-agent-card').count()).toBeGreaterThan(0);
         await expect(page.locator('.fm-health-bar')).toBeVisible();
         await expect(page.locator('.fm-activity-stream')).toBeVisible();

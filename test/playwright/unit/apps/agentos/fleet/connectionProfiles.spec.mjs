@@ -1,6 +1,5 @@
-import {expect, test} from '@playwright/test';
-
-import {normalizeSecureMcpEndpoint} from '../../../../../../ai/services/fleet/mcpWireParsing.mjs';
+import {expect, test}      from '@playwright/test';
+import {loadAgentOsModule} from '../../../../fixtures.mjs';
 
 import {
     assertStorableProfileRecord,
@@ -19,6 +18,8 @@ import {
     rehydrateProfile,
     retireBearerIngressSlot
 } from '../../../../../../apps/agentos/fleet/connectionProfiles.mjs';
+
+const {normalizeSecureMcpEndpoint} = await loadAgentOsModule('ai/services/fleet/mcpWireParsing.mjs');
 
 // connectionProfiles.mjs is the pure client-side profile contract: identity from ONE versioned
 // endpoint-normalization policy (the twin of the Node side's normalizeSecureMcpEndpoint), a closed

@@ -1,4 +1,4 @@
-name: Tests
+name: Engine Tests
 
 on:
   pull_request:
@@ -18,10 +18,8 @@ jobs:
     name: Classify test scope
     runs-on: ubuntu-latest
     outputs:
-      run_integration: ${{ steps.scope.outputs.run_integration }}
       run_unit: ${{ steps.scope.outputs.run_unit }}
       run_components: ${{ steps.scope.outputs.run_components }}
-      run_parity: ${{ steps.scope.outputs.run_parity }}
       skip_reason: ${{ steps.scope.outputs.skip_reason }}
 
     steps:
@@ -85,10 +83,8 @@ jobs:
               const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
 
               core.notice(`Skipping expensive test suites: ${reason}`);
-              core.setOutput('run_integration', 'false');
               core.setOutput('run_unit', 'false');
               core.setOutput('run_components', 'false');
-              core.setOutput('run_parity', 'false');
               core.setOutput('skip_reason', reason);
               await core.summary
                 .addHeading('Stale workflow attempt')
@@ -106,10 +102,8 @@ jobs:
 
             if (!files || files.length === 0) {
               core.info('Changed files are unavailable; running full test suites.');
-              core.setOutput('run_integration', 'true');
               core.setOutput('run_unit', 'true');
               core.setOutput('run_components', 'true');
-              core.setOutput('run_parity', 'true');
               core.setOutput('skip_reason', 'changed files unavailable');
               return;
             }
@@ -177,7 +171,7 @@ jobs:
 
             const packageJsonDependencyChange = await packageJsonTouchesDependencies();
 
-            // Keep explicit unit/integration statuses on docs-only PRs instead of
+            // Keep explicit unit/component statuses on docs-only PRs instead of
             // workflow-level paths-ignore. Missing checks can block protected branches.
             const isDocsOnlyPath = file =>
               file.endsWith('.md') ||
@@ -192,22 +186,6 @@ jobs:
               file.startsWith('resources/content/discussions/') ||
               file.startsWith('apps/portal/resources/data/');
 
-            // Whitelist: integration runs only on changes that can affect the integration
-            // stack — engine (src/), Agent OS (ai/, incl. ai/deploy compose), the integration
-            // specs/fixtures + shared test infra, dep manifests, or this workflow. Keep this
-            // COMPLETE — a missed path silently skips integration (false-negative).
-            const isIntegrationRelevantPath = file =>
-              file.startsWith('src/') ||
-              file.startsWith('ai/') ||
-              file.startsWith('test/playwright/integration/') ||
-              file.startsWith('test/playwright/util/') ||
-              file === 'test/playwright/fixtures.mjs' ||
-              file === 'test/playwright/setup.mjs' ||
-              file === 'test/playwright/playwright.config.integration.mjs' ||
-              (file === 'package.json' && packageJsonDependencyChange) ||
-              file === 'package-lock.json' ||
-              file === '.github/workflows/test.yml';
-
             // Whitelist: the components suite mounts real components in a browser against
             // the webpack dev server — engine (src/), live-compiled theme SCSS, the component
             // specs + their harness apps, the config chain, dep manifests, or this workflow.
@@ -217,46 +195,20 @@ jobs:
               file.startsWith('src/') ||
               file.startsWith('resources/scss/') ||
               file.startsWith('test/playwright/component/') ||
-              file === 'test/playwright/configTemplateResolver.mjs' ||
               file === 'test/playwright/playwright.config.component.mjs' ||
               (file === 'package.json' && packageJsonDependencyChange) ||
               file === 'package-lock.json' ||
               file === '.github/workflows/test.yml';
 
-            // Whitelist (#15807): the parity lane is the single-reality witness for the
-            // phase-3 stack — it boots ai/deploy/docker-compose.dev.yml (+ the parity-ci
-            // overlay) on an overlay planeId and asserts topology + the mock-embedding
-            // contract, FAILING CLOSED when docker is absent (never best-effort).
-            //
-            // Boundary, not a new list: the booted stack's runtime closure is the SAME
-            // one the integration suite already treats as bootable — src/ (the engine
-            // hemisphere the servers extend), ai/ (services, config chain, daemons,
-            // deploy), the integration fixtures + harness. Parity relevance therefore
-            // INHERITS isIntegrationRelevantPath and adds only the lane's own files.
-            // One boundary, one owner: a future runtime import the integration
-            // whitelist learns about is inherited here automatically; an invented
-            // subset would drift the moment the stack crosses it (it already crosses
-            // into src/state/Provider, src/core/Base, and the shared mcpClient fixture).
-            const isParityRelevantPath = file =>
-              isIntegrationRelevantPath(file) ||
-              file.startsWith('test/playwright/integration-parity/') ||
-              file === 'test/playwright/playwright.config.integration-parity.mjs';
-
-            const runIntegration = normalizedFiles.some(isIntegrationRelevantPath);
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
-            const runParity      = normalizedFiles.some(isParityRelevantPath);
 
             core.info(`Changed files: ${normalizedFiles.join(', ')}`);
-            core.info(`run_integration=${runIntegration}`);
             core.info(`run_unit=${runUnit}`);
             core.info(`run_components=${runComponents}`);
-            core.info(`run_parity=${runParity}`);
 
-            core.setOutput('run_integration', String(runIntegration));
             core.setOutput('run_unit', String(runUnit));
             core.setOutput('run_components', String(runComponents));
-            core.setOutput('run_parity', String(runParity));
             core.setOutput(
               'skip_reason',
               'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
@@ -278,26 +230,6 @@ jobs:
         # step below gates on `matrix.run` instead of re-enumerating suite×flag
         # boolean pairs, which stopped scaling at the third suite.
         include:
-          - suite: integration-unified
-            run: ${{ needs.changes.outputs.run_integration }}
-          # A MANDATORY witness for the dev-profile topology + mock-embedding contract.
-          # "Parity" here means DEV-PROFILE parity — does the profile CI runs match the
-          # shape we deploy — which is an ongoing concern, NOT the local-vs-dockerized
-          # comparison that ended with the dockerization cut. It gets misread as the
-          # latter, and was nearly dropped as leftover debt on that reading.
-          #
-          # It boots ONE isolated plane (its own Compose project, its own data root) and
-          # splits evenly across 8 test cases: four prove the profile stands up — plane boots,
-          # Neural Link loggers initialize without sink degradation, provider auth
-          # refuses missing/empty secret carriers before listen, and the deterministic
-          # mock provider carries semantic recall end to end. The other four prove that
-          # plane stays contained: served identity never resolves the durable root,
-          # foreign-plane expectations are rejected at the wire, an overlay resolving
-          # the canonical root is refused at boot, and no egress leaves the network.
-          #
-          # Do not retire this check on the strength of its name.
-          - suite: integration-parity
-            run: ${{ needs.changes.outputs.run_parity }}
           - suite: unit
             run: ${{ needs.changes.outputs.run_unit }}
           - suite: components
@@ -349,25 +281,9 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      # Pre-create .neo-ai-data so the `prepare` lifecycle's downloadKnowledgeBase
-      # short-circuits via its existing-dir guard. Integration tests use a tmpfs
-      # Chroma per `ai/deploy/docker-compose.test.yml`; unit tests are mocked; the
-      # components suite runs browser-against-dev-server. No suite needs the
-      # canonical KB artifact in CI.
-      - name: Skip Knowledge Base download in prepare lifecycle
-        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        run: mkdir -p .neo-ai-data
-
       - name: Install dependencies
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm ci
-
-      # The Brain tier is opt-in for contributors (#16364), but CI is a Brain environment by
-      # contract (AC4): the unit suite's brain projects and the integration stack need the set.
-      # `npm ci` prunes it (extraneous under --no-save), so this runs after every ci.
-      - name: Install the Brain tier
-        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
-        run: npm run install-brain
 
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
       # Harmless for the other suites.
@@ -375,8 +291,8 @@ jobs:
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm run bundle-parse5
 
-      # The components suite launches real Chromium against the dev server; unit and
-      # integration run browserless, so browser provisioning stays scoped to this suite.
+      # The components suite launches real Chromium against the dev server; unit runs
+      # browserless, so browser provisioning stays scoped to this suite.
       - name: Install Playwright Chromium
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
         run: npx playwright install --with-deps chromium
@@ -390,8 +306,6 @@ jobs:
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm run test-${{ matrix.suite }}
         env:
-          NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
-          # Keep the unit residual skip guards active without gating integration specs.
           NEO_TEST_SKIP_CI: ${{ matrix.suite == 'unit' && 'true' || '' }}
 
       - name: Upload test artifacts on failure

@@ -1,6 +1,5 @@
-import {test, expect}                             from '../../fixtures.mjs';
-import {NeuralLink_DataService}                   from '../../../../ai/services.mjs';
-import {createFleetWireOffer, FLEET_WIRE_METHODS} from '../../../../apps/agentos/config/fleetWireMethods.mjs';
+import {test, expect, loadAgentOsModule, loadNeuralLinkModules} from '../../fixtures.mjs';
+import {createFleetWireOffer, FLEET_WIRE_METHODS}               from '../../../../apps/agentos/config/fleetWireMethods.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -8,6 +7,8 @@ import {
     reloadRoster,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
+
+const {NeuralLink_DataService} = await loadNeuralLinkModules();
 
 const TEST_AGENT_ID = 'nl-lifecycle-agent';
 
@@ -48,7 +49,7 @@ function rosterRow(state) {
  */
 async function startLifecycleFleetBridge({rejectStart = false} = {}) {
     const
-        {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+        {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
         requests                 = [],
         running                  = new Set();
 

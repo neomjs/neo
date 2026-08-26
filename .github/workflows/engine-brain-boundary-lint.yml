@@ -37,9 +37,9 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      # The guard parses with acorn rather than matching text: `../ai/Client.mjs` resolves to the
-      # Brain from buildScripts/ and to `src/ai/` from src/worker/, and a dynamic import carries no
-      # `from` keyword — neither distinction survives a line scan. Hence the install.
+      # The guard parses with acorn rather than matching text: relative imports resolve differently
+      # from buildScripts/ and src/worker/, and a dynamic import carries no `from` keyword — neither
+      # distinction survives a line scan. Hence the install.
       # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
       #
       # An earlier revision skipped the install and claimed the guard was dependency-free. That was

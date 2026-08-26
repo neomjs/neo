@@ -16,7 +16,7 @@ on:
   pull_request:
     branches: [dev]
     # Mirrors the lint-staged glob (`resources/scss/**/*.scss`) plus this guard's own sources, per the
-    # scanned ⊆ watched invariant `lint-guard-ci-parity` enforces.
+    # scanned subset of watched paths keeps the workflow non-vacuous.
     paths:
       - 'resources/scss/**/*.scss'
       - 'buildScripts/util/check-theme-coverage.mjs'
