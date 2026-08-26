@@ -34,7 +34,7 @@ The measured plan is not hypothetical:
   acquisition and records every REST call, GraphQL call, cost, gap, and latency.
 - `ai/scripts/maintenance/probeCommunityActivityShadow.mjs` binds that reader to the authenticated
   GitHub transport and explicitly describes the transport as authenticated.
-- `learn/agentos/measurements/community-activity-shadow-2026-07-18.md` records one complete
+- The [community-activity shadow measurement](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/measurements/community-activity-shadow-2026-07-18.md) records one complete
   authenticated 30-day acquisition at 1,714 provider requests/cost units: 1,683 GraphQL and 31
   REST. That full-history shape is evidence about the reader, not an acceptable first-paint plan.
 

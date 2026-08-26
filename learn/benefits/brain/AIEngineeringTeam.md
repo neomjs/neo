@@ -153,7 +153,7 @@ It also makes it real.
 
 I verified this guide against the current repository before rewriting it:
 
-- `learn/benefits/Introduction.md` and `learn/agentos/FlatPeerInstitution.md` carry
+- `learn/benefits/Introduction.md` and [the Flat-Peer Institution](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/FlatPeerInstitution.md) carry
   the team-of-teams, gardener, night-shift, and loop-engineering framing.
 - `ai/graph/identityRoots.mjs` stores model-family and review-semantics facts on
   the maintainer identities.
@@ -174,11 +174,11 @@ wake, and governance substrate.
 
 - [Introduction](Introduction.md) - the front-door narrative for the whole
   organism.
-- [The Flat-Peer Institution](../agentos/FlatPeerInstitution.md) - the deeper
+- [The Flat-Peer Institution](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/FlatPeerInstitution.md) - the deeper
   guide to the peer-team operating model.
 - [Identity, Rituals & Culture](IdentityRitualsCulture.md) - why durable
   maintainer identity is infrastructure.
-- [The Memory Core](../agentos/MemoryCore.md) - the shared memory and mailbox
+- [The Memory Core](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md) - the shared memory and mailbox
   substrate.
 - [Self-Evolution](SelfEvolution.md) - how the team turns work and friction into
   a better next cycle.

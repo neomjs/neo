@@ -1,9 +1,0 @@
-:8080 {
-	handle_path /mc/* {
-		reverse_proxy mc-server:3001
-	}
-
-	handle_path /kb/* {
-		reverse_proxy kb-server:3000
-	}
-}

@@ -152,7 +152,7 @@ A future session picks this up in three steps: (1) read THIS ADR (~4 minutes); (
 - **#16747** — the D1 carrier this ADR resolves; **Epic #16168** — control-plane parent; **D#16176** — the graduated control-plane authority.
 - Subs informed: S1 #16735 · S2 #16736 · S3 #16737 · S4 #16738 · S5 #16739 · S6 #16740 · S7 #16741 · C1 #16742 · C2 #16743 · C3 #16744 · C4 #16745 · C5 #16746.
 - **ADR 0020** (harness concept — §3 sentence rewritten, §4 re-scoped) · **ADR 0026** (recovery actuator — amended §2.7) · **ADR 0034** (Electron shell — amended §2.1 + §2.6.4) · **ADR 0019 §10.8** (credential taxonomy) · **ADR 0014** (deployment topology).
-- `ai/mcp/server/shared/services/AuthService.mjs` · `ai/services/fleet/` (devFleetServer/fleetBridgeServer — the pre-topology surface C1/C5 migrate) · `ai/deploy/docker-compose.local-agent-os.yml` + `ai/deploy/Caddyfile*` · `learn/agentos/cloud-deployment/ClientAuthentication.md`.
+- `ai/mcp/server/shared/services/AuthService.mjs` · `ai/services/fleet/` (devFleetServer/fleetBridgeServer — the pre-topology surface C1/C5 migrate) · `ai/deploy/docker-compose.local-agent-os.yml` + `ai/deploy/Caddyfile*` · [Client Authentication](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/ClientAuthentication.md).
 - PR #16721 (connection-truth banner — the reason-carrying vocabulary class §2.4 reuses) · PR #16731 (plan/apply split — the role-2→3 honesty prerequisite).
 
 ---

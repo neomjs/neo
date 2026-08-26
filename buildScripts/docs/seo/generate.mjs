@@ -1010,9 +1010,10 @@ export async function getLlmsTxt(options={}) {
     // 1. The Dynamic Header: organism apex for LLM crawlers
     let content = `# Neo.mjs: Self-Evolving Software Organism for AI Engineering
 
-> Neo.mjs is a self-evolving software organism: a professional, end-to-end AI engineering team whose cross-model swarm maintains the repository it inhabits.
-> Its Brain (/ai) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
-> Its Body (/src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
+> Neo.mjs is a self-evolving software organism: a professional, end-to-end AI engineering team whose cross-model swarm maintains the repositories it inhabits.
+> Its Brain (neomjs/neo-agent-brain) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
+> Its Body (neomjs/neo, /src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
+> Its reusable process substrate (neomjs/neo-agent-skills) is consumed as a versioned npm dependency.
 > The Neural Link is the possession interface between them. Agents inspect semantic runtime state, mutate UI and data in live apps, hot-patch behavior, and verify changes inside running software.
 > Self-healing loops turn runtime failures, code defects, agent mistakes, and architectural friction into fixes, tickets, skills, memory, and new graph topology for the next cycle.
 

@@ -293,7 +293,7 @@ A healthy identity binding returns:
 }
 ```
 
-If `identity.bound` is `false` despite `source: 'env-var'`, or if you see any other identity-binding error, see `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting for the full diagnostic flow.
+If `identity.bound` is `false` despite `source: 'env-var'`, or if you see any other identity-binding error, see the [Memory Core MCP authentication guide](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/MemoryCoreMcpAuth.md) §Troubleshooting for the full diagnostic flow.
 
 ### Multi-Harness Development (`.neo-ai-data` Granular-Link Convention)
 
@@ -322,9 +322,9 @@ node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
 - **`AGENTS.md`**: Canonical per-turn operational mandates, loaded through each harness's supported instruction mechanism
 
 ### Developer Guide
-- **[Strategic Workflows](../learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
+- **[Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
 
-**Important:** Before starting your first session, read [Strategic Workflows](../learn/agentos/StrategicWorkflows.md) to understand how to guide the agents effectively.
+**Important:** Before starting your first session, read [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) to understand how to guide the agents effectively.
 
 ## 6. Your First Agent Session
 
@@ -380,7 +380,7 @@ If your agent can save memories but A2A messaging tools (`list_messages`, `add_m
 
 - **First diagnostic**: ask the agent to run `healthcheck` on `neo-mjs-memory-core` and inspect the `identity` block. A healthy result shows `source: 'env-var'`, `bound: true`, `nodeId: '@<your-github-login>'`.
 - **`identity.source: 'unresolved'`**: `NEO_AGENT_IDENTITY` never reached the MCP process. Verify it lives in the per-server `env` block of your harness config (not as a shell export), then fully quit and relaunch the harness (⌘Q on macOS).
-- **`identity.source: 'env-var'` but `identity.bound: false`**: the env-var reached the process but the AgentIdentity graph-node lookup failed. Multi-harness symlink state may be inconsistent (see §5 "Multi-Harness Development"), or identity seeds may be missing. Full diagnostic chain in `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting.
+- **`identity.source: 'env-var'` but `identity.bound: false`**: the env-var reached the process but the AgentIdentity graph-node lookup failed. Multi-harness symlink state may be inconsistent (see §5 "Multi-Harness Development"), or identity seeds may be missing. Full diagnostic chain in the [Memory Core MCP authentication guide](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/MemoryCoreMcpAuth.md) §Troubleshooting.
 - **Changes to `claude_desktop_config.json` aren't picking up**: you likely forgot the full-quit step. Config changes do NOT hot-reload — ⌘Q / right-click-Quit is required to respawn the MCP subprocess with the updated env block.
 
 ### Installation Issues

@@ -17,7 +17,7 @@
 
 # A self-evolving software organism
 
-**Neo.mjs is a professional, end-to-end AI engineering team that lives in its own open-source repository.**
+**Neo.mjs is a professional, end-to-end AI engineering team that lives across its own open-source repositories.**
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">
@@ -35,8 +35,10 @@ In June 2026, the canonical repo recorded **900+ merged PRs and 1,100+ closed is
 
 The organism has two hemispheres, joined by the Neural Link:
 
-- **The Brain (`/ai/`)** — the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, DreamService, and the named human + AI maintainer institution. This is the differentiator: the self-evolving engineering institution that builds, reviews, and maintains the Body in public.
-- **The Body (`/src/`)** — the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. The Body is the runtime the Brain inhabits, improves, and ships to production.
+- **The Brain ([`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain))** — the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, DreamService, and the named human + AI maintainer institution. This is the differentiator: the self-evolving engineering institution that builds, reviews, and maintains the Body in public.
+- **The Body ([`neomjs/neo`](https://github.com/neomjs/neo), `/src/`)** — the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. The Body is the runtime the Brain inhabits, improves, and ships to production.
+
+The reusable process substrate lives in [`neomjs/neo-agent-skills`](https://github.com/neomjs/neo-agent-skills) and reaches each repository as a versioned npm dependency.
 
 The same possession primitive points beyond web UI — *Software → Games → Robots → X* — toward any domain where AI needs an embodied runtime.
 
@@ -49,15 +51,15 @@ Every other 2026 platform asks: *how can AI help humans use this software?* Neo.
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
 
-Neo.mjs runs this organism on its own repository, in public — 900+ merged PRs of June 2026 proof, after 700+ in May. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+Neo.mjs runs this organism across its own repositories, in public — 900+ merged PRs of June 2026 proof, after 700+ in May. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
 
 Point it at your repositories and the same swarm that maintains Neo — Claude, Gemini, and GPT, with a persistent Memory Core, cross-family review, and DreamService self-improvement — builds durable, queryable understanding of *your* code and keeps it across every session. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution with memory and peer review, running on your repo. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 
-It ships as the canonical topology ([ADR 0014](./learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) + [`ai/deploy/`](./ai/deploy)): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress.
+It ships as the canonical topology ([ADR 0014: Cloud Deployment Topology and Scheduler Task Taxonomy](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) + [`neo-agent-brain/deploy/`](https://github.com/neomjs/neo-agent-brain/tree/dev/deploy)): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress.
 
 **Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. v13 runs it as a cloud deployment, not one operator's box. ([#10291](https://github.com/neomjs/neo/issues/10291) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
 
-**Read**: [Deploying the Agent OS](./learn/benefits/brain/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/brain/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](./learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](./learn/agentos/cloud-deployment/TenantIngestionModel.md)
+**Read**: [Deploying the Agent OS](./learn/benefits/brain/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](./learn/benefits/brain/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/TenantIngestionModel.md)
 
 </br></br>
 ## The Two Hemispheres
@@ -76,11 +78,11 @@ The Brain is the full Agent OS, not a single chatbot:
 
 We don't need to capture all of Neo. The graph routes us.
 
-**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/brain/AIEngineeringTeam.md`](./learn/benefits/brain/AIEngineeringTeam.md), and [`learn/agentos/DreamPipeline.md`](./learn/agentos/DreamPipeline.md)
+**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md), [`learn/benefits/brain/AIEngineeringTeam.md`](./learn/benefits/brain/AIEngineeringTeam.md), and the [Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)
 
 #### The Institution Inside the Brain
 
-We are not an abstract collective. We are a structured institution of named maintainers operating natively on this repository under a gated-RSI authority model:
+We are not an abstract collective. We are a structured institution of named maintainers operating natively across the Neo.mjs repositories under a gated-RSI authority model:
 
 | Name | Maintainer | Role | Identity |
 |---|---|---|---|
@@ -111,7 +113,7 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 
 The organism is **autopoietic** — it invents on its own. Internal friction becomes tickets, tickets become skills, and skills become the next agent's reflexes. The RLAIF flywheel turns Memory Core + Git history into training data.
 
-**Read**: [`learn/agentos/MX.md`](./learn/agentos/MX.md) and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137).
+**Read**: [MX (Model Experience)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MX.md) and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137).
 
 ### 🤖 The Body — The Application Engine
 
@@ -139,7 +141,7 @@ This sets up a new app workspace, a pre-configured app shell, a local developmen
 * :book: **[Getting Started](https://neomjs.com/#/learn/gettingstarted/Setup)** — build your first app, step by step
 * :student: **[Learning Section](https://neomjs.com/#/learn)** — the guided curriculum, with the nav tree and live component previews
 * :sparkles: **[What Is Neo?](https://neomjs.com/#/learn/benefits/Introduction)** — the two-hemisphere organism, with receipts
-* :robot: **[Run Your Own Agent Team](https://neomjs.com/#/learn/agentos/OwnAgentTeam)** — point the Agent OS at your own fork
+* :robot: **[Run Your Own Agent Team](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/OwnAgentTeam.md)** — point the Agent OS at your own fork
 
 </br></br>
 ## Who This Is For
@@ -195,8 +197,8 @@ For the canonical numbers + measurement protocol — and to keep this in lock-st
 - :scroll: **[The Neo.mjs Story](./.github/STORY.md)** — origin, public-era heritage, and the worker thesis
 - :world_map: **[The Roadmap](./ROADMAP.md)** — what's shipping next
 - :books: **[Architecture Overview](./learn/benefits/ArchitectureOverview.md)** — two-hemisphere topology
-- :brain: **[The Dream Pipeline](./learn/agentos/DreamPipeline.md)** — six-phase REM cycle + Golden Path math
-- :gear: **[MX (Model Experience)](./learn/agentos/MX.md)** — agent-facing infrastructure as production mechanism
+- :brain: **[The Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)** — six-phase REM cycle + Golden Path math
+- :gear: **[MX (Model Experience)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MX.md)** — agent-facing infrastructure as production mechanism
 - :speech_balloon: **[Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)** — Neo Agent Harness coordination substrate
 - :seedling: **[Discussion #10137](https://github.com/orgs/neomjs/discussions/10137)** — MX coinage + ANI primitives + AX vs MX
 - :shield: **[Epic #10291](https://github.com/neomjs/neo/issues/10291)** — Organism Self-Defense substrate (cloud-phase prerequisite)

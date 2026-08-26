@@ -117,7 +117,7 @@ Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-i
 - **Step 1: The Anchor:** Establish high-value vocabulary at class level and major overrides.
 - **Step 2: The Echo:** Explicitly reuse anchor terms in isolated fields and helper methods.
 - **Step 3: Generate Structured Comments:** Use `@summary`, `@see`, `@protected`.
-- **Why (both readers):** *amnesiac-first-read* — a cold human / fresh AI session must land on load-bearing intent on first read; *Chroma-retrieval quality* — the docs ARE the embedded corpus, so dense intent-anchored vocabulary yields better `ask_knowledge_base` / `query_documents` matches. Full teaching + the `src/core/Base.mjs` worked example: `learn/agentos/KnowledgeBaseEnhancement.md`.
+- **Why (both readers):** *amnesiac-first-read* — a cold human / fresh AI session must land on load-bearing intent on first read; *Chroma-retrieval quality* — the docs ARE the embedded corpus, so dense intent-anchored vocabulary yields better `ask_knowledge_base` / `query_documents` matches. Full teaching + the `src/core/Base.mjs` worked example: the [Knowledge Base Enhancement guide](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/KnowledgeBaseEnhancement.md).
 **15.3 The Two-Stage Query Protocol**
 - Stage 1: Query for Knowledge (`ask_knowledge_base`).
 - Stage 2: Query for Memory (`query_summaries`, `query_raw_memories`). Mandatory for regressions, surprises, architecture queries, trade-offs.

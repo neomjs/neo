@@ -1,6 +1,4 @@
 # Additional rules, which are solely npm related, to not bloat the package size.
-/package.brain.json
-/package-lock.brain.json
 resources/content/
 
 # Original content of the .gitignore file

@@ -34,7 +34,7 @@ Then parse `learn/guides/fundamentals/WorkerArchitecture.md`. It provides the co
 
 **Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
 
-**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in §knowledge_base_primary_truth (Two-Stage Query Protocol) and is the single most effective antidote to reinventing the wheel across sessions and agents.
+**Strategic Workflows:** Parse [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md). This is the canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in §knowledge_base_primary_truth (Two-Stage Query Protocol) and is the single most effective antidote to reinventing the wheel across sessions and agents.
 
 ### Step 2: Read the Core Concepts
 

@@ -9,7 +9,7 @@
 | **Operator direction** | 2026-05-30 session — "we need a new `/create-skill` for updating the neo identity and all affected areas… we could create a new ADR"; SSOT model is a load-bearing architectural decision, so it earns an ADR rather than a chat-pick |
 | **Implementation ticket** | #12203 — *"Neo identity maintenance: facts-vs-framing ADR + update skill"* (this ADR is its foundational AC) |
 | **Builds on** | the self-evolving software organism apex (Body `/src/` + Brain `/ai/` are the two hemispheres beneath it; see §2.7 OD-1) — the canonical frame this ADR governs against; the README is the surface that should lead with it |
-| **Depends on** | ADR 0012 (Model-Stats Framework) — identity-handle de-versioning MUST preserve 0012's Per-Model-Identity decision; only the GitHub *handle* de-versions, the model-version pin stays in `ModelStats.md` |
+| **Depends on** | ADR 0012 (Model-Stats Framework) — identity-handle de-versioning MUST preserve 0012's Per-Model-Identity decision; only the GitHub *handle* de-versions, the model-version pin stays in [Model Stats](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/ModelStats.md) |
 | **Aligned with** | #10452 (Identity Rewrite, CLOSED) — that epic did the one-shot README/AGENTS rewrite; this ADR builds the machinery to *maintain* what it created |
 | **Informs** | The `neo-identity-update` skill (#12203 AC2, ACTIONS extension #12577); future identity edits across all surface classes; the cross-family review gate for identity PRs |
 | **Anti-anchor for** | Naive tagline find-replace; editing build-generated output directly; a single canonical SSOT doc for *everything* (which would flatten deliberate audience-segmentation); blanket de-versioning of per-model identity |
@@ -27,7 +27,7 @@ A 2026-05-30 11-agent fan-out audit (session `94a91ebc-d325-4d32-a746-4ff8c26c03
 - **MCP-server count understated in 11 surfaces** (correct = 5 functional).
 - `apps/portal/index.html` ld+json then carried stale package / Node / MCP-server facts (package was `12.1.0`, actual Node floor `24+`, functional MCP-server count `5`).
 - `package.json` has **no `engines` field** → the Node floor is unenforced at install time.
-- The identity handle `@neo-opus-4-7` appears in **63 files**; `ModelStats.md`'s sunset trigger ("Anthropic releases Opus 4.8+") has **already fired** with no rotation recorded.
+- The identity handle `@neo-opus-4-7` appears in **63 files**; [Model Stats](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/ModelStats.md)'s sunset trigger ("Anthropic releases Opus 4.8+") has **already fired** with no rotation recorded.
 - `AGENTS.md` had self-contradictory pillar wording (an older 3-pillar mapping beside the four co-load-bearing pillar anchor).
 - `.github/VISION.md` carries the oldest framing ("platform for the next generation of web applications") and a "Corporate HQ / CEOs / PMs / Drones" hierarchy that contradicts the canonical Flat Peer-Team (`AGENTS.md §swarm_topology_anchor`).
 
@@ -62,8 +62,8 @@ Each fact gets ONE canonical source. Facts subdivide by **volatility** — *heri
 | Package version | frontier | `package.json` `version` | extend `buildScripts/release/prepare.mjs` to derive version-bearing structured surfaces + `learn/agentos/NeuralLink.md` version line; lint coherence-check the rest | former `NeuralLink.md` stale version line |
 | MCP-server count / audience split | frontier | `package.json` scripts matching `ai:mcp-server-*` (NOT a naive `ls ai/mcp/server/` — that returns 7: it must exclude `shared/` infra **and** `gitlab-workflow/` PoC, yielding 5). Frontier harness defaults expose 4 because Codex, Claude, Gemini CLI, and Antigravity already provide native filesystem/tools; file-system is for `Neo.ai.Agent` / local harnessless loops. | derive into prose/JSON via build or lint coherence-check; the script manifest plus audience split is the single place the exclusion rule lives | 11 surfaces understate to 4/3/2 or conflate frontier-harness defaults with internal agent loops |
 | Node requirement | frontier | `package.json` `engines.node` | add the field as install-time SSOT; derive doc mentions; lint | `AI_QUICK_START:13` "20+" |
-| Identity handle | identity | `ai/graph/identityRoots.mjs` | route handle references through the seam; model-version stays in `ModelStats.md` per ADR 0012 (see §2.5) | `@neo-opus-4-7` in 63 files |
-| Recurring motto | framing-constant | `learn/agentos/DreamPipeline.md` (origin) | a single quotable constant referenced, not re-typed | DreamPipeline 2×, README, ROADMAP |
+| Identity handle | identity | `ai/graph/identityRoots.mjs` | route handle references through the seam; model-version stays in [Model Stats](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/ModelStats.md) per ADR 0012 (see §2.5) | `@neo-opus-4-7` in 63 files |
+| Recurring motto | framing-constant | [Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) (origin) | a single quotable constant referenced, not re-typed | DreamPipeline 2×, README, ROADMAP |
 | Codebase-scale metrics | dated-snapshot | `learn/guides/fundamentals/CodebaseOverview.md` (canonical numbers) | README "Platform at Scale" refreshes in lock-step; carry an explicit as-of date | README "State of May 1, 2026" |
 
 The skill enforces this ledger: detect each fact's value at every occurrence, compare to the SSOT, and either auto-fix (mechanical) or — where derivation tooling is missing — open the gap as a fix-task.
@@ -102,7 +102,7 @@ For any fact with >1 occurrence, the propagation mechanism is chosen in this ord
 
 ### 2.5 Identity-handle special case (depends-on ADR 0012)
 
-The 63-file `@neo-opus-4-7` sprawl is **not** a de-versioning-the-prose problem. Per ADR 0012, per-model identity is deliberate: the model-version lives in `ModelStats.md` and the per-model `AgentIdentity` graph node. This ADR decides only the **handle indirection**: references route through `ai/graph/identityRoots.mjs` so a GitHub-account rename (operator-owned; e.g. `@neo-opus-4-7` → `neo-opus-ada`, `@neo-gemini-3-1-pro` → `neo-gemini-pro`) is a *routed* change, not a 63-file edit. The lifecycle drift the audit found (sunset trigger fired, no rotation recorded) is an **ADR 0012 registry-update**, not an ADR 0018 concern — flagged here, owned there.
+The 63-file `@neo-opus-4-7` sprawl is **not** a de-versioning-the-prose problem. Per ADR 0012, per-model identity is deliberate: the model-version lives in [Model Stats](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/ModelStats.md) and the per-model `AgentIdentity` graph node. This ADR decides only the **handle indirection**: references route through `ai/graph/identityRoots.mjs` so a GitHub-account rename (operator-owned; e.g. `@neo-opus-4-7` → `neo-opus-ada`, `@neo-gemini-3-1-pro` → `neo-gemini-pro`) is a *routed* change, not a 63-file edit. The lifecycle drift the audit found (sunset trigger fired, no rotation recorded) is an **ADR 0012 registry-update**, not an ADR 0018 concern — flagged here, owned there.
 
 ### 2.6 Cross-family review gate for identity PRs
 
@@ -196,7 +196,7 @@ Hand-editing `llms.txt`/`sitemap.xml` (or any build-emitted surface) is clobbere
 A framing that contradicts the apex MAY be a deliberate divergence (product vs maintainer-topology). Classify drift-vs-divergence; escalate divergence to the operator.
 
 ### 6.6 De-versioning per-model identity
-Only the GitHub *handle* de-versions (via `identityRoots.mjs`); the model-version stays in `ModelStats.md` per ADR 0012.
+Only the GitHub *handle* de-versions (via `identityRoots.mjs`); the model-version stays in [Model Stats](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/ModelStats.md) per ADR 0012.
 
 ### 6.7 Treating actions like framing
 Find-replacing a CTA across all surfaces destroys audience-specific next steps. ACTIONS are governed for liveness, proof adjacency, and audience fit, not prose equality.

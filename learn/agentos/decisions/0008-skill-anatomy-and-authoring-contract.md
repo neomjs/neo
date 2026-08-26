@@ -47,7 +47,7 @@ description: [Concise 1-2 sentence description of what the skill provides and wh
 
 The `SKILL.md` file itself is the **Map** — a minimal trigger/pointer router loaded by harnesses at runtime when the skill fires. Heavy procedural content lives in the **World Atlas** at `references/<descriptive-name>.md`, loaded lazily via `view_file` only when the trigger is activated.
 
-**Empirical Map byte floor:** 7-12 lines (anchored in `learn/agentos/measurements/cognitive-load-baseline-2026-05.md` §7 *SKILL.md Router Byte-Budget Baseline*). Routers exceeding 12 lines historically benefit from extracting content into payload. This is a *discriminator*, not a hard cap — a 14-line router can be justified if the additional lines are load-bearing trigger-language.
+**Empirical Map byte floor:** 7-12 lines (anchored in the [cognitive-load baseline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/measurements/cognitive-load-baseline-2026-05.md) §7 *SKILL.md Router Byte-Budget Baseline*). Routers exceeding 12 lines historically benefit from extracting content into payload. This is a *discriminator*, not a hard cap — a 14-line router can be justified if the additional lines are load-bearing trigger-language.
 
 **Recursive Application** (per Discussion #11314 / Epic #11319): Map vs World Atlas applies recursively to workflow files themselves. A workflow `.md` becomes a Map for its own sub-rules when it grows beyond the natural load-frequency boundary; edge-case sections extract to sibling `references/<sub-rule>.md` files referenced via one-line trigger pointers.
 
@@ -192,7 +192,7 @@ A peer asserts a runtime-consumer claim in review/A2A context; reviewer propagat
 
 ### 5.5 SKILL.md Map Bloat (Map/Atlas Boundary Violation)
 
-Authoring substantive procedural content directly inside `SKILL.md` rather than delegating to `references/<file>.md`. The 7-12 line empirical floor (per `learn/agentos/measurements/cognitive-load-baseline-2026-05.md`) signals the boundary; routers exceeding 12 lines should extract content unless additional lines are load-bearing trigger-language.
+Authoring substantive procedural content directly inside `SKILL.md` rather than delegating to `references/<file>.md`. The 7-12 line empirical floor (per the [cognitive-load baseline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/measurements/cognitive-load-baseline-2026-05.md)) signals the boundary; routers exceeding 12 lines should extract content unless additional lines are load-bearing trigger-language.
 
 **Prevention:** During PR review, per `pr-review-guide.md §7.7` Anti-Patterns row: *"PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`...) instead of conditionally loaded `references/` payload → Progressive Disclosure violation."* PR #11438 adds mechanical CI enforcement via `oversizedWorkflowMaps` + `maxPositiveDeltaBytes` in `lint-skill-manifest.mjs`.
 

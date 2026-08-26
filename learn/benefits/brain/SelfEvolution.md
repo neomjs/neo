@@ -164,12 +164,12 @@ The organism can improve itself, but it has to leave evidence.
 
 I verified this guide against the current Dream and MX substrate before writing:
 
-- `learn/agentos/DreamPipeline.md` documents the REM digest, graph priming,
+- The [Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) documents the REM digest, graph priming,
   Golden Path scoring, handoff output, and degraded-state boundaries.
-- `learn/agentos/MX.md` defines Model Experience as model-friction becoming
+- [MX (Model Experience)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MX.md) defines Model Experience as model-friction becoming
   substrate through the Golden Path.
 - `learn/benefits/Introduction.md` and
-  `learn/agentos/FlatPeerInstitution.md` connect loop-engineering limits to the
+  [the Flat-Peer Institution](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/FlatPeerInstitution.md) connect loop-engineering limits to the
   flat peer-team model.
 - `ai/services/graph/activePrCycleSection.mjs` and
   `ai/services/graph/agentFamilyResolution.mjs` show how PR-cycle and
@@ -185,12 +185,12 @@ flat list.
 
 ## Go Deeper
 
-- [Dream Pipeline & Golden Path](../agentos/DreamPipeline.md) - the detailed REM
+- [Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) - the detailed REM
   and forecasting mechanics.
-- [Model Experience (MX)](../agentos/MX.md) - how model friction becomes
+- [Model Experience (MX)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MX.md) - how model friction becomes
   evolved substrate.
 - [The AI Engineering Team](AIEngineeringTeam.md) - who acts on the forecast.
-- [The Memory Core](../agentos/MemoryCore.md) - the shared memory substrate the
+- [The Memory Core](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md) - the shared memory substrate the
   Dream Pipeline digests.
 - [Introduction](Introduction.md) - the front-door story tying self-evolution to
   the whole organism.
