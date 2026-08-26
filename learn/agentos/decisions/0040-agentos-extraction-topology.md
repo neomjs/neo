@@ -201,11 +201,35 @@ lands.
 
 ### §2.7 Wave-one custody — what stays Engine, explicitly
 
-Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own decision), published
-`learn/agentos` content and every Portal/SEO/tree input derived from it, `resources/content`
-mirrors, `src/ai/**`, and the minimal Engine contributor surface. The extracted repository takes the
+Staying in `neomjs/neo` in wave one: `apps/**` (the FM's later home is its own decision), every
+Portal/SEO/tree input derived from `learn/agentos` and the `resources/content` mirrors that publish
+it, `src/ai/**`, and the minimal Engine contributor surface. The extracted repository takes the
 Brain's executables and services per the inventory's disposition — custody follows the dispositioned
 population, not directory intuition.
+
+**`learn/agentos` splits by subject too, and this paragraph once said otherwise.** An earlier
+revision listed "published `learn/agentos` content" as one undivided Engine-staying category, which
+cannot survive its own coordinates: the Agent OS decision records live *inside*
+`learn/agentos/decisions/`, so a single clause answered both ways at once and the cut manifest could
+classify no `learn/agentos/**` row at all. The disposition is now explicit, and it is the same
+subject rule the next paragraph applies to tests and hooks rather than a new principle:
+
+| `learn/agentos` population | custody | specimen |
+|---|---|---|
+| guides and decision records whose **subject is the Agent OS** | **extracted repository**, by exact-identity census | `A2A.md`; `decisions/0027-autonomous-data-recovery-actuator.md` |
+| guides and decision records whose **subject is the Body or the Engine**, despite sharing this directory | **`neomjs/neo`** | `DockZoneModel.md`; `decisions/0029-docking-design.md` — a multi-window layout model does not become Brain-owned by filing location |
+| rendered Portal / SEO / tree inputs; `resources/content` mirrors | **`neomjs/neo`** | consumer is the published site, not the Agent OS |
+
+**Neither the directory nor a filename prefix decides any of it, and `decisions/` is no exception.**
+The 40-record corpus is mixed at both levels — `0027` is a Memory Core record and `0029` is a
+docking record, filed side by side; `A2A.md` and `DockZoneModel.md` are the same collision one
+directory up. A blanket "`decisions/` moves" rule would relocate the Body's design records into the
+Brain and reproduce, one level lower, exactly the location heuristic this section exists to reject.
+
+**This section names the categories and the invariant; it does not enumerate.** The exact per-file
+identities are the cut manifest's census (`#17787`), which is where a mixed corpus of this size can
+be resolved file by file and evidenced. What §2.7 guarantees is that every `learn/agentos` path has
+a category to be classified *into*, and that the classifier is subject rather than location.
 
 **Test and hook custody follows the SUBJECT, not the directory.** Lane-state, wake, presence, and
 Memory-Core context hooks under `.claude/hooks`, `.codex/hooks`, and `.kimi-code/hooks` are Agent OS
@@ -293,6 +317,15 @@ entrypoint class; a computed-import mechanism that bypasses the §2.4 dispositio
 change that reintroduces hoisting; a new out-of-`ai/` Brain-consumer class beyond the §2.3/§2.7
 dispositions (test infrastructure, app specs, tracked seat hooks); **any Engine `dependencies` or
 `devDependencies` edge on the extracted repository**; renaming the repository after creation.
+
+**Fired and discharged — `learn/agentos` custody, 2026-08-26.** The trigger above fired on operator
+direction that Brain-owned learning guides and the Agent OS decision records move to the extracted
+repository, with the CI-workflow consequences following. §2.7's `learn/agentos` table records the
+discharge. Two consequences worth stating rather than leaving to inference: the move itself is a
+separate receive leaf under the Wave-3 epic — **this amendment decides custody and relocates
+nothing** — and Epic #17500's earlier wave-one boundary, which kept all of `learn/agentos` Engine
+and listed moving it as out of scope, is **superseded** by this discharge on that same operator
+authority. Every other trigger in the list remains armed.
 
 **Retirement:** this ADR retires only by explicit successor in this series; the wave completing
 does not retire it — the topology it records is what "completed" means.
