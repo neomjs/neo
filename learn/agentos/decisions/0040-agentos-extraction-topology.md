@@ -214,13 +214,22 @@ cannot survive its own coordinates: the Agent OS decision records live *inside*
 classify no `learn/agentos/**` row at all. The disposition is now explicit, and it is the same
 subject rule the next paragraph applies to tests and hooks rather than a new principle:
 
-| `learn/agentos` population | custody | why |
+| `learn/agentos` population | custody | specimen |
 |---|---|---|
-| Brain-owned learning guides; the Agent OS decision records under `learn/agentos/decisions/` | **extracted repository**, by exact-identity census | their subject is the Agent OS; a reader of a Brain ADR is working in the Brain |
-| rendered Portal / SEO / tree inputs; `resources/content` mirrors | **`neomjs/neo`** | their consumer is the published site, not the Agent OS |
+| guides and decision records whose **subject is the Agent OS** | **extracted repository**, by exact-identity census | `A2A.md`; `decisions/0027-autonomous-data-recovery-actuator.md` |
+| guides and decision records whose **subject is the Body or the Engine**, despite sharing this directory | **`neomjs/neo`** | `DockZoneModel.md`; `decisions/0029-docking-design.md` — a multi-window layout model does not become Brain-owned by filing location |
+| rendered Portal / SEO / tree inputs; `resources/content` mirrors | **`neomjs/neo`** | consumer is the published site, not the Agent OS |
 
-Neither half is a blanket directory move, and no `learn/agentos` path is left unclassified by
-omission.
+**Neither the directory nor a filename prefix decides any of it, and `decisions/` is no exception.**
+The 40-record corpus is mixed at both levels — `0027` is a Memory Core record and `0029` is a
+docking record, filed side by side; `A2A.md` and `DockZoneModel.md` are the same collision one
+directory up. A blanket "`decisions/` moves" rule would relocate the Body's design records into the
+Brain and reproduce, one level lower, exactly the location heuristic this section exists to reject.
+
+**This section names the categories and the invariant; it does not enumerate.** The exact per-file
+identities are the cut manifest's census (`#17787`), which is where a mixed corpus of this size can
+be resolved file by file and evidenced. What §2.7 guarantees is that every `learn/agentos` path has
+a category to be classified *into*, and that the classifier is subject rather than location.
 
 **Test and hook custody follows the SUBJECT, not the directory.** Lane-state, wake, presence, and
 Memory-Core context hooks under `.claude/hooks`, `.codex/hooks`, and `.kimi-code/hooks` are Agent OS
