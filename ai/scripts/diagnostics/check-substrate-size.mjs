@@ -115,16 +115,11 @@ function resolveLoadedSize(file, seen = new Set()) {
  * Reporting headroom against `limitBytes` instead would tell an author "headroom 1" at the precise
  * size where the next byte fails.
  */
-const COMBINED_BUDGETS = [
-    {
-        label     : 'pr-review loaded surface (#15257)',
-        limitBytes: 41357,
-        files     : [
-            '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md',
-            '.agents/skills/pr-review/references/pr-review-guide.md'
-        ]
-    }
-];
+// Empty by design. The one entry here bounded a loaded surface whose files now live in the
+// canonical agent-skills package rather than this repository. A combined budget over files that are
+// absent sums to zero and passes forever, so the rule was moved to the repository that still holds
+// its subject instead of being left here as a guard with nothing to guard.
+const COMBINED_BUDGETS = [];
 
 let hasError = false;
 

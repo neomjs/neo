@@ -44,8 +44,8 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: Lint skill manifest
-        run: node ai/scripts/lint/lint-skill-manifest.mjs --base origin/${{ github.base_ref || 'dev' }}
+      # The skill-manifest lint moved to the canonical agent-skills package with the corpus it
+      # validates. This workflow keeps its other half: AGENTS.md semantic anchors, Engine-owned.
 
       - name: Lint agent semantic anchors (ADR 0011 / #11560)
         run: node ai/scripts/lint/lint-agents.mjs --base origin/${{ github.base_ref || 'dev' }}
