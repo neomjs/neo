@@ -5,7 +5,7 @@ for the Neo.mjs repository.
 
 ## 1. Prerequisites
 
-**AI Tooling on Windows:** The AI tooling for this project requires a Linux environment due to a third-party dependency (ChromaDB). If you are on Windows, you **MUST** use the Windows Subsystem for Linux (WSL). Please follow the [AI Tooling WSL Setup Guide](../learn/guides/ai/AiToolingWslSetup.md) before proceeding.
+**AI Tooling on Windows:** The AI tooling for this project requires a Linux environment due to a third-party dependency (ChromaDB). If you are on Windows, you **MUST** use the Windows Subsystem for Linux (WSL). Please follow the [AI Tooling WSL Setup Guide](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/AiToolingWslSetup.md) before proceeding.
 
 Before you begin, ensure you have the following:
 
@@ -110,7 +110,7 @@ To completely bypass Gemini API limits and operate a 100% offline knowledge base
 
 ### Step 3.5: Advanced Configuration (Optional)
 
-You can tune the embedding process (e.g., for paid tier usage) by modifying `ai/mcp/server/knowledge-base/config.mjs` or by loading a custom config file.
+You can tune the embedding process (e.g., for paid tier usage) through `<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/mcp/server/knowledge-base/config.mjs` or by loading a custom config file.
 
 *   **`batchSize`**: Number of documents per API request (Default: 50).
 *   **`batchDelay`**: Wait time between batches in ms (Default: 10000).
@@ -157,6 +157,8 @@ The agent's behavior is controlled by several configuration files depending on y
 - **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
   - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
 - **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v24.x.x/bin/node`).
+- **`<YOUR_NEO_AGENT_BRAIN_REPO_PATH>`**: The absolute path to your `neomjs/neo-agent-brain` checkout.
+- **`<YOUR_TARGET_REPO_PATH>`**: The absolute path to the codebase the Neural Link should inhabit (this Engine checkout or another target repository).
 
 Use the following structure:
 
@@ -166,43 +168,43 @@ Use the following structure:
     "neo-mjs-knowledge-base": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"
+        "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/mcp/server/knowledge-base/mcp-server.mjs"
       ],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
     "neo-mjs-memory-core": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"
+        "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/mcp/server/memory-core/mcp-server.mjs"
       ],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
         "NEO_AGENT_IDENTITY": "<YOUR_AGENT_GITHUB_LOGIN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
     "neo-mjs-github-workflow": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+        "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/mcp/server/github-workflow/mcp-server.mjs"
       ],
       "env": {
         "GH_TOKEN": "<YOUR_GH_TOKEN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
     "neo-mjs-neural-link": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/mcp/server/neural-link/mcp-server.mjs",
         "--cwd",
-        "<YOUR_NEO_REPO_PATH>"
+        "<YOUR_TARGET_REPO_PATH>"
       ],
       "env": {
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     }
   }
@@ -232,38 +234,38 @@ Use the following structure (replace the placeholders as in the Antigravity sect
   "mcpServers": {
     "neo-mjs-knowledge-base": {
       "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
+      "args": ["<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/mcp/server/knowledge-base/mcp-server.mjs"],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
     "neo-mjs-memory-core": {
       "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
+      "args": ["<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/mcp/server/memory-core/mcp-server.mjs"],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
         "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/cloud/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
     "neo-mjs-github-workflow": {
       "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
+      "args": ["<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/mcp/server/github-workflow/mcp-server.mjs"],
       "env": {
         "GH_TOKEN": "<YOUR_GH_TOKEN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
     "neo-mjs-neural-link": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/mcp/server/neural-link/mcp-server.mjs",
         "--cwd",
-        "<YOUR_NEO_REPO_PATH>"
+        "<YOUR_TARGET_REPO_PATH>"
       ],
       "env": {
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+        "PATH": "<YOUR_NEO_AGENT_BRAIN_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     }
   }
@@ -303,19 +305,19 @@ Cross-checkout and cross-worktree scenarios use granular links so shared state c
 
 **Worktree-to-primary** (Claude Code creates a fresh git worktree per session at `.claude/worktrees/<name>/`):
 ```bash
-node ai/scripts/migrations/bootstrapWorktree.mjs --link-data
+node <YOUR_NEO_AGENT_BRAIN_REPO_PATH>/scripts/migrations/bootstrapWorktree.mjs --link-data
 ```
 The `--link-data` flag is idempotent; safe to re-run. It copies the gitignored config overlays and creates approved granular links below `.neo-ai-data/`; it does not replace the parent directory. The interactive CLI completes with `build-all`.
 
 **Cross-checkout** (e.g., a secondary Antigravity checkout at `/Users/Shared/antigravity/neomjs/neo/` pointing at the primary at `/Users/Shared/github/neomjs/neo/`):
 ```bash
-node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
+node <YOUR_NEO_AGENT_BRAIN_REPO_PATH>/scripts/migrations/bootstrapWorktree.mjs --link-data \
   --canonical-root /Users/Shared/github/neomjs/neo
 ```
 
 **Why this matters**: AgentIdentity nodes seeded in the primary checkout's graph are only visible to harnesses that share the same SQLite file. Without the approved links, each harness has its own empty graph, `bindAgentIdentity` returns null at boot, and A2A handshakes silently fail.
 
-**What NOT to symlink**: source-code paths (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`) or the `.neo-ai-data/` parent. Node's ESM resolver can turn source symlinks into duplicate namespace registrations, while sharing process-control directories can make one clone control another clone's daemons. The bootstrap script copies config files and links only its approved data members and handoff files.
+**What NOT to symlink**: source-code paths (`src/core/Base.mjs`, `neo-agent-brain/**/config.mjs`) or the `.neo-ai-data/` parent. Node's ESM resolver can turn source symlinks into duplicate namespace registrations, while sharing process-control directories can make one clone control another clone's daemons. The bootstrap script copies config files and links only its approved data members and handoff files.
 
 ### Agent Guidelines (Repository root)
 - **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
