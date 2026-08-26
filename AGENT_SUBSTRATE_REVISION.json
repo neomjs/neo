@@ -3,7 +3,7 @@
   "receiptVersion": 1,
   "subject": {
     "skillTree": ".agents/skills",
-    "skillTreeHash": "13d8e935f964fe99a3558ad82932be49722b7ee6",
+    "skillTreeHash": "e31730b7925e418967cc7b55741d472d5fa01c14",
     "skillTreeHashAlgorithm": "git-tree-sha1",
     "manifest": ".agents/skills/skills.manifest.json",
     "manifestSha256": "21cbeb4f96a33c15ae8e12cf28d5dc02707e2b7d90958097109829bf98c47108",
@@ -48,5 +48,5 @@
     "rationale": "This contract reached cross-family quorum while gemini and kimi were benched. Their signal was not withheld; it was not possible. On reactivation the contract is re-presented for retroactive signal before being treated as settled."
   },
   "canonicalRepository": "neomjs/neo-agent-skills",
-  "canonicalRevision": "a85dff3a816f1e3927648a78e0fabcec229b70cf"
+  "canonicalRevision": "8da0605cd0fde0ea261a0b6c6f2e62141f4ad412"
 }
