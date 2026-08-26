@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import {execFileSync}                 from 'node:child_process';
+import {createHash}                   from 'node:crypto';
 import fs                             from 'node:fs';
 import path                           from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {parse}                        from 'acorn';
+import {Command}                      from 'commander';
 
 import {
     buildAuthorityByScript,
@@ -28,7 +30,7 @@ import {censusPlaneOpeners}           from './planePlacementCensus.mjs';
  *
  * @module ai/scripts/diagnostics/agentOsExtractionInventory
  * @summary Reconciles every current AgentOS extraction surface against one explicit plane/custody
- * authority, producing the blocking pre-relocation inventory proof.
+ * authority and composes the freeze-bound Wave-3 cut receipt from those existing proofs.
  *
  * ## Why the populations remain separate
  *
@@ -48,23 +50,26 @@ import {censusPlaneOpeners}           from './planePlacementCensus.mjs';
  * @example
  * node ai/scripts/diagnostics/agentOsExtractionInventory.mjs
  * node ai/scripts/diagnostics/agentOsExtractionInventory.mjs --json
+ * node ai/scripts/diagnostics/agentOsExtractionInventory.mjs --wave3-cut-input /tmp/wave3-cut-input.json
  */
 
 const
-    __filename                = fileURLToPath(import.meta.url),
-    PROJECT_ROOT              = path.resolve(path.dirname(__filename), '../../..'),
-    DEFAULT_REGISTRY_PATH     = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
-    SCRIPT_PATH_RE            = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
-    WORKFLOW_ARTIFACT_RE      = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
-    AGENTOS_TARGET_REPOSITORY = 'neomjs/neo-agent-brain',
-    VALID_DISPOSITIONS        = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
-    VALID_MANIFEST_TARGETS    = new Set(['cloud', 'edge', 'engine', 'shared']),
-    VALID_PROBE_ELIGIBILITY   = new Set(['eligible', 'ineligible']),
-    VALID_SUCCESSOR_PHASES    = new Set(['engine-continuity', 'move', 'seat-reprovisioning']),
-    LAUNCH_CALLEES            = new Set([
+    __filename                  = fileURLToPath(import.meta.url),
+    PROJECT_ROOT                = path.resolve(path.dirname(__filename), '../../..'),
+    DEFAULT_REGISTRY_PATH       = path.join(PROJECT_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
+    SCRIPT_PATH_RE              = /\bai\/scripts\/[A-Za-z0-9_./-]+\.mjs\b/g,
+    WORKFLOW_ARTIFACT_RE        = /\b(?:test\/playwright\/unit\/)?ai\/scripts\/[A-Za-z0-9_./-]+\.(?:json|mjs)\b/g,
+    AGENTOS_TARGET_REPOSITORY   = 'neomjs/neo-agent-brain',
+    VALID_DISPOSITIONS          = new Set(['cloud', 'edge', 'retire', 'shared', 'stays-engine']),
+    VALID_LEARNING_DISPOSITIONS = new Set(['move', 'stays-engine']),
+    VALID_MANIFEST_TARGETS      = new Set(['cloud', 'edge', 'engine', 'shared']),
+    VALID_PROBE_ELIGIBILITY     = new Set(['eligible', 'ineligible']),
+    VALID_SUCCESSOR_PHASES      = new Set(['engine-continuity', 'move', 'seat-reprovisioning']),
+    DEPLOYMENT_ARTIFACT_RE      = /^(?:Dockerfile(?:\..+)?|docker-compose(?:\..+)?\.ya?ml|Caddyfile(?:\..+)?|.+\.plist|.+\.dockerignore)$/,
+    LAUNCH_CALLEES              = new Set([
         'exec', 'execFile', 'execFileSync', 'execSync', 'fork', 'runCommand', 'spawn', 'spawnSync'
     ]),
-    SUBPROCESS_SCAN_ROOTS   = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
+    SUBPROCESS_SCAN_ROOTS       = ['.agents', '.claude', '.codex', 'ai', 'buildScripts', 'test'];
 
 const
     DEPENDENCY_MANIFESTS = ['package.json', 'package.brain.json'],
@@ -82,7 +87,9 @@ export const SURFACE = Object.freeze({
     consumerEdge       : 'consumer-edge',
     consumerSourceClass: 'consumer-source-class',
     custodyBoundary    : 'custody-boundary',
+    deploymentArtifact : 'deployment-artifact',
     launchRoot         : 'launch-root',
+    learningArtifact   : 'learning-artifact',
     packageDependency  : 'package-dependency',
     planeOpener        : 'plane-opener',
     rootScript         : 'root-script',
@@ -169,6 +176,25 @@ export const RUNTIME_PROBE_ELIGIBILITY = Object.freeze({
 });
 
 /**
+ * Stable Wave-3 receipt vocabulary. These are execution-order coordinates from the existing
+ * runway, not a second workflow registry.
+ * @type {String}
+ */
+export const WAVE3_CUT_MANIFEST_VERSION = 'wave3-cut-manifest.v1';
+
+export const WAVE3_RECEIVE_ORDER = Object.freeze(['#17788', '#17789', '#17790', '#17791']);
+
+export const WAVE3_REMOVAL_REQUIRES = Object.freeze([
+    '#17783', '#17788', '#17789', '#17790', '#17798', 'neo-agent-brain#10'
+]);
+
+const
+    GIT_SHA_RE                    = /^[0-9a-f]{40}$/,
+    SHA256_RE                     = /^[0-9a-f]{64}$/,
+    DIGEST_RE                     = /^sha256:[0-9a-f]{64}$/,
+    VALID_REFERENCE_CLOSURE_STATE = new Set(['red', 'green']);
+
+/**
  * @summary Normalizes one filesystem path into a repository-style slash path.
  * @param {String} value
  * @returns {String}
@@ -194,6 +220,62 @@ export function listTrackedFiles({projectRoot = PROJECT_ROOT, pathspecs = []} = 
 }
 
 /**
+ * @summary Discovers every tracked deployment artifact, including deployment-shaped files outside
+ * the canonical `ai/deploy/` root.
+ *
+ * The root population stays exact even for support files whose basename is not deployment-shaped
+ * (`kb-config.yaml`, mock servers, Host-Edge profile code). The global shape sweep catches the
+ * dangerous inverse: a Caddyfile or launchd plist stored elsewhere that directory-only discovery
+ * would silently omit. Input is already Git-tracked, so ignored build/vendor output never enters.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.projectRoot=PROJECT_ROOT]
+ * @param {String[]} [options.trackedFiles] Injectable tracked-tree population.
+ * @returns {Object[]} Stable deployment-artifact rows awaiting source-owned disposition.
+ */
+export function collectDeploymentArtifacts({
+    projectRoot = PROJECT_ROOT,
+    trackedFiles = listTrackedFiles({projectRoot})
+} = {}) {
+    return trackedFiles.map(normalizePath).filter(file => file.startsWith('ai/deploy/') ||
+        DEPLOYMENT_ARTIFACT_RE.test(path.posix.basename(file))).map(file => ({
+        surface    : SURFACE.deploymentArtifact,
+        identity   : file,
+        source     : file,
+        disposition: null,
+        rationale  : null,
+        evidence   : {
+            discoveredVia: file.startsWith('ai/deploy/') ? 'declared-root' : 'tracked-shape-sweep'
+        }
+    })).sort(compareRows)
+}
+
+/**
+ * @summary Discovers the exact tracked Agent OS learning/decision population for subject custody.
+ *
+ * No directory default is applied: Brain/Fleet/Engine/skills subjects coexist below
+ * `learn/agentos`, so every path requires one explicit judgment from the frozen census.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.projectRoot=PROJECT_ROOT]
+ * @param {String[]} [options.trackedFiles] Injectable tracked-tree population.
+ * @returns {Object[]} Stable learning-artifact rows awaiting source-owned disposition.
+ */
+export function collectLearningArtifacts({
+    projectRoot = PROJECT_ROOT,
+    trackedFiles = listTrackedFiles({projectRoot, pathspecs: ['learn/agentos']})
+} = {}) {
+    return trackedFiles.map(normalizePath).filter(file => file.startsWith('learn/agentos/')).map(file => ({
+        surface    : SURFACE.learningArtifact,
+        identity   : file,
+        source     : file,
+        disposition: null,
+        rationale  : null,
+        evidence   : {tracked: true}
+    })).sort(compareRows)
+}
+
+/**
  * @summary Reads the source-owned disposition registry without evaluating code.
  * @param {String} [registryPath=DEFAULT_REGISTRY_PATH]
  * @returns {Object}
@@ -211,6 +293,18 @@ export function readRegistry(registryPath = DEFAULT_REGISTRY_PATH) {
  */
 export function rowKey(surface, identity) {
     return `${surface}::${identity}`
+}
+
+/**
+ * @summary Validates disposition vocabulary without leaking learning-migration actions into plane surfaces.
+ * @param {String} surface
+ * @param {String} disposition
+ * @returns {Boolean}
+ */
+function isValidDisposition(surface, disposition) {
+    return surface === SURFACE.learningArtifact
+        ? VALID_LEARNING_DISPOSITIONS.has(disposition)
+        : VALID_DISPOSITIONS.has(disposition)
 }
 
 /**
@@ -1480,11 +1574,23 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
             continue
         }
 
-        if (!VALID_DISPOSITIONS.has(entry.disposition)) errors.push({kind: 'invalid-disposition', key});
+        if (!isValidDisposition(entry.surface, entry.disposition)) errors.push({kind: 'invalid-disposition', key});
         if (typeof entry.rationale !== 'string' || entry.rationale.trim().length < 12) {
             errors.push({kind: 'missing-rationale', key})
         }
         if (typeof entry.source !== 'string' || !entry.source.trim()) errors.push({kind: 'missing-source', key});
+
+        if (entry.surface === SURFACE.learningArtifact) {
+            if (!VALID_LEARNING_DISPOSITIONS.has(entry.disposition)) {
+                errors.push({kind: 'invalid-learning-artifact-disposition', key})
+            }
+            if (entry.disposition === 'move' && entry.targetRepository !== AGENTOS_TARGET_REPOSITORY) {
+                errors.push({kind: 'missing-learning-artifact-target', key})
+            }
+            if (entry.disposition === 'stays-engine' && entry.targetRepository) {
+                errors.push({kind: 'staying-learning-artifact-targeted', key})
+            }
+        }
 
         if (entry.surface === SURFACE.packageDependency) {
             const targets = entry.manifestTargets;
@@ -1550,6 +1656,7 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
             disposition    : override.disposition,
             rationale      : override.rationale,
             authoritySource: override.source,
+            ...(override.targetRepository ? {targetRepository: override.targetRepository} : {}),
             ...(row.surface === SURFACE.packageDependency
                 ? {manifestTargets: [...new Set(override.manifestTargets ?? [])].sort()}
                 : {}),
@@ -1572,7 +1679,7 @@ export function reconcileInventory(derivedRows, registry, parseFailures = []) {
     });
 
     const
-        diskMinusAuthority = rows.filter(row => !VALID_DISPOSITIONS.has(row.disposition)
+        diskMinusAuthority = rows.filter(row => !isValidDisposition(row.surface, row.disposition)
             || typeof row.rationale !== 'string' || !row.rationale.trim())
             .map(row => rowKey(row.surface, row.identity)).sort(),
         authorityMinusDisk = [...overrideMap.keys()].filter(key => !rowKeys.has(key)).sort();
@@ -1702,6 +1809,379 @@ export function compareRows(a, b) {
 }
 
 /**
+ * @summary Hashes only the source-owned disposition identity needed by the cut.
+ *
+ * The extraction inventory remains the population authority. The cut receipt carries one digest,
+ * not a copied file list; sorting here makes source discovery order irrelevant while retaining the
+ * exact identity substitution property a count-only receipt loses.
+ *
+ * @param {Object[]} [rows=[]] Reconciled inventory rows.
+ * @returns {String} `sha256:<hex>` digest.
+ */
+export function inventoryDispositionDigest(rows = []) {
+    const projection = rows.map(row => ({
+        surface         : row.surface,
+        identity        : row.identity,
+        disposition     : row.disposition ?? null,
+        targetRepository: row.targetRepository ?? null,
+        manifestTargets : [...new Set(row.manifestTargets ?? [])].sort(),
+        successorPhase  : row.successorPhase ?? null
+    })).sort(compareRows);
+
+    return `sha256:${createHash('sha256').update(JSON.stringify(projection)).digest('hex')}`
+}
+
+/**
+ * @summary Hashes the exact learning identity/disposition partition consumed from the external census.
+ * @param {Object[]} [rows=[]] Inventory rows containing the reconciled learning population.
+ * @returns {String} Stable SHA-256 digest.
+ */
+export function learningDispositionDigest(rows = []) {
+    const projection = rows.filter(row => row.surface === SURFACE.learningArtifact).map(row => ({
+        identity   : row.identity,
+        disposition: row.disposition ?? null
+    })).sort((a, b) => a.identity.localeCompare(b.identity));
+
+    return `sha256:${createHash('sha256').update(JSON.stringify(projection)).digest('hex')}`
+}
+
+/**
+ * @summary Recomputes the canonical digest stored inside the immutable learning census artifact.
+ * @param {Object} [artifact={}] Parsed census artifact.
+ * @returns {String} Lowercase SHA-256 digest without a prefix.
+ */
+export function canonicalLearningCensusSha256(artifact = {}) {
+    const projection = {...artifact};
+
+    delete projection.canonicalSha256;
+
+    return createHash('sha256').update(JSON.stringify(projection)).digest('hex')
+}
+
+/**
+ * @summary Hashes the semantic plane-proof receipt while excluding disposable fixture paths.
+ * @param {Object} [planeProof={}] Existing paired plane-proof receipt.
+ * @returns {String} `sha256:<hex>` digest.
+ */
+export function planeProofReceiptDigest(planeProof = {}) {
+    const
+        byIdentity = (a, b) => {
+            const left = JSON.stringify(a), right = JSON.stringify(b);
+
+            return left < right ? -1 : left > right ? 1 : 0
+        },
+        binding    = planeProof.meta?.sourceBinding ?? {};
+
+    const projection = {
+        head         : planeProof.meta?.head ?? null,
+        sourceBinding: {
+            bound     : binding.bound === true,
+            sha       : binding.sha ?? null,
+            dirtyPaths: [...(binding.dirtyPaths ?? [])].sort()
+        },
+        cloudOnlyPackages: [...(planeProof.meta?.cloudOnlyPackages ?? [])].sort(),
+        instrumentErrors : [...(planeProof.instrumentErrors ?? [])].sort(byIdentity),
+        topologyFindings : [...(planeProof.topologyFindings ?? [])].sort(byIdentity),
+        exitCode         : planeProof.exitCode ?? null
+    };
+
+    return `sha256:${createHash('sha256').update(JSON.stringify(projection)).digest('hex')}`
+}
+
+/**
+ * @summary Invokes the existing paired plane-proof producer and returns its machine receipt.
+ *
+ * The cut CLI owns the observation: it never accepts a caller-authored green proof object. A red
+ * proof intentionally exits non-zero but still emits JSON, so that receipt is parsed and carried to
+ * the manifest rather than being mistaken for an instrument crash.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.projectRoot=PROJECT_ROOT]
+ * @param {Function} [options.execFile=execFileSync] Injectable child-process seam.
+ * @returns {Object} Plane-boundary proof receipt.
+ */
+export function runPlaneBoundaryProof({projectRoot = PROJECT_ROOT, execFile = execFileSync} = {}) {
+    const args = [
+        path.join(projectRoot, 'ai/scripts/diagnostics/agentOsPlaneBoundaryProof.mjs'),
+        '--json'
+    ];
+
+    let output;
+
+    try {
+        output = execFile(process.execPath, args, {
+            cwd      : projectRoot,
+            encoding : 'utf8',
+            maxBuffer: 64 * 1024 * 1024
+        })
+    } catch (error) {
+        output = error.stdout?.toString?.() ?? '';
+
+        if (!output.trim()) throw error
+    }
+
+    const receipt = JSON.parse(output);
+
+    if (!receipt?.meta || !Array.isArray(receipt.instrumentErrors) ||
+        !Array.isArray(receipt.topologyFindings) || !Number.isInteger(receipt.exitCode)) {
+        throw new TypeError('agentOsPlaneBoundaryProof emitted an invalid machine receipt')
+    }
+
+    return receipt
+}
+
+/**
+ * @summary Builds the minimal deterministic Wave-3 cut receipt from existing authorities.
+ *
+ * This function deliberately does not discover GitHub state, enumerate A2A lanes, copy the tracker
+ * table, or introduce a registry. Callers supply immutable coordinates read once at the freeze;
+ * the existing extraction inventory and plane proof remain the only population/topology tools.
+ *
+ * @param {Object} config
+ * @param {Object} config.inventory Existing `agentos-extraction-inventory.v6` receipt.
+ * @param {Object} config.planeProof Existing paired plane-proof receipt.
+ * @param {String} config.sourceSha Frozen `neomjs/neo` SHA.
+ * @param {String} config.targetSha Current `neo-agent-brain/dev` SHA.
+ * @param {Object} config.skillsPackage Published npm + consumer coordinate.
+ * @param {String} config.skillsPackage.version Published package version.
+ * @param {String} config.skillsPackage.sourceSha Canonical package source SHA.
+ * @param {String} config.skillsPackage.consumerSha Consumer PR/head SHA.
+ * @param {String} config.skillsPackage.materializationRef Clean-consumer materialization receipt.
+ * @param {Object} config.skillsPackage.referenceClosure Typed packaged-reference closure receipt.
+ * @param {String} config.skillsPackage.referenceClosure.ref Immutable owner-produced receipt coordinate.
+ * @param {'red'|'green'} config.skillsPackage.referenceClosure.state Observed closure state at the cut.
+ * @param {Object} config.enforcement One-time required-context read-back.
+ * @param {String} config.enforcement.headSha Enforcement implementation/head SHA.
+ * @param {String} config.enforcement.requiredContext Surviving required context.
+ * @param {Object} config.learningCensus Immutable Brain-guide / ADR disposition census.
+ * @param {String} config.learningCensus.ref Public census comment coordinate.
+ * @param {String} config.learningCensus.commitSha Brain commit containing the census artifact.
+ * @param {String} config.learningCensus.artifactPath Census path at the pinned Brain commit.
+ * @param {Object} config.learningCensus.artifact Parsed immutable census artifact; omitted from output.
+ * @param {Object} config.trackerSnapshot Frozen Wave-2.5 snapshot references.
+ * @param {String} config.trackerSnapshot.baselineRef Immutable baseline receipt reference.
+ * @param {Number} config.trackerSnapshot.baselineCount Frozen baseline population.
+ * @param {String} config.trackerSnapshot.deltaRef Immutable sanctioned-delta receipt reference.
+ * @param {String} config.trackerSnapshot.sourceDispositionDigest Exact source number/disposition digest.
+ * @param {Number} config.trackerSnapshot.deltaCount Sanctioned post-freeze source rows.
+ * @param {Number} config.trackerSnapshot.sourceTotal Baseline plus sanctioned deltas.
+ * @param {String} config.trackerSnapshot.transferLedgerCommitSha Commit containing the transfer pre-state.
+ * @param {String} config.trackerSnapshot.transferLedgerPath Transfer pre-state artifact path.
+ * @param {String} config.trackerSnapshot.transferLedgerSha256 Raw transfer pre-state artifact digest.
+ * @param {Number} config.trackerSnapshot.brainTransferTotal Brain transfer ledger population.
+ * @param {Number} config.trackerSnapshot.openNativeTransferCount Open native-transfer rows.
+ * @param {Number} config.trackerSnapshot.sourceOnlyClosedCount Closed rows retained in Neo.
+ * @param {Object} config.custodyCorrection Merged custody-correction coordinate.
+ * @param {String} config.custodyCorrection.sha Merged custody-correction SHA.
+ * @param {Object} config.rollback Wave-0 rollback pair.
+ * @param {String} config.rollback.imageSha Image revision.
+ * @param {String} config.rollback.bundle Named verified bundle.
+ * @returns {Object} Versioned receipt with `ok` and named `errors`.
+ */
+export function buildWave3CutManifest({
+    inventory = {},
+    planeProof = {},
+    sourceSha,
+    targetSha,
+    skillsPackage = {},
+    enforcement = {},
+    learningCensus = {},
+    trackerSnapshot = {},
+    custodyCorrection = {},
+    rollback = {}
+} = {}) {
+    const
+        errors         = [],
+        hasProofArrays = Array.isArray(planeProof.instrumentErrors) &&
+            Array.isArray(planeProof.topologyFindings),
+        instrumentErrors     = hasProofArrays ? planeProof.instrumentErrors : [],
+        topologyFindings     = hasProofArrays ? planeProof.topologyFindings : [],
+        relocationBlockers   = topologyFindings.filter(row => row.preRelocationBlocker === true),
+        inventoryResidue     = inventory.residue ?? {},
+        inventoryDiskResidue = inventoryResidue.diskMinusAuthority ?? [],
+        inventoryAuthResidue = inventoryResidue.authorityMinusDisk ?? [],
+        sourceBinding        = planeProof.meta?.sourceBinding ?? null,
+        learningArtifact     = learningCensus.artifact ?? {},
+        artifactRows         = Array.isArray(learningArtifact.rows) ? learningArtifact.rows : [],
+        artifactPaths        = artifactRows.map(row => row.sourcePath),
+        artifactRowsValid    = artifactRows.length > 0 && artifactRows.every(row =>
+            typeof row.sourcePath === 'string' && row.sourcePath.startsWith('learn/agentos/') &&
+            GIT_SHA_RE.test(row.sourceBlobOid ?? '') &&
+            ['move-to-brain', 'stay-engine'].includes(row.disposition)
+        ) && new Set(artifactPaths).size === artifactPaths.length,
+        artifactInventoryRows = artifactRows.map(row => ({
+            surface    : SURFACE.learningArtifact,
+            identity   : row.sourcePath,
+            disposition: row.disposition === 'move-to-brain' ? 'move' :
+                row.disposition === 'stay-engine' ? 'stays-engine' : null
+        })),
+        artifactDigest       = learningDispositionDigest(artifactInventoryRows),
+        artifactCanonicalSha = canonicalLearningCensusSha256(learningArtifact),
+        learningRows         = (inventory.rows ?? []).filter(row => row.surface === SURFACE.learningArtifact),
+        learningCounts       = {
+            rowCount    : learningRows.length,
+            adrCount    : learningRows.filter(row => row.identity.startsWith('learn/agentos/decisions/')).length,
+            movingCount : learningRows.filter(row => row.disposition === 'move').length,
+            stayingCount: learningRows.filter(row => row.disposition === 'stays-engine').length
+        },
+        learningDigest       = learningDispositionDigest(inventory.rows ?? []),
+        expectedLearningCounts = [
+            learningArtifact.counts?.total,
+            learningArtifact.counts?.decisions,
+            learningArtifact.counts?.moveToBrain,
+            learningArtifact.counts?.stayEngine
+        ],
+        trackerCounts        = [
+            trackerSnapshot.baselineCount,
+            trackerSnapshot.deltaCount,
+            trackerSnapshot.sourceTotal,
+            trackerSnapshot.brainTransferTotal,
+            trackerSnapshot.openNativeTransferCount,
+            trackerSnapshot.sourceOnlyClosedCount
+        ];
+
+    if (!GIT_SHA_RE.test(sourceSha ?? '')) errors.push('source-sha-invalid');
+    if (!GIT_SHA_RE.test(targetSha ?? '')) errors.push('target-sha-invalid');
+    if (inventory.ok !== true) errors.push('inventory-not-green');
+    if (!Array.isArray(inventory.rows) || inventory.rows.length === 0) errors.push('inventory-population-missing');
+    if (inventory.git?.clean !== true || inventory.git?.sha !== sourceSha) errors.push('inventory-source-unbound');
+    if (inventoryDiskResidue.length || inventoryAuthResidue.length) errors.push('inventory-residue');
+    if (!hasProofArrays || !Number.isInteger(planeProof.exitCode)) errors.push('plane-proof-receipt-invalid');
+    if (planeProof.exitCode !== 0) errors.push('plane-proof-not-green');
+    if (sourceBinding?.bound !== true || planeProof.meta?.head !== sourceSha) errors.push('plane-proof-source-unbound');
+    if (instrumentErrors.length) errors.push('plane-proof-instrument-errors');
+    if (relocationBlockers.length) errors.push('plane-proof-relocation-blockers');
+    if (!skillsPackage.version || !GIT_SHA_RE.test(skillsPackage.sourceSha ?? '') ||
+        !GIT_SHA_RE.test(skillsPackage.consumerSha ?? '') || !skillsPackage.materializationRef ||
+        !skillsPackage.referenceClosure?.ref ||
+        !VALID_REFERENCE_CLOSURE_STATE.has(skillsPackage.referenceClosure?.state)) {
+        errors.push('skills-package-coordinate-missing')
+    }
+    if (!GIT_SHA_RE.test(enforcement.headSha ?? '') || !enforcement.requiredContext) {
+        errors.push('enforcement-coordinate-missing')
+    }
+    if (!learningCensus.ref || !GIT_SHA_RE.test(learningCensus.commitSha ?? '') ||
+        !learningCensus.artifactPath || learningArtifact.schemaVersion !== 'learn-custody-census.v1' ||
+        learningArtifact.sourceRepository !== 'neomjs/neo' ||
+        !GIT_SHA_RE.test(learningArtifact.sourceRef ?? '') ||
+        !GIT_SHA_RE.test(learningArtifact.sourceSha ?? '') ||
+        !GIT_SHA_RE.test(learningArtifact.sourceTreeOid ?? '') ||
+        !SHA256_RE.test(learningArtifact.canonicalSha256 ?? '') || !artifactRowsValid) {
+        errors.push('learning-census-coordinate-missing')
+    } else {
+        if (learningArtifact.canonicalSha256 !== artifactCanonicalSha) {
+            errors.push('learning-census-canonical-mismatch')
+        }
+        if (inventory.git?.learningTreeOid !== learningArtifact.sourceTreeOid) {
+            errors.push('learning-census-tree-unbound')
+        }
+        if (artifactDigest !== learningDigest) {
+            errors.push('learning-census-disposition-mismatch')
+        }
+    }
+    if (!expectedLearningCounts.every(value => Number.isInteger(value) && value >= 0)) {
+        errors.push('learning-census-counts-invalid')
+    } else if (learningArtifact.counts.total !==
+            learningArtifact.counts.moveToBrain + learningArtifact.counts.stayEngine ||
+        learningArtifact.counts.total !== artifactRows.length ||
+        learningArtifact.counts.decisions !==
+            artifactRows.filter(row => row.sourcePath.startsWith('learn/agentos/decisions/')).length ||
+        learningCounts.rowCount !== learningArtifact.counts.total ||
+        learningCounts.adrCount !== learningArtifact.counts.decisions ||
+        learningCounts.movingCount !== learningArtifact.counts.moveToBrain ||
+        learningCounts.stayingCount !== learningArtifact.counts.stayEngine) {
+        errors.push('learning-census-mismatch')
+    }
+    if (!trackerSnapshot.baselineRef || !trackerSnapshot.deltaRef ||
+        !DIGEST_RE.test(trackerSnapshot.sourceDispositionDigest ?? '') ||
+        !GIT_SHA_RE.test(trackerSnapshot.transferLedgerCommitSha ?? '') ||
+        !trackerSnapshot.transferLedgerPath || !SHA256_RE.test(trackerSnapshot.transferLedgerSha256 ?? '')) {
+        errors.push('tracker-snapshot-coordinate-missing')
+    }
+    if (!trackerCounts.every(value => Number.isInteger(value) && value >= 0)) {
+        errors.push('tracker-snapshot-counts-invalid')
+    } else if (trackerSnapshot.baselineCount + trackerSnapshot.deltaCount !== trackerSnapshot.sourceTotal ||
+        trackerSnapshot.openNativeTransferCount + trackerSnapshot.sourceOnlyClosedCount !==
+            trackerSnapshot.brainTransferTotal) {
+        errors.push('tracker-snapshot-counts-inconsistent')
+    }
+    if (!GIT_SHA_RE.test(custodyCorrection.sha ?? '')) errors.push('custody-correction-coordinate-missing');
+    if (!GIT_SHA_RE.test(rollback.imageSha ?? '') || !rollback.bundle) errors.push('rollback-pair-missing');
+
+    return {
+        schemaVersion: WAVE3_CUT_MANIFEST_VERSION,
+        source       : {repository: 'neomjs/neo', sha: sourceSha ?? null},
+        target       : {repository: 'neomjs/neo-agent-brain', sha: targetSha ?? null},
+        inventory    : {
+            schemaVersion    : inventory.schemaVersion ?? null,
+            rowCount         : Array.isArray(inventory.rows) ? inventory.rows.length : 0,
+            dispositionDigest: inventoryDispositionDigest(inventory.rows ?? [])
+        },
+        planeProof: {
+            head                  : planeProof.meta?.head ?? null,
+            receiptDigest         : planeProofReceiptDigest(planeProof),
+            instrumentErrorCount  : instrumentErrors.length,
+            relocationBlockerCount: relocationBlockers.length
+        },
+        prerequisites: {
+            skillsPackage: {
+                version           : skillsPackage.version ?? null,
+                sourceSha         : skillsPackage.sourceSha ?? null,
+                consumerSha       : skillsPackage.consumerSha ?? null,
+                materializationRef: skillsPackage.materializationRef ?? null,
+                referenceClosure  : {
+                    ref  : skillsPackage.referenceClosure?.ref ?? null,
+                    state: skillsPackage.referenceClosure?.state ?? null
+                }
+            },
+            enforcement: {
+                headSha        : enforcement.headSha ?? null,
+                requiredContext: enforcement.requiredContext ?? null
+            },
+            learningCensus: {
+                schemaVersion    : learningArtifact.schemaVersion ?? null,
+                ref              : learningCensus.ref ?? null,
+                commitSha        : learningCensus.commitSha ?? null,
+                artifactPath     : learningCensus.artifactPath ?? null,
+                sourceRepository : learningArtifact.sourceRepository ?? null,
+                sourceRef        : learningArtifact.sourceRef ?? null,
+                sourceSha        : learningArtifact.sourceSha ?? null,
+                sourceTreeOid    : learningArtifact.sourceTreeOid ?? null,
+                canonicalSha256  : learningArtifact.canonicalSha256 ?? null,
+                dispositionDigest: artifactDigest,
+                rowCount         : learningArtifact.counts?.total ?? null,
+                adrCount         : learningArtifact.counts?.decisions ?? null,
+                movingCount      : learningArtifact.counts?.moveToBrain ?? null,
+                stayingCount     : learningArtifact.counts?.stayEngine ?? null
+            },
+            trackerSnapshot: {
+                baselineRef            : trackerSnapshot.baselineRef ?? null,
+                baselineCount          : trackerSnapshot.baselineCount ?? null,
+                deltaRef               : trackerSnapshot.deltaRef ?? null,
+                sourceDispositionDigest: trackerSnapshot.sourceDispositionDigest ?? null,
+                deltaCount             : trackerSnapshot.deltaCount ?? null,
+                sourceTotal            : trackerSnapshot.sourceTotal ?? null,
+                transferLedgerCommitSha: trackerSnapshot.transferLedgerCommitSha ?? null,
+                transferLedgerPath     : trackerSnapshot.transferLedgerPath ?? null,
+                transferLedgerSha256   : trackerSnapshot.transferLedgerSha256 ?? null,
+                brainTransferTotal     : trackerSnapshot.brainTransferTotal ?? null,
+                openNativeTransferCount: trackerSnapshot.openNativeTransferCount ?? null,
+                sourceOnlyClosedCount  : trackerSnapshot.sourceOnlyClosedCount ?? null
+            },
+            custodyCorrection: {sha: custodyCorrection.sha ?? null}
+        },
+        rollback: {
+            imageSha: rollback.imageSha ?? null,
+            bundle  : rollback.bundle ?? null
+        },
+        receiveOrder         : [...WAVE3_RECEIVE_ORDER],
+        engineRemovalRequires: [...WAVE3_REMOVAL_REQUIRES],
+        errors,
+        ok                   : errors.length === 0
+    }
+}
+
+/**
  * @summary Builds the complete SHA-bound extraction receipt from current source plus registry.
  * @param {Object} [options]
  * @param {String} [options.projectRoot=PROJECT_ROOT]
@@ -1778,6 +2258,8 @@ export function buildInventory({
         subprocess                           = collectSubprocessLaunches({projectRoot, scriptRowsByIdentity}),
         openerRows                           = collectPlaneOpeners({projectRoot, scriptRowsByIdentity}),
         configRows                           = collectConfigAuthorities({projectRoot}),
+        deploymentArtifactRows               = collectDeploymentArtifacts({projectRoot}),
+        learningArtifactRows                 = collectLearningArtifacts({projectRoot}),
         allDerived                           = [
             ...scriptRows,
             ...closureRows,
@@ -1787,7 +2269,9 @@ export function buildInventory({
             ...workflowRows,
             ...subprocess.rows,
             ...openerRows,
-            ...configRows
+            ...configRows,
+            ...deploymentArtifactRows,
+            ...learningArtifactRows
         ],
         reconciled                           = reconcileInventory(allDerived, registry, subprocess.parseFailures),
         workflowFiles                        = reconcileWorkflowFileDispositions(
@@ -1795,9 +2279,12 @@ export function buildInventory({
             registry
         ),
         sha                                  = execFileSync('git', ['-C', projectRoot, 'rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
+        learningTreeOid                      = execFileSync(
+            'git', ['-C', projectRoot, 'rev-parse', 'HEAD:learn/agentos'], {encoding: 'utf8'}
+        ).trim(),
         status                               = execFileSync(
             'git', ['-C', projectRoot, 'status', '--porcelain=v1', '--untracked-files=all'], {encoding: 'utf8'}
-        ).trim(),
+        ).trimEnd(),
         capturedAt                           = execFileSync(
             'git', ['-C', projectRoot, 'show', '-s', '--format=%cI', 'HEAD'], {encoding: 'utf8'}
         ).trim(),
@@ -1860,10 +2347,11 @@ export function buildInventory({
     reconciled.ok &&= dependencyManifests.errors.length === 0;
 
     return {
-        schemaVersion: 'agentos-extraction-inventory.v5',
+        schemaVersion: 'agentos-extraction-inventory.v6',
         capturedAt,
         git          : {
             sha,
+            learningTreeOid,
             clean     : !status,
             dirtyPaths: status ? status.split('\n').map(line => line.slice(3)).sort() : []
         },
@@ -1975,9 +2463,94 @@ export function formatInventory(report) {
     return lines.join('\n')
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
-    const report = buildInventory();
+/**
+ * @summary Builds a fresh Commander program for the inventory and Wave-3 receipt CLI.
+ * @returns {Command}
+ */
+export function createProgram() {
+    return new Command()
+        .name('agentOsExtractionInventory')
+        .description('Emit the Agent OS extraction inventory or compose its Wave-3 cut receipt.')
+        .option('--json', 'Emit the inventory machine receipt JSON on stdout.', false)
+        .option(
+            '--wave3-cut-input <path>',
+            'Compose wave3-cut-manifest.v1 from this JSON input plus a fresh local inventory.'
+        )
+}
 
-    console.log(process.argv.includes('--json') ? JSON.stringify(report, null, 4) : formatInventory(report));
+/**
+ * @summary Parses CLI arguments with deterministic Commander failure semantics for focused tests.
+ * @param {String[]} argv User arguments, excluding node and script paths.
+ * @returns {{json: Boolean, wave3CutInput: String|null}}
+ */
+export function parseArgs(argv = []) {
+    const program = createProgram();
+
+    program.exitOverride();
+    program.configureOutput({writeOut: () => {}, writeErr: () => {}});
+    program.parse(argv, {from: 'user'});
+
+    const options = program.opts();
+
+    return {
+        json         : options.json === true,
+        wave3CutInput: options.wave3CutInput ?? null
+    }
+}
+
+/**
+ * @summary Builds the selected CLI receipt without coupling parser tests to live repository scans.
+ * @param {Object} [options]
+ * @param {{json: Boolean, wave3CutInput: String|null}} [options.cliOptions]
+ * @param {Object} [options.inventory] Fresh extraction inventory; defaults to a live build.
+ * @param {Function} [options.planeProofBuilder] Existing proof producer invocation.
+ * @param {Function} [options.readFile] Injectable UTF-8 input reader.
+ * @returns {{kind: String, report: Object}}
+ */
+export function buildCliReport({
+    cliOptions = {json: false, wave3CutInput: null},
+    inventory = buildInventory(),
+    planeProofBuilder = () => runPlaneBoundaryProof(),
+    readFile = file => fs.readFileSync(file, 'utf8')
+} = {}) {
+    if (!cliOptions.wave3CutInput) {
+        return {kind: 'inventory', report: inventory}
+    }
+
+    const input = JSON.parse(readFile(path.resolve(cliOptions.wave3CutInput)));
+
+    if (!input || Array.isArray(input) || typeof input !== 'object') {
+        throw new TypeError('--wave3-cut-input must contain one JSON object')
+    }
+
+    const coordinates = {...input};
+
+    // A caller-authored proof object is a declaration, not an observation. The CLI invokes the
+    // existing producer and owns the receipt it consumes; deleting here makes that boundary
+    // explicit even if an old input file still carries the retired field.
+    delete coordinates.planeProof;
+
+    return {
+        kind  : WAVE3_CUT_MANIFEST_VERSION,
+        report: buildWave3CutManifest({
+            ...coordinates,
+            inventory,
+            planeProof: planeProofBuilder()
+        })
+    }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+    const
+        options        = createProgram().parse(process.argv).opts(),
+        {kind, report} = buildCliReport({
+            cliOptions: {
+                json         : options.json === true,
+                wave3CutInput: options.wave3CutInput ?? null
+            }
+        }),
+        emitJson       = options.json === true || kind === WAVE3_CUT_MANIFEST_VERSION;
+
+    console.log(emitJson ? JSON.stringify(report, null, 4) : formatInventory(report));
     process.exitCode = report.ok ? 0 : 1
 }

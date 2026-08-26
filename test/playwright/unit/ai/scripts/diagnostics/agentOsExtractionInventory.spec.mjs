@@ -4,9 +4,14 @@ import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 import {
+    buildCliReport,
     buildInventory,
+    buildWave3CutManifest,
+    canonicalLearningCensusSha256,
     collectConsumerEdges,
+    collectDeploymentArtifacts,
     collectLaunchRoots,
+    collectLearningArtifacts,
     collectManifestDependencyRows,
     collectPackageDependencies,
     composeDependencyManifests,
@@ -17,7 +22,12 @@ import {
     formatInventory,
     inspectManifestDependencies,
     inspectEngineAgentOsDependencies,
+    inventoryDispositionDigest,
+    learningDispositionDigest,
     listTrackedFiles,
+    parseArgs,
+    planeProofReceiptDigest,
+    runPlaneBoundaryProof,
     reconcileInventory,
     reconcileConsumerEdges,
     reconcileConsumerSourceClasses,
@@ -45,6 +55,530 @@ const
  * committed current-tree receipt is complete and deterministic.
  */
 test.describe('agentOsExtractionInventory — exact population × explicit authority', () => {
+    test.describe('Commander CLI contract', () => {
+        test('defaults to human inventory output', () => {
+            expect(parseArgs([])).toEqual({json: false, wave3CutInput: null})
+        });
+
+        test('parses JSON and Wave-3 input options', () => {
+            expect(parseArgs(['--json', '--wave3-cut-input', '/tmp/cut.json'])).toEqual({
+                json         : true,
+                wave3CutInput: '/tmp/cut.json'
+            })
+        });
+
+        test('rejects unknown options and missing Wave-3 input values', () => {
+            expect(() => parseArgs(['--invented'])).toThrow();
+            expect(() => parseArgs(['--wave3-cut-input'])).toThrow()
+        })
+    });
+
+    test('Wave-3 CLI invokes the existing plane-proof producer', () => {
+        const expected = {
+            exitCode        : 0,
+            instrumentErrors: [],
+            topologyFindings: [],
+            meta            : {
+                head         : 'a'.repeat(40),
+                sourceBinding: {bound: true, sha: 'a'.repeat(40), dirtyPaths: []}
+            }
+        };
+        let observed;
+
+        const receipt = runPlaneBoundaryProof({
+            projectRoot: '/repo',
+            execFile   : (binary, args, options) => {
+                observed = {binary, args, options};
+                return JSON.stringify(expected)
+            }
+        });
+
+        expect(receipt).toEqual(expected);
+        expect(observed.binary).toBe(process.execPath);
+        expect(observed.args).toEqual([
+            '/repo/ai/scripts/diagnostics/agentOsPlaneBoundaryProof.mjs',
+            '--json'
+        ]);
+        expect(observed.options.cwd).toBe('/repo')
+    });
+
+    test('deployment artifacts include the declared root and tracked shapes anywhere else', () => {
+        const rows = collectDeploymentArtifacts({
+            trackedFiles: [
+                'ai/deploy/kb-config.yaml',
+                'ai/mcp/deploy/proxy/Caddyfile',
+                'ai/scripts/lifecycle/nightly-e2e/com.neomjs.nightly-e2e.plist',
+                'apps/example/README.md'
+            ]
+        });
+
+        expect(rows.map(row => row.identity)).toEqual([
+            'ai/deploy/kb-config.yaml',
+            'ai/mcp/deploy/proxy/Caddyfile',
+            'ai/scripts/lifecycle/nightly-e2e/com.neomjs.nightly-e2e.plist'
+        ]);
+        expect(rows.map(row => row.evidence.discoveredVia)).toEqual([
+            'declared-root',
+            'tracked-shape-sweep',
+            'tracked-shape-sweep'
+        ])
+    });
+
+    test('RED: an out-of-root deployment artifact without authority cannot disappear', () => {
+        const rows = collectDeploymentArtifacts({
+            trackedFiles: ['ai/mcp/deploy/proxy/Caddyfile']
+        });
+        const result = reconcileInventory(rows, {custody: [], overrides: []});
+
+        expect(result.ok).toBe(false);
+        expect(result.residue.diskMinusAuthority).toEqual([
+            'deployment-artifact::ai/mcp/deploy/proxy/Caddyfile'
+        ])
+    });
+
+    test('learning custody is exact tracked identity, never a directory default', () => {
+        const rows = collectLearningArtifacts({
+            trackedFiles: [
+                'learn/agentos/MemoryCore.md',
+                'learn/agentos/decisions/0029-docking-design.md'
+            ]
+        });
+        const result = reconcileInventory(rows, {custody: [], overrides: []});
+
+        expect(rows.map(row => row.identity)).toEqual([
+            'learn/agentos/decisions/0029-docking-design.md',
+            'learn/agentos/MemoryCore.md'
+        ]);
+        expect(result.ok).toBe(false);
+        expect(result.residue.diskMinusAuthority).toEqual([
+            'learning-artifact::learn/agentos/MemoryCore.md',
+            'learning-artifact::learn/agentos/decisions/0029-docking-design.md'
+        ])
+    });
+
+    test('learning custody binds explicit Brain targets and Engine stays', () => {
+        const rows = collectLearningArtifacts({
+            trackedFiles: [
+                'learn/agentos/MemoryCore.md',
+                'learn/agentos/decisions/0029-docking-design.md'
+            ]
+        });
+        const result = reconcileInventory(rows, {
+            custody  : [],
+            overrides: [{
+                surface         : SURFACE.learningArtifact,
+                identity        : 'learn/agentos/MemoryCore.md',
+                disposition     : 'move',
+                targetRepository: 'neomjs/neo-agent-brain',
+                source          : 'fixture census',
+                rationale       : 'Memory Core guide follows its Brain subject'
+            }, {
+                surface    : SURFACE.learningArtifact,
+                identity   : 'learn/agentos/decisions/0029-docking-design.md',
+                disposition: 'stays-engine',
+                source     : 'fixture census',
+                rationale  : 'Docking decision follows its Engine subject'
+            }]
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.rows).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                identity        : 'learn/agentos/MemoryCore.md',
+                disposition     : 'move',
+                targetRepository: 'neomjs/neo-agent-brain'
+            }),
+            expect.objectContaining({
+                identity   : 'learn/agentos/decisions/0029-docking-design.md',
+                disposition: 'stays-engine'
+            })
+        ]))
+    });
+
+    test('Wave-3 cut receipt composes existing authorities without copying their populations', () => {
+        const
+            sourceSha = 'a'.repeat(40),
+            targetSha = 'b'.repeat(40),
+            rows      = [{
+                surface    : SURFACE.scriptModule,
+                identity   : 'ai/a.mjs',
+                disposition: 'edge'
+            }, {
+                surface        : SURFACE.packageDependency,
+                identity       : 'package.json::devDependencies::ws',
+                disposition    : 'edge',
+                manifestTargets: ['edge']
+            }, {
+                surface         : SURFACE.learningArtifact,
+                identity        : 'learn/agentos/MemoryCore.md',
+                disposition     : 'move',
+                targetRepository: 'neomjs/neo-agent-brain'
+            }, {
+                surface    : SURFACE.learningArtifact,
+                identity   : 'learn/agentos/decisions/0029-docking-design.md',
+                disposition: 'stays-engine'
+            }],
+            learningArtifact = (() => {
+                const artifact = {
+                    schemaVersion   : 'learn-custody-census.v1',
+                    sourceRepository: 'neomjs/neo',
+                    sourceRef       : '8'.repeat(40),
+                    sourceSha       : '8'.repeat(40),
+                    sourceTreeOid   : '3'.repeat(40),
+                    authority       : {},
+                    invariants      : {exactIdentityPartition: true},
+                    counts          : {total: 2, decisions: 1, moveToBrain: 1, stayEngine: 1},
+                    rows            : [{
+                        sourcePath   : 'learn/agentos/MemoryCore.md',
+                        sourceBlobOid: '9'.repeat(40),
+                        disposition  : 'move-to-brain'
+                    }, {
+                        sourcePath   : 'learn/agentos/decisions/0029-docking-design.md',
+                        sourceBlobOid: '7'.repeat(40),
+                        disposition  : 'stay-engine'
+                    }]
+                };
+
+                return {...artifact, canonicalSha256: canonicalLearningCensusSha256(artifact)}
+            })(),
+            config = {
+                sourceSha,
+                targetSha,
+                inventory: {
+                    schemaVersion: 'agentos-extraction-inventory.v6',
+                    git          : {clean: true, sha: sourceSha, learningTreeOid: '3'.repeat(40)},
+                    rows,
+                    residue      : {diskMinusAuthority: [], authorityMinusDisk: []},
+                    ok           : true
+                },
+                planeProof: {
+                    exitCode        : 0,
+                    instrumentErrors: [],
+                    topologyFindings: [],
+                    meta            : {
+                        cloudOnlyPackages: ['better-sqlite3', 'chromadb'],
+                        head             : sourceSha,
+                        sourceBinding    : {bound: true, sha: sourceSha, dirtyPaths: []}
+                    }
+                },
+                skillsPackage: {
+                    version           : '0.1.0',
+                    sourceSha         : 'c'.repeat(40),
+                    consumerSha       : 'd'.repeat(40),
+                    materializationRef: 'receipt#clean-consumer-materialization',
+                    referenceClosure  : {
+                        ref  : 'receipt#packaged-reference-closure',
+                        state: 'red'
+                    }
+                },
+                enforcement: {
+                    headSha        : 'e'.repeat(40),
+                    requiredContext: 'integration-parity'
+                },
+                learningCensus: {
+                    ref         : 'discussioncomment-fixture#learning-census',
+                    commitSha   : '2'.repeat(40),
+                    artifactPath: 'migration/learn-custody-census.v1.json',
+                    artifact    : learningArtifact
+                },
+                trackerSnapshot: {
+                    baselineRef            : 'discussioncomment-18154032#baseline-330',
+                    baselineCount          : 330,
+                    deltaRef               : 'discussioncomment-18162269#sanctioned-delta-7',
+                    sourceDispositionDigest: `sha256:${'5'.repeat(64)}`,
+                    deltaCount             : 7,
+                    sourceTotal            : 337,
+                    transferLedgerCommitSha: '6'.repeat(40),
+                    transferLedgerPath     : 'migration/tracker-transfer-ledger.v1.json',
+                    transferLedgerSha256   : '7'.repeat(64),
+                    brainTransferTotal     : 164,
+                    openNativeTransferCount: 163,
+                    sourceOnlyClosedCount  : 1
+                },
+                custodyCorrection: {sha: 'f'.repeat(40)},
+                rollback         : {
+                    imageSha: '1'.repeat(40),
+                    bundle  : 'backup-2026-08-25T13-45-42.346Z'
+                }
+            },
+            first  = buildWave3CutManifest(config),
+            second = buildWave3CutManifest({
+                ...config,
+                inventory    : {...config.inventory, rows: [...rows].reverse()},
+                skillsPackage: {
+                    consumerSha       : config.skillsPackage.consumerSha,
+                    ignored           : 'caller noise',
+                    materializationRef: config.skillsPackage.materializationRef,
+                    referenceClosure  : config.skillsPackage.referenceClosure,
+                    sourceSha         : config.skillsPackage.sourceSha,
+                    version           : config.skillsPackage.version
+                }
+            }),
+            {inventory, ...cutInput} = config,
+            cli = buildCliReport({
+                cliOptions       : {json: false, wave3CutInput: '/tmp/cut.json'},
+                inventory,
+                planeProofBuilder: () => config.planeProof,
+                readFile         : () => JSON.stringify({
+                    ...cutInput,
+                    planeProof: {
+                        exitCode        : 0,
+                        instrumentErrors: [],
+                        topologyFindings: [],
+                        meta            : {
+                            head         : '9'.repeat(40),
+                            sourceBinding: {bound: true, sha: '9'.repeat(40), dirtyPaths: []}
+                        }
+                    }
+                })
+            });
+
+        expect(first.ok).toBe(true);
+        expect(first.errors).toEqual([]);
+        expect(first.schemaVersion).toBe('wave3-cut-manifest.v1');
+        expect(first.inventory).toEqual({
+            schemaVersion    : 'agentos-extraction-inventory.v6',
+            rowCount         : 4,
+            dispositionDigest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/)
+        });
+        expect(first.planeProof).toEqual({
+            head                  : sourceSha,
+            receiptDigest         : planeProofReceiptDigest(config.planeProof),
+            instrumentErrorCount  : 0,
+            relocationBlockerCount: 0
+        });
+        expect(first.prerequisites.trackerSnapshot).toEqual(config.trackerSnapshot);
+        expect(first.prerequisites.learningCensus).toEqual({
+            schemaVersion    : 'learn-custody-census.v1',
+            ref              : config.learningCensus.ref,
+            commitSha        : config.learningCensus.commitSha,
+            artifactPath     : config.learningCensus.artifactPath,
+            sourceRepository : 'neomjs/neo',
+            sourceRef        : '8'.repeat(40),
+            sourceSha        : '8'.repeat(40),
+            sourceTreeOid    : '3'.repeat(40),
+            canonicalSha256  : learningArtifact.canonicalSha256,
+            dispositionDigest: learningDispositionDigest(rows),
+            rowCount         : 2,
+            adrCount         : 1,
+            movingCount      : 1,
+            stayingCount     : 1
+        });
+        expect(first.prerequisites.skillsPackage.referenceClosure).toEqual({
+            ref  : 'receipt#packaged-reference-closure',
+            state: 'red'
+        });
+        expect(second.inventory.dispositionDigest).toBe(first.inventory.dispositionDigest);
+        expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+        expect(cli.kind).toBe('wave3-cut-manifest.v1');
+        expect(JSON.stringify(cli.report)).toBe(JSON.stringify(first));
+        expect(first.receiveOrder).toEqual(['#17788', '#17789', '#17790', '#17791']);
+        expect(first.engineRemovalRequires).toEqual([
+            '#17783', '#17788', '#17789', '#17790', '#17798', 'neo-agent-brain#10'
+        ])
+    });
+
+    test('Wave-3 cut receipt fails closed on each existing-authority boundary', () => {
+        const receipt = buildWave3CutManifest({
+            sourceSha: 'invalid',
+            targetSha: null,
+            inventory: {
+                git    : {clean: false, sha: '0'.repeat(40)},
+                rows   : [],
+                residue: {diskMinusAuthority: ['script-module::ai/missing.mjs'], authorityMinusDisk: []},
+                ok     : false
+            },
+            planeProof: {
+                exitCode        : 1,
+                instrumentErrors: [{class: 'fixture', identity: 'instrument'}],
+                topologyFindings: [{class: 'fixture', identity: 'blocker', preRelocationBlocker: true}],
+                meta            : {head: null, sourceBinding: {bound: false}}
+            }
+        });
+
+        expect(receipt.ok).toBe(false);
+        expect(receipt.errors).toEqual([
+            'source-sha-invalid',
+            'target-sha-invalid',
+            'inventory-not-green',
+            'inventory-population-missing',
+            'inventory-source-unbound',
+            'inventory-residue',
+            'plane-proof-not-green',
+            'plane-proof-source-unbound',
+            'plane-proof-instrument-errors',
+            'plane-proof-relocation-blockers',
+            'skills-package-coordinate-missing',
+            'enforcement-coordinate-missing',
+            'learning-census-coordinate-missing',
+            'learning-census-counts-invalid',
+            'tracker-snapshot-coordinate-missing',
+            'tracker-snapshot-counts-invalid',
+            'custody-correction-coordinate-missing',
+            'rollback-pair-missing'
+        ])
+    });
+
+    test('Wave-3 tracker arithmetic rejects a stale source denominator', () => {
+        const receipt = buildWave3CutManifest({
+            trackerSnapshot: {
+                baselineRef            : 'baseline',
+                baselineCount          : 330,
+                deltaRef               : 'delta',
+                deltaCount             : 7,
+                sourceTotal            : 336,
+                brainTransferTotal     : 164,
+                openNativeTransferCount: 163,
+                sourceOnlyClosedCount  : 1
+            }
+        });
+
+        expect(receipt.errors).toContain('tracker-snapshot-counts-inconsistent');
+        expect(receipt.errors).not.toContain('tracker-snapshot-counts-invalid')
+    });
+
+    test('Wave-3 tracker prerequisite rejects count-only coordinates', () => {
+        const receipt = buildWave3CutManifest({
+            trackerSnapshot: {
+                baselineRef            : 'baseline',
+                baselineCount          : 330,
+                deltaRef               : 'delta',
+                deltaCount             : 7,
+                sourceTotal            : 337,
+                brainTransferTotal     : 164,
+                openNativeTransferCount: 163,
+                sourceOnlyClosedCount  : 1
+            }
+        });
+
+        expect(receipt.errors).toContain('tracker-snapshot-coordinate-missing');
+        expect(receipt.errors).not.toContain('tracker-snapshot-counts-invalid');
+        expect(receipt.errors).not.toContain('tracker-snapshot-counts-inconsistent')
+    });
+
+    test('Wave-3 skills prerequisite rejects a package with no typed reference-closure receipt', () => {
+        const receipt = buildWave3CutManifest({
+            skillsPackage: {
+                version           : '0.1.1',
+                sourceSha         : 'a'.repeat(40),
+                consumerSha       : 'b'.repeat(40),
+                materializationRef: 'receipt#materialized'
+            }
+        });
+
+        expect(receipt.errors).toContain('skills-package-coordinate-missing')
+    });
+
+    test('Wave-3 learning census binds the subtree while retaining historical source provenance', () => {
+        const
+            sourceSha = 'a'.repeat(40),
+            rows      = [{
+                surface    : SURFACE.learningArtifact,
+                identity   : 'learn/agentos/a.md',
+                disposition: 'move'
+            }],
+            artifact  = {
+                schemaVersion   : 'learn-custody-census.v1',
+                sourceRepository: 'neomjs/neo',
+                sourceRef       : 'c'.repeat(40),
+                sourceSha       : 'c'.repeat(40),
+                sourceTreeOid   : 'd'.repeat(40),
+                counts          : {total: 1, decisions: 0, moveToBrain: 1, stayEngine: 0},
+                rows            : [{
+                    sourcePath   : 'learn/agentos/a.md',
+                    sourceBlobOid: 'e'.repeat(40),
+                    disposition  : 'move-to-brain'
+                }]
+            };
+
+        artifact.canonicalSha256 = canonicalLearningCensusSha256(artifact);
+
+        const receipt = buildWave3CutManifest({
+            sourceSha,
+            inventory: {
+                git    : {clean: true, sha: sourceSha, learningTreeOid: '9'.repeat(40)},
+                rows,
+                residue: {diskMinusAuthority: [], authorityMinusDisk: []},
+                ok     : true
+            },
+            learningCensus: {
+                ref         : 'issuecomment#census',
+                commitSha   : 'b'.repeat(40),
+                artifactPath: 'migration/learn-custody-census.v1.json',
+                artifact
+            }
+        });
+
+        expect(receipt.errors).toContain('learning-census-tree-unbound');
+        expect(receipt.errors).not.toContain('learning-census-disposition-mismatch')
+    });
+
+    test('Wave-3 learning digest detects same-count custody substitution', () => {
+        const
+            sourceSha    = 'a'.repeat(40),
+            treeOid      = 'b'.repeat(40),
+            originalRows = [{
+                  surface    : SURFACE.learningArtifact,
+                  identity   : 'learn/agentos/a.md',
+                  disposition: 'move'
+              }],
+            replacementRows = [{
+                  surface    : SURFACE.learningArtifact,
+                  identity   : 'learn/agentos/b.md',
+                  disposition: 'move'
+              }],
+            artifact = {
+                schemaVersion   : 'learn-custody-census.v1',
+                sourceRepository: 'neomjs/neo',
+                sourceRef       : 'c'.repeat(40),
+                sourceSha       : 'c'.repeat(40),
+                sourceTreeOid   : treeOid,
+                counts          : {total: 1, decisions: 0, moveToBrain: 1, stayEngine: 0},
+                rows            : [{
+                    sourcePath   : 'learn/agentos/a.md',
+                    sourceBlobOid: 'd'.repeat(40),
+                    disposition  : 'move-to-brain'
+                }]
+            };
+
+        artifact.canonicalSha256 = canonicalLearningCensusSha256(artifact);
+
+        const receipt = buildWave3CutManifest({
+            sourceSha,
+            inventory: {
+                git    : {clean: true, sha: sourceSha, learningTreeOid: treeOid},
+                rows   : replacementRows,
+                residue: {diskMinusAuthority: [], authorityMinusDisk: []},
+                ok     : true
+            },
+            learningCensus: {
+                ref         : 'issuecomment#census',
+                commitSha   : 'e'.repeat(40),
+                artifactPath: 'migration/learn-custody-census.v1.json',
+                artifact
+            }
+        });
+
+        expect(learningDispositionDigest(replacementRows)).not.toBe(learningDispositionDigest(originalRows));
+        expect(receipt.errors).toContain('learning-census-disposition-mismatch');
+        expect(receipt.errors).not.toContain('learning-census-tree-unbound')
+    });
+
+    test('Wave-3 disposition digest detects same-count identity replacement', () => {
+        const original = inventoryDispositionDigest([{
+                  surface    : SURFACE.scriptModule,
+                  identity   : 'ai/a.mjs',
+                  disposition: 'edge'
+              }]),
+              replacement = inventoryDispositionDigest([{
+                  surface    : SURFACE.scriptModule,
+                  identity   : 'ai/b.mjs',
+                  disposition: 'edge'
+              }]);
+
+        expect(replacement).not.toBe(original)
+    });
+
     test('workflow discovery counts module, registry, test, and comment occurrences separately', () => {
         const source = [
             "paths: ['ai/scripts/lint/rules.json']",
@@ -435,7 +969,7 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
     });
 
     test('a dirty tree cannot masquerade as a SHA-bound receipt', () => {
-        expect(sourceBindingError('M  ai/scripts/a.mjs\n?? scratch.mjs')).toEqual({
+        expect(sourceBindingError(' M ai/scripts/a.mjs\n?? scratch.mjs')).toEqual({
             kind : 'dirty-worktree',
             key  : 'ai/scripts/a.mjs, scratch.mjs',
             error: 'a commit SHA cannot bind staged, modified, or untracked source'
@@ -1058,8 +1592,16 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
               workflowFiles = [...new Set(workflowReferences.map(row => row.identity.split('::', 1)[0]))];
 
         const packageDependencies = collectPackageDependencies({projectRoot: REPO_ROOT}).rows;
+        const registry            = JSON.parse(fs.readFileSync(
+            path.join(REPO_ROOT, 'ai/scripts/diagnostics/agentOsExtractionInventory.json'),
+            'utf8'
+        ));
 
         expect(first).toEqual(second);
+        expect(first.git.learningTreeOid).toBe('67a7db0f48f42c4fc2bd314ac01472b077f2a1de');
+        expect(registry.$schema.manifestAuthority).toContain(
+            'embedded deployment entrypoint with no exact target row inherits its owning deployment artifact plane'
+        );
         expect(resolveTrackedConfigSpecifier(
             './config.mjs',
             path.join(REPO_ROOT, 'ai/fixture.mjs'),
@@ -1073,7 +1615,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
         expect(first.counts[SURFACE.workflowReference].total).toBe(workflowReferences.length);
         expect(first.counts[SURFACE.workflowFile].total).toBe(workflowFiles.length);
         expect(first.counts[SURFACE.planeOpener].total).toBe(censusPlaneOpeners({projectRoot: REPO_ROOT}).total);
-        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v5');
+        expect(first.counts[SURFACE.deploymentArtifact].total).toBe(20);
+        expect(first.schemaVersion).toBe('agentos-extraction-inventory.v6');
         expect(first.counts[SURFACE.launchRoot].total).toBe(first.launchRoots.total);
         expect(first.launchRoots.rows.map(row => row.identity))
             .toEqual(first.rows.filter(row => row.surface === SURFACE.launchRoot).map(row => row.identity));
@@ -1123,6 +1666,35 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
             .filter(row => row.disposition === WORKFLOW_FILE_DISPOSITION.pinFetch)
             .every(row => !Object.hasOwn(row, 'targetRepository') && typeof row.pinAuthority === 'string'))
             .toBe(true);
+
+        const deploymentByIdentity = Object.fromEntries(first.rows
+            .filter(row => row.surface === SURFACE.deploymentArtifact)
+            .map(row => [row.identity, row]));
+
+        expect(deploymentByIdentity['ai/deploy/com.neomjs.agent-os-wake.plist'].disposition).toBe('edge');
+        expect(deploymentByIdentity['ai/deploy/Dockerfile'].disposition).toBe('cloud');
+        expect(deploymentByIdentity['ai/mcp/deploy/proxy/Caddyfile'].disposition).toBe('cloud');
+        expect(deploymentByIdentity['ai/scripts/lifecycle/nightly-e2e/com.neomjs.nightly-e2e.plist'].disposition)
+            .toBe('stays-engine');
+
+        const
+            learningRows       = first.rows.filter(row => row.surface === SURFACE.learningArtifact),
+            learningByIdentity = Object.fromEntries(learningRows.map(row => [row.identity, row]));
+
+        expect(first.counts[SURFACE.learningArtifact]).toEqual({
+            total        : 137,
+            byDisposition: {move: 111, 'stays-engine': 26}
+        });
+        expect(learningRows.filter(row => row.identity.startsWith('learn/agentos/decisions/'))).toHaveLength(40);
+        expect(learningRows.filter(row => row.disposition === 'move')
+            .every(row => row.targetRepository === 'neomjs/neo-agent-brain')).toBe(true);
+        expect(learningRows.filter(row => row.disposition === 'stays-engine')
+            .every(row => !Object.hasOwn(row, 'targetRepository'))).toBe(true);
+        expect(learningByIdentity['learn/agentos/MemoryCore.md'].disposition).toBe('move');
+        expect(learningByIdentity['learn/agentos/AGENTS_ATLAS.md'].disposition).toBe('stays-engine');
+        expect(learningByIdentity['learn/agentos/decisions/0008-skill-anatomy-and-authoring-contract.md']
+            .disposition).toBe('stays-engine');
+        expect(learningByIdentity['learn/agentos/decisions/0033-direction-contract.md'].disposition).toBe('move');
         expect(first.consumerEdges.sourceClasses).toContainEqual(expect.objectContaining({
             identity   : 'test/playwright/unit/ai/**',
             disposition: 'moves-agentos-test',
@@ -1232,6 +1804,8 @@ test.describe('agentOsExtractionInventory — exact population × explicit autho
                 expect(validConsumerDispositions.has(row.disposition)).toBe(true)
             } else if (row.surface === SURFACE.workflowFile) {
                 expect(Object.values(WORKFLOW_FILE_DISPOSITION)).toContain(row.disposition)
+            } else if (row.surface === SURFACE.learningArtifact) {
+                expect(['move', 'stays-engine']).toContain(row.disposition)
             } else {
                 expect(['cloud', 'edge', 'retire', 'shared', 'stays-engine']).toContain(row.disposition)
             }
