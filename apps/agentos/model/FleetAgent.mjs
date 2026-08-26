@@ -84,7 +84,10 @@ class FleetAgent extends Model {
             defaultValue: null
         }, {
             // The presence axis, same passthrough contract as `wake`/`throttle`: the
-            // roster row's `{source, state, confidence, lastSeenAt, reason?}` observation, where
+            // roster row's `{source, state, confidence, lastSeenAt, reason?, validationState?, since?}`
+            // observation, where auth-validation provenance is passed through from who_is_online and
+            // never inferred in the app. A fresh provider validation removes both optional fields on
+            // the next Store update; the view owns no latch.
             // `state` is the plane's who_is_online band embryo (`online | idle | dark | benched |
             // neverConnected | unknown`). The THIRD independent signal — presence-fresh ≠
             // wake-route-healthy ≠ identity-bound — and the view never re-derives or fuses it.

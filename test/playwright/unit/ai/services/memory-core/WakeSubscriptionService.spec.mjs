@@ -2686,12 +2686,12 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
               T0ms = new Date(T0).getTime(),
               iso  = ms => new Date(ms).toISOString();
 
-        function seedAgent(id, {participationStatus = 'active', family = 'claude'} = {}) {
+        function seedAgent(id, {participationStatus = 'active', family = 'claude', githubLogin = id} = {}) {
             GraphService.upsertNode({
                 id,
                 type      : 'AgentIdentity',
                 name      : id,
-                properties: {participationStatus, family, displayName: id}
+                properties: {participationStatus, family, displayName: id, githubLogin}
             });
         }
 
@@ -2737,6 +2737,41 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.online).toBe(false);
             expect(entry.participationStatus).toBe('operator_benched');
             expect(entry.reason).toContain('benched');
+        });
+
+        test('stale provider validation stamps only the matching identity and clears on the next projection', async () => {
+            const {getAuthValidationStaleness} = await import('../../../../../../ai/mcp/server/shared/services/AuthService.mjs'),
+                  registry                     = getAuthValidationStaleness(),
+                  since                        = Date.parse('2026-06-19T11:55:00.000Z');
+
+            seedAgent('@neo-stale-auth', {githubLogin: '@neo-stale-auth'});
+            seedAgent('@neo-fresh-auth', {githubLogin: '@neo-fresh-auth'});
+            seedActivity('@neo-stale-auth');
+            seedActivity('@neo-fresh-auth');
+
+            registry.clear();
+
+            try {
+                // Provider login is bare and case-variant; the roster stores the operational @ form.
+                registry.set('github-pat', {since, user: 'NEO-STALE-AUTH'});
+
+                let {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)}),
+                    stale    = agents.find(agent => agent.identity === '@neo-stale-auth'),
+                    fresh    = agents.find(agent => agent.identity === '@neo-fresh-auth');
+
+                expect(stale).toMatchObject({validationState: 'stale-validated', since});
+                expect(fresh.validationState).toBeUndefined();
+                expect(fresh.since).toBeUndefined();
+
+                registry.clear();
+                ({agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)}));
+                stale = agents.find(agent => agent.identity === '@neo-stale-auth');
+
+                expect(stale.validationState).toBeUndefined();
+                expect(stale.since).toBeUndefined()
+            } finally {
+                registry.clear()
+            }
         });
 
         test('#14750 rostered residents project + filter era-chain-first: a spoofed flat family neither reports nor routes', async () => {
@@ -2948,6 +2983,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             ['online', 'idle', 'dark', 'neverConnected', 'benched']
                 .forEach(state => expect(declared).toContain(state));
             expect(declared).toContain('enum: [online, idle, dark, neverConnected, benched]');
+
+            // Optional auth-validation provenance is part of the verbose row contract too. A
+            // passthrough response schema would otherwise accept the runtime fields while tools/list
+            // keeps advertising a row that can never explain the degraded admission.
+            expect(declared).toContain('validationState:');
+            expect(declared).toContain('enum: [stale-validated]');
+            expect(declared).toContain('since:');
         });
 
         test('#16058 — the summary states the windows it applied', async () => {

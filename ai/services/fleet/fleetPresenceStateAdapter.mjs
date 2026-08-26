@@ -153,7 +153,8 @@ export const PRESENCE_CAPABILITY_REASON_CODES = Object.freeze(['viewer-binding-u
  * @param {Object[]} [options.agents] Registry roster rows; each needs an `id`.
  * @param {Function|null} [options.readPresence] `() => Promise<Object>` resolving the
  *     roster-presence report (`who_is_online` payload shape: `{agents: [{identity, state, reason,
- *     signals}]}` — the same seam `wireFleetWakeRoutesSource` consumes). Absent ⇒ every row is
+ *     signals, validationState?, since?}]}` — the same seam `wireFleetWakeRoutesSource` consumes).
+ *     Auth-validation provenance passes through; this adapter never re-derives it. Absent ⇒ every row is
  *     honestly `unknown` under a degraded capability (host mode's documented truth until a host
  *     presence surface lands).
  * @param {Function} [options.presenceIdentityFor] `(agent) => String` roster row → presence report
@@ -165,7 +166,7 @@ export const PRESENCE_CAPABILITY_REASON_CODES = Object.freeze(['viewer-binding-u
  * @param {Date|String} [options.capturedAt] Capture timestamp — the observation-time bound above.
  * @returns {Promise<{capability: Object, states: Object[]}>} `states` rows:
  *     `{agentId, presence, lastSeenAt, confidence, source}` (+ `reason` when `presence` is
- *     `unknown`).
+ *     `unknown`, or `{validationState, since}` when the plane vouched stale validation).
  */
 export async function readFleetPresenceSnapshot({
     agents = [],
@@ -203,13 +204,15 @@ export async function readFleetPresenceSnapshot({
                     if (typeof row?.identity !== 'string' || !PRESENCE_STATES.includes(row.state)) continue
 
                     byIdentity.set(row.identity, {
-                        state      : row.state,
+                        state          : row.state,
                         // the vouched beacon observation (horizons + boolean): the ONLY input the
                         // recency grade adds over the plane's own verdict — evaluated at the
                         // snapshot bound below, never trusted at the producer's clock
-                        beaconFresh: beaconFreshAtBound({turnPresence: row.signals?.turnPresence, boundAt: capturedAtMs}),
-                        lastSeenAt : row.signals?.activityRecency?.lastActivityAt ?? null,
-                        reason     : typeof row.reason === 'string' ? redactReason(row.reason) : null
+                        beaconFresh    : beaconFreshAtBound({turnPresence: row.signals?.turnPresence, boundAt: capturedAtMs}),
+                        lastSeenAt     : row.signals?.activityRecency?.lastActivityAt ?? null,
+                        reason         : typeof row.reason === 'string' ? redactReason(row.reason) : null,
+                        validationState: row.validationState === 'stale-validated' ? row.validationState : null,
+                        since          : row.validationState === 'stale-validated' && Number.isFinite(row.since) ? row.since : null
                     })
                 }
             }
@@ -227,9 +230,11 @@ export async function readFleetPresenceSnapshot({
 
         if (!agentId) continue
 
-        let presence   = 'unknown',
-            lastSeenAt = null,
-            rowReason  = readReason
+        let presence        = 'unknown',
+            lastSeenAt      = null,
+            rowReason       = readReason,
+            validationState = null,
+            since           = null
 
         if (byIdentity) {
             const row = byIdentity.get(presenceIdentityFor(agent))
@@ -238,9 +243,11 @@ export async function readFleetPresenceSnapshot({
                 // the emitted band is the GRADED vocabulary: the plane's verdict refined by the
                 // vouched beacon (a fresh beacon grades active-turn even over stale add_memory —
                 // the long-turn flap falsifier), membership facts passing through untouched
-                presence   = gradePresenceBand({state: row.state, beaconFresh: row.beaconFresh})
-                lastSeenAt = row.lastSeenAt
-                rowReason  = row.reason
+                presence        = gradePresenceBand({state: row.state, beaconFresh: row.beaconFresh})
+                lastSeenAt      = row.lastSeenAt
+                rowReason       = row.reason
+                validationState = row.validationState
+                since           = row.since
             } else {
                 rowReason = 'seat absent from the presence report'
             }
@@ -256,6 +263,11 @@ export async function readFleetPresenceSnapshot({
 
         if (presence === 'unknown') {
             entry.reason = rowReason || 'presence unreadable'
+        }
+
+        if (validationState) {
+            entry.validationState = validationState
+            entry.since           = since
         }
 
         states.push(entry)

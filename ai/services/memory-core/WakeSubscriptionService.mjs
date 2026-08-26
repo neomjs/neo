@@ -4,6 +4,7 @@ import path                                                                     
 import Base                                                                                     from '../../../src/core/Base.mjs';
 import GraphService                                                                             from './GraphService.mjs';
 import AiConfig                                                                                 from '../../mcp/server/memory-core/config.mjs';
+import {getAuthValidationStaleness}                                                             from '../../mcp/server/shared/services/AuthService.mjs';
 import RequestContextService, {normalizeUserId}                                                 from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
@@ -40,6 +41,19 @@ function formatWindow(ms) {
     if (Number.isInteger(minutes))             return `${minutes}m`;
 
     return `${ms}ms`;
+}
+
+/**
+ * @summary Normalizes a provider login onto the AgentIdentity roster's GitHub-login key space.
+ * @param {*} value Provider or roster login.
+ * @returns {String|null} Lowercase login without leading at-signs, or null when absent.
+ */
+function normalizeGithubLogin(value) {
+    if (typeof value !== 'string') return null;
+
+    const login = value.trim().replace(/^@+/, '').toLowerCase();
+
+    return login || null
 }
 
 /**
@@ -769,14 +783,28 @@ class WakeSubscriptionService extends Base {
      *   `{identity, name, family, participationStatus, online, state, reason, signals, axes, reviewLoad}` —
      *   the per-row `axes` holds every host-originated axis as `unknown` until the fleet publishes,
      *   and the per-row `reviewLoad` is `{open, returned, loops[]}` (loops oldest-first, so the
-     *   stalest obligation surfaces at the head).
+     *   stalest obligation surfaces at the head). A row whose GitHub identity is currently admitted
+     *   from the validation cache additionally carries `{validationState: 'stale-validated', since}`;
+     *   both fields disappear on the first projection after fresh provider validation.
      */
     async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
-        const nowMs       = this._coerceDate(now).getTime(),
-              projected   = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
-              generatedAt = new Date(nowMs).toISOString(),
-              reviewTrail = this._readReviewLifecycleLoad(nowMs),
-              axes        = this._composedAxesEnvelope(generatedAt, reviewTrail);
+        const nowMs             = this._coerceDate(now).getTime(),
+              validationByLogin = new Map(),
+              generatedAt       = new Date(nowMs).toISOString(),
+              reviewTrail       = this._readReviewLifecycleLoad(nowMs),
+              axes              = this._composedAxesEnvelope(generatedAt, reviewTrail);
+
+        // Snapshot once per projection. The registry is request-live and deletes its entry on fresh
+        // provider validation, so every who_is_online build is naturally latch-free. Values are keyed
+        // onto the roster's operational GitHub login; graph nodes are never mutated with transient auth.
+        for (const entry of getAuthValidationStaleness().values()) {
+            const login = normalizeGithubLogin(entry?.user);
+
+            login && validationByLogin.set(login, entry)
+        }
+
+        const projected = this._listAgentIdentityNodes(family)
+            .map(node => this._projectAgentLiveness(node, nowMs, validationByLogin));
 
         if (verbose) {
             return {
@@ -1041,20 +1069,31 @@ class WakeSubscriptionService extends Base {
      * participationStatus-gate → add_memory-recency precedence.
      * @param {Object} node Parsed AgentIdentity node.
      * @param {Number} nowMs Clock epoch ms.
-     * @returns {Object} `{identity, name, family, participationStatus, online, reason, signals}`.
+     * @param {Map<String, Object>} [validationByLogin] Live auth-staleness snapshot keyed by
+     *   normalized GitHub login.
+     * @returns {Object} `{identity, name, family, participationStatus, online, reason, signals}` plus
+     *   `{validationState, since}` only when this identity is currently admitted from stale validation.
      * @protected
      */
-    _projectAgentLiveness(node, nowMs) {
+    _projectAgentLiveness(node, nowMs, validationByLogin=new Map()) {
         const props               = node.properties || {},
               identity            = node.id,
               name                = node.name || props.displayName || node.id,
               family              = resolveResidentFamilyById(node.id) ?? props.family ?? props.modelFamily ?? null,
               participationStatus = props.participationStatus || 'active',
-              signals             = {participationStatus, activityRecency: null};
+              signals             = {participationStatus, activityRecency: null},
+              validation          = validationByLogin.get(normalizeGithubLogin(props.githubLogin ?? identity)),
+              baseRow             = {
+                  identity,
+                  name,
+                  family,
+                  participationStatus,
+                  ...(validation ? {validationState: 'stale-validated', since: validation.since} : {})
+              };
 
         // 1. participationStatus HARD GATE — benched/unreachable overrides every softer signal.
         if (participationStatus !== 'active') {
-            return {identity, name, family, participationStatus, online: false, state: 'benched',
+            return {...baseRow, online: false, state: 'benched',
                 reason: `roster: participationStatus is '${participationStatus}' (benched / unreachable)`, signals};
         }
 
@@ -1083,7 +1122,7 @@ class WakeSubscriptionService extends Base {
         // around a new peer precisely while they work. Absence of the durable write is only
         // evidence of never-connected once every current-observation signal is exhausted.
         if (!activity?.fresh && beacon?.fresh) {
-            return {identity, name, family, participationStatus, online: true, state: 'online',
+            return {...baseRow, online: true, state: 'online',
                 reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; ` +
                         `${activity ? 'add_memory stale' : 'no add_memory write yet — first turn'}) — mid-turn rescue`, signals};
         }
@@ -1094,7 +1133,7 @@ class WakeSubscriptionService extends Base {
         // attendance list — an operator could not tell a colleague who logged off from a seat that
         // has never once connected.
         if (!activity) {
-            return {identity, name, family, participationStatus, online: false, state: 'neverConnected',
+            return {...baseRow, online: false, state: 'neverConnected',
                 reason: 'never connected to this deployment (no AGENT_MEMORY write on record, no live turn presence)', signals};
         }
         if (!activity.fresh) {
@@ -1104,13 +1143,13 @@ class WakeSubscriptionService extends Base {
             // session; beyond it `idle` would be a claim the signal cannot support, so it reports
             // `dark` — rostered and reachable, but not evidence of anyone being around.
             return activity.withinIdle
-                ? {identity, name, family, participationStatus, online: false, state: 'idle',
+                ? {...baseRow, online: false, state: 'idle',
                     reason: `stale add_memory activity (last write ${activity.lastActivityAt} — outside the freshness window, within the idle cutoff)`, signals}
-                : {identity, name, family, participationStatus, online: false, state: 'dark',
+                : {...baseRow, online: false, state: 'dark',
                     reason: `no activity within the idle cutoff (last write ${activity.lastActivityAt}) — rostered, not recently seen`, signals};
         }
 
-        return {identity, name, family, participationStatus, online: true, state: 'online',
+        return {...baseRow, online: true, state: 'online',
             reason: `recent add_memory activity (last write ${activity.lastActivityAt})`, signals};
     }
 
