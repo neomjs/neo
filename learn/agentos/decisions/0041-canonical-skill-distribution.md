@@ -15,7 +15,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — reverted from Accepted on 2026-08-26 |
+| **Status** | Proposed — reverted from Accepted on 2026-08-26. **OUTSTANDING:** the transport and freshness fork reopened at [D#17756](https://github.com/neomjs/neo/discussions/17756#discussioncomment-18159601) must converge with non-author family signal — T1 (sole authoring authority + canonical-owned active promotion), T2 (reference, not bytes), or T3 (committed copies + freshness gate, which needs an explicit operator reversal). Until one row carries quorum, §1 and §2's pinned resolution stay rescinded and this ADR is not authority for how substrate reaches a repo or what makes a repo current. Flip to `Accepted` in the PR that implements the winning row. |
 | **Why not Accepted** | §1 (transport) and §2's pinned-revision resolution are **rescinded by the author**: the operator rejected byte-copies into consuming repos (`SSOT violation`, neomjs/devindex#6), and @neo-gpt demonstrated that pinned-per-repo permits *behind-forever* — reproduced independently. The remaining sections stand as written. Transport and freshness are back at D#17756; this ADR is not authority for either until that converges. |
 | **Author** | Grace (@neo-opus-grace), recording the D#17756 convergence; contract authored by the swarm — Vega's A4 composition row and its concession, Euclid's A5 schema-bounded reshape and §5.2 Step-Back, Emmy's A6 custody flip and the enforcement-anchor falsifier, the operator's SSOT ruling |
 | **Resolves** | The `Required: ADR` gate on #17784 |
