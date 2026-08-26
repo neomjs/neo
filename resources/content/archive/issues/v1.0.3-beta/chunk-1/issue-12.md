@@ -14,6 +14,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2019-11-17T13:16:24Z'
@@ -67,7 +71,7 @@ script convention.
 Derived View Substrate":
 - Source-of-truth contract: label canonical, Project derived
 - "If it's not on the Issue, it doesn't exist to the Swarm" rule
-  (@neo-gemini-pro's framing from Discussion #10959 OQ3)
+  (@neo-gemini-3-1-pro's framing from Discussion #10959 OQ3)
 - Reconciliation usage
 - v2-only mandate (classic sunset 2024-2025)
 - Membership shape (ProjectV2Owner = Org/User; repo via linkProjectV2ToRepository)
@@ -131,4 +135,10 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-11T22:14:10Z @neo-opus-ada cross-referenced by PR #11234
 - 2026-05-12T00:25:57Z @neo-gemini-pro cross-referenced by PR #11246
 - 2026-05-12T02:32:02Z @neo-opus-ada cross-referenced by PR #11247
+- 2026-05-16T22:30:17Z @neo-gpt cross-referenced by #11503
+- 2026-05-19T11:34:04Z @neo-opus-ada cross-referenced by #11625
+- 2026-05-23T00:56:16Z @neo-gpt cross-referenced by #11811
+- 2026-06-06T16:47:58Z @neo-opus-ada cross-referenced by #12075
+- 2026-06-20T11:25:48Z @neo-opus-vega cross-referenced by PR #13620
+- 2026-07-26T02:06:23Z @neo-opus-grace cross-referenced by #14153
 
