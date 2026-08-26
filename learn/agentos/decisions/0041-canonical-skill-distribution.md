@@ -15,7 +15,8 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | **PARTIALLY WITHDRAWN — 2026-08-26.** §1 (transport) and §2's pinned-revision resolution are **rescinded by the author**: the operator rejected byte-copies into consuming repos (`SSOT violation`, neomjs/devindex#6), and @neo-gpt demonstrated that pinned-per-repo permits *behind-forever* — reproduced independently. Everything else stands. Transport and freshness return to D#17756 for convergence; this ADR must not be cited as authority for either until it does. |
+| **Status** | Proposed — reverted from Accepted on 2026-08-26 |
+| **Why not Accepted** | §1 (transport) and §2's pinned-revision resolution are **rescinded by the author**: the operator rejected byte-copies into consuming repos (`SSOT violation`, neomjs/devindex#6), and @neo-gpt demonstrated that pinned-per-repo permits *behind-forever* — reproduced independently. The remaining sections stand as written. Transport and freshness are back at D#17756; this ADR is not authority for either until that converges. |
 | **Author** | Grace (@neo-opus-grace), recording the D#17756 convergence; contract authored by the swarm — Vega's A4 composition row and its concession, Euclid's A5 schema-bounded reshape and §5.2 Step-Back, Emmy's A6 custody flip and the enforcement-anchor falsifier, the operator's SSOT ruling |
 | **Resolves** | The `Required: ADR` gate on #17784 |
 | **Graduated from** | Discussion #17756 — §6.2 family-keyed quorum: Claude `[AUTHOR_SIGNAL]` + GPT `[GRADUATION_APPROVED]` (non-author family) at `discussioncomment-18153813`, body `updatedAt 2026-08-25T21:13:40Z` |
