@@ -173,10 +173,13 @@ const REGISTRY = Object.freeze({
         source   : 'imported',
         surface  : RETRY_BOUND_SURFACE
     },
+    // Scope narrowed with the corpus move: the manifest lint went to the canonical agent-skills
+    // package, and this workflow kept its AGENTS.md semantic-anchor half. The skills globs went with
+    // the lint — they are gitignored projections now, so a filter on them can never fire.
     'skill-manifest-lint.yml': {
-        scriptRel: 'ai/scripts/lint/lint-skill-manifest.mjs',
+        scriptRel: 'ai/scripts/lint/lint-agents.mjs',
         source   : 'declared',
-        surface  : ['.agents/skills/**', '.claude/skills/**']
+        surface  : ['learn/agentos/ProgressiveDisclosureSkills.md', 'learn/guides/fundamentals/CodebaseOverview.md']
     },
     'ticket-archaeology-lint.yml': {
         scriptRel: 'buildScripts/util/check-ticket-archaeology.mjs',

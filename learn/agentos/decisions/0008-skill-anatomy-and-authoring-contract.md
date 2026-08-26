@@ -74,7 +74,7 @@ Every skill MUST have a corresponding entry in `.agents/skills/skills.manifest.j
 - `claudeSymlinkRequired` (boolean; mandatory `.claude/skills/<name>` symlink discipline)
 - `downstreamDocsTargets` (array of docs files that must be touched when this skill changes)
 
-Schema enforced by `.agents/skills/skills.manifest.schema.json`; lint enforced by `ai/scripts/lint/lint-skill-manifest.mjs` at PR-merge time (extended by PR #11438 with `oversizedWorkflowMaps` + `maxPositiveDeltaBytes` for recursive Map-vs-Atlas enforcement).
+Schema enforced by `.agents/skills/skills.manifest.schema.json`; lint enforced by `scripts/lint-skill-corpus.mjs` in `neomjs/neo-agent-skills`, which is where both the corpus and the manifest now live. Enforcement runs there and only there: a corpus rule executed in every consuming repository is N places to drift.
 
 ### 2.5 Claude Symlink Mandate
 
@@ -122,7 +122,7 @@ The skill-anatomy contract codified by this ADR is consumed by:
 
 ### 3.3 Mechanical-enforcement consumers
 
-- **`ai/scripts/lint/lint-skill-manifest.mjs`** — manifest contract validation at PR-merge time (per §2.4); PR #11438 extends with recursive Map-vs-Atlas enforcement (`oversizedWorkflowMaps` + `maxPositiveDeltaBytes`)
+- **`scripts/lint-skill-corpus.mjs`** (in `neomjs/neo-agent-skills`) — manifest contract validation at PR-merge time (per §2.4), including recursive Map-vs-Atlas enforcement (`oversizedWorkflowMaps` + `maxPositiveDeltaBytes`)
 - **`.agents/skills/skills.manifest.schema.json`** — JSON schema for manifest contract; PR #11424 removes `triggers` from required fields
 
 ---
@@ -142,7 +142,7 @@ The skill-anatomy contract spans the following substrate locations. Future-amend
 
 - **`.agents/skills/skills.manifest.json`** — per-skill manifest entries per §2.4
 - **`.agents/skills/skills.manifest.schema.json`** — JSON schema validating the manifest
-- **`ai/scripts/lint/lint-skill-manifest.mjs`** — runtime enforcement of the schema + per-skill budgets
+- **`scripts/lint-skill-corpus.mjs`** (in `neomjs/neo-agent-skills`) — runtime enforcement of the schema + per-skill budgets
 
 ### 4.3 Cross-substrate references (META-prose authority)
 
@@ -194,7 +194,7 @@ A peer asserts a runtime-consumer claim in review/A2A context; reviewer propagat
 
 Authoring substantive procedural content directly inside `SKILL.md` rather than delegating to `references/<file>.md`. The 7-12 line empirical floor (per `learn/agentos/measurements/cognitive-load-baseline-2026-05.md`) signals the boundary; routers exceeding 12 lines should extract content unless additional lines are load-bearing trigger-language.
 
-**Prevention:** During PR review, per `pr-review-guide.md §7.7` Anti-Patterns row: *"PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`...) instead of conditionally loaded `references/` payload → Progressive Disclosure violation."* PR #11438 adds mechanical CI enforcement via `oversizedWorkflowMaps` + `maxPositiveDeltaBytes` in `lint-skill-manifest.mjs`.
+**Prevention:** During PR review, per `pr-review-guide.md §7.7` Anti-Patterns row: *"PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`...) instead of conditionally loaded `references/` payload → Progressive Disclosure violation."* PR #11438 adds mechanical CI enforcement via `oversizedWorkflowMaps` + `maxPositiveDeltaBytes`, now carried by `lint-skill-corpus.mjs` in `neomjs/neo-agent-skills`.
 
 Corollary: adding a new `audits/` sibling to correct bloated skill workflow prose can be the same Map/Atlas failure inverted. If the existing audit/template/workflow can be deleted or compressed without losing runtime protection, adding another lazy-loaded page still increases future search and review cost. Provenance: Discussion #11891 / PR #11892.
 

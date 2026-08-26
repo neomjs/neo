@@ -450,7 +450,7 @@ export default {
         test('code behind the import-safe guard does NOT run for an importer', () => {
             // 98 modules under `ai/` carry `if (process.argv[1] && … === __filename)`. Without this
             // test the walk concludes that importing a script runs its `main()`, which promoted
-            // `lint-skill-manifest`'s git calls onto `backup.mjs`, convicting it against the
+            // the former `lint-skill-manifest`'s git calls onto `backup.mjs`, convicting it against the
             // bundle-stamp decision — ADR-0014, ticket-ref-ok: it is the authority contradicted.
             const guarded = `import {spawn} from 'child_process';
 export function main() { return spawn('git', []) }

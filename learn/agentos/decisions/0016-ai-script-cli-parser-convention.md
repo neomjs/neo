@@ -99,7 +99,7 @@ tests for:
 | `ai/scripts/maintenance/defragChromaDB.mjs` | Commander-backed CLI | `converted now` |
 | `ai/mcp/**/mcp-server.mjs`, `ai/mcp/client/mcp-cli.mjs`, `ai/mcp/server/neural-link/run-bridge.mjs` | Commander-backed server/client entry points | `converted now` |
 | `ai/scripts/lint/lint-agents.mjs` | Bespoke parser with tests covering defaults, `--base`, help, and unknown-argument rejection | `legacy tolerated`; convert when parser semantics are next touched |
-| `ai/scripts/lint/lint-skill-manifest.mjs` | Bespoke parser with tests | `legacy tolerated`; convert when parser semantics are next touched |
+| `ai/scripts/lint/lint-skill-manifest.mjs` | Bespoke parser with tests | `retired`; moved to `neomjs/neo-agent-skills` with the corpus it validated |
 | `ai/scripts/migrations/migrateWakeSubscriptions.mjs` | Bespoke parser | `future-touch conversion target` |
 | `ai/scripts/migrations/normalizeGraphIdentities.mjs` | Bespoke parser | `future-touch conversion target` |
 | `ai/scripts/migrations/backfillChromaSharedUserId.mjs` | Bespoke parser | `future-touch conversion target` |

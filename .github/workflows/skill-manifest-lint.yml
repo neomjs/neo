@@ -1,12 +1,17 @@
 name: Skill Manifest Lint
 
+# Scope narrowed: the skill-manifest lint moved to the canonical agent-skills package with the corpus
+# it validates, leaving this workflow its other half — AGENTS.md semantic anchors, Engine-owned.
+#
+# The `.agents/skills/**` and `.claude/skills/**` path filters went with it. Both are gitignored
+# projections now, so a filter on them can never fire — dead config that reads like coverage.
+#
+# The workflow keeps its filename and display name deliberately: a required status check is bound to
+# that name, and renaming it here would silently unbind the check rather than rename it.
 on:
   pull_request:
     branches: [dev]
     paths:
-      - '.agents/skills/**'
-      - '.claude/skills/**'
-      - 'ai/scripts/lint/lint-skill-manifest.mjs'
       - 'ai/scripts/lint/lint-agents.mjs'
       - '.github/workflows/skill-manifest-lint.yml'
       - 'learn/agentos/ProgressiveDisclosureSkills.md'
@@ -14,9 +19,6 @@ on:
   push:
     branches: [dev]
     paths:
-      - '.agents/skills/**'
-      - '.claude/skills/**'
-      - 'ai/scripts/lint/lint-skill-manifest.mjs'
       - 'ai/scripts/lint/lint-agents.mjs'
       - '.github/workflows/skill-manifest-lint.yml'
       - 'learn/agentos/ProgressiveDisclosureSkills.md'
