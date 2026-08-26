@@ -168,6 +168,38 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
         expect(states[1].lastSeenAt).toBeNull()
     })
 
+    test('stale-validation provenance survives the presence join while fresh rows stay byte-compatible', async () => {
+        const since    = Date.parse('2026-08-09T10:55:00.000Z'),
+              {states} = await readFleetPresenceSnapshot({
+                  agents,
+                  readPresence: () => ({agents: [{
+                      identity       : '@neo-fable-clio',
+                      state          : 'online',
+                      validationState: 'stale-validated',
+                      since,
+                      signals        : {activityRecency: {lastActivityAt: '2026-08-09T11:00:00.000Z'}}
+                  }, {
+                      identity: '@neo-gpt',
+                      state   : 'idle',
+                      signals : {}
+                  }]})
+              })
+
+        expect(states[0]).toMatchObject({
+            agentId        : 'neo-fable-clio',
+            presence       : 'fresh',
+            validationState: 'stale-validated',
+            since
+        })
+        expect(states[1]).toEqual({
+            agentId   : 'neo-gpt',
+            presence  : 'recent',
+            lastSeenAt: null,
+            confidence: 'observed',
+            source    : PRESENCE_SOURCE_LABEL
+        })
+    })
+
     test('the flap falsifier: a FRESH beacon grades active-turn regardless of add_memory staleness; membership facts never grade', async () => {
         const {states} = await readFleetPresenceSnapshot({
             agents: [

@@ -139,6 +139,13 @@
         line-height: 1;
         white-space: nowrap;
         color      : var(--fm-ink-dim);
+
+        /* Validation staleness is an exception on the presence truth, carried in text rather than
+           a state hue: full ink + weight keep the warning readable under WCAG 1.4.1. */
+        &.fm-card-presence-stale {
+            color      : var(--fm-ink);
+            font-weight: 600;
+        }
     }
 
     /* the open-lane count badge — right-pinned; openLaneCount ONLY, never the engine */

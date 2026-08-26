@@ -377,12 +377,26 @@ class AgentCard extends Container {
         const
             presence         = record.presence ?? null,
             presenceObserved = presence?.confidence === 'observed' &&
-                Object.hasOwn(PRESENCE_BAND_LABEL, presence?.state);
+                Object.hasOwn(PRESENCE_BAND_LABEL, presence?.state),
+            validationStale  = presenceObserved && presence?.validationState === 'stale-validated',
+            validationSince  = validationStale && Number.isFinite(presence?.since)
+                ? new Date(presence.since).toISOString()
+                : null,
+            presenceEl       = me.getReference('card-presence');
 
-        me.getReference('card-presence').set({
+        presenceEl.set({
+            cls   : validationStale ? ['fm-card-presence', 'fm-card-presence-stale'] : ['fm-card-presence'],
             hidden: !presenceObserved,
-            text  : presenceObserved ? `◉ ${PRESENCE_BAND_LABEL[presence.state]}` : ''
+            text  : presenceObserved
+                ? `◉ ${PRESENCE_BAND_LABEL[presence.state]}${validationStale ? ' · validation stale' : ''}`
+                : ''
         });
+        presenceEl.changeVdomRootKey('aria-label', validationStale
+            ? `Presence: ${PRESENCE_BAND_LABEL[presence.state]}. Provider validation stale.`
+            : null);
+        presenceEl.changeVdomRootKey('title', validationStale
+            ? `Provider validation stale${validationSince ? ` since ${validationSince}` : ''}`
+            : null);
 
         // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id
         const

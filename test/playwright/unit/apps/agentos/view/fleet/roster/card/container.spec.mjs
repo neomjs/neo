@@ -99,6 +99,9 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         // an OBSERVED band renders beside the honest session state — never fused into it
         expect(band().hidden).toBe(false);
         expect(band().text).toBe('◉ online');
+        expect(band().cls).toEqual(['fm-card-presence']);
+        expect(band().vdom['aria-label']).toBeFalsy();
+        expect(band().vdom.title).toBeFalsy();
         expect(card.down({reference: 'card-state'}).text).toBe('benched / offline');
 
         // the producer degrades to unknown → the band disappears entirely (no fabricated offline)
@@ -108,6 +111,43 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         // an out-of-vocabulary band is refused at the render layer too — the closed-set discipline
         applySet(card, {presence: {source: 'fleet:presenceState', state: 'levitating', confidence: 'observed', lastSeenAt: null}});
         expect(band().hidden).toBe(true);
+
+        card.destroy()
+    });
+
+    test('stale validation is a visible presence exception and clears without residue', () => {
+        const since = Date.parse('2026-08-09T10:55:00.000Z'),
+              card  = createCard({
+                  agentId : 'clio',
+                  state   : 'off',
+                  presence: {
+                      source         : 'fleet:presenceState',
+                      state          : 'fresh',
+                      confidence     : 'observed',
+                      lastSeenAt     : '2026-08-09T11:00:00.000Z',
+                      validationState: 'stale-validated',
+                      since
+                  }
+              }),
+              band = () => card.down({reference: 'card-presence'});
+
+        expect(band().hidden).toBe(false);
+        expect(band().text).toBe('◉ fresh · validation stale');
+        expect(band().cls).toContain('fm-card-presence-stale');
+        expect(band().vdom['aria-label']).toBe('Presence: fresh. Provider validation stale.');
+        expect(band().vdom.title).toBe(`Provider validation stale since ${new Date(since).toISOString()}`);
+
+        applySet(card, {presence: {
+            source    : 'fleet:presenceState',
+            state     : 'fresh',
+            confidence: 'observed',
+            lastSeenAt: '2026-08-09T11:05:00.000Z'
+        }});
+
+        expect(band().text).toBe('◉ fresh');
+        expect(band().cls).not.toContain('fm-card-presence-stale');
+        expect(band().vdom['aria-label']).toBeFalsy();
+        expect(band().vdom.title).toBeFalsy();
 
         card.destroy()
     });

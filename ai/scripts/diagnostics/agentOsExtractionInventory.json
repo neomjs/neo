@@ -189,6 +189,7 @@
                 "agentos-to-outside::ai/mcp/server/neural-link/Bridge.mjs::static-import::../../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/mcp/server/neural-link/run-bridge.mjs::static-import::../../../../src/Neo.mjs::src/Neo.mjs::1",
                 "agentos-to-outside::ai/mcp/server/neural-link/run-bridge.mjs::static-import::../../../../src/core/_export.mjs::src/core/_export.mjs::1",
+                "agentos-to-outside::ai/mcp/server/shared/services/AuthService.mjs::static-import::../../../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/mcp/server/shared/services/DestructiveOperationGuard.mjs::static-import::../../../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/mcp/server/shared/services/RequestContextService.mjs::static-import::../../../../../src/core/Base.mjs::src/core/Base.mjs::1",
                 "agentos-to-outside::ai/mcp/server/shared/services/RuntimeFreshnessService.mjs::static-import::../../../../../src/core/Base.mjs::src/core/Base.mjs::1",

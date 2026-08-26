@@ -628,6 +628,17 @@ paths:
                         name: {type: string}
                         family: {type: string, nullable: true}
                         participationStatus: {type: string}
+                        validationState:
+                          type: string
+                          enum: [stale-validated]
+                          description: >
+                            Present only when this identity is currently admitted from a cached
+                            provider validation because the provider cannot answer freshly.
+                        since:
+                          type: number
+                          description: >
+                            Epoch milliseconds when the current stale-validation admission window
+                            began. Present only with validationState.
                         online: {type: boolean}
                         state:
                           type: string
