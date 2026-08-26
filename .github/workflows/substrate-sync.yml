@@ -8,18 +8,23 @@
 
 name: substrate-sync
 
+# NO path filter, deliberately. Two reasons, and the second is the load-bearing one:
+#
+# 1. Reach — the revalidation trigger fires on `ai/graph/identityRoots.mjs`, and the guard's own
+#    reach must include this workflow file. A filter enumerating paths will drift from what the
+#    instrument actually reads.
+# 2. Bindability — GitHub reports a path-SKIPPED workflow as pending, never success, so a filtered
+#    check can never be a required status check: every PR that misses the filter blocks forever.
+#    An always-emitted context is the only shape #17783 can safely bind.
+#
+# The job is cheap: two shallow-ish checkouts and two node scripts.
+permissions:
+  contents: read
+
 on:
   pull_request:
-    paths:
-      - '.agents/skills/**'
-      - '.claude/skills/**'
-      - 'AGENT_SUBSTRATE_REVISION.json'
   push:
     branches: [dev, main]
-    paths:
-      - '.agents/skills/**'
-      - '.claude/skills/**'
-      - 'AGENT_SUBSTRATE_REVISION.json'
 
 jobs:
   substrate:
