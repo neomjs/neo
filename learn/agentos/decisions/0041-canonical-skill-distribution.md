@@ -1,16 +1,17 @@
-# ADR 0041: Canonical Skill Distribution — Committed Bytes, an External Anchor, and Two Axes That Are Not One
+# ADR 0041: Canonical Skill Distribution — an External Anchor and Two Axes That Are Not One
 
-> The agent skill substrate has **one canonical store**, `neomjs/neo-agent-skills`, and every enrolled
-> repository carries its tree as **committed bytes** — not an install-time artifact, because
-> `--ignore-scripts` is our own practice and would yield zero skills silently. An immutable
-> `AGENT_SUBSTRATE_REVISION` receipt pins the tree by content hash, and consumer CI verifies against
-> **canonical's own git history at the pinned revision** — never against the consumer's copy of the
-> expectation, which proves only internal consistency. Repo distribution and harness exposure are
-> **two axes**: every enrolled repo carries the same tree with no per-repo subsets, while each harness
-> receives the manifest-declared projection, so per-harness subsets are legitimate and a guard must
-> permit them. The receipt covers the skill tree, the manifest, and the public facts schema/renderer;
-> it explicitly **excludes the maintainer constitution**, which keeps its own revision authority.
-> Enrollment is a registry predicate — never a hardcoded population.
+> ⚠️ **Transport and freshness are RESCINDED (2026-08-26) and open at D#17756.** Do not cite this ADR as authority for how substrate reaches a consuming repository, or for what makes a consumer current. What stands: the canonical store, the external-anchor principle, the two-axis separation, the constitution exclusion, the CI-not-hook seat, and enrollment as a predicate.
+
+> The agent skill substrate has **one canonical store**, `neomjs/neo-agent-skills`. Repo distribution
+> and harness exposure are **two axes**: no repo gets a curated subset, while each harness receives the
+> manifest-declared projection — a guard conflating them either rejects every legitimate harness view
+> or accepts real forking. Verification anchors to an authority **outside** the consumer, because a
+> hash compared against a locally-editable expectation proves only internal consistency. The receipt
+> covers the skill tree, the manifest, and the public facts schema/renderer, and explicitly **excludes
+> the maintainer constitution**. Enforcement is reusable CI, never a hook, and the guard never executes
+> consumer content. Enrollment is a registry predicate — never a hardcoded population.
+>
+> **How substrate REACHES a consumer, and what makes a consumer CURRENT, are not decided here.**
 
 | Attribute | Value |
 |---|---|
