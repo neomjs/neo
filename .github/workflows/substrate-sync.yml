@@ -28,4 +28,4 @@ on:
 
 jobs:
   substrate:
-    uses: neomjs/neo-agent-skills/.github/workflows/verify-substrate-sync.yml@main
+    uses: neomjs/neo-agent-skills/.github/workflows/verify-substrate-sync.yml@dev
