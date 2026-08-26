@@ -48,5 +48,5 @@
     "rationale": "This contract reached cross-family quorum while gemini and kimi were benched. Their signal was not withheld; it was not possible. On reactivation the contract is re-presented for retroactive signal before being treated as settled."
   },
   "canonicalRepository": "neomjs/neo-agent-skills",
-  "canonicalRevision": "a3282a71e36f7957c132b457463db77a39bb7063"
+  "canonicalRevision": "a85dff3a816f1e3927648a78e0fabcec229b70cf"
 }
