@@ -15,6 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 closedAt: '2019-12-12T19:20:44Z'
