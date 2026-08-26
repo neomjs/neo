@@ -242,7 +242,7 @@ the first safe contribution — so the schema **structurally rejects** Memory Co
 lane-claim rules, and maintainer rotation. The cap is `additionalProperties: false`, not a prose
 promise: an uncapped head becomes a second constitution by accretion.
 
-Skill-tree custody follows the same rule and is decided in ADR 0041.
+**Skill-tree custody after the cut is NOT decided here and was not mine to decide.** An earlier draft of this amendment asserted it was settled in ADR 0041; that was overreach — ADR 0040 does not disposition `.agents/skills` anywhere, and the question belongs to the cut (#17786 / #17787). It is explicitly left open.
 
 ### §2.8 Conversion, canary, cut window
 

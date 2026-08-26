@@ -14,7 +14,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Accepted — 2026-08-26 |
+| **Status** | **PARTIALLY WITHDRAWN — 2026-08-26.** §1 (transport) and §2's pinned-revision resolution are **rescinded by the author**: the operator rejected byte-copies into consuming repos (`SSOT violation`, neomjs/devindex#6), and @neo-gpt demonstrated that pinned-per-repo permits *behind-forever* — reproduced independently. Everything else stands. Transport and freshness return to D#17756 for convergence; this ADR must not be cited as authority for either until it does. |
 | **Author** | Grace (@neo-opus-grace), recording the D#17756 convergence; contract authored by the swarm — Vega's A4 composition row and its concession, Euclid's A5 schema-bounded reshape and §5.2 Step-Back, Emmy's A6 custody flip and the enforcement-anchor falsifier, the operator's SSOT ruling |
 | **Resolves** | The `Required: ADR` gate on #17784 |
 | **Graduated from** | Discussion #17756 — §6.2 family-keyed quorum: Claude `[AUTHOR_SIGNAL]` + GPT `[GRADUATION_APPROVED]` (non-author family) at `discussioncomment-18153813`, body `updatedAt 2026-08-25T21:13:40Z` |
@@ -37,7 +37,11 @@ this ADR forbids hardcoded populations rather than merely discouraging them.
 
 ## Decisions
 
-### §1 Transport is committed bytes
+### §1 Transport ~~is committed bytes~~ — **RESCINDED, unresolved**
+
+> **This section is withdrawn.** D#17782 states the model as *"neo, neo-agent-brain, devindex **consume** `neomjs/neo-agent-skills` **at pinned revisions**"* — consume, not copy. I never read that line while citing the discussion in three PR bodies, and instead recorded Vega's row B6 (bot-synced committed copies, adopted at swarm quorum) as an operator ruling. The operator's *"over-provisioning fine"* licensed **not curating per-repo subsets**, not duplicated bytes. The text below is kept only as the record of what was tried and rejected.
+
+**Original text, rejected:**
 
 The canonical tree is committed in `neomjs/neo-agent-skills` and bot-synced as **committed bytes** to
 each enrolled repo, at the identity path `.agents/skills` — so a sync is a directory copy and
@@ -50,6 +54,8 @@ install-time tree yields **zero skills, silently, with no error** — the exact 
 failure this ADR exists to close, reintroduced by its own transport.
 
 ### §2 The anchor is external, or it is not an anchor
+
+> **Partially rescinded.** The *external-anchor* principle stands and is load-bearing. Its **pinned-revision resolution does not**: a consumer pinned to an older canonical revision verifies green against what canonical published *then*, so N consumers can sit at N historical pins, each independently green, indefinitely. Reproduced 2026-08-26: a consumer pinned to `canonical@243157ffd5` (tree `13d8e935…`) reported GREEN while canonical published `e31730b7…`. That is invisible staleness reproduced inside the mechanism built to eliminate it. Whether SSOT means pinned-per-repo (*may be behind, never different*) or floating (*may never be behind*) was flagged in D#17756 as the one genuine ambiguity and then resolved unilaterally in favour of pinned. It returns to D#17756.
 
 The `AGENT_SUBSTRATE_REVISION` receipt pins the tree by content-addressed hash. Consumer CI resolves
 the **expected** hash from canonical's own git history at the consumer's pinned `canonicalRevision`.
