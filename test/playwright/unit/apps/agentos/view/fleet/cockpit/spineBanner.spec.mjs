@@ -137,9 +137,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         expect(text).toContain('Fleet server offline');
         expect(text).toContain('the static roster');
-        // the shipped transport command — also the correct mid-session restart remedy once a
-        // composed launcher exists, since the app server survives a fleet-transport loss
-        expect(text).toContain('npm run ai:fleet-server')
+        expect(text).toContain('neo-agent-brain checkout')
     });
 
     test('⭐ a pending stream under a LIVE grid speaks for the STREAM — never a roster or server claim', () => {
@@ -219,7 +217,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         expect(result).toEqual({hidden: true, kind: 'live', text: ''})
     });
 
-    // ⭐ The topology-owned cold fallback: the generic "start it: npm run ai:fleet-server"
+    // ⭐ The topology-owned cold fallback: generic manual-start advice
     // advice was actively wrong inside the shell — the shell SELF-SUPPLIES its transport, so that
     // advice CAUSES the foreign-listener refusal it then mislabels as "offline". The shell's boot
     // fact (riding the brain-health wire) picks the honest line for SILENCE; a retained surface
@@ -232,7 +230,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
                 const {text} = SpineBanner.deriveSpineBanner({...coldSpine, transport});
 
                 expect(text, JSON.stringify(transport)).toContain('Fleet server offline');
-                expect(text, JSON.stringify(transport)).toContain('npm run ai:fleet-server')
+                expect(text, JSON.stringify(transport)).toContain('neo-agent-brain checkout')
             }
         });
 

@@ -1,10 +1,13 @@
-import {test, expect}                                                          from '../../fixtures.mjs';
-import FleetRegistryService                                                    from '../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {startFleetBridgeServer}                                                from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {test, expect, loadAgentOsModule}                                       from '../../fixtures.mjs';
 import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
 import fs                                                                      from 'fs';
 import os                                                                      from 'os';
 import path                                                                    from 'path';
+
+const [{default: FleetRegistryService}, {startFleetBridgeServer}] = await Promise.all([
+    loadAgentOsModule('ai/services/fleet/FleetRegistryService.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs')
+]);
 
 /**
  * Whitebox-e2e for the card name slot on LIVE roster data: a real Brain registry seeds one

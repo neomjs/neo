@@ -1,11 +1,13 @@
 # AI Knowledge Base Quick Start Guide
 
+> **Repository boundary:** Agent OS source, commands, configuration, and operational guides now live in [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain). Run every `ai:*` or `ai/**` command below from a Brain checkout; use the Engine checkout only as the target repository.
+
 This guide provides a comprehensive walkthrough for setting up and using the local AI Knowledge Base
 for the Neo.mjs repository.
 
 ## 1. Prerequisites
 
-**AI Tooling on Windows:** The AI tooling for this project requires a Linux environment due to a third-party dependency (ChromaDB). If you are on Windows, you **MUST** use the Windows Subsystem for Linux (WSL). Please follow the [AI Tooling WSL Setup Guide](../learn/guides/ai/AiToolingWslSetup.md) before proceeding.
+**AI Tooling on Windows:** The AI tooling for this project requires a Linux environment due to a third-party dependency (ChromaDB). If you are on Windows, you **MUST** use the Windows Subsystem for Linux (WSL). Please follow the [AI Tooling WSL Setup Guide](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/AiToolingWslSetup.md) before proceeding.
 
 Before you begin, ensure you have the following:
 
@@ -322,9 +324,9 @@ node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
 - **`AGENTS.md`**: Canonical per-turn operational mandates, loaded through each harness's supported instruction mechanism
 
 ### Developer Guide
-- **[Strategic Workflows](../learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
+- **[Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
 
-**Important:** Before starting your first session, read [Strategic Workflows](../learn/agentos/StrategicWorkflows.md) to understand how to guide the agents effectively.
+**Important:** Before starting your first session, read [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) to understand how to guide the agents effectively.
 
 ## 6. Your First Agent Session
 

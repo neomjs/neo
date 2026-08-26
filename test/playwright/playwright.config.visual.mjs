@@ -1,4 +1,3 @@
-import './configTemplateResolver.mjs';
 
 import {defineConfig, devices} from '@playwright/test';
 import {resolveFreePortSync}   from './resolveFreePort.mjs';

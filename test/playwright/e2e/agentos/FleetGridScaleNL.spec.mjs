@@ -1,5 +1,6 @@
-import {test, expect}                                       from '../../fixtures.mjs';
-import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai/services.mjs';
+import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+
+const {NeuralLink_DataService, NeuralLink_InstanceService} = await loadNeuralLinkModules();
 
 /**
  * @summary The fleet grid at MEASURED live-roster scale, proven through Neural Link possession —

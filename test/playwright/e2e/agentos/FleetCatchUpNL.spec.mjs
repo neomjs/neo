@@ -1,7 +1,7 @@
-import {expect, test} from '../../fixtures.mjs';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import ViewerTime     from '../../../../apps/agentos/util/ViewerTime.mjs';
+import {expect, test, loadAgentOsModule} from '../../fixtures.mjs';
+import Neo                               from '../../../../src/Neo.mjs';
+import * as core                         from '../../../../src/core/_export.mjs';
+import ViewerTime                        from '../../../../apps/agentos/util/ViewerTime.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -87,7 +87,7 @@ function historyResult(params = {}) {
 }
 
 async function startCatchUpFleet() {
-    const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+    const {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
           requests                 = [],
           options                  = authenticatedFleetOptions({
               dispatch: async request => {

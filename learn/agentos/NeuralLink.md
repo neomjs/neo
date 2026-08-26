@@ -213,11 +213,11 @@ keep explaining why the surface matters and how to think with it.
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) for the two
   hemispheres and the Body-to-Brain bridge.
-- [Swarm Intelligence](./SwarmIntelligence.md) for the cross-family peer-team
+- [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) for the cross-family peer-team
   that uses this surface.
-- [Agent OS on Your Codebase](../benefits/brain/AgentOSOnYourCodebase.md) for the
+- [Agent OS on Your Codebase](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/AgentOSOnYourCodebase.md) for the
   broader operator story around running the Brain against real applications.
-- `ai/mcp/server/neural-link/openapi.yaml` for the exact tool contract.
+- [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/mcp/server/neural-link/openapi.yaml) for the exact tool contract.
 - [Neural Link Capability Matrix](./tooling/NeuralLinkCapabilityMatrix.md) for
   the per-verb read/write/admin, transaction, firewall, and fixture support map.
 - `src/ai/Client.mjs` for the App Worker client, write guard, and transaction

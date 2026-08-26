@@ -48,50 +48,6 @@ const PRIORITIES = new Map([
     ['benefits/brain/AgentOSOnYourCodebase'         , 1.0],
     ['benefits/brain/DeployingTheAgentOS'           , 1.0],
 
-    // Agent OS guide cluster
-    ['agentos/StrategicWorkflows'                   , 1.0],
-    ['agentos/FlatPeerInstitution'                  , 1.0],
-    ['agentos/SwarmIntelligence'                    , 1.0],
-    ['agentos/A2A'                                  , 1.0],
-    ['agentos/FleetManagerArchitecture'             , 1.0],
-    ['agentos/IdentityFirewall'                     , 1.0],
-    ['agentos/Hooks'                                , 1.0],
-    ['agentos/SeatMemoryLayer'                      , 0.9],
-    ['agentos/ContentTrust'                         , 1.0],
-    ['agentos/ProgressiveDisclosureSkills'          , 0.9],
-    ['agentos/CoreSkills'                           , 1.0],
-    ['agentos/DreamPipeline'                        , 1.0],
-    ['agentos/ConceptOntology'                      , 0.9],
-    ['agentos/NeuralLink'                           , 1.0],
-    ['agentos/tooling/NeuralLinkCapabilityMatrix'   , 0.8],
-    ['agentos/tooling/GenesisNeuralLinkProbe'       , 0.8],
-    ['agentos/tooling/CommunitySourceRunbook'       , 0.7],
-    ['agentos/KnowledgeBase'                        , 1.0],
-    ['agentos/MemoryCore'                           , 1.0],
-    // Ranked below both subsystem apexes it spans, deliberately: this is a maintainer-facing
-    // internals guide for one cross-subsystem lane, so it sits with GitHubWorkflow/CodeExecution
-    // rather than with the entry points a reader arrives on.
-    ['agentos/EmbeddingLane'                        , 0.8],
-    ['agentos/SelfHealing'                          , 1.0],
-    ['agentos/GitHubWorkflow'                       , 0.8],
-    ['agentos/CodeExecution'                        , 0.8],
-    ['agentos/SharedDeployment'                     , 1.0],
-    ['agentos/ModelProviders'                       , 1.0],
-    ['agentos/DeploymentCookbook'                   , 1.0],
-
-    // Cloud deployment: team-ready operational surface
-    ['agentos/cloud-deployment/WhyDeploy'           , 1.0],
-    ['agentos/cloud-deployment/Overview'            , 1.0],
-    ['agentos/cloud-deployment/Day0Tutorial'        , 0.9],
-    ['agentos/cloud-deployment/TenantIngestionModel', 0.9],
-    ['agentos/cloud-deployment/Security'            , 0.9],
-    ['agentos/cloud-deployment/Configuration'       , 0.8],
-    ['agentos/cloud-deployment/HookWiring'          , 0.8],
-    ['agentos/cloud-deployment/PipelineWiring'      , 0.8],
-    ['agentos/cloud-deployment/CustomSources'       , 0.7],
-    ['agentos/cloud-deployment/CustomParsers'       , 0.7],
-    ['agentos/cloud-deployment/MigrationPath'       , 0.7],
-
     // Body/runtime benefits
     ['benefits/body/ApplicationEngine'              , 0.9],
     ['benefits/body/ObjectPermanence'               , 0.9],
@@ -1010,9 +966,9 @@ export async function getLlmsTxt(options={}) {
     // 1. The Dynamic Header: organism apex for LLM crawlers
     let content = `# Neo.mjs: Self-Evolving Software Organism for AI Engineering
 
-> Neo.mjs is a self-evolving software organism: a professional, end-to-end AI engineering team whose cross-model swarm maintains the repository it inhabits.
-> Its Brain (/ai) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
-> Its Body (/src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
+> Neo.mjs is a self-evolving software organism: a professional, end-to-end AI engineering team whose Body and Brain live in sibling open-source repositories.
+> Its Brain (github.com/neomjs/neo-agent-brain) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
+> Its Body (github.com/neomjs/neo, /src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
 > The Neural Link is the possession interface between them. Agents inspect semantic runtime state, mutate UI and data in live apps, hot-patch behavior, and verify changes inside running software.
 > Self-healing loops turn runtime failures, code defects, agent mistakes, and architectural friction into fixes, tickets, skills, memory, and new graph topology for the next cycle.
 

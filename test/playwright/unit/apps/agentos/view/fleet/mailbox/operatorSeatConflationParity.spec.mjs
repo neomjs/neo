@@ -10,11 +10,13 @@ setup({
 // transitive graph reaches DOM-typed core modules (util.Rectangle extends DOMRect), so a bare
 // import only booted when ANOTHER spec in the same worker had installed the environment first —
 // worker-scheduling luck, twice now (first the Neo namespace, then the DOM globals).
-import {expect, test}                   from '@playwright/test';
-import Neo                              from '../../../../../../../../src/Neo.mjs';
-import * as core                        from '../../../../../../../../src/core/_export.mjs';
-import {describeOperatorSeatConflation} from '../../../../../../../../ai/services/fleet/operatorSeatConflation.mjs';
-import FleetCockpit                     from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
+import {expect, test}      from '@playwright/test';
+import Neo                 from '../../../../../../../../src/Neo.mjs';
+import * as core           from '../../../../../../../../src/core/_export.mjs';
+import {loadAgentOsModule} from '../../../../../../fixtures.mjs';
+import FleetCockpit        from '../../../../../../../../apps/agentos/view/fleet/cockpit/Container.mjs';
+
+const {describeOperatorSeatConflation} = await loadAgentOsModule('ai/services/fleet/operatorSeatConflation.mjs');
 
 /**
  * @summary The parity pin for a DELIBERATE cross-boundary duplication: the seat-conflation

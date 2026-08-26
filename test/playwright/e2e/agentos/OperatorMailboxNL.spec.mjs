@@ -1,5 +1,4 @@
-import {test, expect}                     from '../../fixtures.mjs';
-import {createFleetMailboxMirrorSnapshot} from '../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs';
+import {test, expect, loadAgentOsModule}  from '../../fixtures.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -7,13 +6,15 @@ import {
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
 
+const {createFleetMailboxMirrorSnapshot} = await loadAgentOsModule('ai/services/fleet/fleetMailboxMirrorAdapter.mjs');
+
 const rosterRows = [
     {id: 'review-a', githubUsername: 'review-peer-a', displayName: 'Review Peer A', engineTag: 'fixture', family: 'gpt'},
     {id: 'review-b', githubUsername: 'review-peer-b', displayName: 'Review Peer B', engineTag: 'fixture', family: 'claude'}
 ];
 
 async function startOperatorMailboxFleet() {
-    const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+    const {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
           requests                 = [],
           options                  = authenticatedFleetOptions({
               dispatch: async request => {

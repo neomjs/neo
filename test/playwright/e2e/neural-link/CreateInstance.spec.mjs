@@ -1,5 +1,6 @@
-import { test, expect }               from '../../fixtures.mjs';
-import { NeuralLink_InstanceService } from '../../../../ai/services.mjs';
+import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+
+const {NeuralLink_InstanceService} = await loadNeuralLinkModules();
 
 /**
  * @summary Live Neural Link proof for the `create_instance` MCP tool.

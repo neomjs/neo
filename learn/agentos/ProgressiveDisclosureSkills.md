@@ -6,7 +6,7 @@ massive amounts of context window tokens and dilutes agent focus), skills are
 lazy-loaded into the context window exactly when they are needed.
 
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
-For the agent delegation model, see [Swarm Intelligence](./SwarmIntelligence.md).
+For the agent delegation model, see [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md).
 For the canonical skill-anatomy contract (frontmatter shape, Map vs Atlas decomposition, manifest contract, anti-patterns), see [ADR 0008: SKILL.md Anatomy and Authoring Contract](./decisions/0008-skill-anatomy-and-authoring-contract.md).
 
 ## Token Economics
@@ -164,6 +164,6 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 
 - [Core Agent Skills](./CoreSkills.md) — Why the core lifecycle and collaboration
   skills matter for a maintainable agent team.
-- [Swarm Intelligence](./SwarmIntelligence.md) — Autonomous sub-agent delegation
-- [Strategic Workflows](./StrategicWorkflows.md) — How multiple skills chain together in practice
-- [The Dream Pipeline & Golden Path](./DreamPipeline.md) — How issue lifecycle outcomes are forecasted
+- [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) — Autonomous sub-agent delegation
+- [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) — How multiple skills chain together in practice
+- [The Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) — How issue lifecycle outcomes are forecasted

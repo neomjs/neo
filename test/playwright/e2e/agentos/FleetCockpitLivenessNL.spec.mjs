@@ -1,6 +1,7 @@
-import {test, expect}                                                          from '../../fixtures.mjs';
-import {generateLocalBearerToken}                                              from '../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
+import {test, expect, loadAgentOsModule}                                       from '../../fixtures.mjs';
 import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+
+const {generateLocalBearerToken} = await loadAgentOsModule('ai/mcp/server/shared/helpers/localBearer.mjs');
 
 /**
  * @summary The liveness OWNER journey proven on the MOUNTED cockpit against a REAL fleet server:
@@ -47,7 +48,7 @@ async function wireRealFleetSources() {
     await import('../../../../src/manager/Instance.mjs');
 
     const
-        {wireFleetActivityReadSource} = await import('../../../../ai/services/fleet/wireFleetActivityReadSource.mjs'),
+        {wireFleetActivityReadSource} = await loadAgentOsModule('ai/services/fleet/wireFleetActivityReadSource.mjs'),
         {default: path}               = await import('node:path'),
         {fileURLToPath}               = await import('node:url'),
         issuesDir                     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../resources/content/issues');
@@ -73,7 +74,7 @@ async function wireRealFleetSources() {
  * @returns {Promise<{bearerToken: String, port: Number, endpoint: String, close: Function}>}
  */
 async function startLivenessFleetServer({port = 0, bearerToken} = {}) {
-    const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+    const {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
           options                  = authenticatedFleetOptions(bearerToken ? {port, bearerToken} : {port}),
           server                   = await startFleetBridgeServer(options),
           boundPort                = server.address().port;

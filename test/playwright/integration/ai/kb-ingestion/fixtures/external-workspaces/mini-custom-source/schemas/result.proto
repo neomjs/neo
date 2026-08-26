@@ -1,6 +1,0 @@
-syntax = "proto3";
-
-message ResultEnvelope {
-    string task_id = 1;
-    string body = 2;
-}

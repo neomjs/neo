@@ -1,5 +1,4 @@
-import {test, expect}           from '../../fixtures.mjs';
-import {NeuralLink_DataService} from '../../../../ai/services.mjs';
+import {test, expect, loadAgentOsModule, loadNeuralLinkModules} from '../../fixtures.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -7,6 +6,8 @@ import {
     reloadRoster,
     wireAuthenticatedFleetBridge
 } from './authenticatedFleetHarness.mjs';
+
+const {NeuralLink_DataService} = await loadNeuralLinkModules();
 
 const
     TEST_AGENT_ID   = 'nl-journey-agent',
@@ -28,7 +29,7 @@ const WIRED_SOURCES = {
  */
 async function startJourneyFleetBridge() {
     const
-        {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+        {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
         requests                 = [],
         defined                  = [],
         running                  = new Set();

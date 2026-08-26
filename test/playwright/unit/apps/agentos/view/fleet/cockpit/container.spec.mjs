@@ -1642,7 +1642,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-cold']);
         expect(hidden).toBe(false);
         expect(text).toContain('Fleet server offline');
-        expect(text).toContain('npm run ai:fleet-server')
+        expect(text).toContain('neo-agent-brain checkout')
     });
 
     test('a degraded owner writes the degraded hook + last-known copy', () => {

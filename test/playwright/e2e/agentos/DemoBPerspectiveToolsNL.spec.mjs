@@ -1,5 +1,6 @@
-import {test, expect}         from '../../fixtures.mjs';
-import NeuralLink_DockService from '../../../../ai/services/neural-link/DockService.mjs';
+import {test, expect, loadNeuralLinkModules} from '../../fixtures.mjs';
+
+const {NeuralLink_DockService} = await loadNeuralLinkModules();
 
 /**
  * @summary Whitebox E2E witness for the agent-driven Neural Link perspective path on Demo B.

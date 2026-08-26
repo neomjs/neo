@@ -1,9 +1,14 @@
-import {generateLocalBearerToken} from '../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
-import RequestContextService      from '../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import {
-    createFleetWireResponse,
-    FLEET_WIRE_RESPONSE_STATES
-} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
+import {loadAgentOsModule} from '../../fixtures.mjs';
+
+const [
+    {generateLocalBearerToken},
+    {default: RequestContextService},
+    {createFleetWireResponse, FLEET_WIRE_RESPONSE_STATES}
+] = await Promise.all([
+    loadAgentOsModule('ai/mcp/server/shared/helpers/localBearer.mjs'),
+    loadAgentOsModule('ai/mcp/server/shared/services/RequestContextService.mjs'),
+    loadAgentOsModule('ai/services/fleet/fleetWireMethods.mjs')
+]);
 
 /**
  * @summary The authenticated Fleet e2e harness — the test-side composition of the ingress trust

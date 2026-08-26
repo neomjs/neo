@@ -1,6 +1,7 @@
-import {test, expect}                                   from '../../fixtures.mjs';
-import {generateLocalBearerToken}                       from '../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
+import {test, expect, loadAgentOsModule}                from '../../fixtures.mjs';
 import {E2E_FLEET_VIEWER, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+
+const {generateLocalBearerToken} = await loadAgentOsModule('ai/mcp/server/shared/helpers/localBearer.mjs');
 
 /**
  * @summary The viewer wake journey proven on the MOUNTED cockpit against the REAL
@@ -47,7 +48,7 @@ const VIEWER_IDENTITY = E2E_FLEET_VIEWER.agentIdentityNodeId;
 async function startWakeFixture({bearerToken, port = 0}) {
     const
         {createServer}          = await import('node:http'),
-        {createFleetWakeFanout} = await import('../../../../ai/services/fleet/fleetWakeFanout.mjs');
+        {createFleetWakeFanout} = await loadAgentOsModule('ai/services/fleet/fleetWakeFanout.mjs');
 
     const
         fanout      = createFleetWakeFanout({heartbeatMs: 1000, logger: {error: () => {}, warn: () => {}}}),

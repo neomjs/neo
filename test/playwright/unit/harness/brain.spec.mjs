@@ -5,10 +5,7 @@ import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
 import net                                                  from 'node:net';
 import {tmpdir}                                             from 'node:os';
 import path                                                 from 'node:path';
-import {
-    createFleetWireResponse,
-    FLEET_WIRE_RESPONSE_STATES
-} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
+import {loadAgentOsModule}                                  from '../../fixtures.mjs';
 import {
     allocatePort,
     assertIsolatedProfile,
@@ -32,6 +29,9 @@ import {
     sweepStaleRunState,
     writeRunState
 } from '../../../../harness/brain.mjs';
+
+const {createFleetWireResponse, FLEET_WIRE_RESPONSE_STATES} =
+    await loadAgentOsModule('ai/services/fleet/fleetWireMethods.mjs');
 
 /**
  * A stub supervised child: EventEmitter shape matching the ChildProcess surface the lifecycle

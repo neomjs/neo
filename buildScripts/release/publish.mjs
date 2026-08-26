@@ -17,11 +17,9 @@
  *
  * The content half of the release — Knowledge Base upload, the full GitHub sync that archives the
  * release's tickets and chunks the release note, and the archive commit — is Brain-side lifecycle
- * work and lives in `ai/scripts/lifecycle/postReleaseSync.mjs` (`npm run ai:post-release-sync`),
- * which this script names as the next runbook step when it finishes. The boundary is deliberate:
- * this script imports and spawns NOTHING under `ai/**`, so the engine can be released from a
- * checkout in which the agent OS does not exist — `check-engine-brain-boundary` enforces the
- * import half of that property.
+ * work and lives in the `neo-agent-brain` repository, whose release runbook is the next step after
+ * this script finishes. The boundary is deliberate: this script imports and spawns nothing from
+ * the Brain, so the Engine can be released from an Engine-only checkout.
  *
  * @keywords Release Automation, Git Plumbing, Local-First, CI/CD, Engine-Brain Boundary
  */
@@ -68,7 +66,7 @@ function assertNoArchiveLogicalIdentityCollisions(stage) {
             `Release aborted at "${stage}": ${collisions.length} archived logical name(s) claimed by ` +
             `more than one artifact — ${detail}. Embedding refuses this state, so releasing it stalls ` +
             `Knowledge Base ingestion for the entire corpus. Repair with ` +
-            `PullRequestSyncer.repairDuplicateArtifacts (npm run ai:sync-github-workflow), then re-run.`
+            `PullRequestSyncer.repairDuplicateArtifacts from the neo-agent-brain checkout, then re-run.`
         );
     }
 }
@@ -273,9 +271,8 @@ async function main() {
     }
 
     console.log('\n✨ Engine Release Complete! ✨');
-    console.log('\nNext runbook step — the Brain-side content lifecycle (Knowledge Base upload,');
-    console.log('ticket archive sync, archive commit) runs from the agent OS:');
-    console.log(`\n    npm run ai:post-release-sync\n`);
+    console.log('\nNext runbook step — run the Brain-side content lifecycle (Knowledge Base upload,');
+    console.log('ticket archive sync, archive commit) from the neo-agent-brain checkout.\n');
 }
 
 main().catch(error => {

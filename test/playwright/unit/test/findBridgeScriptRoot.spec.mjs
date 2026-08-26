@@ -3,6 +3,7 @@ import {mkdtempSync, mkdirSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir}                                        from 'node:os';
 import path                                            from 'node:path';
 import {findBridgeScriptRoot}                          from '../../findBridgeScriptRoot.mjs';
+import {loadNeuralLinkModules}                         from '../../fixtures.mjs';
 
 /**
  * Coverage for the Bridge working-directory derivation the Playwright fixture owes `spawnBridge`.
@@ -90,14 +91,13 @@ test.describe('test/playwright/findBridgeScriptRoot — validated Bridge cwd der
         expect(findBridgeScriptRoot(path.join(root, 'x'), SCRIPT)).toBeNull()
     });
 
-    test('this checkout resolves to a root that really declares the script', async () => {
-        const {default: pkg} = await import(
-            path.join(findBridgeScriptRoot(path.dirname(new URL(import.meta.url).pathname), SCRIPT), 'package.json'),
-            {with: {type: 'json'}}
-        );
+    test('the Engine checkout does not claim the moved Brain script', () => {
+        expect(findBridgeScriptRoot(path.dirname(new URL(import.meta.url).pathname), SCRIPT)).toBeNull()
+    })
 
-        // The positive control for the walk itself: run against the real tree rather than a fixture,
-        // so a derivation that only works on synthetic trees cannot pass this file.
-        expect(pkg.scripts[SCRIPT]).toBeTruthy()
+    test('the cross-repository fixture refuses omitted and relative Brain roots', () => {
+        expect(() => loadNeuralLinkModules({})).toThrow(/NEO_AGENTOS_RUNTIME_ROOT.*absolute/);
+        expect(() => loadNeuralLinkModules({NEO_AGENTOS_RUNTIME_ROOT: '../neo-agent-brain'}))
+            .toThrow(/NEO_AGENTOS_RUNTIME_ROOT.*absolute/)
     })
 });

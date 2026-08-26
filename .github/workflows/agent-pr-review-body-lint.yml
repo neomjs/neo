@@ -283,7 +283,7 @@ jobs:
             //
             // VISIBLE layer: 7 evaluation-metric tags from pr-review-template.md /
             // pr-review-followup-template.md. Wire-format contract with the Retrospective-
-            // daemon graph ingestor (ai/daemons/services/ConceptDiscoveryService.mjs).
+            // Brain graph ingestor.
             // Misses surface as a precise list in the follow-up comment + ONE diagnostic
             // anchor named in the human-facing message.
             //
@@ -295,10 +295,10 @@ jobs:
             // visible tags but missing structural anchors — would have passed visible-only).
             //
             // ⚠️  SYNCHRONIZATION PROTOCOL: these lists and tier checks MUST stay in sync
-            // with `ai/services/github-workflow/PullRequestService.mjs` review-template
+            // with the Brain GitHub-workflow service's review-template
             // constants. If you edit either side, edit the other simultaneously.
             // Follow-up ticket candidate:
-            // extract to shared module `ai/services/github-workflow/prReviewAnchors.mjs`
+            // extract to a shared Brain review-anchor module
             // (see #11501 cross-surface enhancement ticket).
             // ──────────────────────────────────────────────────────────────────────
 
@@ -365,7 +365,7 @@ jobs:
             ];
 
             // Micro-Review (Cycle-1, blast-scaled) light path — KEEP IN SYNC with
-            // ai/services/github-workflow/PullRequestService.mjs MICRO_REVIEW_* constants.
+            // the Brain GitHub-workflow service's MICRO_REVIEW_* constants.
             // A micro/contained PR gets a premise+correctness glance, not the full gauntlet
             // (pr-review-guide §6.4). Fail SAFE toward accept: the floor is the header + the Class
             // assertion (micro|contained|mechanical, so the light path is not an intense-PR
@@ -413,7 +413,7 @@ jobs:
             ];
 
             // Kept byte-for-byte in step with `getRound2PrReviewTemplateValidationFailure()` in
-            // ai/services/github-workflow/PullRequestService.mjs. The two copies of this contract
+            // the Brain GitHub-workflow service. The two copies of this contract
             // already drifted once — CI required a valid origin line for a Round 2 while the managed
             // service did not — so the service admitted bodies this lint then rejected. A format that
             // lands in one copy only makes the managed path and CI disagree about what is valid.

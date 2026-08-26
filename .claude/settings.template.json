@@ -4,7 +4,6 @@
       "mcp__neo-mjs-github-workflow__*",
       "mcp__neo-mjs-memory-core__*",
       "mcp__neo-mjs-knowledge-base__*",
-      "Bash(npm run agent-preflight*)",
       "Bash(npm run agent-push*)",
       "Bash(git add *)",
       "Bash(git commit *)",
@@ -69,17 +68,6 @@
     ]
   },
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/wakeArmingHook.mjs\"",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -88,39 +76,6 @@
             "type": "command",
             "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/rgReplaceGuardHook.mjs\"",
             "timeout": 2
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/turnPresenceHook.mjs\" start",
-            "timeout": 2
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/turnPresenceHook.mjs\" progress",
-            "timeout": 2
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "NEO_LANE_STATE_ENFORCE=1 /usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/laneStateStopHook.mjs\"",
-            "timeout": 10
           }
         ]
       }

@@ -15,7 +15,7 @@ the app, and the fleet HTTP transport the cockpit's controls and live feeds ride
 npm run cockpit
 ```
 
-That is the whole boot. The launcher (`ai/scripts/fleet/devCockpit.mjs`) supervises both processes and
+That is the whole boot. The launcher ([`ai/scripts/fleet/devCockpit.mjs`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/scripts/fleet/devCockpit.mjs)) supervises both processes and
 opens the browser directly on the cockpit surface (`apps/agentos/index.html`). On a fresh checkout
 this lands you on a live roster with working controls — no second terminal, no manual server start.
 
@@ -23,7 +23,7 @@ This command remains the transitional source-development path: it launches the h
 `devFleetServer` with its ephemeral process bearer. The canonical local Agent OS composition now
 also carries the optional `fleet` profile, whose `fleet-server` uses request-time `AuthService`
 identity and a persistent Fleet-owned root. Start that plane with the profile command in
-[`local-agent-os/README.md`](../../ai/scripts/lifecycle/local-agent-os/README.md). Cockpit client
+[`local-agent-os/README.md`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/scripts/lifecycle/local-agent-os/README.md). Cockpit client
 cutover to the composed URL is owned by the following migration slice; S1 makes the authenticated
 service real without pretending the current browser launcher already consumes it.
 
@@ -138,10 +138,12 @@ projection and removes the receipt, leaving no remote bearer reference behind. U
 Fleet-owned transport fields fail closed instead of being overwritten.
 
 For deployment-side auth, identity, and readiness details, continue with
-[Cloud deployment security](./cloud-deployment/Security.md) and the
-[Day-0 tutorial](./cloud-deployment/Day0Tutorial.md).
+[Cloud deployment security](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Security.md) and the
+[Day-0 tutorial](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Day0Tutorial.md).
 
 ## The one command against the live plane
+
+Run this from a `neo-agent-brain` checkout:
 
 ```bash
 npm run cockpit:live
@@ -169,7 +171,7 @@ The launcher resolves the plane binding itself, naming every source it used:
    must answer with its auth guard's `401` (that refusal IS the plane's identity signature).
    Nothing serving there fails fast with the plane-start command
    (`docker compose --env-file .env -f ai/deploy/docker-compose.yml -f ai/deploy/docker-compose.local-agent-os.yml --profile cloud --profile ingress --profile fleet up -d --wait`,
-   see [`local-agent-os/README.md`](../../ai/scripts/lifecycle/local-agent-os/README.md)).
+   see [`local-agent-os/README.md`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/scripts/lifecycle/local-agent-os/README.md)).
 4. **Admission-token teeth** — the live launcher also resolves the deployment's
    bootstrap/healthcheck admission token and rides it into the fleet child's environment, arming
    the credential-class alias guard: a plane bearer that IS the admission token now refuses this

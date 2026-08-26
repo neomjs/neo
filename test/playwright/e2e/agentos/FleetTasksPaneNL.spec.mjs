@@ -1,4 +1,4 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect, loadAgentOsModule} from '../../fixtures.mjs';
 import {
     authenticatedFleetOptions,
     fleetE2EFailure,
@@ -46,7 +46,7 @@ function tasksEnvelope(overrides = {}) {
  */
 async function startTasksFleetBridge() {
     const
-        {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+        {startFleetBridgeServer} = await loadAgentOsModule('ai/services/fleet/fleetBridgeServer.mjs'),
         requests                 = [],
         state                    = {envelope: tasksEnvelope()};
 
