@@ -410,3 +410,92 @@ test.describe('orchestrator/scheduling/backup — maintenance health (#17068)', 
         expect(cases).not.toContain('healthy');
     });
 });
+
+// Binding only the positive direction — never `healthy` from an unread input — leaves a scorer free
+// to emit the opposite unfounded verdict from that same input, and a definite negative is the more
+// expensive half: it reads as a finding and gets acted on. These arms bind the negative direction
+// without unbinding the positive one, and the reconciliation they cover is between two records of
+// one lane that ride the same snapshot — the receipt the lane writes, and the retry ledger derived
+// from task state.
+test.describe('orchestrator/scheduling/backup — receipt/retry reconciliation (#17785)', () => {
+    const
+        STREAK_AT = T,
+        // The shape measured on pin 467fd122f3: streak open, no ledger success, receipt 21 days newer.
+        conflicted = (overrides = {}) => describeBackupMaintenanceHealth({
+            backupIntervalMs: DAY_MS,
+            durability      : {posture: 'configured'},
+            lastBackup      : {backup: {status: 'success'}, finishedAt: iso(STREAK_AT + 21 * DAY_MS), status: 'ok'},
+            retryState      : {
+                phase            : BACKUP_RETRY_PHASE.exhausted,
+                lastSuccessAgeMs : null,
+                lastSuccessAt    : null,
+                streakStartedAtMs: STREAK_AT
+            },
+            retryWindowMs: WINDOW_MS,
+            ...overrides
+        });
+
+    // AC-3 (i). Reddens if the reconciliation is removed: the scorer falls back to the ledger alone
+    // and `backup-never-succeeded` returns — the exact string that cost four maintainers an evening.
+    test('a success receipt newer than the streak yields a conflict, never a fabricated negative', () => {
+        expect(conflicted()).toEqual({
+            observationStatus: 'observed',
+            reasonCodes      : ['backup-retry-exhausted', 'backup-state-conflict'],
+            staleAfterMs     : DAY_MS + WINDOW_MS,
+            status           : 'degraded'
+        });
+    });
+
+    // AC-3 (ii). The first direction stays bound. Reddens if the reconciliation is widened to
+    // suppress the negative whenever a receipt is merely PRESENT: here there is none, the lane
+    // genuinely has no recorded success, and the definite negative is the honest answer.
+    test('a genuinely receipt-less exhausted lane still reports backup-never-succeeded', () => {
+        expect(conflicted({lastBackup: null}).reasonCodes).toEqual([
+            'backup-retry-exhausted',
+            'backup-never-succeeded'
+        ]);
+    });
+
+    // The receipt's AGE decides nothing, and this arm is where that is enforced. `markFailed()`
+    // advances the streak and leaves `lastSuccessAt` standing, so a lane that genuinely succeeded
+    // and then began failing never reaches this branch at all — it has a recorded success. Reaching
+    // it with a success receipt of ANY age therefore means the two records disagree about whole-lane
+    // history, and the whole-history negative is falsified either way. Reddens any implementation
+    // that reintroduces a recency comparison to decide between the two codes.
+    test('a success receipt older than the streak yields the same conflict, not the negative', () => {
+        expect(conflicted({
+            lastBackup: {backup: {status: 'success'}, finishedAt: iso(STREAK_AT - DAY_MS), status: 'ok'}
+        }).reasonCodes).toEqual(['backup-retry-exhausted', 'backup-state-conflict']);
+    });
+
+    // CONTROL, and the discriminator the reconciliation actually turns on: the receipt's STATUS. A
+    // failed receipt proves a run happened, never that one succeeded, so the negative must survive
+    // it. Reddens any implementation that reads a receipt's mere presence as proof of success —
+    // which is the shape a recency test collapses into once the timestamps stop being consulted.
+    test('a failed receipt does not suppress the negative', () => {
+        expect(conflicted({
+            lastBackup: {backup: {status: 'failed'}, finishedAt: iso(STREAK_AT + DAY_MS), status: 'ok'}
+        }).reasonCodes).toEqual([
+            'backup-retry-exhausted',
+            'backup-last-run-failed',
+            'backup-never-succeeded'
+        ]);
+    });
+
+    // AC-3 (iii). The conflict must not launder an unrelated true negative. Reddens if the
+    // reconciliation is placed so that it returns early or clears previously pushed codes.
+    test('off-host-durability-unmet survives the conflict verdict', () => {
+        expect(conflicted({durability: {posture: 'unmet'}}).reasonCodes).toEqual([
+            'off-host-durability-unmet',
+            'backup-retry-exhausted',
+            'backup-state-conflict'
+        ]);
+    });
+
+    // The divergence is a defect in its own right and must stay visible: reporting the disagreement
+    // is not the same as resolving it in the receipt's favour and going quiet.
+    test('a conflicted lane never reads healthy', () => {
+        expect(conflicted().status).toBe('degraded');
+        expect(conflicted({durability: {posture: 'unmet'}}).status).toBe('degraded');
+    });
+});
