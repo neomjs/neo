@@ -6,12 +6,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
-import DockZoneModel  from '../../../../src/dashboard/DockZoneModel.mjs';
-import MainContainer  from '../../../../examples/dashboard/dock/MainContainer.mjs';
-import Toolbar        from '../../../../src/toolbar/Base.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import DockWorkspace   from '../../../../src/dashboard/DockWorkspace.mjs';
+import DockZoneModel   from '../../../../src/dashboard/DockZoneModel.mjs';
+import MainContainer   from '../../../../examples/dashboard/dock/MainContainer.mjs';
+import Toolbar         from '../../../../src/toolbar/Base.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**
@@ -1068,6 +1069,16 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(invalid.layoutCollection.activeLayoutId).toBe('operator-default');
             expect(invalid.dockModel).toEqual(invalid.layoutCollection.layouts['operator-default'].dockZone);
             expect(invalid.refreshCount).toBe(0)
+        })
+    });
+
+    test.describe('standalone dock example composition', () => {
+        test('keeps the DockWorkspace holder free of Viewport responsibilities', () => {
+            expect(DockWorkspace.prototype.isPrototypeOf(MainContainer.prototype)).toBe(true);
+            expect(MainContainer.config.additionalThemeFiles).toEqual(['Neo.dashboard.Container']);
+            expect(MainContainer.config.autoMount).toBeUndefined();
+            expect(MainContainer.config.cls || []).not.toContain('neo-viewport');
+            expect(Object.hasOwn(MainContainer.prototype, 'onConstructed')).toBe(false)
         })
     });
 

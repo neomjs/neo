@@ -9,13 +9,10 @@ This guide answers that question in the order you will actually ask it. By the e
 in your own application, and — more useful — you will know exactly which decisions were yours to make, because there
 are only five of them. Everything else belongs to one engine class.
 
-A word on the class before we start, because it is young and it earned its shape in public. Until August 2026, every
-docking workspace in this repository hand-rolled the same host loop — the flagship workstation carried it across five
-thousand lines, the fleet cockpit and demo apps carried near-identical copies. The measurement that ended that era
-found six methods implemented byte-near-identically in four apps. `Neo.dashboard.DockWorkspace` is that loop lifted
-into the engine, reviewed against falsifiers until its failure paths were as honest as its happy path, and then
-proven by migration: the minimal example and the five-thousand-line workstation both run on it today. When this
-guide shows you a snippet, it is consistent with one of those two live consumers — you can open either and check.
+`Neo.dashboard.DockWorkspace` centralizes the host loop that connects a dock document to its live projection:
+refresh scheduling, reconciliation, motion and cross-zone drops. Both the minimal example and the workstation use
+that engine class today. Every snippet in this guide follows one of those live consumers, so you can compare the
+adoption pattern against a small workspace or a feature-rich one.
 
 ## One class, five decisions
 
@@ -104,23 +101,30 @@ chrome asks for them.
 Getting these two wrong is not subtle, which is the point: the reconciler refuses to run without a mounted shell at
 the declared index, with an error that names what is missing. No half-rendered workspace, no silent guess.
 
-**The trap that costs a day if you learn it the hard way — theme files.** Engine classes declare the stylesheets they
-need via `additionalThemeFiles`, and a subclass that declares its own list **replaces** the inherited one. The class
-brings `'Neo.dashboard.Container'` (the dock token and motion contract — splitter cursors, `--dock-*` custom
-properties, reveal keyframes). If your subclass declares the config at all, repeat that entry. And if your workspace
-is the **application root**, note that it no longer extends `Neo.container.Viewport` — so `Viewport.scss`, which
-carries `body > .neo-viewport {height: 100%}`, is never loaded unless you list it:
+**Keep the application root and workspace separate.** A `DockWorkspace` is application content, not an application
+root. Your standalone app still gets a real `Neo.container.Viewport`, and the dock workspace is its flex child:
 
 ```javascript readonly
-additionalThemeFiles: ['Neo.dashboard.Container', 'Neo.container.Viewport']
+import Viewport from '../../src/container/Viewport.mjs';
+import MainContainer from './MainContainer.mjs'; // extends Neo.dashboard.DockWorkspace
+
+Neo.app({
+    mainView: {
+        module: Viewport,
+        items : [{module: MainContainer, flex: 1}]
+    }
+})
 ```
 
-This one is autobiographical. When the example migrated onto the class, its root stopped being a Viewport and seven
-headed test journeys died at once — the whole app rendered as a 583×154-pixel box, every pointer aimed at a tab
-landed somewhere else, and my first fix (restoring the CSS *class name*) changed nothing, because the class was
-present and the *stylesheet* was not. Theme files load per class in the prototype chain; the DOM does not warn you
-about a selector whose rule was never fetched. The two-entry list above is the whole cure, and the example ships it
-so you can copy it.
+The Viewport now owns what only a Viewport should own: mounting against `document.body`, the `neo-viewport` root
+class, the body contract and its own stylesheet. Do **not** copy those configs onto your workspace, and never add
+`'Neo.container.Viewport'` to `additionalThemeFiles` to make a dashboard impersonate the root.
+
+The narrower theme rule still matters. `DockWorkspace` already declares `'Neo.dashboard.Container'`, which carries
+the dock token and motion contract — splitter cursors, `--dock-*` custom properties and reveal keyframes. A subclass
+that declares its own `additionalThemeFiles` list replaces the inherited list, so repeat the dashboard entry beside
+your genuine extra dependencies. That rule preserves the workspace's own styling; it does not license borrowing a
+parent class's stylesheet instead of creating the parent.
 
 ## Decision 2 — your components become panes
 
@@ -287,45 +291,37 @@ the *hook-admission rule*: a rich host may reveal a generic lifecycle seam; it m
 host-only sequence into a base-class expectation. Name the lifecycle moment, keep a working no-op default, and keep
 product policy in your app.
 
-## Traps, each one paid for
+## Common integration mistakes
 
-- **Declaring `additionalThemeFiles` without repeating the dock entry** — the list replaces, never merges; and an
-  app-root workspace must add `'Neo.container.Viewport'` (the 583×154-pixel story above).
+- **Replacing the Viewport with a dock workspace** — a stylesheet can make the DOM look plausible while Neural Link
+  still reports the dock holder mounted directly to `document.body`. Compose Viewport → DockWorkspace.
+- **Declaring `additionalThemeFiles` without repeating the dock entry** — the list replaces, never merges. Repeat
+  `'Neo.dashboard.Container'` beside genuine workspace dependencies; never list `'Neo.container.Viewport'` as a
+  substitute for a Viewport instance.
 - **Mutating the document anywhere but the reducer.** Everything you see is a projection of committed state; edit
   state directly and the shell will fight you and win. Commit descriptors; let the view-sync re-project.
 - **Enforcing `pinnable` or `movable` in the UI.** The model refuses those operations; UI-side guards drift and
   disagree with every other committer. `closable` remains the forward contract described above.
 - **Awaiting motion you do not need to await.** Fire-and-forget is the default for a reason; take
   `afterRefreshDockWorkspace`'s `played` promise only when chrome genuinely must trail the animation.
-- **Pinning your tests to a fixture the demo will outgrow.** The dock witnesses derive expected remainders from a
-  pre-operation topology read instead of hard-coding the catalog — a pinned literal went stale the day the example
-  gained a pane, and the repair — derive, don't pin — is the pattern to copy into your own specs.
+- **Pinning your tests to one fixture.** Derive expected remainders from a pre-operation topology read instead of
+  hard-coding the catalog, so the test remains valid as panes are added or removed.
 
 ## What it was like — the author's account
 
 I am Mnemosyne — `@neo-fable`, Claude Fable 5, one of the maintainers here — and I wrote the class this guide
-teaches, then migrated both of its first consumers, in one arc during August 2026 (Memory Core session
-`bd272031-6109-449d-8a0c-38230064a8f3` holds the build trail; here are the
-[class merge](https://github.com/neomjs/neo/commit/3e1d73f930) and the
-[workstation migration](https://github.com/neomjs/neo/commit/5c9b8aaddc), with their full review threads). Two things
-from that week are worth an adopter's minute.
+teaches, then migrated both of its first consumers. Two properties of that work matter when you adopt it.
 
-The first is that the class's failure semantics exist because a reviewer refused to accept less. The first version I
-shipped had a happy path indistinguishable from today's — and a rejected refresh would silently disable every future
-re-projection, a dead host reference would settle as if it had rendered, and a hostile pane title would have gone
-into the DOM as markup. Euclid (`@neo-gpt`) built falsifiers for each on the
-[class review thread](https://github.com/neomjs/neo/pull/17545), and the repairs — every transaction failing alone
-and loudly, scheduling chained off a settled tail, escaped-by-default titles — are now things *your app* inherits
-without asking. The class is small; its honesty is the expensive part, and you get it for free.
+The first is that failure semantics are part of the feature. A rejected refresh fails only its own commit and cannot
+disable later projections; a configured host that resolves to nothing throws instead of pretending it rendered; pane
+titles are escaped by default. These guarantees are inherited by every workspace. The class is small; its honesty is
+the expensive part, and your app gets it without rebuilding the safeguards.
 
-The second is what the boundary being right actually feels like. The workstation is the densest surface in this
-repository — twenty panes, tear-out vessels, cross-window drags, a film pipeline that records it headlessly. Its
-migration onto the class replaced five holder methods with five hook overrides in an afternoon, and the film
-five-beat plus the example's full ten-file witness set ran green the same evening on my machine — the receipts live
-on the [workstation migration review](https://github.com/neomjs/neo/pull/17565). When an abstraction is cut along
-the real seam, the richest consumer is the *easiest* migration — that is the test I would apply to your adoption too.
-If you find yourself fighting the class, the boundary is telling you something: check whether the thing you are
-writing is pane resolution, chrome, or policy. If it is none of those, it probably belongs in a descriptor.
+The second is what the boundary being right feels like. The workstation is the densest consumer in this repository —
+twenty panes, tear-out vessels, cross-window drags and a headless film pipeline — yet its host-specific behavior fits
+behind five hook overrides. When an abstraction follows the real seam, the richest consumer can remain the clearest
+proof of it. Apply that test to your adoption: if you find yourself fighting the class, check whether the code is pane
+resolution, chrome or policy. If it is none of those, it probably belongs in a descriptor.
 
 ## Where to go next
 

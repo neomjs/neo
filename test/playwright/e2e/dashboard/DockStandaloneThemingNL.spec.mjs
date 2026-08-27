@@ -125,6 +125,35 @@ test.describe('Dock standalone theming — the values layer (Neural Link)', () =
         });
     }
 
+    test('composes a real Viewport root around the distinct dock holder', async ({page, neuralLink}) => {
+        await boot(page, 'neo-theme-neo-dark');
+
+        const app           = await neuralLink.connectToApp('Neo.examples.dashboard.dock'),
+              viewports     = await app.queryComponent({className: 'Neo.container.Viewport'}, ['id', 'className', 'ntype']),
+              holders       = await app.queryComponent({className: 'Neo.examples.dashboard.dock.MainContainer'}, ['id', 'className', 'ntype', 'parentId']),
+              viewport      = Array.isArray(viewports) ? viewports[0] : viewports,
+              holder        = Array.isArray(holders) ? holders[0] : holders,
+              viewportState = await app.getComponent(viewport.id, ['className', 'ntype']),
+              holderState   = await app.getComponent(holder.id, ['className', 'ntype', 'parentId']);
+
+        expect(viewportState).toMatchObject({className: 'Neo.container.Viewport', ntype: 'viewport'});
+        expect(holderState).toMatchObject({className: 'Neo.examples.dashboard.dock.MainContainer', ntype: 'dock-workspace'});
+        expect(holderState.parentId).toBe(viewport.id);
+
+        const hierarchy = await page.evaluate(({holderId, viewportId}) => {
+            const viewportElement = document.getElementById(viewportId),
+                  holderElement   = document.getElementById(holderId);
+
+            return {
+                distinct          : viewportElement !== holderElement,
+                holderInViewport  : Boolean(viewportElement?.contains(holderElement)),
+                viewportIsBodyRoot: viewportElement?.parentElement === document.body
+            }
+        }, {holderId: holder.id, viewportId: viewport.id});
+
+        expect(hierarchy).toEqual({distinct: true, holderInViewport: true, viewportIsBodyRoot: true})
+    });
+
     for (const [theme, expected] of Object.entries(EXPECTATIONS)) {
         test(`standalone host is fully themed under ${theme} — token and paint level`, async ({page, neuralLink}) => {
             await boot(page, theme);
