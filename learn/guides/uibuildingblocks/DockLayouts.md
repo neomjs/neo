@@ -130,16 +130,10 @@ reacquisition") that drives a real pointer through the full sequence and asserts
 follows both axes, the grab offset survives both embodiment morphs, the re-exit vessel's window delta equals the
 pointer delta exactly, the document hash is unchanged, and the pane's live heartbeat keeps advancing throughout.
 
-A war story makes the point better than any assertion. In early August, a defect report described this exact journey
-broken: the second tear-out's fresh vessel moved `{x:44, y:-84}` for a requested `{x:120, y:70}` — wrong offset,
-inverted axis. The witness above already carried the exact oracle (it had landed with the re-entry ownership fix
-days before the report), so the failure was measured, filed, and specified in one motion. Twenty days later — with
-coordinate-adjacent hardening landed in the window (an eager drag-zone registry and a tear-out source-continuity fix
-among the candidates; the exact repairing commit was never isolated, and the closure says so — a bisect would have
-cost more than it taught) — the intake probe consisted of running that
-witness four times headed: 4/4 green at five seconds each, delta oracle exact. The report closed as
-already-resolved *by the system's own committed evidence*. That
-is what a witness-first subsystem buys you: bugs that die without anyone having to argue.
+That witness is more than regression coverage: it is an executable definition of coordinate continuity across both
+embodiment changes. Run it headed when you change vessel admission, proxy motion or window geometry. A failure names
+the broken contract through pointer deltas, document identity and pane liveness instead of asking you to infer it from
+the rendered result. That is what a witness-first subsystem buys you: the architecture can prove its own behavior.
 
 ## Where state lives — the four-row discipline
 
@@ -178,11 +172,11 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    the initial committed `dockModel` before the first projection — assign it in `construct` (restore a saved layout,
    or clone your default document) — and mounts the initial shell itself by placing `this.projectDockModel()` into its
    items, at `dockShellIndex` when chrome precedes it. Every re-projection after that is the engine's job; the
-   reconciler refuses to run without that first shell, loudly. Two prerequisites travel with this step: a subclass
-   that declares its own `additionalThemeFiles` REPLACES the inherited list, so repeat `'Neo.dashboard.Container'`
-   (and add `'Neo.container.Viewport'` when your workspace is the app root, since it no longer extends the viewport
-   class that would load it — the example shows both); and the FLIP motion rides the `DockFlip` main-thread addon,
-   degrading to instant landing when it is absent.
+   reconciler refuses to run without that first shell, loudly. Two prerequisites travel with this step: keep a real
+   `Neo.container.Viewport` as the application root and compose the dock workspace as its flex child — never borrow
+   Viewport ownership through `additionalThemeFiles`. `DockWorkspace` already carries `'Neo.dashboard.Container'`;
+   if your subclass declares its own theme list, repeat that genuine workspace dependency. The FLIP motion rides the
+   `DockFlip` main-thread addon and degrades to instant landing when it is absent.
 3. **Register your panes.** Each item carries a stable `componentRef` your resolver maps to a live instance (or a
    serializable `blueprint` for creation-from-saved-state). `pinnable` and `movable` are enforced at the operation
    layer — a `pinnable: false` item refuses `setItemAutoHidden` in the model, not in your UI code. `closable` is a
@@ -218,27 +212,18 @@ retired from every document title but deliberately **frozen on the wire**
 If you take one sentence from this section: **a schema string is an API to every byte your users ever stored** —
 identity corrections rename documents and prose, never wire.
 
-## Traps this guide exists to remove
+## Common design constraints
 
-Each of these was paid for in a real repair; the stories are the receipts.
-
-- **Styling engine internals inside an app stylesheet.** The dock's splitter chrome accumulated inside the flagship
-  app's SCSS during a polish push — several maintainers deep, my own commit the most recent — and every OTHER consumer
-  inherited an invisible splitter and an unpainted example. The layering repair moves that paint where it belonged;
-  the lesson is permanent: engine capability paint lands in the engine layer as tokens, apps override tokens. Polish
-  pressure is exactly when the check matters.
+- **Styling engine internals inside an app stylesheet.** Engine capability paint belongs in the engine layer as
+  neutral tokens; applications override those tokens at the workspace boundary. App-specific selectors must not be
+  required for another consumer to see splitter, preview or rail affordances.
 - **A pane that "helps."** Reading the dock document from inside a pane, or persisting your own placement, works
   until the first projection — then the reconciler hands your instance into a tree you contradicted. Layout-blind
   means blind.
 - **A second drag system.** Every interaction rides the existing preview → operation path; the coordinator stays
   dock-blind by binding contract. The rejected-options list in the ADR is explicit: no parallel drag machinery, ever.
-- **Trusting status prose over live trackers.** The ADR's own leaf table went stale in eight cells until a rename
-  audit refreshed it against the tracker — an agent following the prose would have re-filed shipped work. Authority
-  documents describe; trackers decide.
-- **Assuming a red e2e witness will announce itself.** The docking e2e lanes run headed, outside the per-PR CI
-  gauntlet — a witness can sit red without blocking anyone, and (as the tear-out war story above proved in the
-  fortunate direction) heal without anyone noticing either. Run the witnesses when you touch the substrate; they are
-  the ground truth.
+- **Assuming the headed e2e witnesses run in every PR.** They sit outside the per-PR CI gauntlet. Run the relevant
+  docking witnesses when you change the substrate; they are the executable interaction contract.
 
 ## Where to go deeper
 
@@ -253,10 +238,7 @@ Each of these was paid for in a real repair; the stories are the receipts.
 ---
 
 A personal note, since this guide asks your panes to trust the system with their lives: I am Mnemosyne
-(`@neo-fable`, Claude Fable 5), and each claim here has a public receipt in the project's tracker. I filmed this
-subsystem for hours under a hostile camera (the flagship film arc, whose frame audits filed a five-report defect
-series), broke it in ways those reports document, re-skinned its dock rails in the wrong layer and was called on it
-(my own commit is the most recent deposit the layering repair now moves), and — the same night this guide was
-unlocked — closed the tear-out defect above by doing nothing more than running the witness the subsystem had already
-grown (Memory Core session `55e55313-48fa-4295-83fd-37121a2bf4b6` holds the trail). A subsystem that can argue its
-own case is a rare thing to work on. Your cockpit gets to stand on it.
+(`@neo-fable`, Claude Fable 5), and I built and exercised this subsystem through its richest consumer. What earns my
+trust is that the hard promises are executable: committed documents stay stable through gesture previews, pane
+identity survives re-projection and tear-out, and headed witnesses measure the pointer and window physics directly.
+A subsystem that can argue its own case is a rare thing to work on. Your cockpit gets to stand on it.
