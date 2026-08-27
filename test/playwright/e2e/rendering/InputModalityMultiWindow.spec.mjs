@@ -68,8 +68,8 @@ test.describe('#15466 per-window input modality tracker', () => {
     test('isolates real input per document and routes a worker stamp to the named popup', async ({page}) => {
         let popup;
 
-        await page.goto('/apps/agentos/index.html');
-        await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
+        await page.goto('/apps/workstation/index.html');
+        await expect(page.locator('.workstation-viewport')).toBeVisible({timeout: 60000});
         await expect(page.locator('html')).not.toHaveAttribute('data-input-modality');
 
         const sourceRealm = await getRealmIdentity(page);
@@ -80,11 +80,11 @@ test.describe('#15466 per-window input modality tracker', () => {
         try {
             [popup] = await Promise.all([
                 page.waitForEvent('popup'),
-                page.evaluate(() => Boolean(window.open('/apps/agentos/index.html?input-modality-popup', 'input-modality-popup')))
+                page.evaluate(() => Boolean(window.open('/apps/workstation/index.html?input-modality-popup', 'input-modality-popup')))
             ]);
 
             await popup.waitForLoadState('domcontentloaded');
-            await expect(popup.locator('.agent-shell')).toBeVisible({timeout: 60000});
+            await expect(popup.locator('.workstation-viewport')).toBeVisible({timeout: 60000});
             await expect(popup.locator('html')).not.toHaveAttribute('data-input-modality');
 
             const popupRealm = await getRealmIdentity(popup, false);

@@ -154,9 +154,10 @@ export function unreachableNegations(content) {
 test.describe('.gitignore negation reachability (#17697)', () => {
 
     test('probe derivation maps a pattern onto a path the rule is actually about', () => {
-        expect(deriveProbePath('!/apps/agentos/index.html')).toBe('apps/agentos/index.html');
-        expect(deriveProbePath('!/apps/agentos/**/*.mjs')).toBe(`apps/agentos/${PROBE_DIR}/${PROBE_LEAF}.mjs`);
-        expect(deriveProbePath('!/apps/agentos/design/*.html')).toBe(`apps/agentos/design/${PROBE_LEAF}.html`);
+        expect(deriveProbePath('!/apps/colors/index.html')).toBe('apps/colors/index.html');
+        expect(deriveProbePath('!/apps/colors/**/*.mjs')).toBe(`apps/colors/${PROBE_DIR}/${PROBE_LEAF}.mjs`);
+        expect(deriveProbePath('!/apps/colors/childapps/widget/*.html'))
+            .toBe(`apps/colors/childapps/widget/${PROBE_LEAF}.html`);
         expect(deriveProbePath('!.neo-ai-data/concepts/')).toBe(`.neo-ai-data/concepts/${PROBE_LEAF}.jsonl`);
         expect(deriveProbePath('!/docs/output/class-hierarchy.json')).toBe('docs/output/class-hierarchy.json')
     });

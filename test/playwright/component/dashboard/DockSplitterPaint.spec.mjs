@@ -192,12 +192,9 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
     });
 
     /**
-     * The two real consuming apps, loaded as the COMPILED stylesheets they ship as.
-     *
-     * The synthetic-token arm above proves the engine consumes the token. It cannot prove that
-     * either app's own rule reaches it, because a rule written in the spec is a rule nobody ships.
-     * These link `dist/**\/css/**` — the same artifacts Neo itself loads at runtime — and wear the
-     * app's real root class, so what is measured is the shipped cascade.
+     * The real Engine-owned consuming app, loaded as the compiled stylesheets it ships as.
+     * The synthetic-token arm proves the engine consumes the token; this arm proves the
+     * Workstation rule reaches it through the shipped cascade.
      */
     const APP_IDENTITIES = [{
         name   : 'workstation',
@@ -208,12 +205,7 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
         // `color-mix(… var(--workstation-signal) …)` is an invalid substitution and the band
         // computes to transparent — which is how the first version of this arm failed, and why
         // loading the rule alone would have measured a document the app never ships.
-        tokens   : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/workstation/Viewport.css`
-    }, {
-        name   : 'FM',
-        rootCls: 'fm-fleet-cockpit',
-        rule   : '/dist/development/css/src/apps/agentos/fleet/cockpit/Container.css',
-        tokens : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/agentos/Viewport.css`
+        tokens: theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/workstation/Viewport.css`
     }];
 
     /** Resting, hover and active readings of the band and its handle, under one app identity. */
@@ -287,8 +279,8 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
 
         // Derived from the box, never a fixed corner. The splitter renders at (0, 0) at 6x720, so
         // parking the pointer at the origin leaves it INSIDE the element — the first version of
-        // this arm read `resting` while hovering, and only FM's identical hover/active values made
-        // that visible. `isHover` is asserted below so the same mistake cannot return silently.
+        // this arm once read `resting` while hovering. `isHover` is asserted below so the same
+        // mistake cannot return silently.
         await page.mouse.move(box.x + box.width + 100, box.y + box.height / 2);
 
         const resting = await read();
@@ -323,26 +315,15 @@ test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', ()
                 expect(hover.isHover, 'precondition: the pointer must actually be over the splitter').toBe(true);
                 expect(active.isActive, 'precondition: the pointer press must put it in :active').toBe(true);
 
-                // The state ladder is live at the boundary both apps agree on. Only workstation
-                // declares three DISTINCT band values; FM deliberately gives hover and active the
-                // same `--fm-signal 45%`, so asserting a three-step ladder for it would be
-                // asserting a design it does not have.
+                // Workstation declares three distinct band values.
                 expect(resting.band, 'the app identity separates resting from hover').not.toBe(hover.band);
 
-                identity.name === 'workstation'
-                    // PARITY, on the one value this PR moved. Before the promotion Workspace.scss
-                    // painted `&:active::after { background: var(--workstation-signal) }` directly.
-                    // The active handle must still compute to exactly that colour — now arriving
-                    // through `--dock-splitter-handle-color-active` instead of an app paint rule.
-                    ? (
-                        expect(active.handle, 'the active handle still resolves to --workstation-signal')
-                            .toBe(resting.signalToken),
-                        expect(hover.band, 'and workstation does declare a distinct active band')
-                            .not.toBe(active.band)
-                    )
-                    // FM's opt-out, from its real shipped rule rather than a spec-authored one.
-                    : expect(active.handleSize, 'FM ships flat — the handle is collapsed by token')
-                        .toBe('0px');
+                // PARITY, on the one value this PR moved. Before the promotion Workspace.scss
+                // painted `&:active::after { background: var(--workstation-signal) }` directly.
+                expect(active.handle, 'the active handle still resolves to --workstation-signal')
+                    .toBe(resting.signalToken);
+                expect(hover.band, 'workstation declares a distinct active band')
+                    .not.toBe(active.band);
 
                 // And the affordance survives either identity: a band a user can see, in every state.
                 for (const [state, reading] of Object.entries({resting, hover, active})) {

@@ -2,7 +2,7 @@ import {setup} from '../../setup.mjs';
 
 setup({
     appConfig: {
-        name: 'AgentOSDockPreviewTest'
+        name: 'DashboardDockPreviewTest'
     }
 });
 
@@ -57,36 +57,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
             expect(scss).toContain('opacity')
         });
 
-        test('every agentos app anchor projects the full alias set in both modes', () => {
-            // Post-lift loading model: the renderer is app-neutral (Neo.dashboard.DockPreview);
-            // each APP SURFACE carries its own projection copy on its always-mounted viewport
-            // anchor — the FM app AND the Mission Control childapp (whose viewport extends
-            // Neo.container.Viewport directly, so the app-level file never loads there).
-            const anchors = [
-                'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss',
-                'resources/scss/theme-neo-light/apps/agentos/Viewport.scss',
-                'resources/scss/theme-neo-dark/apps/agentos/childapps/missioncontrol/Viewport.scss',
-                'resources/scss/theme-neo-light/apps/agentos/childapps/missioncontrol/Viewport.scss'
-            ];
-
-            anchors.forEach(anchor => {
-                const source = fs.readFileSync(path.join(repoRoot, anchor), 'utf8');
-
-                [
-                    '--agent-dock-preview-accept',
-                    '--agent-dock-preview-accept-fill',
-                    '--agent-dock-preview-reject',
-                    '--agent-dock-preview-reject-fill',
-                    '--agent-dock-preview-signal',
-                    '--agent-dock-preview-signal-fill',
-                    '--agent-dock-preview-signal-ground'
-                ].forEach(alias => {
-                    expect(source, `${alias} projected in ${anchor}`).toMatch(new RegExp(`${alias}\\s*:`))
-                })
-            })
-        })
-
-        test('domain-token consumers stay on the declared DockPreview contract', () => {
+        test('shared consumers stay on the declared DockPreview contract', () => {
             const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
                   consumers  = [...new Set(
                       [...structural.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
@@ -99,16 +70,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
             expect(consumers).toEqual([
                 '--dock-transition-duration',
                 '--dock-transition-easing'
-            ]);
-
-            // The FM identity values stay pinned at their app anchors (dark glow / light pigment).
-            const darkAnchor  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss'), 'utf8'),
-                  lightAnchor = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss'), 'utf8');
-
-            expect(darkAnchor).toMatch(/--agent-dock-preview-accept\s*:\s*#5eead4;/);
-            expect(darkAnchor).toMatch(/--agent-dock-preview-reject\s*:\s*#f4718b;/);
-            expect(lightAnchor).toMatch(/--agent-dock-preview-accept\s*:\s*#0d9488;/);
-            expect(lightAnchor).toMatch(/--agent-dock-preview-reject\s*:\s*#be123c;/)
+            ])
         })
 
         test('the proxy surface and signal language have no fallbacks and stay dock-owned', () => {
@@ -125,7 +87,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
             // fallback-masking class this variant's whole review cycle exists to kill — an
             // equal-valued literal hides a missing app projection in exactly one mode. Every
             // shared signal consumer (the indicator/chip section + the proxy edge-light in
-            // Container.scss, the zone flood in the agentos variant) consumes the aliases bare.
+            // Container.scss) consumes the aliases bare.
             [containerScss.slice(signalStart), previewScss].forEach(source => {
                 expect([...source.matchAll(/var\(--agent-dock-preview-signal[\w-]*\s*,/g)]).toEqual([])
             });

@@ -36,11 +36,10 @@ export default defineConfig({
     testDir  : './e2e',
     testMatch: [
         '**/colors/tearOutMatrix.spec.mjs',
-        '**/agentos/TearOutMatrixRows4To7NL.spec.mjs',
-        '**/agentos/DemoBVesselConversionNL.spec.mjs',
-        '**/agentos/DemoBCrossWindowDragNL.spec.mjs',
-        '**/agentos/DemoBThirdClaimantStageNL.spec.mjs',
-        '**/agentos/FleetPermanenceMatrixRow4NL.spec.mjs'
+        '**/dashboard/TearOutMatrixRows4To7NL.spec.mjs',
+        '**/dashboard/DemoBVesselConversionNL.spec.mjs',
+        '**/dashboard/DemoBCrossWindowDragNL.spec.mjs',
+        '**/dashboard/DemoBThirdClaimantStageNL.spec.mjs'
     ],
     outputDir    : './test-results/matrix/artifacts',
     fullyParallel: false, // native window placement is a global resource — strictly serial

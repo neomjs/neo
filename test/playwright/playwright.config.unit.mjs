@@ -27,21 +27,7 @@ export function buildUnitRunPolicy({isCI}) {
     }
 }
 
-// These retained Engine/Fleet tests exercise an externally provisioned Brain runtime or import
-// Brain-owned hook policy. They are not part of the Engine-only unit project after the repository
-// cut. A dedicated cross-repository project will bind them to `agentosRuntimeRoot`; keeping their
-// exact identities here makes the temporary boundary visible instead of letting collection fail on
-// removed local `ai/**` paths.
-export const crossRepoBrainTestIgnore = [
-    /[\\/]harness[\\/](brain|fleetCapability)\.spec\.mjs$/,
-    /[\\/]apps[\\/]agentos[\\/]config[\\/]fleetVocabularyParity\.spec\.mjs$/,
-    /[\\/]apps[\\/]agentos[\\/]fleet[\\/](connectionProfiles|fleetTransport\.integration|fleetWakeStreamConsumer(?:\.live)?)\.spec\.mjs$/,
-    /[\\/]apps[\\/]agentos[\\/]view[\\/]fleet[\\/](mailbox[\\/]operatorSeatConflationParity|util[\\/]kindRegistry)\.spec\.mjs$/
-];
-
-const
-    isCI                     = !!process.env.CI,
-    hasAgentOsRuntimeBinding = path.isAbsolute(process.env.NEO_AGENTOS_RUNTIME_ROOT || '');
+const isCI = !!process.env.CI;
 
 export default defineConfig({
     testDir      : path.join(__dirname, 'unit'),
@@ -50,7 +36,6 @@ export default defineConfig({
     ...buildUnitRunPolicy({isCI}),
     use     : {trace: 'on-first-retry'},
     projects: [{
-        name      : 'unit-engine',
-        testIgnore: hasAgentOsRuntimeBinding ? [] : crossRepoBrainTestIgnore
+        name: 'unit-engine'
     }]
 });

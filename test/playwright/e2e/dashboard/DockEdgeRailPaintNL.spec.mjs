@@ -17,9 +17,8 @@ import {test, expect} from '../../fixtures.mjs';
  *   1. PRESERVATION — the workstation's rail is byte-identical to its pre-promotion reading. Its
  *      values now travel token → engine rule instead of being declared in the app; a token that
  *      resolved differently, or an app declaration that survived and shadowed the engine, fails here.
- *   2. CAPABILITY — a consumer that ships NO rail paint (the cockpit) can be skinned by setting the
- *      tokens alone. This is the arm that is red before the change: with no engine rule reading
- *      them, setting these four custom properties resolves to nothing and the strip stays bare.
+ *   2. CAPABILITY — mutating only the rail tokens on a live consumer changes every painted
+ *      property. Without the engine rule reading them, those writes do not move the strip.
  *
  * The capability arm mutates in-page rather than asserting a shipped value, for the reason the
  * rail-size coupling control records: one reading cannot tell "the engine reads this token" from
@@ -69,17 +68,14 @@ test.describe('Neo.dashboard.Container — the edge rail paints from engine toke
         expect(rail).toEqual(WORKSTATION_BASELINE)
     });
 
-    test('capability: a consumer with no rail paint skins the strip by token alone', async ({page}) => {
-        await page.goto('/apps/agentos/index.html');
-        await expect(page.locator('.agent-shell'), 'the cockpit must boot').toBeVisible({timeout: 60000});
+    test('capability: a live consumer reskins the strip by token alone', async ({page}) => {
+        await page.goto('/apps/workstation/index.html');
+        await expect(page.locator('.neo-dashboard-dock-splitter').first(), 'the workstation must boot')
+            .toBeVisible({timeout: 60000});
 
         const before = await page.evaluate(readRail);
 
-        expect(before, 'the cockpit must render an edge rail').toBeTruthy();
-        // Non-vacuity: the arm below is only meaningful because the strip starts bare. If the
-        // cockpit ever adopts rail paint, this fails loudly instead of silently proving nothing.
-        expect(before.background, 'the cockpit rail must start unpainted').toBe('rgba(0, 0, 0, 0)');
-        expect(before.shadow).toBe('none');
+        expect(before, 'the workstation must render an edge rail').toBeTruthy();
 
         const after = await page.evaluate(() => {
             const rail = document.querySelector('.neo-dashboard-dock-edge-rail');
@@ -103,6 +99,7 @@ test.describe('Neo.dashboard.Container — the edge rail paints from engine toke
 
         // Each property is asserted separately: a single object compare would let one unread token
         // hide behind four that resolved, and "which one did not travel" is the useful failure.
+        expect(after, 'the token mutation must visibly move the live rail').not.toEqual(before);
         expect(after.background, 'background must resolve from the token').toBe('rgb(10, 20, 30)');
         expect(after.border,     'border must resolve from the token').toBe('2px solid rgb(40, 50, 60)');
         expect(after.radius,     'radius must resolve from the token').toBe('5px');
