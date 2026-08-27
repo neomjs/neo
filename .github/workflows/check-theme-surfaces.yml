@@ -1,15 +1,10 @@
-name: Theme Surfaces Guard
+name: Workstation Theme Guard
 
-# The path lists are the ENFORCEMENT half of this guard: a surface registered in SURFACES but absent
-# here is checked by `npm run check-theme-surfaces` and never by CI, so its coverage is decorative on
-# exactly the tree it was added for. Registering a new surface means adding its three scss roots here.
+# The path list is the enforcement half of the Workstation theme contract.
 on:
   pull_request:
     branches: [dev]
     paths:
-      - 'resources/scss/theme-neo-dark/apps/agentos/**'
-      - 'resources/scss/theme-neo-light/apps/agentos/**'
-      - 'resources/scss/src/apps/agentos/**'
       - 'resources/scss/theme-neo-dark/apps/workstation/**'
       - 'resources/scss/theme-neo-light/apps/workstation/**'
       - 'resources/scss/src/apps/workstation/**'
@@ -19,9 +14,6 @@ on:
   push:
     branches: [dev]
     paths:
-      - 'resources/scss/theme-neo-dark/apps/agentos/**'
-      - 'resources/scss/theme-neo-light/apps/agentos/**'
-      - 'resources/scss/src/apps/agentos/**'
       - 'resources/scss/theme-neo-dark/apps/workstation/**'
       - 'resources/scss/theme-neo-light/apps/workstation/**'
       - 'resources/scss/src/apps/workstation/**'
@@ -45,5 +37,5 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Check registered theme surfaces (skin parity + token-only views)
+      - name: Check Workstation skin parity and token-only views
         run: npm run check-theme-surfaces

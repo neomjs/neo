@@ -14,24 +14,12 @@ import {test, expect} from '../../fixtures.mjs';
  * gesture is still held. A resting assertion here would re-certify the surface that was never
  * broken — which is precisely how the defect passed review.
  *
- * Both real consumer shapes run, for the reason recorded at HOSTS below.
+ * The Engine-owned example host proves the default paint and handle metrics travel together.
  *
  * Run: NEO_E2E_PORT=49241 NEO_TEST_SKIP_CI=true npx playwright test dashboard/DockSplitterProxyPaintNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
-/**
- * Both real consumer shapes, because the two fail for DIFFERENT reasons if the fix is wrong.
- * The example carries no application dock CSS, so it proves the ENGINE floor travels; AgentOS
- * declares its values as a descendant rule under an app root, which is the half a scope-class
- * fix would silently drop. A green on one alone leaves the other's failure mode untested.
- */
 const HOSTS = [
-    // `handleDiscriminates` records where the handle assertion actually has teeth. AgentOS opts OUT
-    // of the grip (`--dock-splitter-handle-size: 0`, a deliberate FM design statement), so comparing
-    // proxy-to-source there is `0 === 0` — it passes whether or not the metric travelled. Naming
-    // that keeps it from reading as coverage it is not, and the example host, which inherits the
-    // engine's 36px default, is what genuinely covers the axis.
-    {name: 'the example (engine floor, no app dock CSS)', url: '/examples/dashboard/dock/', ready: '.neo-dashboard-dock-splitter',                    handleDiscriminates: true},
-    {name: 'AgentOS (consumer values under an app root)', url: '/apps/agentos/index.html',  ready: '.fm-fleet-cockpit .neo-dashboard-dock-splitter', handleDiscriminates: false}
+    {name: 'the example (engine floor, no app dock CSS)', url: '/examples/dashboard/dock/', ready: '.neo-dashboard-dock-splitter', handleDiscriminates: true}
 ];
 
 test.describe('Neo.dashboard.DockSplitter — the drag proxy carries its paint', () => {

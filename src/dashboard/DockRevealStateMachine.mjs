@@ -44,9 +44,8 @@
  *
  * ## Design constants
  *
- * Sourced from the S3 storyboard notes (`apps/agentos/design/dock-choreography-demo.html`):
- * dwell + grace are INTERACTION timings owned here; the 200ms/160ms reveal/dismiss slide
- * durations are ANIMATION timings and live in CSS, not in this machine.
+ * Dwell + grace are interaction timings owned here; reveal/dismiss slide durations are animation
+ * timings and live in CSS, not in this machine.
  */
 class DockRevealStateMachine {
     /**

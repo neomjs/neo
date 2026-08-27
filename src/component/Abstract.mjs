@@ -35,7 +35,7 @@ class Abstract extends Base {
         /**
          * Additional namespaces to load theme files for.
          * @member {String[]|null} additionalThemeFiles=null
-         * @example ['AgentOSStrategy.view.Viewport']
+         * @example ['Workstation.view.Viewport']
          */
         additionalThemeFiles: null,
         /**
@@ -451,7 +451,7 @@ class Abstract extends Base {
             // Fast Path 1: Target is the root node itself
             if (me.vnode.id === targetId) {
                 vnode = me.vnode;
-            } 
+            }
             // Fast Path 2: Target is the logical vnode root (e.g. GridBody scroll container)
             else if (me.id === targetId) {
                 // me.getVnodeRoot() returns the node assigned me.id by ensureStableIds
@@ -459,7 +459,7 @@ class Abstract extends Base {
                 if (vnodeRoot && vnodeRoot.id === targetId) {
                     vnode = vnodeRoot;
                 }
-            } 
+            }
             // Fast Path 3: Target is the designated items container
             else if (me.getVnodeItemsRoot) {
                 let itemsRoot = me.getVnodeItemsRoot();

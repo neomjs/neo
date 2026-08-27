@@ -220,11 +220,9 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
     });
 
     test('a splitter nested under an at-rule is still censused', () => {
-        // FleetCockpit's real shape: the only current structural deviation lives inside a
-        // `@container` query. A census that walked only top-level blocks would never reach it —
-        // and would report the file clean whatever it contained.
+        // A nested consumer rule must not evade the census merely by living inside an at-rule.
         expect(offendersIn(`
-            @container fm-cockpit (max-width: 570px) {
+            @container consumer-cockpit (max-width: 570px) {
                 .neo-dashboard-dock-split-horizontal {
                     > .neo-dashboard-dock-splitter-horizontal { box-shadow: none }
                 }
@@ -256,16 +254,6 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
             expect(engine, `${slot} is an identity slot and must default to none`)
                 .toMatch(new RegExp(`${slot}\\s*:\\s*none`))
         }
-    });
-
-    test('opting OUT of the handle is expressible without re-declaring the rule', () => {
-        // FM is flat by choice. `--dock-splitter-handle-size: 0` makes that a design statement that
-        // greps, instead of an absence that reads as an oversight — and it survives the engine
-        // gaining a handle, which is what just happened.
-        const fm = readFileSync('resources/scss/src/apps/agentos/fleet/cockpit/Container.scss', 'utf8');
-
-        expect(fm, 'FM declares flat rather than omitting the handle')
-            .toMatch(/--dock-splitter-handle-size\s*:\s*0/)
     });
 
     test('the promoted rule carries no !important', () => {

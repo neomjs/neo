@@ -180,34 +180,16 @@ test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
     })
 
     /**
-     * The two real consuming apps, loaded as the COMPILED stylesheets they ship as.
-     *
-     * The synthetic `.test-app-a` arm above proves the engine's token PLUMBING works. It cannot
-     * prove either app's own rule reaches it, because a rule authored in a spec is a rule nobody
-     * ships. These link `dist/**\/css/**` — the same artifacts Neo loads at runtime — plus the
-     * theme-scoped token layer the app's values reference, because `--workstation-signal` and
-     * `--fm-ink-dim` are declared under `:root .neo-theme-neo-*` and NOT in the app stylesheet.
-     * Loading the rule alone leaves every `var()` an invalid substitution and the tab quietly
-     * computes the engine default while the arm reports on the app.
+     * The real Engine-owned consuming app, loaded as the compiled stylesheets it ships as.
+     * The synthetic arm proves token plumbing; this arm proves Workstation's shipped rule reaches it.
      */
     const APP_IDENTITIES = [{
         inkHover  : '--workstation-ink',
         inkResting: '--workstation-ink-dim',
         name      : 'workstation',
-        // Only workstation declares `--dock-rail-tab-font-family`; FM leaves the engine's
-        // `inherit` in place, and that difference is itself a value meant to stay unchanged.
-        ownsVoice: true,
         rootCls  : 'workstation-workspace',
         rule     : '/dist/development/css/src/apps/workstation/Workspace.css',
         tokens   : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/workstation/Viewport.css`
-    }, {
-        inkHover  : '--fm-ink',
-        inkResting: '--fm-ink-dim',
-        name      : 'FM',
-        ownsVoice : false,
-        rootCls   : 'fm-fleet-cockpit',
-        rule      : '/dist/development/css/src/apps/agentos/fleet/cockpit/Container.css',
-        tokens    : theme => `/dist/development/css/${theme.replace('neo-theme-', 'theme-')}/apps/agentos/Viewport.css`
     }];
 
     /** Links stylesheets into the document, rejecting loudly when one is missing. */
@@ -319,71 +301,11 @@ test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
                     expect(reading.boxShadow, `${state} box-shadow stays engine-neutral`).toBe('none')
                 }
 
-                // Voice is app-owned and asymmetric on purpose: only workstation declares the mono
-                // family. Asserting the same font for both would assert a design neither has.
-                identity.ownsVoice
-                    ? expect(resting.fontFamily, 'workstation speaks mono through the token')
-                        .toMatch(/mono/i)
-                    : expect(resting.fontFamily, 'FM leaves the engine inherit in place')
-                        .not.toMatch(/mono/i)
+                expect(resting.fontFamily, 'workstation speaks mono through the token')
+                    .toMatch(/mono/i)
             })
         }
     }
-
-    test('mutating ONE app token moves that app only — both real consumers, side by side', async ({page}) => {
-        await applyTheme(page, 'neo-theme-neo-dark');
-        await loadStylesheets(page, [
-            APP_IDENTITIES[0].tokens('neo-theme-neo-dark'), APP_IDENTITIES[0].rule,
-            APP_IDENTITIES[1].tokens('neo-theme-neo-dark'), APP_IDENTITIES[1].rule
-        ]);
-
-        // Two subtrees in ONE document, each wearing a real app root class, so the isolation claim
-        // is measured across the two shipped rules rather than across two spec-authored ones.
-        await page.evaluate(() => {
-            const dashboard = document.querySelector('.neo-dashboard'),
-                  sibling   = dashboard.cloneNode(true);
-
-            sibling.id = 'sibling-dashboard';
-            dashboard.parentElement.appendChild(sibling);
-
-            dashboard.classList.add('workstation-workspace');
-            sibling.classList.add('fm-fleet-cockpit')
-        });
-
-        const
-            wsTab = '.workstation-workspace .neo-dashboard-dock-rail-tab',
-            fmTab = '.fm-fleet-cockpit .neo-dashboard-dock-rail-tab';
-
-        const before = {
-            fm: await readTabPaint(page, fmTab),
-            ws: await readTabPaint(page, wsTab)
-        };
-
-        // Non-vacuity: the two subtrees must be genuinely different consumers, or "only one moved"
-        // is unfalsifiable. It is anchored on VOICE rather than ink, because the two apps really do
-        // share `#8b97a8` for dim ink in the dark theme — an equal-colour assertion here would have
-        // been asserting a difference the design does not have, and it failed exactly that way
-        // first. Voice is the axis where they genuinely diverge: only workstation sets the family.
-        expect(before.ws.fontFamily, 'precondition: the two subtrees are different consumers')
-            .not.toBe(before.fm.fontFamily);
-
-        await page.evaluate(() => {
-            const style = document.createElement('style');
-
-            style.textContent =
-                '.workstation-workspace .neo-dashboard-dock-edge-rail .neo-button.neo-dashboard-dock-rail-tab ' +
-                '{ --dock-rail-tab-color: rgb(255, 0, 0) }';
-            document.head.appendChild(style)
-        });
-
-        const after = {
-            fm: await readTabPaint(page, fmTab),
-            ws: await readTabPaint(page, wsTab)
-        };
-
-        expect(after.ws.color, 'the mutated token moves the app that sets it').toBe('rgb(255, 0, 0)');
-        expect(after.fm, 'and the other real consumer is untouched, on every property').toEqual(before.fm)
-    })
 });
 
 test.describe('Neo.dashboard.DockRail — the revealed tab reads as revealed', () => {
@@ -395,8 +317,7 @@ test.describe('Neo.dashboard.DockRail — the revealed tab reads as revealed', (
      * SCOPE, stated so this arm is not read as proving more than it does: it drives the `pressed`
      * class directly and asserts the PAINT. That the reveal machine actually projects that state
      * onto the matching tab is a different property, proven against `syncRevealedTabState` in the
-     * DockRail unit spec, and end-to-end through real clicks in the AgentOS cockpit witness. Each
-     * layer asserts the half it is positioned to see.
+     * DockRail unit spec. Product-level real-click coverage belongs with each consuming app.
      *
      * Both themes run because a `currentColor`-relative default resolves against inherited ink —
      * the one class of value that can look correct in one theme and vanish in the other.

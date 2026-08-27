@@ -3,7 +3,7 @@ import {test, expect} from '../../fixtures.mjs';
 /**
  * @summary Live Neural Link proof for dashboard window operations.
  *
- * Drives the agent-facing RuntimeService path against the AgentOS dashboard: resolve a real
+ * Drives the agent-facing RuntimeService path against the Colors dashboard: resolve a real
  * dashboard panel through App-Worker state, open it through the dashboard popup primitive, assert the
  * popup registers in window topology, then exercise focus/position/close through the trusted identity
  * spine and observe the terminal topology disappearance.
@@ -14,16 +14,25 @@ test.describe('Neural Link window operations (e2e)', () => {
     test('operates one exact popup generation and degrades a reloaded generation', async ({page, neuralLink}) => {
         let popup;
 
-        await page.goto('/apps/agentos/index.html');
-        // the Accounts panel is the rail's dashboard-hosted keeper-view (the pop-out host)
-        await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
-        await expect(page.locator('.agent-panel-accounts')).toBeVisible({timeout: 60000});
+        // Colors is the surviving Engine-owned dashboard host. Neural Link is test-provisioned
+        // here rather than changing the app's production config solely to serve this witness.
+        await page.route('**/apps/colors/neo-config.json*', async route => {
+            const
+                response = await route.fetch(),
+                config   = await response.json();
 
-        const app = await neuralLink.connectToApp('AgentOS');
+            await route.fulfill({response, json: {...config, useAiClient: true}})
+        });
+
+        await page.goto('/apps/colors/index.html');
+        await expect(page.locator('.colors-viewport')).toBeVisible({timeout: 60000});
+        await expect(page.locator('.neo-dashboard-panel').first()).toBeVisible({timeout: 60000});
+
+        const app = await neuralLink.connectToApp('Colors');
 
         const
             dashboards = await app.queryComponent({className: 'Neo.dashboard.Container'}, ['id', 'className', 'ntype']),
-            panels     = await app.queryComponent({className: 'AgentOS.view.accounts.Panel'}, ['id', 'className', 'ntype', 'parentId']);
+            panels     = await app.queryComponent({className: 'Neo.dashboard.Panel'}, ['id', 'className', 'ntype', 'parentId']);
 
         expect(dashboards.length, 'dashboard host should be discoverable through Neural Link').toBeGreaterThan(0);
         expect(panels.length, 'the Accounts panel should be discoverable through Neural Link').toBeGreaterThan(0);
@@ -37,7 +46,7 @@ test.describe('Neural Link window operations (e2e)', () => {
             ntype    : 'dashboard'
         });
         expect(panel.properties).toMatchObject({
-            className: 'AgentOS.view.accounts.Panel',
+            className: 'Neo.dashboard.Panel',
             ntype    : 'dashboard-panel',
             parentId : dashboard.id
         });
@@ -49,7 +58,7 @@ test.describe('Neural Link window operations (e2e)', () => {
         };
 
         const sourceWindows = await getBoundWindows();
-        expect(sourceWindows.some(win => win.appName === 'AgentOS')).toBe(true);
+        expect(sourceWindows.some(win => win.appName === 'Colors')).toBe(true);
 
         try {
             const result = await Promise.all([
@@ -69,11 +78,11 @@ test.describe('Neural Link window operations (e2e)', () => {
                 componentId: panel.id,
                 dashboardId: dashboard.id,
                 popupWidth : 420,
-                windowName : 'accounts'
+                windowName : 'grid-panel'
             });
 
             await popup.waitForLoadState('domcontentloaded');
-            await expect(popup.locator('.agent-panel-accounts')).toBeVisible({timeout: 30000});
+            await expect(popup.locator(`#${panel.id}`)).toBeVisible({timeout: 30000});
 
             await expect.poll(async () => {
                 const windows = await getBoundWindows();
@@ -82,11 +91,11 @@ test.describe('Neural Link window operations (e2e)', () => {
 
             const
                 windows     = await getBoundWindows(),
-                popupWindow = windows.find(win => win.appName === 'AgentOSWidget');
+                popupWindow = windows.find(win => win.appName === 'ColorsWidget');
 
             expect(popupWindow?.windowId, 'popup should register a logical window id').toBeTruthy();
             expect(popupWindow.appWorkerId).toBe(app.sessionId);
-            expect(popupWindow.capabilities).toEqual({close: true, focus: true, position: true});
+            expect(popupWindow.capabilities).toEqual({close: true, focus: true, position: true, resize: false});
             expect(popupWindow.nativeHandleKey).toBeUndefined();
             expect(popupWindow.ownerWindowId).toBeUndefined();
             expect(popupWindow.targetWindowId).toBeUndefined();
@@ -146,14 +155,14 @@ test.describe('Neural Link window operations (e2e)', () => {
             await expect.poll(async () => {
                 const windows = await getBoundWindows();
 
-                return windows.some(win => win.appName === 'AgentOSWidget' && win.windowId !== popupWindow.windowId)
+                return windows.some(win => win.appName === 'ColorsWidget' && win.windowId !== popupWindow.windowId)
             }, {timeout: 15000}).toBe(true);
 
             const reopenedWindow = (await getBoundWindows()).find(win =>
-                win.appName === 'AgentOSWidget' && win.windowId !== popupWindow.windowId
+                win.appName === 'ColorsWidget' && win.windowId !== popupWindow.windowId
             );
 
-            expect(reopenedWindow.capabilities).toEqual({close: true, focus: true, position: true});
+            expect(reopenedWindow.capabilities).toEqual({close: true, focus: true, position: true, resize: false});
 
             await popup.reload();
             await popup.waitForLoadState('domcontentloaded');
@@ -161,8 +170,8 @@ test.describe('Neural Link window operations (e2e)', () => {
             await expect.poll(async () => {
                 const windows = await getBoundWindows();
 
-                return windows.find(win => win.appName === 'AgentOSWidget')?.capabilities
-            }, {timeout: 15000}).toEqual({close: false, focus: false, position: false})
+                return windows.find(win => win.appName === 'ColorsWidget')?.capabilities
+            }, {timeout: 15000}).toEqual({close: false, focus: false, position: false, resize: false})
         } finally {
             await popup?.close().catch(() => {})
         }

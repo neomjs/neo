@@ -41,7 +41,6 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 
 ## Demo Apps and Examples
 
-- [Neo.mjs Agent OS](https://neomjs.com/apps/agentos/index.html)
 - [Neo.mjs Neural Link Testbed](https://neomjs.com/apps/ai/neural-link/index.html)
 - [Colors Dashboard](https://neomjs.com/apps/colors/index.html)
 - [COVID-19 IN NUMBERS](https://neomjs.com/apps/covid/index.html)

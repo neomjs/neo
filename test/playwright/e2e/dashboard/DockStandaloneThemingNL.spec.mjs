@@ -284,10 +284,6 @@ test.describe('Relocated dock examples — example-owned palette (Neural Link)',
                 );
 
                 expect(
-                    sheetUrls.filter(url => url.includes('/apps/agentos/')),
-                    'a standalone example must load zero AgentOS product stylesheets'
-                ).toEqual([]);
-                expect(
                     sheetUrls.some(url => url.includes('/examples/dashboard/Palette.css')),
                     'the example-owned palette stylesheet is present'
                 ).toBe(true);
