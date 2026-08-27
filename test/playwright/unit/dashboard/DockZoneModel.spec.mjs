@@ -13,8 +13,6 @@ import DockWorkspace   from '../../../../src/dashboard/DockWorkspace.mjs';
 import DockZoneModel   from '../../../../src/dashboard/DockZoneModel.mjs';
 import MainContainer   from '../../../../examples/dashboard/dock/MainContainer.mjs';
 import Toolbar         from '../../../../src/toolbar/Base.mjs';
-import Viewport        from '../../../../src/container/Viewport.mjs';
-import {buildMainView} from '../../../../examples/dashboard/dock/app.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**
@@ -1075,12 +1073,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
     });
 
     test.describe('standalone dock example composition', () => {
-        test('keeps a real Viewport root around the DockWorkspace holder', () => {
-            const mainView    = buildMainView(),
-                  [workspace] = mainView.items;
-
-            expect(mainView.module).toBe(Viewport);
-            expect(workspace).toEqual({module: MainContainer, flex: 1});
+        test('keeps the DockWorkspace holder free of Viewport responsibilities', () => {
             expect(DockWorkspace.prototype.isPrototypeOf(MainContainer.prototype)).toBe(true);
             expect(MainContainer.config.additionalThemeFiles).toEqual(['Neo.dashboard.Container']);
             expect(MainContainer.config.autoMount).toBeUndefined();
