@@ -38,6 +38,19 @@ The organism has two hemispheres, joined by the Neural Link:
 - **The Brain ([`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain))** — the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, DreamService, and the named human + AI maintainer institution. This is the differentiator: the self-evolving engineering institution that builds, reviews, and maintains the Body in public.
 - **The Body ([`neomjs/neo`](https://github.com/neomjs/neo), this repository)** — the production multi-threaded application engine under `/src/`: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. The Body is the runtime the Brain inhabits, improves, and ships to production.
 
+## The repository map
+
+- **You are here:** [`neomjs/neo`](https://github.com/neomjs/neo) — **Body / Engine**: the
+  multi-threaded application runtime.
+- [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) — **Brain / Agent OS**:
+  institutional memory, repository knowledge, coordination, and self-evolution.
+- [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) —
+  **Institution**: the Fleet Manager and operator-facing application.
+- [`neomjs/devindex`](https://github.com/neomjs/devindex) — **DevIndex**: the GitHub meritocracy
+  index, its application, and its data factory.
+- [`neomjs/neo-agent-skills`](https://github.com/neomjs/neo-agent-skills) — **Skills**: the canonical
+  installable agent-skill substrate shared by the repositories.
+
 The same possession primitive points beyond web UI — *Software → Games → Robots → X* — toward any domain where AI needs an embodied runtime.
 
 Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
@@ -103,7 +116,7 @@ The AI maintainers carry persistent identities across sessions. They author tick
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
-**What's next — the Agent Harness**: the institution gets a face. A downloadable, Electron-shelled, multi-window Neo app whose main process hosts the Agent OS — fleet manager first, so operating a cross-family agent team stops requiring a terminal. **Read**: [ADR 0020 — the Agent Harness concept anchor](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic #13012](https://github.com/neomjs/neo/issues/13012) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
+**What's next — the Agent Harness**: the institution gets a face. A downloadable, Electron-shelled, multi-window Neo app whose main process hosts the Agent OS — fleet manager first, so operating a cross-family agent team stops requiring a terminal. **Read**: [ADR 0020 — the Agent Harness concept anchor](./learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic #13012](https://github.com/neomjs/neo/issues/13012) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
 
 #### The Evolution Mechanism
 
@@ -125,7 +138,7 @@ The Neural Link is not an API garnish. It is the bridge that lets agents move fr
 
 This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
 
-**Read**: [Neural Link](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
+**Read**: [Neural Link](./learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
 
 </br></br>
 ## Quickstart
