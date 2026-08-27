@@ -1,6 +1,7 @@
 import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
+import Resize    from '../draggable/Resize.mjs';
 import Rectangle from '../../util/Rectangle.mjs';
 
 /**
@@ -213,6 +214,13 @@ class DragDrop extends Base {
     }
 
     /**
+     * Gesture-local direct-resize controller.
+     * @member {Neo.main.draggable.Resize} dragResize
+     * @protected
+     */
+    dragResize = new Resize()
+
+    /**
      * Monotonic physical-drag lifetime. Reset/start invalidates every older async native move.
      * @member {Number} windowDragGeneration=0
      * @protected
@@ -315,10 +323,16 @@ class DragDrop extends Base {
 
         if (!me.dragCancelled) {
             let parsedEvent = me.getEventData(event),
-                isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath);
+                isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath),
+                resize      = me.dragResize?.finish(parsedEvent);
 
             DomEvents.sendMessageToApp({
                 ...parsedEvent,
+                ...(resize ? {
+                    resizeAxis    : resize.axis,
+                    resizeSize    : resize.size,
+                    resizeTargetId: resize.targetId
+                } : {}),
                 dragZoneId: me.dragZoneId,
                 isDrop,
                 offsetX   : me.offsetX,
@@ -350,6 +364,7 @@ class DragDrop extends Base {
         if (event.key === 'Escape' && me.dragZoneId && !me.dragCancelled) {
             me.dragCancelled = true;
             event.preventDefault();
+            me.dragResize?.cancel();
 
             DomEvents.sendMessageToApp({
                 ...DomEvents.getKeyboardEventData(event),
@@ -365,6 +380,10 @@ class DragDrop extends Base {
      */
     resetDragState() {
         let me = this;
+
+        // Successful gestures already called dragResize.finish(). Any state left here is interrupted
+        // preview authority and must be restored before the gesture identity is cleared.
+        me.dragResize?.cancel();
 
         // Idempotent second release site for the sensor-side gesture selection guard — NOT an
         // off-document-release fallback: resetDragState() is only reached downstream of the
@@ -490,7 +509,7 @@ class DragDrop extends Base {
             {originalEvent} = event.detail,
             proxyRect       = me.dragProxyRect,
             rect            = me.boundaryContainerRect,
-            data, left, top;
+            data, left, resizeLocally, top;
 
         if (me.dragCancelled) {
             return
@@ -544,6 +563,9 @@ class DragDrop extends Base {
             event.detail.clientY = data.clientY;
         }
 
+        resizeLocally = Boolean(me.dragResize?.active);
+        resizeLocally && me.dragResize.apply(event.detail);
+
         if (me.dragProxyElement) {
             left = event.detail.clientX - me.offsetX;
             top  = event.detail.clientY - me.offsetY;
@@ -572,7 +594,7 @@ class DragDrop extends Base {
             }
         }
 
-        if (!me.dragProxyElement || me.alwaysFireDragMove) {
+        if ((!me.dragProxyElement && !resizeLocally) || me.alwaysFireDragMove) {
             let originalEvent = event.detail.originalEvent;
             proxyRect = null;
 
@@ -599,6 +621,7 @@ class DragDrop extends Base {
      */
     onDragStart(event) {
         let me   = this,
+            path = event.path || event.composedPath(),
             rect = event.target.getBoundingClientRect();
 
         // Resolve the owning zone synchronously from the event path against the zone registry.
@@ -606,7 +629,7 @@ class DragDrop extends Base {
         // setConfigs handshake, so even the first drag:start of a boot carries its dragZoneId —
         // closing the gesture-opening window in which every forward, and the Escape guard
         // keying on it, was zoneless by construction.
-        me.dragZoneId = me.resolveDragZoneId(event.path || event.composedPath());
+        me.dragZoneId = me.resolveDragZoneId(path);
 
         Object.assign(me, {
             dragCancelled: false,
@@ -614,6 +637,8 @@ class DragDrop extends Base {
             offsetX      : event.detail.clientX - rect.left,
             offsetY      : event.detail.clientY - rect.top
         });
+
+        me.dragResize?.start(path, event.detail, me.dragZoneId);
 
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
@@ -754,10 +779,14 @@ class DragDrop extends Base {
      * @param {Object} data
      * @param {String} data.dragElementRootId
      * @param {String} data.dragZoneId
+     * @param {Object|null} [data.resizeConfig]
      */
     registerZone(data) {
         if (data?.dragElementRootId && data?.dragZoneId) {
-            this.zoneRegistrations[data.dragElementRootId] = data.dragZoneId
+            let me = this;
+
+            me.zoneRegistrations[data.dragElementRootId] = data.dragZoneId;
+            me.dragResize?.register(data)
         }
     }
 
@@ -788,7 +817,8 @@ class DragDrop extends Base {
      * @param {String} data.dragZoneId — every registration pointing at this zone is removed
      */
     unregisterZone(data) {
-        let registrations = this.zoneRegistrations;
+        let me            = this,
+            registrations = me.zoneRegistrations;
 
         if (data?.dragElementRootId) {
             delete registrations[data.dragElementRootId]
@@ -801,6 +831,8 @@ class DragDrop extends Base {
                 }
             })
         }
+
+        me.dragResize?.unregister(data)
     }
 
     /**
@@ -829,9 +861,8 @@ class DragDrop extends Base {
 
         // The per-gesture handshake doubles as a registry refresh — keeps the eager
         // construction-time registration honest if a zone's root element was re-created.
-        if (data.dragElementRootId && data.dragZoneId) {
-            me.zoneRegistrations[data.dragElementRootId] = data.dragZoneId
-        }
+        DragDrop.prototype.registerZone.call(me, data);
+        delete data.resizeConfig;
 
         if (boundaryContainerId) {
             rects = DomAccess.getBoundingClientRect({id: boundaryContainerId});

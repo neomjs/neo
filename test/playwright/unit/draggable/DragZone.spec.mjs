@@ -63,6 +63,44 @@ async function recordProxyRemoval(scenario, {deltaResult}={}) {
 }
 
 test.describe('Neo.draggable.DragZone', () => {
+    test('useProxy=false keeps the gesture but skips proxy construction', async () => {
+        const
+            addon              = Neo.main.addon.DragDrop,
+            originalSetConfigs = addon.setConfigs,
+            owner              = Neo.create(Component, {
+                appName: 'DraggableDragZoneTest',
+                id     : 'dragzone-no-proxy-owner'
+            }),
+            zone               = Neo.create(DragZone, {
+                appName    : 'DraggableDragZoneTest',
+                dragElement: {id: owner.id},
+                owner,
+                useProxy   : false,
+                windowId   : 'test-window-1'
+            });
+
+        let proxyCreations = 0;
+
+        addon.setConfigs = async () => ({boundaryContainerRect: null});
+        zone.createDragProxy = async () => { proxyCreations++ };
+
+        try {
+            await zone.dragStart({
+                clientX   : 25,
+                clientY   : 30,
+                path      : [{id: owner.id, rect: {height: 40, left: 10, top: 10, width: 80}}],
+                targetPath: []
+            });
+
+            expect(proxyCreations, 'the no-proxy mode must not instantiate visual drag state').toBe(0);
+            expect(zone.dragProxy).toBe(null)
+        } finally {
+            addon.setConfigs = originalSetConfigs;
+            !zone.isDestroyed && zone.destroy();
+            !owner.isDestroyed && owner.destroy()
+        }
+    });
+
     test('the proxy removal delta survives a zone destroyed inside the deferral window', async () => {
         const {proxyId, recorded} = await recordProxyRemoval(zone => {
             zone.destroyDragProxy();

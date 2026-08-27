@@ -70,6 +70,11 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.switchDirection.bind(me)},
             style    : {marginTop: '10px'}
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.down({module: Splitter}).liveResize,
+            labelText: 'live resize',
+            listeners: {change: me.onLiveResizeChange.bind(me)}
+        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'width',
@@ -98,7 +103,8 @@ class MainContainer extends ConfigurationViewport {
             items : [{
                 ntype: 'component'
             }, {
-                module: Splitter
+                module    : Splitter,
+                liveResize: true
             }, {
                 ntype: 'component'
             }]
@@ -111,6 +117,15 @@ class MainContainer extends ConfigurationViewport {
      */
     logInstance() {
         console.log(this.exampleComponent.down({module: Splitter}))
+    }
+
+    /**
+     * Switches between the proxy-first compatibility path and direct live sibling resizing.
+     * @param {Object} data
+     * @param {Boolean} data.value
+     */
+    onLiveResizeChange(data) {
+        this.exampleComponent.down({module: Splitter}).liveResize = data.value
     }
 
     /**

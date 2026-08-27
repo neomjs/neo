@@ -161,6 +161,19 @@ class DragZone extends Base {
          */
         scrollFactorTop: 1,
         /**
+         * Optional main-thread sibling-resize descriptor consumed by `Neo.main.addon.DragDrop`.
+         * The App Worker receives only the terminal resolved size.
+         * @member {Object|null} resizeConfig=null
+         * @protected
+         */
+        resizeConfig: null,
+        /**
+         * True creates a drag proxy for the gesture. False keeps the gesture lifecycle without a
+         * cloned embodiment; an optional resizeConfig can then keep pointer frames main-thread-only.
+         * @member {Boolean} useProxy=true
+         */
+        useProxy: true,
+        /**
          * True creates a position:absolute wrapper div which contains the cloned element
          * @member {Boolean} useProxyWrapper=true
          */
@@ -187,17 +200,7 @@ class DragZone extends Base {
             // inside onDragStart, so the first drag:start of a boot already carries a zone id.
             // Best-effort: a zone whose drag element is only assigned later re-registers on its
             // first setConfigs handshake. Fire-and-forget — never block construction on the RPC.
-            let dragElementRootId = me.getRegistrationRootId();
-
-            if (dragElementRootId) {
-                // optional-chained: bare harnesses may stub the addon without the registry API
-                Neo.main.addon.DragDrop.registerZone?.({
-                    appName          : me.appName,
-                    windowId         : me.windowId,
-                    dragElementRootId,
-                    dragZoneId       : me.id
-                })
-            }
+            me.registerZone()
         }
     }
 
@@ -237,6 +240,26 @@ class DragZone extends Base {
         let root = this.dragElement && this.getDragElementRoot();
 
         return root?.id ?? null
+    }
+
+    /**
+     * Registers the gesture owner and optional main-thread behavior using one shared root key.
+     * @returns {Promise<*>|undefined}
+     * @protected
+     */
+    registerZone() {
+        let me                = this,
+            dragElementRootId = me.getRegistrationRootId();
+
+        if (dragElementRootId) {
+            return Neo.main.addon.DragDrop.registerZone?.({
+                appName     : me.appName,
+                windowId    : me.windowId,
+                dragElementRootId,
+                dragZoneId  : me.id,
+                resizeConfig: me.resizeConfig
+            })
+        }
     }
 
     /**
@@ -497,7 +520,9 @@ class DragZone extends Base {
             offsetY
         });
 
-        await me.createDragProxy(rect);
+        if (me.useProxy) {
+            await me.createDragProxy(rect)
+        }
 
         me.fire('dragStart', {
             clientX        : data.clientX,
@@ -562,6 +587,7 @@ class DragZone extends Base {
             dropZoneIdentifier : me.dropZoneIdentifier,
             moveHorizontal     : me.moveHorizontal,
             moveVertical       : me.moveVertical,
+            resizeConfig       : me.resizeConfig,
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
             scrollFactorTop    : me.scrollFactorTop
