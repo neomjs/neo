@@ -104,23 +104,35 @@ chrome asks for them.
 Getting these two wrong is not subtle, which is the point: the reconciler refuses to run without a mounted shell at
 the declared index, with an error that names what is missing. No half-rendered workspace, no silent guess.
 
-**The trap that costs a day if you learn it the hard way — theme files.** Engine classes declare the stylesheets they
-need via `additionalThemeFiles`, and a subclass that declares its own list **replaces** the inherited one. The class
-brings `'Neo.dashboard.Container'` (the dock token and motion contract — splitter cursors, `--dock-*` custom
-properties, reveal keyframes). If your subclass declares the config at all, repeat that entry. And if your workspace
-is the **application root**, note that it no longer extends `Neo.container.Viewport` — so `Viewport.scss`, which
-carries `body > .neo-viewport {height: 100%}`, is never loaded unless you list it:
+**The trap that costs a day if you learn it the hard way — replacing composition with theme files.** A
+`DockWorkspace` is application content, not an application root. Your standalone app still gets a real
+`Neo.container.Viewport`, and the dock workspace is its flex child:
 
 ```javascript readonly
-additionalThemeFiles: ['Neo.dashboard.Container', 'Neo.container.Viewport']
+import Viewport from '../../src/container/Viewport.mjs';
+import MainContainer from './MainContainer.mjs'; // extends Neo.dashboard.DockWorkspace
+
+Neo.app({
+    mainView: {
+        module: Viewport,
+        items : [{module: MainContainer, flex: 1}]
+    }
+})
 ```
 
-This one is autobiographical. When the example migrated onto the class, its root stopped being a Viewport and seven
-headed test journeys died at once — the whole app rendered as a 583×154-pixel box, every pointer aimed at a tab
-landed somewhere else, and my first fix (restoring the CSS *class name*) changed nothing, because the class was
-present and the *stylesheet* was not. Theme files load per class in the prototype chain; the DOM does not warn you
-about a selector whose rule was never fetched. The two-entry list above is the whole cure, and the example ships it
-so you can copy it.
+The Viewport now owns what only a Viewport should own: mounting against `document.body`, the `neo-viewport` root
+class, the body contract and its own stylesheet. Do **not** copy those configs onto your workspace, and never add
+`'Neo.container.Viewport'` to `additionalThemeFiles` to make a dashboard impersonate the root.
+
+The narrower theme rule still matters. `DockWorkspace` already declares `'Neo.dashboard.Container'`, which carries
+the dock token and motion contract — splitter cursors, `--dock-*` custom properties and reveal keyframes. A subclass
+that declares its own `additionalThemeFiles` list replaces the inherited list, so repeat the dashboard entry beside
+your genuine extra dependencies. That rule preserves the workspace's own styling; it does not license borrowing a
+parent class's stylesheet instead of creating the parent.
+
+The infamous 583×154-pixel rendering was the warning sign: the example had stopped creating a Viewport. Loading
+`Viewport.scss` from the dock child made the pixels recover while leaving the component tree wrong. Restoring the
+Viewport → DockWorkspace composition is the cure the example now demonstrates.
 
 ## Decision 2 — your components become panes
 
@@ -289,8 +301,11 @@ product policy in your app.
 
 ## Traps, each one paid for
 
-- **Declaring `additionalThemeFiles` without repeating the dock entry** — the list replaces, never merges; and an
-  app-root workspace must add `'Neo.container.Viewport'` (the 583×154-pixel story above).
+- **Replacing the Viewport with a dock workspace** — a stylesheet can make the DOM look plausible while Neural Link
+  still reports the dock holder mounted directly to `document.body`. Compose Viewport → DockWorkspace.
+- **Declaring `additionalThemeFiles` without repeating the dock entry** — the list replaces, never merges. Repeat
+  `'Neo.dashboard.Container'` beside genuine workspace dependencies; never list `'Neo.container.Viewport'` as a
+  substitute for a Viewport instance.
 - **Mutating the document anywhere but the reducer.** Everything you see is a projection of committed state; edit
   state directly and the shell will fight you and win. Commit descriptors; let the view-sync re-project.
 - **Enforcing `pinnable` or `movable` in the UI.** The model refuses those operations; UI-side guards drift and

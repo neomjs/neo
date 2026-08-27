@@ -82,11 +82,9 @@ const seededPerspectives = [{
  * main-thread `LocalStorage` addon, so App-Worker code never reaches for `window.localStorage` directly.
  * The toolbar re-syncs on every re-projection through the {@link #beforeRefreshDockWorkspace} hook.
  *
- * The example is also the app root: single inheritance puts the dock host on this class, so the
- * `Neo.container.Viewport` traits the standalone page relies on — self-mounting, the `neo-viewport`
- * sizing class together with the Viewport stylesheet that sizes it, and the flex-centered,
- * overflow-hidden body class — are declared explicitly (see the `additionalThemeFiles` and
- * `autoMount` configs and {@link #onConstructed}).
+ * `app.mjs` composes this workspace as the flex child of a real `Neo.container.Viewport`. The
+ * Viewport owns application mounting, root sizing and the body contract; this class owns only the
+ * dock document, projection and example chrome.
  *
  * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
  * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
@@ -100,27 +98,6 @@ class MainContainer extends DockWorkspace {
          * @protected
          */
         className: 'Neo.examples.dashboard.dock.MainContainer',
-        /**
-         * Theme files load per class in an instance's prototype chain, so a subclass list REPLACES
-         * the engine class's entry and must repeat it. The second entry is part of the viewport
-         * contract below: `body > .neo-viewport` lives in the Viewport stylesheet, which nothing
-         * on this page would otherwise load now that no `Neo.container.Viewport` instance exists.
-         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','Neo.container.Viewport']
-         */
-        additionalThemeFiles: ['Neo.dashboard.Container', 'Neo.container.Viewport'],
-        /**
-         * The app root keeps the viewport contract — single inheritance puts the dock host on this
-         * class, so the `Neo.container.Viewport` traits the standalone page relies on are declared
-         * here: it mounts itself, it carries the `neo-viewport` sizing class AND loads the stylesheet
-         * that gives `body > .neo-viewport` its full height and width (see `additionalThemeFiles`),
-         * and it applies the body class in {@link #onConstructed}.
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
-         * @member {String[]} cls=['neo-viewport']
-         */
-        cls: ['neo-viewport'],
         /**
          * The projected shell shares the root vbox with the perspective toolbar above it.
          * @member {Object} dockProjectionConfig={flex:1}
@@ -191,19 +168,6 @@ class MainContainer extends DockWorkspace {
      */
     beforeRefreshDockWorkspace(document, refreshOptions) {
         this.syncPerspectiveToolbar()
-    }
-
-    /**
-     * The body contract of a viewport root: the flex-centered, overflow-hidden page this standalone
-     * example lays out against.
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        Neo.main.DomAccess.applyBodyCls({
-            cls     : ['neo-body-viewport'],
-            windowId: this.windowId
-        })
     }
 
     /**
