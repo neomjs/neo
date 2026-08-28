@@ -1,6 +1,7 @@
-import Base             from '../../../core/Base.mjs';
-import DockTopologyDiff from '../model/TopologyDiff.mjs';
-import DockZoneModel    from '../../DockZoneModel.mjs';
+import Base         from '../../../core/Base.mjs';
+import TopologyDiff from '../model/TopologyDiff.mjs';
+import Document     from '../model/Document.mjs';
+import Operations   from '../model/Operations.mjs';
 
 /**
  * @class Neo.dashboard.dock.persistence.RestorePlanner
@@ -9,7 +10,7 @@ import DockZoneModel    from '../../DockZoneModel.mjs';
  * @summary Plans + applies a same-topology perspective RESTORE through semantic operations.
  *
  * Restore is where object permanence must hold: reaching a captured layout must happen via the
- * {@link Neo.dashboard.DockZoneModel} executor (`moveItem` / `resizeSplit` / `setItemAutoHidden`), NEVER by
+ * {@link Neo.dashboard.dock.model.Document} executor (`moveItem` / `resizeSplit` / `setItemAutoHidden`), NEVER by
  * document replacement — a swap would remount every pane, violating the §2.6 reparent-never-recreate promise
  * (a restore that flickers every pane is a contract violation wearing a feature's name).
  *
@@ -21,7 +22,7 @@ import DockZoneModel    from '../../DockZoneModel.mjs';
  * collapse-safely; the one residual a matching fingerprint cannot rule out — a cycle of single-item nodes
  * swapping, unsolvable by ordering under per-step normalization — defers structurally.
  *
- * The planner is a PURE fold over `DockTopologyDiff.diffDockDocuments(current, captured)` (direction:
+ * The planner is a PURE fold over `TopologyDiff.diffDockDocuments(current, captured)` (direction:
  * current → captured, planning TOWARD the capture). Application is a sequential, fail-closed executor pass.
  */
 class RestorePlanner extends Base {
@@ -47,8 +48,8 @@ class RestorePlanner extends Base {
      * @static
      */
     static planRestore(current, captured) {
-        let fpCurrent  = DockZoneModel.computeShapeFingerprint(current),
-            fpCaptured = DockZoneModel.computeShapeFingerprint(captured),
+        let fpCurrent  = Document.computeShapeFingerprint(current),
+            fpCaptured = Document.computeShapeFingerprint(captured),
             errors     = [...fpCurrent.errors, ...fpCaptured.errors];
 
         if (errors.length) {
@@ -67,7 +68,7 @@ class RestorePlanner extends Base {
             }
         }
 
-        let diff = DockTopologyDiff.diffDockDocuments(current, captured);
+        let diff = TopologyDiff.diffDockDocuments(current, captured);
 
         if (diff.errors.length) {
             return {deferred: false, reason: null, plan: [], surplus: [], errors: diff.errors}
@@ -130,7 +131,7 @@ class RestorePlanner extends Base {
     /**
      * @summary Applies a restore plan sequentially through the executor, fail-closed.
      *
-     * Each descriptor runs through {@link Neo.dashboard.DockZoneModel.applyOperation}; the first error stops
+     * Each descriptor runs through {@link Neo.dashboard.Operations.applyOperation}; the first error stops
      * application and returns the document as of the last successful step (partial application is visible,
      * never silent). An empty plan (incl. a deferred plan) is a clean no-op.
      * @param {Object} document The document to apply the plan onto (the live/current document).
@@ -143,7 +144,7 @@ class RestorePlanner extends Base {
             applied = 0;
 
         for (const descriptor of plan) {
-            let result = DockZoneModel.applyOperation(doc, descriptor);
+            let result = Operations.applyOperation(doc, descriptor);
 
             if (result.errors?.length) {
                 return {applied, plan, errors: result.errors, document: doc}
@@ -164,13 +165,13 @@ class RestorePlanner extends Base {
      * @static
      */
     static restoreToward(current, captured) {
-        let {deferred, reason, plan, surplus, errors} = DockRestorePlanner.planRestore(current, captured);
+        let {deferred, reason, plan, surplus, errors} = RestorePlanner.planRestore(current, captured);
 
         if (deferred || errors.length) {
             return {deferred, reason, applied: 0, plan, surplus, errors, document: current}
         }
 
-        let {applied, errors: applyErrors, document} = DockRestorePlanner.applyRestorePlan(current, plan);
+        let {applied, errors: applyErrors, document} = RestorePlanner.applyRestorePlan(current, plan);
 
         return {deferred: false, reason: null, applied, plan, surplus, errors: applyErrors, document}
     }

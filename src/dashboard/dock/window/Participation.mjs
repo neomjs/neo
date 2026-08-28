@@ -1,6 +1,7 @@
-import Base                  from '../../../core/Base.mjs';
-import CrossWindowDragTarget from './DragTarget.mjs';
-import DockZoneModel         from '../../DockZoneModel.mjs';
+import Base       from '../../../core/Base.mjs';
+import DragTarget from './DragTarget.mjs';
+import Document   from '../model/Document.mjs';
+import Operations from '../model/Operations.mjs';
 
 /**
  * @class Neo.dashboard.dock.window.Participation
@@ -21,7 +22,7 @@ import DockZoneModel         from '../../DockZoneModel.mjs';
  * - **Foreign drop** (the item belongs to a sibling window's workspace on the same App-Worker
  *   heap): the converted `addTab`/`splitNode` descriptor becomes the nested `target` of ONE
  *   semantic `transferItem` operation, executed through the landed atomic two-document executor
- *   ({@link Neo.dashboard.DockZoneModel#transferItem}) — commit-or-neither, item record verbatim,
+ *   ({@link Neo.dashboard.dock.model.Document#transferItem}) — commit-or-neither, item record verbatim,
  *   live component instances move and are never re-instantiated (§2.6). The adapter publishes
  *   those finite documents unchanged. Durable placement intent belongs to the separate topology
  *   hint layer; once that layer exists, its workspace-set owner must join it to the document-pair
@@ -195,7 +196,7 @@ class Participation extends Base {
 
         let me = this;
 
-        me.target = Neo.create(CrossWindowDragTarget, {
+        me.target = Neo.create(DragTarget, {
             clearPreview           : me.clearPreview,
             commitOperation        : me.commitDrop.bind(me),
             dragCoordinator        : me.dragCoordinator,
@@ -259,7 +260,7 @@ class Participation extends Base {
 
             if (!sourceDocument || !me.commitTransfer ||
                 operation.operation !== 'transferNode' || operation.nodeId !== groupNodeId ||
-                DockZoneModel.resolveStackRoot(sourceDocument) !== groupNodeId) {
+                Document.resolveStackRoot(sourceDocument) !== groupNodeId) {
                 return null
             }
 
@@ -269,7 +270,7 @@ class Participation extends Base {
                 targetWorkspaceId: me.workspaceId
             };
 
-            const result = DockZoneModel.transferNode(sourceDocument, document, descriptor);
+            const result = Operations.transferNode(sourceDocument, document, descriptor);
 
             if (result.errors.length) {
                 return null
@@ -309,7 +310,7 @@ class Participation extends Base {
             target           : operation
         };
 
-        const result = DockZoneModel.transferItem(sourceDocument, document, descriptor);
+        const result = Operations.transferItem(sourceDocument, document, descriptor);
 
         if (result.errors.length) {
             return null

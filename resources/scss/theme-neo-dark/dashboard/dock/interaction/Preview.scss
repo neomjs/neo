@@ -1,5 +1,5 @@
 // The dock VALUES layer (dark): colors for the preview-affordance token family that
-// resources/scss/src/dashboard/DockPreview.scss reads. Structure owns the paint; this file
+// resources/scss/src/dashboard/dock/interaction/Preview.scss reads. Structure owns the paint; this file
 // owns the values — the two-layer split every themed sibling package honours.
 //
 // `:where()` is deliberate and load-bearing: it contributes ZERO specificity, so these

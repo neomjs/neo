@@ -1,11 +1,12 @@
 import Component                   from '../../component/Base.mjs';
 import Container                   from '../../container/Base.mjs';
-import DockLayoutAdapter           from './projection/LayoutAdapter.mjs';
-import DockMotionSignal            from './projection/MotionSignal.mjs';
-import DockPreviewProducer         from './interaction/PreviewProducer.mjs';
-import DockProjectionReconciler    from './projection/Reconciler.mjs';
+import LayoutAdapter               from './projection/LayoutAdapter.mjs';
+import MotionSignal                from './projection/MotionSignal.mjs';
+import PreviewProducer             from './interaction/PreviewProducer.mjs';
+import Reconciler                  from './projection/Reconciler.mjs';
 import {createDockTearOutHandlers} from './window/TearOut.mjs';
-import DockZoneModel               from '../DockZoneModel.mjs';
+import Document                    from './model/Document.mjs';
+import Operations                  from './model/Operations.mjs';
 import {previewToOperation}        from './model/PreviewContract.mjs';
 
 /**
@@ -75,7 +76,7 @@ import {previewToOperation}        from './model/PreviewContract.mjs';
  * @extends Neo.container.Base
  * @see Neo.dashboard.dock.projection.LayoutAdapter
  * @see Neo.dashboard.dock.projection.Reconciler
- * @see Neo.dashboard.DockZoneModel
+ * @see Neo.dashboard.dock.model.Document
  * @see learn/agentos/DockZoneModel.md
  * @see learn/guides/uibuildingblocks/DockLayouts.md
  */
@@ -264,7 +265,7 @@ class Workspace extends Container {
             this.vdom.tabIndex = -1
         }
 
-        this.dockPreviewProducer = Neo.create(DockPreviewProducer)
+        this.dockPreviewProducer = Neo.create(PreviewProducer)
 
         if (this.enableDockTearOutLifecycle) {
             this.tearOutHandlers = createDockTearOutHandlers({
@@ -284,14 +285,14 @@ class Workspace extends Container {
 
     /**
      * The pure reducer of the holder contract: applies one semantic operation descriptor against
-     * the live committed document and returns `DockZoneModel`'s fail-closed `{document, errors}`
+     * the live committed document and returns `model.Operations`' fail-closed `{document, errors}`
      * result. Never mutates {@link #dockModel} — the view-sync {@link #onDockZoneDocumentChange}
      * is the only writer, called by the committing surface on success.
      * @param {Object} descriptor The semantic operation descriptor.
      * @returns {{document: Object, errors: String[]}}
      */
     applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+        return Operations.applyOperation(this.dockModel, descriptor)
     }
 
     /**
@@ -525,7 +526,7 @@ class Workspace extends Container {
     applyTearOutOperation(descriptor) {
         let me       = this,
             isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            captured = isDetach ? Document.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
         captured && (me.tearOutPlacements[descriptor.itemId] = captured);
@@ -590,7 +591,7 @@ class Workspace extends Container {
 
             if (!me.reparentTearOutPane(itemId, connection)) {
                 me.compensateFailedTearOutAdoption(itemId, entry);
-                throw new Error(`DockWorkspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
+                throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
             }
         }
 
@@ -802,7 +803,7 @@ class Workspace extends Container {
         if (me.tearOutPanes[itemId]) {
             if (!me.reparentTearOutPane(itemId, connection)) {
                 me.compensateFailedTearOutAdoption(itemId, me.tearOutPanes[itemId]);
-                throw new Error(`DockWorkspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
+                throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
             }
 
             me.clearTearOutAdmission(itemId, admission)
@@ -869,7 +870,7 @@ class Workspace extends Container {
 
         me.beforeTearOutPaneReturn({itemId, pane});
 
-        if (DockZoneModel.findContainingTabsId(doc, itemId)) {
+        if (Document.findContainingTabsId(doc, itemId)) {
             me.onDockZoneDocumentChange(doc);
 
             try {
@@ -1172,7 +1173,7 @@ class Workspace extends Container {
         if (!projectedTabs) {
             let shell = this.getDockHost()?.items?.[this.dockShellIndex];
 
-            projectedTabs = shell ? DockProjectionReconciler.collectProjectedTabs(shell) : new Map()
+            projectedTabs = shell ? Reconciler.collectProjectedTabs(shell) : new Map()
         }
 
         projectedTabs?.forEach?.(tab => this.syncDockCloseAction(tab))
@@ -1214,7 +1215,7 @@ class Workspace extends Container {
             return {document: me.dockModel, errors: ['Dock close action requires a committed document']}
         }
 
-        let modelNodeId = DockZoneModel.findContainingTabsId(me.dockModel, itemId) || dockNodeId,
+        let modelNodeId = Document.findContainingTabsId(me.dockModel, itemId) || dockNodeId,
             descriptor  = {operation: 'closeItem', itemId},
             result      = me.applyDockZoneOperation(descriptor);
 
@@ -1326,7 +1327,7 @@ class Workspace extends Container {
 
     /**
      * Returns the one-use projection correlation only when the committed descriptor creates a
-     * globally absent header. `DockZoneModel` downgrades `addTab` to `moveItem` whenever the item
+     * globally absent header. `model.Operations` downgrades `addTab` to `moveItem` whenever the item
      * already lives in any tabs node; those identity-preserving relocations use FLIP alone. A
      * same-node reorder, malformed descriptor, restore, and initial path fail closed to an instant
      * projection.
@@ -1349,7 +1350,7 @@ class Workspace extends Container {
             && typeof tabsNodeId === 'string'
             && Array.isArray(oldItems)
             && Array.isArray(newItems)
-            && !DockZoneModel.findContainingTabsId(this.dockModel, itemId)
+            && !Document.findContainingTabsId(this.dockModel, itemId)
             && !oldItems.includes(itemId)
             && newItems.includes(itemId)
                 ? {itemId, operation: 'addTab', tabsNodeId}
@@ -1466,7 +1467,7 @@ class Workspace extends Container {
         if (!document) {
             config = {ntype: 'container', cls: ['neo-dashboard'], items: []}
         } else {
-            config = DockLayoutAdapter.project(document, {
+            config = LayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
                 ...(me.enableDockCloseAction && {
@@ -1524,7 +1525,7 @@ class Workspace extends Container {
             {geometryOnly=false, retainTopology=false} = refreshOptions;
 
         if (!host) {
-            throw new Error(`DockWorkspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
+            throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
         }
 
         try {
@@ -1551,7 +1552,7 @@ class Workspace extends Container {
         const {onProjectionStaged, retainTopology: forcedRetainTopology, waitForOverflowProjection} =
             me.getReconcileOptions(document, refreshOptions) || {};
 
-        const result = await DockProjectionReconciler.reconcileProjection({
+        const result = await Reconciler.reconcileProjection({
             geometryOnly,
             host,
             nextConfig,
@@ -1565,7 +1566,7 @@ class Workspace extends Container {
             resolveItem    : itemId => {
                 const item = document?.items?.[itemId];
 
-                return DockLayoutAdapter.decorateProjectedItem(
+                return LayoutAdapter.decorateProjectedItem(
                     me.resolveProjectedPane(itemId, item),
                     itemId,
                     item,
@@ -1592,7 +1593,7 @@ class Workspace extends Container {
         if (typeof flip?.play === 'function' && !me.isDestroyed) {
             let rawPlayed;
 
-            DockMotionSignal.enter(me);
+            MotionSignal.enter(me);
 
             try {
                 rawPlayed = flip.play({hostId: host.id, markerPrefix: flipMarkerPrefix, geometryOnly: result?.landedInPlace === true})
@@ -1601,7 +1602,7 @@ class Workspace extends Container {
             }
 
             played = Promise.resolve(rawPlayed).catch(() => null);
-            played.finally(() => DockMotionSignal.leave(me))
+            played.finally(() => MotionSignal.leave(me))
         }
 
         if (!me.isDestroyed) {

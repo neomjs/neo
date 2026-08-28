@@ -1,7 +1,7 @@
 import Container            from '../../../src/container/Base.mjs';
 import DockDropIndicators   from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockPreview          from '../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
+import Document             from '../../../src/dashboard/dock/model/Document.mjs';
 import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
@@ -451,11 +451,11 @@ export function createCrossWindowStage(seams) {
         if (descriptor?.operation !== 'transferNode'
             || sourceWorkspaceId !== workspaceIds.popup
             || targetWorkspaceId !== workspaceIds.main
-            || DockZoneModel.resolveStackRoot(sourceBefore) !== descriptor.nodeId) {
+            || Document.resolveStackRoot(sourceBefore) !== descriptor.nodeId) {
             return false
         }
 
-        let nodeIds = DockZoneModel.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId}),
+        let nodeIds = Document.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId}),
             itemIds = [...new Set([...nodeIds].flatMap(nodeId =>
                 sourceBefore.nodes[nodeId]?.type === 'tabs' ? sourceBefore.nodes[nodeId].items || [] : []
             ))];

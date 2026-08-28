@@ -1,19 +1,19 @@
-import Component     from '../../../component/Base.mjs';
-import DragZone      from '../../../draggable/DragZone.mjs';
-import DockZoneModel from '../../DockZoneModel.mjs';
-import NeoArray      from '../../../util/Array.mjs';
+import Component  from '../../../component/Base.mjs';
+import DragZone   from '../../../draggable/DragZone.mjs';
+import Operations from '../model/Operations.mjs';
+import NeoArray   from '../../../util/Array.mjs';
 
 /**
  * @summary Runtime splitter affordance that converts drag completion into a `resizeSplit` operation.
  *
  * `Neo.component.Splitter` resizes sibling styles directly. The dock-zone model is persisted JSON, so
- * this component keeps pointer geometry runtime-only and commits through `DockZoneModel.applyOperation()`
+ * this component keeps pointer geometry runtime-only and commits through `Operations.applyOperation()`
  * or a supplied owning reducer callback.
  *
  * @class Neo.dashboard.dock.interaction.DockSplitter
  * @extends Neo.component.Base
  * @see Neo.dashboard.dock.projection.LayoutAdapter
- * @see Neo.dashboard.DockZoneModel
+ * @see Neo.dashboard.dock.model.Document
  * @see learn/agentos/DockZoneModel.md
  */
 class DockSplitter extends Component {
@@ -325,7 +325,7 @@ class DockSplitter extends Component {
         if (typeof me.applyDockZoneOperation === 'function') {
             result = me.applyDockZoneOperation(descriptor, me) || null
         } else if (me.dockZoneDocument) {
-            result = DockZoneModel.applyOperation(me.dockZoneDocument, descriptor)
+            result = Operations.applyOperation(me.dockZoneDocument, descriptor)
         }
 
         if (!result) {

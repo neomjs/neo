@@ -1,5 +1,5 @@
-import Base          from '../../../core/Base.mjs';
-import DockZoneModel from '../../DockZoneModel.mjs';
+import Base     from '../../../core/Base.mjs';
+import Document from './Document.mjs';
 
 /**
  * @class Neo.dashboard.dock.model.TopologyDiff
@@ -26,7 +26,7 @@ import DockZoneModel from '../../DockZoneModel.mjs';
  * The output is JSON-first and snapshot-stable: every category array is sorted by its primary
  * key and the walk order is deterministic, so identical inputs produce byte-identical results.
  * Malformed inputs never throw and never half-diff: both documents pass through the landed
- * fail-closed shape gate (`DockZoneModel.computeShapeFingerprint`, which also rejects cyclic
+ * fail-closed shape gate (`Document.computeShapeFingerprint`, which also rejects cyclic
  * trees) and any failure returns empty categories plus a non-empty `errors` array naming the
  * offending side.
  */
@@ -96,18 +96,18 @@ class TopologyDiff extends Base {
      * @param {Object} before The earlier committed document
      * @param {Object} after The later committed document
      * @param {Object} [options]
-     * @param {Number} [options.sizeEpsilon=DockTopologyDiff.SIZE_EPSILON] Resize tolerance on size fractions
+     * @param {Number} [options.sizeEpsilon=TopologyDiff.SIZE_EPSILON] Resize tolerance on size fractions
      * @returns {{moves: Object[], adds: Object[], removes: Object[], resizes: Object[], tabReorders: Object[], autoHideFlips: Object[], unchanged: String[], errors: String[]}}
      * @static
      */
-    static diffDockDocuments(before, after, {sizeEpsilon = DockTopologyDiff.SIZE_EPSILON} = {}) {
+    static diffDockDocuments(before, after, {sizeEpsilon = TopologyDiff.SIZE_EPSILON} = {}) {
         const
             empty  = () => ({moves: [], adds: [], removes: [], resizes: [], tabReorders: [], autoHideFlips: [], unchanged: [], errors: []}),
             result = empty(),
             errors = [];
 
         [['before', before], ['after', after]].forEach(([side, document]) => {
-            const gate = DockZoneModel.computeShapeFingerprint(document || {});
+            const gate = Document.computeShapeFingerprint(document || {});
 
             gate.errors.forEach(error => {
                 errors.push(`${side} document failed the shape gate: ${error}`)

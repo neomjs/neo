@@ -10,7 +10,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import DockService    from '../../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel  from '../../../../../../src/dashboard/DockZoneModel.mjs';
+import Document       from '../../../../../../src/dashboard/dock/model/Document.mjs';
+import Operations     from '../../../../../../src/dashboard/dock/model/Operations.mjs';
 import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
 import {validateTourScript}                     from '../../../../../../src/ai/client/tourScript.mjs';
@@ -28,7 +29,7 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
      * @returns {Neo.ai.client.TourRunner}
      */
     function createRunner() {
-        const holder = {dockZoneDocument: DockZoneModel.clone(initialDocument), id: 'workstation-stage'};
+        const holder = {dockZoneDocument: Document.clone(initialDocument), id: 'workstation-stage'};
 
         Neo.getComponent = () => holder;
         runner = Neo.create(TourRunner, {
@@ -55,7 +56,7 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
 
     test('the body is self-contained: 20 placed items, reviewed cues, no invented operation', () => {
         const
-            {valid, errors} = validateTourScript(workstationTourScript, {operations: DockZoneModel.operations}),
+            {valid, errors} = validateTourScript(workstationTourScript, {operations: Operations.operations}),
             placed          = Object.values(initialDocument.nodes)
                 .filter(node => node.type === 'tabs')
                 .flatMap(node => node.items),
@@ -94,7 +95,7 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
                 placementKind: 'tab-into'
             }]);
         expect(operations).toEqual(['resizeSplit', 'splitNode', 'addTab']);
-        operations.forEach(operation => expect(DockZoneModel.operations).toContain(operation));
+        operations.forEach(operation => expect(Operations.operations).toContain(operation));
         expect(operations).not.toContain('promote')
     });
 

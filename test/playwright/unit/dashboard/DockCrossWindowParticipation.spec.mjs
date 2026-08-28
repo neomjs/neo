@@ -49,7 +49,7 @@ function targetDoc() {
 }
 
 test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — workspace wiring)', () => {
-    let DockCrossWindowParticipation, DockTabSortZone, DockZoneModel, DragCoordinator, Rectangle, WindowManager;
+    let DockCrossWindowParticipation, DockTabSortZone, Document, DragCoordinator, Persistence, Rectangle, WindowManager;
 
     const createCoordinatorStub = calls => ({
         register  : zone => calls.push(['register', zone]),
@@ -59,7 +59,8 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
     test.beforeAll(async () => {
         DockCrossWindowParticipation = (await import('../../../../src/dashboard/dock/window/Participation.mjs')).default;
         DockTabSortZone              = (await import('../../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
-        DockZoneModel                = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
+        Document                     = (await import('../../../../src/dashboard/dock/model/Document.mjs')).default;
+        Persistence                  = (await import('../../../../src/dashboard/dock/model/Persistence.mjs')).default;
         DragCoordinator              = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
         Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;
         WindowManager                = (await import('../../../../src/manager/Window.mjs')).default
@@ -323,12 +324,12 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
             expect(record).toEqual(sourceRecord);
             expect(record).not.toHaveProperty('owningWorkspaceId');
             expect(record).not.toHaveProperty('fallbackTarget');
-            expect(DockZoneModel.validate(sourceDocument)).toEqual([]);
-            expect(DockZoneModel.validate(targetDocument)).toEqual([]);
+            expect(Document.validate(sourceDocument)).toEqual([]);
+            expect(Document.validate(targetDocument)).toEqual([]);
 
             // The finite writer is the integration tripwire that the former loose fields failed.
             // Exercise the real two-document capture for BOTH placement shapes.
-            const captured = DockZoneModel.captureTopologyPerspective([sourceDocument, targetDocument], {
+            const captured = Persistence.captureTopologyPerspective([sourceDocument, targetDocument], {
                 layoutId       : `post-${operation.operation}`,
                 perspectiveName: `Post ${operation.operation}`,
                 revision       : 1,

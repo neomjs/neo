@@ -32,7 +32,7 @@ import Base from '../../../core/Base.mjs';
  * - **Presentation-only.** Nothing here reads or writes dock documents; the signal is pure
  *   projection-tier state, per the JSON-first guardrail.
  *
- * Timer functions are injectable for deterministic unit specs (the DockRevealStateMachine
+ * Timer functions are injectable for deterministic unit specs (the RevealStateMachine
  * precedent); production callers never pass them.
  *
  * @class Neo.dashboard.dock.projection.MotionSignal

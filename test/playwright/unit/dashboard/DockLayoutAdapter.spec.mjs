@@ -15,7 +15,7 @@ import DockLayoutAdapter  from '../../../../src/dashboard/dock/projection/Layout
 import DockRail           from '../../../../src/dashboard/dock/interaction/Rail.mjs';
 import DockSplitter       from '../../../../src/dashboard/dock/interaction/DockSplitter.mjs';
 import DockTabEnterButton from '../../../../src/dashboard/dock/interaction/TabEnterButton.mjs';
-import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
+import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 import '../../../../src/dashboard/Panel.mjs'; // registers the `dashboard-panel` ntype the projected items use
 import TabContainer      from '../../../../src/tab/Container.mjs';
 import TabOverflowPlugin from '../../../../src/tab/plugin/Overflow.mjs';
@@ -313,7 +313,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             splitNodeId: 'root'
         });
 
-        resized = DockZoneModel.applyOperation(model, descriptor);
+        resized = Operations.applyOperation(model, descriptor);
 
         expect(resized.errors).toEqual([]);
         expect(resized.document.nodes.root.sizes).toEqual([0.75, 0.25]);
@@ -746,16 +746,16 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             options  = {resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})},
             findRail = result => result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
 
-        let hidden = DockZoneModel.applyOperation(model, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        let hidden = Operations.applyOperation(model, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
         expect(hidden.errors).toEqual([]);
 
         let railed = findRail(DockLayoutAdapter.project(hidden.document, options));
         expect(railed.railItems.map(item => item.dockItemId)).toEqual(['terminal']);
 
-        let restored = DockZoneModel.applyOperation(hidden.document, {autoHidden: false, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        let restored = Operations.applyOperation(hidden.document, {autoHidden: false, itemId: 'terminal', operation: 'setItemAutoHidden'});
         expect(findRail(DockLayoutAdapter.project(restored.document, options))).toBeUndefined();
 
-        let rehidden = DockZoneModel.applyOperation(restored.document, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
+        let rehidden = Operations.applyOperation(restored.document, {autoHidden: true, itemId: 'terminal', operation: 'setItemAutoHidden'});
         expect(findRail(DockLayoutAdapter.project(rehidden.document, options)).railItems).toEqual(railed.railItems);
     });
 

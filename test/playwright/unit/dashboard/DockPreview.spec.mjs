@@ -46,7 +46,7 @@ const
 test.describe('Neo.dashboard.dock.interaction.Preview', () => {
     test.describe('stylesheet contract (visible affordances)', () => {
         test('the structural scss backs the emitted affordance classes with visible styling', () => {
-            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8');
+            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8');
 
             expect(scss).toContain('.neo-dock-preview-affordance');
             expect(scss).toContain('.neo-dock-preview-accepted');
@@ -58,7 +58,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         });
 
         test('shared consumers stay on the declared DockPreview contract', () => {
-            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
+            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8'),
                   consumers  = [...new Set(
                       [...structural.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
                   )].sort();
@@ -76,7 +76,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         test('the proxy surface and signal language have no fallbacks and stay dock-owned', () => {
             const
                 containerScss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/Container.scss'), 'utf8'),
-                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
+                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8'),
                 // strip line comments: the census asserts on SELECTORS and declarations, not prose
                 uncomment     = source => source.replace(/\/\/[^\n]*/g, ''),
                 signalStart   = containerScss.indexOf('.neo-preview-lang-signal');

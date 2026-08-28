@@ -1,10 +1,10 @@
-import Base               from '../../../core/Base.mjs';
-import DockRail           from '../interaction/Rail.mjs';
-import DockSplitter       from '../interaction/DockSplitter.mjs';
-import DockTabEnterButton from '../interaction/TabEnterButton.mjs';
-import DockTabSortZone    from '../interaction/TabSortZone.mjs';
-import DockZoneModel      from '../../DockZoneModel.mjs';
-import TabOverflowPlugin  from '../../../tab/plugin/Overflow.mjs';
+import Base              from '../../../core/Base.mjs';
+import Rail              from '../interaction/Rail.mjs';
+import DockSplitter      from '../interaction/DockSplitter.mjs';
+import TabEnterButton    from '../interaction/TabEnterButton.mjs';
+import TabSortZone       from '../interaction/TabSortZone.mjs';
+import Document          from '../model/Document.mjs';
+import TabOverflowPlugin from '../../../tab/plugin/Overflow.mjs';
 
 // Private runtime restoration slot for live component instances projected through the popup
 // stack grip. Symbol-keyed so it can never collide with application config or persisted data.
@@ -178,7 +178,7 @@ class LayoutAdapter extends Base {
                     'neo-dashboard-dock-tab-enter',
                     `dock-tab-enter-item-${encodeURIComponent(itemId)}`
                 ])],
-                module: DockTabEnterButton
+                module: TabEnterButton
             }
         }
 
@@ -367,10 +367,10 @@ class LayoutAdapter extends Base {
      * @static
      */
     static project(model, options={}) {
-        let forbiddenKey = DockZoneModel.findForbiddenPreviewKey(model);
+        let forbiddenKey = Document.findForbiddenPreviewKey(model);
 
         if (forbiddenKey) {
-            throw new Error(`DockLayoutAdapter input must be committed dock-zone model; preview-only field "${forbiddenKey}" is not allowed.`)
+            throw new Error(`LayoutAdapter input must be committed dock-zone model; preview-only field "${forbiddenKey}" is not allowed.`)
         }
 
         if (!model?.nodes || !model.root) {
@@ -378,7 +378,7 @@ class LayoutAdapter extends Base {
         }
 
         let stackDragNodeId = options.enableStackDrag === true
-                ? DockZoneModel.resolveStackRoot(model)
+                ? Document.resolveStackRoot(model)
                 : null,
             config = this.projectNode(model.root, {
             applyDockZoneOperation: options.applyDockZoneOperation,
@@ -475,7 +475,7 @@ class LayoutAdapter extends Base {
     }
 
     /**
-     * Projects one auto-hidden item id into the rail-tab metadata `DockRail` renders.
+     * Projects one auto-hidden item id into the rail-tab metadata `Rail` renders.
      *
      * The metadata carries stable `dockItemId` + `dockEdge` so the rail's click (and the follow-up
      * reveal/pin slice) can address the item semantically, plus the `restorable` policy projection
@@ -526,7 +526,7 @@ class LayoutAdapter extends Base {
             dockZoneDocument        : context.dockZoneDocument,
             edge,
             flex                    : 'none',
-            module                  : DockRail,
+            module                  : Rail,
             ntype                   : 'dashboard-dock-rail',
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
@@ -749,7 +749,7 @@ class LayoutAdapter extends Base {
         let node = context.nodes[nodeId];
 
         if (!node) {
-            throw new Error(`DockLayoutAdapter could not find dock-zone node "${nodeId}".`)
+            throw new Error(`LayoutAdapter could not find dock-zone node "${nodeId}".`)
         }
 
         switch (node.type) {
@@ -760,7 +760,7 @@ class LayoutAdapter extends Base {
             case 'tabs':
                 return this.projectTabsNode(nodeId, node, context)
             default:
-                throw new Error(`DockLayoutAdapter does not support dock-zone node type "${node.type}".`)
+                throw new Error(`LayoutAdapter does not support dock-zone node type "${node.type}".`)
         }
     }
 
@@ -883,7 +883,7 @@ class LayoutAdapter extends Base {
                 // new model state: a menu selection routes through the tab.Container's existing activeIndex.
                 plugins       : [{module: TabOverflowPlugin}],
                 sortZoneConfig: {
-                    module: DockTabSortZone,
+                    module: TabSortZone,
                     // A dock host spans multiple tab strips. Its composition can therefore name
                     // the app/window boundary whose EXIT means tear-out; retaining the toolbar
                     // fallback keeps consumers that omit the option byte-identical.

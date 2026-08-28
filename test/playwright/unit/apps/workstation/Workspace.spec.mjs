@@ -10,7 +10,8 @@ import {test, expect}           from '@playwright/test';
 import Neo                      from '../../../../../src/Neo.mjs';
 import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
-import DockZoneModel            from '../../../../../src/dashboard/DockZoneModel.mjs';
+import Document                 from '../../../../../src/dashboard/dock/model/Document.mjs';
+import Operations               from '../../../../../src/dashboard/dock/model/Operations.mjs';
 import {previewToOperation}     from '../../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import FeedPane  from '../../../../../apps/workstation/view/FeedPane.mjs';
@@ -57,7 +58,7 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
     const
         workspaceId = Workspace.vesselWorkspaceId(ownerItemId),
         tabsNodeId  = Workspace.vesselTabsNodeId(ownerItemId),
-        detached    = DockZoneModel.applyOperation(workspace.dockModel, {
+        detached    = Operations.applyOperation(workspace.dockModel, {
             operation: 'detachItem',
             itemId   : ownerItemId
         });
@@ -68,13 +69,13 @@ const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='s
 
     const
         provisional = workspace.createVesselWorkspaceDocument(ownerItemId),
-        incoming    = DockZoneModel.transferItem(detached.document, provisional, {
+        incoming    = Operations.transferItem(detached.document, provisional, {
             itemId           : incomingItemId,
             sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
             targetWorkspaceId: workspaceId,
             target           : {operation: 'addTab', tabsNodeId}
         }),
-        owner       = DockZoneModel.transferItem(incoming.sourceDocument, incoming.targetDocument, {
+        owner       = Operations.transferItem(incoming.sourceDocument, incoming.targetDocument, {
             itemId           : ownerItemId,
             sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
             targetWorkspaceId: workspaceId,
@@ -986,7 +987,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             const provisional = workspace.getWorkspaceDocument(workspaceId);
 
-            expect(DockZoneModel.validate(provisional)).toEqual([]);
+            expect(Document.validate(provisional)).toEqual([]);
             expect(provisional.items).toEqual({});
             expect(provisional.nodes[Workspace.vesselTabsNodeId('alerts')]).toEqual({
                 activeItemId: null,
@@ -1290,7 +1291,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             itemId      = 'alerts',
             pane        = workspace.paneCache[itemId],
             workspaceId = Workspace.vesselWorkspaceId(itemId),
-            detached    = DockZoneModel.applyOperation(workspace.dockModel, {
+            detached    = Operations.applyOperation(workspace.dockModel, {
                 operation: 'detachItem',
                 itemId
             }),
@@ -1470,7 +1471,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
         try {
             await workspace.refreshPromise;
 
-            const detached = DockZoneModel.applyOperation(workspace.dockModel, {
+            const detached = Operations.applyOperation(workspace.dockModel, {
                 operation: 'detachItem',
                 itemId   : 'alerts'
             });
@@ -1507,7 +1508,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 return false
             };
 
-            const transferIncoming = () => DockZoneModel.transferItem(
+            const transferIncoming = () => Operations.transferItem(
                 workspace.dockModel,
                 state.document,
                 {
@@ -1594,7 +1595,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
             const returnDescriptor = {
                     operation        : 'transferNode',
-                    nodeId           : DockZoneModel.resolveStackRoot(state.document),
+                    nodeId           : Document.resolveStackRoot(state.document),
                     sourceWorkspaceId: workspaceId,
                     targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                     target           : {
@@ -1602,7 +1603,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                         placement   : {kind: 'tab-into'}
                     }
                 },
-                returned = DockZoneModel.transferNode(
+                returned = Operations.transferNode(
                     state.document,
                     workspace.dockModel,
                     returnDescriptor
@@ -1751,7 +1752,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             const
                 descriptor = {
                     operation        : 'transferNode',
-                    nodeId           : DockZoneModel.resolveStackRoot(state.document),
+                    nodeId           : Document.resolveStackRoot(state.document),
                     sourceWorkspaceId: workspaceId,
                     targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                     target           : {
@@ -1759,7 +1760,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
                         placement   : {kind: 'tab-into'}
                     }
                 },
-                returned = DockZoneModel.transferNode(state.document, workspace.dockModel, descriptor);
+                returned = Operations.transferNode(state.document, workspace.dockModel, descriptor);
 
             expect(returned.errors).toEqual([]);
             expect(workspace.workspaceSet.adoptTransfer({
@@ -1827,7 +1828,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             workspace   = Neo.create(Workspace, {}),
             workspaceId = Workspace.vesselWorkspaceId('alerts'),
             provisional = workspace.createVesselWorkspaceDocument('alerts'),
-            moved       = DockZoneModel.transferItem(workspace.dockModel, provisional, {
+            moved       = Operations.transferItem(workspace.dockModel, provisional, {
                 itemId           : 'alerts',
                 sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                 targetWorkspaceId: workspaceId,
@@ -2352,7 +2353,7 @@ test.describe('replay probe transaction (prototype-call)', () => {
             // against the one being reset into place, so the stub would fail the diff's shape gate
             // and the derivation would fail closed — turning this assertion into a statement about
             // an unparseable fixture rather than about same-topology admission.
-            liveDocument = DockZoneModel.clone(initialDocument),
+            liveDocument = Document.clone(initialDocument),
             refreshCalls = [],
             host         = {
                 dockModel     : liveDocument,

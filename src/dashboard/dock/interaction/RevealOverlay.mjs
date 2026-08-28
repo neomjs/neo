@@ -1,15 +1,15 @@
-import Button           from '../../../button/Base.mjs';
-import Container        from '../../../container/Base.mjs';
-import DockMotionSignal from '../projection/MotionSignal.mjs';
-import Label            from '../../../component/Label.mjs';
-import NeoArray         from '../../../util/Array.mjs';
+import Button       from '../../../button/Base.mjs';
+import Container    from '../../../container/Base.mjs';
+import MotionSignal from '../projection/MotionSignal.mjs';
+import Label        from '../../../component/Label.mjs';
+import NeoArray     from '../../../util/Array.mjs';
 
 /**
  * @summary Presentation host for the transient reveal of an auto-hidden dock item — an
  * edge-anchored overlay that renders OVER the committed projection, never re-layouts it.
  *
  * The overlay is pure per-window runtime state: it renders whatever reveal snapshot its owning
- * rail pushes (via `DockRail.bindRevealOverlay()`) and translates DOM reality back into semantic
+ * rail pushes (via `Rail.bindRevealOverlay()`) and translates DOM reality back into semantic
  * INTENTS the rail's state machine consumes — `revealPointerEnter/Leave`, `revealFocusEnter/Leave`,
  * `revealEscape`, `revealPinRequested`. It decides nothing itself: timing, focus-hold and policy
  * all live upstream. It has no write path to any document.
@@ -119,7 +119,7 @@ class RevealOverlay extends Container {
      */
     revealPaneItemId = null
     /**
-     * Whether this overlay currently owns one reveal-animation entry in `DockMotionSignal`.
+     * Whether this overlay currently owns one reveal-animation entry in `MotionSignal`.
      * Keeps matching end events, early dismissal, rapid re-entry and teardown idempotent.
      * @member {Boolean} revealMotionActive=false
      * @protected
@@ -189,7 +189,7 @@ class RevealOverlay extends Container {
     beginRevealMotion() {
         if (!this.revealMotionActive) {
             this.revealMotionActive = true;
-            DockMotionSignal.enter(this)
+            MotionSignal.enter(this)
         }
     }
 
@@ -200,7 +200,7 @@ class RevealOverlay extends Container {
     finishRevealMotion() {
         if (this.revealMotionActive) {
             this.revealMotionActive = false;
-            DockMotionSignal.leave(this)
+            MotionSignal.leave(this)
         }
     }
 
@@ -351,7 +351,7 @@ class RevealOverlay extends Container {
      * @returns {Boolean}
      */
     get visible() {
-        return DockRevealOverlay.VISIBLE_STATES.has(this.revealState) && !!this.revealedItem
+        return RevealOverlay.VISIBLE_STATES.has(this.revealState) && !!this.revealedItem
     }
 
     /**

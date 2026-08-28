@@ -11,7 +11,7 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import DockMotionSignal   from '../../../../src/dashboard/dock/projection/MotionSignal.mjs';
 import DockTabEnterButton from '../../../../src/dashboard/dock/interaction/TabEnterButton.mjs';
-import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
+import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 
 const createModel = () => ({
@@ -162,9 +162,9 @@ test.describe('Neo.dashboard.dock.interaction.TabEnterButton', () => {
     test('the refresh owner captures a globally absent addTab once; moves, reorders and later refreshes stay inert', async () => {
         let initial    = createModel(),
             descriptor = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 2},
-            moved      = DockZoneModel.applyOperation(initial, descriptor),
-            detached   = DockZoneModel.applyOperation(initial, {operation: 'detachItem', itemId: 'terminal'}),
-            inserted   = DockZoneModel.applyOperation(detached.document, descriptor),
+            moved      = Operations.applyOperation(initial, descriptor),
+            detached   = Operations.applyOperation(initial, {operation: 'detachItem', itemId: 'terminal'}),
+            inserted   = Operations.applyOperation(detached.document, descriptor),
             refreshes  = [],
             // a duck-typed refresh owner borrowing the engine class's commit loop: the members the
             // loop consults are supplied explicitly; the refresh spy records the one-use correlation
@@ -211,7 +211,7 @@ test.describe('Neo.dashboard.dock.interaction.TabEnterButton', () => {
 
         // Same-target addTab is a reorder: the header existed before the commit, so no insertion.
         let reorder   = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 0},
-            reordered = DockZoneModel.applyOperation(context.dockModel, reorder);
+            reordered = Operations.applyOperation(context.dockModel, reorder);
 
         DockWorkspace.prototype.onDockZoneDocumentChange.call(context, reordered.document, reorder);
         await context.refreshPromise;

@@ -10,8 +10,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective store)', () => {
-    let DockPerspectiveStore, DockZoneModel, store;
+test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the named perspective store)', () => {
+    let Document, Persistence, PerspectiveLibrary, store;
 
     const doc = ids => ({
         schema: 'neo.harness.dockZone.v1',
@@ -21,7 +21,7 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
     });
 
     const makeLayout = (layoutId, name, ids = ['alpha']) => {
-        const {layout, errors} = DockZoneModel.createSavedLayout(doc(ids), {
+        const {layout, errors} = Persistence.createSavedLayout(doc(ids), {
             layoutId,
             perspectiveName: name,
             title          : `${name} title`
@@ -32,12 +32,13 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
     };
 
     test.beforeAll(async () => {
-        DockPerspectiveStore = (await import('../../../../src/dashboard/DockPerspectiveStore.mjs')).default;
-        DockZoneModel        = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default
+        Document           = (await import('../../../../src/dashboard/dock/model/Document.mjs')).default;
+        Persistence        = (await import('../../../../src/dashboard/dock/model/Persistence.mjs')).default;
+        PerspectiveLibrary = (await import('../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs')).default
     });
 
     test.beforeEach(() => {
-        store = Neo.create(DockPerspectiveStore)
+        store = Neo.create(PerspectiveLibrary)
     });
 
     test.afterEach(() => {
@@ -68,7 +69,7 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
         const loaded = store.loadPerspective('Coding');
         expect(loaded.errors).toEqual([]);
         expect(loaded.layout.perspectiveName).toBe('Coding');
-        expect(DockZoneModel.validate(loaded.document)).toEqual([]);   // a restorable primary document
+        expect(Document.validate(loaded.document)).toEqual([]);   // a restorable primary document
         expect(store.collection.activeLayoutId).toBe('l-1');
 
         const renamed = store.renamePerspective('Coding', 'Review');
@@ -124,7 +125,7 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
         };
 
         // adopt a collection carrying the legacy record as-is
-        const {collection, errors} = DockZoneModel.createSavedLayoutCollection([legacy], {});
+        const {collection, errors} = PerspectiveLibrary.createSavedLayoutCollection([legacy], {});
         expect(errors).toEqual([]);
         store.collection = collection;
 
@@ -177,10 +178,10 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
         const payload = written[0];
         expect(payload).not.toBe(store.collection);
         expect(JSON.stringify(payload)).toBe(JSON.stringify(store.collection));
-        expect(DockZoneModel.findNonJsonValue(payload)).toBeNull();
+        expect(Document.findNonJsonValue(payload)).toBeNull();
 
         // hydrate round-trips...
-        const fresh = Neo.create(DockPerspectiveStore, {persistenceAdapter: store.persistenceAdapter});
+        const fresh = Neo.create(PerspectiveLibrary, {persistenceAdapter: store.persistenceAdapter});
         expect((await fresh.hydrate()).hydrated).toBe(true);
         expect(fresh.exists('Coding')).toBe(true);
 
@@ -239,7 +240,7 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
         // derived successor: the first remaining record in insertion order
         expect(store.removePerspective('Coding')).toEqual({errors: [], removed: true});
         expect(store.collection.activeLayoutId).toBe('l-2');
-        expect(DockZoneModel.validateSavedLayoutCollection(store.collection)).toEqual([]);
+        expect(PerspectiveLibrary.validateSavedLayoutCollection(store.collection)).toEqual([]);
 
         // an explicit successor wins over derivation
         store.savePerspective(makeLayout('l-4', 'Deep', ['delta']));
@@ -341,7 +342,7 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
         expect(Object.keys(store.collection.layouts)).toEqual(['l-1']);
         expect(store.collection.layouts['l-1'].perspectiveName).toBe('Review');
         expect(store.collection.activeLayoutId).toBe('l-1');
-        expect(DockZoneModel.validateSavedLayoutCollection(store.collection)).toEqual([]);
+        expect(PerspectiveLibrary.validateSavedLayoutCollection(store.collection)).toEqual([]);
 
         // without replace, the same rename stays the structured verdict (contract unchanged)
         store.savePerspective(makeLayout('l-3', 'Scratch', ['gamma']), {activate: false});

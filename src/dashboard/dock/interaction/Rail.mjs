@@ -1,9 +1,9 @@
-import Button                 from '../../../button/Base.mjs';
-import Container              from '../../../container/Base.mjs';
-import DockRevealOverlay      from './RevealOverlay.mjs';
-import DockRevealStateMachine from './RevealStateMachine.mjs';
-import DockZoneModel          from '../../DockZoneModel.mjs';
-import NeoArray               from '../../../util/Array.mjs';
+import Button             from '../../../button/Base.mjs';
+import Container          from '../../../container/Base.mjs';
+import RevealOverlay      from './RevealOverlay.mjs';
+import RevealStateMachine from './RevealStateMachine.mjs';
+import Operations         from '../model/Operations.mjs';
+import NeoArray           from '../../../util/Array.mjs';
 
 /**
  * @summary Runtime edge-rail affordance rendering committed auto-hidden items as real button
@@ -11,7 +11,7 @@ import NeoArray               from '../../../util/Array.mjs';
  *
  * The rail is pure render projection (per-window, derived, never persisted): WHICH items rail — and
  * on which edge — is committed `dockZone.v1` truth the adapter derives
- * (`DockLayoutAdapter.collectAutoHiddenItems()`). Tabs are `Neo.button.Base` child components built
+ * (`LayoutAdapter.collectAutoHiddenItems()`). Tabs are `Neo.button.Base` child components built
  * from plain `railItems` metadata rather than from the pane components themselves, so the pane never
  * learns it is railed (pane-blindness) and a destroyed or unresolvable pane cannot break its recall
  * affordance. Composition over synthesis: clicks ride the button `handler` contract, hover intents
@@ -28,14 +28,14 @@ import NeoArray               from '../../../util/Array.mjs';
  * (`autoHideRevealOnHover`; dwell-gated, never steals focus — hover reveals are an accessibility
  * hazard by default). The PERSIST path is the overlay's pin control: `setItemPinned(true)` committed
  * through the owning reducer callback (`applyDockZoneOperation`) or a local
- * `DockZoneModel.applyOperation()` — never a parallel mutation path; the model clears `autoHidden`
+ * `Operations.applyOperation()` — never a parallel mutation path; the model clears `autoHidden`
  * itself.
  *
  * Reveal is policy-free: even a `pinnable: false` item (whose PIN the model would reject) must stay
  * reachable through reveal — anything else is item loss. The policy projection (`restorable`)
  * therefore gates the overlay's pin control, never the tab.
  *
- * The reveal/dismiss timing brain lives in {@link DockRevealStateMachine} (documented state table);
+ * The reveal/dismiss timing brain lives in {@link RevealStateMachine} (documented state table);
  * this component owns composition, overlay binding and the executor commit path.
  *
  * @class Neo.dashboard.dock.interaction.Rail
@@ -43,7 +43,7 @@ import NeoArray               from '../../../util/Array.mjs';
  * @see Neo.dashboard.dock.projection.LayoutAdapter
  * @see Neo.dashboard.dock.interaction.RevealOverlay
  * @see Neo.dashboard.dock.interaction.DockSplitter
- * @see Neo.dashboard.DockZoneModel
+ * @see Neo.dashboard.dock.model.Document
  * @see learn/agentos/DockZoneModel.md
  */
 class Rail extends Container {
@@ -105,7 +105,7 @@ class Rail extends Container {
         onDockZoneDocumentChange: null,
         /**
          * Rail tab metadata, in document order: `[{dockEdge, dockItemId, restorable, title}]`.
-         * Projection input from `DockLayoutAdapter.createRailTab()` — model-derived, never persisted.
+         * Projection input from `LayoutAdapter.createRailTab()` — model-derived, never persisted.
          * @member {Object[]|null} railItems_=null
          * @reactive
          */
@@ -141,7 +141,7 @@ class Rail extends Container {
     revealPaneCache = {}
     /**
      * The reveal/dismiss timing brain. Runtime-only; created per instance, torn down in `destroy()`.
-     * @member {DockRevealStateMachine|null} revealMachine=null
+     * @member {RevealStateMachine|null} revealMachine=null
      * @protected
      */
     revealMachine = null
@@ -165,7 +165,7 @@ class Rail extends Container {
             config.items = [
                 ...(config.railItems || []).map(railItem => this.createTabConfig(railItem, config.edge)),
                 {
-                    module: DockRevealOverlay,
+                    module: RevealOverlay,
                     edge  : this.getValidatedEdge(config.edge)
                 }
             ]
@@ -175,7 +175,7 @@ class Rail extends Container {
 
         let me = this;
 
-        me.revealMachine = new DockRevealStateMachine({
+        me.revealMachine = new RevealStateMachine({
             dwellMs      : Number.isFinite(me.revealDwellMs)        ? me.revealDwellMs        : undefined,
             graceMs      : Number.isFinite(me.revealDismissGraceMs) ? me.revealDismissGraceMs : undefined,
             onChange     : me.onRevealStateChange.bind(me),
@@ -285,7 +285,7 @@ class Rail extends Container {
 
     /**
      * Commits a dock-zone operation descriptor through the owning reducer callback, falling back to
-     * a local `DockZoneModel.applyOperation()` — identical commit contract to
+     * a local `Operations.applyOperation()` — identical commit contract to
      * `DockSplitter.commitResizeSplit()` so dashboard reducers handle every affordance with one
      * code path. The rail commits `setItemPinned` (the overlay pin escape); reveal/dismiss never
      * commit anything.
@@ -300,7 +300,7 @@ class Rail extends Container {
         if (typeof me.applyDockZoneOperation === 'function') {
             result = me.applyDockZoneOperation(descriptor, me) || null
         } else if (me.dockZoneDocument) {
-            result = DockZoneModel.applyOperation(me.dockZoneDocument, descriptor)
+            result = Operations.applyOperation(me.dockZoneDocument, descriptor)
         }
 
         if (!result) {

@@ -1,5 +1,5 @@
 import Base                 from '../../../core/Base.mjs';
-import DockPreviewProducer  from './PreviewProducer.mjs';
+import PreviewProducer      from './PreviewProducer.mjs';
 import {previewToOperation} from '../model/PreviewContract.mjs';
 
 /**
@@ -83,7 +83,7 @@ class DragAffordances extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.producer = Neo.create(DockPreviewProducer)
+        this.producer = Neo.create(PreviewProducer)
     }
 
     /**

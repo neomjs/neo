@@ -17,7 +17,7 @@ import Base from '../../../core/Base.mjs';
  * customization surface `core.Base` exists to provide. The hit-test methods are instance methods
  * for the same reason: a workspace with a different drop grammar subclasses and overrides
  * `resolvePlacementKind` rather than forking the payload assembly. Owners hold one producer instance
- * (`Neo.create(DockPreviewProducer)`) and call `produce()` per hover frame.
+ * (`Neo.create(PreviewProducer)`) and call `produce()` per hover frame.
  *
  * Boundaries (binding, per the §2.3 / dock-zone-model contracts):
  *
@@ -27,7 +27,7 @@ import Base from '../../../core/Base.mjs';
  * - **Layer-blind.** This producer must not import the renderer (`Neo.dashboard.dock.interaction.Preview`)
  *   renderer/validator. So this producer re-derives the schema's placement vocabulary locally; the
  *   producer → consumer contract is PINNED in the unit test (which may import both layers) by
- *   asserting every produced payload satisfies `DockPreview.isValidPreview`.
+ *   asserting every produced payload satisfies `Preview.isValidPreview`.
  * - **Fail closed.** A malformed rect, a pointer outside every zone, or a missing item id yields
  *   `null` (no affordance) rather than a guess — mirroring the renderer's fail-closed clear.
  *

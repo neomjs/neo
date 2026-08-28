@@ -64,16 +64,16 @@ class RevealStateMachine {
     /**
      * @param {Object} config
      * @param {Function} [config.clearTimeoutFn=globalThis.clearTimeout] Injectable for fake-timer specs.
-     * @param {Number} [config.dwellMs=DockRevealStateMachine.DWELL_MS]
-     * @param {Number} [config.graceMs=DockRevealStateMachine.DISMISS_GRACE_MS]
+     * @param {Number} [config.dwellMs=RevealStateMachine.DWELL_MS]
+     * @param {Number} [config.graceMs=RevealStateMachine.DISMISS_GRACE_MS]
      * @param {Function|null} [config.onChange=null] Receives `(next, previous)` snapshots `{revealedItemId, state}`.
      * @param {Boolean} [config.revealOnHover=false] Workspace-level opt-in; hover inputs are ignored without it.
      * @param {Function} [config.setTimeoutFn=globalThis.setTimeout] Injectable for fake-timer specs.
      */
     constructor({clearTimeoutFn, dwellMs, graceMs, onChange, revealOnHover, setTimeoutFn} = {}) {
         this.clearTimeoutFn = clearTimeoutFn || globalThis.clearTimeout.bind(globalThis);
-        this.dwellMs        = Number.isFinite(dwellMs) ? dwellMs : DockRevealStateMachine.DWELL_MS;
-        this.graceMs        = Number.isFinite(graceMs) ? graceMs : DockRevealStateMachine.DISMISS_GRACE_MS;
+        this.dwellMs        = Number.isFinite(dwellMs) ? dwellMs : RevealStateMachine.DWELL_MS;
+        this.graceMs        = Number.isFinite(graceMs) ? graceMs : RevealStateMachine.DISMISS_GRACE_MS;
         this.onChange       = typeof onChange === 'function' ? onChange : null;
         this.pendingItemId  = null;
         this.revealOnHover  = revealOnHover === true;

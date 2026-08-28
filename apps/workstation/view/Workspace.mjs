@@ -8,11 +8,12 @@ import ScalePane                   from './ScalePane.mjs';
 import DockDragAffordances         from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
 import DockDropIndicators          from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockLayoutAdapter           from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
-import DockPerspectiveStore        from '../../../src/dashboard/DockPerspectiveStore.mjs';
+import PerspectiveLibrary          from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import DockPreview                 from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockProjectionReconciler    from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                 from '../../../src/ai/client/DockService.mjs';
-import DockZoneModel               from '../../../src/dashboard/DockZoneModel.mjs';
+import Document                    from '../../../src/dashboard/dock/model/Document.mjs';
+import Operations                  from '../../../src/dashboard/dock/model/Operations.mjs';
 import InteractionService          from '../../../src/ai/client/InteractionService.mjs';
 import StateProvider               from '../../../src/state/Provider.mjs';
 import TourRunner                  from '../../../src/ai/client/TourRunner.mjs';
@@ -186,7 +187,7 @@ class Workspace extends DockWorkspace {
      * list, and restore against this workspace with no service-side change. Restore rides the
      * store's migration-honest `loadPerspective` plus this view's `onDockZoneDocumentChange`
      * commit seam — the same path `execute_dock_operation` commits through.
-     * @member {Neo.dashboard.DockPerspectiveStore|null} perspectiveStore=null
+     * @member {Neo.dashboard.dock.persistence.PerspectiveLibrary|null} perspectiveStore=null
      */
     perspectiveStore = null
     /**
@@ -421,9 +422,9 @@ class Workspace extends DockWorkspace {
 
         let me = this;
 
-        me.dockModel         = DockZoneModel.clone(initialDocument);
+        me.dockModel         = Document.clone(initialDocument);
         me.dockService       = Neo.create(DockService, {});
-        me.perspectiveStore  = Neo.create(DockPerspectiveStore, {});
+        me.perspectiveStore  = Neo.create(PerspectiveLibrary, {});
 
         // Cross-window hit testing reads manager.Window as its one geometry authority. Movement
         // snapshots alone go stale after a main-window resize, so this render target publishes
@@ -1133,7 +1134,7 @@ class Workspace extends DockWorkspace {
                 !pane ||
                 pane.isDestroyed ||
                 !me.dockModel?.items?.[itemId] ||
-                DockZoneModel.findContainingTabsId(me.dockModel, itemId)
+                Document.findContainingTabsId(me.dockModel, itemId)
             ) {
                 continue
             }
@@ -1310,7 +1311,7 @@ class Workspace extends DockWorkspace {
         if (!item || !tabsNodeId) return null;
 
         return {
-            schema: DockZoneModel.SCHEMA,
+            schema: Document.SCHEMA,
             root  : `workstation-vessel-root:${itemId}`,
             items : {},
             nodes : {
@@ -1602,7 +1603,7 @@ class Workspace extends DockWorkspace {
             document = workspaceId === Workspace.MAIN_WORKSPACE_ID || state?.committed
                 ? me.getWorkspaceDocument(workspaceId)
                 : null,
-            result   = document && DockZoneModel.applyOperation(document, descriptor);
+            result   = document && Operations.applyOperation(document, descriptor);
 
         if (!result || result.errors.length) return result;
 
@@ -1645,7 +1646,7 @@ class Workspace extends DockWorkspace {
         if (mainToVessel && !targetState.committed) {
             if (descriptor.operation !== 'transferItem' || me.workspaceSet.has(targetWorkspaceId)) return false;
 
-            const ownerTransfer = DockZoneModel.transferItem(sourceDocument, targetDocument, {
+            const ownerTransfer = Operations.transferItem(sourceDocument, targetDocument, {
                 itemId: targetState.itemId,
                 sourceWorkspaceId,
                 targetWorkspaceId,
@@ -1700,7 +1701,7 @@ class Workspace extends DockWorkspace {
         const receipt = me.lastCrossWindowTransfer = {
             applied       : true,
             closeRequested: false,
-            descriptor    : DockZoneModel.clone(descriptor),
+            descriptor    : Document.clone(descriptor),
             phases        : ['documents-adopted'],
             reconciled    : false,
             sourceWorkspaceId,
@@ -1903,7 +1904,7 @@ class Workspace extends DockWorkspace {
                 : null,
             targetNodeId = storedHome
                 || Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
-            nodeId       = DockZoneModel.resolveStackRoot(state.document);
+            nodeId       = Document.resolveStackRoot(state.document);
 
         if (!nodeId || !targetNodeId) {
             me.lastCrossWindowTransfer = {
@@ -1920,7 +1921,7 @@ class Workspace extends DockWorkspace {
                 targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                 target           : {targetNodeId, placement: {kind: 'tab-into'}}
             },
-            result = DockZoneModel.transferNode(state.document, me.dockModel, descriptor);
+            result = Operations.transferNode(state.document, me.dockModel, descriptor);
 
         if (result.errors.length) {
             me.lastCrossWindowTransfer = {applied: false, errors: result.errors};
@@ -1947,7 +1948,7 @@ class Workspace extends DockWorkspace {
 
         me.lastCrossWindowTransfer = {
             applied              : true,
-            descriptor           : DockZoneModel.clone(descriptor),
+            descriptor           : Document.clone(descriptor),
             recoveredOnDisconnect: true,
             sourceWorkspaceId    : workspaceId,
             targetWorkspaceId    : Workspace.MAIN_WORKSPACE_ID,
@@ -2340,7 +2341,7 @@ class Workspace extends DockWorkspace {
             out       = null;
 
         try {
-            me.dockModel = DockZoneModel.clone(initialDocument);
+            me.dockModel = Document.clone(initialDocument);
             await me.refreshDockWorkspace(null, me.dockModel, {geometryOnly: true});
 
             // The entry projection is finished and the replay has not begun. Published because a
@@ -2354,7 +2355,7 @@ class Workspace extends DockWorkspace {
 
             await me.refreshPromise;
 
-            out = {...result, document: DockZoneModel.clone(me.dockModel), phases: {entryCompletedAt}};
+            out = {...result, document: Document.clone(me.dockModel), phases: {entryCompletedAt}};
 
             // A structured runner failure is a primary outcome the caller must receive intact —
             // only a genuinely clean replay may let a restore failure replace the return.
@@ -2512,7 +2513,7 @@ class Workspace extends DockWorkspace {
         me.cueSettlements.clear();
         me.lastTourReceipt = null;
         me.progressPromise = Promise.resolve();
-        me.dockModel       = DockZoneModel.clone(initialDocument);
+        me.dockModel       = Document.clone(initialDocument);
         await me.setPipProgress(0);
 
         await me.refreshDockWorkspace(null, me.dockModel, {geometryOnly: true});
@@ -2556,7 +2557,7 @@ class Workspace extends DockWorkspace {
             receipt      = {
                 completed  : runnerResult.completed && errors.length === 0,
                 cueReceipts: me.cueReceipts.map(entry => ({cue: {...entry.cue}, receipt: entry.receipt})),
-                document   : DockZoneModel.clone(me.dockModel),
+                document   : Document.clone(me.dockModel),
                 elapsedMs,
                 errors,
                 feed       : {
@@ -2833,7 +2834,7 @@ class Workspace extends DockWorkspace {
         admission && (admission.invalidated = true);
 
         if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(DockZoneModel.findContainingTabsId(me.dockModel, itemId)),
+            const sourceOwns = Boolean(Document.findContainingTabsId(me.dockModel, itemId)),
                   settled    = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
                       itemId, windowId: embodiedWindowId
                   });
@@ -3280,7 +3281,7 @@ class Workspace extends DockWorkspace {
     applyTearOutOperation(descriptor) {
         let me       = this,
             isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            captured = isDetach ? Document.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
         captured && (me.tearOutPlacements[descriptor.itemId] = captured);
@@ -3425,7 +3426,7 @@ class Workspace extends DockWorkspace {
 
         delete me.tearOutPlacements[itemId];
 
-        if (!doc.items?.[itemId] || !fallback || DockZoneModel.findContainingTabsId(doc, itemId)) {
+        if (!doc.items?.[itemId] || !fallback || Document.findContainingTabsId(doc, itemId)) {
             return
         }
 
@@ -3605,7 +3606,7 @@ class Workspace extends DockWorkspace {
                 me.tearOutRetirements.add(itemId);
 
                 if (me.tearOutEmbodiment.isStaged(itemId)) {
-                    const sourceOwns = Boolean(DockZoneModel.findContainingTabsId(me.dockModel, itemId));
+                    const sourceOwns = Boolean(Document.findContainingTabsId(me.dockModel, itemId));
 
                     me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({itemId, windowId: entry.windowId})
                 }
@@ -3835,7 +3836,7 @@ class Workspace extends DockWorkspace {
             // terminal. The window inset below remains a visual-stage safety rule.
             sortZone.enableProxyToPopup = false;
 
-            let documentBefore = DockZoneModel.clone(document),
+            let documentBefore = Document.clone(document),
                 startX         = buttonRect.x + buttonRect.width / 2,
                 startY         = buttonRect.y + buttonRect.height / 2,
                 directionX     = startX > window.innerRect.width  / 2 ? -1 : 1,
@@ -4040,7 +4041,7 @@ class Workspace extends DockWorkspace {
                         {sortZone, targetId: 'document.body'}
                     ),
                     retired      = await waitUntil(overlaysRetired),
-                    documentAfter = DockZoneModel.clone(me.dockModel),
+                    documentAfter = Document.clone(me.dockModel),
                     unchanged     = JSON.stringify(documentAfter) === JSON.stringify(documentBefore),
                     popupConfig   = restoreProxyPopupConfig();
 
@@ -4063,8 +4064,8 @@ class Workspace extends DockWorkspace {
             }
 
             let descriptor     = previewToOperation(finalPreview),
-                expectedResult = descriptor && DockZoneModel.applyOperation(
-                    DockZoneModel.clone(documentBefore),
+                expectedResult = descriptor && Operations.applyOperation(
+                    Document.clone(documentBefore),
                     descriptor
                 );
 
@@ -4072,7 +4073,7 @@ class Workspace extends DockWorkspace {
                 throw new Error('final active preview did not resolve to one valid document operation')
             }
 
-            let expectedDocument   = DockZoneModel.clone(expectedResult.document),
+            let expectedDocument   = Document.clone(expectedResult.document),
                 expectedSerialized = JSON.stringify(expectedDocument);
 
             await me.interactionService.simulateEvent({events: [{
@@ -4086,7 +4087,7 @@ class Workspace extends DockWorkspace {
 
             settled && await me.refreshPromise;
 
-            let documentAfter          = DockZoneModel.clone(me.dockModel),
+            let documentAfter          = Document.clone(me.dockModel),
                 documentMatchesPreview = JSON.stringify(documentAfter) === expectedSerialized,
                 retired                = await waitUntil(overlaysRetired),
                 popupConfig            = restoreProxyPopupConfig(),
@@ -4177,16 +4178,16 @@ class Workspace extends DockWorkspace {
                 } : null,
                 parkedItemId: parkedVessel?.itemId ?? null,
                 parkReceipt : me.lastVesselParkReceipt
-                    ? DockZoneModel.clone(me.lastVesselParkReceipt)
+                    ? Document.clone(me.lastVesselParkReceipt)
                     : null,
-                preview              : semantic ? DockZoneModel.clone(semantic) : null,
-                rendered             : rendered ? DockZoneModel.clone(rendered) : null,
+                preview              : semantic ? Document.clone(semantic) : null,
+                rendered             : rendered ? Document.clone(rendered) : null,
                 sourceVesselConnected: Boolean(
                     sourceVessel?.windowId && Neo.manager?.Window?.get(sourceVessel.windowId)
                 ),
                 sourceVesselWindowId: sourceVessel?.windowId ?? null,
                 restoreReceipt      : me.lastVesselRestoreReceipt
-                    ? DockZoneModel.clone(me.lastVesselRestoreReceipt)
+                    ? Document.clone(me.lastVesselRestoreReceipt)
                     : null,
                 targetProxy,
                 targetWorkspaceId,
@@ -4477,12 +4478,12 @@ class Workspace extends DockWorkspace {
                     sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                     targetWorkspaceId
                 }, {attempts}),
-                sourceAfter = DockZoneModel.clone(me.dockModel),
-                targetAfter = DockZoneModel.clone(me.vesselWorkspaces.get(targetWorkspaceId)?.document),
+                sourceAfter = Document.clone(me.dockModel),
+                targetAfter = Document.clone(me.vesselWorkspaces.get(targetWorkspaceId)?.document),
                 retired     = await me.waitForTearOutVesselRetired(itemId, {attempts}),
                 targetItems = targetAfter?.nodes?.[Workspace.vesselTabsNodeId(targetItemId)]?.items || [],
-                sourceOwns  = DockZoneModel.findContainingTabsId(sourceAfter, itemId) != null
-                    || DockZoneModel.findContainingTabsId(sourceAfter, targetItemId) != null,
+                sourceOwns  = Document.findContainingTabsId(sourceAfter, itemId) != null
+                    || Document.findContainingTabsId(sourceAfter, targetItemId) != null,
                 applied     = transfer?.reconciled === true && retired && !sourceOwns
                     && targetItems.length === 2
                     && targetItems[0] === targetItemId
@@ -4496,7 +4497,7 @@ class Workspace extends DockWorkspace {
                     sourceDocument     : sourceAfter,
                     sourceVesselRetired: retired,
                     targetDocument     : targetAfter,
-                    transfer           : transfer ? DockZoneModel.clone(transfer) : null
+                    transfer           : transfer ? Document.clone(transfer) : null
                 }
             }
         } catch (error) {
@@ -4545,7 +4546,7 @@ class Workspace extends DockWorkspace {
             await me.refreshPromise;
             await me.crossWindowParticipationPromise;
 
-            let nodeId        = DockZoneModel.resolveStackRoot(state.document),
+            let nodeId        = Document.resolveStackRoot(state.document),
                 tabsNodeId    = Workspace.vesselTabsNodeId(ownerItemId),
                 tabsNode      = state.document.nodes?.[tabsNodeId],
                 activeItemId  = tabsNode?.activeItemId ?? tabsNode?.items?.[0],
@@ -4727,7 +4728,7 @@ class Workspace extends DockWorkspace {
                 attempt < attempts && await me.timeout(16)
             }
 
-            let mainAfter        = DockZoneModel.clone(me.dockModel),
+            let mainAfter        = Document.clone(me.dockModel),
                 targetNodeId     = remoteSnapshot.preview?.target?.nodeId,
                 returnedItems    = mainAfter.nodes?.[targetNodeId]?.items || [],
                 requiredPhases   = ['documents-adopted', 'main-projected', 'close-dispatched', 'topology-exited'],
@@ -4744,14 +4745,14 @@ class Workspace extends DockWorkspace {
                 applied,
                 errors: applied ? [] : ['whole-stack return did not settle through model-before-close topology exit'],
                 proof : {
-                    closeReceipt: me.lastTearOutClose ? DockZoneModel.clone(me.lastTearOutClose) : null,
+                    closeReceipt: me.lastTearOutClose ? Document.clone(me.lastTearOutClose) : null,
                     mainDocument: mainAfter,
                     phaseOrder,
                     remoteSnapshot,
                     sourceItemIds,
                     sourceWindowGone,
                     sourceWindowId,
-                    transfer    : transfer ? DockZoneModel.clone(transfer) : null
+                    transfer    : transfer ? Document.clone(transfer) : null
                 }
             }
         } catch (error) {
@@ -4836,7 +4837,7 @@ class Workspace extends DockWorkspace {
 
             // The committed document BEFORE the gesture — the zero-mutation (cancel/reenter) and
             // detach-commit (terminal) proofs both compare against this snapshot.
-            let documentBefore = DockZoneModel.clone(document),
+            let documentBefore = Document.clone(document),
                 catalogBefore  = Object.keys(documentBefore.items);
 
             let startX  = buttonRect.x + buttonRect.width / 2,
@@ -4995,7 +4996,7 @@ class Workspace extends DockWorkspace {
 
                 let
                     cancellation  = await me.cancelTearOutGesture(button, {clientX: inX, clientY: inY, screenX: window.innerRect.x + inX, screenY: window.innerRect.y + inY}),
-                    documentAfter = DockZoneModel.clone(me.dockModel),
+                    documentAfter = Document.clone(me.dockModel),
                     windowGone    = !vesselWindowId || !WindowManager.get(vesselWindowId);
 
                 return {
@@ -5020,7 +5021,7 @@ class Workspace extends DockWorkspace {
                 // Escape while detached → dockTearOutCancel → the host closes its vessel. The
                 // committed document must be byte-identical — the zero-mutation invariant.
                 let cancellation  = await me.cancelTearOutGesture(button, release),
-                    documentAfter = DockZoneModel.clone(me.dockModel);
+                    documentAfter = Document.clone(me.dockModel);
 
                 return {
                     applied  : false,
@@ -5050,7 +5051,7 @@ class Workspace extends DockWorkspace {
             committed && await me.refreshPromise;
 
             let
-                documentAfter  = DockZoneModel.clone(me.dockModel),
+                documentAfter  = Document.clone(me.dockModel),
                 absentFromTree = !Object.values(documentAfter.nodes).some(zoneNode => zoneNode.items?.includes(itemId)),
                 keptInCatalog  = Boolean(documentAfter.items?.[itemId]);
 

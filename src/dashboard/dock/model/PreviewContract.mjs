@@ -214,7 +214,7 @@ export function ratioToSizes(ratio, position) {
 /**
  * @summary Converts an ACCEPTED drop preview into a semantic dock-zone operation descriptor, or null.
  *
- * The one authored path from a hover preview to a `DockZoneModel` operation. Invalid previews,
+ * The one authored path from a hover preview to a `model.Operations` operation. Invalid previews,
  * `rejected` placements, and non-accepted feedback all yield null (no commit). Item previews emit
  * `addTab` / `splitNode` as before. A preview carrying `groupNodeId` instead emits one
  * `transferNode` descriptor whose nested target uses the same tab/split placement grammar — the

@@ -13,7 +13,7 @@ import '../../../../src/manager/Instance.mjs';
 import DockDragAffordances from '../../../../src/dashboard/dock/interaction/DragAffordances.mjs';
 import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockPreview         from '../../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockZoneModel       from '../../../../src/dashboard/DockZoneModel.mjs';
+import Operations          from '../../../../src/dashboard/dock/model/Operations.mjs';
 
 /**
  * @summary The shared gesture controller's discrimination and generation witnesses.
@@ -72,7 +72,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
             owner      = {
                 dockModel: makeDocument(),
                 applyDockZoneOperation(descriptor) {
-                    return DockZoneModel.applyOperation(this.dockModel, descriptor)
+                    return Operations.applyOperation(this.dockModel, descriptor)
                 },
                 onDockZoneDocumentChange(document) {
                     this.dockModel = document;

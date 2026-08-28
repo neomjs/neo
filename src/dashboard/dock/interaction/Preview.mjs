@@ -246,7 +246,7 @@ class Preview extends Component {
      */
     afterSetDockPreview(value, oldValue) {
         let me         = this,
-            affordance = DockPreview.mapPreviewToAffordance(value);
+            affordance = Preview.mapPreviewToAffordance(value);
 
         me.vdom.cn = affordance ? [me.getAffordanceVdom(affordance)] : [];
         me.update()
@@ -262,12 +262,12 @@ class Preview extends Component {
      */
     applyTargetGeometry(targetRect) {
         let me         = this,
-            affordance = DockPreview.mapPreviewToAffordance(me.dockPreview),
+            affordance = Preview.mapPreviewToAffordance(me.dockPreview),
             node       = me.vdom.cn?.[0];
 
         if (!affordance || !node) return;
 
-        let geo = DockPreview.affordanceGeometry(affordance, targetRect, {
+        let geo = Preview.affordanceGeometry(affordance, targetRect, {
             edgeBandSize : me.edgeBandSize,
             splitLineSize: me.splitLineSize
         });

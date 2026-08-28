@@ -1882,7 +1882,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(userAgent, 'a headless browser cannot witness an OS titlebar gesture')
             .not.toContain('HeadlessChrome');
 
-        const {default: DockZoneModel} = await import('../../../../src/dashboard/DockZoneModel.mjs');
+        const {default: Operations} = await import('../../../../src/dashboard/dock/model/Operations.mjs');
 
         const
             {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink}),
@@ -2259,7 +2259,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const
             expectedOperation = previewToOperation(committedPreview),
-            expectedReturn    = DockZoneModel.applyOperation(documentBeforeReturn, expectedOperation);
+            expectedReturn    = Operations.applyOperation(documentBeforeReturn, expectedOperation);
 
         expect(expectedOperation, 'the retained accepted preview must convert through the production contract')
             .toBeTruthy();

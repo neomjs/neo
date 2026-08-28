@@ -11,7 +11,7 @@ import Neo                    from '../../../../src/Neo.mjs';
 import * as core              from '../../../../src/core/_export.mjs';
 import DockRestorePlanner     from '../../../../src/dashboard/dock/persistence/RestorePlanner.mjs';
 import DockTopologyReconciler from '../../../../src/dashboard/dock/model/TopologyReconciler.mjs';
-import DockZoneModel          from '../../../../src/dashboard/DockZoneModel.mjs';
+import Persistence            from '../../../../src/dashboard/dock/model/Persistence.mjs';
 
 const tabsDoc = ids => ({
     schema: 'neo.harness.dockZone.v1',
@@ -172,7 +172,7 @@ const randomAssignmentDoc = (random, salt) => {
 // Fixtures ride the REAL landed producer — hand-rolled envelopes only appear in the negative
 // cases that deliberately break the envelope contract.
 const capture = docs => {
-    let {layout, errors} = DockZoneModel.captureTopologyPerspective(docs, {layoutId: 'test-perspective', title: 'Test'});
+    let {layout, errors} = Persistence.captureTopologyPerspective(docs, {layoutId: 'test-perspective', title: 'Test'});
 
     if (errors.length) {
         throw new Error(`fixture capture failed: ${errors[0]}`)
@@ -529,7 +529,7 @@ test.describe('Neo.dashboard.dock.model.TopologyReconciler', () => {
         // slot 1 restores it in place, so slot 0's placement would IMPORT a second copy into
         // W0 — live ownership convicts the importer, and the id stays single in the output.
         let shared = {
-                schema           : DockZoneModel.LAYOUT_SCHEMA,
+                schema           : Persistence.LAYOUT_SCHEMA,
                 layoutId         : 'dup-test',
                 title            : 'Dup',
                 captureScope     : 'topology',

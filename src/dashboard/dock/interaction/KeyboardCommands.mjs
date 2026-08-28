@@ -47,7 +47,7 @@
  *     closes the OS window a refused commit leaves behind. Never called for a committed detach.
  * @param {Function} seams.commitTransfer Host transfer seam:
  *     `({itemId, target: {workspaceId, tabsId}}) => {errors: String[]}|Promise<{errors: String[]}>` —
- *     the host runs `DockZoneModel.transferItem` (commit-or-neither document pair) and lands the
+ *     the host runs `Operations.transferItem` (commit-or-neither document pair) and lands the
  *     pair through its workspace set's both-or-neither adoption. Called exactly once per commit
  *     and AWAITED to settlement — a rejection or a malformed result is treated as a refusal.
  * @param {Function} seams.enumerateTargets Host target enumeration: `({itemId}) => Object[]` —

@@ -1,6 +1,7 @@
-import Base          from '../core/Base.mjs';
-import DockZoneModel from './DockZoneModel.mjs';
-import Observable    from '../core/Observable.mjs';
+import Base        from '../../../core/Base.mjs';
+import Document    from '../model/Document.mjs';
+import Persistence from '../model/Persistence.mjs';
+import Observable  from '../../../core/Observable.mjs';
 
 // Prototype-shaped keys are rejected at the write boundary: `layouts[key]` assignment with
 // '__proto__' mutates the object's prototype instead of adding a record, and inherited
@@ -14,7 +15,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * switchable state.
  *
  * The store deliberately introduces NO new persisted shape (the docking ADR's anti-anchor): it
- * operates on the landed collection schema through `DockZoneModel`'s validators and constructors,
+ * operates on the landed collection schema through the model tier validators and constructors (Document, Persistence),
  * and every read or write crosses its boundary as plain JSON clones — no live component refs, no
  * functions, no window state can enter or leave (guardrail-specced). Mutations are atomic and
  * fail closed: the CANDIDATE collection validates as a whole before it replaces the current one,
@@ -54,19 +55,20 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * `perspectiveLoaded`, `perspectiveRemoved`, `perspectiveRenamed`, `collectionChange` — each
  * fires AFTER the atomic commit, carrying plain-JSON payloads only.
  *
- * @class Neo.dashboard.DockPerspectiveStore
+ * @class Neo.dashboard.dock.persistence.PerspectiveLibrary
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
- * @see Neo.dashboard.DockZoneModel
+ * @see Neo.dashboard.dock.model.Document
+ * @see Neo.dashboard.dock.model.Persistence
  * @see learn/agentos/DockZoneModel.md
  */
-class DockPerspectiveStore extends Base {
+class PerspectiveLibrary extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.dashboard.DockPerspectiveStore'
+         * @member {String} className='Neo.dashboard.dock.persistence.PerspectiveLibrary'
          * @protected
          */
-        className: 'Neo.dashboard.DockPerspectiveStore',
+        className: 'Neo.dashboard.dock.persistence.PerspectiveLibrary',
         /**
          * @member {String} ntype='dock-perspective-store'
          * @protected
@@ -92,6 +94,294 @@ class DockPerspectiveStore extends Base {
          */
         persistenceAdapter: null
     }
+    /**
+     * The saved layout collection schema for named layout perspectives. The collection envelope
+     * stays v1: its `layouts` values migrate individually at restore time.
+     * @member {String} LAYOUT_COLLECTION_SCHEMA='neo.harness.dockLayoutCollection.v1'
+     * @static
+     */
+    static LAYOUT_COLLECTION_SCHEMA = 'neo.harness.dockLayoutCollection.v1'
+
+    /**
+     * Top-level fields allowed in a named saved-layout collection.
+     * @member {Set<String>} savedLayoutCollectionKeys
+     * @protected
+     * @static
+     */
+    static savedLayoutCollectionKeys = new Set(['schema', 'activeLayoutId', 'layouts', 'metadata', 'revision'])
+
+    /**
+     * @summary Validates a named saved-layout collection and each contained saved-layout wrapper.
+     * @param {Object} collection
+     * @returns {String[]} the (possibly empty) list of invariant violations
+     * @static
+     */
+    static validateSavedLayoutCollection(collection) {
+        let errors = [];
+
+        if (!Document.isJsonRecord(collection)) {
+            return ['saved layout collection must be a JSON object']
+        }
+
+        if (collection.schema !== PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA) {
+            errors.push(`schema must be ${PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA}`)
+        }
+
+        if (!Object.hasOwn(collection, 'activeLayoutId')) {
+            errors.push('activeLayoutId is required')
+        } else if (collection.activeLayoutId !== null && (typeof collection.activeLayoutId !== 'string' || !collection.activeLayoutId.trim())) {
+            errors.push('activeLayoutId must be a non-empty string or null')
+        }
+
+        if (!Document.isJsonRecord(collection.layouts)) {
+            errors.push('layouts must be a JSON object')
+        }
+
+        if (Object.hasOwn(collection, 'metadata') && !Document.isJsonRecord(collection.metadata)) {
+            errors.push('metadata must be a JSON object')
+        }
+
+        let secretKey = Object.hasOwn(collection, 'metadata')
+            ? Document.findSecretMetadataKey(collection.metadata, 'layoutCollection.metadata')
+            : null;
+
+        if (secretKey) {
+            errors.push(`layout collection metadata contains secret-like field "${secretKey.key}" at ${secretKey.path}: ${secretKey.reason}`)
+        }
+
+        let unexpectedKey = Document.findUnexpectedKey(collection, PerspectiveLibrary.savedLayoutCollectionKeys, 'layoutCollection');
+
+        if (unexpectedKey) {
+            errors.push(`layout collection contains unexpected field "${unexpectedKey.key}" at ${unexpectedKey.path}: ${unexpectedKey.reason}`)
+        }
+
+        let nonJson = Document.findNonJsonValue(collection, 'layoutCollection');
+
+        if (nonJson) {
+            errors.push(`layout collection ${nonJson.path} is not JSON-only: ${nonJson.reason}`)
+        }
+
+        if (Document.isJsonRecord(collection.layouts)) {
+            for (const [layoutId, savedLayout] of Object.entries(collection.layouts)) {
+                if (!layoutId.trim()) {
+                    errors.push('layout keys must be non-empty strings');
+                    continue
+                }
+
+                if (!Document.isJsonRecord(savedLayout)) {
+                    errors.push(`layout "${layoutId}" must be a JSON object`);
+                    continue
+                }
+
+                if (savedLayout.layoutId !== layoutId) {
+                    errors.push(`layout key "${layoutId}" must match saved layout id "${savedLayout.layoutId}"`)
+                }
+
+                let restored = Persistence.restoreSavedLayout(savedLayout);
+
+                if (restored.errors.length) {
+                    errors.push(...restored.errors.map(error => `layout "${layoutId}": ${error}`))
+                }
+            }
+        }
+
+        let layoutCount = Document.isJsonRecord(collection.layouts) ? Object.keys(collection.layouts).length : 0;
+
+        if (collection.activeLayoutId === null && layoutCount > 0) {
+            errors.push('activeLayoutId must name an existing layout when layouts are present')
+        } else if (typeof collection.activeLayoutId === 'string' && Document.isJsonRecord(collection.layouts) && !Object.hasOwn(collection.layouts, collection.activeLayoutId)) {
+            errors.push(`activeLayoutId "${collection.activeLayoutId}" does not exist`)
+        }
+
+        return errors
+    }
+
+    /**
+     * @summary Creates a storage-free collection of named saved-layout wrappers.
+     * @param {Array<Object>|Object<String,Object>} [layouts=[]]
+     * @param {Object} [options={}] {activeLayoutId, metadata, revision}
+     * @returns {{collection:(Object|null), errors:String[]}}
+     * @static
+     */
+    static createSavedLayoutCollection(layouts=[], options={}) {
+        if (!Array.isArray(layouts) && !Document.isJsonRecord(layouts)) {
+            return {collection: null, errors: ['layouts must be an array or JSON object']}
+        }
+
+        if (!Document.isJsonRecord(options)) {
+            return {collection: null, errors: ['options must be a JSON object']}
+        }
+
+        let collection = {
+                schema        : PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA,
+                activeLayoutId: Object.hasOwn(options, 'activeLayoutId') ? options.activeLayoutId : null,
+                layouts       : {},
+                metadata      : Object.hasOwn(options, 'metadata') ? options.metadata : {}
+            },
+            entries    = Array.isArray(layouts)
+                ? layouts.map((layout, index) => [Document.isJsonRecord(layout) ? layout.layoutId : `index-${index}`, layout])
+                : Object.entries(layouts),
+            errors     = [];
+
+        for (const [layoutId, savedLayout] of entries) {
+            if (typeof layoutId !== 'string' || !layoutId.trim()) {
+                errors.push('layoutId must be a non-empty string');
+                continue
+            }
+
+            collection.layouts[layoutId] = Document.clone(savedLayout)
+        }
+
+        if (!Object.hasOwn(options, 'activeLayoutId')) {
+            collection.activeLayoutId = Object.keys(collection.layouts)[0] ?? null
+        }
+
+        if (Object.hasOwn(options, 'revision')) {
+            collection.revision = options.revision
+        }
+
+        errors.push(...PerspectiveLibrary.validateSavedLayoutCollection(collection));
+
+        return errors.length
+            ? {collection: null, errors}
+            : {collection: Document.clone(collection), errors: []}
+    }
+
+    /**
+     * @summary Adds or replaces a saved-layout wrapper in a collection.
+     * @param {Object} collection
+     * @param {Object} savedLayout
+     * @param {Object} [options={}] {activate}
+     * @returns {{collection:Object, errors:String[]}}
+     * @static
+     */
+    static upsertSavedLayout(collection, savedLayout, options={}) {
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {collection, errors}
+        }
+
+        let restored = Persistence.restoreSavedLayout(savedLayout);
+
+        if (restored.errors.length) {
+            return {collection, errors: restored.errors}
+        }
+
+        let doc      = Document.clone(collection),
+            layoutId = savedLayout.layoutId;
+
+        doc.layouts[layoutId] = Document.clone(savedLayout);
+
+        if (options?.activate === true || doc.activeLayoutId === null) {
+            doc.activeLayoutId = layoutId
+        }
+
+        errors = PerspectiveLibrary.validateSavedLayoutCollection(doc);
+
+        return errors.length ? {collection, errors} : {collection: Document.clone(doc), errors: []}
+    }
+
+    /**
+     * @summary Selects the active saved layout by id without restoring it.
+     * @param {Object} collection
+     * @param {String} layoutId
+     * @returns {{collection:Object, errors:String[]}}
+     * @static
+     */
+    static selectSavedLayout(collection, layoutId) {
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {collection, errors}
+        }
+
+        if (typeof layoutId !== 'string' || !layoutId.trim()) {
+            return {collection, errors: ['layoutId must be a non-empty string']}
+        }
+
+        if (!Object.hasOwn(collection.layouts, layoutId)) {
+            return {collection, errors: [`layoutId "${layoutId}" does not exist`]}
+        }
+
+        let doc = Document.clone(collection);
+
+        doc.activeLayoutId = layoutId;
+
+        return {collection: Document.clone(doc), errors: []}
+    }
+
+    /**
+     * @summary Removes a saved layout and requires an explicit replacement when removing the active one.
+     * @param {Object} collection
+     * @param {Object} args {layoutId, replacementLayoutId}
+     * @returns {{collection:Object, errors:String[]}}
+     * @static
+     */
+    static removeSavedLayout(collection, {layoutId, replacementLayoutId} = {}) {
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {collection, errors}
+        }
+
+        if (typeof layoutId !== 'string' || !layoutId.trim()) {
+            return {collection, errors: ['layoutId must be a non-empty string']}
+        }
+
+        if (!Object.hasOwn(collection.layouts, layoutId)) {
+            return {collection, errors: [`layoutId "${layoutId}" does not exist`]}
+        }
+
+        let removingActive = collection.activeLayoutId === layoutId;
+
+        if (removingActive) {
+            if (typeof replacementLayoutId !== 'string' || !replacementLayoutId.trim()) {
+                return {collection, errors: ['removing the active layout requires replacementLayoutId']}
+            }
+
+            if (replacementLayoutId === layoutId) {
+                return {collection, errors: ['replacementLayoutId must differ from the removed layoutId']}
+            }
+
+            if (!Object.hasOwn(collection.layouts, replacementLayoutId)) {
+                return {collection, errors: [`replacementLayoutId "${replacementLayoutId}" does not exist`]}
+            }
+        }
+
+        let doc = Document.clone(collection);
+
+        delete doc.layouts[layoutId];
+
+        if (removingActive) {
+            doc.activeLayoutId = replacementLayoutId
+        }
+
+        errors = PerspectiveLibrary.validateSavedLayoutCollection(doc);
+
+        return errors.length ? {collection, errors} : {collection: Document.clone(doc), errors: []}
+    }
+
+    /**
+     * @summary Restores the active saved-layout wrapper from a named layout collection.
+     * @param {Object} collection
+     * @returns {{document:(Object|null), errors:String[]}}
+     * @static
+     */
+    static restoreActiveSavedLayout(collection) {
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(collection);
+
+        if (errors.length) {
+            return {document: null, errors}
+        }
+
+        if (typeof collection.activeLayoutId !== 'string' || !Object.hasOwn(collection.layouts, collection.activeLayoutId)) {
+            return {document: null, errors: ['activeLayoutId must name an existing layout']}
+        }
+
+        return Persistence.restoreSavedLayout(collection.layouts[collection.activeLayoutId])
+    }
+
 
     /**
      * Validator errors of the most recent rejected operation or assignment — empty after every
@@ -115,7 +405,7 @@ class DockPerspectiveStore extends Base {
             return null
         }
 
-        let errors = DockZoneModel.validateSavedLayoutCollection(value);
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(value);
 
         if (errors.length) {
             this.lastErrors = errors;
@@ -123,7 +413,7 @@ class DockPerspectiveStore extends Base {
         }
 
         this.lastErrors = [];
-        return DockZoneModel.clone(value)
+        return Document.clone(value)
     }
 
     /**
@@ -132,7 +422,7 @@ class DockPerspectiveStore extends Base {
      * @protected
      */
     afterSetCollection(value, oldValue) {
-        oldValue !== undefined && this.fire('collectionChange', {collection: DockZoneModel.clone(value)})
+        oldValue !== undefined && this.fire('collectionChange', {collection: Document.clone(value)})
     }
 
     /**
@@ -144,7 +434,7 @@ class DockPerspectiveStore extends Base {
      * @protected
      */
     beforeGetCollection(value) {
-        return value ? DockZoneModel.clone(value) : value
+        return value ? Document.clone(value) : value
     }
 
     /**
@@ -185,7 +475,7 @@ class DockPerspectiveStore extends Base {
     getPerspective(name) {
         let entry = this.resolveEntry(name);
 
-        return entry ? {layout: DockZoneModel.clone(entry.layout), layoutId: entry.layoutId} : null
+        return entry ? {layout: Document.clone(entry.layout), layoutId: entry.layoutId} : null
     }
 
     /**
@@ -216,14 +506,14 @@ class DockPerspectiveStore extends Base {
      */
     savePerspective(layout, {replace = false, activate = true} = {}) {
         let me        = this,
-            validated = DockZoneModel.restoreSavedLayout(layout);
+            validated = Persistence.restoreSavedLayout(layout);
 
         if (validated.errors.length) {
             me.lastErrors = validated.errors;
             return {collision: null, errors: validated.errors, layoutId: null, saved: false}
         }
 
-        let record = DockZoneModel.clone(layout),
+        let record = Document.clone(layout),
             unsafe = [record.layoutId, record.perspectiveName].filter(key => UNSAFE_KEYS.has(key));
 
         if (unsafe.length) {
@@ -258,8 +548,8 @@ class DockPerspectiveStore extends Base {
             }
         }
 
-        let base      = me._collection ?? DockZoneModel.createSavedLayoutCollection([], {}).collection,
-            candidate = DockZoneModel.clone(base);
+        let base      = me._collection ?? PerspectiveLibrary.createSavedLayoutCollection([], {}).collection,
+            candidate = Document.clone(base);
 
         // an explicit replace retires every previous holder — one name, one record, never two
         // entries answering to it (in either namespace)
@@ -299,15 +589,15 @@ class DockPerspectiveStore extends Base {
             return {document: null, errors: [`no perspective named "${name}"`], layout: null}
         }
 
-        let restored = DockZoneModel.restoreSavedLayout(entry.layout);
+        let restored = Persistence.restoreSavedLayout(entry.layout);
 
         if (restored.errors.length) {
             me.lastErrors = restored.errors;
             return {document: null, errors: restored.errors, layout: null}
         }
 
-        let migrated  = DockZoneModel.migrateSavedLayout(DockZoneModel.clone(entry.layout)),
-            candidate = DockZoneModel.clone(me._collection);
+        let migrated  = Persistence.migrateSavedLayout(Document.clone(entry.layout)),
+            candidate = Document.clone(me._collection);
 
         candidate.layouts[entry.layoutId] = migrated;
         candidate.activeLayoutId          = entry.layoutId;
@@ -316,7 +606,7 @@ class DockPerspectiveStore extends Base {
             return {document: null, errors: me.lastErrors, layout: null}
         }
 
-        return {document: restored.document, errors: [], layout: DockZoneModel.clone(migrated)}
+        return {document: restored.document, errors: [], layout: Document.clone(migrated)}
     }
 
     /**
@@ -359,7 +649,7 @@ class DockPerspectiveStore extends Base {
             }
         }
 
-        let candidate = DockZoneModel.clone(me._collection);
+        let candidate = Document.clone(me._collection);
 
         if (holder) {
             delete candidate.layouts[holder.layoutId];
@@ -418,7 +708,7 @@ class DockPerspectiveStore extends Base {
 
         if (removingActive && siblings.length) {
             let replacementLayoutId = successorId ?? siblings[0],
-                result              = DockZoneModel.removeSavedLayout(me._collection, {layoutId: entry.layoutId, replacementLayoutId});
+                result              = PerspectiveLibrary.removeSavedLayout(me._collection, {layoutId: entry.layoutId, replacementLayoutId});
 
             if (result.errors.length) {
                 me.lastErrors = result.errors;
@@ -430,7 +720,7 @@ class DockPerspectiveStore extends Base {
                 {errors: me.lastErrors, removed: false}
         }
 
-        let candidate = DockZoneModel.clone(me._collection);
+        let candidate = Document.clone(me._collection);
 
         delete candidate.layouts[entry.layoutId];
 
@@ -461,7 +751,7 @@ class DockPerspectiveStore extends Base {
             return {errors: ['nothing to persist: the store holds no collection'], persisted: false}
         }
 
-        let errors = DockZoneModel.validateSavedLayoutCollection(me._collection);
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(me._collection);
 
         if (errors.length) {
             me.lastErrors = errors;
@@ -469,7 +759,7 @@ class DockPerspectiveStore extends Base {
         }
 
         try {
-            await me.persistenceAdapter.write(DockZoneModel.clone(me._collection));
+            await me.persistenceAdapter.write(Document.clone(me._collection));
             return {errors: [], persisted: true}
         } catch (error) {
             return {errors: [error?.message || 'the persistence adapter rejected the write'], persisted: false}
@@ -500,7 +790,7 @@ class DockPerspectiveStore extends Base {
             return {errors: [], hydrated: false}
         }
 
-        let errors = DockZoneModel.validateSavedLayoutCollection(payload);
+        let errors = PerspectiveLibrary.validateSavedLayoutCollection(payload);
 
         if (errors.length) {
             me.lastErrors = errors;
@@ -522,7 +812,7 @@ class DockPerspectiveStore extends Base {
      */
     commit(candidate, eventName, payload) {
         let me     = this,
-            errors = DockZoneModel.validateSavedLayoutCollection(candidate);
+            errors = PerspectiveLibrary.validateSavedLayoutCollection(candidate);
 
         if (errors.length) {
             me.lastErrors = errors;
@@ -535,4 +825,4 @@ class DockPerspectiveStore extends Base {
     }
 }
 
-export default Neo.setupClass(DockPerspectiveStore);
+export default Neo.setupClass(PerspectiveLibrary);

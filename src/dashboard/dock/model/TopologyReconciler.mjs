@@ -1,6 +1,7 @@
-import Base               from '../../../core/Base.mjs';
-import DockRestorePlanner from '../persistence/RestorePlanner.mjs';
-import DockZoneModel      from '../../DockZoneModel.mjs';
+import Base           from '../../../core/Base.mjs';
+import RestorePlanner from '../persistence/RestorePlanner.mjs';
+import Document       from './Document.mjs';
+import Persistence    from './Persistence.mjs';
 
 /**
  * @summary Reduces an exact assignment-score fraction to its canonical form.
@@ -260,7 +261,7 @@ function createAffinityDetails(captured, live) {
  * cross-topology leaf owns that path") — this module is that leaf. Reconciliation semantics:
  *
  * - **Envelope authority first.** The saved-layout envelope validates through the landed
- *   `DockZoneModel.restoreSavedLayout()` (schema, `captureScope` ↔ `windowDocuments` coupling,
+ *   `Persistence.restoreSavedLayout()` (schema, `captureScope` ↔ `windowDocuments` coupling,
  *   slot-indexed document validation with the finite durable-field boundary applied to EVERY
  *   slot, primary presence) plus slot-indexed live-document validation and live cross-window
  *   item disjointness. Validation is total: a malformed envelope (e.g. a non-array
@@ -297,7 +298,7 @@ function createAffinityDetails(captured, live) {
  * @class Neo.dashboard.dock.model.TopologyReconciler
  * @extends Neo.core.Base
  * @see Neo.dashboard.dock.persistence.RestorePlanner
- * @see Neo.dashboard.DockZoneModel
+ * @see Neo.dashboard.dock.model.Document
  * @see learn/agentos/DockZoneModel.md
  */
 class TopologyReconciler extends Base {
@@ -539,12 +540,12 @@ class TopologyReconciler extends Base {
         // Envelope authority: the landed restore validator owns the wrapper contract — schema,
         // captureScope ↔ windowDocuments coupling, slot-indexed tree validation, primary document.
         // Non-throwing by its own contract.
-        let envelope = DockZoneModel.restoreSavedLayout(savedLayout ?? {});
+        let envelope = Persistence.restoreSavedLayout(savedLayout ?? {});
 
         errors.push(...envelope.errors);
 
         liveDocuments.forEach((doc, index) => {
-            DockZoneModel.validate(doc).forEach(error => errors.push(`live document ${index}: ${error}`))
+            Document.validate(doc).forEach(error => errors.push(`live document ${index}: ${error}`))
         });
 
         // Workspace-global uniqueness is only provable over disjoint live inputs: a duplicate
@@ -602,7 +603,7 @@ class TopologyReconciler extends Base {
             let captured    = slots[capturedIndex],
                 capturedIds = Object.keys(captured.items || {}),
                 live        = liveDocuments[liveIndex],
-                result      = DockRestorePlanner.restoreToward(live, captured),
+                result      = RestorePlanner.restoreToward(live, captured),
                 mode        = (result.deferred && result.reason === 'topology-fingerprint-mismatch') ? 'adopt'
                             : (result.deferred || result.errors.length)                              ? 'stay'
                             : 'incremental';
@@ -686,7 +687,7 @@ class TopologyReconciler extends Base {
                     capturedIdSet.has(itemId) || displaced.push({itemId, liveIndex})
                 });
 
-                documents[liveIndex] = DockZoneModel.clone(captured);
+                documents[liveIndex] = Document.clone(captured);
                 applied.push({affinity, applied: 0, capturedIndex, liveIndex, mode: 'adopt'});
                 restored.push(...capturedIds)
             } else if (mode === 'stay' && result.deferred) {

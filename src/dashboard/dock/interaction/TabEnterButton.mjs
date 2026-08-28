@@ -1,5 +1,5 @@
-import DockMotionSignal from '../projection/MotionSignal.mjs';
-import TabHeaderButton  from '../../../tab/header/Button.mjs';
+import MotionSignal    from '../projection/MotionSignal.mjs';
+import TabHeaderButton from '../../../tab/header/Button.mjs';
 
 /**
  * @summary The operation-correlated tab header used for exactly one committed dock `addTab`
@@ -17,7 +17,7 @@ import TabHeaderButton  from '../../../tab/header/Button.mjs';
  * exact non-zero tab-entry animation. The same authority awaits the physical `CSSAnimation` so a
  * newly born header cannot finish before its local `animationend` listener mounts. A token-collapsed
  * 0ms animation creates no false signal. End, cancellation, replacement, and destroy settle
- * idempotently, with `DockMotionSignal`'s fail-safe remaining the final lost-event backstop.
+ * idempotently, with `MotionSignal`'s fail-safe remaining the final lost-event backstop.
  *
  * @class Neo.dashboard.dock.interaction.TabEnterButton
  * @extends Neo.tab.header.Button
@@ -136,7 +136,7 @@ class TabEnterButton extends TabHeaderButton {
     beginTabEnterMotion() {
         if (!this.tabEnterMotionActive) {
             this.tabEnterMotionActive = true;
-            DockMotionSignal.enter(this)
+            MotionSignal.enter(this)
         }
     }
 
@@ -147,7 +147,7 @@ class TabEnterButton extends TabHeaderButton {
     finishTabEnterMotion() {
         if (this.tabEnterMotionActive) {
             this.tabEnterMotionActive = false;
-            DockMotionSignal.leave(this)
+            MotionSignal.leave(this)
         }
     }
 
@@ -176,7 +176,7 @@ class TabEnterButton extends TabHeaderButton {
         }
 
         if (me.mounted && !me.isDestroyed && !me.isDestroying && me.hasTabEnterDecoration()) {
-            if (DockTabEnterButton.hasRenderedTabEnterMotion(styles)) {
+            if (TabEnterButton.hasRenderedTabEnterMotion(styles)) {
                 me.beginTabEnterMotion();
 
                 try {
