@@ -3,6 +3,11 @@ import ListModel from '../selection/menu/ListModel.mjs';
 import Store     from './Store.mjs';
 
 /**
+ * A floating root menu forms one interaction island with its exact align target and every mounted
+ * descendant submenu. While mounted, it listens on its own app main view so outside pointer input
+ * can dismiss it even when a non-focusable target produces no focus transition. Focus movement uses
+ * the same structural island; timing is never the ownership signal.
+ *
  * @class Neo.menu.List
  * @extends Neo.list.Base
  */
@@ -27,12 +32,6 @@ class List extends BaseList {
          * @member {String[]} baseCls=['neo-menu-list','neo-list']
          */
         baseCls: ['neo-menu-list', 'neo-list'],
-        /**
-         * setTimeout() id after a focus-leave event.
-         * @member {Number|null} focusTimeoutId=null
-         * @protected
-         */
-        focusTimeoutId: null,
         /**
          * Hides a floating list on leaf item click, in case it has a parentComponent
          * @member {Boolean} hideOnLeafItemClick=true
@@ -109,6 +108,19 @@ class List extends BaseList {
     }
 
     /**
+     * The exact listener config attached to the owning app's main view while this floating root is mounted.
+     * @member {Object|null} outsidePointerListener=null
+     * @protected
+     */
+    outsidePointerListener = null
+    /**
+     * The main view currently carrying `outsidePointerListener`.
+     * @member {Neo.component.Base|null} outsidePointerListenerOwner=null
+     * @protected
+     */
+    outsidePointerListenerOwner = null
+
+    /**
      * Triggered after the items config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -133,17 +145,26 @@ class List extends BaseList {
 
             if (me.isRoot) {
                 if (!value) {
-                    me.focusTimeoutId = setTimeout(() => {
-                        me[me.floating ? 'unmount' : 'hideSubMenu']()
-                    }, 20)
-                } else {
-                    clearTimeout(me.focusTimeoutId);
-                    me.focusTimeoutId = null
+                    me[me.floating ? 'unmount' : 'hideSubMenu']()
                 }
             } else {
                 // bubble the focus change upwards
                 me.parentMenu.menuFocus = value
             }
+        }
+    }
+
+    /**
+     * Keeps the app-root outside-pointer listener symmetric with the floating root's mounted lifecycle.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (oldValue !== undefined && this.isRoot && this.floating) {
+            this.syncOutsidePointerListener(value)
         }
     }
 
@@ -202,6 +223,7 @@ class List extends BaseList {
             {activeSubMenu} = me,
             subMenuMap      = me.subMenuMap || {};
 
+        me.syncOutsidePointerListener(false);
         activeSubMenu?.unmount();
 
         Object.entries(subMenuMap).forEach(([key, value]) => {
@@ -210,6 +232,48 @@ class List extends BaseList {
         });
 
         super.destroy(...args)
+    }
+
+    /**
+     * @summary Tests whether a serialized DOM path belongs to this menu tree or its exact trigger.
+     * @param {Object[]} [path]
+     * @returns {Boolean}
+     * @protected
+     */
+    isInteractionPath(path=[]) {
+        const ids  = new Set(path.map(item => item.id).filter(Boolean));
+        let   root = this;
+
+        while (root.parentMenu) {
+            root = root.parentMenu
+        }
+
+        const menus = [root];
+        let   menu;
+
+        while ((menu = menus.pop())) {
+            if (ids.has(menu.id)) {
+                return true
+            }
+
+            Object.values(menu.subMenuMap || {}).forEach(submenu => {
+                submenu?.mounted && menus.push(submenu)
+            })
+        }
+
+        return Neo.isString(root.align?.target) && ids.has(root.align.target)
+    }
+
+    /**
+     * Dismisses a floating root from pointer input outside the complete menu interaction island.
+     * @param {Object} data
+     * @param {Object[]} [data.path]
+     * @protected
+     */
+    onAppMouseDown(data) {
+        if (this.isRoot && this.floating && !this.isInteractionPath(data.path)) {
+            this.unmount()
+        }
     }
 
     /**
@@ -274,21 +338,33 @@ class List extends BaseList {
     onFocusLeave(data) {
         super.onFocusLeave(data);
 
-        let insideParent = false,
-            parentId     = this.parentComponent?.id,
-            item;
+        const leftPathIsOwnTree = data.oldPath?.some(item => item.id === this.id);
 
-        if (parentId) {
-            for (item of data.oldPath) {
-                if (item.id === parentId) {
-                    insideParent = true;
-                    break
-                }
-            }
-        }
-
-        if (!insideParent) {
+        if (!data.relatedTarget || leftPathIsOwnTree || !this.isInteractionPath(data.oldPath)) {
             this.menuFocus = false
+        }
+    }
+
+    /**
+     * Adds or removes one retained `mousedown` config on the owning app main view.
+     * @param {Boolean} attach
+     * @protected
+     */
+    syncOutsidePointerListener(attach) {
+        let me    = this,
+            owner = me.outsidePointerListenerOwner;
+
+        if (attach && !owner) {
+            owner = me.app?.mainView;
+
+            if (owner) {
+                me.outsidePointerListener ||= {mousedown: me.onAppMouseDown, scope: me};
+                owner.addDomListeners(me.outsidePointerListener);
+                me.outsidePointerListenerOwner = owner
+            }
+        } else if (!attach && owner) {
+            owner.removeDomListeners(me.outsidePointerListener);
+            me.outsidePointerListenerOwner = null
         }
     }
 
@@ -365,12 +441,12 @@ class List extends BaseList {
             subMenuMap   = me.subMenuMap || (me.subMenuMap = {}),
             subMenuMapId = me.getMenuMapId(recordId),
             subMenu      = subMenuMap[subMenuMapId] || (subMenuMap[subMenuMapId] = Neo.create({
-                module         : List,
-                align          : {
-                    target       : nodeId,
-                    edgeAlign    : 'l0-r0',
-                    axisLock     : true,
-                    targetMargin : me.subMenuGap
+                module: List,
+                align : {
+                    target      : nodeId,
+                    edgeAlign   : 'l0-r0',
+                    axisLock    : true,
+                    targetMargin: me.subMenuGap
                 },
                 appName        : me.appName,
                 displayField   : me.displayField,
@@ -411,6 +487,7 @@ class List extends BaseList {
      *
      */
     unmount() {
+        this._menuFocus = false;
         this.selectionModel?.deselectAll(true); // silent update
         this.hideSubMenu();
 

@@ -5,7 +5,10 @@ import Text          from './Text.mjs';
 
 /**
  * The abstract picker field provides an arrow down trigger which opens a floating container to provide
- * more data selection options
+ * more data selection options. The field and picker form one focus/pointer interaction island: while
+ * visible, one listener on the owning app main view dismisses the picker on outside pointer input even
+ * when the target is non-focusable and browser focus remains on the field.
+ *
  * @class Neo.form.field.Picker
  * @extends Neo.form.field.Text
  * @abstract
@@ -88,6 +91,19 @@ class Picker extends Text {
     }
 
     /**
+     * The exact listener config attached to the owning app's main view while the picker is visible.
+     * @member {Object|null} outsidePointerListener=null
+     * @protected
+     */
+    outsidePointerListener = null
+    /**
+     * The main view currently carrying `outsidePointerListener`.
+     * @member {Neo.component.Base|null} outsidePointerListenerOwner=null
+     * @protected
+     */
+    outsidePointerListenerOwner = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -110,6 +126,10 @@ class Picker extends Text {
     afterSetMounted(value, oldValue) {
         if (value === false && oldValue && this.pickerIsMounted) {
             this.picker.hide()
+        }
+
+        if (value === false && oldValue !== undefined) {
+            this.syncOutsidePointerListener(false)
         }
 
         super.afterSetMounted(value, oldValue)
@@ -139,14 +159,14 @@ class Picker extends Text {
             pickerComponent = me.createPickerComponent();
 
         me.picker =  Neo.create({
-            module   : Container,
-            parentId : 'document.body',
-            floating : true,
-            align    : {
-                edgeAlign : pickerWidth ? 't0-b0' : 't-b',
-                matchSize : !pickerWidth,
-                axisLock  : true,
-                target    : me.getInputWrapperId()
+            module  : Container,
+            parentId: 'document.body',
+            floating: true,
+            align   : {
+                edgeAlign: pickerWidth ? 't0-b0' : 't-b',
+                matchSize: !pickerWidth,
+                axisLock : true,
+                target   : me.getInputWrapperId()
             },
             appName  : me.appName,
             cls      : ['neo-picker-container', 'neo-container'],
@@ -198,6 +218,8 @@ class Picker extends Text {
     destroy(...args) {
         let {picker} = this;
 
+        this.syncOutsidePointerListener(false);
+
         if (picker?.hidden === false) {
             picker.unmount()
         }
@@ -222,11 +244,35 @@ class Picker extends Text {
     }
 
     /**
+     * @summary Tests whether a serialized DOM path belongs to the field or its floating picker.
+     * @param {Object[]} [path]
+     * @returns {Boolean}
+     * @protected
+     */
+    isInteractionPath(path=[]) {
+        const ids = new Set(path.map(item => item.id).filter(Boolean));
+
+        return ids.has(this.id) || ids.has(this.picker?.id)
+    }
+
+    /**
      *
      */
     async hidePicker() {
         if (this.picker) {
             this.picker.hidden = true
+        }
+    }
+
+    /**
+     * Hides the picker when pointer input lands outside its field/picker interaction island.
+     * @param {Object} data
+     * @param {Object[]} [data.path]
+     * @protected
+     */
+    onAppMouseDown(data) {
+        if (this.picker?.hidden === false && !this.isInteractionPath(data.path)) {
+            this.hidePicker()
         }
     }
 
@@ -305,7 +351,10 @@ class Picker extends Text {
      * @protected
      */
     onPickerHiddenChange(data) {
-        this.pickerIsMounted = !data.value
+        const visible = !data.value;
+
+        this.pickerIsMounted = visible;
+        this.syncOutsidePointerListener(visible)
     }
 
     /**
@@ -321,6 +370,29 @@ class Picker extends Text {
      */
     showPicker() {
         this.getPicker().hidden = false
+    }
+
+    /**
+     * Adds or removes one retained `mousedown` config on the owning app main view.
+     * @param {Boolean} attach
+     * @protected
+     */
+    syncOutsidePointerListener(attach) {
+        let me    = this,
+            owner = me.outsidePointerListenerOwner;
+
+        if (attach && !owner) {
+            owner = me.app?.mainView;
+
+            if (owner) {
+                me.outsidePointerListener ||= {mousedown: me.onAppMouseDown, scope: me};
+                owner.addDomListeners(me.outsidePointerListener);
+                me.outsidePointerListenerOwner = owner
+            }
+        } else if (!attach && owner) {
+            owner.removeDomListeners(me.outsidePointerListener);
+            me.outsidePointerListenerOwner = null
+        }
     }
 
     /**
