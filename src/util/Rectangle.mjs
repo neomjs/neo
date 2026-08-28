@@ -29,13 +29,13 @@ const
             theirEdgeZone = edgeZone[edgeParts[4]];
 
         return {
-            ourEdge         : edgeParts[1],
-            ourEdgeOffset   : parseInt(edgeParts[2] || 50),
-            ourEdgeUnit     : edgeParts[3] || '%',
+            ourEdge        : edgeParts[1],
+            ourEdgeOffset  : parseInt(edgeParts[2] || 50),
+            ourEdgeUnit    : edgeParts[3] || '%',
             ourEdgeZone,
-            theirEdge       : edgeParts[4],
-            theirEdgeOffset : parseInt(edgeParts[5] || 50),
-            theirEdgeUnit   : edgeParts[6] || '%',
+            theirEdge      : edgeParts[4],
+            theirEdgeOffset: parseInt(edgeParts[5] || 50),
+            theirEdgeUnit  : edgeParts[6] || '%',
             theirEdgeZone,
 
             // Aligned to an edge, *outside* of the target.
@@ -59,17 +59,42 @@ const
         // Convert DOMRect into Rectangle
         return r && new Rectangle(r.x, r.y, r.width, r.height);
     },
+    /**
+     * @summary Applies the documented final offset while preserving alignment metadata.
+     *
+     * `moveBy()` is intentionally immutable and its clone carries geometric minima only. Alignment
+     * consumers also need the resolved zone/position, so the finishing step transfers those two
+     * semantic fields onto the moved clone. Every successful `alignTo()` return passes through this
+     * helper; otherwise constrained and overlap returns silently skip the same public option.
+     * @param {Rectangle} result
+     * @param {Number[]|undefined} offset
+     * @returns {Rectangle}
+     */
+    finishAlignResult = (result, offset) => {
+        if (!offset) {
+            return result
+        }
+
+        const
+            {position, zone} = result,
+            moved            = result.moveBy(offset);
+
+        moved.position = position;
+        moved.zone     = zone;
+
+        return moved
+    },
     oppositeEdge = {
-        t : 'b',
-        r : 'l',
-        b : 't',
-        l : 'r'
+        t: 'b',
+        r: 'l',
+        b: 't',
+        l: 'r'
     },
     edgeZone = {
-        t : 0,
-        r : 1,
-        b : 2,
-        l : 3
+        t: 0,
+        r: 1,
+        b: 2,
+        l: 3
     },
     zoneNames = ['top', 'right', 'bottom', 'left'],
     zoneEdges = ['t', 'r', 'b', 'l'],
@@ -351,6 +376,18 @@ export default class Rectangle extends DOMRect {
         return result;
     }
 
+    /**
+     * @summary Returns an immutable Rectangle aligned to a target, optionally constrained and offset.
+     * @param {Object} align
+     * @param {Boolean|String} [align.axisLock]
+     * @param {DOMRect|HTMLElement|Rectangle|String} [align.constrainTo]
+     * @param {String} align.edgeAlign
+     * @param {Boolean} [align.matchSize]
+     * @param {Number[]} [align.offset] Final `[x, y]` vector applied after alignment/constraint.
+     * @param {DOMRect|HTMLElement|Rectangle|String} align.target
+     * @param {Number|Number[]} [align.targetMargin]
+     * @returns {Rectangle}
+     */
     alignTo(align) {
         const
             me             = this,
@@ -418,7 +455,7 @@ export default class Rectangle extends DOMRect {
             // They asked to overlap the target, for example t0-t0
             // In these cases, we just return the result
             if (targetRect.intersects(result)) {
-                return result;
+                return finishAlignResult(result, offset);
             }
 
             // This is the zone we try to fit into first, the one that was asked for
@@ -437,26 +474,26 @@ export default class Rectangle extends DOMRect {
                 // so r20-l30 has to become l20-r30.
                 // The other two zones revert to centered so are easier
                 zonesToTry[1] = {
-                    zone      : zone = (zone + 2) % 4,
-                    edgeAlign : createReversedEdgeAlign(edges)
+                    zone     : zone = (zone + 2) % 4,
+                    edgeAlign: createReversedEdgeAlign(edges)
                 }
 
                 // Fall back to the other two zones.
                 zonesToTry.push({
-                    zone      : zone = (edges.theirEdgeZone + 1) % 4,
-                    edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                    zone     : zone = (edges.theirEdgeZone + 1) % 4,
+                    edgeAlign: `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
                 });
                 zonesToTry.push({
-                    zone      : zone = (edges.theirEdgeZone + 3) % 4,
-                    edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                    zone     : zone = (edges.theirEdgeZone + 3) % 4,
+                    edgeAlign: `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
                 });
             }
             else {
                 // go through the other zones in order
                 for (let i = 1; i < 4; i++) {
                     zonesToTry.push({
-                        zone      : zone = (zone + 1) % 4,
-                        edgeAlign : `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
+                        zone     : zone = (zone + 1) % 4,
+                        edgeAlign: `${oppositeEdge[zoneEdges[zone]]}-${zoneEdges[zone]}`
                     });
                 }
             }
@@ -517,17 +554,12 @@ export default class Rectangle extends DOMRect {
                 if (solution) {
                     solution.zone = zone;
                     solution.position = zoneNames[zone];
-                    return solution;
+                    return finishAlignResult(solution, offset);
                 }
             }
         }
 
-        // Add the configurable finishing touch.
-        if (offset) {
-            result.moveBy(offset);
-        }
-
-        return result;
+        return finishAlignResult(result, offset);
     }
 
     getAnchorPoint(edgeZone, edgeOffset, edgeUnit, margin = emptyArray) {
