@@ -221,6 +221,17 @@ test.describe('Neo.component.Splitter — heavy buffered siblings', () => {
         }
     };
 
+    /**
+     * Committed from measurement, with the margin derived from BOTH directions:
+     * - honest runs measure 0.865–0.964 locally and above 1.0 on CI, so 0.75 keeps ~13% headroom
+     *   below the worst observed honest run;
+     * - the named unacceptable pattern — the live target updating only every second observed
+     *   frame — scores exactly 0.5, so the bar rejects it with 33% separation. The threshold
+     *   falsifier test below pins that meaning: lowering the ratio back into false-green
+     *   territory turns the synthetic degraded series green and that control red.
+     */
+    const CADENCE_RATIO = 0.75, MIN_FRAMES = 8, MIN_UPDATES = 6;
+
     test('repeated live resizes settle both virtualized widgets without geometry split-brain', async ({neo, page}) => {
         const result = await mountHeavyFixture(neo);
 
@@ -272,9 +283,6 @@ test.describe('Neo.component.Splitter — heavy buffered siblings', () => {
         // green run proves the comparison itself still has teeth.
         const SEGMENTS = 16, SEGMENT_PAUSE_MS = 20, DELTA = 160;
 
-        // Thresholds committed from measurement — the implementing PR body records the raw figures.
-        const MIN_FRAMES = 8, MIN_UPDATES = 6, CADENCE_RATIO = 0.5;
-
         const result = await mountHeavyFixture(neo);
 
         expect(result.success, JSON.stringify(result.error || result)).toBe(true);
@@ -325,9 +333,37 @@ test.describe('Neo.component.Splitter — heavy buffered siblings', () => {
         expect(live.tree.updates,      'the live target tracks the pointer').toBeGreaterThanOrEqual(MIN_UPDATES);
         expect(deferred.proxy.updates, 'the deferred proxy tracks the pointer').toBeGreaterThanOrEqual(MIN_UPDATES);
 
-        // The committed relationship: live-mode target delivery keeps pace with the proxy baseline.
-        expect(live.tree.perSecond, 'live cadence holds against the proxy baseline')
+        // The committed relationship: live-mode target delivery holds the measured margin
+        // against the proxy baseline (derivation at the CADENCE_RATIO declaration).
+        expect(live.tree.perSecond, `live cadence holds >= ${CADENCE_RATIO}x the proxy baseline`)
             .toBeGreaterThanOrEqual(CADENCE_RATIO * deferred.proxy.perSecond)
+    })
+
+    test('the committed cadence bar rejects a halved live cadence', () => {
+        // Threshold falsifier: the unacceptable pattern the bar exists to catch is the live
+        // target updating only every second observed frame. Feeding that synthetic series
+        // through the SAME committed metric and predicate must fail the gate — so this control
+        // goes red if CADENCE_RATIO is ever lowered back into the false-green range (<= 0.5)
+        // where a half-cadence live arm would pass as "keeping pace".
+        const frameMs        = 16.67,
+              degradedLive   = [],
+              steadyBaseline = [];
+
+        for (let i = 0; i < 30; i++) {
+            const t = i * frameMs;
+
+            steadyBaseline.push({t, proxyX: 100 + i * 4});                       // updates every frame
+            degradedLive.push({t, treeWidth: 400 + Math.floor(i / 2) * 4})       // updates every 2nd frame
+        }
+
+        const baseline = cadenceMetrics(steadyBaseline, 'proxyX'),
+              degraded = cadenceMetrics(degradedLive, 'treeWidth');
+
+        expect(baseline.updates, 'the synthetic baseline tracks every frame').toBe(30);
+        expect(degraded.updates, 'the synthetic degraded arm halves delivery').toBe(15);
+
+        expect(degraded.perSecond, 'the committed bar rejects half-cadence delivery')
+            .toBeLessThan(CADENCE_RATIO * baseline.perSecond)
     })
 
     test('sizes the outer Flexbox wrapper of a component with a distinct logical root', async ({neo, page}) => {
