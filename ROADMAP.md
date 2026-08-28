@@ -14,7 +14,7 @@ v13.1 made the institution safe to leave running; **v13.2 turns that institution
 
 This section names the gate and the load-bearing path, not a frozen checklist. [Milestone #9](https://github.com/neomjs/neo/milestone/9) is the v13.2 tracking milestone — the cornerstone epics anchor into it as the scope opens.
 
-**v13.2 is the first org-spanning release.** Since the repository split, the gate behavior above crosses four repos: [neomjs/neo](https://github.com/neomjs/neo) (the engine), [neo-agent-institution](https://github.com/neomjs/neo-agent-institution) (the Fleet Manager product), [neo-agent-brain](https://github.com/neomjs/neo-agent-brain) (the Agent OS runtime), and [neo-agent-skills](https://github.com/neomjs/neo-agent-skills) (the agent process substrate). Engine milestone #9 keeps tracking engine scope; cross-repo cornerstones name their repos in place, and consumer repos pin the engine by commit until their consumer PRs land — release ordering, not compatibility layers.
+**v13.2 is the first org-spanning release.** Since the repository split, the gate behavior above crosses four repos: [neomjs/neo](https://github.com/neomjs/neo) (the engine), [neo-agent-institution](https://github.com/neomjs/neo-agent-institution) (the Agent Institution product), [neo-agent-brain](https://github.com/neomjs/neo-agent-brain) (the Agent OS runtime), and [neo-agent-skills](https://github.com/neomjs/neo-agent-skills) (the agent process substrate). Engine milestone #9 keeps tracking engine scope; cross-repo cornerstones name their repos in place, and consumer repos pin the engine by commit until their consumer PRs land — release ordering, not compatibility layers.
 
 **The load-bearing path — six cornerstones:**
 
