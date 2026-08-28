@@ -147,6 +147,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo ChipList](https://neomjs.com/examples/list/chip/index.html)
 - [Neo CircleList](https://neomjs.com/examples/list/circle/index.html)
 - [Neo ColorList](https://neomjs.com/examples/list/color/index.html)
+- [Neo Context Menu](https://neomjs.com/examples/menu/context/index.html)
 - [Neo MenuList](https://neomjs.com/examples/menu/list/index.html)
 - [Neo Menu](https://neomjs.com/examples/menu/panel/index.html)
 - [Neo Panels](https://neomjs.com/examples/panel/index.html)
