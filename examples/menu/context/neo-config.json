@@ -1,0 +1,7 @@
+{
+    "appPath"    : "examples/menu/context/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "useAiClient": true
+}
