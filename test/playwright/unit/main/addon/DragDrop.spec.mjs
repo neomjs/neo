@@ -39,6 +39,7 @@ delete Neo.main.DomAccess;
 delete Neo.main.addon.DragDrop;
 
 const {default: DomEvents} = await import('../../../../../src/main/DomEvents.mjs'),
+      {default: Resize}    = await import('../../../../../src/main/draggable/Resize.mjs'),
       {default: DragDrop}  = await import('../../../../../src/main/addon/DragDrop.mjs');
 
 /**
@@ -1305,6 +1306,114 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
     })
 });
 
+test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
+    const createStyle = initial => {
+        const values = new Map(Object.entries(initial));
+
+        return {
+            getPropertyPriority: () => '',
+            getPropertyValue   : key => values.get(key) || '',
+            removeProperty     : key => values.delete(key),
+            setProperty        : (key, value) => values.set(key, value)
+        }
+    };
+
+    const createState = ({axis='width', preview=true, resizeNext=true}={}) => {
+        const style  = createStyle({flex: '1 1 0%'}),
+              target = {style};
+
+        const resize = new Resize();
+
+        resize.state = {
+            axis,
+            coordinate   : axis === 'width' ? 'clientX' : 'clientY',
+            lastSize     : 300,
+            maxSize      : 590,
+            originalStyle: {
+                [axis]: {priority: '', value: ''},
+                flex  : {priority: '', value: '1 1 0%'}
+            },
+            preview,
+            resizeNext,
+            startCoordinate: 100,
+            startSize      : 300,
+            target,
+            targetId       : 'target-wrapper'
+        };
+
+        return {
+            resize,
+            style
+        }
+    };
+
+    test('live pointer frames resize the real target and terminal resolution keeps that DOM preview', () => {
+        const {resize, style} = createState();
+
+        expect(resize.apply({clientX: 180, clientY: 0})).toBe(220);
+        expect(style.getPropertyValue('flex')).toBe('none');
+        expect(style.getPropertyValue('width')).toBe('220px');
+
+        expect(resize.finish({clientX: 190, clientY: 0})).toEqual({
+            axis: 'width', size: 210, targetId: 'target-wrapper'
+        });
+        expect(resize.state).toBeNull();
+        expect(style.getPropertyValue('width')).toBe('210px')
+    });
+
+    test('previous/horizontal math is symmetric and deferred mode computes without mutating', () => {
+        let state = createState({axis: 'height', resizeNext: false});
+
+        expect(state.resize.apply({clientX: 0, clientY: 160})).toBe(360);
+        expect(state.style.getPropertyValue('height')).toBe('360px');
+
+        state = createState({preview: false});
+
+        expect(state.resize.finish({clientX: 180, clientY: 0})).toEqual({
+            axis: 'width', size: 220, targetId: 'target-wrapper'
+        });
+        expect(state.style.getPropertyValue('width')).toBe('');
+        expect(state.style.getPropertyValue('flex')).toBe('1 1 0%')
+    });
+
+    test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {
+        const {resize, style} = createState(),
+              addon           = {dragResize: resize},
+              sent            = [],
+              originalSend    = DomEvents.sendMessageToApp;
+
+        Object.assign(addon, {
+            alwaysFireDragMove    : false,
+            boundaryContainerRect : null,
+            dragCancelled         : false,
+            dragProxyElement      : null,
+            dragProxyRect         : null,
+            isWindowDragging      : false,
+            scrollContainerElement: null
+        });
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.onDragMove.call(addon, {
+                detail: {
+                    clientX      : 180,
+                    clientY      : 0,
+                    originalEvent: {screenX: 180, screenY: 0}
+                }
+            });
+
+            expect(style.getPropertyValue('width')).toBe('220px');
+            expect(sent, 'main-thread resize frames never cross into the App Worker').toEqual([]);
+            expect(resize.cancel()).toBe(true);
+            expect(style.getPropertyValue('width')).toBe('');
+            expect(style.getPropertyValue('flex')).toBe('1 1 0%')
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+    })
+});
+
 test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract', () => {
     test('unregisterZone removes by root key AND sweeps by zone id — a wrong root key cannot strand entries', () => {
         const addon = {zoneRegistrations: {}};
@@ -1336,5 +1445,29 @@ test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract',
         expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'leaf'}, {id: 'root-inner'}, {id: 'root-outer'}])).toBe('zone-inner');
         expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'unregistered'}])).toBeNull();
         expect(DragDrop.prototype.resolveDragZoneId.call(addon, null)).toBeNull()
+    });
+
+    test('resize registration resolves by the same root and is swept by zone identity', () => {
+        const addon = {dragResize: new Resize(), zoneRegistrations: {}};
+
+        DragDrop.prototype.registerZone.call(addon, {
+            dragElementRootId: 'splitter-root',
+            dragZoneId       : 'splitter-zone',
+            resizeConfig     : {axis: 'width', targetId: 'target-wrapper'}
+        });
+
+        expect(addon.dragResize.resolve([{id: 'splitter-root'}])).toMatchObject({
+            axis      : 'width',
+            dragZoneId: 'splitter-zone',
+            targetId  : 'target-wrapper'
+        });
+
+        DragDrop.prototype.unregisterZone.call(addon, {
+            dragElementRootId: 'wrong-root',
+            dragZoneId       : 'splitter-zone'
+        });
+
+        expect(addon.dragResize.registrations).toEqual({});
+        expect(addon.zoneRegistrations).toEqual({})
     })
 });
