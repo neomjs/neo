@@ -86,7 +86,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
     test('uses dock item ids rather than component refs for projection marker identity', () => {
         const
             model = {
-                schema: 'neo.harness.dockZone.v1',
+                schema: 'neo.dock.zone.v1',
                 root  : 'root-tabs',
                 items : {
                     'alpha pane': {componentRef: 'shared-ref', title: 'Alpha'},

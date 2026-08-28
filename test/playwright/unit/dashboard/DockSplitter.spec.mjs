@@ -13,7 +13,7 @@ import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutA
 import DockSplitter      from '../../../../src/dashboard/dock/interaction/DockSplitter.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         left : {componentRef: 'left', title: 'Left'},

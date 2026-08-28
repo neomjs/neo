@@ -14,7 +14,7 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
     let Document, Persistence, PerspectiveLibrary, store;
 
     const doc = ids => ({
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'r',
         items : Object.fromEntries(ids.map(id => [id, {componentRef: id, title: id}])),
         nodes : {r: {type: 'tabs', items: [...ids], activeItemId: ids[0]}}
@@ -115,28 +115,33 @@ test.describe('Neo.dashboard.dock.persistence.PerspectiveLibrary (B6 — the nam
         expect(renameVerdict.collision).toMatchObject({holderLayoutId: 'l-2', name: 'Coding'})
     });
 
-    test('loads migrate legacy v1 records honestly and converge the stored record forward', () => {
-        // a legacy record: no perspective fields at all (pre-v2)
-        const legacy = {
+    test('legacy-shaped and old-family records are rejected at the collection boundary — no migration survives', () => {
+        // a legacy-SHAPED record: claims the current schema but misses the perspective fields.
+        // Under the greenfield cut there is no reader that back-fills defaults; the contract is
+        // whole or the record is out.
+        const legacyShaped = {
             dockZone: doc(['alpha']),
             layoutId: 'legacy-1',
-            schema  : 'neo.harness.dockLayout.v1',
+            schema  : 'neo.dock.layout.v1',
             title   : 'Legacy'
         };
 
-        // adopt a collection carrying the legacy record as-is
-        const {collection, errors} = PerspectiveLibrary.createSavedLayoutCollection([legacy], {});
-        expect(errors).toEqual([]);
-        store.collection = collection;
+        const shaped = PerspectiveLibrary.createSavedLayoutCollection([legacyShaped], {});
+        expect(shaped.collection).toBe(null);
+        expect(shaped.errors.join(' ')).toContain('captureScope');
 
-        const loaded = store.loadPerspective('legacy-1');
-        expect(loaded.errors).toEqual([]);
-        // honest migration defaults: v1 could only capture one window's document
-        expect(loaded.layout.captureScope).toBe('window');
-        expect(loaded.layout.windowFingerprint).toBeNull();
+        // an old-FAMILY record fails on the schema string itself (split literal on purpose —
+        // the retired family name must survive rename sweeps only here, as the control).
+        const oldFamily = {
+            ...legacyShaped,
+            captureScope     : 'window',
+            schema           : ['neo', 'harness', 'dockLayout', 'v1'].join('.'),
+            windowFingerprint: null
+        };
 
-        // the STORED record converged forward too — the migration is not a read-time illusion
-        expect(store.collection.layouts['legacy-1'].captureScope).toBe('window')
+        const family = PerspectiveLibrary.createSavedLayoutCollection([oldFamily], {});
+        expect(family.collection).toBe(null);
+        expect(family.errors.join(' ')).toContain('schema')
     });
 
     test('fail-closed everywhere: invalid saves, unknown loads, missing removes, corrupt collection assignments', () => {

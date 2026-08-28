@@ -15,7 +15,7 @@ import DockRail          from '../../../../src/dashboard/dock/interaction/Rail.m
 import Panel             from '../../../../src/dashboard/Panel.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         editor  : {componentRef: 'editor', title: 'Editor'},

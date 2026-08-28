@@ -1844,7 +1844,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(renderer.dockPreview).toMatchObject({
             itemId   : 'workbench',
             placement: {kind: 'tab-into'},
-            schema   : 'neo.harness.dockPreview.v1',
+            schema   : 'neo.dock.preview.v1',
             target   : {nodeId: 'popup-tabs'}
         });
         expect(DockPreview.isValidPreview(renderer.dockPreview)).toBe(true);

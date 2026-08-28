@@ -21,7 +21,7 @@ import TabContainer      from '../../../../src/tab/Container.mjs';
 import TabOverflowPlugin from '../../../../src/tab/plugin/Overflow.mjs';
 
 const createModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy: {
@@ -77,7 +77,7 @@ const createModel = () => ({
 });
 
 const createEdgeZoneModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy: {
@@ -142,7 +142,7 @@ const getProjectedChildren = splitConfig => splitConfig.items.filter(item => ite
  * @returns {Object}
  */
 const createTabsBandModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},

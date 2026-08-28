@@ -36,7 +36,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
      * @returns {Object}
      */
     const makeDocument = () => ({
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'split-main',
         items : {
             alpha: {componentRef: 'ref-alpha', title: 'Alpha', kind: 'pane'},

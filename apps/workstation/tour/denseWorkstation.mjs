@@ -14,7 +14,7 @@
  * @type {Object}
  */
 export const initialDocument = Object.freeze({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         scale    : {componentRef: 'Scale',     title: '100k Operations Matrix',       kind: 'grid'},

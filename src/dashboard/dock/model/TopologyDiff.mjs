@@ -5,7 +5,7 @@ import Document from './Document.mjs';
  * @class Neo.dashboard.dock.model.TopologyDiff
  * @extends Neo.core.Base
  *
- * @summary Semantic before/after compare for `neo.harness.dockZone.v1` documents.
+ * @summary Semantic before/after compare for `neo.dock.zone.v1` documents.
  *
  * Raw document equality is the wrong assertion tool twice over: too strict (irrelevant field
  * churn fails a comparison that should pass) and too loose (a moved item can leave two trees

@@ -8,7 +8,7 @@ import * as dockPreviewContract from '../model/PreviewContract.mjs';
  * @summary Drag-time dock preview renderer — the app-neutral overlay every docking workspace composes.
  *
  * Consumes the runtime-only `dockPreview` contract object
- * (schema `neo.harness.dockPreview.v1`, specified in `learn/agentos/DockZoneModel.md`)
+ * (schema `neo.dock.preview.v1`, specified in `learn/agentos/DockZoneModel.md`)
  * and projects its candidate `placement` into a single transient visual affordance — an edge
  * band, a split guide, or a tab indicator — over the dock workspace while a pane is dragged.
  *
@@ -33,7 +33,7 @@ import * as dockPreviewContract from '../model/PreviewContract.mjs';
 class Preview extends Component {
     /**
      * The dockPreview contract schema this renderer accepts.
-     * @member {String} PREVIEW_SCHEMA='neo.harness.dockPreview.v1'
+     * @member {String} PREVIEW_SCHEMA='neo.dock.preview.v1'
      * @static
      */
     static PREVIEW_SCHEMA = dockPreviewContract.PREVIEW_SCHEMA
@@ -108,7 +108,7 @@ class Preview extends Component {
     /**
      * @summary Structural validity gate for a dockPreview object (fail-closed).
      *
-     * Returns true only for a well-formed `neo.harness.dockPreview.v1` payload that carries a
+     * Returns true only for a well-formed `neo.dock.preview.v1` payload that carries a
      * stable `itemId`, a `target.nodeId`, a known `placement.kind`, an accept/reject
      * `feedback.state`, and (for split placements) a valid `placement.orientation`. Anything
      * malformed, partial or unknown returns false so the renderer clears rather than guesses.

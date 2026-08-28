@@ -1,5 +1,5 @@
 /**
- * @summary The pure, layer-neutral `neo.harness.dockPreview.v1` contract — the schema constant, the
+ * @summary The pure, layer-neutral `neo.dock.preview.v1` contract — the schema constant, the
  * placement-kind vocabulary, structural validation, the preview→operation conversion, and the
  * split-ratio normalizer.
  *
@@ -17,17 +17,17 @@
  * The dockPreview contract schema every side of the line accepts / emits.
  * @type {String}
  */
-export const PREVIEW_SCHEMA = 'neo.harness.dockPreview.v1';
+export const PREVIEW_SCHEMA = 'neo.dock.preview.v1';
 
 /**
  * The drop-candidate-set schema: the runtime-only payload the producer emits for the
  * indicator-overlay menu (the full valid-placement menu for one hovered zone plus the
  * container edge chips), consumed by `Neo.dashboard.dock.interaction.DropIndicators`. Every candidate
- * wraps a complete, individually valid `neo.harness.dockPreview.v1` payload — a drop on an
+ * wraps a complete, individually valid `neo.dock.preview.v1` payload — a drop on an
  * indicator commits through `previewToOperation` exactly like a pointer-inferred preview.
  * @type {String}
  */
-export const CANDIDATES_SCHEMA = 'neo.harness.dockCandidates.v1';
+export const CANDIDATES_SCHEMA = 'neo.dock.candidates.v1';
 
 /**
  * The five cross positions of the indicator menu, in render order. `center` maps to the
@@ -56,7 +56,7 @@ export const VALID_PLACEMENT_KINDS = new Set([...EDGE_KINDS, ...SPLIT_KINDS, ...
 /**
  * @summary Structural validity gate for a dockPreview object (fail-closed).
  *
- * Returns true only for a well-formed `neo.harness.dockPreview.v1` payload that carries a stable
+ * Returns true only for a well-formed `neo.dock.preview.v1` payload that carries a stable
  * `itemId`, a `target.nodeId`, a known `placement.kind`, an accept/reject `feedback.state`, and (for
  * split placements) a valid `placement.orientation`. A whole-stack gesture may additionally carry
  * a runtime-only `groupNodeId`; when present it must be a non-empty string. Anything malformed,
@@ -128,7 +128,7 @@ function crossPlacementMatchesPosition(position, placement) {
 /**
  * @summary Structural validity gate for a dockCandidates set (fail-closed).
  *
- * Returns true only for a COMPLETE, internally coherent `neo.harness.dockCandidates.v1` payload:
+ * Returns true only for a COMPLETE, internally coherent `neo.dock.candidates.v1` payload:
  *
  * - a stable `itemId`, and a hovered `zone` with a node id and a numeric rect;
  * - a `cross` of EXACTLY the five unique positions (`CROSS_POSITIONS`), every candidate wrapping

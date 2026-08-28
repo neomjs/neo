@@ -24,7 +24,7 @@ import Operations         from '../../../../src/dashboard/dock/model/Operations.
 /** A canonical split document: a horizontal split of a two-tab main zone and a single-tab side zone. */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -93,7 +93,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         const captured = doc(); // main-tabs [strategy, swarm], side-tabs [terminal]
         // current EXCHANGES terminal ↔ strategy across the two zones — same counts (t2, t1), same shape.
         const current = {
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
                 strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -121,7 +121,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
 
     test('unsolvable single-item swap cycle defers structurally (never crashes)', () => {
         const mk = (a, b) => ({
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {alpha: {componentRef: 'a', title: 'A', kind: 'panel'}, beta: {componentRef: 'b', title: 'B', kind: 'panel'}},
             nodes : {

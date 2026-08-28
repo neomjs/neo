@@ -24,21 +24,14 @@ class Persistence extends Base {
     }
 
     /**
-     * The saved layout wrapper schema around a normalized dock-zone document. v2 adds the
-     * perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`); writes always
-     * emit v2, while v1 records stay readable through {@link #migrateSavedLayout} (fail-open read
-     * with honest defaults — a legacy record never errors, and never silently re-persists as v1).
-     * @member {String} LAYOUT_SCHEMA='neo.harness.dockLayout.v2'
+     * The saved layout wrapper schema around a normalized dock-zone document, carrying the
+     * perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`). One greenfield
+     * revision: readers fail closed on every other schema string — no legacy family, no
+     * migration reader, no alias survives the v13.2 hard cut.
+     * @member {String} LAYOUT_SCHEMA='neo.dock.layout.v1'
      * @static
      */
-    static LAYOUT_SCHEMA = 'neo.harness.dockLayout.v2'
-
-    /**
-     * The legacy saved-layout wrapper schema, accepted on read via {@link #migrateSavedLayout}.
-     * @member {String} LAYOUT_SCHEMA_V1='neo.harness.dockLayout.v1'
-     * @static
-     */
-    static LAYOUT_SCHEMA_V1 = 'neo.harness.dockLayout.v1'
+    static LAYOUT_SCHEMA = 'neo.dock.layout.v1'
 
     /**
      * The capture scopes a saved layout may declare: one window's dock document, or the whole
@@ -58,32 +51,6 @@ class Persistence extends Base {
         'schema', 'layoutId', 'title', 'dockZone', 'metadata', 'revision',
         'captureScope', 'windowFingerprint', 'perspectiveName', 'windowDocuments'
     ])
-
-    /**
-     * @summary Migrates a saved-layout record to the current wrapper schema, read-side and pure.
-     *
-     * A legacy v1 record gains the perspective fields with honest defaults (`captureScope:
-     * 'window'` — v1 could only ever capture one window's document — and `windowFingerprint:
-     * null`, since no fingerprint was recorded at capture time); `perspectiveName` stays absent
-     * because it is optional by contract. Idempotent: current-schema records pass through
-     * untouched, and unknown schemas pass through for the caller's validation to reject, so this
-     * never masks a genuinely foreign envelope. Writers never emit v1 again.
-     * @param {Object} savedLayout A saved-layout record of any known schema revision.
-     * @returns {Object} The record at the current schema revision (a shallow-cloned upgrade for v1).
-     * @static
-     */
-    static migrateSavedLayout(savedLayout) {
-        if (savedLayout?.schema !== Persistence.LAYOUT_SCHEMA_V1) {
-            return savedLayout
-        }
-
-        return {
-            ...savedLayout,
-            schema           : Persistence.LAYOUT_SCHEMA,
-            captureScope     : 'window',
-            windowFingerprint: null
-        }
-    }
 
     /**
      * @summary Validates the perspective fields shared by the create and restore paths.
@@ -371,8 +338,6 @@ class Persistence extends Base {
         if (!Document.isJsonRecord(savedLayout)) {
             return {document: null, errors: ['saved layout must be a JSON object']}
         }
-
-        savedLayout = Persistence.migrateSavedLayout(savedLayout);
 
         if (savedLayout.schema !== Persistence.LAYOUT_SCHEMA) {
             errors.push(`schema must be ${Persistence.LAYOUT_SCHEMA}`)

@@ -148,7 +148,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 ยง2.3 โ€
         for (const [x, y, kind] of [[200, 150, 'tab-into'], [200, 50, 'edge-top'], [390, 150, 'edge-right'], [10, 150, 'edge-left'], [200, 290, 'edge-bottom']]) {
             const preview = producer.produce({pointer: {x, y}, zones, itemId: 'strategy', containerId: 'workspace'});
 
-            expect(preview.schema).toBe('neo.harness.dockPreview.v1');
+            expect(preview.schema).toBe('neo.dock.preview.v1');
             expect(preview.placement.kind).toBe(kind);
             expect(preview.target.nodeId).toBe('main-tabs');
             expect(preview.feedback.state).toBe('accepted');
@@ -199,7 +199,7 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 ยง2.3 โ€
 
         // a minimal dockZone.v1 doc: a vertical split of two single-tab zones
         const doc = {
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {a: {componentRef: 'A', title: 'A', kind: 'panel'}, b: {componentRef: 'B', title: 'B', kind: 'panel'}},
             nodes : {

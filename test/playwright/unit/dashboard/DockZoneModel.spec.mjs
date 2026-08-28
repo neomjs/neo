@@ -32,7 +32,7 @@ import '../../../../src/manager/Instance.mjs';
  */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy : {componentRef: 'strategy',  title: 'Strategy',  kind: 'panel'},
@@ -94,7 +94,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
         test('rejects a wrong schema', () => {
             const d = doc();
-            d.schema = 'neo.harness.dockZone.v2';
+            d.schema = 'neo.dock.zone.v2';
             expect(Document.validate(d).length).toBeGreaterThan(0)
         });
 
@@ -168,7 +168,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 title   : 'Operator Default'
             });
 
-            layout.schema = 'neo.harness.dockLayout.v3';
+            layout.schema = 'neo.dock.layout.v2';
 
             const {document, errors} = Persistence.restoreSavedLayout(layout);
 
@@ -176,36 +176,30 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(errors.join(' ')).toContain(Persistence.LAYOUT_SCHEMA)
         });
 
-        test('reads a legacy v1 record fail-open with honest perspective defaults', () => {
+        test('the retired neo.harness.* family is rejected fail-closed — no migration reader survives', () => {
             const {layout} = Persistence.createSavedLayout(doc(), {
                 layoutId: 'legacy',
                 title   : 'Legacy Layout'
             });
 
-            // shape a stored-era v1 record: old schema tag, no perspective fields
-            const v1 = {...layout, schema: Persistence.LAYOUT_SCHEMA_V1};
-            delete v1.captureScope;
-            delete v1.windowFingerprint;
+            // a stored-era old-family record: pre-greenfield schema tag, no perspective fields.
+            // This control proves FAMILY deletion, not just version rejection: the string is a
+            // well-formed old-family identity, and it must fail on schema — never fail-open
+            // through a compatibility parser.
+            // split literal on purpose: this is the ONE place the retired family name must keep
+            // existing verbatim, immune to any future rename sweep over whole schema strings.
+            const oldFamily = ['neo', 'harness', 'dockLayout', 'v1'].join('.');
+            const legacy    = {...layout, schema: oldFamily};
+            delete legacy.captureScope;
+            delete legacy.windowFingerprint;
 
-            const restored = Persistence.restoreSavedLayout(v1);
+            const restored = Persistence.restoreSavedLayout(legacy);
 
-            expect(restored.errors).toEqual([]);
-            expect(restored.document).toEqual(layout.dockZone);
-            // the input record is never mutated (pure migration)
-            expect(v1.schema).toBe(Persistence.LAYOUT_SCHEMA_V1);
-            expect('captureScope' in v1).toBe(false)
-        });
-
-        test('migrateSavedLayout upgrades v1 with defaults and is idempotent on v2', () => {
-            const v1 = {schema: Persistence.LAYOUT_SCHEMA_V1, layoutId: 'a', title: 'A', dockZone: {}};
-
-            const migrated = Persistence.migrateSavedLayout(v1);
-
-            expect(migrated.schema).toBe(Persistence.LAYOUT_SCHEMA);
-            expect(migrated.captureScope).toBe('window');
-            expect(migrated.windowFingerprint).toBe(null);
-            expect('perspectiveName' in migrated).toBe(false);
-            expect(Persistence.migrateSavedLayout(migrated)).toBe(migrated)
+            expect(restored.document).toBe(null);
+            expect(restored.errors.join(' ')).toContain(Persistence.LAYOUT_SCHEMA);
+            // the input record is never mutated by rejection
+            expect(legacy.schema).toBe(oldFamily);
+            expect('captureScope' in legacy).toBe(false)
         });
 
         test('round-trips the v2 perspective fields (topology scope, fingerprint, name)', () => {
@@ -235,7 +229,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(layout.schema).toBe(Persistence.LAYOUT_SCHEMA);
             expect(layout.captureScope).toBe('window');
             expect(layout.perspectiveName).toBe('Morning Focus');
-            expect(layout.windowFingerprint.schema).toBe('neo.harness.dockShape.v1');
+            expect(layout.windowFingerprint.schema).toBe('neo.dock.shape.v1');
             expect(typeof layout.windowFingerprint.shape).toBe('string');
             expect(layout.windowFingerprint.itemCount).toBeGreaterThan(0);
             expect(Persistence.restoreSavedLayout(layout).errors).toEqual([])
@@ -297,7 +291,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             const two = Document.composeTopologyFingerprint([single, single]);
             expect(two.errors).toEqual([]);
-            expect(two.fingerprint.schema).toBe('neo.harness.dockTopologyShape.v1');
+            expect(two.fingerprint.schema).toBe('neo.dock.topologyShape.v1');
             expect(two.fingerprint.windowCount).toBe(2);
             expect(two.fingerprint.shape).toBe(`w[${single.shape}|${single.shape}]`);
             expect(two.fingerprint.totalItems).toBe(single.itemCount * 2);
@@ -321,7 +315,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
         test('topology composition rejects incomplete window fingerprints — a missing itemCount never fakes a zero', () => {
             // right schema, right shape, NO itemCount: must fail closed, never compose totalItems: 0
-            const incomplete = Document.composeTopologyFingerprint([{schema: 'neo.harness.dockShape.v1', shape: 't1'}]);
+            const incomplete = Document.composeTopologyFingerprint([{schema: 'neo.dock.shape.v1', shape: 't1'}]);
             expect(incomplete.fingerprint).toBe(null);
             expect(incomplete.errors.join(' ')).toContain('entry 0');
             expect(incomplete.errors.join(' ')).toContain('incomplete');
@@ -348,7 +342,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(errors).toEqual([]);
             expect(layout.captureScope).toBe('topology');
-            expect(layout.windowFingerprint.schema).toBe('neo.harness.dockTopologyShape.v1');
+            expect(layout.windowFingerprint.schema).toBe('neo.dock.topologyShape.v1');
             expect(layout.windowFingerprint.windowCount).toBe(2);
             expect(layout.windowDocuments.length).toBe(1);
             expect(Document.validate(layout.windowDocuments[0])).toEqual([]);
@@ -765,7 +759,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             const wrongSchema = Document.clone(created.collection);
 
-            wrongSchema.schema = 'neo.harness.dockLayoutCollection.v2';
+            wrongSchema.schema = 'neo.dock.layoutCollection.v2';
 
             expect(PerspectiveLibrary.validateSavedLayoutCollection(wrongSchema).join(' ')).toContain(PerspectiveLibrary.LAYOUT_COLLECTION_SCHEMA);
             expect(PerspectiveLibrary.restoreActiveSavedLayout(wrongSchema).document).toBe(null);
@@ -1062,7 +1056,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(hydrated.dockModel).toEqual(persistedReview.dockZone);
             expect(hydrated.refreshCount).toBe(1);
 
-            readValue = JSON.stringify({schema: 'neo.harness.dockLayoutCollection.v0'});
+            readValue = JSON.stringify({schema: 'neo.dock.layoutCollection.v0'});
 
             const invalid   = createExampleHarness(),
                 invalidLoad = await invalid.loadLayoutCollectionFromStorage();
@@ -1596,7 +1590,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         // The canonical vessel document: an edge-zone ROOT (window chrome) whose center zone
         // holds the stack — so the transferable whole is the root's center child, never the root.
         const vessel = () => ({
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'popup-root',
             items : {
                 drill : {componentRef: 'drill',  title: 'Drill',  kind: 'panel'},
@@ -1626,7 +1620,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             // a degenerate workspace whose root IS a tabs node has no projectable stack
             expect(Document.resolveStackRoot({
-                schema: 'neo.harness.dockZone.v1',
+                schema: 'neo.dock.zone.v1',
                 root  : 'only-tabs',
                 items : {},
                 nodes : {'only-tabs': {type: 'tabs', items: [], activeItemId: null}}
@@ -1685,7 +1679,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         // A second workspace document with a distinct catalog, so a transfer into it never
         // collides on item id with the source doc()'s 'terminal'.
         const target = () => ({
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {
@@ -1907,7 +1901,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
     test.describe('transferNode (atomic two-document subtree transfer)', () => {
         // A second workspace with a distinct catalog + a `main-tabs` to attach into.
         const target = () => ({
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {

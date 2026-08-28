@@ -9,7 +9,7 @@ import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype 
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
 
 /**
- * A representative dock-zone document (`neo.harness.dockZone.v1`): an edge-zone root whose center is a
+ * A representative dock-zone document (`neo.dock.zone.v1`): an edge-zone root whose center is a
  * horizontal split of a two-tab main zone and a vertical side-split of two single-tab zones, plus a
  * right edge band holding a single-tab inspector zone — the auto-hide surface (committing
  * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.dock.interaction.Rail` edge tab).
@@ -19,7 +19,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used b
  * @type {Object}
  */
 const initialDockModel = {
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
@@ -78,7 +78,7 @@ const seededPerspectives = [{
  *
  * What the example owns is exactly what an adopting app owns: which pane renders a catalog item
  * ({@link #resolvePane}), and its own chrome — a perspective toolbar consuming the saved-layout
- * collection helpers the model exposes (seed perspectives stored as `neo.harness.dockLayoutCollection.v1`,
+ * collection helpers the model exposes (seed perspectives stored as `neo.dock.layoutCollection.v1`,
  * selecting a perspective calls `restoreActiveSavedLayout()`, Save Current upserts the live committed
  * document, Delete Active keeps a valid replacement active) plus browser-local persistence through the
  * main-thread `LocalStorage` addon, so App-Worker code never reaches for `window.localStorage` directly.

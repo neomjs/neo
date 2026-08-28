@@ -19,7 +19,7 @@ import '../../../../src/tab/Container.mjs';
 import '../../../../src/toolbar/Base.mjs';
 
 const createRootTabsModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root-tabs',
     items : {
         alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'}
@@ -30,7 +30,7 @@ const createRootTabsModel = () => ({
 });
 
 const createSplitModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root-split',
     items : {
         alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'},

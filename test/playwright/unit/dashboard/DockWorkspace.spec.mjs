@@ -18,7 +18,7 @@ import DockService              from '../../../../src/ai/client/DockService.mjs'
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         editor  : {componentRef: 'Editor',   title: 'Editor',   kind: 'panel'},

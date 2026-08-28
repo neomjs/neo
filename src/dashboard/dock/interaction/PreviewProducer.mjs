@@ -5,7 +5,7 @@ import Base from '../../../core/Base.mjs';
  * @extends Neo.core.Base
  *
  * @summary Hit-test producer for the dock drag: maps a pointer plus the rendered dock-zone
- * rects to a runtime-only `neo.harness.dockPreview.v1` payload — the COMPUTE half of the preview →
+ * rects to a runtime-only `neo.dock.preview.v1` payload — the COMPUTE half of the preview →
  * operation pipeline (`learn/agentos/decisions/0029-docking-design.md` §2.3, schema in
  * `learn/agentos/DockZoneModel.md`). It is the object an owning dock workspace wires into
  * {@link Neo.dashboard.dock.window.DragTarget#previewFor} (and, for the boolean claim, `hitTest`);
@@ -52,15 +52,15 @@ class PreviewProducer extends Base {
          * The dockPreview contract schema this producer emits. A non-reactive config (kept in sync
          * with the consumer via the unit-test pin, since the app-layer validator cannot be imported
          * here) so a future schema revision is a config bump, not a class edit.
-         * @member {String} schema='neo.harness.dockPreview.v1'
+         * @member {String} schema='neo.dock.preview.v1'
          */
-        schema: 'neo.harness.dockPreview.v1',
+        schema: 'neo.dock.preview.v1',
         /**
          * The candidate-set schema `produceCandidates()` emits — the full indicator-menu payload.
          * Same sync mechanism as `schema`: the unit-test pin asserts it against the contract module.
-         * @member {String} candidatesSchema='neo.harness.dockCandidates.v1'
+         * @member {String} candidatesSchema='neo.dock.candidates.v1'
          */
-        candidatesSchema: 'neo.harness.dockCandidates.v1',
+        candidatesSchema: 'neo.dock.candidates.v1',
         /**
          * Fraction of a zone rect's SMALLER dimension treated as an edge band. Inside a band the
          * nearest edge wins (`edge-*` / `split-*`); the interior maps to `tab-into`. A non-reactive
@@ -185,7 +185,7 @@ class PreviewProducer extends Base {
      * @param {String} [params.containerId] the hovered workspace/container id
      * @param {Object} [params.source] producer surface, e.g. {surface, sortZoneId}
      * @param {String} [params.sourceNodeId] the drag's origin dock node (used as sortZoneId fallback)
-     * @returns {Object|null} a `neo.harness.dockPreview.v1` payload, or null
+     * @returns {Object|null} a `neo.dock.preview.v1` payload, or null
      */
     produce({pointer, zones, itemId, groupNodeId=null, containerId=null, source=null, sourceNodeId=null}={}) {
         if (typeof itemId !== 'string' || !itemId ||
@@ -214,7 +214,7 @@ class PreviewProducer extends Base {
      * @param {String} nodeId the target dock node
      * @param {String} kind a non-`rejected` placement kind
      * @param {String} [orientation] the target's parent-split orientation (required for `split-*` kinds)
-     * @returns {Object} a `neo.harness.dockPreview.v1` payload
+     * @returns {Object} a `neo.dock.preview.v1` payload
      * @protected
      */
     buildPreview({containerId=null, groupNodeId=null, itemId, source=null, sourceNodeId=null}, nodeId, kind, orientation) {
@@ -269,7 +269,7 @@ class PreviewProducer extends Base {
 
     /**
      * @summary Produces the full drop-candidate set for the zone under the pointer — the
-     * indicator-menu payload (`neo.harness.dockCandidates.v1`) — or null outside every zone.
+     * indicator-menu payload (`neo.dock.candidates.v1`) — or null outside every zone.
      *
      * The menu grammar (design authority: the dock-choreography artifact §06): a 5-position CROSS
      * on the hovered zone — center = tab-merge, the four directions = directional splits, each
@@ -294,7 +294,7 @@ class PreviewProducer extends Base {
      * @param {Object} [params.source] producer surface, e.g. {surface, sortZoneId}
      * @param {String} [params.sourceNodeId] the drag's origin dock node
      * @param {Object} [params.root] {nodeId, rect} the document root + its measured rect (enables the edge chips)
-     * @returns {Object|null} a `neo.harness.dockCandidates.v1` payload, or null
+     * @returns {Object|null} a `neo.dock.candidates.v1` payload, or null
      */
     produceCandidates({pointer, zones, itemId, groupNodeId=null, containerId=null, source=null, sourceNodeId=null, root=null}={}) {
         if (typeof itemId !== 'string' || !itemId ||

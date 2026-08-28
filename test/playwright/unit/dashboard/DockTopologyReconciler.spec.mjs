@@ -14,7 +14,7 @@ import DockTopologyReconciler from '../../../../src/dashboard/dock/model/Topolog
 import Persistence            from '../../../../src/dashboard/dock/model/Persistence.mjs';
 
 const tabsDoc = ids => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'r',
     items : Object.fromEntries(ids.map(id => [id, {componentRef: id, title: id}])),
     nodes : {
@@ -443,7 +443,7 @@ test.describe('Neo.dashboard.dock.model.TopologyReconciler', () => {
         let valid = capture([tabsDoc(['alpha']), tabsDoc(['beta'])]);
 
         // Foreign wrapper schema.
-        expectFailClosed({...valid, schema: 'neo.harness.dockLayout.v999'}, 'foreign schema');
+        expectFailClosed({...valid, schema: 'neo.dock.layout.v999'}, 'foreign schema');
 
         // Wrong scope smuggling windowDocuments.
         expectFailClosed({...valid, captureScope: 'window'}, 'window-scope + smuggled windowDocuments');
@@ -460,7 +460,7 @@ test.describe('Neo.dashboard.dock.model.TopologyReconciler', () => {
         let badSlot = expectFailClosed({
             ...valid,
             windowDocuments: [{
-                schema: 'neo.harness.dockZone.v1',
+                schema: 'neo.dock.zone.v1',
                 root  : 'r',
                 items : {},
                 nodes : {r: {type: 'tabs', items: ['ghost'], activeItemId: 'ghost'}}

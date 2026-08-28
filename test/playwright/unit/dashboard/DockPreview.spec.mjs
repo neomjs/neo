@@ -21,13 +21,13 @@ import {fileURLToPath} from 'url';
  */
 
 /**
- * Builds a well-formed `neo.harness.dockPreview.v1` object, with optional field overrides.
+ * Builds a well-formed `neo.dock.preview.v1` object, with optional field overrides.
  * @param {Object} [overrides]
  * @returns {Object}
  */
 function preview(overrides = {}) {
     return {
-        schema   : 'neo.harness.dockPreview.v1',
+        schema   : 'neo.dock.preview.v1',
         previewId: 'preview:strategy:main-tabs:tab-after:1',
         itemId   : 'strategy',
         source   : {surface: 'dashboard-sort-zone', sortZoneId: 'left-workspace'},
@@ -153,7 +153,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         });
 
         test('rejects a wrong or missing schema', () => {
-            expect(DockPreview.isValidPreview(preview({schema: 'neo.harness.dockPreview.v2'}))).toBe(false);
+            expect(DockPreview.isValidPreview(preview({schema: 'neo.dock.preview.v2'}))).toBe(false);
             expect(DockPreview.isValidPreview(preview({schema: undefined}))).toBe(false)
         });
 

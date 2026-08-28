@@ -11,7 +11,7 @@ import {isValidCandidateSet} from '../model/PreviewContract.mjs';
  * the PRIMARY drag affordance ("show the menu, never make them guess"); pointer-zone inference
  * demotes to the fallback tier. This component is that menu's render half:
  *
- * - **Input** is a `neo.harness.dockCandidates.v1` payload ({@link Neo.dashboard.dock.interaction.PreviewProducer#produceCandidates})
+ * - **Input** is a `neo.dock.candidates.v1` payload ({@link Neo.dashboard.dock.interaction.PreviewProducer#produceCandidates})
  *   plus the positioning host's viewport rect. Both are transient geometry — nothing here reads
  *   the DOM, touches a persisted document, or owns a pointer.
  * - **Selection is geometric, not DOM-eventing.** The drag proxy rides between the pointer and
@@ -71,7 +71,7 @@ class DropIndicators extends Container {
          */
         activeCandidate_: null,
         /**
-         * The current candidate set (`neo.harness.dockCandidates.v1`) to render, or null to hide
+         * The current candidate set (`neo.dock.candidates.v1`) to render, or null to hide
          * the whole layer. Runtime-only drag state — never persisted.
          * @member {Object|null} candidateSet_=null
          * @reactive

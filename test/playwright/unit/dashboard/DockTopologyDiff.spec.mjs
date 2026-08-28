@@ -18,7 +18,7 @@ import DockTopologyDiff from '../../../../src/dashboard/dock/model/TopologyDiff.
  */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy : {componentRef: 'strategy',  title: 'Strategy',  kind: 'panel'},

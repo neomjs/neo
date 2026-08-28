@@ -21,7 +21,7 @@ import * as core      from '../../../../src/core/_export.mjs';
 /** A fresh source-workspace document ('A') — `terminal` is the item every transfer moves. */
 function sourceDoc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -38,7 +38,7 @@ function sourceDoc() {
 /** A fresh target-workspace document ('B') with a disjoint catalog. */
 function targetDoc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
         nodes : {

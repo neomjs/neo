@@ -40,10 +40,9 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  *   successor is the caller's `replacementName` or the first remaining record (insertion
  *   order), reusing the landed `removeSavedLayout` invariant; removing the last record clears
  *   `activeLayoutId` to null.
- * - **Loads migrate honestly.** `loadPerspective` runs the stored record through the landed
- *   `restoreSavedLayout` seam — legacy v1 records gain the perspective fields with honest
- *   defaults, invalid records fail closed with the validator's own errors, and the MIGRATED
- *   record is what the store hands back (and re-commits, so the collection converges forward).
+ * - **Loads validate fail-closed.** `loadPerspective` runs the stored record through the landed
+ *   `restoreSavedLayout` seam — invalid or foreign-schema records fail closed with the
+ *   validator's own errors; there is no migration reader, so only current-schema records load.
  * - **Persistence is a caller-injected seam.** The optional `persistenceAdapter`
  *   (`{read(): Promise<Object|null>, write(collection): Promise}`) keeps storage tech app-side
  *   (LocalStorage, files, remote) — the store guarantees only that plain validated JSON crosses
@@ -95,12 +94,12 @@ class PerspectiveLibrary extends Base {
         persistenceAdapter: null
     }
     /**
-     * The saved layout collection schema for named layout perspectives. The collection envelope
-     * stays v1: its `layouts` values migrate individually at restore time.
-     * @member {String} LAYOUT_COLLECTION_SCHEMA='neo.harness.dockLayoutCollection.v1'
+     * The saved layout collection schema for named layout perspectives. One greenfield
+     * revision; contained layout records validate against the current wrapper schema only.
+     * @member {String} LAYOUT_COLLECTION_SCHEMA='neo.dock.layoutCollection.v1'
      * @static
      */
-    static LAYOUT_COLLECTION_SCHEMA = 'neo.harness.dockLayoutCollection.v1'
+    static LAYOUT_COLLECTION_SCHEMA = 'neo.dock.layoutCollection.v1'
 
     /**
      * Top-level fields allowed in a named saved-layout collection.
@@ -596,17 +595,17 @@ class PerspectiveLibrary extends Base {
             return {document: null, errors: restored.errors, layout: null}
         }
 
-        let migrated  = Persistence.migrateSavedLayout(Document.clone(entry.layout)),
+        let stored    = Document.clone(entry.layout),
             candidate = Document.clone(me._collection);
 
-        candidate.layouts[entry.layoutId] = migrated;
+        candidate.layouts[entry.layoutId] = stored;
         candidate.activeLayoutId          = entry.layoutId;
 
         if (!me.commit(candidate, 'perspectiveLoaded', {layoutId: entry.layoutId, name})) {
             return {document: null, errors: me.lastErrors, layout: null}
         }
 
-        return {document: restored.document, errors: [], layout: Document.clone(migrated)}
+        return {document: restored.document, errors: [], layout: Document.clone(stored)}
     }
 
     /**

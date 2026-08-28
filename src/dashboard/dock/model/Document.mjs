@@ -24,10 +24,10 @@ class Document extends Base {
 
     /**
      * The persisted dock-zone document schema this executor operates on.
-     * @member {String} SCHEMA='neo.harness.dockZone.v1'
+     * @member {String} SCHEMA='neo.dock.zone.v1'
      * @static
      */
-    static SCHEMA = 'neo.harness.dockZone.v1'
+    static SCHEMA = 'neo.dock.zone.v1'
 
     /**
      * Top-level fields allowed in a persisted dock-zone document.
@@ -877,7 +877,7 @@ class Document extends Base {
 
         return {
             fingerprint: {
-                schema    : 'neo.harness.dockShape.v1',
+                schema    : 'neo.dock.shape.v1',
                 shape,
                 nodeCounts: counts,
                 itemCount : Object.keys(document.items || {}).length
@@ -908,7 +908,7 @@ class Document extends Base {
         }
 
         windowFingerprints.forEach((entry, index) => {
-            if (entry?.schema !== 'neo.harness.dockShape.v1' || typeof entry.shape !== 'string') {
+            if (entry?.schema !== 'neo.dock.shape.v1' || typeof entry.shape !== 'string') {
                 errors.push(`entry ${index} is not a window shape fingerprint record`)
             } else if (!Number.isInteger(entry.itemCount) || entry.itemCount < 0) {
                 errors.push(`entry ${index} is an incomplete window fingerprint record: itemCount must be an integer >= 0`)
@@ -921,7 +921,7 @@ class Document extends Base {
 
         return {
             fingerprint: {
-                schema     : 'neo.harness.dockTopologyShape.v1',
+                schema     : 'neo.dock.topologyShape.v1',
                 windowCount: windowFingerprints.length,
                 shape      : `w[${windowFingerprints.map(entry => entry.shape).join('|')}]`,
                 totalItems : windowFingerprints.reduce((sum, entry) => sum + entry.itemCount, 0)
