@@ -33,7 +33,14 @@ const
         Alt    : 1,
         Meta   : 1,
         Control: 1
-    };
+    },
+    /**
+     * @summary Identifies the JSON-safe viewport Rectangle accepted by floating alignment.
+     * @param {*} value
+     * @returns {Boolean}
+     */
+    isSerializedRectangle = value => Boolean(value) && !value.nodeType &&
+        ['x', 'y', 'width', 'height'].every(key => Number.isFinite(value[key]));
 
 /**
  * @class Neo.main.DomAccess
@@ -134,22 +141,25 @@ class DomAccess extends Base {
      */
     addAligned(alignSpec) {
         const
-            me                   = this,
-            {id}                 = alignSpec,
-            aligns               = me._aligns || (me._aligns = new Map()),
-            resizeObserver       = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
-            {constrainToElement} = alignSpec;
+            me                                           = this,
+            {id}                                         = alignSpec,
+            aligns                                       = me._aligns || (me._aligns = new Map()),
+            resizeObserver                               = me._alignResizeObserver || (me._alignResizeObserver = new ResizeObserver(me.syncAligns)),
+            {constrainToElement, subject, targetElement} = alignSpec;
 
         // Set up listeners which monitor for changes
         if (!aligns.has(id)) {
+            // The subject size participates in every alignment, including coordinate targets.
+            resizeObserver.observe(subject);
+
             // Realign when the target's layout-controlling element changes size. `align()` stores
             // `alignSpec.offsetParent = targetElement.offsetParent` — the TARGET's layout parent, which is
             // null when the target is position:fixed (or the body/root). Guard against observing null —
             // `ResizeObserver.observe(null)` throws "parameter 1 is not of type 'Element'".
             alignSpec.offsetParent && resizeObserver.observe(alignSpec.offsetParent);
 
-            // Realign when align to target changes size
-            resizeObserver.observe(alignSpec.targetElement);
+            // Element targets can resize. Serialized viewport Rectangles have no physical node to observe.
+            targetElement && resizeObserver.observe(targetElement);
 
             // Realign when constraining element changes size
             if (constrainToElement) {
@@ -211,17 +221,23 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary Aligns a physical subject to either an element or serialized viewport Rectangle.
      * @param {Object} data
+     * @param {String} data.id
+     * @param {String|HTMLElement|{x:Number,y:Number,width:Number,height:Number}} [data.target]
+     * @param {String|HTMLElement} [data.constrainTo]
      * @returns {Promise<void>}
      */
     async align(data) {
         const
-            me            = this,
-            {constrainTo} = data,
-            subject       = data.subject = me.getElement(data.id),
-            {style}       = subject,
-            align         = {...data},
-            lastAlign     = me._aligns?.get(data.id);
+            me             = this,
+            {constrainTo}  = data,
+            subject        = data.subject = me.getElement(data.id),
+            {style}        = subject,
+            align          = {...data},
+            lastAlign      = me._aligns?.get(data.id),
+            targetIsObject = typeof data.target === 'object' && !data.target?.nodeType,
+            targetIsRect   = isSerializedRectangle(data.target);
 
         if (lastAlign) {
             subject.classList.remove(`neo-aligned-${lastAlign.result.position}`)
@@ -231,15 +247,23 @@ class DomAccess extends Base {
         // by a previous align call.
         me.resetDimensions(align);
 
-        // The Rectangle's align spec target and constrainTo must be Rectangles
-        align.target = me.getClippedRect({id : data.targetElement = me.getElementOrBody(data.target)});
+        data.targetElement = targetIsObject ? null : me.getElementOrBody(data.target);
+        data.targetRect    = targetIsRect ? new Rectangle(
+            data.target.x,
+            data.target.y,
+            data.target.width,
+            data.target.height
+        ) : null;
+
+        // Rectangle targets are already viewport geometry; element targets retain clipping semantics.
+        align.target = data.targetRect || (data.targetElement && me.getClippedRect({id: data.targetElement}));
 
         if (!align.target) {
             // Set the Component with id data.id to hidden : true
             return Neo.worker.App.setConfigs({id: data.id, hidden: true})
         }
 
-        data.offsetParent = data.targetElement.offsetParent;
+        data.offsetParent = data.targetElement?.offsetParent || null;
 
         if (constrainTo) {
             align.constrainTo = me.getBoundingClientRect({id : data.constrainToElement = me.getElementOrBody(constrainTo)})
@@ -1217,7 +1241,9 @@ class DomAccess extends Base {
 
         // Keep all registered aligns aligned on any detected change
         _aligns?.forEach(align => {
-            const targetPresent = document.contains(align.targetElement);
+            const
+                {targetElement} = align,
+                targetPresent   = targetElement ? document.contains(targetElement) : Boolean(align.targetRect);
 
             // Align subject and target still in the DOM - correct its alignment
             if (document.contains(align.subject) && targetPresent) {
@@ -1225,7 +1251,8 @@ class DomAccess extends Base {
                 if (isScroll && !isDocScroll) {
                     // If the scrolling element does NOT contain the reference target,
                     // then the reference target did not move relative to viewport.
-                    const targetMoved = evtTarget.contains(align.targetElement) || (align.constrainToElement && evtTarget.contains(align.constrainToElement));
+                    const targetMoved = (targetElement && evtTarget.contains(targetElement)) ||
+                        (align.constrainToElement && evtTarget.contains(align.constrainToElement));
 
                     if (!targetMoved) {
                         return // Skip this alignment
@@ -1237,7 +1264,7 @@ class DomAccess extends Base {
             // Align subject or target no longer in the DOM - remove it.
             else {
                 // If target is no longer in the DOM, hide the subject component
-                if (!targetPresent) {
+                if (targetElement && !targetPresent) {
                     Neo.worker.App.setConfigs({ id: align.id, hidden: true })
                 }
 
@@ -1250,7 +1277,7 @@ class DomAccess extends Base {
                 // and unobserve(null) throws just like observe(null).
                 _alignResizeObserver.unobserve(align.subject);
                 align.offsetParent && _alignResizeObserver.unobserve(align.offsetParent);
-                _alignResizeObserver.unobserve(align.targetElement);
+                targetElement && _alignResizeObserver.unobserve(targetElement);
                 if (constrainToElement) {
                     _alignResizeObserver.unobserve(constrainToElement)
                 }

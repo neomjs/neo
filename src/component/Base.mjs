@@ -68,8 +68,10 @@ class Component extends Abstract {
          */
         ntype: 'component',
         /**
-         * The default alignment specification to position this Component relative to some other
-         * Component, or Element or Rectangle. Only applies in case floating = true.
+         * The default alignment specification to position this Component relative to another
+         * Component/Element id, or to a JSON-safe viewport Rectangle `{x,y,width,height}`. A zero-size
+         * Rectangle is a point target (for example a context-menu pointer coordinate). Live DOM objects
+         * never cross the worker boundary. Only applies in case floating = true.
          * @member {Object|String} align_={[isDescriptor]: true, merge: 'deep', value: {edgeAlign: 't-b',constrainTo: 'document.body'}}
          * @reactive
          */
