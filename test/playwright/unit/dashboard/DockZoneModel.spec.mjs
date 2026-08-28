@@ -6,13 +6,13 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../src/Neo.mjs';
-import * as core       from '../../../../src/core/_export.mjs';
-import DockWorkspace   from '../../../../src/dashboard/DockWorkspace.mjs';
-import DockZoneModel   from '../../../../src/dashboard/DockZoneModel.mjs';
-import MainContainer   from '../../../../examples/dashboard/dock/MainContainer.mjs';
-import Toolbar         from '../../../../src/toolbar/Base.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import DockWorkspace  from '../../../../src/dashboard/dock/Workspace.mjs';
+import DockZoneModel  from '../../../../src/dashboard/DockZoneModel.mjs';
+import MainContainer  from '../../../../examples/dashboard/dock/MainContainer.mjs';
+import Toolbar        from '../../../../src/toolbar/Base.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**

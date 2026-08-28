@@ -10,9 +10,9 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import DockDragAffordances from '../../../../src/dashboard/DockDragAffordances.mjs';
-import DockDropIndicators  from '../../../../src/dashboard/DockDropIndicators.mjs';
-import DockPreview         from '../../../../src/dashboard/DockPreview.mjs';
+import DockDragAffordances from '../../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreview         from '../../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockZoneModel       from '../../../../src/dashboard/DockZoneModel.mjs';
 
 /**
@@ -30,7 +30,7 @@ import DockZoneModel       from '../../../../src/dashboard/DockZoneModel.mjs';
  * The geometry tests drive the PRODUCTION `ensureGeometry` path through a stubbed host
  * transport (real measure → map → self-heal code), not only the injected-promise seam.
  */
-test.describe('Neo.dashboard.DockDragAffordances', () => {
+test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
     /**
      * A real two-zone document: `left-tabs` (alpha, beta) | `right-tabs` (gamma).
      * @returns {Object}

@@ -3,7 +3,7 @@ import {createHash}                                                 from 'node:c
 import path                                                         from 'node:path';
 import {promisify}                                                  from 'node:util';
 import fs                                                           from 'fs-extra';
-import {previewToOperation}                                         from '../../../../src/dashboard/dockPreviewContract.mjs';
+import {previewToOperation}                                         from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {test, expect}                                               from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects}             from '../utils/dockGeometry.mjs';
 import {pinToCaptureDisplay, placeNativeWindow, readBrowserSurface} from '../utils/filmStage.mjs';

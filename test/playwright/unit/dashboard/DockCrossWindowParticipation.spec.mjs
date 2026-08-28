@@ -11,7 +11,7 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
 /**
- * @summary Tests for Neo.dashboard.DockCrossWindowParticipation — the adapter-tier composition
+ * @summary Tests for Neo.dashboard.dock.window.Participation — the adapter-tier composition
  * that wires ONE dock workspace into the §2.3 cross-window contract over landed machinery only:
  * target registration lifecycle, the owner seams, foreign-vs-local drop discrimination, the
  * atomic `transferItem` composition, and finite-schema publication of the executor's document
@@ -48,7 +48,7 @@ function targetDoc() {
     }
 }
 
-test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — workspace wiring)', () => {
+test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — workspace wiring)', () => {
     let DockCrossWindowParticipation, DockTabSortZone, DockZoneModel, DragCoordinator, Rectangle, WindowManager;
 
     const createCoordinatorStub = calls => ({
@@ -57,8 +57,8 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
     });
 
     test.beforeAll(async () => {
-        DockCrossWindowParticipation = (await import('../../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
-        DockTabSortZone              = (await import('../../../../src/dashboard/DockTabSortZone.mjs')).default;
+        DockCrossWindowParticipation = (await import('../../../../src/dashboard/dock/window/Participation.mjs')).default;
+        DockTabSortZone              = (await import('../../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
         DockZoneModel                = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
         DragCoordinator              = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
         Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;

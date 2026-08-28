@@ -9,12 +9,12 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
-import DockRestorePlanner from '../../../../src/dashboard/DockRestorePlanner.mjs';
-import DockTopologyDiff   from '../../../../src/dashboard/DockTopologyDiff.mjs';
+import DockRestorePlanner from '../../../../src/dashboard/dock/persistence/RestorePlanner.mjs';
+import DockTopologyDiff   from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
 import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
 
 /**
- * @summary Tests for Neo.dashboard.DockRestorePlanner — same-topology perspective restore via semantic ops.
+ * @summary Tests for Neo.dashboard.dock.persistence.RestorePlanner — same-topology perspective restore via semantic ops.
  * Pure-JSON: fingerprint gate, deterministic diff→op planning, fail-closed sequential application, and the
  * capture → mutate → restore round-trip (fingerprint equality + empty diff + itemId continuity: no pane is
  * ever destroyed, the unit-level never-remounted assertion).

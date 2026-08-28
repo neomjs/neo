@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import DockFlip       from '../../../../src/main/addon/DockFlip.mjs';
-import DockWorkspace  from '../../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace  from '../../../../src/dashboard/dock/Workspace.mjs';
 
 /**
  * Creates the iterable class-list surface consumed by DockFlip.

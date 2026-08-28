@@ -1,29 +1,29 @@
 import Component                   from '../../../src/component/Base.mjs';
 import Container                   from '../../../src/container/Base.mjs';
-import DockWorkspace               from '../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace               from '../../../src/dashboard/dock/Workspace.mjs';
 import Feed                        from '../store/Feed.mjs';
 import FeedPane                    from './FeedPane.mjs';
 import Scale                       from '../store/Scale.mjs';
 import ScalePane                   from './ScalePane.mjs';
-import DockDragAffordances         from '../../../src/dashboard/DockDragAffordances.mjs';
-import DockDropIndicators          from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter           from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockDragAffordances         from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockDropIndicators          from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter           from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockPerspectiveStore        from '../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                 from '../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler    from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockPreview                 from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockProjectionReconciler    from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                 from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel               from '../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService          from '../../../src/ai/client/InteractionService.mjs';
 import StateProvider               from '../../../src/state/Provider.mjs';
 import TourRunner                  from '../../../src/ai/client/TourRunner.mjs';
-import {createDockTearOutHandlers} from '../../../src/dashboard/DockTearOut.mjs';
+import {createDockTearOutHandlers} from '../../../src/dashboard/dock/window/TearOut.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
-}                                                from '../../../src/dashboard/DockVesselEmbodiment.mjs';
-import {createDockWorkspaceSet}                 from '../../../src/dashboard/DockWorkspaceSet.mjs';
-import {createVesselParkHandlers}               from '../../../src/dashboard/DockVesselPark.mjs';
-import {previewToOperation}                     from '../../../src/dashboard/dockPreviewContract.mjs';
+}                                                from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import {createDockWorkspaceSet}                 from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {createVesselParkHandlers}               from '../../../src/dashboard/dock/window/VesselPark.mjs';
+import {previewToOperation}                     from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
 import '../../../src/button/Base.mjs';
 import '../../../src/tab/Container.mjs';
@@ -65,7 +65,7 @@ const paneStories = Object.freeze({
  * hydration, and OffscreenCanvas registration; this class owns only composition and story.
  *
  * @class Workstation.view.Workspace
- * @extends Neo.dashboard.DockWorkspace
+ * @extends Neo.dashboard.dock.Workspace
  */
 class Workspace extends DockWorkspace {
     /**
@@ -196,7 +196,7 @@ class Workspace extends DockWorkspace {
     /**
      * The shared drag-affordance gesture controller (producer lifecycle, memoized geometry,
      * release-truth drop, generation guards) — composed at construct, destroyed with the view.
-     * @member {Neo.dashboard.DockDragAffordances|null} dragAffordances=null
+     * @member {Neo.dashboard.dock.interaction.DragAffordances|null} dragAffordances=null
      */
     dragAffordances = null
     /**
@@ -294,14 +294,14 @@ class Workspace extends DockWorkspace {
     /**
      * Target-side adapters keyed by stable workspace identity. The main workspace registers during
      * construction; vessel targets register only after their exact child window joins.
-     * @member {Map<String,Neo.dashboard.DockCrossWindowParticipation>} crossWindowParticipations
+     * @member {Map<String,Neo.dashboard.dock.window.Participation>} crossWindowParticipations
      * @protected
      */
     crossWindowParticipations = new Map()
     /**
      * Readiness of the main workspace's late-bound participation. The dynamic import keeps the
      * manager.Window singleton behind the app/harness construction boundary.
-     * @member {Promise<Neo.dashboard.DockCrossWindowParticipation|null>} crossWindowParticipationPromise
+     * @member {Promise<Neo.dashboard.dock.window.Participation|null>} crossWindowParticipationPromise
      * @protected
      */
     crossWindowParticipationPromise = null
@@ -1003,13 +1003,13 @@ class Workspace extends DockWorkspace {
      * @param {Object} data
      * @param {String|Number} data.windowId
      * @param {String} data.workspaceId
-     * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation|null>}
+     * @returns {Promise<Neo.dashboard.dock.window.Participation|null>}
      * @protected
      */
     async createCrossWindowParticipation({windowId, workspaceId}) {
         let me            = this,
             isMain        = workspaceId === Workspace.MAIN_WORKSPACE_ID,
-            Participation = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
+            Participation = (await import('../../../src/dashboard/dock/window/Participation.mjs')).default;
 
         if (me.isDestroyed) return null;
 
@@ -1158,7 +1158,7 @@ class Workspace extends DockWorkspace {
      * stable workspace target share a per-window coordinator slot, so the stable target must win
      * the final registration write after every projection.
      * @param {String} workspaceId
-     * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation|null>}
+     * @returns {Promise<Neo.dashboard.dock.window.Participation|null>}
      * @protected
      */
     async refreshCrossWindowParticipation(workspaceId) {
@@ -1354,7 +1354,7 @@ class Workspace extends DockWorkspace {
      * @summary Keeps semantic node identity paired with its actual rendered component.
      * @param {String} workspaceId
      * @param {String} targetNodeId
-     * @returns {{host: Neo.component.Base, renderer: Neo.dashboard.DockPreview,
+     * @returns {{host: Neo.component.Base, renderer: Neo.dashboard.dock.interaction.Preview,
      *     target: Neo.component.Base, windowId: (String|Number)}|null}
      * @protected
      */
@@ -2666,7 +2666,7 @@ class Workspace extends DockWorkspace {
      * @summary Opens one theme-correct vessel window for a mid-gesture boundary exit.
      *
      * Reuses the workstation viewport's `?popout=` pure-pane-host mode. The granted child
-     * immediately carries the same live pane through {@link Neo.dashboard.DockVesselEmbodiment};
+     * immediately carries the same live pane through {@link Neo.dashboard.dock.window.VesselEmbodiment};
      * it owns no workspace document. Fail-closed per the admission contract: `windowOpen` returns
      * a BOOLEAN (a blocked popup never throws), and any falsy/throwing acquisition returns `null`
      * so the gesture degrades to its in-window fallback. The theme bootstrap is part of that
@@ -4139,7 +4139,7 @@ class Workspace extends DockWorkspace {
      * `parkedItemId`, which additionally requires the exact source vessel to be strictly parked.
      * @param {Object} context
      * @param {String|null} [context.parkedItemId=null]
-     * @param {Neo.dashboard.DockTabSortZone|null} [context.sourceZone=null]
+     * @param {Neo.dashboard.dock.interaction.TabSortZone|null} [context.sourceZone=null]
      * @param {String|null} [context.sourceZoneId=null] Clone-safe Neural Link alternative.
      * @param {String} context.targetWorkspaceId
      * @returns {Object}
@@ -4514,7 +4514,7 @@ class Workspace extends DockWorkspace {
      * physical topology exit.
      *
      * The pointer starts on the actual nested `.neo-dock-stack-handle`, so
-     * {@link Neo.dashboard.DockTabSortZone} authors the group payload. The executor never invokes
+     * {@link Neo.dashboard.dock.interaction.TabSortZone} authors the group payload. The executor never invokes
      * `transferNode` itself; it withholds mouseup until the main target's one semantic + rendered
      * claim settles, then observes the resulting receipt through window disconnect.
      * @param {Object} step
@@ -4767,7 +4767,7 @@ class Workspace extends DockWorkspace {
      * @summary The app-owned tear-out journey executor — scene 2's real-pointer drive.
      *
      * Arms a tab drag, flings the proxy past the window boundary so
-     * {@link Neo.dashboard.DockTabSortZone} fires `dockTearOutExit`, the host opens a `?popout=`
+     * {@link Neo.dashboard.dock.interaction.TabSortZone} fires `dockTearOutExit`, the host opens a `?popout=`
      * vessel, then — gated on that vessel's ACTUAL birth ({@link #onWindowConnect}) — survives
      * deliberate post-birth moves and settles one of three terminals: release while detached
      * (`dockTearOutTerminal` → the `detachItem` commit + adoption), Escape-cancel (zero-mutation

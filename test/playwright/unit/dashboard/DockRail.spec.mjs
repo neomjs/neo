@@ -10,8 +10,8 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import Button            from '../../../../src/button/Base.mjs';
-import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockRail          from '../../../../src/dashboard/DockRail.mjs';
+import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockRail          from '../../../../src/dashboard/dock/interaction/Rail.mjs';
 import Panel             from '../../../../src/dashboard/Panel.mjs';
 
 const createDocument = () => ({
@@ -52,7 +52,7 @@ const createStubOverlay = () => ({
     }
 });
 
-test.describe('Neo.dashboard.DockRail', () => {
+test.describe('Neo.dashboard.dock.interaction.Rail', () => {
     let rail;
 
     test.afterEach(() => {
@@ -453,7 +453,7 @@ test.describe('Neo.dashboard.DockRail', () => {
     });
 });
 
-test.describe('Neo.dashboard.DockRail — revealed-tab state projection', () => {
+test.describe('Neo.dashboard.dock.interaction.Rail — revealed-tab state projection', () => {
     let rail;
 
     test.afterEach(() => {

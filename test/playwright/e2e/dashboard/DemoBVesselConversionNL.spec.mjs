@@ -141,7 +141,7 @@ test.describe('Dashboard Demo B — vessel-conversion geometry readiness', () =>
               }, ['id']),
               wsId       = workspace.id,
               sourceZone = await findOne(app, {
-                  className       : 'Neo.dashboard.DockTabSortZone',
+                  className       : 'Neo.dashboard.dock.interaction.TabSortZone',
                   dockSourceNodeId: 'workbench-tabs',
                   dockWorkspaceId : 'demo-b-main'
               }, [

@@ -9,7 +9,7 @@ setup({
 });
 
 import {test, expect}           from '@playwright/test';
-import {createDockWorkspaceSet} from '../../../../src/dashboard/DockWorkspaceSet.mjs';
+import {createDockWorkspaceSet} from '../../../../src/dashboard/dock/window/WorkspaceSet.mjs';
 
 /**
  * @summary The worker-owned `{workspaceId → document}` registry contract (docking design
@@ -17,7 +17,7 @@ import {createDockWorkspaceSet} from '../../../../src/dashboard/DockWorkspaceSet
  * a resolution cannot be proven, and both-or-neither adoption for an atomic transfer's committed
  * pair. Retirement never happens implicitly — the registry outlives any render target.
  */
-test.describe('Neo.dashboard.DockWorkspaceSet — the workspace-set registry', () => {
+test.describe('Neo.dashboard.dock.window.WorkspaceSet — the workspace-set registry', () => {
     let set;
 
     test.beforeEach(() => {

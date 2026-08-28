@@ -12,10 +12,10 @@ import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import '../../../../src/tab/Container.mjs';    // registers the `tab-container` ntype the projection emits
 import Container                from '../../../../src/container/Base.mjs';
-import DockLayoutAdapter        from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockProjectionReconciler from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
-import DockWorkspace            from '../../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 
 const createDocument = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -213,7 +213,7 @@ const
  * single mutation path, the atomic deferred re-projection chain, the hooks a consumer owns, the
  * dock-host indirection, and teardown.
  */
-test.describe('Neo.dashboard.DockWorkspace', () => {
+test.describe('Neo.dashboard.dock.Workspace', () => {
     let workspace;
 
     test.afterEach(() => {

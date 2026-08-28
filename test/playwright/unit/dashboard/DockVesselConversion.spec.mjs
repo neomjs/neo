@@ -12,7 +12,7 @@ setup({
 });
 
 import {test, expect}                 from '@playwright/test';
-import {createVesselConversionSensor} from '../../../../src/dashboard/DockVesselConversion.mjs';
+import {createVesselConversionSensor} from '../../../../src/dashboard/dock/window/VesselConversion.mjs';
 
 /**
  * @summary The dual-window conversion sensor, driven end-to-end through its injected seams.
@@ -25,7 +25,7 @@ import {createVesselConversionSensor} from '../../../../src/dashboard/DockVessel
  * fails CLOSED — a converted sensor fed NaN reverts instead of freezing. The seams are the
  * decision surface; the returned sample record is the geometry surface.
  */
-test.describe('Neo.dashboard.DockVesselConversion — createVesselConversionSensor', () => {
+test.describe('Neo.dashboard.dock.window.VesselConversion — createVesselConversionSensor', () => {
     const harness = (config = {}) => {
         const calls = {converted: [], reverted: []};
 

@@ -76,8 +76,8 @@ class Harness extends Viewport {
         let me              = this,
             Rectangle       = (await import('../../../src/util/Rectangle.mjs')).default,
             WindowManager   = (await import('../../../src/manager/Window.mjs')).default,
-            Participation   = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default,
-            DockTabSortZone = (await import('../../../src/dashboard/DockTabSortZone.mjs')).default;
+            Participation   = (await import('../../../src/dashboard/dock/window/Participation.mjs')).default,
+            DockTabSortZone = (await import('../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
 
         const sourceDoc = () => ({
             schema: 'neo.harness.dockZone.v1', root: 'root',

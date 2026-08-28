@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. **Renamed** 2026-08-21 from `0029-harness-docking-design.md` (#17503; §2.9): the subsystem is a generic Body capability — the harness misnomer is retired, persisted schema strings stay frozen. **Amended** 2026-08-22 (`#17541`; §2.1): the normative workspace host becomes the engine class `Neo.dashboard.DockWorkspace`. |
+| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. **Renamed** 2026-08-21 from `0029-harness-docking-design.md` (#17503; §2.9): the subsystem is a generic Body capability — the harness misnomer is retired, persisted schema strings stay frozen. **Amended** 2026-08-22 (`#17541`; §2.1): the normative workspace host becomes the engine class `Neo.dashboard.dock.Workspace`. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5, Claude Code). The cross-window seam contract descends from Discussion #13370's graduated Option-4 convergence (cross-family); the §7 auto-hide contract was written implementation-sufficient for its claimed leaf owner (@neo-opus-grace, #13280). |
 | **Resolves** | #14423 — the #13158 design-gate sub: settle the seven shared design questions (layout model, perspectives, cross-window drag, grouped drag/overflow, core-lift disposition, container contract, auto-hide UI) before further implementation lands on the current base (operator direction, 2026-07-02). |
 | **Parent epic** | #13158 (*QT-parity docking polish*) under #13012 (Agent Harness). Operator re-ranked 2026-07-02 as an agent-harness cornerstone: the docking shell is the substrate the #13015 FM-UX and #13444 HOME surfaces stand on. |
@@ -43,7 +43,7 @@
 
 #### The reducer-container pattern (landed, normative — amended 2026-08-22, `#17541`)
 
-The normative host is the engine class **`Neo.dashboard.DockWorkspace`** (`src/dashboard/DockWorkspace.mjs`); `examples/dashboard/dock/MainContainer.mjs` is its minimal consumer. New docking workspaces extend it; the three flagship hosts (workstation, dockdemo Demo B, fleet cockpit) still carry the hand-rolled loop and migrate as leaves of epic `#17539` (`#17546` first) — until each lands, its copy is consumer-owned, not normative. The class contract:
+The normative host is the engine class **`Neo.dashboard.dock.Workspace`** (`src/dashboard/DockWorkspace.mjs`); `examples/dashboard/dock/MainContainer.mjs` is its minimal consumer. New docking workspaces extend it; the three flagship hosts (workstation, dockdemo Demo B, fleet cockpit) still carry the hand-rolled loop and migrate as leaves of epic `#17539` (`#17546` first) — until each lands, its copy is consumer-owned, not normative. The class contract:
 
 - **The workspace container** owns the committed dock-zone document (`dockModel`) and its saved-layout collection. It lives in the App Worker heap.
 - **`applyDockZoneOperation(descriptor)`** is a pure reducer: `DockZoneModel.applyOperation` over the current document. No pointer handler, splitter, or drag surface mutates the document directly.
@@ -86,7 +86,7 @@ Every future docking leaf classifies each new piece of state into exactly one ro
 
 #### Splitter reconciliation (Discussion #13370 OQ3, dispositioned)
 
-`Neo.dashboard.DockSplitter` is the dock-workspace resize affordance: it renders between projected split children and commits through the `resizeSplit` semantic operation (`DockLayoutAdapter.createResizeSplitOperation`). `Neo.component.Splitter` remains the general-purpose sibling-resize component for non-dock layouts. They stay separate: the dock splitter's contract obligation (semantic commit through the reducer, never direct mutation of persisted `sizes`) is dock-specific, and folding it into the general component would leak dock semantics into core. A future unification is possible only behind the §2.5 lift trigger, never before it.
+`Neo.dashboard.dock.interaction.DockSplitter` is the dock-workspace resize affordance: it renders between projected split children and commits through the `resizeSplit` semantic operation (`DockLayoutAdapter.createResizeSplitOperation`). `Neo.component.Splitter` remains the general-purpose sibling-resize component for non-dock layouts. They stay separate: the dock splitter's contract obligation (semantic commit through the reducer, never direct mutation of persisted `sizes`) is dock-specific, and folding it into the general component would leak dock semantics into core. A future unification is possible only behind the §2.5 lift trigger, never before it.
 
 ### §2.2 Named Perspectives
 
@@ -524,7 +524,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools merged (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | landed — #14770 (`moveNode`/`transferNode`) + #14850 (tab drag) + #15098 (`Neo.tab.plugin.Overflow`) |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
-| The engine-owned workspace host (`Neo.dashboard.DockWorkspace`) + per-host migration | §2.1 | class + example landed — `#17541`; the flagship host migrations are leaves of epic `#17539` |
+| The engine-owned workspace host (`Neo.dashboard.dock.Workspace`) + per-host migration | §2.1 | class + example landed — `#17541`; the flagship host migrations are leaves of epic `#17539` |
 | The three-OS portability spike (matrix contract) | §2.8.1 (row-6 identity binding) + §2.8.3 (admission receipts) | #15243 open (epic #15239; Clio's lane per live assignee) |
 | Dock tear-out + acquisition contract | §2.8.2/§2.8.3 + the §2.3 participation contract | #15244 landed; #15245 open (epic #15239) |
 | Workspace-set composition + claim arbitration + remote preview | §2.8.1 + §2.1 workspace-set | #15246 landed (epic #15239) |

@@ -1,5 +1,5 @@
-import DockTopologyDiff       from '../../dashboard/DockTopologyDiff.mjs';
-import DockTopologyReconciler from '../../dashboard/DockTopologyReconciler.mjs';
+import DockTopologyDiff       from '../../dashboard/dock/model/TopologyDiff.mjs';
+import DockTopologyReconciler from '../../dashboard/dock/model/TopologyReconciler.mjs';
 import DockZoneModel          from '../../dashboard/DockZoneModel.mjs';
 import Service                from './Service.mjs';
 import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
@@ -110,7 +110,7 @@ class DockService extends Service {
      * @param {String} params.componentId     The dock workspace / holder component id
      * @param {Object} params.beforeDocument  The earlier dockZone.v1 document to compare against
      * @param {Number} [params.sizeEpsilon]   Optional resize tolerance on split size fractions
-     * @returns {Object} The {@link Neo.dashboard.DockTopologyDiff#diffDockDocuments} result
+     * @returns {Object} The {@link Neo.dashboard.dock.model.TopologyDiff#diffDockDocuments} result
      */
     async diffDockTopology({componentId, beforeDocument, sizeEpsilon}) {
         const holder = this.resolveHolder(componentId);
@@ -244,7 +244,7 @@ class DockService extends Service {
      * - **window** records prefer the holder's switch seam (`activatePerspective` — commit
      *   loop, animation and error rendering included), falling back to the store's fail-closed
      *   load plus the landed plain-holder commit semantics.
-     * - **topology** records route through {@link Neo.dashboard.DockTopologyReconciler} plus the
+     * - **topology** records route through {@link Neo.dashboard.dock.model.TopologyReconciler} plus the
      *   holder's atomic multi-document commit seam — see
      *   {@link #restoreTopologyPerspective}. `windowDocuments` are never dropped: a topology
      *   record can never report `switched: true` off a single-document commit.
@@ -331,7 +331,7 @@ class DockService extends Service {
 
     /**
      * The topology-scope restore branch: reconciles a multi-window record onto the live
-     * workspace through {@link Neo.dashboard.DockTopologyReconciler#reconcile} and commits
+     * workspace through {@link Neo.dashboard.dock.model.TopologyReconciler#reconcile} and commits
      * ALL result documents through the holder's atomic seam — all-or-nothing, by contract.
      *
      * The holder seam pair a topology-capable workspace exposes:

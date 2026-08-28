@@ -9,10 +9,10 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
-import DockMotionSignal   from '../../../../src/dashboard/DockMotionSignal.mjs';
-import DockTabEnterButton from '../../../../src/dashboard/DockTabEnterButton.mjs';
+import DockMotionSignal   from '../../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import DockTabEnterButton from '../../../../src/dashboard/dock/interaction/TabEnterButton.mjs';
 import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
-import DockWorkspace      from '../../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 
 const createModel = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -69,7 +69,7 @@ const findProjectedNode = (config, nodeId) => {
     return null
 };
 
-test.describe('Neo.dashboard.DockTabEnterButton', () => {
+test.describe('Neo.dashboard.dock.interaction.TabEnterButton', () => {
     let buttons = [];
 
     test.afterEach(() => {

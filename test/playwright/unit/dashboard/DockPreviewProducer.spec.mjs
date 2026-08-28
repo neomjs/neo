@@ -10,14 +10,14 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock preview producer)', () => {
+test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 — the dock preview producer)', () => {
     let DockPreviewProducer, DockPreview, producer;
 
     const RECT = {x: 0, y: 0, width: 100, height: 100}; // default band = 0.24 * 100 = 24
 
     test.beforeAll(async () => {
-        DockPreviewProducer = (await import('../../../../src/dashboard/DockPreviewProducer.mjs')).default;
-        DockPreview         = (await import('../../../../src/dashboard/DockPreview.mjs')).default;
+        DockPreviewProducer = (await import('../../../../src/dashboard/dock/interaction/PreviewProducer.mjs')).default;
+        DockPreview         = (await import('../../../../src/dashboard/dock/interaction/Preview.mjs')).default;
         producer            = Neo.create(DockPreviewProducer)
     });
 
@@ -171,7 +171,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('whole-stack production carries one coherent runtime group through previews and candidates', async () => {
-        const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
         const zones                 = [{nodeId: 'main-tabs', rect: RECT, orientation: 'vertical'}];
         const params                = {
             groupNodeId: 'popup-stack',
@@ -232,7 +232,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('produceCandidates emits the full §06 menu — schema-pinned, every preview consumer-valid', async () => {
-        const contract = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const contract = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
 
         const TALL  = {x: 100, y: 100, width: 400, height: 300};
         const ROOT  = {x: 0, y: 0, width: 800, height: 600};
@@ -303,7 +303,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('isValidCandidateSet rejects partial, duplicated, mismatched and lying menus', async () => {
-        const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
 
         const TALL  = {x: 0, y: 0, width: 400, height: 300};
         const valid = (orientation='vertical') => producer.produceCandidates({

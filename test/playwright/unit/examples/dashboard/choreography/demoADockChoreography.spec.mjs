@@ -13,7 +13,7 @@ import DockService    from '../../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel  from '../../../../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
-import DockLayoutAdapter                  from '../../../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockLayoutAdapter                  from '../../../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import {validateTourScript}               from '../../../../../../src/ai/client/tourScript.mjs';
 import {demoATourScript, initialDocument} from '../../../../../../examples/dashboard/choreography/demoADockChoreography.mjs';
 

@@ -9,13 +9,13 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
-import DockPreview     from '../../../../src/dashboard/DockPreview.mjs';
+import DockPreview     from '../../../../src/dashboard/dock/interaction/Preview.mjs';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
 /**
- * @summary Tests for Neo.dashboard.DockPreview — the drag-time dock preview renderer.
+ * @summary Tests for Neo.dashboard.dock.interaction.Preview — the drag-time dock preview renderer.
  * Covers the pure contract logic (validity / affordance mapping / semantic-drop conversion /
  * geometry) plus the component lifecycle (render, fail-closed cleanup, drag-source binding).
  */
@@ -43,7 +43,7 @@ const
     __dirname  = path.dirname(__filename),
     repoRoot   = path.resolve(__dirname, '../../../..');
 
-test.describe('Neo.dashboard.DockPreview', () => {
+test.describe('Neo.dashboard.dock.interaction.Preview', () => {
     test.describe('stylesheet contract (visible affordances)', () => {
         test('the structural scss backs the emitted affordance classes with visible styling', () => {
             const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8');

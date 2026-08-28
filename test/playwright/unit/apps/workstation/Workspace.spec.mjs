@@ -9,9 +9,9 @@ setup({
 import {test, expect}           from '@playwright/test';
 import Neo                      from '../../../../../src/Neo.mjs';
 import * as core                from '../../../../../src/core/_export.mjs';
-import DockProjectionReconciler from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockProjectionReconciler from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockZoneModel            from '../../../../../src/dashboard/DockZoneModel.mjs';
-import {previewToOperation}     from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import {previewToOperation}     from '../../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import FeedPane  from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane from '../../../../../apps/workstation/view/ScalePane.mjs';

@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability signal)', () => {
+test.describe('Neo.dashboard.dock.projection.MotionSignal (the motion-contract observability signal)', () => {
     let DockMotionSignal;
 
     // Deterministic timer doubles (the DockRevealStateMachine precedent): capture the fail-safe
@@ -41,7 +41,7 @@ test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability
     };
 
     test.beforeAll(async () => {
-        DockMotionSignal = (await import('../../../../src/dashboard/DockMotionSignal.mjs')).default
+        DockMotionSignal = (await import('../../../../src/dashboard/dock/projection/MotionSignal.mjs')).default
     });
 
     test.afterEach(() => {

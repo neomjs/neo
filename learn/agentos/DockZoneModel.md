@@ -30,7 +30,7 @@ The model is a generic dashboard-layer contract (`src/dashboard/`), not a new co
 
 Initial durable surface: this document.
 
-**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.DockZoneModel` (the executor) co-located with `Neo.dashboard.DockLayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
+**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.DockZoneModel` (the executor) co-located with `Neo.dashboard.dock.projection.LayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
 
 The rationale that resolved to the dashboard layer:
 
@@ -395,7 +395,7 @@ Persistence ownership follows the landed placement: reusable import/export, vali
 
 ## Split/Tab Adapter Boundary
 
-The rendering boundary is an adapter/reconciler pair, not a new layout engine. `Neo.dashboard.DockLayoutAdapter` consumes the dock-zone model and emits ordinary Neo child configs; `Neo.dashboard.DockProjectionReconciler` hands surviving live components into that projection without changing their identity. Existing containers still own layout, tabs, and cards.
+The rendering boundary is an adapter/reconciler pair, not a new layout engine. `Neo.dashboard.dock.projection.LayoutAdapter` consumes the dock-zone model and emits ordinary Neo child configs; `Neo.dashboard.dock.projection.Reconciler` hands surviving live components into that projection without changing their identity. Existing containers still own layout, tabs, and cards.
 
 Adapter, projection reconciler, and model live in the dashboard layer (`src/dashboard/`) — per the operator's 2026-06-13 placement decision (see §Ownership Boundary), the dock-zone subsystem is a reusable Neo layout topic, not harness-app-private. A *further* lift into a generic core layout primitive (beyond dashboard adaptation) still requires a second independent in-repo consumer and source evidence that the logic is reusable outside dashboard adaptation.
 

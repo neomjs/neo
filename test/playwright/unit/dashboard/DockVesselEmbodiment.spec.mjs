@@ -16,9 +16,9 @@ import Container from '../../../../src/container/Base.mjs';
 import {
     createDockVesselEmbodiment,
     createDockVesselProxyEmbodiment
-} from '../../../../src/dashboard/DockVesselEmbodiment.mjs';
+} from '../../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
 
-test.describe('Neo.dashboard.DockVesselEmbodiment (#15396)', () => {
+test.describe('Neo.dashboard.dock.window.VesselEmbodiment (#15396)', () => {
     let embodiment, pane, proxyEmbodiment, source, target;
 
     test.beforeEach(() => {

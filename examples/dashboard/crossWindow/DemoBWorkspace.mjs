@@ -2,24 +2,24 @@ import Component                            from '../../../src/component/Base.mj
 import Container                            from '../../../src/container/Base.mjs';
 import CounterPane                          from './CounterPane.mjs';
 import {createCrossWindowStage}             from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators                   from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                    from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                     from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockDropIndicators                   from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter                    from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockMotionSignal                     from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
 import DockPerspectiveStore                 from '../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                          from '../../../src/dashboard/DockPreview.mjs';
-import DockPreviewProducer                  from '../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler             from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockPreview                          from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockPreviewProducer                  from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import DockProjectionReconciler             from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                          from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler               from '../../../src/dashboard/DockTopologyReconciler.mjs';
+import DockTopologyReconciler               from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
 import DockZoneModel                        from '../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService                   from '../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}         from '../../../src/dashboard/DockKeyboardCommands.mjs';
-import {createDockTearOutHandlers}          from '../../../src/dashboard/DockTearOut.mjs';
-import {createDockVesselEmbodiment}         from '../../../src/dashboard/DockVesselEmbodiment.mjs';
-import {createDockWorkspaceSet}             from '../../../src/dashboard/DockWorkspaceSet.mjs';
-import {createVesselParkHandlers}           from '../../../src/dashboard/DockVesselPark.mjs';
+import {createDockKeyboardCommands}         from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
+import {createDockTearOutHandlers}          from '../../../src/dashboard/dock/window/TearOut.mjs';
+import {createDockVesselEmbodiment}         from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import {createDockWorkspaceSet}             from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {createVesselParkHandlers}           from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                           from '../../../src/ai/client/TourRunner.mjs';
-import {PREVIEW_SCHEMA, previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
+import {PREVIEW_SCHEMA, previewToOperation} from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {demoBTourScript, initialDocument}   from './demoBPerspectives.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
@@ -30,7 +30,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * leaves for its own OS window and returns with its state unbroken — the only-Neo story.
  *
  * **This class hand-rolls a workspace host that the engine now owns, and is not the shape to
- * copy.** {@link Neo.dashboard.DockWorkspace} is the normative host — it owns the committed
+ * copy.** {@link Neo.dashboard.dock.Workspace} is the normative host — it owns the committed
  * document, the reducer, the read half of the holder contract, the deferred view-sync and the
  * projection/FLIP loop — and the docking design record fixes it as canonical. Demo A already
  * consumes it; this workspace has not migrated yet because its cross-window tear-out half is
@@ -46,7 +46,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * - **Perspectives** ride a {@link Neo.dashboard.DockPerspectiveStore}: ordinary views are
  *   window-scoped; the detached view captures BOTH worker-owned workspace documents through
  *   `captureTopologyPerspective`. Loading that record composes the real
- *   {@link Neo.dashboard.DockTopologyReconciler} and renders its structured remainder.
+ *   {@link Neo.dashboard.dock.model.TopologyReconciler} and renders its structured remainder.
  *   The switcher bar rebuilds from store lifecycle events — buttons are born from
  *   `perspectiveSaved`, never hardcoded.
  * - **Pop-out** rides the shared-heap vessel: panes are INSTANCE-CACHED (created once,
@@ -162,7 +162,7 @@ class DemoBWorkspace extends Container {
     interactionService = null
     /**
      * Runtime-only dock-preview producer shared by the two window surfaces.
-     * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
+     * @member {Neo.dashboard.dock.interaction.PreviewProducer|null} dockPreviewProducer=null
      */
     dockPreviewProducer = null
     /**
@@ -195,7 +195,7 @@ class DemoBWorkspace extends Container {
     crossWindowHosts = new Map()
     /**
      * Registered target-side participation adapters keyed by workspace id.
-     * @member {Map<String,Neo.dashboard.DockCrossWindowParticipation>} crossWindowParticipations
+     * @member {Map<String,Neo.dashboard.dock.window.Participation>} crossWindowParticipations
      * @protected
      */
     crossWindowParticipations = new Map()
@@ -906,7 +906,7 @@ class DemoBWorkspace extends Container {
      * @summary Render (or clear) the keyboard cycle's current-candidate highlight through the
      * SHARED drag-affordance consumer: a hand-built `tab-into` dockPreview payload (the contract
      * module is the pure SSOT; the fail-closed renderer validates it) drives the target host's
-     * {@link Neo.dashboard.DockPreview} — the same overlay, geometry conversion, and skin the
+     * {@link Neo.dashboard.dock.interaction.Preview} — the same overlay, geometry conversion, and skin the
      * pointer hover renders through, so one affordance model serves both input paths. The
      * indicator MENU stays pointer-owned: its semantics are within-zone position choice, which
      * the keyboard cycle's zone-target grammar deliberately does not offer.
@@ -1668,7 +1668,7 @@ class DemoBWorkspace extends Container {
      * @summary Installs a gesture-local witness around the source's remote-drop-out hook.
      * The hook itself stays authoritative and runs unchanged; this wrapper only counts how
      * often the coordinator selected that exact completion path before projection teardown.
-     * @param {Neo.dashboard.DockTabSortZone} sourceZone
+     * @param {Neo.dashboard.dock.interaction.TabSortZone} sourceZone
      * @returns {Object}
      * @protected
      */
@@ -2560,7 +2560,7 @@ class DemoBWorkspace extends Container {
      * Drives the REAL G1 dock tear-out gesture end-to-end for the e2e witness leg. Unlike
      * {@link #executeCrossWindowStep} (a two-window transfer over the coordinator), this is the
      * single-window boundary grammar: it arms a tab drag, flings the proxy past the window
-     * boundary so {@link Neo.dashboard.DockTabSortZone} re-fires `dockTearOutExit`, the host opens
+     * boundary so {@link Neo.dashboard.dock.interaction.TabSortZone} re-fires `dockTearOutExit`, the host opens
      * a `?popout=` vessel, then — gated on that vessel's ACTUAL birth
      * ({@link #onWindowConnect} → {@link #tearOutConnects}) — survives deliberate post-birth moves
      * (the reap-regression survival probe) and either releases while detached (`dockTearOutTerminal`
@@ -3921,7 +3921,7 @@ class DemoBWorkspace extends Container {
     /**
      * The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit.
      * Reuses the `?popout=` pure-pane-host viewport mode. The granted child immediately carries
-     * the same live pane through {@link Neo.dashboard.DockVesselEmbodiment}; it still owns no
+     * the same live pane through {@link Neo.dashboard.dock.window.VesselEmbodiment}; it still owns no
      * workspace document, and NOTHING is written to {@link #detachedPanes}, so click-pop-out model
      * machinery remains structurally absent. Fail-closed per the admission contract: `windowOpen`
      * returns a BOOLEAN (a blocked popup never throws), and any falsy/throwing acquisition returns

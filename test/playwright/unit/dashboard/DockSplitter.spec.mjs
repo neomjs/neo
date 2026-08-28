@@ -9,8 +9,8 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
-import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockSplitter      from '../../../../src/dashboard/DockSplitter.mjs';
+import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockSplitter      from '../../../../src/dashboard/dock/interaction/DockSplitter.mjs';
 
 const createDocument = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -62,7 +62,7 @@ const createParent = () => ({
     }
 });
 
-test.describe('Neo.dashboard.DockSplitter', () => {
+test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
     let splitter;
 
     test.afterEach(() => {
@@ -234,7 +234,7 @@ test.describe('Neo.dashboard.DockSplitter', () => {
     });
 });
 
-test.describe('Neo.dashboard.DockSplitter — drag-proxy token projection', () => {
+test.describe('Neo.dashboard.dock.interaction.DockSplitter — drag-proxy token projection', () => {
     /**
      * The projection restates the `--dock-splitter-*` contract in JS, and a restatement drifts.
      * This is the guard that makes the restatement safe: it parses the engine's own `.neo-dashboard`

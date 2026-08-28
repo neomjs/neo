@@ -13,8 +13,8 @@ import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the 
 import Component                from '../../../../../../src/component/Base.mjs';
 import Container                from '../../../../../../src/container/Base.mjs';
 import DemoBWorkspace           from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
-import DockPreview              from '../../../../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler from '../../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockPreview              from '../../../../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockProjectionReconciler from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockZoneModel            from '../../../../../../src/dashboard/DockZoneModel.mjs';
 
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';

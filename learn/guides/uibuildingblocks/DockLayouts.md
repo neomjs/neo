@@ -162,7 +162,7 @@ dock demos still carry hand-rolled copies that are migrating next. The checklist
 [Dock Layouts: Adopting in Your App](DockLayoutsAdoption.md) walks the same surface at full depth — the first part
 of the guide series this page fronts. Once you extend the class, the adoption surface is:
 
-1. **Extend `Neo.dashboard.DockWorkspace`.** The engine class owns the committed `dockModel`, the pure reducer
+1. **Extend `Neo.dashboard.dock.Workspace`.** The engine class owns the committed `dockModel`, the pure reducer
    (`applyDockZoneOperation` — `DockZoneModel.applyOperation` over the current document), the deferred, promise-chained
    re-projection (`onDockZoneDocumentChange` → `DockLayoutAdapter` → `DockProjectionReconciler`, bracketed by FLIP
    motion) and the in-window cross-zone drop path. Your subclass overrides `resolvePane(itemId, item)` and, when it has

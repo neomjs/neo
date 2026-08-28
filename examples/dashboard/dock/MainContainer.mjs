@@ -1,5 +1,5 @@
 import DockService   from '../../../src/ai/client/DockService.mjs';
-import DockWorkspace from '../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
 import DockZoneModel from '../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner    from '../../../src/ai/client/TourRunner.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
@@ -10,8 +10,8 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used b
  * A representative dock-zone document (`neo.harness.dockZone.v1`): an edge-zone root whose center is a
  * horizontal split of a two-tab main zone and a vertical side-split of two single-tab zones, plus a
  * right edge band holding a single-tab inspector zone — the auto-hide surface (committing
- * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.DockRail` edge tab).
- * The shape `Neo.dashboard.DockLayoutAdapter.project` consumes — see its spec for the full contract.
+ * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.dock.interaction.Rail` edge tab).
+ * The shape `Neo.dashboard.dock.projection.LayoutAdapter.project` consumes — see its spec for the full contract.
  * Used as the example's INITIAL committed document; the live document advances on each commit
  * (see `MainContainer#dockModel`).
  * @type {Object}
@@ -65,7 +65,7 @@ const seededPerspectives = [{
 
 /**
  * @summary Standalone, interactive example for the dashboard dock-zone layout system — the minimal
- * consumer of {@link Neo.dashboard.DockWorkspace}.
+ * consumer of {@link Neo.dashboard.dock.Workspace}.
  *
  * The engine class owns the whole host loop: the committed document ({@link #dockModel}), the pure
  * reducer (`applyDockZoneOperation`), the deferred, promise-chained re-projection through
@@ -89,7 +89,7 @@ const seededPerspectives = [{
  * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
  * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
  * @class Neo.examples.dashboard.dock.MainContainer
- * @extends Neo.dashboard.DockWorkspace
+ * @extends Neo.dashboard.dock.Workspace
  */
 class MainContainer extends DockWorkspace {
     static config = {

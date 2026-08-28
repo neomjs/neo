@@ -6,9 +6,9 @@ import Base from '../core/Base.mjs';
  *
  * @summary Executor for the dock-zone semantic operations (`neo.harness.dockZone.v1`).
  *
- * The "missing middle" of the docking line: `Neo.dashboard.DockPreview.previewToOperation()`
+ * The "missing middle" of the docking line: `Neo.dashboard.dock.interaction.Preview.previewToOperation()`
  * produces an operation descriptor on drop, this executor applies it to mutate the persisted
- * dock-zone tree, and `Neo.dashboard.DockLayoutAdapter` renders the committed result. The contract
+ * dock-zone tree, and `Neo.dashboard.dock.projection.LayoutAdapter` renders the committed result. The contract
  * and data model are defined in `learn/agentos/DockZoneModel.md` (§Data Model + §Operations);
  * this class is the code realization of §Operations.
  *
@@ -164,7 +164,7 @@ class DockZoneModel extends Base {
      * Runtime-only preview / interaction keys that must never enter committed OR persisted dock-zone
      * state (the JSON-first serialization contract). `validate` rejects a document carrying any of
      * these ANYWHERE — including inside the opaque `metadata` channel — so they cannot be smuggled
-     * through a saved layout; `Neo.dashboard.DockLayoutAdapter` reads this same set at the projection
+     * through a saved layout; `Neo.dashboard.dock.projection.LayoutAdapter` reads this same set at the projection
      * boundary, so persistence-rejection and projection-rejection cannot drift.
      * @member {Set<String>} forbiddenPreviewKeys
      * @protected

@@ -9,7 +9,7 @@ This guide answers that question in the order you will actually ask it. By the e
 in your own application, and — more useful — you will know exactly which decisions were yours to make, because there
 are only five of them. Everything else belongs to one engine class.
 
-`Neo.dashboard.DockWorkspace` centralizes the host loop that connects a dock document to its live projection:
+`Neo.dashboard.dock.Workspace` centralizes the host loop that connects a dock document to its live projection:
 refresh scheduling, reconciliation, motion and cross-zone drops. Both the minimal example and the workstation use
 that engine class today. Every snippet in this guide follows one of those live consumers, so you can compare the
 adoption pattern against a small workspace or a feature-rich one.
@@ -21,7 +21,7 @@ flowchart TD
     classDef yours fill:#1a3c34,stroke:#2ecc71,stroke-width:2px,color:#eee
     classDef engine fill:#1b2e4e,stroke:#3498db,stroke-width:1px,color:#eee
 
-    Extend["extends Neo.dashboard.DockWorkspace"]:::yours
+    Extend["extends Neo.dashboard.dock.Workspace"]:::yours
     Seed["Decision 1 — seed + mount<br/>your initial document, your shell placement"]:::yours
     Panes["Decision 2 — resolvePane<br/>your components become panes"]:::yours
     Policy["Decision 3 — policies<br/>pinnable · movable today<br/>closable is a forward contract"]:::yours
@@ -53,7 +53,7 @@ The class owns the loop, not your boot state. Two responsibilities stay with you
 loudly — to guess either one:
 
 ```javascript readonly
-import DockWorkspace from '../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
 import DockZoneModel from '../../../src/dashboard/DockZoneModel.mjs';
 
 const initialDockModel = {
@@ -106,7 +106,7 @@ root. Your standalone app still gets a real `Neo.container.Viewport`, and the do
 
 ```javascript readonly
 import Viewport from '../../src/container/Viewport.mjs';
-import MainContainer from './MainContainer.mjs'; // extends Neo.dashboard.DockWorkspace
+import MainContainer from './MainContainer.mjs'; // extends Neo.dashboard.dock.Workspace
 
 Neo.app({
     mainView: {

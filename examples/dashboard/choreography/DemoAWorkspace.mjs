@@ -1,10 +1,10 @@
 import ClockPane                          from './ClockPane.mjs';
 import Container                          from '../../../src/container/Base.mjs';
-import DockDragAffordances                from '../../../src/dashboard/DockDragAffordances.mjs';
-import DockDropIndicators                 from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockPreview                        from '../../../src/dashboard/DockPreview.mjs';
+import DockDragAffordances                from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockService                        from '../../../src/ai/client/DockService.mjs';
-import DockWorkspace                      from '../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace                      from '../../../src/dashboard/dock/Workspace.mjs';
 import DockZoneModel                      from '../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import {demoATourScript, initialDocument} from './demoADockChoreography.mjs';
@@ -16,7 +16,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the to
  * @summary The Demo-A showcase workspace: the reducer-container that hosts the dock
  * choreography and plays its screenplay through the tour runner.
  *
- * The normative workspace host is the engine class {@link Neo.dashboard.DockWorkspace}, which the
+ * The normative workspace host is the engine class {@link Neo.dashboard.dock.Workspace}, which the
  * docking design record fixes as canonical; this class is one of its CONSUMERS, not the pattern
  * itself. Everything the holder contract requires — the committed dock-zone document as single
  * source of truth, the pure reducer, the read half Neural Link topology calls before any operation
@@ -39,7 +39,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the to
  * siblings. The `workspace` advisory block of the screenplay (hover-reveal opt-in) is threaded
  * into the projection options — inert until the rail interaction layer lands, correct afterwards.
  * @class Neo.examples.dashboard.choreography.DemoAWorkspace
- * @extends Neo.dashboard.DockWorkspace
+ * @extends Neo.dashboard.dock.Workspace
  */
 class DemoAWorkspace extends DockWorkspace {
     static config = {
@@ -102,7 +102,7 @@ class DemoAWorkspace extends DockWorkspace {
      * The shared drag-affordance gesture controller (owner duck-type: this workspace).
      * Composed in {@link #construct} over the persistent overlay siblings; cleared on every
      * re-projection and destroyed with the workspace.
-     * @member {Neo.dashboard.DockDragAffordances|null} dragAffordances=null
+     * @member {Neo.dashboard.dock.interaction.DragAffordances|null} dragAffordances=null
      */
     dragAffordances = null
 

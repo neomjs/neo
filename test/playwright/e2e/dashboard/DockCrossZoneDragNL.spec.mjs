@@ -5,7 +5,7 @@ import { test, expect } from '../../fixtures.mjs';
  * within-container reorder. Dragging a tab header OUT of its tabs node and dropping it over a DIFFERENT
  * zone relocates the item in the committed dockZone.v1 document.
  *
- * The gesture rides the existing tab-header drag lifecycle: `Neo.dashboard.DockTabSortZone` fires a
+ * The gesture rides the existing tab-header drag lifecycle: `Neo.dashboard.dock.interaction.TabSortZone` fires a
  * `dockCrossZoneDrop` on its tab.Container on drop; the owner routes the release point + dragged item
  * through the `dockPreview.v1` producer → `previewToOperation` → `applyDockZoneOperation` pipeline.
  * An interior drop resolves to `tab-into` (an `addTab` that downgrades to `moveItem` for an in-tree item);

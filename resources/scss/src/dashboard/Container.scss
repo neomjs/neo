@@ -3,7 +3,7 @@
     // transitions — splitter ease, tab insert/remove morphing, auto-hide rail slide, and the
     // FLIP commit layer all read THESE (a call-site duration/easing literal is a contract
     // violation). Motion lifecycle is observable via the `neo-dashboard-dock-animating` class
-    // (present during motion, removed on settle — see Neo.dashboard.DockMotionSignal).
+    // (present during motion, removed on settle — see Neo.dashboard.dock.projection.MotionSignal).
     //
     // Layering: these are the DOCK-DOMAIN aliases of the product motion vocabulary (the
     // motion-standards tier owns the semantic set — panel-move duration, settle easing). Dock
@@ -463,7 +463,7 @@
     gap: 4px;
 }
 
-// The drop-indicator menu layer (Neo.dashboard.DockDropIndicators): pointer-transparent by
+// The drop-indicator menu layer (Neo.dashboard.dock.interaction.DropIndicators): pointer-transparent by
 // contract — the sort-zone drag lifecycle stays the single pointer owner; selection is the
 // workspace-threaded hit-test, never DOM hover. Sits above the reveal overlay (z 20).
 .neo-dashboard-dock-drop-indicators {
@@ -591,7 +591,7 @@
 // The drag-proxy edge-light — the third surface of the Signal language. The proxy mounts at
 // document.body (DragZone's proxyParentId default), OUTSIDE any dock host, so descendant
 // scoping cannot reach it — the embodiment CARRIES its scope instead:
-// Neo.dashboard.DockTabSortZone#getDragProxyConfig stamps the dock-ownership marker, the
+// Neo.dashboard.dock.interaction.TabSortZone#getDragProxyConfig stamps the dock-ownership marker, the
 // active theme cls (app theme files project the `--agent-dock-preview-*` aliases onto the
 // theme class, so the palette resolves ON the proxy at its body mount), and the host's
 // `neo-preview-lang-*` modifier. Generic `.neo-dragproxy` surfaces (grid/list/tree drags)

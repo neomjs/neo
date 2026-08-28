@@ -10,11 +10,11 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', () => {
+test.describe('Neo.dashboard.dock.window.DragTarget (#14670 / ADR 0029 §2.3)', () => {
     let CrossWindowDragTarget, DragCoordinator;
 
     test.beforeAll(async () => {
-        CrossWindowDragTarget = (await import('../../../../src/dashboard/CrossWindowDragTarget.mjs')).default;
+        CrossWindowDragTarget = (await import('../../../../src/dashboard/dock/window/DragTarget.mjs')).default;
         DragCoordinator       = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
     });
 

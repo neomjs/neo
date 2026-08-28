@@ -9,8 +9,8 @@ setup({
 import {test, expect}         from '@playwright/test';
 import Neo                    from '../../../../src/Neo.mjs';
 import * as core              from '../../../../src/core/_export.mjs';
-import DockRestorePlanner     from '../../../../src/dashboard/DockRestorePlanner.mjs';
-import DockTopologyReconciler from '../../../../src/dashboard/DockTopologyReconciler.mjs';
+import DockRestorePlanner     from '../../../../src/dashboard/dock/persistence/RestorePlanner.mjs';
+import DockTopologyReconciler from '../../../../src/dashboard/dock/model/TopologyReconciler.mjs';
 import DockZoneModel          from '../../../../src/dashboard/DockZoneModel.mjs';
 
 const tabsDoc = ids => ({
@@ -191,7 +191,7 @@ const expectConservation = (saved, result) => {
     expect(covered).toEqual(capturedIdsOf(saved).sort())
 };
 
-test.describe('Neo.dashboard.DockTopologyReconciler', () => {
+test.describe('Neo.dashboard.dock.model.TopologyReconciler', () => {
     test('polynomial solver is output-equivalent to the bounded exhaustive oracle on seeded rectangular matrices', () => {
         for (let seed = 1; seed <= 96; seed++) {
             let random        = seededRandom(seed),

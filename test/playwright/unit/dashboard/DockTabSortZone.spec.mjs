@@ -9,7 +9,7 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
-import DockTabSortZone   from '../../../../src/dashboard/DockTabSortZone.mjs';
+import DockTabSortZone   from '../../../../src/dashboard/dock/interaction/TabSortZone.mjs';
 import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
 
 /**
@@ -21,7 +21,7 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
  * minimal owner chain (the method reads only `owner.cls` / `owner.getTheme()` / the `parent`
  * walk); the rendered consequence rides the visual harness.
  */
-test.describe('Neo.dashboard.DockTabSortZone', () => {
+test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
     test('keeps dock headers parent-sized and toolbar-relative during a drag', () => {
         expect(DockTabSortZone.config.adjustItemRectsToParent).toBe(true);
         expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false);
