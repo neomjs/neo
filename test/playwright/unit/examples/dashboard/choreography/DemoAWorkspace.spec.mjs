@@ -39,8 +39,8 @@ test.describe.serial('Neo.examples.dashboard.choreography.DemoAWorkspace', () =>
         const doc = workspace.getDockZoneDocument();
 
         expect(doc).not.toBe(initialDocument);            // a clone, never the shared module constant
-        expect(doc.nodes.root.zones.center).toBe('editor-tabs');
-        expect(doc.nodes.root.zones.right).toBe('side-tabs')
+        expect(doc.nodes.root.zones.center.nodeId).toBe('editor-tabs');
+        expect(doc.nodes.root.zones.right.nodeId).toBe('side-tabs')
     });
 
     test('applyDockZoneOperation is the pure reducer: fail-closed result, no self-mutation', () => {

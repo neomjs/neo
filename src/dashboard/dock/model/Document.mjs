@@ -137,6 +137,45 @@ class Document extends Base {
     static dockZoneEdgeKeys = new Set(['top', 'right', 'bottom', 'left', 'center'])
 
     /**
+     * Fields allowed on one nested edge-zone descriptor.
+     * @member {Set<String>} dockZoneDescriptorKeys
+     * @protected
+     * @static
+     */
+    static dockZoneDescriptorKeys = new Set(['nodeId', 'extent', 'resizable'])
+
+    /**
+     * @summary Resolves the child node id owned by one final nested edge-zone descriptor.
+     *
+     * The v13.2 greenfield contract deliberately rejects the retired string shorthand. Returning
+     * null for every non-record shape keeps tree walkers fail-closed without creating a hidden
+     * compatibility reader.
+     * @param {*} descriptor
+     * @returns {String|null}
+     * @static
+     */
+    static getZoneNodeId(descriptor) {
+        return Document.isJsonRecord(descriptor) && typeof descriptor.nodeId === 'string' && descriptor.nodeId
+            ? descriptor.nodeId
+            : null
+    }
+
+    /**
+     * @summary Repoints one nested edge-zone descriptor while preserving its extent and policy.
+     * @param {Object} edgeZoneNode
+     * @param {String} edge
+     * @param {String} nodeId
+     * @protected
+     * @static
+     */
+    static setZoneNodeId(edgeZoneNode, edge, nodeId) {
+        edgeZoneNode.zones[edge] = {
+            ...(Document.isJsonRecord(edgeZoneNode.zones[edge]) ? edgeZoneNode.zones[edge] : {}),
+            nodeId
+        }
+    }
+
+    /**
      * @summary Type-aware deep clone of a dock-zone document.
      *
      * Uses `Neo.clone` (deep, ignoring Neo instances) rather than a `JSON.parse(JSON.stringify())`
@@ -354,11 +393,35 @@ class Document extends Base {
                     return unexpected
                 }
 
-                if (node.type === 'edge-zone' && Document.isJsonRecord(node.zones)) {
+                if (node.type === 'edge-zone') {
+                    if (!Document.isJsonRecord(node.zones)) {
+                        return {key: 'zones', path: `${path}.nodes.${nodeId}.zones`, reason: 'edge-zone zones must be a JSON object'}
+                    }
+
                     unexpected = Document.findUnexpectedKey(node.zones, Document.dockZoneEdgeKeys, `${path}.nodes.${nodeId}.zones`);
 
                     if (unexpected) {
                         return unexpected
+                    }
+
+                    for (const [edge, descriptor] of Object.entries(node.zones)) {
+                        if (!Document.isJsonRecord(descriptor)) {
+                            return {
+                                key   : edge,
+                                path  : `${path}.nodes.${nodeId}.zones.${edge}`,
+                                reason: 'edge-zone descriptor must be a JSON object'
+                            }
+                        }
+
+                        unexpected = Document.findUnexpectedKey(
+                            descriptor,
+                            Document.dockZoneDescriptorKeys,
+                            `${path}.nodes.${nodeId}.zones.${edge}`
+                        );
+
+                        if (unexpected) {
+                            return unexpected
+                        }
                     }
                 }
             }
@@ -440,8 +503,8 @@ class Document extends Base {
                 const index = node.children.indexOf(nodeId);
                 if (index > -1) return {parentId, slot: index}
             } else if (node.type === 'edge-zone' && node.zones) {
-                for (const [zone, target] of Object.entries(node.zones)) {
-                    if (target === nodeId) return {parentId, slot: zone}
+                for (const [zone, descriptor] of Object.entries(node.zones)) {
+                    if (Document.getZoneNodeId(descriptor) === nodeId) return {parentId, slot: zone}
                 }
             }
         }
@@ -490,7 +553,7 @@ class Document extends Base {
                 if (node.type === 'split') {
                     (node.children || []).forEach(walk)
                 } else if (node.type === 'edge-zone') {
-                    Object.values(node.zones || {}).forEach(walk)
+                    Object.values(node.zones || {}).map(Document.getZoneNodeId).forEach(walk)
                 }
             };
 
@@ -602,7 +665,7 @@ class Document extends Base {
         } else if (typeof parentSlot.slot === 'number') {
             document.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
         } else {
-            document.nodes[parentSlot.parentId].zones[parentSlot.slot] = newSplitId
+            Document.setZoneNodeId(document.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
         }
 
         return []
@@ -666,9 +729,52 @@ class Document extends Base {
                     errors.push(`split "${nodeId}" sizes do not sum to 1`)
                 }
             } else if (node.type === 'edge-zone') {
-                Object.values(node.zones || {}).forEach(targetId => {
-                    if (!nodes[targetId]) errors.push(`edge-zone "${nodeId}" references missing node "${targetId}"`)
-                })
+                if (!Document.isJsonRecord(node.zones)) {
+                    errors.push(`edge-zone "${nodeId}" zones must be a JSON object`)
+                    continue
+                }
+
+                for (const [edge, descriptor] of Object.entries(node.zones)) {
+                    if (!Document.dockZoneEdgeKeys.has(edge)) {
+                        errors.push(`edge-zone "${nodeId}" has unsupported edge "${edge}"`);
+                        continue
+                    }
+
+                    if (!Document.isJsonRecord(descriptor)) {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" descriptor must be a JSON object`);
+                        continue
+                    }
+
+                    let unexpected = Document.findUnexpectedKey(
+                            descriptor,
+                            Document.dockZoneDescriptorKeys,
+                            `document.nodes.${nodeId}.zones.${edge}`
+                        ),
+                        targetId = Document.getZoneNodeId(descriptor);
+
+                    if (unexpected) {
+                        errors.push(`${unexpected.path} ${unexpected.reason}`)
+                    }
+
+                    if (!targetId) {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" descriptor requires a non-empty nodeId`)
+                    } else if (!nodes[targetId]) {
+                        errors.push(`edge-zone "${nodeId}" references missing node "${targetId}"`)
+                    }
+
+                    if (Object.hasOwn(descriptor, 'extent') && (
+                        typeof descriptor.extent !== 'number' ||
+                        !Number.isFinite(descriptor.extent) ||
+                        descriptor.extent <= 0 ||
+                        descriptor.extent >= 1
+                    )) {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" extent must be a finite number between 0 and 1`)
+                    }
+
+                    if (Object.hasOwn(descriptor, 'resizable') && typeof descriptor.resizable !== 'boolean') {
+                        errors.push(`edge-zone "${nodeId}" zone "${edge}" resizable must be a boolean`)
+                    }
+                }
             } else if (node.type === 'tabs') {
                 (node.items || []).forEach(itemId => {
                     if (!items[itemId]) errors.push(`tabs "${nodeId}" references missing item "${itemId}"`);
@@ -722,9 +828,14 @@ class Document extends Base {
                     node.sizes = node.children.map(() => 1 / count)
                 }
             } else if (node.type === 'edge-zone') {
-                for (const [zone, target] of Object.entries(node.zones || {})) {
-                    let resolved = collapse(target);
-                    if (resolved && doc.nodes[resolved]) { node.zones[zone] = resolved } else { delete node.zones[zone] }
+                for (const [zone, descriptor] of Object.entries(node.zones || {})) {
+                    let resolved = collapse(Document.getZoneNodeId(descriptor));
+
+                    if (resolved && doc.nodes[resolved]) {
+                        Document.setZoneNodeId(node, zone, resolved)
+                    } else {
+                        delete node.zones[zone]
+                    }
                 }
             } else if (node.type === 'tabs') {
                 if (!node.items || node.items.length === 0) { delete doc.nodes[nodeId]; return null }
@@ -861,7 +972,11 @@ class Document extends Base {
                     return `t${node.items?.length || 0}`;
                 case 'edge-zone':
                     return `e{${[...Document.dockZoneEdgeKeys]
-                        .map(zone => node.zones?.[zone] ? `${zone}:${walk(node.zones[zone])}` : '')
+                        .map(zone => {
+                            let nodeId = Document.getZoneNodeId(node.zones?.[zone]);
+
+                            return nodeId ? `${zone}:${walk(nodeId)}` : ''
+                        })
                         .filter(Boolean).join(',')}}`;
                 default:
                     errors.push(`fingerprint walk found unsupported node type "${node.type}"`);
@@ -956,7 +1071,7 @@ class Document extends Base {
             return null
         }
 
-        centerId = root.zones?.center;
+        centerId = Document.getZoneNodeId(root.zones?.center);
 
         return centerId && document.nodes[centerId] ? centerId : null
     }

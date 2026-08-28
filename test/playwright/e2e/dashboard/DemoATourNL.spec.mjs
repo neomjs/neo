@@ -40,7 +40,7 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
         // opening truth: the edge-zone stage, preview docked right by construction
         const opening = await readModel();
 
-        expect(opening.nodes.root.zones.center).toBe('editor-tabs');
+        expect(opening.nodes.root.zones.center.nodeId).toBe('editor-tabs');
         expect(opening.nodes['side-tabs'].items).toEqual(['preview']);
 
         // instrument FLIP observation BEFORE starting: sample marker transforms per frame
@@ -154,7 +154,7 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
         const finale = await readModel();
 
         expect(finale.nodes['side-tabs'].items).toEqual(['preview', 'terminal', 'logs']);
-        expect(finale.nodes.root.zones.center).toBe('editor-tabs');
+        expect(finale.nodes.root.zones.center.nodeId).toBe('editor-tabs');
         expect(finale.items.preview.autoHidden).toBe(false);
         expect(finale.items.terminal.autoHidden).toBe(false);
         expect(finale.items.logs.autoHidden).toBe(false);

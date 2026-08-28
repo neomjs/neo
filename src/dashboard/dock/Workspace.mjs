@@ -1180,14 +1180,45 @@ class Workspace extends Container {
     }
 
     /**
-     * Updates close availability when the user changes the live active tab without committing a
-     * Dock document operation.
+     * Commits user tab activation through the document reducer, independently of close-action UI.
+     *
+     * Reconciliation can re-emit the already-committed index; that path is a byte-identical no-op.
+     * A stale/invalid projection is restored to document truth so a rejected activation changes
+     * neither durable state nor the rendered selection.
      * @param {Object} data
+     * @param {String} data.dockNodeId
      * @param {Neo.component.Base|null} [data.item]
      * @param {Neo.tab.Container|null} [data.tabContainer]
+     * @returns {{document:Object,errors:String[]}|null}
      */
-    onDockActiveIndexChange({item, tabContainer}={}) {
-        this.syncDockCloseAction(tabContainer || item?.parent?.parent || null)
+    onDockActiveIndexChange({dockNodeId, item, tabContainer}={}) {
+        let me        = this,
+            container = tabContainer || item?.parent?.parent || null,
+            itemId    = me.getActiveDockItemId(container),
+            committed = me.dockModel?.nodes?.[dockNodeId]?.activeItemId,
+            descriptor, result;
+
+        me.syncDockCloseAction(container);
+
+        if (!me.dockModel || !itemId || committed === itemId) {
+            return null
+        }
+
+        descriptor = {operation: 'setActiveItem', tabsNodeId: dockNodeId, itemId};
+        result     = me.applyDockZoneOperation(descriptor);
+
+        if (result && !result.errors?.length && result.document) {
+            me.onDockZoneDocumentChange(result.document, descriptor, container)
+        } else if (container) {
+            let itemIds = container.getTabBar()?.sortZoneConfig?.dockItemIds || [],
+                index   = itemIds.indexOf(committed);
+
+            if (index > -1 && container.activeIndex !== index) {
+                container.activeIndex = index
+            }
+        }
+
+        return result
     }
 
     /**
@@ -1470,10 +1501,10 @@ class Workspace extends Container {
             config = LayoutAdapter.project(document, {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
+                onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
                 ...(me.enableDockCloseAction && {
-                    enableDockCloseAction  : true,
-                    onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
-                    onDockHeaderAction     : me.onDockHeaderAction.bind(me)
+                    enableDockCloseAction: true,
+                    onDockHeaderAction   : me.onDockHeaderAction.bind(me)
                 }),
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),

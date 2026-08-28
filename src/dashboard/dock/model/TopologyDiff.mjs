@@ -77,7 +77,7 @@ class TopologyDiff extends Base {
             } else if (node.type === 'split') {
                 (node.children || []).forEach(walk)
             } else if (node.type === 'edge-zone') {
-                Object.keys(node.zones || {}).sort().forEach(zone => walk(node.zones[zone]))
+                Object.keys(node.zones || {}).sort().forEach(zone => walk(Document.getZoneNodeId(node.zones[zone])))
             }
         };
 

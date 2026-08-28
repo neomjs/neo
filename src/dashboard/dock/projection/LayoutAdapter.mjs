@@ -279,6 +279,24 @@ class LayoutAdapter extends Base {
     }
 
     /**
+     * @summary Creates the semantic descriptor emitted after an edge splitter resolves.
+     * @param {Object} splitter Projected splitter config, or its data payload.
+     * @param {Number} extent Final CSS-bounded normalized edge extent.
+     * @returns {Object}
+     * @static
+     */
+    static createResizeEdgeZoneOperation(splitter, extent) {
+        let metadata = splitter?.data || splitter || {};
+
+        return {
+            operation : 'resizeEdgeZone',
+            edgeZoneId: metadata.edgeZoneId || metadata.dockNodeId || splitter?.edgeZoneId,
+            edge      : metadata.edge || splitter?.edge,
+            extent
+        }
+    }
+
+    /**
      * @summary Projects the stable resize affordance between two adjacent split children.
      * @param {String} splitNodeId
      * @param {String} orientation
@@ -314,6 +332,50 @@ class LayoutAdapter extends Base {
             size                             : this.splitterSize,
             splitNodeId,
             [isVertical ? 'height' : 'width']: this.splitterSize
+        }
+    }
+
+    /**
+     * @summary Projects the resize affordance between one resizable edge band and the center.
+     *
+     * The generic splitter owns pointer/live-preview mechanics. This metadata selects the adjacent
+     * band and gives DockSplitter only the semantic terminal descriptor it adds on release.
+     * @param {String} edgeZoneId
+     * @param {String} edge One of top/right/bottom/left.
+     * @param {Object} descriptor Nested edge descriptor.
+     * @param {Object} context
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createEdgeSplitterAffordance(edgeZoneId, edge, descriptor, context={}) {
+        let orientation  = edge === 'left' || edge === 'right' ? 'horizontal' : 'vertical',
+            resizeTarget = edge === 'left' || edge === 'top' ? 'previous' : 'next',
+            vertical     = orientation === 'vertical';
+
+        return {
+            applyDockZoneOperation: context.applyDockZoneOperation,
+            cls                   : ['neo-dashboard-dock-splitter', `neo-dashboard-dock-splitter-${orientation}`],
+            data                  : {
+                dockNodeId  : edgeZoneId,
+                dockSplitter: true,
+                edge,
+                edgeZoneId,
+                operation   : 'resizeEdgeZone',
+                orientation
+            },
+            dockNodeId                     : edgeZoneId,
+            dockNodeType                   : 'splitter',
+            dockZoneDocument               : context.dockZoneDocument,
+            edge,
+            edgeZoneId,
+            module                         : DockSplitter,
+            ntype                          : 'dashboard-dock-splitter',
+            onDockZoneDocumentChange       : context.onDockZoneDocumentChange,
+            orientation,
+            resizeTarget,
+            size                           : this.splitterSize,
+            [vertical ? 'height' : 'width']: this.splitterSize
         }
     }
 
@@ -456,7 +518,7 @@ class LayoutAdapter extends Base {
         }
 
         if (node.type === 'edge-zone') {
-            Object.values(node.zones || {}).forEach(childId => {
+            Object.values(node.zones || {}).map(Document.getZoneNodeId).forEach(childId => {
                 result.push(...this.collectAutoHiddenItems(childId, context))
             })
         } else if (node.type === 'split') {
@@ -535,11 +597,10 @@ class LayoutAdapter extends Base {
     }
 
     /**
-     * Resolves the reveal overlay's free-dimension extent for an item: the share its owning
-     * subtree holds at the nearest ancestor split, per that split's committed `sizes` — the
-     * "last committed extent, still in the document" rule. Returns `null` when no ancestor split
-     * carries usable sizes (e.g. a tabs node sitting directly in an edge-zone slot); the overlay
-     * then falls back to its workspace-configurable default fraction. Never reads DOM geometry.
+     * Resolves the reveal overlay's free-dimension extent from the item's owning edge descriptor.
+     * Split sizes govern split children only; they must never be borrowed as edge-band authority.
+     * Returns `null` when the owning edge has never committed an extent, so the overlay uses its
+     * workspace-configurable pre-commit fallback. Never reads DOM geometry.
      * @param {Object} model Committed dock-zone document.
      * @param {String} itemId
      * @returns {Number|null} Fraction in `(0, 1]`, or `null`.
@@ -556,8 +617,13 @@ class LayoutAdapter extends Base {
                 if (node.type === 'split' && (node.children || []).includes(id)) {
                     return {index: node.children.indexOf(id), nodeId, split: true}
                 }
-                if (node.type === 'edge-zone' && Object.values(node.zones || {}).includes(id)) {
-                    return {nodeId, split: false}
+
+                if (node.type === 'edge-zone') {
+                    for (const descriptor of Object.values(node.zones || {})) {
+                        if (Document.getZoneNodeId(descriptor) === id) {
+                            return {descriptor, nodeId, split: false}
+                        }
+                    }
                 }
             }
             return null
@@ -570,17 +636,10 @@ class LayoutAdapter extends Base {
                 return null
             }
 
-            if (parent.split) {
-                let sizes = nodes[parent.nodeId].sizes;
+            if (!parent.split) {
+                let extent = Number(parent.descriptor?.extent);
 
-                if (Array.isArray(sizes) && sizes.length) {
-                    let total = sizes.reduce((sum, value) => sum + (Number(value) || 0), 0),
-                        share = Number(sizes[parent.index]);
-
-                    return total > 0 && Number.isFinite(share) && share > 0 ? share / total : null
-                }
-
-                return null
+                return Number.isFinite(extent) && extent > 0 && extent < 1 ? extent : null
             }
 
             childId = parent.nodeId
@@ -610,8 +669,10 @@ class LayoutAdapter extends Base {
             railedItemIds = new Set();
 
         ['top', 'right', 'bottom', 'left'].forEach(edge => {
-            if (zones[edge]) {
-                let itemIds = this.collectAutoHiddenItems(zones[edge], context);
+            let zoneId = Document.getZoneNodeId(zones[edge]);
+
+            if (zoneId) {
+                let itemIds = this.collectAutoHiddenItems(zoneId, context);
 
                 if (itemIds.length) {
                     railsByEdge[edge] = itemIds;
@@ -630,24 +691,33 @@ class LayoutAdapter extends Base {
         // returns null for an empty tab flow — see its constraint comment).
         let band;
 
-        if (railsByEdge.left)  middleItems.push(this.createEdgeRail(railsByEdge.left, 'left', context));
-        if (zones.left)        (band = this.projectEdgeBand(zones.left, 'left', childContext)) && middleItems.push(band);
+        if (railsByEdge.left) middleItems.push(this.createEdgeRail(railsByEdge.left, 'left', context));
 
-        if (zones.center) {
-            centerConfig      = this.projectNode(zones.center, childContext);
+        if (zones.left && (band = this.projectEdgeBand(zones.left, 'left', childContext))) {
+            middleItems.push(band);
+            zones.left.resizable === true && middleItems.push(this.createEdgeSplitterAffordance(nodeId, 'left', zones.left, context))
+        }
+
+        if (Document.getZoneNodeId(zones.center)) {
+            centerConfig      = this.projectNode(Document.getZoneNodeId(zones.center), childContext);
             centerConfig.flex = 1;
             middleItems.push(centerConfig)
         }
 
-        if (zones.right)       (band = this.projectEdgeBand(zones.right, 'right', childContext)) && middleItems.push(band);
+        if (zones.right && (band = this.projectEdgeBand(zones.right, 'right', childContext))) {
+            zones.right.resizable === true && middleItems.push(this.createEdgeSplitterAffordance(nodeId, 'right', zones.right, context));
+            middleItems.push(band)
+        }
+
         if (railsByEdge.right) middleItems.push(this.createEdgeRail(railsByEdge.right, 'right', context));
 
         if (railsByEdge.top) {
             rows.push(this.createEdgeRail(railsByEdge.top, 'top', context))
         }
 
-        if (zones.top) {
-            (band = this.projectEdgeBand(zones.top, 'top', childContext)) && rows.push(band)
+        if (zones.top && (band = this.projectEdgeBand(zones.top, 'top', childContext))) {
+            rows.push(band);
+            zones.top.resizable === true && rows.push(this.createEdgeSplitterAffordance(nodeId, 'top', zones.top, context))
         }
 
         if (middleItems.length === 1) {
@@ -662,8 +732,9 @@ class LayoutAdapter extends Base {
             })
         }
 
-        if (zones.bottom) {
-            (band = this.projectEdgeBand(zones.bottom, 'bottom', childContext)) && rows.push(band)
+        if (zones.bottom && (band = this.projectEdgeBand(zones.bottom, 'bottom', childContext))) {
+            zones.bottom.resizable === true && rows.push(this.createEdgeSplitterAffordance(nodeId, 'bottom', zones.bottom, context));
+            rows.push(band)
         }
 
         if (railsByEdge.bottom) {
@@ -684,15 +755,20 @@ class LayoutAdapter extends Base {
      * Marks an edge-band zone projection: bands keep a fixed cross-extent (the
      * `neo-dashboard-dock-edge-band(-edge)` CSS hooks) instead of flexing against the center —
      * an unsized band silently eats workspace geometry the center owns.
-     * @param {String} zoneId
+     * @param {Object} descriptor Nested edge descriptor.
      * @param {String} edge One of `top`, `right`, `bottom`, `left`.
      * @param {Object} context
      * @returns {Object}
      * @protected
      * @static
      */
-    static projectEdgeBand(zoneId, edge, context) {
-        let config = this.projectNode(zoneId, context);
+    static projectEdgeBand(descriptor, edge, context) {
+        let zoneId = Document.getZoneNodeId(descriptor),
+            config = zoneId ? this.projectNode(zoneId, context) : null;
+
+        if (!config) {
+            return null
+        }
 
         // An edge band whose tab flow is EMPTY (every item railed away as autoHidden) must not
         // hold layout. The fixed cross-extent below exists to protect the CENTER from an unsized
@@ -708,6 +784,10 @@ class LayoutAdapter extends Base {
 
         config.cls  = [...(config.cls || []), 'neo-dashboard-dock-edge-band', `neo-dashboard-dock-edge-band-${edge}`];
         config.flex = 'none';
+
+        if (Number.isFinite(descriptor.extent)) {
+            config[edge === 'left' || edge === 'right' ? 'width' : 'height'] = `${descriptor.extent * 100}%`
+        }
 
         return config
     }

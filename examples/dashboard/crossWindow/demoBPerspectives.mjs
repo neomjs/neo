@@ -34,7 +34,7 @@ export const initialDocument = Object.freeze({
         console  : {componentRef: 'Console',   title: 'Console',   kind: 'terminal'}
     },
     nodes: {
-        root            : {type: 'edge-zone', zones: {center: 'workbench-tabs', right: 'side-tabs'}},
+        root            : {type: 'edge-zone', zones: {center: {nodeId: 'workbench-tabs'}, right: {nodeId: 'side-tabs'}}},
         'workbench-tabs': {type: 'tabs', items: ['workbench'], activeItemId: 'workbench'},
         'side-tabs'     : {type: 'tabs', items: ['inspector', 'timeline', 'console'], activeItemId: 'inspector'}
     }

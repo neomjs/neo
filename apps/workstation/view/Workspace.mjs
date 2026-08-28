@@ -1315,7 +1315,7 @@ class Workspace extends DockWorkspace {
             root  : `workstation-vessel-root:${itemId}`,
             items : {},
             nodes : {
-                [`workstation-vessel-root:${itemId}`]: {type: 'edge-zone', zones: {center: tabsNodeId}},
+                [`workstation-vessel-root:${itemId}`]: {type: 'edge-zone', zones: {center: {nodeId: tabsNodeId}}},
                 [tabsNodeId]                         : {type: 'tabs', items: [], activeItemId: null}
             }
         }

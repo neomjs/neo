@@ -4439,7 +4439,7 @@ class DemoBWorkspace extends Container {
             root  : 'popup-root',
             items : {},
             nodes : {
-                'popup-root': {type: 'edge-zone', zones: {center: 'popup-tabs'}},
+                'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},
                 'popup-tabs': {type: 'tabs', items: [], activeItemId: null}
             }
         }

@@ -179,6 +179,7 @@ test.describe('Neo.dashboard.dock.interaction.TabEnterButton', () => {
                 getRefreshOptions               : () => ({}),
                 getTabInsertProjectionDescriptor: DockWorkspace.prototype.getTabInsertProjectionDescriptor,
                 isDestroyed                     : false,
+                onDockActiveIndexChange() {},
                 onDockCrossZoneDrop() {},
                 onDockZoneDocumentChange: DockWorkspace.prototype.onDockZoneDocumentChange,
                 refreshDockWorkspace    : transient => refreshes.push(transient),

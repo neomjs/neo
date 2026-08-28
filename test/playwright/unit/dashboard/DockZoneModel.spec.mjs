@@ -41,7 +41,7 @@ function doc() {
             inspector: {componentRef: 'inspector', title: 'Inspector', kind: 'inspector'}
         },
         nodes: {
-            root       : {type: 'edge-zone', zones: {center: 'main-tabs', right: 'side-tabs'}},
+            root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
             'main-tabs': {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'swarm'},
             'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
         }
@@ -63,8 +63,25 @@ function splitDoc(sizes=[0.5, 0.5]) {
         children   : ['main-tabs', 'side-tabs'],
         sizes
     };
-    d.nodes.root.zones.center = 'main-split';
+    d.nodes.root.zones.center.nodeId = 'main-split';
     delete d.nodes.root.zones.right;
+
+    return d
+}
+
+/**
+ * The final greenfield edge-zone shape: every zone owns its node id together with optional
+ * committed extent and resize policy. Kept separate from {@link #doc} until the hard-cut tests
+ * prove the nested contract, so the red phase isolates the missing behavior.
+ * @returns {Object}
+ */
+function nestedEdgeDoc() {
+    const d = doc();
+
+    d.nodes.root.zones = {
+        center: {nodeId: 'main-tabs'},
+        right : {nodeId: 'side-tabs', extent: 0.25, resizable: true}
+    };
 
     return d
 }
@@ -106,7 +123,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
         test('rejects a dangling node reference', () => {
             const d = doc();
-            d.nodes.root.zones.center = 'does-not-exist';
+            d.nodes.root.zones.center.nodeId = 'does-not-exist';
             expect(Document.validate(d).length).toBeGreaterThan(0)
         });
 
@@ -120,7 +137,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('rejects split sizes that mismatch or do not sum to 1', () => {
             const d = doc();
             d.nodes.split = {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5]};
-            d.nodes.root.zones.center = 'split';
+            d.nodes.root.zones.center.nodeId = 'split';
             delete d.nodes.root.zones.right;
             expect(Document.validate(d).length).toBeGreaterThan(0);
 
@@ -132,6 +149,30 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const d = doc();
             d.nodes['main-tabs'].activeItemId = 'terminal';
             expect(Document.validate(d).length).toBeGreaterThan(0)
+        });
+
+        test('accepts nested edge descriptors and rejects the retired string form', () => {
+            expect(Document.validate(nestedEdgeDoc())).toEqual([]);
+
+            const legacy = doc();
+
+            legacy.nodes.root.zones = {center: 'main-tabs', right: 'side-tabs'};
+
+            expect(Document.validate(legacy).join('\n')).toContain('descriptor')
+        });
+
+        test('rejects malformed nested edge descriptor state', () => {
+            const missingNodeId = nestedEdgeDoc(),
+                invalidExtent   = nestedEdgeDoc(),
+                invalidPolicy   = nestedEdgeDoc();
+
+            delete missingNodeId.nodes.root.zones.right.nodeId;
+            invalidExtent.nodes.root.zones.right.extent    = 1;
+            invalidPolicy.nodes.root.zones.right.resizable = 'yes';
+
+            expect(Document.validate(missingNodeId).join('\n')).toContain('nodeId');
+            expect(Document.validate(invalidExtent).join('\n')).toContain('extent');
+            expect(Document.validate(invalidPolicy).join('\n')).toContain('resizable')
         })
     });
 
@@ -258,7 +299,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('cyclic node graphs fail closed through the public return shapes, never a throw', () => {
             const cyclic = doc();
             cyclic.nodes['loop-split'] = {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'loop-split'], sizes: [0.5, 0.5]};
-            cyclic.nodes.root.zones.center = 'loop-split';
+            cyclic.nodes.root.zones.center.nodeId = 'loop-split';
 
             const direct = Document.computeShapeFingerprint(cyclic);
             expect(direct.fingerprint).toBe(null);
@@ -464,7 +505,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 title   : 'Operator Default'
             });
 
-            layout.dockZone.nodes.root.zones.center = 'missing-tabs';
+            layout.dockZone.nodes.root.zones.center.nodeId = 'missing-tabs';
 
             const {document, errors} = Persistence.restoreSavedLayout(layout);
 
@@ -692,7 +733,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 children   : ['main-tabs', 'side-tabs'],
                 sizes      : [0.2, 0.8]
             };
-            input.nodes.root.zones.center = 'split';
+            input.nodes.root.zones.center.nodeId = 'split';
             delete input.nodes.root.zones.right;
 
             const snapshot         = JSON.stringify(input),
@@ -789,7 +830,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             const invalid = Document.clone(review);
 
-            invalid.dockZone.nodes.root.zones.center = 'missing-tabs';
+            invalid.dockZone.nodes.root.zones.center.nodeId = 'missing-tabs';
 
             const rejected = PerspectiveLibrary.upsertSavedLayout(collection, invalid, {activate: true});
 
@@ -1155,6 +1196,79 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         })
     });
 
+    test.describe('setActiveItem', () => {
+        test('commits a member item through the exported operation vocabulary', () => {
+            const input            = nestedEdgeDoc(),
+                {document, errors} = Operations.applyOperation(input, {
+                    operation : 'setActiveItem',
+                    tabsNodeId: 'main-tabs',
+                    itemId    : 'strategy'
+                });
+
+            expect(errors).toEqual([]);
+            expect(document.nodes['main-tabs'].activeItemId).toBe('strategy');
+            expect(input.nodes['main-tabs'].activeItemId).toBe('swarm')
+        });
+
+        test('fails closed for an unknown tabs node or non-member item', () => {
+            const input     = nestedEdgeDoc(),
+                missingNode = Operations.applyOperation(input, {
+                    operation : 'setActiveItem',
+                    tabsNodeId: 'ghost',
+                    itemId    : 'strategy'
+                }),
+                nonMember = Operations.applyOperation(input, {
+                    operation : 'setActiveItem',
+                    tabsNodeId: 'main-tabs',
+                    itemId    : 'terminal'
+                });
+
+            expect(missingNode.errors.length).toBeGreaterThan(0);
+            expect(nonMember.errors.length).toBeGreaterThan(0);
+            expect(missingNode.document).toBe(input);
+            expect(nonMember.document).toBe(input)
+        })
+    });
+
+    test.describe('resizeEdgeZone', () => {
+        test('commits one normalized extent on a resizable edge descriptor', () => {
+            const input            = nestedEdgeDoc(),
+                {document, errors} = Operations.applyOperation(input, {
+                    operation : 'resizeEdgeZone',
+                    edgeZoneId: 'root',
+                    edge      : 'right',
+                    extent    : 0.4
+                });
+
+            expect(errors).toEqual([]);
+            expect(document.nodes.root.zones.right.extent).toBe(0.4);
+            expect(input.nodes.root.zones.right.extent).toBe(0.25)
+        });
+
+        test('fails closed for center, non-resizable, unknown, and invalid extents', () => {
+            const input = nestedEdgeDoc(),
+                cases   = [
+                    {edgeZoneId: 'root', edge: 'center', extent: 0.4},
+                    {edgeZoneId: 'root', edge: 'right', extent: 0},
+                    {edgeZoneId: 'root', edge: 'right', extent: 1},
+                    {edgeZoneId: 'ghost', edge: 'right', extent: 0.4}
+                ];
+
+            input.nodes.root.zones.right.resizable = false;
+            cases.push({edgeZoneId: 'root', edge: 'right', extent: 0.4});
+
+            for (const descriptor of cases) {
+                const {document, errors} = Operations.applyOperation(input, {
+                    operation: 'resizeEdgeZone',
+                    ...descriptor
+                });
+
+                expect(errors.length).toBeGreaterThan(0);
+                expect(document).toBe(input)
+            }
+        })
+    });
+
     test.describe('moveItem', () => {
         test('relocates an in-tree item to another tabs node', () => {
             const {document, errors} = Operations.moveItem(doc(), {itemId: 'strategy', targetNodeId: 'side-tabs', index: 0});
@@ -1176,7 +1290,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             });
             expect(errors).toEqual([]);
             // root.zones.center now points at a split holding [main-tabs, <new tabs with inspector>]
-            const splitId = document.nodes.root.zones.center,
+            const splitId = document.nodes.root.zones.center.nodeId,
                   split   = document.nodes[splitId];
             expect(split.type).toBe('split');
             expect(split.orientation).toBe('horizontal');
@@ -1186,14 +1300,21 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         });
 
         test('splits before the target (new pane first)', () => {
-            const {document, errors} = Operations.splitNode(doc(), {
+            const input = doc();
+
+            Object.assign(input.nodes.root.zones.right, {extent: 0.25, resizable: true});
+
+            const {document, errors} = Operations.splitNode(input, {
                 itemId: 'inspector', targetNodeId: 'side-tabs', orientation: 'vertical', position: 'before', sizes: [0.3, 0.7]
             });
             expect(errors).toEqual([]);
-            const splitId = document.nodes.root.zones.right,
+            const splitId = document.nodes.root.zones.right.nodeId,
                   split   = document.nodes[splitId];
             expect(document.nodes[split.children[0]].items).toEqual(['inspector']);
-            expect(split.children[1]).toBe('side-tabs')
+            expect(split.children[1]).toBe('side-tabs');
+            expect(document.nodes.root.zones.right).toEqual({
+                nodeId: splitId, extent: 0.25, resizable: true
+            })
         });
 
         test('splitting the root makes the new split the root', () => {
@@ -1449,10 +1570,10 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
         test('collapses a single-child split into its child', () => {
             const d = doc();
             d.nodes.split = {type: 'split', orientation: 'horizontal', children: ['main-tabs'], sizes: [1]};
-            d.nodes.root.zones.center = 'split';
+            d.nodes.root.zones.center.nodeId = 'split';
             const out = Document.normalizeTree(d);
             expect(out.nodes.split).toBeUndefined();
-            expect(out.nodes.root.zones.center).toBe('main-tabs')
+            expect(out.nodes.root.zones.center.nodeId).toBe('main-tabs')
         });
 
         test('prunes nodes unreachable from the root', () => {
@@ -1475,7 +1596,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const descriptor         = {operation: 'splitNode', itemId: 'inspector', targetNodeId: 'main-tabs', orientation: 'horizontal', position: 'after', sizes: [0.5, 0.5]};
             const {document, errors} = Operations.applyOperation(doc(), descriptor);
             expect(errors).toEqual([]);
-            expect(document.nodes[document.nodes.root.zones.center].type).toBe('split')
+            expect(document.nodes[document.nodes.root.zones.center.nodeId].type).toBe('split')
         });
 
         test('dispatches resizeSplit descriptors', () => {
@@ -1524,7 +1645,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 const {document, errors} = Operations.applyOperation(doc(), descriptor);
                 expect(errors).toEqual([]);
 
-                const split   = document.nodes[document.nodes.root.zones[c.zone]],
+                const split   = document.nodes[document.nodes.root.zones[c.zone].nodeId],
                       newPane = c.lead ? split.children[0] : split.children[1],
                       keep    = c.lead ? split.children[1] : split.children[0];
 
@@ -1597,7 +1718,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
                 stream: {componentRef: 'stream', title: 'Stream', kind: 'panel'}
             },
             nodes : {
-                'popup-root': {type: 'edge-zone', zones: {center: 'popup-tabs'}},
+                'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},
                 'popup-tabs': {type: 'tabs', items: ['drill', 'stream'], activeItemId: 'drill'}
             }
         });
@@ -1631,7 +1752,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(Document.resolveStackRoot(noCenter)).toBeNull();
 
             const ghostCenter = vessel();
-            ghostCenter.nodes['popup-root'].zones.center = 'ghost';
+            ghostCenter.nodes['popup-root'].zones.center.nodeId = 'ghost';
             expect(Document.resolveStackRoot(ghostCenter)).toBeNull()
         });
 
@@ -1683,7 +1804,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             root  : 'root',
             items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {
-                root       : {type: 'edge-zone', zones: {center: 'main-tabs'}},
+                root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
                 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
             }
         });
@@ -1820,7 +1941,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
 
             expect(errors).toEqual([]);
 
-            const centerId = document.nodes.root.zones.center;
+            const centerId = document.nodes.root.zones.center.nodeId;
 
             expect(document.nodes[centerId].type).toBe('split');
             expect(document.nodes[centerId].children).toContain('main-tabs');
@@ -1870,7 +1991,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             const d = doc();
 
             d.nodes = {
-                root: {type: 'edge-zone', zones: {center: 'tri'}},
+                root: {type: 'edge-zone', zones: {center: {nodeId: 'tri'}}},
                 tri : {type: 'split', orientation: 'horizontal', children: ['a', 'b', 'c'], sizes: [0.2, 0.3, 0.5]},
                 a   : {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
                 b   : {type: 'tabs', items: ['swarm'],    activeItemId: 'swarm'},
@@ -1905,7 +2026,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             root  : 'root',
             items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {
-                root       : {type: 'edge-zone', zones: {center: 'main-tabs'}},
+                root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
                 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
             }
         });
@@ -1936,7 +2057,7 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             source.nodes['grp-a'] = {type: 'tabs', items: ['log'],   activeItemId: 'log'};
             source.nodes['grp-b'] = {type: 'tabs', items: ['watch'], activeItemId: 'watch'};
             source.nodes.grp      = {type: 'split', orientation: 'horizontal', children: ['grp-a', 'grp-b'], sizes: [0.5, 0.5]};
-            source.nodes.root.zones.right = 'grp';
+            source.nodes.root.zones.right = {nodeId: 'grp'};
             delete source.nodes['side-tabs'];
             delete source.items.terminal;
 

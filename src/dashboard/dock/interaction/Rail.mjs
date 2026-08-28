@@ -622,9 +622,8 @@ class Rail extends Container {
     }
 
     /**
-     * Resolves the overlay's free-dimension extent for an item: the share its owning split last
-     * committed (still in the document), else `null` — the overlay then falls back to its
-     * workspace-configurable default fraction.
+     * Resolves the overlay's free-dimension extent from the owning edge descriptor, else `null` —
+     * the overlay then falls back to its workspace-configurable pre-commit fraction.
      * @param {String} itemId
      * @returns {Number|null}
      * @protected
@@ -634,7 +633,9 @@ class Rail extends Container {
 
         // Runtime namespace lookup avoids an import cycle (the adapter imports this class);
         // fail-soft to null — the overlay then uses its default fraction.
-        return document ? (Neo.dashboard?.dock?.projection?.LayoutAdapter?.resolveRevealExtent(document, itemId) ?? null) : null
+        return document
+            ? (Neo.dashboard?.dock?.projection?.LayoutAdapter?.resolveRevealExtent(document, itemId) ?? null)
+            : null
     }
 
     /**

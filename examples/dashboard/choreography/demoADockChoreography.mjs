@@ -63,7 +63,13 @@ export const initialDocument = Object.freeze({
         terminal: {componentRef: 'Terminal', title: 'Terminal', kind: 'terminal'}
     },
     nodes: {
-        root         : {type: 'edge-zone', zones: {center: 'editor-tabs', right: 'side-tabs'}},
+        root         : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'editor-tabs'},
+                right : {nodeId: 'side-tabs', extent: 0.25, resizable: true}
+            }
+        },
         'editor-tabs': {type: 'tabs', items: ['editor'],  activeItemId: 'editor'},
         'side-tabs'  : {type: 'tabs', items: ['preview'], activeItemId: 'preview'}
     }
@@ -108,8 +114,8 @@ export const demoATourScript = Object.freeze({
                 type   : 'topology-assert',
                 caption: 'the studio, committed: editor column at center, preview docked right',
                 expect : [
-                    {path: 'nodes.root.zones.center', equals: 'split-editor-tabs-0'},
-                    {path: 'nodes.root.zones.right',  equals: 'side-tabs'},
+                    {path: 'nodes.root.zones.center.nodeId', equals: 'split-editor-tabs-0'},
+                    {path: 'nodes.root.zones.right.nodeId',  equals: 'side-tabs'},
                     {path: 'nodes.side-tabs.items',   equals: ['preview']}
                 ]
             },
@@ -126,7 +132,7 @@ export const demoATourScript = Object.freeze({
                 descriptor: {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'side-tabs'},
                 expect    : [
                     {path: 'nodes.side-tabs.items',   equals: ['preview', 'terminal']},
-                    {path: 'nodes.root.zones.center', equals: 'editor-tabs'}
+                    {path: 'nodes.root.zones.center.nodeId', equals: 'editor-tabs'}
                 ]
             },
             {type: 'pause', ms: 900, caption: 'the folding pane shrinks toward its tab slot — the tab IS the pane, relocated'},
@@ -142,7 +148,7 @@ export const demoATourScript = Object.freeze({
                 descriptor: {operation: 'addTab', itemId: 'logs', tabsNodeId: 'side-tabs'},
                 expect    : [
                     {path: 'nodes.side-tabs.items',   equals: ['preview', 'terminal', 'logs']},
-                    {path: 'nodes.root.zones.center', equals: 'editor-tabs'}
+                    {path: 'nodes.root.zones.center.nodeId', equals: 'editor-tabs'}
                 ]
             },
             {type: 'pause', ms: 1200, caption: 'scene break — density without loss, committed'}
@@ -203,7 +209,7 @@ export const demoATourScript = Object.freeze({
                 caption: 'finale: the dense studio, exactly as the dance left it',
                 expect : [
                     {path: 'nodes.side-tabs.items',    equals: ['preview', 'terminal', 'logs']},
-                    {path: 'nodes.root.zones.center',  equals: 'editor-tabs'},
+                    {path: 'nodes.root.zones.center.nodeId', equals: 'editor-tabs'},
                     {path: 'items.preview.autoHidden', equals: false}
                 ]
             }

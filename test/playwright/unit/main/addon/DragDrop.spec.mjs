@@ -1329,6 +1329,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
             coordinate   : axis === 'width' ? 'clientX' : 'clientY',
             lastSize     : 300,
             maxSize      : 590,
+            minSize      : 0,
             originalStyle: {
                 [axis]: {priority: '', value: ''},
                 flex  : {priority: '', value: '1 1 0%'}
@@ -1374,6 +1375,56 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         });
         expect(state.style.getPropertyValue('width')).toBe('');
         expect(state.style.getPropertyValue('flex')).toBe('1 1 0%')
+    });
+
+    test('CSS min/max bounds clamp both live preview and terminal output', () => {
+        const {resize, style} = createState();
+
+        Object.assign(resize.state, {minSize: 180, maxSize: 420});
+
+        expect(resize.apply({clientX: 500, clientY: 0})).toBe(180);
+        expect(style.getPropertyValue('width')).toBe('180px');
+
+        expect(resize.finish({clientX: -500, clientY: 0})).toEqual({
+            axis: 'width', size: 420, targetId: 'target-wrapper'
+        });
+        expect(style.getPropertyValue('width')).toBe('420px')
+    });
+
+    test('createState derives pixel bounds from the target computed style', () => {
+        const originalGetElement       = Neo.main.DomAccess.getElement,
+              originalGetLayoutRect    = Neo.main.DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              target                   = {style: createStyle({flex: '1 1 0%'})};
+
+        Neo.main.DomAccess.getElement = id => id === 'parent' ? parent : target;
+        Neo.main.DomAccess.getLayoutRect = element => element === parent
+            ? {width: 600, height: 400}
+            : {width: 300, height: 200};
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue: key => ({'min-width': '120px', 'max-width': '440px'})[key] || 'none'
+        });
+
+        try {
+            const state = new Resize().createState({
+                axis        : 'width',
+                parentId    : 'parent',
+                preview     : true,
+                resizeNext  : true,
+                splitterSize: 6,
+                targetId    : 'target'
+            }, {clientX: 100});
+
+            expect(state.minSize).toBe(120);
+            expect(state.maxSize).toBe(440)
+        } finally {
+            Neo.main.DomAccess.getElement    = originalGetElement;
+            Neo.main.DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
     });
 
     test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {

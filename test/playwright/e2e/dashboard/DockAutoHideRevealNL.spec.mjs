@@ -58,7 +58,7 @@ const createFourEdgeRailDocument = () => {
             center: {componentRef: 'Center', title: 'Center', kind: 'panel'}
         },
         nodes = {
-            root         : {type: 'edge-zone', zones: {center: 'center-tabs'}},
+            root         : {type: 'edge-zone', zones: {center: {nodeId: 'center-tabs'}}},
             'center-tabs': {type: 'tabs', items: ['center'], activeItemId: 'center'}
         };
 

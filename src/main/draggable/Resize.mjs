@@ -53,7 +53,7 @@ class Resize {
 
         const delta = coordinate - state.startCoordinate,
               value = Math.min(
-                  Math.max(state.startSize + (state.resizeNext ? -delta : delta), 0),
+                  Math.max(state.startSize + (state.resizeNext ? -delta : delta), state.minSize || 0),
                   state.maxSize
               );
 
@@ -111,7 +111,12 @@ class Resize {
             parentRect = DomAccess.getLayoutRect(parent),
             targetRect = DomAccess.getLayoutRect(target),
             startSize  = Number(targetRect[config.axis]),
-            maxSize    = Math.max(0, Number(parentRect[config.axis]) - Number(config.splitterSize || 0));
+            layoutMax  = Math.max(0, Number(parentRect[config.axis]) - Number(config.splitterSize || 0)),
+            computed   = globalThis.getComputedStyle?.(target),
+            minValue   = Number.parseFloat(computed?.getPropertyValue(`min-${config.axis}`)),
+            maxValue   = Number.parseFloat(computed?.getPropertyValue(`max-${config.axis}`)),
+            minSize    = Number.isFinite(minValue) ? Math.max(0, minValue) : 0,
+            maxSize    = Math.max(minSize, Math.min(layoutMax, Number.isFinite(maxValue) ? maxValue : layoutMax));
 
         if (!Number.isFinite(startSize) || !Number.isFinite(maxSize)) return null;
 
@@ -130,6 +135,7 @@ class Resize {
             dragZoneId: config.dragZoneId,
             lastSize  : startSize,
             maxSize,
+            minSize,
             originalStyle,
             preview   : config.preview === true,
             resizeNext: config.resizeNext === true,
