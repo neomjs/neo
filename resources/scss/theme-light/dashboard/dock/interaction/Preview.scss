@@ -1,4 +1,4 @@
-@use 'preview-accents' as *;
+@use '../../preview-accents' as *;
 
 :where(.neo-theme-light) {
     @include preview-accents;

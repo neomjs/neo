@@ -46,7 +46,7 @@ test.beforeEach(async ({page}) => {
         if (!dashboard.success) throw new Error(`dashboard: ${dashboard.error.message}`);
 
         const rail = await Neo.worker.App.createNeoInstance({
-            importPath: '../dashboard/DockRail.mjs',
+            importPath: '../dashboard/dock/interaction/Rail.mjs',
             ntype     : 'dashboard-dock-rail',
             edge      : 'left',
             parentId  : dashboard.id,

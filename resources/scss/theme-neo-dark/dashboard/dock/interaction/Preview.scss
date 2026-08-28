@@ -13,7 +13,7 @@
 // project these exact values; the engine default codifies what shipped, rather than the
 // GitHub-dark literals the structure layer carries as last-resort fallbacks. The signal
 // teal is the preview design artifact's «Signal glow» identity.
-@use 'preview-accents' as *;
+@use '../../preview-accents' as *;
 
 :where(.neo-theme-neo-dark) {
     @include preview-accents;

@@ -43,7 +43,7 @@ test.beforeEach(async ({page}) => {
         if (!dashboard.success) throw new Error(`dashboard: ${dashboard.error.message}`);
 
         const splitter = await Neo.worker.App.createNeoInstance({
-            importPath : '../dashboard/DockSplitter.mjs',
+            importPath : '../dashboard/dock/interaction/DockSplitter.mjs',
             ntype      : 'dashboard-dock-splitter',
             orientation: 'horizontal',
             parentId   : dashboard.id

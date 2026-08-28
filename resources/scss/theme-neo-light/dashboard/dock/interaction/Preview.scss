@@ -11,7 +11,7 @@
 //
 // Provenance: the converged application language. The light skin's deep pigment keeps the
 // identity legible on paper; light chips float, they do not glow.
-@use 'preview-accents' as *;
+@use '../../preview-accents' as *;
 
 :where(.neo-theme-neo-light) {
     @include preview-accents;
