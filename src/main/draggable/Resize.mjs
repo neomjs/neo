@@ -72,7 +72,9 @@ class Resize {
     }
 
     /**
-     * Applies one pointer frame without crossing the worker boundary.
+     * Applies one pointer frame without crossing the worker boundary. A registered counter target
+     * receives the complementary size in the same frame, so the pair total is conserved on this
+     * thread by construction — the worker never sees a drifting intermediate.
      * @param {Object} data
      * @returns {Number|null}
      */
@@ -102,7 +104,12 @@ class Resize {
 
         if (state.preview && value !== state.lastSize) {
             state.target.style.setProperty('flex', 'none');
-            state.target.style.setProperty(state.axis, `${value}px`)
+            state.target.style.setProperty(state.axis, `${value}px`);
+
+            if (state.counter) {
+                state.counter.style.setProperty('flex', 'none');
+                state.counter.style.setProperty(state.axis, `${state.pairTotal - value}px`)
+            }
         }
 
         state.lastSize = value;
@@ -111,7 +118,8 @@ class Resize {
     }
 
     /**
-     * Restores interrupted preview authority and clears the gesture.
+     * Restores interrupted preview authority — both pair members when a counter is registered —
+     * and clears the gesture.
      * @returns {Boolean}
      */
     cancel() {
@@ -125,7 +133,10 @@ class Resize {
     }
 
     /**
-     * Restores the exact inline properties captured before transient resize ownership began.
+     * Restores the exact inline properties captured before transient resize ownership began —
+     * both pair members when the state registered a counter. Every restoration authority
+     * (cancel, degenerate finish, settlement rejection, stale-target replay) routes through here,
+     * so the conserved pair can never be restored by halves.
      * @param {Object|null} state
      * @returns {Boolean}
      * @protected
@@ -133,15 +144,26 @@ class Resize {
     restoreState(state) {
         if (!state) return false;
 
-        Object.entries(state.originalStyle).forEach(([key, {priority, value}]) => {
-            if (value) {
-                state.target.style.setProperty(key, value, priority)
-            } else {
-                state.target.style.removeProperty(key)
-            }
-        });
+        this.restoreStyle(state.target, state.originalStyle);
+        state.counter && this.restoreStyle(state.counter, state.counterOriginalStyle);
 
         return true
+    }
+
+    /**
+     * Writes one captured inline-style snapshot back onto its element.
+     * @param {HTMLElement} target
+     * @param {Object} snapshot Property → {priority, value} map from `createState()`.
+     * @protected
+     */
+    restoreStyle(target, snapshot) {
+        Object.entries(snapshot || {}).forEach(([key, {priority, value}]) => {
+            if (value) {
+                target.style.setProperty(key, value, priority)
+            } else {
+                target.style.removeProperty(key)
+            }
+        })
     }
 
     /**
@@ -169,11 +191,46 @@ class Resize {
             layoutMax  = Math.max(0, Number(parentRect[config.axis]) - Number(config.splitterSize || 0)),
             computed   = globalThis.getComputedStyle?.(target),
             minValue   = resolveCssBound(computed?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
-            maxValue   = resolveCssBound(computed?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis])),
-            minSize    = Number.isFinite(minValue) ? Math.max(0, minValue) : 0,
-            maxSize    = Math.max(minSize, Math.min(layoutMax, Number.isFinite(maxValue) ? maxValue : layoutMax));
+            maxValue   = resolveCssBound(computed?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis]));
+
+        let minSize = Number.isFinite(minValue) ? Math.max(0, minValue) : 0,
+            maxSize = Math.max(minSize, Math.min(layoutMax, Number.isFinite(maxValue) ? maxValue : layoutMax));
 
         if (!Number.isFinite(startSize) || !Number.isFinite(maxSize)) return null;
+
+        // Conserved-pair mode: a counter target turns the clamp window into the intersection of
+        // both members' CSS bounds under a constant pair total, so every previewed frame is a
+        // vector the semantic commit can reproduce exactly.
+        let counter = null, counterOriginalStyle = null, pairTotal = null;
+
+        if (config.counterTargetId) {
+            counter = DomAccess.getElement(config.counterTargetId);
+
+            if (!counter) return null;
+
+            const
+                counterRect  = DomAccess.getLayoutRect(counter),
+                counterStart = Number(counterRect[config.axis]),
+                counterComp  = globalThis.getComputedStyle?.(counter),
+                counterMinV  = resolveCssBound(counterComp?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
+                counterMaxV  = resolveCssBound(counterComp?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis])),
+                counterMin   = Number.isFinite(counterMinV) ? Math.max(0, counterMinV) : 0;
+
+            if (!Number.isFinite(counterStart)) return null;
+
+            pairTotal = startSize + counterStart;
+            minSize   = Math.max(minSize, Number.isFinite(counterMaxV) ? pairTotal - counterMaxV : 0);
+            maxSize   = Math.max(minSize, Math.min(maxSize, pairTotal - counterMin));
+
+            counterOriginalStyle = {};
+
+            ['flex', config.axis].forEach(key => {
+                counterOriginalStyle[key] = {
+                    priority: counter.style.getPropertyPriority(key),
+                    value   : counter.style.getPropertyValue(key)
+                }
+            })
+        }
 
         const originalStyle = {};
 
@@ -188,11 +245,14 @@ class Resize {
             axis                 : config.axis,
             awaitWorkerSettlement: config.awaitWorkerSettlement === true,
             coordinate,
+            counter,
+            counterOriginalStyle,
             dragZoneId           : config.dragZoneId,
             lastSize             : startSize,
             maxSize,
             minSize,
             originalStyle,
+            pairTotal,
             parentId             : config.parentId,
             preview              : config.preview === true,
             resizeNext           : config.resizeNext === true,
