@@ -1,6 +1,6 @@
 # ADR 0029: Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag
 
-> Architectural Decision Record for the design tier **above** the landed `dockZone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (carried by the `dockLayout.v2` envelope per the §2.2 amendment), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, the auto-hide UI contract, and — per the §2.8 amendment (2026-07-16) — the multi-window choreography contracts: the gesture claim protocol, the gesture outcome machine, and vessel lifecycle/admission. It settles the questions the remaining docking capability leaves share and cannot answer coherently one leaf at a time. Everything is **additive on the landed `dockZone.v1` model — not a redesign**: where this record names a new schema or operation, it extends the existing family; it never alters a landed shape.
+> Architectural Decision Record for the design tier **above** the landed `neo.dock.zone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (carried by `neo.dock.layout.v1`), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, the auto-hide UI contract, and — per the §2.8 amendment (2026-07-16) — the multi-window choreography contracts: the gesture claim protocol, the gesture outcome machine, and vessel lifecycle/admission.
 
 | Attribute | Value |
 |---|---|
@@ -8,7 +8,7 @@
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5, Claude Code). The cross-window seam contract descends from Discussion #13370's graduated Option-4 convergence (cross-family); the §7 auto-hide contract was written implementation-sufficient for its claimed leaf owner (@neo-opus-grace, #13280). |
 | **Resolves** | #14423 — the #13158 design-gate sub: settle the seven shared design questions (layout model, perspectives, cross-window drag, grouped drag/overflow, core-lift disposition, container contract, auto-hide UI) before further implementation lands on the current base (operator direction, 2026-07-02). |
 | **Parent epic** | #13158 (*QT-parity docking polish*) under #13012 (Agent Harness). Operator re-ranked 2026-07-02 as an agent-harness cornerstone: the docking shell is the substrate the #13015 FM-UX and #13444 HOME surfaces stand on. |
-| **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded); the landed **`dockZone.v1` model contract** ([`learn/agentos/DockZoneModel.md`](../DockZoneModel.md)) — that document remains the contract of record for landed substrate (`src/dashboard/DockZoneModel.mjs`, `src/dashboard/DockLayoutAdapter.mjs`, `src/dashboard/DockSplitter.mjs`, `src/dashboard/DockPreview.mjs` — lifted from `apps/agentos/view/` per #15207's shared-owner re-scope); this ADR is the prescriptive design tier above it. |
+| **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded); the landed model contract ([`learn/agentos/DockZoneModel.md`](../DockZoneModel.md)) realized under `src/dashboard/dock/{model,projection,interaction,persistence,window}`; this ADR is the prescriptive design tier above it. |
 | **Connects to** | #13280 (§7's implementation leaf, Grace) · #13444 Institution-Cockpit panes + #13015 FM-UX cards (the §6 container-contract consumers) · #13025 / #13028 (landed window-manager leaves consumed as boundaries by §3 — formalized, not reopened) · Discussion #13370 (graduated 2026-06-15: the seam contract, placement-hint layer, contract-over-lift constraint absorbed here) · `examples/dashboard/dock/` (verification surface, #13247). |
 | **Implemented by** | the §5 Decomposition leaves — one Contract-Ledgered leaf per capability, each citing its section here as its upstream contract. |
 | **Anti-anchor for** | a **parallel drag system** (every interaction rides the existing preview → operation path); a **dock-aware `DragCoordinator`** (the coordinator arbitrates targets and MUST stay dock-blind); **serialize-and-recreate popout state** (the component exists once in the SharedWorker heap; windows are render targets); **geometry-persisting placement hints** (`windowId`s, rects, monitor coordinates never serialize); a **third collection shape** beside `dockLayoutCollection.v1`; a **core lift before the §2.5 trigger fires**. |
@@ -43,11 +43,17 @@
 
 #### The reducer-container pattern (landed, normative — amended 2026-08-22, `#17541`)
 
-The normative host is the engine class **`Neo.dashboard.dock.Workspace`** (`src/dashboard/DockWorkspace.mjs`); `examples/dashboard/dock/MainContainer.mjs` is its minimal consumer. New docking workspaces extend it; the three flagship hosts (workstation, dockdemo Demo B, fleet cockpit) still carry the hand-rolled loop and migrate as leaves of epic `#17539` (`#17546` first) — until each lands, its copy is consumer-owned, not normative. The class contract:
+The normative host is the engine class **`Neo.dashboard.dock.Workspace`**
+(`src/dashboard/dock/Workspace.mjs`); `examples/dashboard/dock/MainContainer.mjs` is its minimal consumer and
+`apps/workstation/` its high-density consumer. New docking workspaces extend it. The class contract:
 
 - **The workspace container** owns the committed dock-zone document (`dockModel`) and its saved-layout collection. It lives in the App Worker heap.
 - **`applyDockZoneOperation(descriptor)`** is a pure reducer: `Operations.applyOperation` over the current document. No pointer handler, splitter, or drag surface mutates the document directly.
-- **`onDockZoneDocumentChange(document)`** is the view-sync: it stores the committed document and re-projects it through `DockLayoutAdapter.project()` — one atomic ownership transaction per commit, scheduled off the settled tail of the refresh chain and reconciled by `DockProjectionReconciler` so surviving panes keep their identity. A failed transaction stays observable on its own commit's promise and never suppresses a later one; a configured dock-host reference that resolves to no live host fails loudly.
+- **`onDockZoneDocumentChange(document)`** is the view-sync: it stores the committed document and re-projects it
+  through `projection.LayoutAdapter.project()` — one atomic ownership transaction per commit, scheduled off the
+  settled tail of the refresh chain and reconciled by `projection.Reconciler` so surviving panes keep their identity.
+  A failed transaction stays observable on its own commit's promise and never suppresses a later one; a configured
+  dock-host reference that resolves to no live host fails loudly.
 
 Interaction surfaces (splitters, drag previews, rail tabs, pin controls) emit **operation descriptors**; the reducer commits them; the view-sync re-projects. This is the only sanctioned mutation path.
 
@@ -62,9 +68,10 @@ A **workspace** is one `dockZone.v1` document owned by one workspace container. 
 
 A browser window — including the primary one — is a **render target**, never a state owner. The SharedWorker heap persists while at least one window remains connected; any single window (including the opener) can close or reload without destroying workspace truth.
 
-#### The placement-hint layer — `neo.dock.windowPlacementHints.v1`
+#### The placement-hint fields — additive on `neo.dock.layout.v1`
 
-Resolved by Discussion #13370 (OQ1) and bound here: window placement intent is a **separate hint layer keyed by item id**, never fields inside the dock-zone tree.
+Window placement intent is a **separate hint layer keyed by item id**, never fields inside the dock-zone tree. Its
+durable half is additive data inside the layout envelope; it does not mint a standalone schema identity.
 
 | Hint field class | Fields | Persistence |
 |---|---|---|
@@ -77,8 +84,8 @@ Resolved by Discussion #13370 (OQ1) and bound here: window placement intent is a
 
 | State class | Examples | Owner | Persistence |
 |---|---|---|---|
-| **Worker-owned shared truth** | committed `dockZone.v1` documents; the workspace-set registry; `dockLayout.v2` wrappers (perspectives incl., §2.2 amendment); `dockLayoutCollection.v1`; durable placement hints; item catalogs incl. `pinned` / `autoHidden` | workspace container(s) in the App Worker | Serializable per contract rules |
-| **Per-window render projection** | projected config trees; edge rails; splitter affordances; tab headers; placeholder panes | `DockLayoutAdapter.project()` output per window | Never persisted; derived |
+| **Worker-owned shared truth** | committed `neo.dock.zone.v1` documents incl. tab `activeItemId`, split `sizes`, and edge `extent`/`resizable`; the workspace-set registry; `neo.dock.layout.v1` perspectives; `neo.dock.layoutCollection.v1`; durable placement hints; item catalogs incl. `pinned` / `autoHidden` | workspace container(s) in the App Worker | Serializable per contract rules |
+| **Per-window render projection** | projected config trees; edge rails; splitter affordances; tab headers; placeholder panes | `projection.LayoutAdapter.project()` output per window | Never persisted; derived |
 | **Per-window runtime interaction state** | `dockPreview` payloads; reveal/open state of auto-hidden panes (§2.7); hover state; splitter pixel math mid-drag | the window's drag/interaction surfaces | Never persisted; never crosses the seam except as operation descriptors |
 | **Main-thread-only state** | DOM nodes; `DOMRect`s; screen coordinates; native window geometry; `getWindowAt` lookups | main-thread addons (`Neo.manager.Window`, `WindowPosition`) | Never persisted; consumed by arbitration (§2.3), results delivered as semantic events |
 
@@ -86,7 +93,25 @@ Every future docking leaf classifies each new piece of state into exactly one ro
 
 #### Splitter reconciliation (Discussion #13370 OQ3, dispositioned)
 
-`Neo.dashboard.dock.interaction.DockSplitter` is the dock-workspace resize affordance: it renders between projected split children and commits through the `resizeSplit` semantic operation (`DockLayoutAdapter.createResizeSplitOperation`). `Neo.component.Splitter` remains the general-purpose sibling-resize component for non-dock layouts. They stay separate: the dock splitter's contract obligation (semantic commit through the reducer, never direct mutation of persisted `sizes`) is dock-specific, and folding it into the general component would leak dock semantics into core. A future unification is possible only behind the §2.5 lift trigger, never before it.
+`Neo.dashboard.dock.interaction.DockSplitter` extends `Neo.component.Splitter`: the generic parent owns registration,
+pointer mechanics, proxy/live presentation, CSS bounds, cancellation, generation fencing, and teardown. The dock
+subclass adds only semantic terminals. Split-node affordances commit `resizeSplit`; edge-zone affordances commit
+`resizeEdgeZone`. No dock document concept enters the generic component.
+
+#### Committed tab and edge state (amendment, 2026-08-29 — #17838)
+
+The document owns two values that previously looked like projection state:
+
+- A `tabs` node owns `activeItemId`. Every projected tab strip reports user activation through
+  `{operation: 'setActiveItem', tabsNodeId, itemId}`, whether close-action chrome is enabled or not. Membership is
+  validated against the committed node; invalid descriptors fail closed and restore document truth.
+- An edge-zone entry is a nested descriptor `{nodeId, extent?, resizable?}`. `extent` is a normalized fraction and
+  `resizable: true` is the explicit permission to project an edge splitter. No parallel edge-size or policy map exists.
+
+Edge pointer frames resize only main-thread presentation under the target band's CSS min/max bounds. Successful release
+converts the final pixel size into one normalized `resizeEdgeZone` commit. Escape, stale generation, rejection, and
+destruction restore the prior projection and commit zero operations. Split-node `sizes` remain authoritative only for
+split nodes; an edge never borrows an ancestor split ratio.
 
 ### §2.2 Named Perspectives
 
@@ -96,7 +121,10 @@ Single-workspace persistence is shipped and closed (fail-closed restore and no-s
 
 #### Capture scope (amendment, 2026-07-11 — #14773: the shipped envelope IS the perspective carrier)
 
-**Why this amendment exists.** This section originally projected a NEW persisted schema (`neo.dock.perspective.v1`) for topology-scope perspectives. The perspective substrate that actually landed ships `neo.dock.layout.v1` — the EXISTING envelope family extended with the perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`, `windowDocuments`) — and it covers BOTH scopes. Minting a second wrapper name for the same capability territory would itself be the shape-proliferation this record's own anti-anchor forbids; the reconciliation therefore RETIRES the `dockPerspective.v1` name entirely: **`dockLayout.v2` is v2 of the ENVELOPE carrying v1 of the perspective CAPABILITY.** Vocabulary mapping, stated once: the capability scope this section calls `workspace` is the envelope value `captureScope: 'window'`. `workspace` is this record's PROSE label only — runtime and tool surfaces (the NL perspective tools included) speak the executable vocabulary `window | topology` (`Persistence.CAPTURE_SCOPES`, the SSOT); minting `workspace` as a third runtime enum value is the drift this mapping exists to prevent.
+The one persisted perspective carrier is `neo.dock.layout.v1`, extended with `captureScope`, `windowFingerprint`,
+`perspectiveName`, and `windowDocuments`; it covers both scopes. No second perspective schema or migration reader exists.
+The capability scope this section calls `workspace` is the executable envelope value `captureScope: 'window'`.
+Runtime and Neural Link surfaces speak `window | topology` (`Persistence.CAPTURE_SCOPES`, the SSOT).
 
 Two scopes exist. A perspective declares which one it is; there is no implicit scope.
 
@@ -125,7 +153,7 @@ Rules, inheriting every `dockLayoutCollection.v1` discipline:
 - `dockZone` carries the PRIMARY window's document (slot 0); `windowDocuments` is an array of the ADDITIONAL windows' documents (slots 1..N), valid only on `captureScope: 'topology'` records — each tree validated by the landed path.
 - **The durable placement-hint layer is the REMAINING §2.2 obligation** (detached-item intent, `owningWorkspaceId`, semantic `fallbackTarget` — the §2.1 durable set). It lands as ADDITIVE fields on this same envelope when the multi-window restore leaf files — never as a new schema name. A perspective containing `windowId`, screen coordinates, monitor geometry, or rects remains invalid and must be rejected at validation.
 - `metadata` is JSON-only, no secrets — enforced by the same `findSecretMetadataKey` class of checks that guards saved layouts.
-- Perspective collections (named sets of perspectives) reuse `dockLayoutCollection.v1` verbatim with `dockLayout.v2` entries; they must not fork a third collection shape — and after this amendment not even a second WRAPPER shape exists.
+- Perspective collections reuse `neo.dock.layoutCollection.v1` with `neo.dock.layout.v1` entries; they must not fork another collection or wrapper shape.
 
 #### Restore semantics into a changed window topology
 
@@ -138,7 +166,9 @@ Windows are render targets (§2.1); restoring a perspective restores **worker-ow
 
 #### Revision migration
 
-`revision` is monotonic per perspective. An unknown *wrapper* schema version fails closed (keep last-good, surface the error) — same rule as the landed wrappers. A future envelope revision (`dockLayout.v3`) must ship a documented migration in the same change that introduces it — the shipped `v1 → v2` migration (`migrateSavedLayout`, honest defaults) is the precedent; silent best-effort upgrades are forbidden.
+`revision` is monotonic per perspective. An unknown wrapper schema version fails closed (keep last-good, surface the
+error). A future envelope revision must define its compatibility or migration contract in the same change that
+introduces it; silent best-effort upgrades are forbidden. The current greenfield v1 has no compatibility reader.
 
 ### §2.3 Cross-Window Drag
 
@@ -192,7 +222,9 @@ logical proxy rect is never a substitute for the live vessel rect used by dual-w
 | `getNativeWindowDrag(windowId)` | Expose the drag payload a detached OS window carries (`{draggedItem, …}`), enabling drop-candidate commit on native window movement. |
 | `onTerminalWindowDrop(draggedItem)` | Finalize when a native-window drag terminates as a standalone window (the drag ends detached rather than re-docking). |
 
-**Binding invariant — the coordinator stays dock-blind:** `DragCoordinator` arbitrates *which target* receives the drag; it MUST NOT import `DockZoneModel`, `DockLayoutAdapter`, or any preview module, and it never interprets dock semantics. This holds in landed code and is now contract. (Changing it triggers the amend-this-ADR escalation named in §1 Context.)
+**Binding invariant — the coordinator stays dock-blind:** `DragCoordinator` arbitrates *which target* receives the
+drag; it MUST NOT import any `Neo.dashboard.dock.*` model, projection, or interaction module, and it never interprets
+dock semantics. Changing that boundary amends this ADR before implementation.
 
 **Binding constraint (Discussion #13370 OQ2):** the reusable shape is this **contract**, not a lift of `Neo.draggable.dashboard.SortZone` out of the dashboard layer. Dock workspaces implement the contract; they do not inherit the dashboard sort zone.
 
@@ -238,7 +270,10 @@ The preview layer carries grouped intent with one additive, optional, runtime-on
 
 #### Tab overflow
 
-Overflow is a **generic tab-subsystem affordance — not a dock concern, not a model change** (mechanism realized by #15098; the first implementation #15062 mis-homed it in `dashboard/plugin/` and was replaced). When a `tabs` node's headers exceed the available extent, the overflowing tabs collapse behind a floating overflow control whose menu reaches them (selecting one sets `activeItemId` via the ordinary semantic path); nothing new persists — `items` order and `activeItemId` already capture the state. It is owned by **`Neo.tab.plugin.Overflow`**, a plugin on the generic `Neo.tab.header.Toolbar` (sibling to the other `src/*/plugin/` affordances), whose pure static `computeOverflow({items, extent, activeItemId, controlWidth})` returns the visible/hidden partition (active-never-hidden). The dock is a **consumer**: `DockLayoutAdapter.projectTabsNode` injects the plugin into each projected header toolbar's `plugins` — a one-directional adapter→plugin consume; the plugin owns its decision, nothing reaches back to the adapter. The control is an **out-of-collection** floating button (rooted at `document.body`, never in `owner.items`) so the header SortZone that `dragResortable` wires never sees it and committed tab order stays uncorrupted. **Invalidation contract:** the plugin re-measures + re-partitions on every tab-set mutation (insert / remove / reorder), not only on resize + `activeIndexChange`. It must **not** fork a dock-specific tab container (inherited from the contract's §Split/Tab Adapter Boundary) — the affordance is tab-native; the dock merely consumes it.
+Overflow is a **generic tab-subsystem affordance — not a dock concern, not a model change**. When a `tabs` node's
+headers exceed the available extent, the overflowing tabs collapse behind a floating control whose menu reaches them;
+selection commits through the ordinary `setActiveItem` path. `Neo.tab.plugin.Overflow` owns the partition, while
+`Neo.dashboard.dock.projection.LayoutAdapter.projectTabsNode()` only installs the plugin. Nothing new persists.
 
 ### §2.5 Core-Lift Clause Disposition
 
@@ -289,7 +324,7 @@ What remains — and what #13280 builds — is the **runtime interaction layer**
 
 | Interaction | Behavior |
 |---|---|
-| Click a rail tab | Transient **reveal**: the pane renders as an **overlay** anchored to its edge — left/right rails reveal full-height, top/bottom rails full-width. The overlay's free dimension uses the extent the item's owning split last committed (`sizes`, still in the document) when one exists, else an adapter-default fraction of the workspace extent (default `0.25`, workspace-configurable). Overlay, never push: revealing MUST NOT re-layout the committed projection. Focus moves into the pane. |
+| Click a rail tab | Transient **reveal**: the pane renders as an **overlay** anchored to its edge — left/right rails reveal full-height, top/bottom rails full-width. The overlay's free dimension uses its owning edge descriptor's committed `extent`; only a never-sized edge uses the workspace fallback (default `0.25`, configurable). Overlay, never push: revealing MUST NOT re-layout the committed projection. Focus moves into the pane. |
 | Hover a rail tab | No reveal by default. A workspace MAY opt in via `autoHideRevealOnHover: true` (workspace-level config, not persisted per item); hover-reveal then opens after a short dwell and never steals focus. Default off — hover reveals are an accessibility hazard. |
 | Dismiss | Focus leaving the overlay, `Escape`, clicking outside the overlay, or re-clicking the rail tab. Dismiss discards runtime reveal state only; no operation is emitted. |
 | Pin control on the revealed overlay | Emits `setItemPinned(itemId, true)` through the reducer — the model clears `autoHidden` (landed guard); the item re-enters the tab flow at its recorded placement; the overlay closes. |
@@ -351,7 +386,7 @@ Four invariants, all mandatory:
 
 #### §2.8.4 Constraints and merge order
 
-- **Placement hints stay additive on `dockLayout.v2`.** Any schema revision ships migration + fail-closed tests atomically (Discussion #15204's `revalidationTrigger` fires on a non-additive requirement).
+- **Placement hints stay additive on `neo.dock.layout.v1`.** Any future schema revision defines compatibility and fail-closed tests atomically.
 - **ADR 0034 boundary:** the Electron shell may improve vessel *materialization*; it never forks placement or arbitration semantics.
 - **Merge order:** this amendment precedes all consuming implementation — #15244 (G1 tear-out), #15246 (G3 composition/arbitration), #15247 (G4 reintegration/vessel), #15248 (teardown hygiene) cite their §2.8 subsection as upstream contract; the #15243 spike's row 6 binds to §2.8.1's identity requirements without implementing arbitration.
 
@@ -510,8 +545,8 @@ name exists only as §2.2 history. A future identity enters this table by amendi
 reserving a row.
 
 The former layout v1/v2 wrapper split collapses into one `neo.dock.layout.v1` carrying the perspective
-fields; the migration reader (`migrateSavedLayout`) and every v1-acceptance site are **deleted**, not
-renamed. Negative controls moved into the new family (`neo.dock.layout.v2`/`.v999`,
+fields; the migration reader and every dual-version branch are **deleted**, not renamed. Negative controls use the
+new family (`neo.dock.layout.v2`/`.v999`,
 `neo.dock.zone.v2`, `neo.dock.preview.v2`, `neo.dock.layoutCollection.v0`/`.v2`) so they prove
 unsupported-**version** rejection, and dedicated controls prove the retired `neo.harness.*` **family** is
 rejected fail-closed at both the envelope and collection tiers. No alias, dual parser, or compatibility
@@ -576,7 +611,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 |---|---|---|
 | Auto-hide UI: reveal overlay + pin control + rail drag source | §2.7 | landed — #13280 closed; the §4 auto-hide capability row carries the e2e evidence |
 | `CrossWindowDragTarget` formalization + dock workspace target + `transferItem` | §2.3 | document-pair participation landed in #14769 / PR #15017; placement-hint integration remains part of §2.2's future workspace-set transaction |
-| Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools merged (#15019); the placement-hint layer + atomic multi-window restore remain |
+| Topology perspectives: additive hints on `neo.dock.layout.v1` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools merged (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | landed — #14770 (`moveNode`/`transferNode`) + #14850 (tab drag) + #15098 (`Neo.tab.plugin.Overflow`) |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
 | The engine-owned workspace host (`Neo.dashboard.dock.Workspace`) + per-host migration | §2.1 | class + example landed — `#17541`; the flagship host migrations are leaves of epic `#17539` |

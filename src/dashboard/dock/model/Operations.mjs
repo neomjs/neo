@@ -42,10 +42,12 @@ class Operations extends Base {
                 ? Operations.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
                 : Operations.addTab(document, descriptor),
         applyDocument    : (document, descriptor) => Operations.applyDocument(document, descriptor),
+        setActiveItem    : (document, descriptor) => Operations.setActiveItem(document, descriptor),
         moveItem         : (document, descriptor) => Operations.moveItem(document, descriptor),
         splitNode        : (document, descriptor) => Operations.splitNode(document, descriptor),
         moveNode         : (document, descriptor) => Operations.moveNode(document, descriptor),
         resizeSplit      : (document, descriptor) => Operations.resizeSplit(document, descriptor),
+        resizeEdgeZone   : (document, descriptor) => Operations.resizeEdgeZone(document, descriptor),
         detachItem       : (document, descriptor) => Operations.detachItem(document, descriptor),
         closeItem        : (document, descriptor) => Operations.closeItem(document, descriptor),
         setItemPinned    : (document, descriptor) => Operations.setItemPinned(document, descriptor),
@@ -127,6 +129,43 @@ class Operations extends Base {
     }
 
     /**
+     * @summary Commits one tabs node's active item through the semantic reducer.
+     *
+     * Projection events carry both the semantic tabs-node id and the selected item id. Membership
+     * is validated against the committed document so a stale projected tab cannot redirect
+     * activation into another stack. An already-active item is a successful byte-identical no-op.
+     * @param {Object} document
+     * @param {Object} args {tabsNodeId, itemId}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static setActiveItem(document, {tabsNodeId, itemId} = {}) {
+        let tabs = document.nodes?.[tabsNodeId];
+
+        if (!tabs) {
+            return {document, errors: [`unknown tabs node "${tabsNodeId}"`]}
+        }
+
+        if (tabs.type !== 'tabs') {
+            return {document, errors: [`"${tabsNodeId}" is not a tabs node`]}
+        }
+
+        if (!(tabs.items || []).includes(itemId)) {
+            return {document, errors: [`item "${itemId}" is not a member of tabs node "${tabsNodeId}"`]}
+        }
+
+        if (tabs.activeItemId === itemId) {
+            return {document, errors: []}
+        }
+
+        let doc = Document.clone(document);
+
+        doc.nodes[tabsNodeId].activeItemId = itemId;
+
+        return Document.commit(document, doc)
+    }
+
+    /**
      * @summary Splits `targetNodeId` against a new pane holding `itemId`.
      *
      * Wraps `itemId` in a fresh single-tab node and replaces `targetNodeId` in its parent with a new
@@ -178,7 +217,7 @@ class Operations extends Base {
         } else if (typeof parentSlot.slot === 'number') {
             doc.nodes[parentSlot.parentId].children[parentSlot.slot] = newSplitId
         } else {
-            doc.nodes[parentSlot.parentId].zones[parentSlot.slot] = newSplitId
+            Document.setZoneNodeId(doc.nodes[parentSlot.parentId], parentSlot.slot, newSplitId)
         }
 
         return Document.commit(document, doc)
@@ -215,6 +254,56 @@ class Operations extends Base {
         let doc = Document.clone(document);
 
         doc.nodes[splitNodeId].sizes = normalized.sizes;
+
+        return Document.commit(document, doc)
+    }
+
+    /**
+     * @summary Commits one normalized extent onto a resizable nested edge-zone descriptor.
+     *
+     * Runtime pixels and CSS constraints stay outside the document. The interaction layer converts
+     * its final CSS-bounded geometry into this normalized fraction; the reducer validates only the
+     * durable semantic domain and the descriptor's explicit resize permission.
+     * @param {Object} document
+     * @param {Object} args {edgeZoneId, edge, extent}
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static resizeEdgeZone(document, {edgeZoneId, edge, extent} = {}) {
+        let edgeZone   = document.nodes?.[edgeZoneId],
+            descriptor = edgeZone?.zones?.[edge];
+
+        if (!edgeZone) {
+            return {document, errors: [`unknown edge-zone node "${edgeZoneId}"`]}
+        }
+
+        if (edgeZone.type !== 'edge-zone') {
+            return {document, errors: [`"${edgeZoneId}" is not an edge-zone node`]}
+        }
+
+        if (!['top', 'right', 'bottom', 'left'].includes(edge)) {
+            return {document, errors: [`edge "${edge}" is not resizable`]}
+        }
+
+        if (!Document.isJsonRecord(descriptor) || !Document.getZoneNodeId(descriptor)) {
+            return {document, errors: [`edge-zone "${edgeZoneId}" has no valid "${edge}" descriptor`]}
+        }
+
+        if (descriptor.resizable !== true) {
+            return {document, errors: [`edge-zone "${edgeZoneId}" edge "${edge}" is not resizable`]}
+        }
+
+        if (typeof extent !== 'number' || !Number.isFinite(extent) || extent <= 0 || extent >= 1) {
+            return {document, errors: ['extent must be a finite number between 0 and 1']}
+        }
+
+        if (descriptor.extent === extent) {
+            return {document, errors: []}
+        }
+
+        let doc = Document.clone(document);
+
+        doc.nodes[edgeZoneId].zones[edge].extent = extent;
 
         return Document.commit(document, doc)
     }

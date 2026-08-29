@@ -82,12 +82,12 @@ class Harness extends Viewport {
         const sourceDoc = () => ({
             schema: 'neo.dock.zone.v1', root: 'root',
             items : {strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'}, terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}},
-            nodes : {root: {type: 'edge-zone', zones: {center: 'main-tabs', right: 'side-tabs'}}, 'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'}, 'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
+            nodes : {root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}}, 'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'}, 'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
         });
         const targetDoc = () => ({
             schema: 'neo.dock.zone.v1', root: 'root',
             items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
-            nodes : {root: {type: 'edge-zone', zones: {center: 'main-tabs'}}, 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}}
+            nodes : {root: {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}}, 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}}
         });
 
         const transfers = [], fires = [];

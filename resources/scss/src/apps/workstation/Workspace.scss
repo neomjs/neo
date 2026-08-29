@@ -220,9 +220,15 @@
     // Workstation owns density policy; the shared dashboard owns projection hooks and defaults.
     // Root-font-relative bounds remain readable while both fluid terms follow this definite-size
     // host, including when the standalone app becomes a child workspace.
-    --dock-edge-band-left-inline-size : clamp(11.25rem, 20.3125cqi, 16.25rem);
-    --dock-edge-band-right-inline-size: clamp(13.75rem, 25cqi, 20rem);
-    --dock-edge-band-bottom-block-size: clamp(8.75rem, 28cqb, 12.5rem);
+    --dock-edge-band-left-inline-size     : 20.3125cqi;
+    --dock-edge-band-left-max-inline-size : 16.25rem;
+    --dock-edge-band-left-min-inline-size : 11.25rem;
+    --dock-edge-band-right-inline-size    : 25cqi;
+    --dock-edge-band-right-max-inline-size: 20rem;
+    --dock-edge-band-right-min-inline-size: 13.75rem;
+    --dock-edge-band-bottom-block-size    : 28cqb;
+    --dock-edge-band-bottom-max-block-size: 12.5rem;
+    --dock-edge-band-bottom-min-block-size: 8.75rem;
 
     padding : 12px;
     position: relative;

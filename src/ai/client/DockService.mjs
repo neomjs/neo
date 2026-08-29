@@ -14,7 +14,7 @@ import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
  * The service never mutates layout state outside the landed commit path: operations dispatch
  * through `Operations.applyOperation()` (or the holder's own `applyDockZoneOperation`
  * override when present), and successful documents commit back exactly the way
- * `DockSplitter.commitResizeSplit()` does — including the `onDockZoneDocumentChange`
+ * `DockSplitter.commitResizeOperation()` does — including the `onDockZoneDocumentChange`
  * notification hook. Policy rejections (e.g. `pinnable: false`) therefore surface as the
  * executor's structured `errors`, never get bypassed.
  *

@@ -395,7 +395,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                       console  : {componentRef: 'Console',   title: 'Console',   kind: 'terminal'}
                   },
                   nodes: {
-                      root       : {type: 'edge-zone', zones: {right: 'side-tabs'}},
+                      root       : {type: 'edge-zone', zones: {right: {nodeId: 'side-tabs'}}},
                       'side-tabs': {
                           type: 'tabs', items: ['inspector', 'timeline', 'console'], activeItemId: 'inspector'
                       }
@@ -408,7 +408,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                       workbench: {componentRef: 'Workbench', title: 'Workbench', kind: 'panel'}
                   },
                   nodes: {
-                      'popup-root': {type: 'edge-zone', zones: {center: 'popup-tabs'}},
+                      'popup-root': {type: 'edge-zone', zones: {center: {nodeId: 'popup-tabs'}}},
                       'popup-tabs': {type: 'tabs', items: ['workbench'], activeItemId: 'workbench'}
                   }
               };

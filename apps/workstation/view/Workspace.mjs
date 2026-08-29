@@ -1315,7 +1315,7 @@ class Workspace extends DockWorkspace {
             root  : `workstation-vessel-root:${itemId}`,
             items : {},
             nodes : {
-                [`workstation-vessel-root:${itemId}`]: {type: 'edge-zone', zones: {center: tabsNodeId}},
+                [`workstation-vessel-root:${itemId}`]: {type: 'edge-zone', zones: {center: {nodeId: tabsNodeId}}},
                 [tabsNodeId]                         : {type: 'tabs', items: [], activeItemId: null}
             }
         }
@@ -2126,7 +2126,7 @@ class Workspace extends DockWorkspace {
         let {geometryOnly = false, operation = null, preserveItemIds} = descriptor || {};
 
         return {
-            geometryOnly  : geometryOnly === true || operation === 'resizeSplit',
+            geometryOnly  : geometryOnly === true || ['resizeEdgeZone', 'resizeSplit'].includes(operation),
             retainTopology: operation === 'detachItem' || operation === 'transferNode',
             ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
         }

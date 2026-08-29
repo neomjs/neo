@@ -24,7 +24,10 @@ const createDocument = () => ({
     nodes: {
         root: {
             type : 'edge-zone',
-            zones: {center: 'main-tabs', right: 'side-tabs'}
+            zones: {
+                center: {nodeId: 'main-tabs'},
+                right : {nodeId: 'side-tabs', extent: 0.25, resizable: true}
+            }
         },
         'main-tabs': {type: 'tabs', items: ['editor'],   activeItemId: 'editor'},
         'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}

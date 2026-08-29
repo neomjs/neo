@@ -26,7 +26,7 @@ const createDocument = () => ({
         terminal: {componentRef: 'Terminal', title: 'Terminal', kind: 'terminal'}
     },
     nodes: {
-        root         : {type: 'edge-zone', zones: {center: 'root-split'}},
+        root         : {type: 'edge-zone', zones: {center: {nodeId: 'root-split'}}},
         'root-split' : {type: 'split', orientation: 'horizontal', children: ['editor-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
         'editor-tabs': {type: 'tabs', items: ['editor'],              activeItemId: 'editor'},
         'side-tabs'  : {type: 'tabs', items: ['preview', 'terminal'], activeItemId: 'preview'}
@@ -636,22 +636,26 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         await side.set({activeIndex: 1});
         expect(closeAction.hidden, 'explicit false is projected into live availability').toBe(true);
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].activeItemId).toBe('terminal');
 
         const refused = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
 
         expect(refused.errors).toEqual(['item "terminal" is not closable']);
-        expect(workspace.getDockZoneDocument()).toBe(document);
-        expect(workspace.refreshPromise).toBeNull();
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].activeItemId).toBe('terminal');
         expect(side.activeIndex).toBe(1);
         expect(side.getActionItem('close')).toBe(closeAction);
         expect(focusTargets).toEqual([]);
+
+        const activationRefresh = workspace.refreshPromise;
 
         workspace.dockModel = null;
 
         const noDocument = workspace.onDockHeaderAction({action: 'close', dockNodeId: 'side-tabs', tabContainer: side});
 
         expect(noDocument.errors).toEqual(['Dock close action requires a committed document']);
-        expect(workspace.refreshPromise).toBeNull();
+        expect(workspace.refreshPromise).toBe(activationRefresh);
         expect(focusTargets).toEqual([]);
 
         workspace.dockModel = document;
@@ -664,12 +668,59 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
 
         const retainedSide = tabsOf(workspace.items[0]).get('side-tabs');
 
-        expect(commits.map(item => item.itemId)).toEqual(['terminal', 'preview']);
+        expect(commits.map(item => [item.operation, item.itemId])).toEqual([
+            ['setActiveItem', 'terminal'],
+            ['closeItem',     'terminal'],
+            ['closeItem',     'preview']
+        ]);
         expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['terminal']);
         expect(retainedSide).toBe(side);
         expect(retainedSide.getActionItem('close')).toBe(closeAction);
         expect(closeAction.hidden).toBe(true);
         expect(focusTargets).toEqual(['terminal'])
+    });
+
+    test('tab activation commits with close actions disabled and survives unrelated re-projection', async () => {
+        const document = createDocument();
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const tabs  = tabsOf(workspace.items[0]),
+            side    = tabs.get('side-tabs'),
+            commits = [],
+            apply   = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        expect(side.getActionItem?.('close')).toBeFalsy();
+
+        await side.set({activeIndex: 1});
+        await workspace.refreshPromise;
+
+        expect(commits).toEqual([{
+            operation : 'setActiveItem',
+            tabsNodeId: 'side-tabs',
+            itemId    : 'terminal'
+        }]);
+        expect(workspace.dockModel.nodes['side-tabs'].activeItemId).toBe('terminal');
+        expect(tabsOf(workspace.items[0]).get('side-tabs')).toBe(side);
+        expect(side.activeIndex).toBe(1);
+
+        const resized = workspace.applyDockZoneOperation({
+            operation  : 'resizeSplit',
+            splitNodeId: 'root-split',
+            sizes      : [0.7, 0.3]
+        });
+
+        workspace.onDockZoneDocumentChange(resized.document, {operation: 'resizeSplit'}, workspace);
+        await workspace.refreshPromise;
+
+        expect(workspace.dockModel.nodes['side-tabs'].activeItemId).toBe('terminal');
+        expect(side.activeIndex).toBe(1);
+        expect(commits).toHaveLength(2)
     });
 
     test('a model-ahead close targets live chrome but focuses the model-selected successor', async () => {

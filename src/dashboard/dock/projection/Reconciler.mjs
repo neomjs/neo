@@ -112,9 +112,10 @@ class Reconciler extends Base {
      * @summary Reconciles a geometry-only projection without moving live dock chrome.
      *
      * The fast path is deliberately strict: dock-node ancestry/order, split orientation, tab item
-     * order, and active selection must all be unchanged. Only then may projected child `flex`
-     * values be applied to the retained shell in place. Any structural or ownership delta defers
-     * to the staged descendant → ancestor transaction in {@link #reconcileProjection}.
+     * order, and active selection must all be unchanged. Only then may projected child geometry
+     * (`flex`, `width`, and `height`) be applied to the retained shell in place. Any structural or
+     * ownership delta defers to the staged descendant → ancestor transaction in
+     * {@link #reconcileProjection}.
      * @param {Neo.component.Base} oldShell
      * @param {Object} nextConfig
      * @param {Map<String,Neo.component.Base>} placeholders
@@ -169,7 +170,9 @@ class Reconciler extends Base {
             plans       = new Map();
 
         nextNodes.forEach((next, nodeId) => {
-            const current = currentNodes.get(nodeId).node;
+            const
+                current    = currentNodes.get(nodeId).node,
+                dimensions = {};
 
             if (Object.hasOwn(next.node, 'flex')) {
                 current.setSilent({
@@ -177,6 +180,14 @@ class Reconciler extends Base {
                     wrapperStyle: {...current.wrapperStyle, flex: next.node.flex ?? null}
                 })
             }
+
+            for (const key of ['height', 'width']) {
+                if (Object.hasOwn(next.node, key) && current[key] !== next.node[key]) {
+                    dimensions[key] = next.node[key]
+                }
+            }
+
+            Object.keys(dimensions).length && current.set(dimensions);
 
             if (next.type === 'tabs') {
                 plans.set(nodeId, {

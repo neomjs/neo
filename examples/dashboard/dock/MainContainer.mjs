@@ -34,7 +34,13 @@ const initialDockModel = {
         history  : {componentRef: 'History',   title: 'History',   kind: 'panel'}
     },
     nodes: {
-        root            : {type: 'edge-zone', zones: {center: 'root-split', right: 'inspector-tabs'}},
+        root            : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'root-split'},
+                right : {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}
+            }
+        },
         'root-split'    : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-split'], sizes: [0.65, 0.35]},
         'main-tabs'     : {type: 'tabs',  items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history'], activeItemId: 'strategy'},
         'side-split'    : {type: 'split', orientation: 'vertical', children: ['terminal-tabs', 'logs-tabs'], sizes: [0.6, 0.4]},

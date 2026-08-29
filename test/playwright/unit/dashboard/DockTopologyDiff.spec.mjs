@@ -27,7 +27,7 @@ function doc() {
             inspector: {componentRef: 'inspector', title: 'Inspector', kind: 'inspector'}
         },
         nodes: {
-            root        : {type: 'edge-zone', zones: {center: 'main-split'}},
+            root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},
             'main-split': {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-tabs'], sizes: [0.5, 0.5]},
             'main-tabs' : {type: 'tabs', items: ['strategy', 'swarm'], activeItemId: 'swarm'},
             'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}

@@ -1318,7 +1318,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         }
     };
 
-    const createState = ({axis='width', preview=true, resizeNext=true}={}) => {
+    const createState = ({axis='width', awaitWorkerSettlement=false, preview=true, resizeNext=true}={}) => {
         const style  = createStyle({flex: '1 1 0%'}),
               target = {style};
 
@@ -1326,14 +1326,18 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
 
         resize.state = {
             axis,
+            awaitWorkerSettlement,
             coordinate   : axis === 'width' ? 'clientX' : 'clientY',
+            dragZoneId   : 'splitter-zone',
             lastSize     : 300,
             maxSize      : 590,
+            minSize      : 0,
             originalStyle: {
                 [axis]: {priority: '', value: ''},
                 flex  : {priority: '', value: '1 1 0%'}
             },
             preview,
+            parentId       : 'parent-wrapper',
             resizeNext,
             startCoordinate: 100,
             startSize      : 300,
@@ -1374,6 +1378,184 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         });
         expect(state.style.getPropertyValue('width')).toBe('');
         expect(state.style.getPropertyValue('flex')).toBe('1 1 0%')
+    });
+
+    test('CSS min/max bounds clamp both live preview and terminal output', () => {
+        const {resize, style} = createState();
+
+        Object.assign(resize.state, {minSize: 180, maxSize: 420});
+
+        expect(resize.apply({clientX: 500, clientY: 0})).toBe(180);
+        expect(style.getPropertyValue('width')).toBe('180px');
+
+        expect(resize.finish({clientX: -500, clientY: 0})).toEqual({
+            axis: 'width', size: 420, targetId: 'target-wrapper'
+        });
+        expect(style.getPropertyValue('width')).toBe('420px')
+    });
+
+    test('worker settlement keeps accepted pixels, restores rejected pixels, and rejects stale generations', () => {
+        let state = createState({awaitWorkerSettlement: true}),
+            terminal;
+
+        terminal = state.resize.finish({clientX: 190, clientY: 0});
+
+        expect(terminal).toEqual({
+            axis      : 'width',
+            generation: 1,
+            size      : 210,
+            targetId  : 'target-wrapper'
+        });
+        expect(state.style.getPropertyValue('width')).toBe('210px');
+        expect(state.resize.settle({
+            dragZoneId: 'splitter-zone',
+            generation: 2,
+            restore   : true,
+            targetId  : 'target-wrapper'
+        }), 'a stale verdict cannot touch the current terminal').toBe(false);
+        expect(state.style.getPropertyValue('width')).toBe('210px');
+        expect(state.resize.settle({
+            dragZoneId: 'splitter-zone',
+            generation: 1,
+            restore   : true,
+            targetId  : 'target-wrapper'
+        })).toBe(true);
+        expect(state.style.getPropertyValue('width')).toBe('');
+        expect(state.style.getPropertyValue('flex')).toBe('1 1 0%');
+        expect(state.resize.pendingTerminal).toBeNull();
+
+        state    = createState({awaitWorkerSettlement: true});
+        terminal = state.resize.finish({clientX: 180, clientY: 0});
+
+        expect(state.resize.settle({
+            dragZoneId: 'splitter-zone',
+            generation: terminal.generation,
+            targetId  : 'target-wrapper'
+        })).toBe(true);
+        expect(state.style.getPropertyValue('width'), 'acceptance retains terminal pixels until projection owns them')
+            .toBe('220px');
+        expect(state.resize.pendingTerminal).toBeNull()
+    });
+
+    test('a same-gesture registration replaces a retired target and replays the latest pointer frame', () => {
+        const
+            first             = createState(),
+            replacementStyle  = createStyle({flex: '1 1 0%'}),
+            replacementTarget = {style: replacementStyle};
+
+        first.resize.apply({clientX: 150, clientY: 0});
+        first.resize.gesture = {
+            clientX      : 100,
+            clientY      : 0,
+            dragZoneId   : 'splitter-zone',
+            latestClientX: 180,
+            latestClientY: 0
+        };
+        first.resize.createState = config => ({
+            ...first.resize.state,
+            axis         : config.axis,
+            dragZoneId   : config.dragZoneId,
+            lastSize     : 300,
+            originalStyle: {
+                flex : {priority: '', value: '1 1 0%'},
+                width: {priority: '', value: ''}
+            },
+            parentId       : config.parentId,
+            startCoordinate: 100,
+            startSize      : 300,
+            target         : replacementTarget,
+            targetId       : config.targetId
+        });
+
+        first.resize.register({
+            dragElementRootId: 'splitter-root',
+            dragZoneId       : 'splitter-zone',
+            resizeConfig     : {
+                axis      : 'width',
+                parentId  : 'current-parent',
+                preview   : true,
+                resizeNext: true,
+                targetId  : 'current-target'
+            }
+        });
+
+        expect(first.style.getPropertyValue('width'), 'the retired target regains its original authority').toBe('');
+        expect(first.style.getPropertyValue('flex')).toBe('1 1 0%');
+        expect(first.resize.state.targetId).toBe('current-target');
+        expect(replacementStyle.getPropertyValue('width'), 'the latest frame is replayed on the current target')
+            .toBe('220px')
+    });
+
+    test('createState derives pixel bounds from the target computed style', () => {
+        const originalGetElement       = Neo.main.DomAccess.getElement,
+              originalGetLayoutRect    = Neo.main.DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              target                   = {style: createStyle({flex: '1 1 0%'})};
+
+        Neo.main.DomAccess.getElement = id => id === 'parent' ? parent : target;
+        Neo.main.DomAccess.getLayoutRect = element => element === parent
+            ? {width: 600, height: 400}
+            : {width: 300, height: 200};
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue: key => ({'min-width': '120px', 'max-width': '440px'})[key] || 'none'
+        });
+
+        try {
+            const state = new Resize().createState({
+                axis        : 'width',
+                parentId    : 'parent',
+                preview     : true,
+                resizeNext  : true,
+                splitterSize: 6,
+                targetId    : 'target'
+            }, {clientX: 100});
+
+            expect(state.minSize).toBe(120);
+            expect(state.maxSize).toBe(440)
+        } finally {
+            Neo.main.DomAccess.getElement    = originalGetElement;
+            Neo.main.DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
+    });
+
+    test('createState resolves percentage bounds against the parent layout axis', () => {
+        const originalGetElement       = Neo.main.DomAccess.getElement,
+              originalGetLayoutRect    = Neo.main.DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              target                   = {style: createStyle({flex: '1 1 0%'})};
+
+        Neo.main.DomAccess.getElement = id => id === 'parent' ? parent : target;
+        Neo.main.DomAccess.getLayoutRect = element => element === parent
+            ? {width: 800, height: 600}
+            : {width: 240, height: 180};
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue: key => ({'min-width': '120px', 'max-width': '50%'})[key] || 'none'
+        });
+
+        try {
+            const state = new Resize().createState({
+                axis        : 'width',
+                parentId    : 'parent',
+                preview     : true,
+                resizeNext  : true,
+                splitterSize: 6,
+                targetId    : 'target'
+            }, {clientX: 100});
+
+            expect(state.minSize).toBe(120);
+            expect(state.maxSize, '50% is half the 800px parent, not the literal number 50').toBe(400)
+        } finally {
+            Neo.main.DomAccess.getElement    = originalGetElement;
+            Neo.main.DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
     });
 
     test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {

@@ -47,11 +47,11 @@ flowchart TD
     classDef cross fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
     Document["The committed document<br/>neo.dock.zone.v1 — persisted JSON tree<br/>owned by ONE workspace container"]:::doc
-    Model["Neo.dashboard.dock.model.Document<br/>the pure reducer: applyOperation"]:::doc
+    Model["Neo.dashboard.dock.model.Operations<br/>the pure semantic reducer"]:::doc
     Adapter["projection.LayoutAdapter.project()<br/>document → ordinary Neo configs"]:::proj
     Reconciler["projection.Reconciler<br/>hands LIVE components across projections"]:::proj
     Surfaces["Interaction surfaces<br/>TabSortZone · DockSplitter · Rail<br/>PreviewProducer → Preview"]:::inter
-    Descriptors["operation descriptors<br/>moveItem · splitNode · addTab · resizeSplit<br/>detachItem · transferItem · moveNode"]:::inter
+    Descriptors["operation descriptors<br/>setActiveItem · resizeSplit · resizeEdgeZone<br/>moveItem · splitNode · addTab · detachItem"]:::inter
     Coordinator["Neo.manager.DragCoordinator<br/>cross-window arbitration — dock-BLIND"]:::cross
     Arbiter["GestureClaimArbiter<br/>one token per gesture, deterministic winner"]:::cross
     Vessels["Vessel lifecycle<br/>window.TearOut choreography · VesselEmbodiment<br/>VesselConversion · VesselPark"]:::cross
@@ -142,7 +142,7 @@ before it lands ([ADR 0029 §2.1](../../agentos/decisions/0029-docking-design.md
 
 | If you are looking at… | It lives in… | Persisted? |
 |---|---|---|
-| the dock tree, item catalog, `sizes`, `pinned`/`autoHidden`, saved layouts and perspectives | **worker-owned shared truth** — the workspace container's committed documents | yes — serializable by contract |
+| the dock tree, item catalog, tab `activeItemId`, split `sizes`, edge `extent`/`resizable`, `pinned`/`autoHidden`, saved layouts and perspectives | **worker-owned shared truth** — the workspace container's committed documents | yes — serializable by contract |
 | projected configs, edge rails, splitter affordances, tab headers | **per-window render projection** — `projection.LayoutAdapter.project()` output | never — derived |
 | drag previews, hover state, reveal state of an auto-hidden pane, mid-drag splitter math | **per-window runtime interaction state** | never — dies with the gesture |
 | DOM nodes, `DOMRect`s, screen coordinates, native window geometry | **main-thread-only state** — addons and window managers | never — delivered upward as semantic events only |
@@ -153,12 +153,26 @@ perspective into a changed window topology is therefore *semantic recovery*: con
 placement in the tree, never at stored pixels, and a window that cannot be re-created costs you nothing but the
 window. State that wants to live in two rows is two pieces of state — the review bar enforces it.
 
+### Tabs and edge splitters use the same commit boundary
+
+A tab click changes the live `Neo.tab.Container.activeIndex`, then immediately emits `setActiveItem` with the stable
+tabs-node and item ids. That is why selecting a non-first tab survives a later resize, perspective restore, or unrelated
+re-projection: the next projection reads the committed `activeItemId` instead of a stale default.
+
+An edge splitter keeps its move frames even further from the document. The generic main-thread resize path previews
+the real band under its CSS min/max bounds; the App Worker sees no move-frame writes. Release converts the final bounded
+pixel size into one normalized `resizeEdgeZone` operation. Escape or rejection restores the previous presentation and
+commits nothing. Split-node splitters keep their own `resizeSplit` operation; split `sizes` and edge `extent` never
+share an authority.
+
+Auto-hide does not discard an edge's size. The rail reveal reads the owning edge descriptor's committed extent, and a
+perspective captures that same descriptor. The workspace fallback fraction is only for an edge that has never committed
+an extent.
+
 ## Adopting docking in your application
 
-The engine owns the host loop every consumer used to copy. The workstation app (`apps/workstation/`) — the dense
-twenty-pane cockpit — has migrated onto the engine class, so two live consumers now prove the shape: measure your
-own adoption against `examples/dashboard/dock/` (minimal) or the workstation (richest). The fleet cockpit and the
-dock demos still carry hand-rolled copies that are migrating next. The checklist below is the compressed form;
+The engine owns the host loop every consumer used to copy. Two live consumers prove the shape: measure your adoption
+against `examples/dashboard/dock/` (minimal) or `apps/workstation/` (high-density). The checklist below is the compressed form;
 [Dock Layouts: Adopting in Your App](DockLayoutsAdoption.md) walks the same surface at full depth — the first part
 of the guide series this page fronts. Once you extend the class, the adoption surface is:
 
@@ -187,12 +201,13 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    that joins the SharedWorker session; detached panes arrive at runtime. The canonical example is the cross-window
    demo's `?popout` boot branch (`examples/dashboard/crossWindow/Viewport.mjs`), whose own JSDoc says it all: "This
    window carries no workspace of its own; the opener's workspace reparents the live pane into it on connect."
-5. **Persist through the wrappers, not by hand.** `createSavedLayout` / `restoreSavedLayout` and the
-   perspective-carrying `neo.dock.layout.v1` envelope give you named, switchable, fail-closed-validated arrangements.
+5. **Persist through the wrappers, not by hand.** `model.Persistence` and
+   `persistence.PerspectiveLibrary` use the perspective-carrying `neo.dock.layout.v1` envelope for named,
+   switchable, fail-closed-validated arrangements.
    Restore refuses invalid documents wholesale — your users' layouts never half-restore.
 
-Styling arrives through the engine's token layer. The dock's visual language is being promoted from app stylesheets
-into `resources/scss/src/dashboard/` as neutral `--dock-*` tokens, so a consumer skins the affordances by
+Styling arrives through the engine's token layer. The dock's visual language lives in
+`resources/scss/src/dashboard/Container.scss` as neutral `--dock-*` tokens, so a consumer skins the affordances by
 overriding tokens rather than re-painting internals — the same discipline as every other engine surface.
 
 ## The wire vocabulary — one greenfield family

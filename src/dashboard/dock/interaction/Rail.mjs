@@ -286,7 +286,7 @@ class Rail extends Container {
     /**
      * Commits a dock-zone operation descriptor through the owning reducer callback, falling back to
      * a local `Operations.applyOperation()` — identical commit contract to
-     * `DockSplitter.commitResizeSplit()` so dashboard reducers handle every affordance with one
+     * `DockSplitter.commitResizeOperation()` so dashboard reducers handle every affordance with one
      * code path. The rail commits `setItemPinned` (the overlay pin escape); reveal/dismiss never
      * commit anything.
      * @param {Object} descriptor
@@ -622,9 +622,8 @@ class Rail extends Container {
     }
 
     /**
-     * Resolves the overlay's free-dimension extent for an item: the share its owning split last
-     * committed (still in the document), else `null` — the overlay then falls back to its
-     * workspace-configurable default fraction.
+     * Resolves the overlay's free-dimension extent from the owning edge descriptor, else `null` —
+     * the overlay then falls back to its workspace-configurable pre-commit fraction.
      * @param {String} itemId
      * @returns {Number|null}
      * @protected
@@ -634,7 +633,9 @@ class Rail extends Container {
 
         // Runtime namespace lookup avoids an import cycle (the adapter imports this class);
         // fail-soft to null — the overlay then uses its default fraction.
-        return document ? (Neo.dashboard?.dock?.projection?.LayoutAdapter?.resolveRevealExtent(document, itemId) ?? null) : null
+        return document
+            ? (Neo.dashboard?.dock?.projection?.LayoutAdapter?.resolveRevealExtent(document, itemId) ?? null)
+            : null
     }
 
     /**

@@ -331,12 +331,16 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
 
         const ownMembers = Object.getOwnPropertyNames(Object.getPrototypeOf(splitter));
 
-        for (const inherited of ['createDragZone', 'refreshDragZone', 'onDragCancel', 'applyResize', 'construct', 'destroy']) {
+        for (const inherited of ['createDragZone', 'refreshDragZone', 'applyResize', 'construct', 'destroy']) {
             expect(ownMembers, `${inherited} stays inherited from the generic Splitter`).not.toContain(inherited)
         }
 
-        // the dock terminal is the one deliberate override, and the generation fence exists
+        // the deliberate dock overrides compose on top of the generic machinery: the semantic
+        // terminal, the state-clearing cancel (semantics leaf), and the fenced start — and the
+        // generation fence exists
         expect(ownMembers).toContain('onDragEnd');
+        expect(ownMembers).toContain('onDragCancel');
+        expect(ownMembers).toContain('onDragStart');
         expect(Number.isInteger(splitter.dragGeneration)).toBe(true)
     });
 });

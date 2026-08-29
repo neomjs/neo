@@ -105,8 +105,8 @@ const createEdgeZoneModel = () => ({
         root: {
             type : 'edge-zone',
             zones: {
-                center: 'main-tabs',
-                right : 'side-split'
+                center: {nodeId: 'main-tabs'},
+                right : {nodeId: 'side-split', extent: 0.3, resizable: true}
             }
         },
         'main-tabs': {
@@ -150,7 +150,13 @@ const createTabsBandModel = () => ({
         operator: {componentRef: 'operator', title: 'Operator', kind: 'tool',      autoHidden: true}
     },
     nodes: {
-        root       : {type: 'edge-zone', zones: {center: 'main-tabs', right: 'tool-tabs'}},
+        root       : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'main-tabs'},
+                right : {nodeId: 'tool-tabs', extent: 0.25, resizable: true}
+            }
+        },
         'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
         'tool-tabs': {type: 'tabs', items: ['detail', 'operator'], activeItemId: 'detail'}
     }
@@ -437,8 +443,9 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 })
             }),
             row    = result.items[0],
-            center = row.items[0],
-            right  = row.items[1],
+            center = row.items.find(item => item.dockNodeId === 'main-tabs'),
+            right  = row.items.find(item => item.dockNodeId === 'side-split'),
+            edgeSplitter = row.items.find(item => item.data?.operation === 'resizeEdgeZone'),
             rightChildren = getProjectedChildren(right);
 
         expect(result.dockNodeType).toBe('edge-zone');
@@ -451,8 +458,64 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(center.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
 
         expect(right.layout).toEqual({ntype: 'vbox', align: 'stretch'});
+        expect(right.width).toBe('30%');
         expect(rightChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
         expect(rightChildren.map(item => item.items[0].data.dockItemId)).toEqual(['terminal', 'inspector']);
+
+        expect(edgeSplitter.module).toBe(DockSplitter);
+        expect(edgeSplitter.edge).toBe('right');
+        expect(edgeSplitter.edgeZoneId).toBe('root');
+        expect(edgeSplitter.data).toMatchObject({
+            dockNodeId : 'root',
+            edge       : 'right',
+            edgeZoneId : 'root',
+            operation  : 'resizeEdgeZone',
+            orientation: 'horizontal'
+        })
+    });
+
+    test('omits edge splitters when the descriptor does not opt into resizing', () => {
+        let model = createEdgeZoneModel();
+
+        model.nodes.root.zones.right.resizable = false;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row = result.items[0];
+
+        expect(row.items.some(item => item.data?.operation === 'resizeEdgeZone')).toBe(false)
+    });
+
+    test('projects left, right, and bottom splitters on their center-facing boundaries', () => {
+        let model = createEdgeZoneModel();
+
+        Object.assign(model.items, {
+            navigator: {componentRef: 'navigator', title: 'Navigator', kind: 'panel'},
+            feed     : {componentRef: 'feed',      title: 'Feed',      kind: 'panel'}
+        });
+        Object.assign(model.nodes, {
+            'left-tabs'  : {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'},
+            'bottom-tabs': {type: 'tabs', items: ['feed'],      activeItemId: 'feed'}
+        });
+        Object.assign(model.nodes.root.zones, {
+            left  : {nodeId: 'left-tabs',   extent: 0.2,  resizable: true},
+            bottom: {nodeId: 'bottom-tabs', extent: 0.25, resizable: true}
+        });
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row       = result.items.find(item => item.dockNodeType === 'edge-zone-row'),
+            splitters = [...row.items, ...result.items].filter(item => item.data?.operation === 'resizeEdgeZone');
+
+        expect(splitters.map(item => item.edge)).toEqual(['left', 'right', 'bottom']);
+        expect(row.items.indexOf(row.items.find(item => item.dockNodeId === 'left-tabs')))
+            .toBeLessThan(row.items.indexOf(row.items.find(item => item.edge === 'left')));
+        expect(row.items.indexOf(row.items.find(item => item.edge === 'right')))
+            .toBeLessThan(row.items.indexOf(row.items.find(item => item.dockNodeId === 'side-split')));
+        expect(result.items.indexOf(result.items.find(item => item.edge === 'bottom')))
+            .toBeLessThan(result.items.indexOf(result.items.find(item => item.dockNodeId === 'bottom-tabs')))
     });
 
     test('falls back to recoverable placeholders without mutating the source model', () => {
@@ -706,12 +769,13 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(rail.resolveComponentRef).toBe(resolveComponentRef)
     });
 
-    test('resolveRevealExtent returns the committed split share, else null', () => {
+    test('resolveRevealExtent returns the committed edge extent, never a nested split share', () => {
         let model = createEdgeZoneModel();
 
-        // terminal-tabs is side-split child 0: sizes [0.55, 0.45] → 0.55 share.
-        expect(DockLayoutAdapter.resolveRevealExtent(model, 'terminal')).toBeCloseTo(0.55);
-        expect(DockLayoutAdapter.resolveRevealExtent(model, 'inspector')).toBeCloseTo(0.45);
+        // Both items belong to the right edge. The nested split sizes are internal to that band;
+        // reveal uses the edge descriptor's committed extent for either item.
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'terminal')).toBeCloseTo(0.3);
+        expect(DockLayoutAdapter.resolveRevealExtent(model, 'inspector')).toBeCloseTo(0.3);
 
         // strategy's tabs node sits directly in an edge-zone slot — no ancestor split, no extent.
         expect(DockLayoutAdapter.resolveRevealExtent(model, 'strategy')).toBeNull();
@@ -726,7 +790,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         model.items.navigator    = {componentRef: 'navigator', title: 'Navigator', kind: 'panel'};
         model.nodes['left-tabs'] = {type: 'tabs', items: ['navigator'], activeItemId: 'navigator'};
-        model.nodes.root.zones.left = 'left-tabs';
+        model.nodes.root.zones.left = {nodeId: 'left-tabs', extent: 0.2, resizable: true};
 
         model.items.navigator.autoHidden = true;
         model.items.terminal.autoHidden  = true;
@@ -970,7 +1034,8 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 onDockStackDragTerminal: data => terminals.push(data),
                 resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             });
-            const mainTabs = result.items[0].items[0];
+            const mainTabs = result.items[0].items.find(item => item.dockNodeId === 'main-tabs');
+            const side     = result.items[0].items.find(item => item.dockNodeId === 'side-split');
             const header   = mainTabs.items[1].header;
 
             expect(mainTabs.items[0].header.text).toBe('Strategy');
@@ -983,7 +1048,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                 title        : 'Drag whole stack'
             });
             expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBe('main-tabs');
-            expect(result.items[0].items[1].items[0].headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
+            expect(side.items[0].headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
 
             mainTabs.listeners.dockStackDragTerminal({groupNodeId: 'main-tabs'});
             expect(terminals).toEqual([{groupNodeId: 'main-tabs'}]);

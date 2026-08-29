@@ -110,7 +110,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
         const finale = holder.dockZoneDocument;
 
         expect(finale.nodes['side-tabs'].items).toEqual(['preview', 'terminal', 'logs']);
-        expect(finale.nodes.root.zones.center).toBe('editor-tabs');
+        expect(finale.nodes.root.zones.center.nodeId).toBe('editor-tabs');
         expect(finale.items.preview.autoHidden).toBe(false);
         expect(finale.items.terminal.autoHidden).toBe(false);
         expect(finale.items.logs.autoHidden).toBe(false)

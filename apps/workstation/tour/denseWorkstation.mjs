@@ -39,7 +39,15 @@ export const initialDocument = Object.freeze({
         inspector: {componentRef: 'Inspector', title: 'Selection Inspector',          kind: 'panel', autoHidden: true}
     },
     nodes: {
-        root               : {type: 'edge-zone', zones: {center: 'split-main', left: 'left-tabs', right: 'split-right', bottom: 'bottom-tabs'}},
+        root               : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'split-main'},
+                left  : {nodeId: 'left-tabs',   extent: 0.20, resizable: true},
+                right : {nodeId: 'split-right', extent: 0.25, resizable: true},
+                bottom: {nodeId: 'bottom-tabs', extent: 0.25, resizable: true}
+            }
+        },
         'split-main'       : {type: 'split', orientation: 'horizontal', children: ['scale-tabs', 'heavy-tabs'], sizes: [0.6, 0.4]},
         'scale-tabs'       : {type: 'tabs', items: ['scale'], activeItemId: 'scale'},
         'heavy-tabs'       : {type: 'tabs', items: ['alerts', 'activity', 'topology', 'runtime', 'traces', 'logs', 'console', 'builds', 'deploys', 'security', 'memory', 'files'], activeItemId: 'alerts'},

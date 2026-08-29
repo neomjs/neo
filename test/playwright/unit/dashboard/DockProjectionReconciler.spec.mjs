@@ -48,6 +48,26 @@ const createSplitModel = () => ({
     }
 });
 
+const createEdgeModel = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root-edge',
+    items : {
+        center: {componentRef: 'center', kind: 'panel', title: 'Center'},
+        left  : {componentRef: 'left',   kind: 'panel', title: 'Left'}
+    },
+    nodes: {
+        'center-tabs': {activeItemId: 'center', items: ['center'], type: 'tabs'},
+        'left-tabs'  : {activeItemId: 'left',   items: ['left'],   type: 'tabs'},
+        'root-edge'  : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'center-tabs'},
+                left  : {nodeId: 'left-tabs', extent: 0.2, resizable: true}
+            }
+        }
+    }
+});
+
 const createThreeChildSplitModel = () => {
     const model = createSplitModel();
 
@@ -411,6 +431,25 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(placeholders.size).toBe(0)
         } finally {
             host.destroy()
+        }
+    });
+
+    test('updates a retained edge band to the newly committed percentage extent', async () => {
+        const receipt = await reconcileModel(createEdgeModel(), nextModel => {
+            nextModel.nodes['root-edge'].zones.left.extent = 0.26
+        }, {geometryOnly: true});
+
+        try {
+            const
+                currentTabs = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell),
+                leftTab     = currentTabs.get('left-tabs');
+
+            expect(receipt.result.nextShell).toBe(receipt.oldShell);
+            expect(receipt.stagedCount).toBe(0);
+            expect(leftTab.width).toBe('26%');
+            expect(leftTab.getVdomRoot().width).toBe('26%')
+        } finally {
+            receipt.host.destroy()
         }
     });
 

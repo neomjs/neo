@@ -230,7 +230,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         const doc = workspace.getDockZoneDocument();
 
         expect(doc).not.toBe(initialDocument);
-        expect(doc.nodes.root.zones.center).toBe('workbench-tabs');
+        expect(doc.nodes.root.zones.center.nodeId).toBe('workbench-tabs');
         expect(doc.nodes['side-tabs'].items).toEqual(['inspector', 'timeline', 'console'])
     });
 
@@ -272,7 +272,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         expect(loaded.loaded).toBe(true);
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeUndefined();
-        expect(workspace.getDockZoneDocument().nodes.root.zones.center).toBe('workbench-tabs')
+        expect(workspace.getDockZoneDocument().nodes.root.zones.center.nodeId).toBe('workbench-tabs')
     });
 
     test('loading an unknown perspective fails closed and mutates nothing', () => {

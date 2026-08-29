@@ -28,7 +28,7 @@ function sourceDoc() {
             terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}
         },
         nodes: {
-            root       : {type: 'edge-zone', zones: {center: 'main-tabs', right: 'side-tabs'}},
+            root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, right: {nodeId: 'side-tabs'}}},
             'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
             'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
         }
@@ -42,7 +42,7 @@ function targetDoc() {
         root  : 'root',
         items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
         nodes : {
-            root       : {type: 'edge-zone', zones: {center: 'main-tabs'}},
+            root       : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}}},
             'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
         }
     }
@@ -240,7 +240,7 @@ test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — works
         const transfers = [];
 
         target.nodes['target-tabs'] = target.nodes['main-tabs'];
-        target.nodes.root.zones.center = 'target-tabs';
+        target.nodes.root.zones.center.nodeId = 'target-tabs';
         delete target.nodes['main-tabs'];
 
         const create = commitTransfer => Neo.create(DockCrossWindowParticipation, {

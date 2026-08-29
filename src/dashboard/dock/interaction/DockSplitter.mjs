@@ -8,10 +8,12 @@ import NeoArray   from '../../../util/Array.mjs';
  * The generic parent owns every gesture mechanic — eager DragZone creation and registration,
  * per-gesture refresh, proxy handling, generation fencing, Escape/cancel restoration, and
  * teardown. This class adds ONLY the dock semantics on top: pointer geometry stays runtime-only,
- * the terminal converts the captured adjacent-pair sizes into one `resizeSplit` descriptor, and
+ * the terminal converts captured runtime geometry into one `resizeSplit` or `resizeEdgeZone`
+ * descriptor, and
  * the commit flows through `Operations.applyOperation()` or a supplied owning reducer callback.
- * No main-thread resize registration exists here: the deferred proxy presentation is the dock
- * default, and a live adjacent-pair preview is a separate feature seam consuming this class.
+ * Split-node affordances keep the deferred proxy presentation and register no main-thread resize;
+ * edge-zone affordances reuse the generic live sibling-resize path, then commit only its bounded
+ * terminal fraction. Live adjacent-pair split preview remains a separate feature seam.
  *
  * The public split vocabulary stays dock-shaped: `orientation` describes the SPLIT NODE
  * (`horizontal` = side-by-side children), which maps onto the generic parent's `direction`
@@ -84,7 +86,7 @@ class DockSplitter extends Splitter {
          */
         dockZoneDocument_: null,
         /**
-         * Notified after a successful local document commit.
+         * View-sync callback. Notified after a successful local document commit.
          * @member {Function|null} onDockZoneDocumentChange=null
          */
         onDockZoneDocumentChange: null,
@@ -215,7 +217,8 @@ class DockSplitter extends Splitter {
     }
 
     /**
-     * Captures child sizes at drag start so drag completion can stay model-order based.
+     * Captures the parent axis plus child sizes at drag start. Split terminals stay model-order
+     * based; edge terminals normalize their CSS-bounded pixel result against the same parent box.
      * @param {Object} data
      * @returns {Promise<Object>}
      */
@@ -243,8 +246,9 @@ class DockSplitter extends Splitter {
         });
 
         me.dragStartState = {
-            clientX: data.clientX,
-            clientY: data.clientY,
+            clientX   : data.clientX,
+            clientY   : data.clientY,
+            parentSize: Number(rects[0]?.[axis]),
             sizes
         };
 
@@ -256,7 +260,7 @@ class DockSplitter extends Splitter {
      * @returns {{document:(Object|null), errors:String[]}}
      * @protected
      */
-    commitResizeSplit(descriptor) {
+    commitResizeOperation(descriptor) {
         let me     = this,
             result = null;
 
@@ -269,7 +273,7 @@ class DockSplitter extends Splitter {
         if (!result) {
             result = {
                 document: me.dockZoneDocument,
-                errors  : ['DockSplitter requires `dockZoneDocument` or `applyDockZoneOperation` to commit resizeSplit.']
+                errors  : ['DockSplitter requires `dockZoneDocument` or `applyDockZoneOperation` to commit a resize operation.']
             }
         }
 
@@ -285,6 +289,18 @@ class DockSplitter extends Splitter {
     }
 
     /**
+     * @summary Creates the one semantic resize descriptor matching this projected affordance.
+     * @param {Object} data Main-thread terminal payload.
+     * @returns {Object}
+     * @protected
+     */
+    createResizeDescriptor(data={}) {
+        return this.isEdgeZoneResize()
+            ? Neo.dashboard.dock.projection.LayoutAdapter.createResizeEdgeZoneOperation(this, this.resolveEdgeExtent(data))
+            : this.createResizeSplitDescriptor(data)
+    }
+
+    /**
      * @param {Object} data
      * @returns {Object}
      * @protected
@@ -294,14 +310,26 @@ class DockSplitter extends Splitter {
     }
 
     /**
-     * The dock splitter registers no main-thread resize: the committed document is the sole size
+     * Split-node affordances register no main-thread resize: the committed document is the sole size
      * authority, so the deferred proxy presentation carries the gesture and the terminal commits
-     * semantically. A live adjacent-pair preview is a separate feature seam.
+     * semantically. Edge affordances use the inherited main-thread descriptor because their adjacent
+     * band must preview live under CSS min/max bounds; only the normalized terminal enters the document.
      * @returns {Object|null}
      * @protected
      */
     getResizeConfig() {
-        return null
+        let config = this.isEdgeZoneResize() ? super.getResizeConfig() : null;
+
+        return config ? {...config, awaitWorkerSettlement: true} : null
+    }
+
+    /**
+     * @summary Whether this projection commits the extent of an edge-zone descriptor.
+     * @returns {Boolean}
+     * @protected
+     */
+    isEdgeZoneResize() {
+        return typeof this.edgeZoneId === 'string' && typeof this.edge === 'string'
     }
 
     /**
@@ -345,42 +373,89 @@ class DockSplitter extends Splitter {
 
     /**
      * The dock terminal: generic teardown first (generation fence, presentation restore, zone
-     * end), then EXACTLY one semantic commit derived from the captured pair — never a sibling
-     * `wrapperStyle` write, which is the generic parent's terminal and stays overridden here.
+     * end), then EXACTLY one semantic commit derived from captured runtime geometry — never a
+     * sibling `wrapperStyle` write, which is the generic parent's terminal and stays overridden here.
      * @param {Object} data
      * @returns {Object}
      */
     onDragEnd(data={}) {
         let me         = this,
+            edgeResize = me.isEdgeZoneResize(),
             hasCapture = Boolean(me.dragStartState) || Array.isArray(data.sizes),
-            descriptor = hasCapture ? me.createResizeSplitDescriptor(data) : null,
+            descriptor = null,
             result;
 
         me.dragGeneration++;
         me.cleanupResize();
         me.dragZone?.dragEnd(data);
 
-        // The end-overtakes-start race: a real-pointer release can land while the async start
-        // path is still capturing. A terminal without capture state (and no explicit vector) is
-        // not a gesture — committing would write a zero-delta operation; reject loudly instead.
-        if (!hasCapture) {
-            result = {
-                document: me.dockZoneDocument ?? null,
-                errors  : ['DockSplitter received a terminal without capture state; no resizeSplit was committed.']
+        try {
+            if (data.cancelled) {
+                result = {document: me.dockZoneDocument, errors: []}
             }
-        } else {
-            result = me.commitResizeSplit(descriptor)
+            // The end-overtakes-start race: a real-pointer release can land while the async start
+            // path is still capturing. A terminal without capture state (and no explicit vector) is
+            // not a gesture — committing would write a zero-delta operation; reject loudly instead.
+            else if (!hasCapture) {
+                result = {
+                    document: me.dockZoneDocument ?? null,
+                    errors  : ['DockSplitter received a terminal without capture state; no semantic resize was committed.']
+                }
+            } else {
+                descriptor = me.createResizeDescriptor(data);
+                result     = me.commitResizeOperation(descriptor)
+            }
+        } catch (error) {
+            edgeResize && me.settleMainThreadResize(data, true);
+            me.dragStartState = null;
+            throw error
         }
 
-        me.fire(result.errors?.length ? 'dockSplitterResizeRejected' : 'dockSplitterResize', {
-            descriptor,
-            result,
-            splitter: me
-        });
+        edgeResize && me.settleMainThreadResize(data, data.cancelled || Boolean(result.errors?.length));
+
+        if (!data.cancelled) {
+            me.fire(result.errors?.length ? 'dockSplitterResizeRejected' : 'dockSplitterResize', {
+                descriptor,
+                result,
+                splitter: me
+            })
+        }
 
         me.dragStartState = null;
 
         return result
+    }
+
+    /**
+     * Routes the semantic terminal verdict to the generation-scoped main-thread preview owner.
+     * @param {Object} data
+     * @param {Number} data.resizeGeneration
+     * @param {String} data.resizeTargetId
+     * @param {Boolean} restore
+     * @protected
+     */
+    settleMainThreadResize(data, restore) {
+        if (!Number.isInteger(data.resizeGeneration)) return;
+
+        this.dragZone?.settleResize?.({
+            resizeGeneration: data.resizeGeneration,
+            resizeTargetId  : data.resizeTargetId,
+            restore
+        })?.catch?.(error => {
+            error !== Neo.isDestroyed && console.error('DockSplitter: main-thread resize settlement failed', error)
+        })
+    }
+
+    /**
+     * Clears the dock-only geometry snapshot when Escape closes the logical gesture. The generic
+     * parent restores presentation; the native sensor suppresses its later drag:end after cancel,
+     * so this state cannot rely on the cancelled onDragEnd() branch for retirement.
+     * @param {Object} data
+     * @protected
+     */
+    onDragCancel(data={}) {
+        super.onDragCancel(data);
+        this.dragStartState = null
     }
 
     /**
@@ -406,6 +481,21 @@ class DockSplitter extends Splitter {
         }
 
         await super.onDragStart(data)
+    }
+
+    /**
+     * @summary Normalizes the CSS-bounded terminal pixel size against the captured parent axis.
+     * @param {Object} data Main-thread terminal payload.
+     * @returns {Number} Fractional extent; invalid geometry deliberately reaches the reducer as `NaN`.
+     * @protected
+     */
+    resolveEdgeExtent(data={}) {
+        const parentSize = Number(this.dragStartState?.parentSize),
+              size       = Number(data.resizeSize);
+
+        return Number.isFinite(parentSize) && parentSize > 0 && Number.isFinite(size)
+            ? size / parentSize
+            : Number.NaN
     }
 
     /**

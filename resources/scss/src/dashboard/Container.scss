@@ -424,19 +424,27 @@
     // `.neo-dashboard` zones, so declaring these tokens on every dashboard would shadow
     // application values inherited from the actual query host.
     &-left {
-        inline-size: var(--dock-edge-band-left-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
+        inline-size    : var(--dock-edge-band-left-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
+        max-inline-size: var(--dock-edge-band-left-max-inline-size, var(--dock-edge-band-max-inline-size, 50%));
+        min-inline-size: var(--dock-edge-band-left-min-inline-size, var(--dock-edge-band-min-inline-size, 8rem));
     }
 
     &-right {
-        inline-size: var(--dock-edge-band-right-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
+        inline-size    : var(--dock-edge-band-right-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
+        max-inline-size: var(--dock-edge-band-right-max-inline-size, var(--dock-edge-band-max-inline-size, 50%));
+        min-inline-size: var(--dock-edge-band-right-min-inline-size, var(--dock-edge-band-min-inline-size, 8rem));
     }
 
     &-top {
-        block-size: var(--dock-edge-band-top-block-size, var(--dock-edge-band-block-size, 12.5rem));
+        block-size    : var(--dock-edge-band-top-block-size, var(--dock-edge-band-block-size, 12.5rem));
+        max-block-size: var(--dock-edge-band-top-max-block-size, var(--dock-edge-band-max-block-size, 50%));
+        min-block-size: var(--dock-edge-band-top-min-block-size, var(--dock-edge-band-min-block-size, 6rem));
     }
 
     &-bottom {
-        block-size: var(--dock-edge-band-bottom-block-size, var(--dock-edge-band-block-size, 12.5rem));
+        block-size    : var(--dock-edge-band-bottom-block-size, var(--dock-edge-band-block-size, 12.5rem));
+        max-block-size: var(--dock-edge-band-bottom-max-block-size, var(--dock-edge-band-max-block-size, 50%));
+        min-block-size: var(--dock-edge-band-bottom-min-block-size, var(--dock-edge-band-min-block-size, 6rem));
     }
 }
 

@@ -498,10 +498,11 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
  * reported against. A witness that assembles its own consumer cannot answer whether THAT page got
  * fixed — it can only show the parts work when someone wires them correctly.
  *
- * The example needs no interaction: its initial dock document commits two splits, so both splitter
- * orientations render on load. And it sets no `themes` in its config, so it boots under the LEGACY
- * `neo-theme-light` — which makes this the strongest available statement of the floor. A consumer
- * that opted into nothing, not even a neo theme, still gets a findable drag target.
+ * The example needs no interaction: its initial dock document commits two splits plus one resizable
+ * Inspector edge, so three splitters across both orientations render on load. And it sets no `themes`
+ * in its config, so it boots under the LEGACY `neo-theme-light` — which makes this the strongest
+ * available statement of the floor. A consumer that opted into nothing, not even a neo theme, still
+ * gets a findable drag target.
  */
 test.describe('examples/dashboard/dock — the consumer the defect was reported against', () => {
     test('gets a visible splitter with no app tokens at all', async ({page}) => {
@@ -538,8 +539,10 @@ test.describe('examples/dashboard/dock — the consumer the defect was reported 
             return result
         });
 
-        expect(measured.splitters.length, 'the example commits two splits, so both orientations render')
-            .toBe(2);
+        expect(measured.splitters.length, 'two split boundaries plus the Inspector edge render')
+            .toBe(3);
+        expect(new Set(measured.splitters.map(splitter => splitter.horizontal)), 'both orientations remain covered')
+            .toEqual(new Set([false, true]));
         expect(measured.theme, 'and it boots under the legacy theme it never opted out of')
             .toContain('neo-theme-light');
         expect(measured.appSetsTokens, 'precondition: no app override is in play').toBe(false);
