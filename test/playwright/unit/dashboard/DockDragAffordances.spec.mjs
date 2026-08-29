@@ -186,6 +186,53 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         destroyAll(rig)
     });
 
+    test('an edge-zone root with a descriptor-shaped center still offers the root edge chips', async () => {
+        // The regression fingerprint: `zones.center` is a DESCRIPTOR ({nodeId}) in the current
+        // schema, and passing it raw where the producer requires a node-id string trips the
+        // fail-closed guard — the candidate set arrives with root: null and every container
+        // edge chip stays off, silently, for every edge-zone-rooted workspace.
+        const rig   = compose(),
+              rects = {
+                  host : {x: 0, y: 0, width: 800, height: 600},
+                  left : {x: 0, y: 0, width: 400, height: 600},
+                  right: {x: 400, y: 0, width: 400, height: 600}
+              };
+
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : rig.owner.dockModel.items,
+            nodes : {
+                root        : {type: 'edge-zone', zones: {center: {nodeId: 'split-main'}, bottom: {nodeId: 'left-tabs', extent: 0.25, resizable: true}}},
+                'split-main': {type: 'split', orientation: 'horizontal', children: ['left-tabs', 'right-tabs'], sizes: [0.5, 0.5]},
+                'left-tabs' : {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'},
+                'right-tabs': {type: 'tabs', items: ['gamma'], activeItemId: 'gamma'}
+            }
+        };
+
+        rig.controller.host = {
+            id: 'host-1',
+            down(selector) {
+                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
+            },
+            getDomRect: async () => [rects.host, rects.left, rects.right]
+        };
+
+        const geometry = await rig.controller.ensureGeometry();
+
+        // the unwrapped STRING is what the producer's id guard accepts
+        expect(geometry.root.nodeId).toBe('split-main');
+
+        await rig.controller.onDragMove({clientX: 200, clientY: 300, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+        expect(rig.indicators.candidateSet?.zone?.nodeId).toBe('left-tabs');
+        expect(rig.indicators.candidateSet?.root, 'the root chip family must be offered').toBeTruthy();
+        expect(rig.indicators.candidateSet.root.nodeId).toBe('split-main');
+        expect(rig.indicators.candidateSet.root.chips.map(chip => chip.edge)).toEqual(['top', 'right', 'bottom', 'left']);
+
+        destroyAll(rig)
+    });
+
     test('the production measurement path: measure, map, and the degenerate self-heal', async () => {
         const rig   = compose(),
               rects = {

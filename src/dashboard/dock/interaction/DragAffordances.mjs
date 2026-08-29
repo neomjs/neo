@@ -1,4 +1,5 @@
 import Base                 from '../../../core/Base.mjs';
+import Document             from '../model/Document.mjs';
 import PreviewProducer      from './PreviewProducer.mjs';
 import {previewToOperation} from '../model/PreviewContract.mjs';
 
@@ -122,8 +123,10 @@ class DragAffordances extends Base {
                 .filter(nodeId => nodes[nodeId].type === 'tabs')
                 .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
                 .filter(zone => zone.container),
+            // a zone entry is a DESCRIPTOR (string | {nodeId}) — the canonical unwrap keeps the
+            // producer's fail-closed id guard from silently dropping every root edge chip
             rootId      = nodes[me.owner.dockModel.root]?.type === 'edge-zone'
-                ? (nodes[me.owner.dockModel.root].zones?.center ?? me.owner.dockModel.root)
+                ? (Document.getZoneNodeId(nodes[me.owner.dockModel.root].zones?.center) ?? me.owner.dockModel.root)
                 : me.owner.dockModel.root;
 
         me.dragGeometry = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
