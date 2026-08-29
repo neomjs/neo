@@ -209,22 +209,84 @@ test.describe('Neo.menu.List spawn animation', () => {
         expect(animationName).not.toBe('none')
     });
 
-    test('arrow-key navigation reaches items during the entrance window', async ({page}) => {
-        menuId = await createMenu(page, {animateSpawn: true});
-        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+    test('propagates a later animateSpawn change to an already-cached submenu, both ways', async ({page}) => {
+        // Created with the flag OFF, so the submenu is cached without it — the exact case a
+        // creation-time copy cannot reach.
+        menuId = await createMenu(page);
 
-        // The entrance animates opacity and `translate`; neither removes an element from the
-        // navigator's `node.offsetParent && node.matches(selector)` filter. An implementation reaching
-        // for `display` or `visibility` would drop every item out of keyboard reach for its duration,
-        // which is exactly the regression this pins.
-        const reachable = await page.evaluate(() => {
-            const node = document.querySelector('.neo-menu-list');
+        await openSubMenu(page);
 
-            return [...node.querySelectorAll('.neo-list-item')]
-                .every(item => item.offsetParent !== null)
+        const subMenuHasCls = () => page.evaluate(() => {
+            const menus = [...document.querySelectorAll('.neo-menu-list')];
+
+            // The submenu is the level the root does not own; identify it by its resolved zone.
+            return menus.find(node => node.classList.contains('neo-aligned-right'))
+                ?.classList.contains('neo-animate-spawn') ?? null
         });
 
-        expect(reachable).toBe(true)
+        expect(await subMenuHasCls()).toBe(false);
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, animateSpawn: true}), menuId);
+        await expect.poll(subMenuHasCls).toBe(true);
+
+        // …and back off again: a one-way propagation would leave the cascade animating forever.
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, animateSpawn: false}), menuId);
+        await expect.poll(subMenuHasCls).toBe(false)
+    });
+
+    test('arrow-key navigation works during the entrance window', async ({page}) => {
+        // Three rows on purpose: with the single-item default, ArrowDown has nowhere to move and an
+        // "an item is active" assertion passes without the key ever arriving.
+        menuId = await createMenu(page, {
+            animateSpawn: true,
+            items       : [{id: 'one', text: 'One'}, {id: 'two', text: 'Two'}, {id: 'three', text: 'Three'}]
+        });
+        await expect(page.locator('.neo-menu-list')).toHaveCount(1);
+
+        // Hold the entrance open deterministically instead of racing a 200ms animation: pause the
+        // running animation early, so every key below is pressed while the menu is mid-entrance.
+        const paused = await page.evaluate(() => {
+            const anim = document.querySelector('.neo-menu-list')?.getAnimations()[0];
+
+            if (!anim) { return false }
+
+            anim.pause();
+            anim.currentTime = 10;
+
+            return true
+        });
+
+        expect(paused).toBe(true);
+
+        // Drive the real key and observe the navigator, rather than asserting a property that merely
+        // WOULD break — `offsetParent` being non-null does not prove a key reaches anything.
+        const activeText = () => page.evaluate(
+            () => document.querySelector('.neo-navigator-active-item')?.textContent.trim() ?? null
+        );
+
+        await page.locator('.neo-menu-list .neo-list-item').first().focus();
+
+        const before = await activeText();
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(activeText).not.toBe(before);
+
+        const after = await activeText();
+
+        // Non-vacuity: an item is already active on focus, so `exists` alone would pass without the
+        // key ever arriving. The witness is that the key MOVED the navigator.
+        expect(after).not.toBeNull();
+        expect(after).not.toBe(before);
+
+        // The animation must still have been mid-flight while that happened, or the window was not
+        // the thing under test.
+        const stillMidEntrance = await page.evaluate(() => {
+            const anim = document.querySelector('.neo-menu-list')?.getAnimations()[0];
+
+            return anim ? anim.playState === 'paused' && Number(anim.currentTime) < 200 : false
+        });
+
+        expect(stillMidEntrance).toBe(true)
     });
 
     test('collapses to instant under prefers-reduced-motion', async ({page}) => {
