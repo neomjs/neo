@@ -160,8 +160,9 @@ tabs-node and item ids. That is why selecting a non-first tab survives a later r
 re-projection: the next projection reads the committed `activeItemId` instead of a stale default.
 
 Every dock splitter previews live on the main thread by default (`liveResize: true`), and the App Worker sees no
-move-frame writes on either kind. An edge splitter resizes its real band under the band's CSS min/max bounds and
-releases into one normalized `resizeEdgeZone` operation. A split-node splitter previews the **conserved adjacent
+move-frame writes on either kind. An edge splitter resizes its real band under the band's CSS min/max bounds — floored
+at one committable pixel, because a valid edge `extent` is strictly between 0 and 1 and the preview never paints a
+frame the document model would refuse — and releases into one normalized `resizeEdgeZone` operation. A split-node splitter previews the **conserved adjacent
 pair**: the two model-order children around the boundary change complementarily each frame — their total constant,
 the clamp window the intersection of both members' CSS bounds — and release commits exactly one `resizeSplit` whose
 vector equals the final previewed geometry, so re-projection never jumps. Escape or a rejected commit restores the
