@@ -150,6 +150,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Context Menu](https://neomjs.com/examples/menu/context/index.html)
 - [Neo MenuList](https://neomjs.com/examples/menu/list/index.html)
 - [Neo Menu](https://neomjs.com/examples/menu/panel/index.html)
+- [Neo MenuList TreeStore](https://neomjs.com/examples/menu/tree/index.html)
 - [Neo Panels](https://neomjs.com/examples/panel/index.html)
 - [Neo Tree](https://neomjs.com/examples/popover/index.html)
 - [Preloading Assets](https://neomjs.com/examples/preloadingAssets/index.html)
