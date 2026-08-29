@@ -228,20 +228,27 @@ class DockSplitter extends Splitter {
     /**
      * Captures the parent axis plus child sizes at drag start. Split terminals stay model-order
      * based; edge terminals normalize their CSS-bounded pixel result against the same parent box.
+     *
+     * Measurement identity matches the main-thread descriptor exactly: the OUTER layout
+     * participants (`getLayoutElementId()` — a custom-root component keeps its public id on an
+     * inner node) measured transform-immune (`getLayoutRect()`), so captured sizes, the live
+     * preview, and the committed vector all speak about the same boxes.
      * @param {Object} data
      * @returns {Promise<Object>}
      */
     async captureDragStart(data={}) {
         let me       = this,
             children = me.getSplitChildItems(),
-            ids      = [me.parent?.id, ...children.map(item => item.id)].filter(Boolean),
+            ids      = me.parent
+                ? [me.getLayoutElementId(me.parent), ...children.map(item => me.getLayoutElementId(item))]
+                : [],
             rects    = [],
             axis     = me.getSizeAxis(),
             sizes;
 
-        if (ids.length && me.parent?.getDomRect) {
+        if (ids.length && me.parent?.getLayoutRect) {
             try {
-                rects = await me.parent.getDomRect(ids)
+                rects = await me.parent.getLayoutRect(ids)
             } catch (error) {
                 rects = []
             }

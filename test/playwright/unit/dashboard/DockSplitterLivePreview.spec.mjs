@@ -65,7 +65,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — live pair preview
             destroy() {}, dragEnd() {}, dragStart() {}, isDestroyed: false,
             async registerZone() {}, set() {}
         };
-        container.getDomRect = async () => [{width: 600}, {width: 300}, {width: 300}];
+        container.getLayoutRect = async () => [{width: 600}, {width: 300}, {width: 300}];
         return splitter
     };
 
@@ -134,6 +134,36 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — live pair preview
         // a terminal without a settlement generation (proxy presentation) never calls settle
         const proxy = await drive({liveResize: false}, {});
         expect(proxy).toEqual([])
+    });
+
+    test('capture measures the same outer layout boxes the descriptor registers: custom roots, transform-immune', async () => {
+        mount();
+
+        // custom vdom roots: the public id lives on an inner node; the WRAPPER participates in
+        // layout — descriptor and capture must both speak wrapper ids, or preview and commit
+        // reason about different boxes
+        container.vdom.id        = 'wrap-parent';
+        container.items[0].vdom.id = 'wrap-a';
+        container.items[2].vdom.id = 'wrap-b';
+
+        const requested = [],
+              layout    = {'wrap-parent': {width: 600}, 'wrap-a': {width: 220}, 'wrap-b': {width: 380}};
+
+        // the discriminator: only wrapper ids resolve to layout truth — an inner-id request
+        // (the pre-fix basis) would fall through to the zero shape and fail the size asserts
+        container.getLayoutRect = async ids => {
+            requested.push(...ids);
+            return ids.map(id => layout[id] || {width: 0})
+        };
+
+        const descriptor = splitter.getResizeConfig(),
+              state      = await splitter.captureDragStart({clientX: 300, clientY: 150});
+
+        expect(requested).toEqual(['wrap-parent', 'wrap-a', 'wrap-b']);
+        expect([descriptor.parentId, descriptor.targetId, descriptor.counterTargetId])
+            .toEqual(['wrap-parent', 'wrap-a', 'wrap-b']);
+        expect(state.sizes).toEqual([220, 380]);
+        expect(state.parentSize).toBe(600)
     });
 
     test('opting back into liveResize at runtime re-registers the pair descriptor', async () => {

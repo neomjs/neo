@@ -77,10 +77,13 @@ const seededPerspectives = [{
  *
  * The engine class owns the whole host loop: the committed document ({@link #dockModel}), the pure
  * reducer (`applyDockZoneOperation`), the deferred, promise-chained re-projection through
- * `DockLayoutAdapter` and `DockProjectionReconciler` (`onDockZoneDocumentChange`), the FLIP motion
- * bracket, and the in-window cross-zone drop path. Dragging a splitter commits a `resizeSplit`
- * operation through `DockZoneModel`, and the layout re-projects from the new committed document —
- * the example adds nothing to that mechanism.
+ * `projection.LayoutAdapter` and `projection.Reconciler` (`onDockZoneDocumentChange`), the FLIP
+ * motion bracket, and the in-window cross-zone drop path. Every splitter previews live by default:
+ * a split boundary moves its conserved adjacent pair on the main thread (totals constant, both
+ * members' CSS bounds respected) and the edge boundary resizes its band the same way — release
+ * commits exactly one `resizeSplit` / `resizeEdgeZone` matching the final preview, Escape restores
+ * the exact pre-drag geometry, and the layout re-projects from the new committed document — the
+ * example adds nothing to that mechanism.
  *
  * What the example owns is exactly what an adopting app owns: which pane renders a catalog item
  * ({@link #resolvePane}), and its own chrome — a perspective toolbar consuming the saved-layout

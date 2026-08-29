@@ -84,13 +84,13 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         expect(splitter.getSplitChildItems().map(item => item.id)).toEqual(['equiv-pane-a', 'equiv-pane-b']);
 
         // rect arm: deterministic child geometry, splitter excluded from the vector
-        container.getDomRect = async () => [{width: 600}, {width: 250}, {width: 350}];
+        container.getLayoutRect = async () => [{width: 600}, {width: 250}, {width: 350}];
         let state = await splitter.captureDragStart({clientX: 300, clientY: 150});
         expect(state.clientX).toBe(300);
         expect(state.sizes).toEqual([250, 350]);
 
         // fallback arm: a failed rect read degrades to flex weights, never throws
-        container.getDomRect = async () => { throw new Error('detached') };
+        container.getLayoutRect = async () => { throw new Error('detached') };
         state = await splitter.captureDragStart({clientX: 310, clientY: 150});
         expect(state.sizes).toEqual([1, 2])
     });
@@ -188,7 +188,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
 
         const zoneStarts = [];
         splitter.dragZone.dragStart = data => zoneStarts.push(data);
-        container.getDomRect = async () => [{width: 600}, {width: 300}, {width: 300}];
+        container.getLayoutRect = async () => [{width: 600}, {width: 300}, {width: 300}];
 
         await splitter.onDragStart({clientX: 300, clientY: 150});
 
@@ -202,7 +202,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         let release;
         const zoneStarts = [];
         splitter.dragZone.dragStart = data => zoneStarts.push(data);
-        container.getDomRect = () => new Promise(resolve => {
+        container.getLayoutRect = () => new Promise(resolve => {
             release = () => resolve([{width: 600}, {width: 300}, {width: 300}])
         });
 
@@ -222,7 +222,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         let release;
         const zoneStarts = [];
         splitter.dragZone.dragStart = data => zoneStarts.push(data);
-        container.getDomRect = () => new Promise(resolve => {
+        container.getLayoutRect = () => new Promise(resolve => {
             release = () => resolve([{width: 600}, {width: 300}, {width: 300}])
         });
 
@@ -240,7 +240,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
 
         const releases = [], zoneStarts = [];
         splitter.dragZone.dragStart = data => zoneStarts.push(data);
-        container.getDomRect = () => new Promise(resolve => {
+        container.getLayoutRect = () => new Promise(resolve => {
             releases.push(() => resolve([{width: 600}, {width: 300}, {width: 300}]))
         });
 
@@ -262,7 +262,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         splitter.onDockZoneDocumentChange = (document, descriptor) => commits.push(descriptor);
         splitter.on('dockSplitterResizeRejected', payload => rejected.push(payload));
         splitter.dragZone.dragStart = data => zoneStarts.push(data);
-        container.getDomRect = () => new Promise(resolve => {
+        container.getLayoutRect = () => new Promise(resolve => {
             release = () => resolve([{width: 600}, {width: 300}, {width: 300}])
         });
 
@@ -286,7 +286,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         const zoneEnds = [];
         splitter.dragZone.dragStart = async () => { splitter.dragGeneration++ };
         splitter.dragZone.dragEnd   = data => zoneEnds.push(data);
-        container.getDomRect = async () => [{width: 600}, {width: 300}, {width: 300}];
+        container.getLayoutRect = async () => [{width: 600}, {width: 300}, {width: 300}];
 
         await splitter.onDragStart({clientX: 300, clientY: 150});
 

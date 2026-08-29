@@ -47,7 +47,7 @@ const createParent = () => ({
         {dockNodeType: 'splitter', id: 'dock-splitter-placeholder'},
         {dockNodeType: 'tabs', flex: 0.3, id: 'right-component'}
     ],
-    getDomRect(ids) {
+    getLayoutRect(ids) {
         return Promise.resolve(ids.map(id => {
             if (id === 'dock-parent') {
                 return {height: 500, width: 1000, x: 0, y: 0}
@@ -90,7 +90,7 @@ const createEdgeParent = () => ({
         {dockNodeType: 'splitter', id: 'edge-splitter-placeholder'},
         {dockNodeType: 'tabs', flex: 1, id: 'center-component', vdom: {id: 'center-wrapper'}}
     ],
-    getDomRect(ids) {
+    getLayoutRect(ids) {
         return Promise.resolve(ids.map(id => {
             if (id === 'edge-parent') return {height: 600, width: 1000, x: 0, y: 0};
             if (id === 'left-component') return {height: 600, width: 200, x: 0, y: 0};

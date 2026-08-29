@@ -105,6 +105,11 @@ The adapter projects the right boundary splitter automatically. Move frames resi
 min/max bounds; release emits one `resizeEdgeZone` operation. The descriptor is also what auto-hide reveal and
 perspective restore read, so there is no app-side size map to maintain.
 
+Split boundaries need even less from you: every projected split splitter previews the conserved adjacent pair live by
+default — both panes track the pointer with their total constant, bounded by both members' CSS min/max — and release
+commits one `resizeSplit` equal to the final preview. There is nothing to enable; set `liveResize: false` on a
+splitter only when you explicitly want the deferred proxy-and-commit presentation back.
+
 Tab activation is equally automatic. Every projected tab strip converts its live `activeIndex` change into
 `setActiveItem`; this does not depend on close-action chrome being enabled. Do not mirror the selected tab in app state
 or add a listener of your own—the next projection reads the committed `activeItemId`.
