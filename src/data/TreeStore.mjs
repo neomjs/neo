@@ -1164,7 +1164,25 @@ class TreeStore extends Store {
             }
         }
 
-        // --- 3. Synchronize ARIA Stats ---
+        // --- 3. Re-apply the active sort to levels the projection will not touch ---
+        //
+        // A mutation with a visible delta reaches `super.splice()` below, and the Collection's own
+        // sort re-orders every structural level on the way through. A mutation confined to a
+        // collapsed branch never gets there, so its children would keep insertion order while
+        // `getChildren()` documents that order follows the store's active sort — the tree renders
+        // correctly on expansion and reports the wrong order until then.
+        //
+        // This must precede `updateSiblingStats`, which assigns `siblingIndex` by array position:
+        // sorting afterwards would leave the ARIA indices describing the pre-sort order.
+        if (me.sorters?.length > 0 && visibleToAdd.length < 1 && visibleToRemove.length < 1) {
+            for (const pid of affectedParents) {
+                const siblings = me.#childrenMap.get(pid);
+
+                siblings?.length > 1 && me.sortArray(siblings)
+            }
+        }
+
+        // --- 3b. Synchronize ARIA Stats ---
         for (const pid of affectedParents) {
             me.updateSiblingStats(pid)
         }

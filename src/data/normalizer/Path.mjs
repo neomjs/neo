@@ -62,9 +62,14 @@ class Path extends Base {
         ntype: 'normalizer-path',
         /**
          * Escapes the following character, allowing a segment to contain the separator itself.
-         * @member {String} escapeChar='\\'
+         *
+         * Exactly one UTF-16 code unit, and never equal to `separator`. The parser compares one
+         * iterated character at a time, so a longer value could never match and an empty one would
+         * match nothing — both would silently parse a different tree rather than fail.
+         * @member {String} escapeChar_='\\'
+         * @reactive
          */
-        escapeChar: '\\',
+        escapeChar_: '\\',
         /**
          * The property name used for the primary key. Must match the consuming store's keyProperty.
          * @member {String} keyProperty='id'
@@ -82,9 +87,71 @@ class Path extends Base {
          */
         pathProperty: 'path',
         /**
-         * @member {String} separator='/'
+         * The character that divides one path segment from the next.
+         *
+         * Exactly one UTF-16 code unit, and never equal to `escapeChar`. See `escapeChar` for why a
+         * longer or empty value is rejected rather than tolerated.
+         * @member {String} separator_='/'
+         * @reactive
          */
-        separator: '/'
+        separator_: '/'
+    }
+
+    /**
+     * Triggered before the escapeChar config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetEscapeChar(value, oldValue) {
+        return this.validateGrammarChar('escapeChar', value, this.separator)
+    }
+
+    /**
+     * Triggered before the separator config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetSeparator(value, oldValue) {
+        return this.validateGrammarChar('separator', value, this.escapeChar)
+    }
+
+    /**
+     * Rejects a grammar character the parser cannot honour.
+     *
+     * The parser walks the path one UTF-16 code unit at a time and compares that unit to the whole
+     * config value, so anything but a single unit silently changes the grammar instead of failing:
+     * `'::'` never matches and collapses the path to one segment, `''` matches nothing, and a
+     * separator equal to the escape character makes every divider escape the one that follows it.
+     * Each of those produces a *different tree*, not an error — which is exactly the silent
+     * divergence this class exists to remove, so the configuration fails closed instead.
+     *
+     * @param {String} name The config being set, used in the error message
+     * @param {String} value
+     * @param {String|undefined} other The counterpart config, when it has already been applied
+     * @protected
+     * @returns {String}
+     * @throws {Error} If the value is not a single code unit, or collides with its counterpart.
+     */
+    validateGrammarChar(name, value, other) {
+        const me = this;
+
+        if (!Neo.isString(value) || value.length !== 1) {
+            throw new Error(
+                `${me.className}: ${name} must be exactly one character, got ${JSON.stringify(value)}`
+            )
+        }
+
+        if (other !== undefined && value === other) {
+            throw new Error(
+                `${me.className}: separator and escapeChar must differ, both are ${JSON.stringify(value)}`
+            )
+        }
+
+        return value
     }
 
     /**

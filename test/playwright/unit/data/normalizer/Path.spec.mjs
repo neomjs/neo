@@ -75,6 +75,37 @@ test.describe('Neo.data.normalizer.Path', () => {
             dotted.destroy()
         });
 
+        test('an invalid grammar config is rejected at construction, not tolerated', () => {
+            // Each of these used to parse silently into a DIFFERENT tree rather than fail:
+            //   separator ''   -> 'a/b'  became one segment
+            //   separator '::' -> never matched, so 'a::b' became one segment
+            //   escapeChar ''  -> split 'a\/b' into 'a\' and 'b'
+            //   sep === esc    -> every divider escaped the character after it
+            for (const config of [
+                {separator : ''},
+                {separator : '::'},
+                {escapeChar: ''},
+                {escapeChar: '~~'}
+            ]) {
+                expect(() => Neo.create(PathNormalizer, config)).toThrow(/exactly one character/)
+            }
+
+            expect(() => Neo.create(PathNormalizer, {separator: '/', escapeChar: '/'}))
+                .toThrow(/must differ/)
+        });
+
+        test('a valid single-character override still constructs', () => {
+            // The control: the guard rejects the broken domain without closing the working one.
+            const n = Neo.create(PathNormalizer, {separator: '.', escapeChar: '!'});
+
+            expect(n.splitPath('a!.b.c')).toEqual([
+                {id: 'a!.b',   name: 'a.b'},
+                {id: 'a!.b.c', name: 'c'}
+            ]);
+
+            n.destroy()
+        });
+
         test('an ambiguous path throws rather than resolving to a guess', () => {
             expect(() => normalizer.splitPath('/A')).toThrow(/empty segment/);
             expect(() => normalizer.splitPath('A/')).toThrow(/empty segment/);

@@ -213,6 +213,66 @@ test.describe('Neo.data.TreeStore (Path Materialization)', () => {
         })
     });
 
+    test.describe('an active sorter survives materialization into a collapsed branch', () => {
+        const sorted = () => Neo.create(TreeStore, {
+            model  : TestModel,
+            data   : [],
+            sorters: [{property: 'name', direction: 'ASC'}]
+        });
+
+        test('children of a collapsed parent come back in sort order, not arrival order', () => {
+            const store = sorted();
+
+            store.materializePath('Group/B', {name: 'B'});
+            store.materializePath('Group/A', {name: 'A'});
+
+            // Read while still collapsed: expanding would sort as a side effect and hide the defect.
+            expect(store.get('Group').collapsed).toBe(true);
+            expect(store.getChildren('Group').map(r => r.id)).toEqual(['Group/A', 'Group/B']);
+
+            store.destroy()
+        });
+
+        test('the ARIA sibling indices describe the sorted order', () => {
+            // The ordering constraint that makes this non-trivial: siblingIndex is assigned by array
+            // position, so a sort applied after the stats pass would leave the indices describing the
+            // pre-sort order — correct-looking children with wrong "n of m" for a screen reader.
+            const store = sorted();
+
+            store.materializePath('Group/B', {name: 'B'});
+            store.materializePath('Group/A', {name: 'A'});
+
+            expect(store.get('Group/A').siblingIndex).toBe(1);
+            expect(store.get('Group/B').siblingIndex).toBe(2);
+
+            store.destroy()
+        });
+
+        test('CONTROL: a plain sequential add() reaches the same path', () => {
+            // This is why the repair lives in `splice` rather than in materializePath: the divergence
+            // predates this API and is reachable with no path materialization at all. A hidden
+            // mutation never reaches `super.splice()`, which is what re-sorts the structural levels.
+            const store = sorted();
+
+            store.add({id: 'Group',   parentId: 'root',  name: 'Group', isLeaf: false});
+            store.add({id: 'Group/B', parentId: 'Group', name: 'B'});
+            store.add({id: 'Group/A', parentId: 'Group', name: 'A'});
+
+            expect(store.getChildren('Group').map(r => r.id)).toEqual(['Group/A', 'Group/B']);
+
+            store.destroy()
+        });
+
+        test('CONTROL: an unsorted store keeps declaration order', () => {
+            // The guard is conditioned on active sorters, so the default store must be untouched —
+            // otherwise this "fix" would silently impose an ordering policy on every consumer.
+            store.materializePath('Group/B', {name: 'B'});
+            store.materializePath('Group/A', {name: 'A'});
+
+            expect(store.getChildren('Group').map(r => r.id)).toEqual(['Group/B', 'Group/A'])
+        })
+    });
+
     test.describe('AC-6: an escaped separator is one segment', () => {
         test('a segment containing the separator does not become two levels', () => {
             const leaf = store.materializePath('a\\/b/c');
