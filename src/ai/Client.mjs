@@ -1,10 +1,11 @@
-import Base                 from '../core/Base.mjs';
-import ClassSystemUtil      from '../util/ClassSystem.mjs';
-import ComponentService     from './client/ComponentService.mjs';
-import DataService          from './client/DataService.mjs';
-import DockService          from './client/DockService.mjs';
-import InstanceService      from './client/InstanceService.mjs';
-import InteractionService   from './client/InteractionService.mjs';
+import Base             from '../core/Base.mjs';
+import ClassSystemUtil  from '../util/ClassSystem.mjs';
+import ComponentService from './client/ComponentService.mjs';
+import DataService      from './client/DataService.mjs';
+import DockService      from './client/DockService.mjs';
+import InstanceService  from './client/InstanceService.mjs';
+import InteractionService, {registerInteractionServiceMethods}
+                            from './client/InteractionService.mjs';
 import RuntimeService       from './client/RuntimeService.mjs';
 import Socket               from '../data/connection/WebSocket.mjs';
 import WindowManager        from '../manager/Window.mjs';
@@ -167,9 +168,10 @@ class Client extends Base {
             patch_code           : runtime,
             position_window      : runtime,
             reload_page          : runtime,
-            set_route            : runtime,
-            simulate_event       : interaction
+            set_route            : runtime
         };
+
+        registerInteractionServiceMethods(me.serviceMap, interaction);
 
         Neo.currentWorker.on({
             connect   : me.onAppWorkerWindowConnect,

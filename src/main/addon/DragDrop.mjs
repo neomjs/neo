@@ -222,6 +222,21 @@ class DragDrop extends Base {
     dragResize = new Resize()
 
     /**
+     * The exact Mouse sensor instance this Main realm created. Gesture automation reads its live
+     * reactive threshold values; the class defaults are not runtime authority.
+     * @member {Neo.main.draggable.sensor.Mouse|null} mouseSensor=null
+     * @protected
+     */
+    mouseSensor = null
+
+    /**
+     * Resolves when the optional Mouse sensor import and construction complete.
+     * @member {Promise<Neo.main.draggable.sensor.Mouse>|null} mouseSensorPromise=null
+     * @protected
+     */
+    mouseSensorPromise = null
+
+    /**
      * Monotonic physical-drag lifetime. Reset/start invalidates every older async native move.
      * @member {Number} windowDragGeneration=0
      * @protected
@@ -255,19 +270,30 @@ class DragDrop extends Base {
         me.addGlobalEventListeners();
 
         if (Neo.config.hasMouseEvents) {
-            imports.push(import('../draggable/sensor/Mouse.mjs'))
+            me.mouseSensorPromise = import('../draggable/sensor/Mouse.mjs').then(module => {
+                me.mouseSensor = Neo.create({module: module.default});
+
+                return me.mouseSensor
+            });
+
+            imports.push(me.mouseSensorPromise)
         }
 
         if (Neo.config.hasTouchEvents) {
-            imports.push(import('../draggable/sensor/Touch.mjs'))
+            imports.push(import('../draggable/sensor/Touch.mjs').then(module => Neo.create({module: module.default})))
         }
 
-        Promise.all(imports).then(modules => {
-            // create the Mouse- and / or TouchSensor
-            modules.forEach(module => {
-                Neo.create({module: module.default})
-            })
-        })
+        Promise.all(imports)
+    }
+
+    /**
+     * @summary Returns this Main realm's exact live Mouse sensor, waiting for its lazy construction
+     * when necessary. A caller must fail closed on `null`; copying class defaults would stop
+     * observing per-instance overrides.
+     * @returns {Promise<Neo.main.draggable.sensor.Mouse|null>}
+     */
+    async getMouseSensor() {
+        return this.mouseSensor || await this.mouseSensorPromise || null
     }
 
     /**

@@ -100,6 +100,78 @@ test.describe('Neural Link window operations (e2e)', () => {
             expect(popupWindow.ownerWindowId).toBeUndefined();
             expect(popupWindow.targetWindowId).toBeUndefined();
 
+            const
+                sourceWindow = windows.find(win => win.appName === 'Colors'),
+                sourceNodeId = 'nl-atomic-drag-source',
+                targetNodeId = 'nl-atomic-drag-target';
+
+            await page.evaluate(id => {
+                const node = document.createElement('div');
+
+                Object.assign(node, {
+                    className: 'neo-draggable',
+                    id
+                });
+                Object.assign(node.style, {
+                    height  : '40px',
+                    left    : '40px',
+                    position: 'fixed',
+                    top     : '120px',
+                    width   : '40px',
+                    zIndex  : '99999'
+                });
+                document.body.append(node)
+            }, sourceNodeId);
+
+            await popup.evaluate(id => {
+                const node = document.createElement('div');
+
+                Object.assign(node, {id});
+                Object.assign(node.style, {
+                    height  : '30px',
+                    left    : '80px',
+                    position: 'fixed',
+                    top     : '70px',
+                    width   : '50px',
+                    zIndex  : '99999'
+                });
+                document.body.append(node)
+            }, targetNodeId);
+
+            const dragReceipt = await app.driveDrag({
+                source: {
+                    targetId: sourceNodeId,
+                    windowId: sourceWindow.windowId
+                },
+                destination: {
+                    targetId: targetNodeId,
+                    windowId: popupWindow.windowId
+                },
+                durationMs: 160,
+                steps     : 8
+            });
+
+            expect(dragReceipt).toMatchObject({
+                success    : true,
+                phase      : 'complete',
+                released   : true,
+                source     : {windowId: sourceWindow.windowId},
+                destination: {windowId: popupWindow.windowId},
+                observed   : {started: true, ended: true}
+            });
+            expect(dragReceipt.observed.moveCount).toBeGreaterThan(0);
+            expect(dragReceipt.destination.screen.x - dragReceipt.destination.targetClient.x)
+                .toBeCloseTo(popupWindow.innerRect.x, 0);
+            expect(dragReceipt.destination.screen.y - dragReceipt.destination.targetClient.y)
+                .toBeCloseTo(popupWindow.innerRect.y, 0);
+            expect(dragReceipt.destination.screen.x - dragReceipt.destination.sourceEventClient.x)
+                .toBeCloseTo(sourceWindow.innerRect.x, 0);
+            expect(dragReceipt.destination.screen.y - dragReceipt.destination.sourceEventClient.y)
+                .toBeCloseTo(sourceWindow.innerRect.y, 0);
+
+            await page.evaluate(id => document.getElementById(id)?.remove(), sourceNodeId);
+            await popup.evaluate(id => document.getElementById(id)?.remove(), targetNodeId);
+
             const focusResult = await app.focusWindow(popupWindow.windowId);
             expect(focusResult).toMatchObject({
                 success : true,

@@ -144,10 +144,34 @@ await nlApp.simulateEvent([
 ]);
 ```
 
-**`simulateEvent` drives discrete events (click / key / input) — it does NOT drive a pointer drag-and-drop.** Neo's drag pipeline (grid column reordering, including locked-column / multi-region grids) is armed by a mouse-based drag sensor that requires a *real, time-spread* pointer gesture: it only fires `drag:start` once the pointer crosses its distance + delay thresholds, so a synthetic single event never arms it. To drive a column drag in an e2e, use Playwright's native mouse with a **stepped** move — the `{steps}` cadence generates the intermediate `mousemove` events the sensor needs:
+`simulateEvent` is the raw escape hatch for caller-authored event sequences. For a complete
+drag gesture, use `driveDrag`: Engine resolves live node/window geometry, reads the source
+window's live Mouse-sensor thresholds, dispatches one atomic source-document gesture, and returns
+a receipt distinguishing raw event dispatch from correlated `drag:start` / `drag:move` /
+`drag:end` observations:
 
 ```javascript
-// Real pointer-drag that arms the Mouse sensor (a synthetic single event does NOT):
+const receipt = await nlApp.driveDrag({
+    source     : {targetId: splitterId, windowId},
+    destination: {deltaX: 60, deltaY: 0},
+    steps      : 8,
+    durationMs : 160
+});
+
+expect(receipt).toMatchObject({success: true, phase: 'complete', released: true});
+expect(receipt.observed.moveCount).toBeGreaterThan(0);
+```
+
+The physical receipt deliberately says nothing about the component's semantic outcome. Assert the
+grid order, splitter size, or dock document separately through Neural Link.
+
+Use Playwright's native mouse when the test must **hold** the pointer down, inspect mid-gesture
+state, press Escape, or interleave application-specific readiness waits. `driveDrag` owns a whole
+transaction; it is not a pause/resume API. A native stepped move remains the right pattern for those
+interactive assertions:
+
+```javascript
+// Held pointer-drag for mid-interaction assertions:
 await page.mouse.move(startX, startY);
 await page.mouse.down();
 await page.mouse.move(targetX, targetY, { steps: 60 });
