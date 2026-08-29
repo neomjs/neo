@@ -94,7 +94,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
             });
 
             splitter.dragZone = {
-                dragEnd: () => {}
+                destroy: () => {}, dragEnd: () => {}, isDestroyed: false, registerZone: async () => {}, set: () => {}
             };
             splitter.on('dockSplitterResize', data => events.push(data));
 
@@ -137,7 +137,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         });
 
         splitter.dragZone = {
-            dragEnd: () => {}
+            destroy: () => {}, dragEnd: () => {}, isDestroyed: false, registerZone: async () => {}, set: () => {}
         };
         splitter.on('dockSplitterResizeRejected', data => rejected.push(data));
 
@@ -175,7 +175,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         });
 
         splitter.dragZone = {
-            dragEnd: () => {}
+            destroy: () => {}, dragEnd: () => {}, isDestroyed: false, registerZone: async () => {}, set: () => {}
         };
 
         await splitter.captureDragStart({clientX: 100, clientY: 0});
@@ -219,7 +219,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         });
 
         splitter.dragZone = {
-            dragEnd: () => {}
+            destroy: () => {}, dragEnd: () => {}, isDestroyed: false, registerZone: async () => {}, set: () => {}
         };
         splitter.on('dockSplitterResizeRejected', data => rejected.push(data));
 

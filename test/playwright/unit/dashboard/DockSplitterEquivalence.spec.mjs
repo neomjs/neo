@@ -66,7 +66,10 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         splitter.dockNodeType = 'splitter';
         // gesture-neutral zone stub: the real DragZone posts to main-thread surfaces the unit
         // environment does not own; terminal semantics under test live in the splitter itself
-        splitter.dragZone = {dragEnd() {}, dragStart() {}, set() {}, destroy() {}, isDestroyed: false};
+        splitter.dragZone = {
+            destroy() {}, dragEnd() {}, dragStart() {}, isDestroyed: false,
+            async registerZone() {}, set() {}
+        };
         return splitter
     };
 
@@ -186,5 +189,25 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         const descriptor = LayoutAdapter.createResizeSplitOperation(splitter, [0.7, 0.3]);
 
         expect(descriptor).toEqual({operation: 'resizeSplit', sizes: [0.7, 0.3], splitNodeId: 'split-1'})
+    });
+
+    test('mechanism control: the generic gesture machinery is inherited, never duplicated', async () => {
+        const GenericSplitter = (await import('../../../../src/component/Splitter.mjs')).default;
+
+        mount();
+
+        // positive control for the no-second-splitter-engine invariant: a bypass would have to
+        // re-implement one of these locally, and re-implementing any of them turns this red.
+        expect(splitter instanceof GenericSplitter).toBe(true);
+
+        const ownMembers = Object.getOwnPropertyNames(Object.getPrototypeOf(splitter));
+
+        for (const inherited of ['createDragZone', 'refreshDragZone', 'onDragCancel', 'applyResize', 'construct', 'destroy']) {
+            expect(ownMembers, `${inherited} stays inherited from the generic Splitter`).not.toContain(inherited)
+        }
+
+        // the dock terminal is the one deliberate override, and the generation fence exists
+        expect(ownMembers).toContain('onDragEnd');
+        expect(Number.isInteger(splitter.dragGeneration)).toBe(true)
     });
 });

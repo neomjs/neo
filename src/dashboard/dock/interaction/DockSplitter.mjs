@@ -1,22 +1,29 @@
-import Component  from '../../../component/Base.mjs';
-import DragZone   from '../../../draggable/DragZone.mjs';
+import Splitter   from '../../../component/Splitter.mjs';
 import Operations from '../model/Operations.mjs';
 import NeoArray   from '../../../util/Array.mjs';
 
 /**
- * @summary Runtime splitter affordance that converts drag completion into a `resizeSplit` operation.
+ * @summary Dock splitter affordance: generic Splitter mechanics, one dock-document semantic commit.
  *
- * `Neo.component.Splitter` resizes sibling styles directly. The dock-zone model is persisted JSON, so
- * this component keeps pointer geometry runtime-only and commits through `Operations.applyOperation()`
- * or a supplied owning reducer callback.
+ * The generic parent owns every gesture mechanic — eager DragZone creation and registration,
+ * per-gesture refresh, proxy handling, generation fencing, Escape/cancel restoration, and
+ * teardown. This class adds ONLY the dock semantics on top: pointer geometry stays runtime-only,
+ * the terminal converts the captured adjacent-pair sizes into one `resizeSplit` descriptor, and
+ * the commit flows through `Operations.applyOperation()` or a supplied owning reducer callback.
+ * No main-thread resize registration exists here: the deferred proxy presentation is the dock
+ * default, and a live adjacent-pair preview is a separate feature seam consuming this class.
+ *
+ * The public split vocabulary stays dock-shaped: `orientation` describes the SPLIT NODE
+ * (`horizontal` = side-by-side children), which maps onto the generic parent's `direction`
+ * (the divider bar axis) as its inverse.
  *
  * @class Neo.dashboard.dock.interaction.DockSplitter
- * @extends Neo.component.Base
+ * @extends Neo.component.Splitter
  * @see Neo.dashboard.dock.projection.LayoutAdapter
  * @see Neo.dashboard.dock.model.Document
  * @see learn/agentos/DockZoneModel.md
  */
-class DockSplitter extends Component {
+class DockSplitter extends Splitter {
     /**
      * @summary The `--dock-splitter-*` contract, projected onto the drag proxy by
      * {@link Neo.dashboard.dock.interaction.DockSplitter#projectProxyTokens}.
@@ -71,15 +78,6 @@ class DockSplitter extends Component {
          */
         boundaryIndex_: null,
         /**
-         * @member {Neo.draggable.DragZone|null} dragZone=null
-         * @protected
-         */
-        dragZone: null,
-        /**
-         * @member {Object|null} dragZoneConfig=null
-         */
-        dragZoneConfig: null,
-        /**
          * Current committed dock-zone document. Used when no reducer callback is supplied.
          * @member {Object|null} dockZoneDocument_=null
          * @reactive
@@ -92,16 +90,16 @@ class DockSplitter extends Component {
         onDockZoneDocumentChange: null,
         /**
          * Split orientation from the dock-zone model (`horizontal` means side-by-side children).
+         * Maps onto the generic `direction` config as its inverse.
          * @member {String} orientation_='horizontal'
          * @reactive
          */
         orientation_: 'horizontal',
         /**
-         * Visual splitter extent in px.
-         * @member {Number} size_=6
-         * @reactive
+         * Visual splitter extent in px (default override of the inherited reactive config).
+         * @member {Number} size=6
          */
-        size_: 6,
+        size: 6,
         /**
          * Dock-zone split node id.
          * @member {String|null} splitNodeId_=null
@@ -117,56 +115,19 @@ class DockSplitter extends Component {
     dragStartState = null
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me          = this,
-            orientation = me.getValidatedOrientation(me.orientation),
-            vertical    = orientation === 'vertical';
-
-        me.addDomListeners([
-            {'drag:end'  : me.onDragEnd,   scope: me},
-            {'drag:start': me.onDragStart, scope: me}
-        ]);
-
-        // Create the drag zone EAGERLY (not on first drag:start): the zone registers itself
-        // with the main-thread DragDrop addon at construction, which is what lets the first
-        // drag:start of a boot already carry its dragZoneId — closing the cold-start window
-        // in which the Escape guard keyed on the still-null id.
-        me.dragZone = Neo.create({
-            module             : DragZone,
-            appName            : me.appName,
-            bodyCursorStyle    : me.getCursorStyle(),
-            boundaryContainerId: me.parent?.id,
-            dragElement        : me.vdom,
-            moveHorizontal     : !vertical,
-            moveVertical       : vertical,
-            owner              : me,
-            useProxyWrapper    : false,
-            windowId           : me.windowId,
-            ...me.dragZoneConfig
-        })
-    }
-
-    /**
      * @summary Carries the splitter's resolved paint onto its drag proxy, which mounts outside the
      * cascade that produced it.
      *
      * The proxy is a clone mounted at `document.body` ({@link Neo.draggable.DragZone#proxyParentId}),
      * so it keeps the splitter's classes and loses every ancestor. That breaks the paint twice over:
      * the engine declares its `--dock-splitter-*` defaults on `.neo-dashboard`, and each consumer
-     * declares its values as a DESCENDANT rule (`.fm-fleet-cockpit .neo-dashboard-dock-splitter`,
-     * `.workstation-workspace .neo-dashboard-dock-splitter`). Detached from both, every token
-     * resolves empty and the proxy renders transparent with a zero-sized handle — the affordance
-     * disappears at exactly the moment it is telling the user they are moving something.
+     * declares its values as a DESCENDANT rule. Detached from both, every token resolves empty and
+     * the proxy renders transparent with a zero-sized handle — the affordance disappears at exactly
+     * the moment it is telling the user they are moving something.
      *
      * Reading the SOURCE element's computed values is what makes this consumer-agnostic: the source
      * has already been through the real cascade, so the projection never needs to know which class
-     * carried a value or how deeply it was nested. A scope class cannot do this — it would restore
-     * the engine floor and leave every consumer value absent, which paints the proxy WRONG rather
-     * than not at all, and wrong is the harder failure to notice.
+     * carried a value or how deeply it was nested.
      *
      * Best-effort by contract: a failed read must never block a drag. Losing the paint costs an
      * affordance; throwing here would cost the gesture.
@@ -219,6 +180,9 @@ class DockSplitter extends Component {
     }
 
     /**
+     * Maps the dock split orientation onto the generic divider direction (its inverse) and keeps
+     * the dock modifier class in sync. The parent's `afterSetDirection` then owns the axis
+     * dimension pair and the per-gesture DragZone refresh.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -226,41 +190,15 @@ class DockSplitter extends Component {
     afterSetOrientation(value, oldValue) {
         let me          = this,
             orientation = me.getValidatedOrientation(value),
-            cls         = me.cls || [],
-            height      = orientation === 'vertical' ? me.size : null,
-            width       = orientation === 'vertical' ? null    : me.size;
+            cls         = me.cls || [];
 
         if (oldValue) {
-            NeoArray.remove(cls, `neo-dashboard-dock-splitter-${oldValue}`)
+            NeoArray.remove(cls, `neo-dashboard-dock-splitter-${oldValue}`);
+            me.cls = cls
         }
 
-        NeoArray.add(cls, `neo-dashboard-dock-splitter-${orientation}`);
-
-        me.set({
-            cls,
-            height,
-            minHeight: height,
-            minWidth : width,
-            width
-        })
-    }
-
-    /**
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetSize(value, oldValue) {
-        let me     = this,
-            height = me.getValidatedOrientation(me.orientation) === 'vertical' ? value : null,
-            width  = height === null ? value : null;
-
-        me.set({
-            height,
-            minHeight: height,
-            minWidth : width,
-            width
-        })
+        // dock 'horizontal' (side-by-side children) = a vertical divider bar
+        me.direction = orientation === 'vertical' ? 'horizontal' : 'vertical'
     }
 
     /**
@@ -356,13 +294,14 @@ class DockSplitter extends Component {
     }
 
     /**
-     * @returns {String}
+     * The dock splitter registers no main-thread resize: the committed document is the sole size
+     * authority, so the deferred proxy presentation carries the gesture and the terminal commits
+     * semantically. A live adjacent-pair preview is a separate feature seam.
+     * @returns {Object|null}
      * @protected
      */
-    getCursorStyle() {
-        return this.getValidatedOrientation(this.orientation) === 'vertical'
-            ? 'ns-resize !important'
-            : 'ew-resize !important'
+    getResizeConfig() {
+        return null
     }
 
     /**
@@ -382,6 +321,20 @@ class DockSplitter extends Component {
     }
 
     /**
+     * The orientation modifier rides the read-time class union rather than a stored cls write:
+     * construct-order between this class's configs and the inherited direction processing must
+     * never decide whether the paint-bearing modifier exists.
+     * @returns {String[]}
+     */
+    getBaseClass() {
+        const result = super.getBaseClass();
+
+        result.push(`neo-dashboard-dock-splitter-${this.getValidatedOrientation(this.orientation)}`);
+
+        return result
+    }
+
+    /**
      * @param {String} orientation
      * @returns {String}
      * @protected
@@ -391,6 +344,9 @@ class DockSplitter extends Component {
     }
 
     /**
+     * The dock terminal: generic teardown first (generation fence, presentation restore, zone
+     * end), then EXACTLY one semantic commit derived from the captured pair — never a sibling
+     * `wrapperStyle` write, which is the generic parent's terminal and stays overridden here.
      * @param {Object} data
      * @returns {Object}
      */
@@ -399,18 +355,9 @@ class DockSplitter extends Component {
             descriptor = me.createResizeSplitDescriptor(data),
             result;
 
-        if (me.parent) {
-            me.parent.disabled = false
-        }
-
-        if (me.dragZone) {
-            me.dragZone.dragEnd(data)
-        }
-
-        me.style = {
-            ...(me.style || {}),
-            opacity: 1
-        };
+        me.dragGeneration++;
+        me.cleanupResize();
+        me.dragZone?.dragEnd(data);
 
         result = me.commitResizeSplit(descriptor);
 
@@ -426,34 +373,14 @@ class DockSplitter extends Component {
     }
 
     /**
+     * Captures the adjacent-pair geometry and projects the proxy paint BEFORE the generic parent
+     * refreshes the zone and starts the gesture (the proxy is created inside the parent's start).
      * @param {Object} data
      */
     async onDragStart(data={}) {
-        let me          = this,
-            orientation = me.getValidatedOrientation(me.orientation),
-            vertical    = orientation === 'vertical';
-
-        if (me.parent) {
-            me.parent.disabled = true
-        }
-
-        // The zone exists by construction — refresh the per-gesture facts that can drift
-        // (orientation-driven axes, cursor, the boundary container resolved once mounted).
-        me.dragZone.set({
-            bodyCursorStyle    : me.getCursorStyle(),
-            boundaryContainerId: me.parent?.id,
-            moveHorizontal     : !vertical,
-            moveVertical       : vertical
-        });
-
-        await me.captureDragStart(data);
-        await me.projectProxyTokens();
-        await me.dragZone.dragStart(data);
-
-        me.style = {
-            ...(me.style || {}),
-            opacity: 0.5
-        }
+        await this.captureDragStart(data);
+        await this.projectProxyTokens();
+        await super.onDragStart(data)
     }
 
     /**
