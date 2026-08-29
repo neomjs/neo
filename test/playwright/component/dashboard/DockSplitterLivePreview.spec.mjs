@@ -37,7 +37,6 @@ const mount = async (page, splitterConfig = {}, containerConfig = {}) => {
             layout    : {ntype: 'hbox', align: 'stretch'},
             parentId  : 'dock-splitter-test-viewport',
             width     : 606,
-            ...box,
             items     : [
                 {ntype: 'component', id: 'lp-a', flex: 1, style: {background: '#223'}},
                 {
@@ -55,7 +54,10 @@ const mount = async (page, splitterConfig = {}, containerConfig = {}) => {
                     ...cfg
                 },
                 {ntype: 'component', id: 'lp-b', flex: 1, style: {background: '#232'}}
-            ]
+            ],
+            // last so a scenario can override the item set (the edge witness needs a flex-free,
+            // CSS-floor-zeroed band instead of the symmetric pair)
+            ...box
         });
 
         if (!container.success) throw new Error(`container: ${container.error.message}`);
@@ -186,6 +188,76 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — live pair preview
         expect(doc.nodes['split-1'].sizes).toEqual([0.5, 0.5]);
 
         await page.mouse.up()
+    });
+
+    test('an edge drag past zero clamps at the commit-domain floor and commits — never refuse-and-restore', async ({page}) => {
+        // The reported-defect fingerprint: a theme zeroes the band's CSS minimum, a decisive
+        // inward drag previews the band to 0px, and 0 / parentSize is an extent the model refuses
+        // on the OPEN interval (0,1) — the refusal restores the pre-drag width and the gesture
+        // reads as "snaps back on drop". The edge descriptor's minSize floor keeps the preview
+        // out of the refusal domain: the band clamps at 1px and that frame COMMITS.
+        const edgeDoc = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : {
+                center: {componentRef: 'center', title: 'Center'},
+                left  : {componentRef: 'left',   title: 'Left'}
+            },
+            nodes: {
+                root: {
+                    type : 'edge-zone',
+                    zones: {
+                        center: {nodeId: 'center-tabs'},
+                        left  : {nodeId: 'left-tabs', extent: 0.2, resizable: true}
+                    }
+                },
+                'center-tabs': {type: 'tabs', items: ['center'], activeItemId: 'center'},
+                'left-tabs'  : {type: 'tabs', items: ['left'],   activeItemId: 'left'}
+            }
+        };
+
+        ({containerId} = await mount(page, {}, {
+            items: [
+                // mirror the defect surface: a fixed-width band whose CSS floor is zeroed
+                {ntype: 'component', id: 'lp-a', style: {background: '#223', minWidth: '0px'}, width: 200},
+                {
+                    ntype           : 'dashboard-dock-splitter',
+                    id              : 'lp-s',
+                    dockNodeType    : 'splitter',
+                    dockZoneDocument: edgeDoc,
+                    edge            : 'left',
+                    edgeZoneId      : 'root',
+                    orientation     : 'horizontal',
+                    resizeTarget    : 'previous'
+                },
+                {ntype: 'component', id: 'lp-b', flex: 1, style: {background: '#232'}}
+            ]
+        }));
+
+        await expect.poll(async () => (await rects(page)).a.width).toBeCloseTo(200, 0);
+
+        const box = await page.locator('#lp-s').boundingBox(),
+              cx  = box.x + box.width / 2,
+              cy  = box.y + box.height / 2;
+
+        await armDrag(page, cx, cy);
+        await page.mouse.move(cx - 300, cy, {steps: 10});
+
+        // mid-gesture: the preview clamps at the descriptor floor, not at the refused 0px frame
+        const mid = await rects(page);
+        expect(mid.a.width).toBeGreaterThanOrEqual(0.5);
+        expect(mid.a.width).toBeLessThanOrEqual(2);
+
+        await page.mouse.up();
+
+        // the floor frame commits: the extent leaves 0.2 for the 1px fraction instead of being
+        // refused back to it — and the painted band keeps the previewed floor (no snap-back)
+        await expect.poll(async () => {
+            const doc = (await getConfigs(page, 'lp-s', ['dockZoneDocument'])).dockZoneDocument;
+            return doc.nodes.root.zones.left.extent
+        }).toBeCloseTo(1 / 606, 4);
+
+        expect((await rects(page)).a.width).toBeLessThanOrEqual(2)
     });
 
     test('liveResize: false keeps panes static mid-gesture; the pointer-delta terminal still commits', async ({page}) => {

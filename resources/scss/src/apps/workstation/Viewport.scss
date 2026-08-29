@@ -138,8 +138,11 @@
 // grid cells. Those are the classes a torn-out pane carries, so those are the rules that travel.
 .workstation-viewport {
     // Grouped with `.neo-dashboard-dock-edge-band` in the workspace block. The band is chrome and
-    // stayed; this half is pane skin, so the pair split rather than moved together.
-    .neo-tab-container {
+    // stayed; this half is pane skin, so the pair split rather than moved together. A tab
+    // container that IS an edge band stays out: its drag axis carries the engine's
+    // `min-inline/block-size` floor vars (the splitter's inward resize bound), and a physical
+    // zero here out-cascades them; its cross axis is zeroed by the workspace's band rule.
+    .neo-tab-container:not(.neo-dashboard-dock-edge-band) {
         min-height: 0;
         min-width : 0;
     }

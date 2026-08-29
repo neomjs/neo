@@ -327,7 +327,9 @@ class DockSplitter extends Splitter {
 
     /**
      * Edge affordances use the inherited single-target descriptor: their band previews live under
-     * CSS min/max bounds. Split affordances emit the conserved-pair descriptor: the two model-order
+     * CSS min/max bounds plus a 1px commit-domain floor (the extent the semantic commit accepts is
+     * the open interval (0,1), so the preview must never paint the 0px frame the model refuses).
+     * Split affordances emit the conserved-pair descriptor: the two model-order
      * children around `boundaryIndex` preview complementary sizes on the main thread, and the
      * terminal's CSS-bounded pixel result feeds the exact committed vector. `liveResize: false`
      * registers nothing and retains the deferred proxy presentation. The committed document remains
@@ -341,7 +343,12 @@ class DockSplitter extends Splitter {
         if (me.isEdgeZoneResize()) {
             let config = super.getResizeConfig();
 
-            return config ? {...config, awaitWorkerSettlement: true} : null
+            // The commit-domain floor: `resizeEdgeZone` validates extent on the OPEN interval
+            // (0,1), so a preview frame at 0px is a state the model categorically refuses — a
+            // consumer whose CSS zeroes the band's min would otherwise collapse the band live,
+            // then watch the refused terminal restore it. One pixel keeps every previewable
+            // frame committable without imposing any design opinion of its own.
+            return config ? {...config, awaitWorkerSettlement: true, minSize: 1} : null
         }
 
         if (!me.liveResize) return null;
