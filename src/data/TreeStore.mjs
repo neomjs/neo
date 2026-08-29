@@ -1174,7 +1174,13 @@ class TreeStore extends Store {
         //
         // This must precede `updateSiblingStats`, which assigns `siblingIndex` by array position:
         // sorting afterwards would leave the ARIA indices describing the pre-sort order.
-        if (me.sorters?.length > 0 && visibleToAdd.length < 1 && visibleToRemove.length < 1) {
+        // `autoSort` is half the predicate, not a detail: every sort trigger in `Collection.Base` is
+        // guarded by `autoSort && sorters.length`, so a store that configured sorters and disabled
+        // automatic sorting keeps declaration order by design. Sorting on `sorters.length` alone
+        // would impose an order the consumer explicitly opted out of — and only on the hidden path,
+        // which is a fresh divergence between hidden and visible in the opposite direction from the
+        // one this block exists to close.
+        if (me.autoSort && me.sorters?.length > 0 && visibleToAdd.length < 1 && visibleToRemove.length < 1) {
             for (const pid of affectedParents) {
                 const siblings = me.#childrenMap.get(pid);
 

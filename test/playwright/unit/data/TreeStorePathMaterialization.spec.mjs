@@ -263,6 +263,44 @@ test.describe('Neo.data.TreeStore (Path Materialization)', () => {
             store.destroy()
         });
 
+        test('CONTROL: autoSort:false keeps declaration order even WITH sorters', () => {
+            // The predicate is `autoSort && sorters.length`, matching every sort trigger in
+            // `Collection.Base`. Gating on `sorters.length` alone imposed an order the consumer had
+            // explicitly opted out of — and only on the hidden path, which is a fresh divergence
+            // between hidden and visible in the opposite direction from the one being closed here.
+            const store = Neo.create(TreeStore, {
+                model   : TestModel,
+                data    : [],
+                autoSort: false,
+                sorters : [{property: 'name', direction: 'ASC'}]
+            });
+
+            store.materializePath('Group/B', {name: 'B'});
+            store.materializePath('Group/A', {name: 'A'});
+
+            expect(store.getChildren('Group').map(r => r.id)).toEqual(['Group/B', 'Group/A']);
+
+            store.destroy()
+        });
+
+        test('CONTROL: autoSort:false behaves identically on the VISIBLE path', () => {
+            // The pairing is the point: hidden and visible must agree. This arm is what proves the
+            // gate restores parity rather than inventing a second policy for collapsed branches.
+            const store = Neo.create(TreeStore, {
+                model   : TestModel,
+                data    : [],
+                autoSort: false,
+                sorters : [{property: 'name', direction: 'ASC'}]
+            });
+
+            store.add({id: 'B', parentId: 'root', name: 'B'});
+            store.add({id: 'A', parentId: 'root', name: 'A'});
+
+            expect(store.getChildren('root').map(r => r.id)).toEqual(['B', 'A']);
+
+            store.destroy()
+        });
+
         test('CONTROL: an unsorted store keeps declaration order', () => {
             // The guard is conditioned on active sorters, so the default store must be untouched —
             // otherwise this "fix" would silently impose an ordering policy on every consumer.
