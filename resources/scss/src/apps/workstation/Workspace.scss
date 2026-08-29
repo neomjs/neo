@@ -50,10 +50,19 @@
     }
 
     // The band is dock chrome and stays; `.neo-tab-container` was grouped with it and is pane
-    // skin, so the pair had to split rather than move together.
-    .neo-dashboard-dock-edge-band {
+    // skin, so the pair had to split rather than move together. Zero only the CROSS axis:
+    // the drag axis carries the engine's `min-inline/block-size` floor vars, which the
+    // splitter's live-resize clamp reads as its inward bound — a physical `min-width: 0`
+    // here out-cascades those logical floors and lets a drag collapse the band to 0px,
+    // an extent the document model refuses to commit.
+    .neo-dashboard-dock-edge-band-left,
+    .neo-dashboard-dock-edge-band-right {
         min-height: 0;
-        min-width : 0;
+    }
+
+    .neo-dashboard-dock-edge-band-bottom,
+    .neo-dashboard-dock-edge-band-top {
+        min-width: 0;
     }
 
     /* Values only. The rail's structural paint moved to `src/dashboard/Container.scss`, where the
@@ -218,16 +227,17 @@
 
 .workstation-dock-host {
     // Workstation owns density policy; the shared dashboard owns projection hooks and defaults.
-    // Root-font-relative bounds remain readable while both fluid terms follow this definite-size
-    // host, including when the standalone app becomes a child workspace.
+    // Root-font-relative floors remain readable while the fluid preferred terms follow this
+    // definite-size host, including when the standalone app becomes a child workspace.
+    // No max overrides: boot width is governed by each edge's committed document extent (the
+    // projection's inline percentage), so a rem cap here only limits how far the USER may drag —
+    // and a cap at or below the boot width pins the band with zero outward headroom. The engine's
+    // 50% default protects the center at every container size.
     --dock-edge-band-left-inline-size     : 20.3125cqi;
-    --dock-edge-band-left-max-inline-size : 16.25rem;
     --dock-edge-band-left-min-inline-size : 11.25rem;
     --dock-edge-band-right-inline-size    : 25cqi;
-    --dock-edge-band-right-max-inline-size: 20rem;
     --dock-edge-band-right-min-inline-size: 13.75rem;
     --dock-edge-band-bottom-block-size    : 28cqb;
-    --dock-edge-band-bottom-max-block-size: 12.5rem;
     --dock-edge-band-bottom-min-block-size: 8.75rem;
 
     padding : 12px;
