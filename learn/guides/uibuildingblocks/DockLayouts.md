@@ -159,11 +159,14 @@ A tab click changes the live `Neo.tab.Container.activeIndex`, then immediately e
 tabs-node and item ids. That is why selecting a non-first tab survives a later resize, perspective restore, or unrelated
 re-projection: the next projection reads the committed `activeItemId` instead of a stale default.
 
-An edge splitter keeps its move frames even further from the document. The generic main-thread resize path previews
-the real band under its CSS min/max bounds; the App Worker sees no move-frame writes. Release converts the final bounded
-pixel size into one normalized `resizeEdgeZone` operation. Escape or rejection restores the previous presentation and
-commits nothing. Split-node splitters keep their own `resizeSplit` operation; split `sizes` and edge `extent` never
-share an authority.
+Every dock splitter previews live on the main thread by default (`liveResize: true`), and the App Worker sees no
+move-frame writes on either kind. An edge splitter resizes its real band under the band's CSS min/max bounds and
+releases into one normalized `resizeEdgeZone` operation. A split-node splitter previews the **conserved adjacent
+pair**: the two model-order children around the boundary change complementarily each frame — their total constant,
+the clamp window the intersection of both members' CSS bounds — and release commits exactly one `resizeSplit` whose
+vector equals the final previewed geometry, so re-projection never jumps. Escape or a rejected commit restores the
+exact pre-drag presentation of every touched pane and commits nothing. Setting `liveResize: false` on a splitter
+restores the deferred proxy-and-commit presentation. Split `sizes` and edge `extent` never share an authority.
 
 Auto-hide does not discard an edge's size. The rail reveal reads the owning edge descriptor's committed extent, and a
 perspective captures that same descriptor. The workspace fallback fraction is only for an edge that has never committed

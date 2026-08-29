@@ -11,9 +11,11 @@ import NeoArray   from '../../../util/Array.mjs';
  * the terminal converts captured runtime geometry into one `resizeSplit` or `resizeEdgeZone`
  * descriptor, and
  * the commit flows through `Operations.applyOperation()` or a supplied owning reducer callback.
- * Split-node affordances keep the deferred proxy presentation and register no main-thread resize;
- * edge-zone affordances reuse the generic live sibling-resize path, then commit only its bounded
- * terminal fraction. Live adjacent-pair split preview remains a separate feature seam.
+ * Both affordance families preview live on the main thread by default: edge zones ride the generic
+ * single-target sibling-resize path, split boundaries ride its conserved-pair extension (the two
+ * model-order children around `boundaryIndex` change complementarily, their total constant per
+ * frame), and each commits only its bounded terminal. `liveResize: false` restores the deferred
+ * proxy presentation on either.
  *
  * The public split vocabulary stays dock-shaped: `orientation` describes the SPLIT NODE
  * (`horizontal` = side-by-side children), which maps onto the generic parent's `direction`
@@ -90,6 +92,13 @@ class DockSplitter extends Splitter {
          * @member {Function|null} onDockZoneDocumentChange=null
          */
         onDockZoneDocumentChange: null,
+        /**
+         * Dock affordances default to the proxy-free main-thread preview (default override of the
+         * inherited reactive config): edge bands resize live, split boundaries preview the
+         * conserved adjacent pair. `false` restores the deferred proxy-and-commit presentation.
+         * @member {Boolean} liveResize=true
+         */
+        liveResize: true,
         /**
          * Split orientation from the dock-zone model (`horizontal` means side-by-side children).
          * Maps onto the generic `direction` config as its inverse.
@@ -219,20 +228,27 @@ class DockSplitter extends Splitter {
     /**
      * Captures the parent axis plus child sizes at drag start. Split terminals stay model-order
      * based; edge terminals normalize their CSS-bounded pixel result against the same parent box.
+     *
+     * Measurement identity matches the main-thread descriptor exactly: the OUTER layout
+     * participants (`getLayoutElementId()` — a custom-root component keeps its public id on an
+     * inner node) measured transform-immune (`getLayoutRect()`), so captured sizes, the live
+     * preview, and the committed vector all speak about the same boxes.
      * @param {Object} data
      * @returns {Promise<Object>}
      */
     async captureDragStart(data={}) {
         let me       = this,
             children = me.getSplitChildItems(),
-            ids      = [me.parent?.id, ...children.map(item => item.id)].filter(Boolean),
+            ids      = me.parent
+                ? [me.getLayoutElementId(me.parent), ...children.map(item => me.getLayoutElementId(item))]
+                : [],
             rects    = [],
             axis     = me.getSizeAxis(),
             sizes;
 
-        if (ids.length && me.parent?.getDomRect) {
+        if (ids.length && me.parent?.getLayoutRect) {
             try {
-                rects = await me.parent.getDomRect(ids)
+                rects = await me.parent.getLayoutRect(ids)
             } catch (error) {
                 rects = []
             }
@@ -310,17 +326,47 @@ class DockSplitter extends Splitter {
     }
 
     /**
-     * Split-node affordances register no main-thread resize: the committed document is the sole size
-     * authority, so the deferred proxy presentation carries the gesture and the terminal commits
-     * semantically. Edge affordances use the inherited main-thread descriptor because their adjacent
-     * band must preview live under CSS min/max bounds; only the normalized terminal enters the document.
+     * Edge affordances use the inherited single-target descriptor: their band previews live under
+     * CSS min/max bounds. Split affordances emit the conserved-pair descriptor: the two model-order
+     * children around `boundaryIndex` preview complementary sizes on the main thread, and the
+     * terminal's CSS-bounded pixel result feeds the exact committed vector. `liveResize: false`
+     * registers nothing and retains the deferred proxy presentation. The committed document remains
+     * the sole size authority in every mode; pointer frames never cross the worker boundary.
      * @returns {Object|null}
      * @protected
      */
     getResizeConfig() {
-        let config = this.isEdgeZoneResize() ? super.getResizeConfig() : null;
+        let me = this;
 
-        return config ? {...config, awaitWorkerSettlement: true} : null
+        if (me.isEdgeZoneResize()) {
+            let config = super.getResizeConfig();
+
+            return config ? {...config, awaitWorkerSettlement: true} : null
+        }
+
+        if (!me.liveResize) return null;
+
+        let boundaryIndex = Number(me.boundaryIndex ?? me.data?.boundaryIndex),
+            children      = me.getSplitChildItems(),
+            target        = children[boundaryIndex],
+            counter       = children[boundaryIndex + 1];
+
+        // A splitter is never its own pair member: a consumer that stamps `dockNodeType` after
+        // construct would otherwise register a self-referencing descriptor whose bound-fold pins
+        // the clamp window shut — no preview beats a frozen one, and the per-gesture refresh
+        // re-registers the corrected pair.
+        if (!me.parent || !target || !counter || target === me || counter === me) return null;
+
+        return {
+            awaitWorkerSettlement: true,
+            axis                 : me.getSizeAxis(),
+            counterTargetId      : me.getLayoutElementId(counter),
+            parentId             : me.getLayoutElementId(me.parent),
+            preview              : true,
+            resizeNext           : false,
+            splitterSize         : me.size,
+            targetId             : me.getLayoutElementId(target)
+        }
     }
 
     /**
@@ -380,7 +426,6 @@ class DockSplitter extends Splitter {
      */
     onDragEnd(data={}) {
         let me         = this,
-            edgeResize = me.isEdgeZoneResize(),
             hasCapture = Boolean(me.dragStartState) || Array.isArray(data.sizes),
             descriptor = null,
             result;
@@ -406,12 +451,14 @@ class DockSplitter extends Splitter {
                 result     = me.commitResizeOperation(descriptor)
             }
         } catch (error) {
-            edgeResize && me.settleMainThreadResize(data, true);
+            me.settleMainThreadResize(data, true);
             me.dragStartState = null;
             throw error
         }
 
-        edgeResize && me.settleMainThreadResize(data, data.cancelled || Boolean(result.errors?.length));
+        // Edge AND pair terminals both await worker settlement now; the generation guard inside
+        // settleMainThreadResize scopes the call to gestures that actually opted in.
+        me.settleMainThreadResize(data, data.cancelled || Boolean(result.errors?.length));
 
         if (!data.cancelled) {
             me.fire(result.errors?.length ? 'dockSplitterResizeRejected' : 'dockSplitterResize', {
@@ -473,7 +520,11 @@ class DockSplitter extends Splitter {
             generation = ++me.dragGeneration;
 
         await me.captureDragStart(data);
-        await me.projectProxyTokens();
+
+        // the proxy paint round trip only pays off when a proxy will actually mount
+        if (!me.liveResize) {
+            await me.projectProxyTokens()
+        }
 
         if (generation !== me.dragGeneration || me.isDestroyed) {
             me.dragStartState = null;
@@ -499,6 +550,10 @@ class DockSplitter extends Splitter {
     }
 
     /**
+     * The terminal's `resizeSize` — the last CSS-bounded pixel value the main-thread preview
+     * actually painted — wins over pointer arithmetic when present, so the committed vector equals
+     * the final preview by construction and re-projection cannot jump. The pointer-delta fallback
+     * carries the proxy presentation, where no main-thread registration exists.
      * @param {Object} data
      * @returns {Number[]|null}
      * @protected
@@ -516,10 +571,18 @@ class DockSplitter extends Splitter {
             start          = Number(dragStartState?.[coordinate]),
             end            = Number(data[coordinate]),
             delta          = Number.isFinite(start) && Number.isFinite(end) ? end - start : 0,
+            terminal       = Number(data.resizeSize),
             output         = sizes.slice();
 
         if (!Number.isInteger(boundaryIndex) || boundaryIndex < 0 || boundaryIndex + 1 >= output.length) {
             return null
+        }
+
+        if (Number.isFinite(terminal) && dragStartState?.sizes) {
+            output[boundaryIndex + 1] = sizes[boundaryIndex] + sizes[boundaryIndex + 1] - terminal;
+            output[boundaryIndex]     = terminal;
+
+            return output
         }
 
         output[boundaryIndex]     += delta;
