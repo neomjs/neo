@@ -2126,7 +2126,7 @@ class Workspace extends DockWorkspace {
         let {geometryOnly = false, operation = null, preserveItemIds} = descriptor || {};
 
         return {
-            geometryOnly  : geometryOnly === true || operation === 'resizeSplit',
+            geometryOnly  : geometryOnly === true || ['resizeEdgeZone', 'resizeSplit'].includes(operation),
             retainTopology: operation === 'detachItem' || operation === 'transferNode',
             ...(Array.isArray(preserveItemIds) && preserveItemIds.length > 0 ? {preserveItemIds} : {})
         }

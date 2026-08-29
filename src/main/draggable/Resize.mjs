@@ -1,6 +1,25 @@
 import DomAccess from '../DomAccess.mjs';
 
 /**
+ * @summary Resolves one computed CSS bound into pixels against its owning layout axis.
+ *
+ * Computed styles resolve absolute units such as `rem` to pixels, but percentage min/max values
+ * remain percentages. Treating `50%` as the number 50 silently turns a half-workspace ceiling into
+ * a 50px ceiling, so percentages are resolved explicitly against the measured parent layout box.
+ * @param {String} value Computed CSS property value.
+ * @param {Number} parentSize Parent layout extent on the resize axis.
+ * @returns {Number} Pixel bound, or `NaN` when no finite bound exists.
+ */
+function resolveCssBound(value, parentSize) {
+    const source = String(value ?? '').trim(),
+          number = Number.parseFloat(source);
+
+    if (!Number.isFinite(number)) return Number.NaN;
+
+    return source.endsWith('%') ? parentSize * number / 100 : number
+}
+
+/**
  * @summary Gesture-local DOM resizing owned by the main-thread DragDrop addon.
  *
  * Pointer frames mutate only the registered target's outer layout node. The App Worker receives
@@ -113,8 +132,8 @@ class Resize {
             startSize  = Number(targetRect[config.axis]),
             layoutMax  = Math.max(0, Number(parentRect[config.axis]) - Number(config.splitterSize || 0)),
             computed   = globalThis.getComputedStyle?.(target),
-            minValue   = Number.parseFloat(computed?.getPropertyValue(`min-${config.axis}`)),
-            maxValue   = Number.parseFloat(computed?.getPropertyValue(`max-${config.axis}`)),
+            minValue   = resolveCssBound(computed?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
+            maxValue   = resolveCssBound(computed?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis])),
             minSize    = Number.isFinite(minValue) ? Math.max(0, minValue) : 0,
             maxSize    = Math.max(minSize, Math.min(layoutMax, Number.isFinite(maxValue) ? maxValue : layoutMax));
 

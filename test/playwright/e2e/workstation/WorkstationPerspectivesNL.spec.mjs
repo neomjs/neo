@@ -5,12 +5,13 @@ const {NeuralLink_DockService} = await loadNeuralLinkModules();
 /**
  * @summary Whitebox E2E witness for the Neural Link perspective path on the workstation Workspace.
  *
- * The workstation Workspace carries a `PerspectiveLibrary` (holder-resolved by the client
+ * The workstation Workspace carries a `Neo.dashboard.dock.persistence.PerspectiveLibrary`
+ * (holder-resolved by the client
  * DockService), so the agent-driven perspective trio activates on the film's primary surface:
  *
  *   capture_perspective (stored through the holder's library) → list_perspectives
  *   → execute_dock_operation (disruption) → restore_perspective
- *   (exact baseline neo.dock.zone.v1 document through the library's fail-closed load
+ *   (exact baseline `neo.dock.zone.v1` document through the library's fail-closed load
  *    plus the workspace's document-commit seam)
  *
  * All assertions read worker truth, never the DOM. The baseline is read live, so the spec
@@ -62,12 +63,27 @@ test.describe('Workstation — NL perspectives: capture → list → disrupt →
 
         expect(wsId, 'the workstation Workspace must exist in the App Worker').toBeTruthy();
 
+        const selected = await app.executeDockOperation(wsId, {
+            itemId    : 'audit',
+            operation : 'setActiveItem',
+            tabsNodeId: 'right-top-tabs'
+        });
+
+        expect(selected.errors).toEqual([]);
+        expect(selected.applied).toBe(true);
+
         const baseline = (await app.getDockTopology(wsId)).document;
 
+        const baselineLeftExtent = baseline.nodes.root?.zones?.left?.extent;
+
         expect(
-            baseline.nodes['bottom-tabs']?.items,
-            'precondition: the workspace boots with feed in the bottom tabs (the disruption source)'
-        ).toContain('feed');
+            baselineLeftExtent,
+            'precondition: the workspace boots with a committed left-edge extent'
+        ).toBe(0.2);
+        expect(
+            baseline.nodes['right-top-tabs'].activeItemId,
+            'precondition: capture starts from the non-first Audit tab'
+        ).toBe('audit');
 
         // 1. capture_perspective — must land in the holder's store, not degrade to agent-held
         const captured = await NeuralLink_DockService.capturePerspective({
@@ -98,19 +114,21 @@ test.describe('Workstation — NL perspectives: capture → list → disrupt →
             'list_perspectives must surface the just-captured layout'
         ).toBe(true);
 
-        // 3. Disruption through the semantic dockZone.v1 path
+        // 3. Disruption through the semantic dockZone.v1 path. Edge extent is document truth, so
+        // perspective fidelity must cover it explicitly instead of relying on an unrelated item move.
         const disrupted = await app.executeDockOperation(wsId, {
-            itemId      : 'feed',
-            operation   : 'moveItem',
-            targetNodeId: 'heavy-tabs'
+            edge      : 'left',
+            edgeZoneId: 'root',
+            extent    : 0.32,
+            operation : 'resizeEdgeZone'
         });
 
         expect(disrupted.errors).toEqual([]);
         expect(disrupted.applied).toBe(true);
         expect(
-            disrupted.document.nodes['bottom-tabs'].items,
-            'the disruption must be observable before restore (restore-fidelity is vacuous otherwise)'
-        ).not.toContain('feed');
+            disrupted.document.nodes.root.zones.left.extent,
+            'the edge-size disruption must be observable before restore (restore-fidelity is vacuous otherwise)'
+        ).toBe(0.32);
 
         // 4. restore_perspective — store load + the workspace commit seam returns the exact baseline
         const restored = await NeuralLink_DockService.restorePerspective({
@@ -125,6 +143,14 @@ test.describe('Workstation — NL perspectives: capture → list → disrupt →
             restored.document,
             'restore must return the exact pre-disruption dockZone.v1 document'
         ).toEqual(baseline);
+        expect(
+            restored.document.nodes.root.zones.left.extent,
+            'restore must recover the captured edge extent, not retain the disrupted live size'
+        ).toBe(baselineLeftExtent);
+        expect(
+            restored.document.nodes['right-top-tabs'].activeItemId,
+            'restore must retain the captured non-first tab selection'
+        ).toBe('audit');
 
         // 5. Fail-closed: an unknown name errors structurally and touches nothing
         const failed = await NeuralLink_DockService.restorePerspective({

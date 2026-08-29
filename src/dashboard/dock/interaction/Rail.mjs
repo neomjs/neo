@@ -286,7 +286,7 @@ class Rail extends Container {
     /**
      * Commits a dock-zone operation descriptor through the owning reducer callback, falling back to
      * a local `Operations.applyOperation()` — identical commit contract to
-     * `DockSplitter.commitResizeSplit()` so dashboard reducers handle every affordance with one
+     * `DockSplitter.commitResizeOperation()` so dashboard reducers handle every affordance with one
      * code path. The rail commits `setItemPinned` (the overlay pin escape); reveal/dismiss never
      * commit anything.
      * @param {Object} descriptor

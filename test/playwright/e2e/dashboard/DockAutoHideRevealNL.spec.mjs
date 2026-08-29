@@ -96,6 +96,16 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         expect(before?.items?.inspector?.autoHidden, 'the inspector must start visible').not.toBe(true);
         await expect(page.locator('.neo-dashboard-dock-edge-rail .neo-dashboard-dock-rail-tab')).toHaveCount(0);
 
+        const splitters = await app.findInstances(
+                  {className: 'Neo.dashboard.dock.interaction.DockSplitter'},
+                  ['id', 'edge']
+              ),
+              rightSplitterId = (Array.isArray(splitters) ? splitters : [splitters])
+                  .find(record => (record?.properties || record)?.edge === 'right')?.id;
+
+        expect(rightSplitterId, 'the example projects the Inspector boundary as a semantic edge splitter').toBeTruthy();
+        await expect(page.locator(`#${rightSplitterId}`), 'the Inspector boundary splitter is visibly rendered').toBeVisible();
+
         await tuckInspector({ app, holderId, page });
 
         // Product truth #1: the committed auto-hidden item projects as a REAL rail button.
@@ -126,6 +136,22 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         const overlay = page.locator('.neo-dashboard-dock-reveal-overlay').first();
         await expect(overlay, 'the reveal overlay must open on rail-tab click').toBeVisible({ timeout: 10000 });
         await expect(overlay.locator('.neo-dashboard-dock-reveal-title'), 'the overlay must title the revealed item').toHaveText('Inspector');
+        const revealGeometry = await overlay.evaluate(element => {
+            const workspace     = element.closest('.neo-dashboard'),
+                  overlayRect   = element.getBoundingClientRect(),
+                  workspaceRect = workspace?.getBoundingClientRect();
+
+            return {
+                inlineWidth: element.style.width,
+                widthRatio : workspaceRect?.width ? overlayRect.width / workspaceRect.width : null
+            }
+        });
+
+        expect(revealGeometry.inlineWidth, 'the overlay receives the committed right-edge extent').toBe('25%');
+        expect(revealGeometry.widthRatio, 'rendered reveal width matches the committed edge fraction').toBeCloseTo(
+            hidden.nodes.root.zones.right.extent,
+            2
+        );
         await expect.poll(() => page.evaluate(() => window.__neoDockRevealAnimationStarts), {
             message: 'the token-scoped reveal animation must start on the first reveal'
         }).toBeGreaterThan(0);

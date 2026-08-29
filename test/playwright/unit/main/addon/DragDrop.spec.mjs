@@ -1427,6 +1427,42 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         }
     });
 
+    test('createState resolves percentage bounds against the parent layout axis', () => {
+        const originalGetElement       = Neo.main.DomAccess.getElement,
+              originalGetLayoutRect    = Neo.main.DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              target                   = {style: createStyle({flex: '1 1 0%'})};
+
+        Neo.main.DomAccess.getElement = id => id === 'parent' ? parent : target;
+        Neo.main.DomAccess.getLayoutRect = element => element === parent
+            ? {width: 800, height: 600}
+            : {width: 240, height: 180};
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue: key => ({'min-width': '120px', 'max-width': '50%'})[key] || 'none'
+        });
+
+        try {
+            const state = new Resize().createState({
+                axis        : 'width',
+                parentId    : 'parent',
+                preview     : true,
+                resizeNext  : true,
+                splitterSize: 6,
+                targetId    : 'target'
+            }, {clientX: 100});
+
+            expect(state.minSize).toBe(120);
+            expect(state.maxSize, '50% is half the 800px parent, not the literal number 50').toBe(400)
+        } finally {
+            Neo.main.DomAccess.getElement    = originalGetElement;
+            Neo.main.DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
+    });
+
     test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {
         const {resize, style} = createState(),
               addon           = {dragResize: resize},

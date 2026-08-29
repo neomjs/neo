@@ -369,6 +369,7 @@ class LayoutAdapter extends Base {
             dockZoneDocument               : context.dockZoneDocument,
             edge,
             edgeZoneId,
+            liveResize                     : true,
             module                         : DockSplitter,
             ntype                          : 'dashboard-dock-splitter',
             onDockZoneDocumentChange       : context.onDockZoneDocumentChange,
