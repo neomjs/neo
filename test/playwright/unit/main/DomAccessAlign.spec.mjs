@@ -31,9 +31,15 @@ function createElement(id, {height, width, x, y}, offsetParent=null) {
         offsetParent,
         parentElement: null,
         style        : {},
+        // Backed by one Set, so the three methods agree with each other. `contains` is not decoration:
+        // `align()` reads it to decide whether the resolved zone class is already on the subject, and a
+        // double that answered only `add`/`remove` made a real production read look like a missing API.
         classList    : {
             add(value) {
                 classSet.add(value)
+            },
+            contains(value) {
+                return classSet.has(value)
             },
             remove(value) {
                 classSet.delete(value)

@@ -1,3 +1,72 @@
+/* The opt-in directional entrance, gated by `menu.List#animateSpawn`.
+
+   Direction is never configured. `Neo.main.addon.DomAccess` publishes the side the alignment search
+   settled on as `neo-aligned-{top|right|bottom|left}`, so the rule below reads the outcome rather
+   than a guess — and when the search FLIPS a submenu for want of space, the entrance mirrors with it
+   for free. That is the case worth having: a hand-configured direction is wrong exactly when the
+   menu is near a screen edge.
+
+   `translate` is the individual transform property, deliberately not `transform`. The aligner owns
+   `transform` — `DomAccess.align()` writes `translate(x,y)` there to position the menu — and the two
+   compose rather than clobber (measured: `transform: translate(300px,200px)` plus
+   `translate: -40px 0` lands at x=260 with the matrix intact). This is also why the entrance moves
+   nothing that affects the layout box: `addAligned()` observes the subject with a `ResizeObserver`
+   and re-aligns on size change, so an entrance that grew or shrank the menu would re-enter alignment
+   mid-flight and measure its own animation.
+
+   Durations and easings come from `_motion.scss`, the sanctioned vocabulary — a literal here would be
+   a contract violation, and the token is what carries the reduced-motion collapse to 0ms. */
+.neo-menu-list.neo-animate-spawn {
+    /* Distance is small on purpose: this reads as "arriving", not "flying in". */
+    --menu-spawn-distance: 8px;
+
+    /* Between mount and the first alignment the menu is already in the DOM at an unresolved
+       position — `component.Base` fires `alignTo()` without awaiting it. Hold it invisible until a
+       zone lands, or the entrance would be preceded by a fully opaque menu jumping into place.
+       The selector matches only while NO `neo-aligned-*` class is present, so it stops applying the
+       moment alignment resolves and never hides a menu that is merely re-aligning. */
+    &:not([class*='neo-aligned-']) {
+        opacity: 0;
+    }
+
+    /* The entrance is keyed on the resolved zone alone. `DomAccess.align()` swaps this class only on
+       a REAL zone change, so an ordinary resync -- scroll, resize, the document-mutation resync that
+       opening a submenu triggers -- leaves it untouched and the running animation is never destroyed.
+       A genuine flip does change it, which restarts the entrance mirrored: the menu really did arrive
+       on the other side.
+
+       Keying on a separate transient marker was tried and is wrong: any class the aligner removes and
+       re-adds around a layout read DESTROYS the animation rather than resuming it. */
+    &.neo-aligned-bottom { animation-name: neo-menu-spawn-from-top;    }
+    &.neo-aligned-left   { animation-name: neo-menu-spawn-from-right;  }
+    &.neo-aligned-right  { animation-name: neo-menu-spawn-from-left;   }
+    &.neo-aligned-top    { animation-name: neo-menu-spawn-from-bottom; }
+
+    animation-duration       : var(--motion-base);
+    animation-fill-mode      : both;
+    animation-timing-function: var(--ease-out-soft);
+}
+
+@keyframes neo-menu-spawn-from-bottom {
+    from { opacity: 0; translate: 0 var(--menu-spawn-distance); }
+    to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes neo-menu-spawn-from-left {
+    from { opacity: 0; translate: calc(var(--menu-spawn-distance) * -1) 0; }
+    to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes neo-menu-spawn-from-right {
+    from { opacity: 0; translate: var(--menu-spawn-distance) 0; }
+    to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes neo-menu-spawn-from-top {
+    from { opacity: 0; translate: 0 calc(var(--menu-spawn-distance) * -1); }
+    to   { opacity: 1; translate: 0 0; }
+}
+
 .neo-menu-list {
     background-color: var(--menu-list-background-color);
     border          : 1px solid var(--menu-list-border-color);

@@ -137,6 +137,12 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary Registers one alignment so it is re-resolved whenever its geometry inputs change.
+     *
+     * Observes the subject, the target, the target's offset parent and any constraining element with a
+     * shared `ResizeObserver`, and installs the document-level scroll and mutation listeners on first
+     * use. Every one of those paths re-enters `align()`, which is why that method must be idempotent
+     * for an unchanged result — a resync happens far more often than a real move.
      * @param {Object} alignSpec
      */
     addAligned(alignSpec) {
@@ -239,9 +245,12 @@ class DomAccess extends Base {
             targetIsObject = typeof data.target === 'object' && !data.target?.nodeType,
             targetIsRect   = isSerializedRectangle(data.target);
 
-        if (lastAlign) {
-            subject.classList.remove(`neo-aligned-${lastAlign.result.position}`)
-        }
+        // The previous zone class is NOT dropped here. Removing it before the zone search knows the
+        // new result means every resync passes through a classless frame, even when the zone is
+        // unchanged — and a class removed and re-added around a layout read does not resume a CSS
+        // animation, it destroys one and starts another (measured: `currentTime` 949ms -> `none` with
+        // zero animations -> a different Animation object at 0). The swap is therefore deferred to
+        // the point where the new position is known, and skipped entirely when it matches.
 
         // Release any constrainTo or matchSize sizing which may have been imposed
         // by a previous align call.
@@ -288,8 +297,22 @@ class DomAccess extends Base {
             style.height = `${result.height}px`
         }
 
-        // Place box shadow at correct edge
-        subject.classList.add(`neo-aligned-${result.position}`);
+        // Place box shadow at correct edge. Swapped only on a real zone change, so an ordinary
+        // resync leaves the class — and anything keyed on it, including a CSS entrance animation and
+        // the shadow repaint — completely untouched.
+        const
+            previousPosition = lastAlign?.result?.position,
+            positionCls      = `neo-aligned-${result.position}`;
+
+        // Guarded on the SUBJECT, not on the cached align record. Keying off `lastAlign` looks
+        // equivalent and is not: a subject can lose the class without the record changing — a hidden
+        // menu is removed from the DOM and remounts as a fresh element, so it comes back classless
+        // while `_aligns` still reports the same zone. That guard silently never re-added the class,
+        // and a reused menu stayed unaligned for the rest of its life.
+        if (!subject.classList.contains(positionCls)) {
+            previousPosition && subject.classList.remove(`neo-aligned-${previousPosition}`);
+            subject.classList.add(positionCls)
+        }
 
         // Register an alignment to be kept in sync
         me.addAligned(data)
