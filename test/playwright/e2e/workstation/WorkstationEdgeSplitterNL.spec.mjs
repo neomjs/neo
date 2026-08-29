@@ -51,7 +51,7 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             return values(Array.isArray(result) ? result[0] : result)
         };
 
-        const findEdgeSplitterId = async edge => {
+        const findEdgeSplitter = async edge => {
             const records = asArray(await app.findInstances(
                 {className: 'Neo.dashboard.dock.interaction.DockSplitter'},
                 ['id', 'edge', 'edgeZoneId', 'data.operation']
@@ -60,12 +60,56 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
                     .filter(record => values(record).edge === edge)
                     .map(record => record.id);
 
-            return page.evaluate(ids => ids.find(id => {
-                const element = document.getElementById(id),
-                      rect    = element?.getBoundingClientRect();
+            for (const id of candidates) {
+                let resizeConfig;
 
-                return Boolean(rect?.width && rect.height)
-            }) || null, candidates)
+                try {
+                    resizeConfig = await app.callMethod(id, 'getResizeConfig', [])
+                } catch {
+                    continue
+                }
+
+                const live = resizeConfig && (await Promise.all([
+                    id,
+                    resizeConfig.parentId,
+                    resizeConfig.targetId
+                ].map(nodeId => page.locator(`#${nodeId}`).isVisible()))).every(Boolean);
+
+                if (live) return {id, resizeConfig}
+            }
+
+            return null
+        };
+
+        const findStableEdgeSplitter = async edge => {
+            let resolved = null;
+
+            await expect.poll(async () => {
+                const before = await findEdgeSplitter(edge);
+
+                if (!before) {
+                    resolved = null;
+                    return null
+                }
+
+                // A committed tab activation schedules one projection tick after document truth
+                // advances. Two paint frames distinguish its outgoing splitter from the settled
+                // generation without sleeping or forcing a second projection.
+                await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+                const after = await findEdgeSplitter(edge),
+                      rect  = after?.id === before.id ? await page.locator(`#${after.id}`).boundingBox() : null;
+
+                resolved = rect ? {...after, rect} : null;
+
+                return resolved?.id ?? null
+            }, {
+                message  : `${edge}: one projected splitter generation stays pointer-reachable`,
+                timeout  : 10000,
+                intervals: [25, 50]
+            }).not.toBeNull();
+
+            return resolved
         };
 
         const readResizeRatio = config => page.evaluate(({axis, parentId, targetId}) => {
@@ -97,12 +141,15 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             intervals: [50, 100]
         }).toBe(1);
         await expect(page.locator('.workstation-pane-audit'), 'the selected pane is rendered').toBeVisible();
+        await expect(workspaceRoot, 'the activation projection has settled before the edge inventory')
+            .not.toHaveClass(/neo-dashboard-dock-animating/, {timeout: 10000});
+        await expect(page.locator('.neo-dock-flip-fixed-stage'), 'the activation leaves no fixed-stage residue')
+            .toHaveCount(0, {timeout: 10000});
 
         for (const edge of ['left', 'right', 'bottom']) {
-            const splitterId = await findEdgeSplitterId(edge);
+            const splitterId = (await findStableEdgeSplitter(edge))?.id;
 
-            expect(splitterId, `${edge}: the initial workspace projects an edge splitter`).toBeTruthy();
-            await expect(page.locator(`#${splitterId}`), `${edge}: the initial edge splitter is visible`).toBeVisible()
+            expect(splitterId, `${edge}: the initial workspace projects one complete visible edge affordance`).toBeTruthy()
         }
 
         const dragEdge = async ({edge, dx=0, dy=0, cancel=false}) => {
@@ -111,22 +158,20 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             await expect(page.locator('.neo-dock-flip-fixed-stage'), `${edge}: no fixed-stage residue remains`)
                 .toHaveCount(0, {timeout: 10000});
 
-            const splitterId = await findEdgeSplitterId(edge);
+            const splitter     = await findStableEdgeSplitter(edge),
+                  splitterId   = splitter?.id,
+                  resizeConfig = splitter?.resizeConfig,
+                  rect         = splitter?.rect;
 
             expect(splitterId, `${edge}: a semantic edge splitter is projected`).toBeTruthy();
-
-            const resizeConfig = await app.callMethod(splitterId, 'getResizeConfig', []);
 
             expect(resizeConfig, `${edge}: the generic main-thread resize descriptor is registered`).toMatchObject({
                 preview: true
             });
 
-            const splitterLocator = page.locator(`#${splitterId}`);
+            expect(rect, `${edge}: the settled splitter has pointer geometry`).toBeTruthy();
 
-            await expect(splitterLocator, `${edge}: the projected splitter is visible and pointer-reachable`).toBeVisible();
-
-            const rect        = await splitterLocator.boundingBox(),
-                  startX      = rect.x + rect.width / 2,
+            const startX      = rect.x + rect.width / 2,
                   startY      = rect.y + rect.height / 2,
                   before      = await readDocument(),
                   beforeRaw   = JSON.stringify(before),
@@ -197,8 +242,7 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
 
             const after = await readDocument();
 
-            const settledSplitterId = await findEdgeSplitterId(edge),
-                  settledConfig     = await app.callMethod(settledSplitterId, 'getResizeConfig', []);
+            const settledConfig = (await findEdgeSplitter(edge))?.resizeConfig;
 
             await expect.poll(async () => Math.abs(
                 (await readResizeRatio(settledConfig)) - after.nodes.root.zones[edge].extent
@@ -211,11 +255,11 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             return after
         };
 
-        await dragEdge({edge: 'left', dx: 90});
+        await dragEdge({edge: 'left', dx: -70});
         expect((await readDocument()).nodes['right-top-tabs'].activeItemId).toBe('audit');
         expect((await readActiveTabs()).activeIndex).toBe(1);
 
-        await dragEdge({edge: 'bottom', dy: -70});
+        await dragEdge({edge: 'bottom', dy: 70});
         expect((await readDocument()).nodes['right-top-tabs'].activeItemId).toBe('audit');
         expect((await readActiveTabs()).activeIndex).toBe(1);
 
