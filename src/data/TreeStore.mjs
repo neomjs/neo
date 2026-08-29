@@ -631,6 +631,41 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Returns the direct children of a node, regardless of expansion state.
+     *
+     * **Why this is not a scan of `items`:** `items` is the Projection Layer — it holds only the
+     * currently visible nodes, so `find('parentId', key)` silently returns nothing for a collapsed
+     * branch, and `collapsed` defaults to `true`. This reads the Structural Layer (`#childrenMap`)
+     * directly instead.
+     *
+     * **Cost:** an O(1) lookup of the child array, then O(k) to hydrate and copy its k entries — not
+     * O(1) overall.
+     *
+     * **Visibility vs order — they behave differently, and only one is independent:**
+     * - *Independent:* expansion and filtering. A collapsed or filtered-out branch still returns its
+     *   children, because visibility is a property of the projection, not of the hierarchy.
+     * - *NOT independent:* order. `doSort()` reorders the child arrays in the Structural Layer itself,
+     *   so the returned sibling order follows the store's current sort. That is the intended contract —
+     *   it is how a level-at-a-time consumer inherits ordering it never has to implement.
+     *
+     * Consumers rendering one level at a time — a cascading menu, a breadcrumb, a column browser —
+     * need exactly this: a branch's children without expanding the branch as a side effect.
+     * `collectAllDescendants()` is the wrong tool for them, since it returns the entire subtree.
+     *
+     * Records are hydrated on the way out, so Turbo Mode (`autoInitRecords: false`) callers receive
+     * real records rather than the raw objects held in the map.
+     *
+     * @param {String|Number} [parentId='root'] The parent node key. Root-level nodes live under 'root'.
+     * @returns {Object[]} A new array of the direct child records; empty when the node has none.
+     */
+    getChildren(parentId='root') {
+        let me       = this,
+            children = me.#childrenMap.get(parentId) || [];
+
+        return children.map(item => me.hydrateRecord(item))
+    }
+
+    /**
      * @summary Calculates the target flat array index for a newly added node.
      *
      * **Architectural Mechanics:**
@@ -744,12 +779,12 @@ class TreeStore extends Store {
      *
      * Consequently, it must also manually synchronize the internal `map`
      * to reflect the newly calculated flat projection, guaranteeing O(1) lookup integrity for the VDOM rendering loop.
-     * 
+     *
      * **Turbo Mode Consistency:**
-     * In **Turbo Mode** (`autoInitRecords: false`), bulk projections deal with raw data objects. 
+     * In **Turbo Mode** (`autoInitRecords: false`), bulk projections deal with raw data objects.
      * However, UI interactions (like Grid selections) rely on `SelectionModel` resolving DOM
      * `data-record-id` values (which fallback to `internalId`) back to records via `store.get()`.
-     * To prevent `store.get()` from failing, this method explicitly invokes `getInternalId` to 
+     * To prevent `store.get()` from failing, this method explicitly invokes `getInternalId` to
      * force generation of internal IDs on raw objects and perfectly synchronizes the `internalIdMap`.
      *
      * @private

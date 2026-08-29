@@ -22,6 +22,8 @@ The `Neo.data.TreeStore` solves this by acting as a highly optimized architectur
 
 The complexity is managed entirely by the data layer, allowing UI components like `Neo.grid.Container` to render TreeGrids without knowing they are rendering a tree.
 
+> **`TreeStore` is not grid-only.** The Projection Layer is what a virtual scroller needs, so the grid is the most demanding consumer — but it is not the only shape. Components that render **one level at a time** — a cascading menu, a breadcrumb, a column browser — never touch the projection at all. They read the Structural Layer through `getChildren()` and let the hierarchy stay collapsed while they render it. `Neo.menu.List` works this way. If your consumer renders a level rather than a scrollable flat list, read the [Reading one level](#reading-one-level) section below rather than the projection semantics above.
+
 ### The RecordFactory: Bypassing the ORM Memory Trap
 
 Before discussing how the TreeStore manages state, we must address the fundamental problem of data instantiation at scale.
@@ -112,6 +114,36 @@ In Neo.mjs, `siblingCount` and `siblingIndex` are maintained directly on the rec
 Since virtual scrolling occurs at 60-120fps and mutations are comparatively rare, this explicit architectural trade-off ensures the UI never stutters while calculating accessibility attributes. Every row in the Neo.mjs TreeGrid is fully accessible without sacrificing a single frame of performance.
 
 ## Working with the TreeStore
+
+### Reading one level
+
+`items` is the **Projection Layer** — the currently *visible* nodes. Since `collapsed` defaults to `true`,
+searching it for a parent key returns nothing for an unexpanded branch:
+
+```javascript readonly
+// Wrong for a collapsed branch: the projection cannot see its children.
+treeStore.find('parentId', 'node-a'); // => []
+
+// Right: reads the Structural Layer. O(1) to find the child array, O(k) to hydrate its k entries.
+treeStore.getChildren('node-a');      // => [record, record, …]
+
+// Root level. 'root' is the default, so the argument is optional.
+treeStore.getChildren();
+```
+
+`getChildren()` returns a **new array of hydrated records**, so Turbo Mode (`autoInitRecords: false`)
+callers get real records rather than the raw objects held internally, and mutating the returned array
+cannot corrupt the store. It returns `[]` for a leaf or an unknown key.
+
+**Expansion and filtering do not affect it; sorting does.** Visibility is a property of the Projection
+Layer, so a collapsed or filtered-out branch still returns its children. Order is not: `doSort()`
+reorders the child arrays in the Structural Layer itself, so returned siblings follow the store's
+current sort. That is deliberate — it lets a level-at-a-time consumer inherit ordering from the tree
+instead of implementing its own.
+
+Reach for `collectAllDescendants()` instead when you want an entire subtree; `getChildren()` is
+deliberately one level deep. And note that reading children this way **does not expand anything** —
+expansion is a view-state concern, and a level-at-a-time consumer should never mutate it just to render.
 
 ### Expanding and Collapsing
 
