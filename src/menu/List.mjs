@@ -53,6 +53,18 @@ class List extends BaseList {
          */
         menuFocus_: false,
         /**
+         * Extends the inherited set with the separator, so a rule is excluded from the click delegate
+         * and from arrow-key navigation by the same declaration.
+         *
+         * Adding the class here rather than only in `createItem()` is what makes a separator
+         * genuinely inert: the class alone paints it, while `list.Base` builds both the navigator
+         * selector and the delegate check from this config. Rendering the class without extending
+         * this list would produce a rule that looks correct and still takes focus on the first
+         * arrow-down — which is the defect this ticket exists to remove, in a subtler form.
+         * @member {String[]} nonInteractiveItemCls=['neo-disabled','neo-list-header','neo-menu-separator']
+         */
+        nonInteractiveItemCls: ['neo-disabled', 'neo-list-header', 'neo-menu-separator'],
+        /**
          * Internal flag.
          * True for a top level menu, false for sub-menus.
          * @member {Boolean} isRoot=true
@@ -250,6 +262,40 @@ class List extends BaseList {
     }
 
     /**
+     * Renders a `separator` record as a rule rather than a command.
+     *
+     * The class is what the stylesheet paints and what `nonInteractiveItemCls` excludes, so this and
+     * that config are two halves of one contract — see the config's own note.
+     *
+     * Two corrections to what the base class produced for it. `createItemContent()` returns an empty
+     * array for a separator, and `list.Base` reads "every child is removeDom" as "hide the item", so
+     * `removeDom` is cleared explicitly — an empty rule is the point, not an absent one. And the item
+     * is taken out of the accessibility tree's command set: `role="separator"` is what it is,
+     * `aria-selected` is meaningless on something that cannot be selected, and dropping `tabIndex`
+     * keeps it off the sequential focus path even if a caller drives focus by hand.
+     *
+     * @param {Object} record
+     * @param {Number} index
+     * @param {Number} [poolIndex=index]
+     * @returns {Object} The list item vdom object
+     */
+    createItem(record, index, poolIndex=index) {
+        let item = super.createItem(record, index, poolIndex);
+
+        if (item && record.separator) {
+            item.cls.push('neo-menu-separator');
+
+            item.removeDom = false;
+            item.role      = 'separator';
+
+            delete item['aria-selected'];
+            delete item.tabIndex
+        }
+
+        return item
+    }
+
+    /**
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
@@ -259,7 +305,16 @@ class List extends BaseList {
         let me        = this,
             {iconCls} = record,
             id        = me.store.getKey(record),
-            vdomCn    = [{tag: 'span', cls: ['neo-content'], text: record[me.displayField]}];
+            vdomCn;
+
+        // A separator is a rule, not a command: no text slot, no icon slot, no submenu arrow. It
+        // renders as its own empty box, which is what lets the stylesheet give it margin — a border
+        // on the preceding item cannot be spaced without moving that whole row.
+        if (record.separator) {
+            return []
+        }
+
+        vdomCn = [{tag: 'span', cls: ['neo-content'], text: record[me.displayField]}];
 
         if (iconCls && iconCls !== '') {
             vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', iconCls], id: me.getIconId(id)})

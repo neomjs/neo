@@ -112,6 +112,50 @@ test.describe('Neo.menu.Model declared fields', () => {
             // A separator is not a header: `list.Base` renders `isHeader` as a labelled `dt`, and a
             // separator has no text to label anything with.
             expect(menu.store.getAt(1).isHeader).toBeFalsy()
+        });
+
+        test('renders as an empty rule, not a row', () => {
+            const item = menu.createItem(menu.store.getAt(1), 1);
+
+            expect(item.cls).toContain('neo-menu-separator');
+            expect(item.cn).toEqual([]);
+            expect(item.role).toBe('separator')
+        });
+
+        test('it is present, not hidden — the empty-content path must not remove it', () => {
+            // `list.Base` treats "every child is removeDom" as "hide the item", and a separator has
+            // no children at all. Without the explicit clear it would vanish instead of render.
+            expect(menu.createItem(menu.store.getAt(1), 1).removeDom).toBe(false)
+        });
+
+        test('it is out of the command set: no tabIndex, no aria-selected', () => {
+            const separator = menu.createItem(menu.store.getAt(1), 1),
+                  command   = menu.createItem(menu.store.getAt(0), 0);
+
+            expect(separator.tabIndex).toBeUndefined();
+            expect(separator['aria-selected']).toBeUndefined();
+
+            // The control: ordinary items DO carry both, so the deletions above are the separator's
+            // doing rather than a property this list never sets.
+            expect(command.tabIndex).toBe(-1);
+            expect(command['aria-selected']).toBe(false)
+        });
+
+        test('it is excluded from clicking AND arrow-key navigation, not merely painted', () => {
+            // The class alone only paints. Both exclusion surfaces read `nonInteractiveItemCls`, so
+            // a separator that rendered the class without extending that config would look right and
+            // still take focus on the first arrow-down.
+            expect(menu.nonInteractiveItemCls).toContain('neo-menu-separator');
+            expect(menu.getNavigableItemSelector()).toContain(':not(');
+            expect(menu.getNavigableItemSelector()).toContain('.neo-menu-separator')
+        });
+
+        test('an ordinary item is untouched by any of it', () => {
+            const item = menu.createItem(menu.store.getAt(0), 0);
+
+            expect(item.cls).not.toContain('neo-menu-separator');
+            expect(item.role).toBeUndefined();
+            expect(item.cn.length).toBeGreaterThan(0)
         })
     })
 });

@@ -128,6 +128,15 @@ class MainContainer extends Viewport {
                     text: 'Details'
                 }],
                 text: 'Inspect'
+            }, {
+                id       : 'sep-1',
+                separator: true
+            }, {
+                disabled: true,
+                handler : me.onLeafAction.bind(me, 'Delete'),
+                iconCls : 'fa fa-trash',
+                id      : 'delete',
+                text    : 'Delete (disabled)'
             }],
             parentId: 'document.body',
             theme   : me.theme,
