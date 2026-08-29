@@ -288,6 +288,7 @@ class List extends BaseList {
         me.sourceStore?.un({
             mutate      : me.onSourceStoreMutate,
             recordChange: me.onSourceStoreRecordChange,
+            sort        : me.onSourceStoreSort,
             scope       : me
         });
 
@@ -609,9 +610,16 @@ class List extends BaseList {
      * @protected
      */
     onSourceStoreMutate(data) {
-        let me      = this,
-            added   = (data.addedItems   || []).filter(record => me.belongsToLevel(record)),
-            removed = (data.removedItems || []).filter(record => me.belongsToLevel(record));
+        let me            = this,
+            {sourceStore} = me,
+            removed       = (data.removedItems || []).filter(record => me.belongsToLevel(record)),
+            added         = (data.addedItems   || [])
+                .filter(record => me.belongsToLevel(record))
+                // Resolve every addition through the source before inserting it. The mutate payload can
+                // carry raw data, and letting the level store hydrate that would mint a SECOND record
+                // instance for the same key. Levels resolve a later recordChange by identity, so a clone
+                // is not merely wasteful — the row silently stops updating for the rest of its life.
+                .map(record => sourceStore.get(sourceStore.getKey(record)) || record);
 
         // Splicing the level store is enough to repaint it: the collection turns a mutation into a
         // `load` (via onCollectionMutate), which list.Base already re-renders on. Calling createItems()

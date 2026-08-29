@@ -124,7 +124,7 @@ searching it for a parent key returns nothing for an unexpanded branch:
 // Wrong for a collapsed branch: the projection cannot see its children.
 treeStore.find('parentId', 'node-a'); // => []
 
-// Right: reads the Structural Layer, O(1), unaffected by expansion, filtering or sorting.
+// Right: reads the Structural Layer. O(1) to find the child array, O(k) to hydrate its k entries.
 treeStore.getChildren('node-a');      // => [record, record, …]
 
 // Root level. 'root' is the default, so the argument is optional.
@@ -134,6 +134,12 @@ treeStore.getChildren();
 `getChildren()` returns a **new array of hydrated records**, so Turbo Mode (`autoInitRecords: false`)
 callers get real records rather than the raw objects held internally, and mutating the returned array
 cannot corrupt the store. It returns `[]` for a leaf or an unknown key.
+
+**Expansion and filtering do not affect it; sorting does.** Visibility is a property of the Projection
+Layer, so a collapsed or filtered-out branch still returns its children. Order is not: `doSort()`
+reorders the child arrays in the Structural Layer itself, so returned siblings follow the store's
+current sort. That is deliberate — it lets a level-at-a-time consumer inherit ordering from the tree
+instead of implementing its own.
 
 Reach for `collectAllDescendants()` instead when you want an entire subtree; `getChildren()` is
 deliberately one level deep. And note that reading children this way **does not expand anything** —

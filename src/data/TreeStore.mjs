@@ -636,7 +636,17 @@ class TreeStore extends Store {
      * **Why this is not a scan of `items`:** `items` is the Projection Layer — it holds only the
      * currently visible nodes, so `find('parentId', key)` silently returns nothing for a collapsed
      * branch, and `collapsed` defaults to `true`. This reads the Structural Layer (`#childrenMap`)
-     * directly, which answers in O(1) and is unaffected by expansion, filtering, or sorting state.
+     * directly instead.
+     *
+     * **Cost:** an O(1) lookup of the child array, then O(k) to hydrate and copy its k entries — not
+     * O(1) overall.
+     *
+     * **Visibility vs order — they behave differently, and only one is independent:**
+     * - *Independent:* expansion and filtering. A collapsed or filtered-out branch still returns its
+     *   children, because visibility is a property of the projection, not of the hierarchy.
+     * - *NOT independent:* order. `doSort()` reorders the child arrays in the Structural Layer itself,
+     *   so the returned sibling order follows the store's current sort. That is the intended contract —
+     *   it is how a level-at-a-time consumer inherits ordering it never has to implement.
      *
      * Consumers rendering one level at a time — a cascading menu, a breadcrumb, a column browser —
      * need exactly this: a branch's children without expanding the branch as a side effect.

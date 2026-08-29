@@ -304,6 +304,54 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(level1.store.items.map(i => i.text)).toEqual(['Open', 'New'])
     });
 
+    test('a late addition stays live: add, then change it at the source, repaints exactly one row', () => {
+        const menu = createMenu({store: treeStore});
+
+        menus.push(menu);
+
+        treeStore.add({id: 'late', text: 'Late', isLeaf: true});
+
+        // The level must hold the SOURCE's own instance. Letting the level store hydrate the mutate
+        // payload mints a clone, and a later recordChange — resolved by identity — can never find it,
+        // so the row silently freezes for the rest of the menu's life.
+        expect(menu.store.get('late')).toBe(treeStore.get('late'));
+
+        let rowRepaints = 0;
+
+        menu.onStoreRecordChange = () => {rowRepaints++};
+
+        treeStore.get('late').text = 'Late (modified)';
+
+        expect(rowRepaints).toBe(1);
+        expect(menu.store.get('late').text).toBe('Late (modified)')
+    });
+
+    test('a destroyed level leaves no listener behind on the still-live source', () => {
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});
+
+        menus.push(root);
+
+        const before = treeStore.toJSON().listeners;
+
+        expect(before.sort.length).toBeGreaterThan(0);
+
+        level1.destroy();
+
+        const after = treeStore.toJSON().listeners;
+
+        // Teardown must be symmetric with what onConstructed subscribed. An asymmetric un() leaves a
+        // destroyed level still driving syncLevelRecords on the next source sort.
+        expect((after.mutate       || []).length).toBe(before.mutate.length       - 1);
+        expect((after.recordChange || []).length).toBe(before.recordChange.length - 1);
+        expect((after.sort         || []).length).toBe(before.sort.length         - 1);
+
+        // And the surviving level keeps working when the source sorts afterwards.
+        treeStore.sorters = [{property: 'text', direction: 'DESC'}];
+
+        expect(root.store.getCount()).toBe(3)
+    });
+
     test('the classic nested-items API is untouched', () => {
         const menu = createMenu({
             items: [
