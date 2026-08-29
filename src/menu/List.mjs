@@ -516,7 +516,24 @@ class List extends BaseList {
 
             // hasChildren() is the single branch predicate: it is store-shape aware, and it does not
             // treat an empty `items: []` array as a parent the way a raw truthiness test would.
-            me.hideOnLeafItemClick && !hasChildren && me.unmount();
+            if (me.hideOnLeafItemClick && !hasChildren) {
+                /*
+                    Through the SETTER, and that is the whole point. `afterSetMenuFocus` is the only
+                    path that closes ANCESTORS: a non-root menu bubbles to `parentMenu`, recursing
+                    until the floating root unmounts itself and cascades back down via `hideSubMenu()`.
+
+                    `unmount()` writes `_menuFocus` silently on purpose — reaching it *from*
+                    `afterSetMenuFocus` must not re-enter that hook. But a leaf click reaches
+                    `unmount()` directly, so calling it first swallowed the only signal the ancestors
+                    ever get, and left the submenu closed under a still-open parent. It also disarmed
+                    the fallback: a later `menuFocus = false` from `onFocusLeave` found the value
+                    already false, so the setter fired nothing.
+                */
+                me.menuFocus = false;
+
+                // The root's cascade may already have taken this menu down.
+                me.mounted && me.unmount()
+            }
 
             if (hasChildren) {
                 submenu = me.subMenuMap?.[me.getMenuMapId(recordId)];
