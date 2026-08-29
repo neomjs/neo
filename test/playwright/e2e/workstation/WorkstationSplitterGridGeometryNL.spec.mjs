@@ -355,7 +355,9 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
 
         /** One committed drag + positive-entry settlement + the keyed attribution matrix. */
         async function dragAndVerify(deltaX, tag) {
-            const splitter                 = page.locator('.neo-dashboard-dock-splitter-horizontal'),
+            // resizable edge zones share the orientation class — only the SPLIT container's own
+            // child is the resizeSplit affordance this journey commits through
+            const splitter                 = page.locator('.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'),
                   box                      = await splitter.boundingBox(),
                   sx                       = box.x + box.width / 2,
                   sy                       = box.y + box.height / 2,
@@ -377,6 +379,11 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
 
             await page.mouse.move(sx, sy);
             await page.mouse.down();
+            // the Mouse sensor arms once delay AND minDistance are both satisfied — at a move
+            // event, or when the delay timer re-enters with the latest coords. Arming here,
+            // BEFORE the travel, keeps every travel move inside the live drag session (moves
+            // fired pre-arm carry no drag:move and leave the preview at its start size)
+            await page.waitForTimeout(130);
             await page.mouse.move(sx + Math.sign(deltaX) * 12, sy, {steps: 4});
             await page.mouse.move(sx + deltaX, sy, {steps: 15});
             await page.waitForTimeout(400); // gesture hold before release (drag realism, not settlement)

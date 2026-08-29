@@ -131,22 +131,35 @@ test.describe('Workstation rendering starvation: grid geometry still converges (
         // VERTICALLY under starvation. The rendered row pool is a direct function of the
         // worker's availableHeight — it can only grow past its boot count if the worker
         // learned the taller box through a delivery no frame ever carried.
-        const domHeightAfterFlex = await page.evaluate(feedGridId => {
+        const {domHeightAfterFlex, freedBandHeight} = await page.evaluate(feedGridId => {
             let zoneChild = document.getElementById(feedGridId);
 
             while (zoneChild && !zoneChild.parentElement?.classList.contains('neo-dashboard-dock-edge-zone')) {
                 zoneChild = zoneChild.parentElement
             }
 
-            zoneChild.style.flex = '0 0 60px';
+            const bandHeightBefore = zoneChild.getBoundingClientRect().height;
 
-            return document.getElementById('neo-grid-container-1').getBoundingClientRect().height
+            // rig mutation, not a product journey: the walk-up lands on the bottom edge band,
+            // whose theme floor (min-block-size) would clamp the shrink and starve the trigger
+            // of its growth — release it alongside the flex pin
+            Object.assign(zoneChild.style, {flex: '0 0 60px', minHeight: '0px'});
+
+            return {
+                domHeightAfterFlex: document.getElementById('neo-grid-container-1').getBoundingClientRect().height,
+                freedBandHeight   : bandHeightBefore - zoneChild.getBoundingClientRect().height
+            }
         }, FEED_GRID_ID);
 
         const bootRows = bootState.rows;
 
-        expect(domHeightAfterFlex, 'the zone mutation grew the grid layout box (trigger premise)')
-            .toBeGreaterThan(bootState.gridHeight + 100);
+        // trigger premise, derived from the mutation itself: most of the height the band gave
+        // up must arrive at the grid's layout box (a fixed literal here calibrates to one
+        // theme era's band chrome and rots when extents or floors change; the layout-chain
+        // integrity claim is proportional, and a pipeline that eats the freed space still fails)
+        expect(freedBandHeight, 'the rig mutation must actually free band height').toBeGreaterThan(60);
+        expect(domHeightAfterFlex - bootState.gridHeight, 'the zone mutation grew the grid layout box (trigger premise)')
+            .toBeGreaterThan(freedBandHeight * 0.6);
 
         await expect.poll(
             async () => (await readMatrixState(page, GRID_ID)).rows,

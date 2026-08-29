@@ -9,7 +9,9 @@ import {test, expect} from '../../fixtures.mjs';
  */
 const readHorizontalSplitGeometry = page => page.evaluate(() => {
     const
-        splitter = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
+        // resizable edge zones share the orientation class — this journey reads the SPLIT
+        // container's own boundary, the one a resizeSplit commit moves
+        splitter = document.querySelector('.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'),
         children = splitter && [...splitter.parentElement.children]
             .filter(element => !element.classList.contains('neo-dashboard-dock-splitter'));
 
@@ -26,6 +28,17 @@ const readHorizontalSplitGeometry = page => page.evaluate(() => {
         secondWidth  : second.width
     }
 });
+
+/**
+ * Resolves the main split node's own splitter through its owning split container. Resizable
+ * edge zones project splitters with the same orientation class, so a bare first-match on
+ * `neo-dashboard-dock-splitter-horizontal` grabs the LEFT EDGE affordance — whose drag commits
+ * a `resizeEdgeZone` extent, never the `resizeSplit` sizes this journey settles on.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<String|undefined>} The splitter's DOM id.
+ */
+const resolveSplitSplitterId = page => page.evaluate(() =>
+    document.querySelector('.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal')?.id);
 
 /**
  * Arms a MutationObserver that flips a page-global flag the moment the workspace enters the
@@ -216,12 +229,10 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
         const windowId = await page.evaluate(() => Neo.worker.Manager.windowId);
 
         const dragSplitter = async direction => {
-            const splitterResult = await app.queryVdom({cls: 'neo-dashboard-dock-splitter-horizontal'}, wsId),
-                  splitterNode   = Array.isArray(splitterResult) ? splitterResult[0] : (splitterResult?.vdom ?? splitterResult),
-                  splitterDomId  = splitterNode?.id,
-                  [rect]         = await app.getDomRect(splitterDomId),
-                  cx             = rect.x + rect.width / 2,
-                  cy             = rect.y + rect.height / 2;
+            const splitterDomId = await resolveSplitSplitterId(page),
+                  [rect]        = await app.getDomRect(splitterDomId),
+                  cx            = rect.x + rect.width / 2,
+                  cy            = rect.y + rect.height / 2;
 
             expect(splitterDomId, 'the horizontal splitter must exist in the vdom').toBeTruthy();
 
@@ -438,13 +449,11 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
         ).toBe(String(pre));
 
         // --- the real drag on the split that resizes THIS pane ----------------------------
-        const windowId2       = await page.evaluate(() => Neo.worker.Manager.windowId),
-              splitterResult2 = await app.queryVdom({cls: 'neo-dashboard-dock-splitter-horizontal'}, wsId),
-              splitterNode2   = Array.isArray(splitterResult2) ? splitterResult2[0] : (splitterResult2?.vdom ?? splitterResult2),
-              splitterDomId2  = splitterNode2?.id,
-              [rect2]         = await app.getDomRect(splitterDomId2),
-              cx              = rect2.x + rect2.width / 2,
-              cy              = rect2.y + rect2.height / 2;
+        const windowId2      = await page.evaluate(() => Neo.worker.Manager.windowId),
+              splitterDomId2 = await resolveSplitSplitterId(page),
+              [rect2]        = await app.getDomRect(splitterDomId2),
+              cx             = rect2.x + rect2.width / 2,
+              cy             = rect2.y + rect2.height / 2;
 
         expect(splitterDomId2, 'the horizontal splitter must exist in the vdom').toBeTruthy();
 

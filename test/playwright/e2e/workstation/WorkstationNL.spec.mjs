@@ -608,7 +608,9 @@ test.describe('Workstation — dense living-data composition', () => {
             }).toEqual({
                 height   : viewport.height,
                 railTabs : 2,
-                splitters: 2,
+                // 2 split-node boundaries + 3 resizable edge affordances (left/right/bottom
+                // bands each project their own splitter since edge zones became resizable)
+                splitters: 5,
                 viewport,
                 width    : viewport.width
             });
@@ -654,7 +656,12 @@ test.describe('Workstation — dense living-data composition', () => {
             shortGeometry  = await readAtViewport({height: 600, width: 900});
 
         /**
-         * @summary Asserts each band resolves its cq unit and rem clamp against the measured dock host.
+         * @summary Asserts each band renders its COMMITTED document extent against the measured
+         * dock host, inside the theme floors and the engine's per-edge 50% cap.
+         *
+         * The band's size authority is the dock document (`extent` → the projection's inline
+         * percentage), no longer a preferred-width clamp: the theme keeps rem floors on the drag
+         * axis and the engine default caps each edge individually at 50% of its container.
          * @param {Object} geometry
          * @returns {void}
          */
@@ -673,18 +680,18 @@ test.describe('Workstation — dense living-data composition', () => {
             expect(geometry.bottomBand.nearestQueryContainerId).toBe(dockHost.id);
             expect(geometry.leftBand.computedExtent).toBeCloseTo(clamp(
                 rootFontSize * 11.25,
-                dockHost.contentInlineSize * 0.203125,
-                rootFontSize * 16.25
+                dockHost.contentInlineSize * 0.20,
+                dockHost.contentInlineSize * 0.5
             ), 1);
             expect(geometry.rightBand.computedExtent).toBeCloseTo(clamp(
                 rootFontSize * 13.75,
                 dockHost.contentInlineSize * 0.25,
-                rootFontSize * 20
+                dockHost.contentInlineSize * 0.5
             ), 1);
             expect(geometry.bottomBand.computedExtent).toBeCloseTo(clamp(
                 rootFontSize * 8.75,
-                dockHost.contentBlockSize * 0.28,
-                rootFontSize * 12.5
+                dockHost.contentBlockSize * 0.25,
+                dockHost.contentBlockSize * 0.5
             ), 1)
         };
 
@@ -722,10 +729,12 @@ test.describe('Workstation — dense living-data composition', () => {
         const largeHostGeometry = await readAtHost({height: 600, width: 1100});
 
         assertHostRelativeBandGeometry(largeHostGeometry);
+        // unclamped mid-range spot check: both bands render their COMMITTED document extents
+        // (right 0.25, bottom 0.25 of the host axis), not a preferred-size fraction
         expect(largeHostGeometry.rightBand.computedExtent)
             .toBeCloseTo(largeHostGeometry.dockHost.contentInlineSize * 0.25, 1);
         expect(largeHostGeometry.bottomBand.computedExtent)
-            .toBeCloseTo(largeHostGeometry.dockHost.contentBlockSize * 0.28, 1);
+            .toBeCloseTo(largeHostGeometry.dockHost.contentBlockSize * 0.25, 1);
 
         await page.setViewportSize({height: 850, width: 1300});
 
