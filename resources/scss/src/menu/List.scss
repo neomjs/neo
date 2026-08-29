@@ -24,27 +24,27 @@
        position — `component.Base` fires `alignTo()` without awaiting it. Hold it invisible until a
        zone lands, or the entrance would be preceded by a fully opaque menu jumping into place.
        The selector matches only while NO `neo-aligned-*` class is present, so it stops applying the
-       moment alignment resolves and never hides a menu that is merely re-aligning. (`neo-align-initial`
-       is spelled without the `d` precisely so it cannot satisfy this substring match.) */
+       moment alignment resolves and never hides a menu that is merely re-aligning. */
     &:not([class*='neo-aligned-']) {
         opacity: 0;
     }
 
-    /* `neo-align-initial` marks the subject's FIRST alignment only. A scroll-driven re-align can
-       legitimately change the resolved zone, and keying on `neo-aligned-*` alone would replay the
-       entrance every time that happened. */
-    &.neo-align-initial {
-        animation-duration       : var(--motion-base);
-        animation-fill-mode      : both;
-        animation-timing-function: var(--ease-out-soft);
+    /* The entrance is keyed on the resolved zone alone. `DomAccess.align()` swaps this class only on
+       a REAL zone change, so an ordinary resync -- scroll, resize, the document-mutation resync that
+       opening a submenu triggers -- leaves it untouched and the running animation is never destroyed.
+       A genuine flip does change it, which restarts the entrance mirrored: the menu really did arrive
+       on the other side.
 
-        /* The menu sits on the named side of its target, so it enters FROM the target: each keyframe
-           starts displaced toward the item that opened it and settles at rest. */
-        &.neo-aligned-bottom { animation-name: neo-menu-spawn-from-top;    }
-        &.neo-aligned-left   { animation-name: neo-menu-spawn-from-right;  }
-        &.neo-aligned-right  { animation-name: neo-menu-spawn-from-left;   }
-        &.neo-aligned-top    { animation-name: neo-menu-spawn-from-bottom; }
-    }
+       Keying on a separate transient marker was tried and is wrong: any class the aligner removes and
+       re-adds around a layout read DESTROYS the animation rather than resuming it. */
+    &.neo-aligned-bottom { animation-name: neo-menu-spawn-from-top;    }
+    &.neo-aligned-left   { animation-name: neo-menu-spawn-from-right;  }
+    &.neo-aligned-right  { animation-name: neo-menu-spawn-from-left;   }
+    &.neo-aligned-top    { animation-name: neo-menu-spawn-from-bottom; }
+
+    animation-duration       : var(--motion-base);
+    animation-fill-mode      : both;
+    animation-timing-function: var(--ease-out-soft);
 }
 
 @keyframes neo-menu-spawn-from-bottom {

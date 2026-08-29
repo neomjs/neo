@@ -178,13 +178,23 @@ class List extends BaseList {
     sourceStore = null
 
     /**
-     * Triggered after the animateSpawn config got changed
+     * @summary Toggles the entrance-animation opt-in across this menu and every cached descendant.
+     *
+     * Triggered after the animateSpawn config got changed.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetAnimateSpawn(value, oldValue) {
-        this[value ? 'addCls' : 'removeCls']('neo-animate-spawn')
+        this[value ? 'addCls' : 'removeCls']('neo-animate-spawn');
+
+        // Submenus are cached in `subMenuMap` and reused across open/close cycles, so the value copied
+        // into `showSubMenu()`'s create config only ever reaches the ones created after the change. A
+        // cascade whose levels disagreed would be worse than one that does not animate at all, so the
+        // change follows `afterSetTheme()`'s shape and reaches every level that already exists.
+        Object.values(this.subMenuMap || {}).forEach(menu => {
+            menu.animateSpawn = value
+        })
     }
 
     /**
