@@ -232,7 +232,8 @@
     // No max overrides: boot width is governed by each edge's committed document extent (the
     // projection's inline percentage), so a rem cap here only limits how far the USER may drag —
     // and a cap at or below the boot width pins the band with zero outward headroom. The engine's
-    // 50% default protects the center at every container size.
+    // 50% default then bounds each edge INDIVIDUALLY — a container-relative per-band cap, not an
+    // aggregate center reservation (opposing edges dragged to their caps can meet in the middle).
     --dock-edge-band-left-inline-size     : 20.3125cqi;
     --dock-edge-band-left-min-inline-size : 11.25rem;
     --dock-edge-band-right-inline-size    : 25cqi;
