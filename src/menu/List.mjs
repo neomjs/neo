@@ -30,6 +30,21 @@ class List extends BaseList {
          */
         activeSubMenu: null,
         /**
+         * Opts this menu into a directional entrance: it fades up while sliding in from the side it
+         * spawned on, so a submenu reads as emerging from the item that opened it.
+         *
+         * Deliberately NOT the inherited `list.Base#animate_`, which is a different concept — that one
+         * loads `list/plugin/Animate.mjs` to transition items between positions inside a list that is
+         * already on screen. This animates the arrival of the floating surface itself.
+         *
+         * The direction is not configured: `Neo.main.addon.DomAccess` publishes the resolved side as
+         * `neo-aligned-{top|right|bottom|left}`, so the entrance follows the zone the alignment search
+         * actually chose — including when it flips for want of space.
+         * @member {Boolean} animateSpawn_=false
+         * @reactive
+         */
+        animateSpawn_: false,
+        /**
          * @member {String[]} baseCls=['neo-menu-list','neo-list']
          */
         baseCls: ['neo-menu-list', 'neo-list'],
@@ -161,6 +176,16 @@ class List extends BaseList {
      * @protected
      */
     sourceStore = null
+
+    /**
+     * Triggered after the animateSpawn config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimateSpawn(value, oldValue) {
+        this[value ? 'addCls' : 'removeCls']('neo-animate-spawn')
+    }
 
     /**
      * Triggered after the items config got changed
@@ -644,9 +669,12 @@ class List extends BaseList {
                     axisLock    : true,
                     targetMargin: me.subMenuGap
                 },
-                appName        : me.appName,
-                displayField   : me.displayField,
-                floating       : true,
+                // Inherited deliberately: the entrance exists to make a CASCADE legible, so a submenu
+                // that did not animate while its root did would invert the effect it is there for.
+                animateSpawn: me.animateSpawn,
+                appName     : me.appName,
+                displayField: me.displayField,
+                floating    : true,
                 ...me.getSubMenuData(record),
                 isRoot         : false,
                 parentComponent: me.parentComponent,

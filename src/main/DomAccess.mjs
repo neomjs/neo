@@ -149,6 +149,23 @@ class DomAccess extends Base {
 
         // Set up listeners which monitor for changes
         if (!aligns.has(id)) {
+            // No entry yet, so this alignment is the subject's arrival rather than a resync. The
+            // marker publishes that distinction to CSS, which cannot otherwise tell a spawn from a
+            // re-align: both produce a `neo-aligned-*` class change. Consumers pair it with the
+            // resolved zone (`.neo-align-initial.neo-aligned-right`) to play an entrance in the
+            // direction the zone search actually chose.
+            //
+            // It is cleared by `unalign()` and NOT on the next align, which looks like the tighter
+            // contract and is the wrong one: `onDocumentMutation` resyncs every aligned subject on
+            // ordinary body churn — opening a submenu is enough — so removing it per-align strips it
+            // milliseconds into the entrance and cancels the animation. Leaving it until the subject
+            // is unaligned is safe because a resync that keeps the same zone leaves `animation-name`
+            // untouched, and an unchanged name does not restart a running animation (measured: a
+            // running animation kept advancing across unrelated class churn, and reset to 0 only when
+            // the name itself changed). A genuine zone FLIP therefore replays the entrance, which is
+            // the intended reading — the menu really did arrive on the other side.
+            subject.classList.add('neo-align-initial');
+
             // The subject size participates in every alignment, including coordinate targets.
             resizeObserver.observe(subject);
 
@@ -1284,6 +1301,7 @@ class DomAccess extends Base {
 
                 // Clear the last aligned class.
                 align.subject.classList.remove(`neo-aligned-${align.result?.position}`);
+                align.subject.classList.remove('neo-align-initial');
 
                 _aligns.delete(align.id)
             }
