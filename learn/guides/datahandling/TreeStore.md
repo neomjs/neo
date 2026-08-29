@@ -141,6 +141,12 @@ reorders the child arrays in the Structural Layer itself, so returned siblings f
 current sort. That is deliberate — it lets a level-at-a-time consumer inherit ordering from the tree
 instead of implementing its own.
 
+This holds for an incremental insertion too, including one confined to a collapsed branch: a mutation
+with no visible delta re-applies the active sorters to the levels it touched, so a hidden child does
+not sit in arrival order waiting for an expansion to fix it. The condition is the store's own —
+`autoSort` **and** configured sorters, the same predicate `Collection.Base` guards every sort with.
+A store that sets `autoSort: false` keeps declaration order everywhere, hidden and visible alike.
+
 Reach for `collectAllDescendants()` instead when you want an entire subtree; `getChildren()` is
 deliberately one level deep. And note that reading children this way **does not expand anything** —
 expansion is a view-state concern, and a level-at-a-time consumer should never mutate it just to render.
