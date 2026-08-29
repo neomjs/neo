@@ -149,9 +149,41 @@ Configuration path:
 
 See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete structure, including the `NEO_AGENT_IDENTITY` env-var requirement for A2A mailbox binding.
 
+### Option D: Codex
+
+Codex is OpenAI's CLI harness, and several maintainer seats run on it. Unlike options A–C its configuration is repository-local: copy the tracked `.codex/config.template.toml` to `.codex/config.toml` and edit that copy. Keep `.codex/config.toml` untracked — it holds machine-local paths and trust-level overrides.
+
+Configuration source: repo-local `.codex/config.toml`, seeded from `.codex/config.template.toml`. The repository also ships `.codex/CODEX.md` (a reference document, not an auto-loaded instruction file) and `.codex/rules/pr-lifecycle.rules` (the shell execpolicy).
+
+> **Known gap ([#17847](https://github.com/neomjs/neo/issues/17847)):** the tracked template still declares its stdio servers as `npm run --silent ai:mcp-server-*`. Those scripts live in the Brain checkout, not the Engine, so the template describes the pre-split layout. It is being reconciled against what Codex seats actually run; until then, treat §5's topology section as authoritative over the template.
+
 ## 5. Understanding the Configuration Files
 
 The agent's behavior is controlled by several configuration files depending on your chosen environment:
+
+### Where each MCP server actually comes from
+
+Read this before editing any harness config. The four servers do **not** all come from the same place, and the difference is invisible in the config files themselves.
+
+| server | transport | resolves from |
+|---|---|---|
+| `neo-mjs-knowledge-base` | remote (`url` + bearer) | the container plane on loopback — **no checkout involved** |
+| `neo-mjs-memory-core` | remote (`url` + bearer) | the container plane on loopback — **no checkout involved** |
+| `neo-mjs-github-workflow` | stdio (script path) | **the Brain checkout** |
+| `neo-mjs-neural-link` | stdio (script path) | **the Brain checkout** |
+
+**The two stdio servers are the ones the split moved.** Their implementations left `neomjs/neo` for [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain); the Engine retains no `ai/` tree. Everything *else* about those entries still points at the Engine:
+
+- the **script** (`args`) → your Brain checkout
+- the **working directory** → your Engine checkout, because the Engine is the repository under work
+- **`--env-file`** → the Engine's `.env`
+- the `node_modules/.bin` entry in **`PATH`** → the Engine
+
+So a working stdio entry names both checkouts, and mixing them up produces a server that fails to start with a missing-module error naming a path you never typed.
+
+**The two remote servers are unaffected by any of this.** They carry a `url` and a bearer-token env-var name, reach the container plane over loopback, and do not care where — or whether — you have checked anything out. If Knowledge Base and Memory Core work while GitHub Workflow and Neural Link do not, this split is the first thing to check.
+
+To see what your own harness resolved, read the config your harness actually launched from (§4 names the file per harness) and compare each server's `args` path against the table above.
 
 ### Core Configuration (Antigravity 2.x)
 [Antigravity documents](https://antigravity.google/docs/mcp) two MCP authorities: global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`. Create one of them and configure it with your API keys, identity, and local paths. `--user-data-dir` selects an Electron UI profile; it does not relocate this MCP authority.
@@ -159,6 +191,15 @@ The agent's behavior is controlled by several configuration files depending on y
 - **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
   - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
 - **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v24.x.x/bin/node`).
+- **`<YOUR_NEO_REPO_PATH>`**: your `neomjs/neo` (Engine) checkout.
+- **`<YOUR_BRAIN_REPO_PATH>`**: your [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) checkout — **the MCP server implementations live here, not in the Engine.**
+
+> **Two checkouts, one session.** After the Agent OS split, the two placeholders above are not
+> interchangeable and the difference is easy to miss because only one of them appears in the `args`
+> line. The Engine stays the anchor — working directory, `--env-file`, and the `node_modules/.bin`
+> entry in `PATH` all point at it — while the server **script** resolves from the Brain. See
+> [§5 "Where each MCP server actually comes from"](#where-each-mcp-server-actually-comes-from) for
+> the whole picture, including which servers ignore your checkouts entirely.
 
 Use the following structure:
 
@@ -168,7 +209,7 @@ Use the following structure:
     "neo-mjs-knowledge-base": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"
       ],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
@@ -178,7 +219,7 @@ Use the following structure:
     "neo-mjs-memory-core": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"
       ],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
@@ -189,7 +230,7 @@ Use the following structure:
     "neo-mjs-github-workflow": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
       ],
       "env": {
         "GH_TOKEN": "<YOUR_GH_TOKEN>",
@@ -199,7 +240,7 @@ Use the following structure:
     "neo-mjs-neural-link": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
         "--cwd",
         "<YOUR_NEO_REPO_PATH>"
       ],
@@ -234,7 +275,7 @@ Use the following structure (replace the placeholders as in the Antigravity sect
   "mcpServers": {
     "neo-mjs-knowledge-base": {
       "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
+      "args": ["<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
@@ -242,7 +283,7 @@ Use the following structure (replace the placeholders as in the Antigravity sect
     },
     "neo-mjs-memory-core": {
       "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
+      "args": ["<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
         "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
@@ -251,7 +292,7 @@ Use the following structure (replace the placeholders as in the Antigravity sect
     },
     "neo-mjs-github-workflow": {
       "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
+      "args": ["<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
       "env": {
         "GH_TOKEN": "<YOUR_GH_TOKEN>",
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
@@ -260,7 +301,7 @@ Use the following structure (replace the placeholders as in the Antigravity sect
     "neo-mjs-neural-link": {
       "command": "<YOUR_NODE_PATH>",
       "args": [
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
         "--cwd",
         "<YOUR_NEO_REPO_PATH>"
       ],
