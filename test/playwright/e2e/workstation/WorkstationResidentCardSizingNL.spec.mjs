@@ -119,6 +119,73 @@ test.describe('Workstation resident cards — pane-keyed sizing at a roomy viewp
     })
 });
 
+test.describe('Workstation resident cards — film-stage density from the committed document', () => {
+    test.setTimeout(90000);
+    test.use({
+        contextOptions: {screen: {height: 1440, width: 2560}},
+        viewport      : {height: 1440, width: 2560}
+    });
+
+    test('the opening extents keep both the scale grid and dense resident group usable', async ({page, neuralLink}) => {
+        await bootWorkstation(page);
+
+        const app         = await neuralLink.connectToApp('Workstation'),
+              workspaces  = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
+              workspaceId = (Array.isArray(workspaces) ? workspaces : [workspaces])[0]?.id;
+
+        expect(workspaceId, 'the film stage owns a Workstation workspace').toBeTruthy();
+
+        const {dockModel} = await app.getComponent(workspaceId, ['dockModel']),
+              geometry    = await page.evaluate(() => {
+                  const
+                      rect       = element => element?.getBoundingClientRect(),
+                      host       = document.querySelector('.workstation-dock-host'),
+                      hostRect   = rect(host),
+                      hostStyle  = getComputedStyle(host),
+                      number     = property => Number.parseFloat(hostStyle[property]) || 0,
+                      left       = rect(document.querySelector('.neo-dashboard-dock-edge-band-left')),
+                      right      = rect(document.querySelector('.neo-dashboard-dock-edge-band-right')),
+                      bottom     = rect(document.querySelector('.neo-dashboard-dock-edge-band-bottom')),
+                      heavy      = rect([...document.querySelectorAll('.neo-tab-header-toolbar')]
+                          .find(element => element.textContent?.includes('Priority Alert Observatory'))
+                          ?.closest('.neo-tab-container')),
+                      scale      = document.querySelector('.workstation-scale-pane .neo-grid-header-toolbar'),
+                      scaleRect  = rect(scale),
+                      lastHeader = rect([...scale?.querySelectorAll('.neo-grid-header-button') || []].at(-1));
+
+                  return {
+                      bottomHeight    : bottom?.height,
+                      contentBlockSize: hostRect.height
+                          - number('borderTopWidth') - number('borderBottomWidth')
+                          - number('paddingTop') - number('paddingBottom'),
+                      contentInlineSize: hostRect.width
+                          - number('borderLeftWidth') - number('borderRightWidth')
+                          - number('paddingLeft') - number('paddingRight'),
+                      heavyWidth        : heavy?.width,
+                      leftWidth         : left?.width,
+                      rightWidth        : right?.width,
+                      scaleTrailingSpace: scaleRect?.right - lastHeader?.right
+                  }
+              });
+
+        expect(dockModel.nodes.root.zones).toMatchObject({
+            left  : {extent: 0.11, resizable: true},
+            right : {extent: 0.14, resizable: true},
+            bottom: {extent: 0.17, resizable: true}
+        });
+        expect(geometry.leftWidth).toBeCloseTo(geometry.contentInlineSize * 0.11, 1);
+        expect(geometry.rightWidth).toBeCloseTo(geometry.contentInlineSize * 0.14, 1);
+        expect(geometry.bottomHeight).toBeCloseTo(geometry.contentBlockSize * 0.17, 1);
+        expect(geometry.rightWidth, 'the evidence band stays wider than the queue band')
+            .toBeGreaterThan(geometry.leftWidth);
+        expect(geometry.heavyWidth, 'the dense twelve-tab resident group keeps its working width')
+            .toBeGreaterThanOrEqual(700);
+        expect(geometry.scaleTrailingSpace, 'the 100k grid headers fit without wasting a second panel')
+            .toBeGreaterThanOrEqual(0);
+        expect(geometry.scaleTrailingSpace).toBeLessThanOrEqual(140)
+    })
+});
+
 test.describe('Workstation resident cards — progressive disclosure at a short viewport', () => {
     test.setTimeout(90000);
     test.use({

@@ -11,6 +11,10 @@
 
 /**
  * The dense opening stage. Every catalog item is placed in the tree.
+ *
+ * Edge extents preserve both center panes at the 2560×1440 film stage. Ordinary desktop
+ * sizes intentionally resolve to the theme's usability floors, while the resizable descriptors
+ * retain the Engine's 50% per-edge agency after boot.
  * @type {Object}
  */
 export const initialDocument = Object.freeze({
@@ -43,9 +47,9 @@ export const initialDocument = Object.freeze({
             type : 'edge-zone',
             zones: {
                 center: {nodeId: 'split-main'},
-                left  : {nodeId: 'left-tabs',   extent: 0.20, resizable: true},
-                right : {nodeId: 'split-right', extent: 0.25, resizable: true},
-                bottom: {nodeId: 'bottom-tabs', extent: 0.25, resizable: true}
+                left  : {nodeId: 'left-tabs',   extent: 0.11, resizable: true},
+                right : {nodeId: 'split-right', extent: 0.14, resizable: true},
+                bottom: {nodeId: 'bottom-tabs', extent: 0.17, resizable: true}
             }
         },
         'split-main'       : {type: 'split', orientation: 'horizontal', children: ['scale-tabs', 'heavy-tabs'], sizes: [0.6, 0.4]},
