@@ -104,7 +104,7 @@ For a reactive config like `myConfig_`, the engine provides this behavior:
 
 If you define a config without the trailing underscore, it will simply be a static property on the class instance and will not trigger any lifecycle methods.
 
-For a complete explanation of the config system, including details on all the lifecycle hooks, please see the [Unified Config System guide](benefits.ConfigSystem).
+For a complete explanation of the config system, including details on all the lifecycle hooks, please see the [Unified Config System guide](benefits.body.ConfigSystem).
 
 ## Example: A Custom Button
 
@@ -286,4 +286,4 @@ MainView= Neo.setupClass(MainView);
 This approach gives you maximum control, but it also means you are responsible for building the structure yourself.
 
 For a deeper dive into advanced VDom manipulation, including performance best practices and security, please refer to the
-[Working with VDom guide](guides.WorkingWithVDom).
+[Working with VDom guide](guides.uibuildingblocks.WorkingWithVDom).

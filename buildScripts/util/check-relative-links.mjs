@@ -16,7 +16,7 @@
  *     commit without tripping the guard,
  *   - is identical to the committed tree in CI, where the checkout is fresh.
  *
- * ### Three link classes, because two of them are not filesystem paths at all
+ * ### Three link classes, and every one of them is resolved
  *
  * A naive resolver reports all three as broken and drowns the real findings — measured on this very
  * repository, where a first pass produced 17 findings of which only 7 were real:
@@ -24,11 +24,17 @@
  *   1. **Relative** (`../guides/X.md`) — resolved against the referring file's directory.
  *   2. **Root-absolute** (`/learn/comparisons/X.md`) — resolved against the repository root. Joining
  *      these to the referrer's directory is what invented six of those ten false positives.
- *   3. **Portal refs** (`guides.events.DomEvents`) — the portal's own dotted addressing, not paths.
- *      Skipped, and counted separately so the skip is visible rather than silent.
+ *   3. **Portal refs** (`guides.events.DomEvents`) — the portal's own dotted addressing, resolved by
+ *      the portal's own rule: `apps/portal/view/learn/Component.mjs#getContentPath` does
+ *      `record.id.replaceAll('.', '/')` under the learn root and appends `.md`.
  *
- * External URLs, anchors and `mailto:` are out of scope by construction: link *liveness* is a
- * different instrument with different failure modes, and mixing them would make this guard flaky.
+ * **Nothing is skipped, and that is the point.** The first version of this guard *exempted* class 3
+ * with a suffix heuristic — anything slash-less and extension-less was assumed to be a portal ref and
+ * waved through. It was fail-open, and it was not theoretical: all three exempted targets in this
+ * repository were **dead**, and the exemption was the only reason they read as clean. An unknown
+ * extensionless target is now checked like everything else. The one thing genuinely out of scope is
+ * external liveness — http(s), `mailto:` and bare anchors — because that is a different instrument
+ * with different failure modes, and mixing them would make this guard flaky.
  *
  * `collectDeadLinks` is pure over its inputs (injectable file set and reader, no exit/log) so the
  * CLI wrapper and an isolated spec can both drive it.
@@ -46,9 +52,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       /** Suffixes that make a slash-less target a file path rather than a portal ref. */
       FILE_SUFFIXES = ['.md', '.mjs', '.js', '.json', '.scss', '.css', '.html', '.png', '.jpg', '.svg'],
 
-      INLINE_LINK    = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,
-      REFERENCE_LINK = /^\s{0,3}\[[^\]]+\]:\s*(\S+)/gm,
-      HTML_HREF      = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
+      /** The root the portal resolves a dotted content id against. */
+      PORTAL_ROOT = 'learn',
+
+      INLINE_LINK = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,
+
+      // A reference definition owns its whole line: `[label]: target` with nothing after the target
+      // but an optional title. Allowing trailing prose made `[Side Note]: If you add a new addon…`
+      // parse as a definition pointing at `If` — a target that never existed, reported as a link.
+      REFERENCE_LINK = /^\[[^\]]+\]:[ \t]*(\S+)[ \t]*(?:["'(].*)?$/gm,
+
+      HTML_HREF = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
 
 /**
  * Extracts every link target from one markdown document, across all three syntaxes.
@@ -108,6 +122,27 @@ export function classifyTarget(target) {
  * @param {Function} options.read `(repoRelativePath) => String`
  * @returns {{findings: Object[], checked: Number, skipped: Number}}
  */
+/**
+ * Resolves one classified target to the repo-relative path it addresses.
+ *
+ * @param {{kind: String, value: String}} classified
+ * @param {String} base Directory of the referring file.
+ * @returns {String}
+ */
+export function resolveTarget({kind, value}, base) {
+    if (kind === 'portal') {
+        // The portal's own rule, from `apps/portal/view/learn/Component.mjs#getContentPath`.
+        return `${PORTAL_ROOT}/${value.replaceAll('.', '/')}.md`
+    }
+
+    // `normalize` preserves a trailing slash, and the directory set has none — so a link written
+    // `./guides/` would miss a directory that is right there. Strip it before lookup.
+    return (value.startsWith('/')
+        ? value.slice(1)
+        : path.posix.normalize(path.posix.join(base, value))
+    ).replace(/\/+$/, '')
+}
+
 export function collectDeadLinks({files, tracked, read}) {
     // A link may address a directory (`../guides/`); derive the directory set once.
     const dirs = new Set();
@@ -122,33 +157,28 @@ export function collectDeadLinks({files, tracked, read}) {
 
     const findings = [];
     let   checked  = 0,
-        skipped = 0;
+          portal   = 0;
 
     for (const file of files) {
         const base = path.posix.dirname(file);
 
         for (const raw of extractLinkTargets(read(file))) {
-            const {kind, value} = classifyTarget(raw);
+            const classified = classifyTarget(raw);
 
-            if (kind === 'external') continue;
-            if (kind === 'portal')  { skipped++; continue }
+            if (classified.kind === 'external') continue;
 
             checked++;
+            classified.kind === 'portal' && portal++;
 
-            // `normalize` preserves a trailing slash, and the directory set has none — so a link
-            // written `./guides/` would miss a directory that is right there. Strip it before lookup.
-            const resolved = (value.startsWith('/')
-                ? value.slice(1)
-                : path.posix.normalize(path.posix.join(base, value))
-            ).replace(/\/+$/, '');
+            const resolved = resolveTarget(classified, base);
 
             if (!tracked.has(resolved) && !dirs.has(resolved)) {
-                findings.push({file, target: raw, resolved})
+                findings.push({file, target: raw, resolved, kind: classified.kind})
             }
         }
     }
 
-    return {findings, checked, skipped}
+    return {findings, checked, portal}
 }
 
 /** @returns {String[]} every path in the git index */
@@ -163,25 +193,27 @@ function main() {
           files   = [...tracked].filter(f => f.endsWith('.md') && SCAN_ROOTS.some(r => f.startsWith(r))),
           read    = f => execFileSync('git', ['show', `:${f}`], {cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024});
 
-    const {findings, checked, skipped} = collectDeadLinks({files, tracked, read});
+    const {findings, checked, portal} = collectDeadLinks({files, tracked, read});
 
     if (findings.length > 0) {
         console.error(`check-relative-links: ${findings.length} unresolved link(s) in ${files.length} file(s).\n`);
 
-        for (const {file, target, resolved} of findings) {
+        for (const {file, target, resolved, kind} of findings) {
             console.error(`  ${file}`);
-            console.error(`      -> ${target}   (resolves to ${resolved}, which the repository does not contain)`)
+            console.error(`      -> ${target}${kind === 'portal' ? '   [portal id]' : ''}`);
+            console.error(`         resolves to ${resolved}, which the repository does not contain`)
         }
 
         console.error('\nA custody move updates the target and leaves the referrer behind. Repoint the link,');
         console.error('or make it a canonical sibling URL when the target now lives in another repository.');
+        console.error('A [portal id] resolves as learn/<dots-become-slashes>.md — see apps/portal/view/learn/Component.mjs.');
 
         process.exit(1)
     }
 
     console.log(
-        `check-relative-links: OK — ${checked} path link(s) resolved across ${files.length} file(s) ` +
-        `under ${SCAN_ROOTS.join(', ')}; ${skipped} portal ref(s) skipped.`
+        `check-relative-links: OK — ${checked} link(s) resolved across ${files.length} file(s) ` +
+        `under ${SCAN_ROOTS.join(', ')}, of which ${portal} portal id(s). Nothing exempted.`
     )
 }
 

@@ -79,7 +79,7 @@ While VDom nodes define the visual structure and attributes of your components, 
 
 This clear separation ensures that your VDom markup remains easily serializable and performant across worker threads, while still providing flexible and powerful event handling.
 
-For a comprehensive deep dive into all aspects of DOM event handling in Neo.mjs (including static, programmatic, string-based handlers, delegation, bubbling, and more), please refer to the dedicated **[DOM Event Handling Guide](guides.events.DomEvents)**.
+For a comprehensive deep dive into all aspects of DOM event handling in Neo.mjs (including static, programmatic, string-based handlers, delegation, bubbling, and more), please refer to the dedicated **[DOM Event Handling Guide](guides.userinteraction.events.DomEvents)**.
 
 Here's a simple example of how an event handler defined via `domListeners` would interact with a component's VDom:
 
@@ -714,7 +714,7 @@ import Component from './src/component/Base.mjs'; // Required import
 class ListComponent extends Component {
     static config = {
         data: [], // Example: config to hold the list data
-      
+
         vdom: {
             cls: ['neo-list'],
             cn: [] // This array will be populated with VDom nodes dynamically
