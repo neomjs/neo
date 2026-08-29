@@ -13,7 +13,21 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Instance       from '../../../../src/manager/Instance.mjs';
+import BaseList       from '../../../../src/list/Base.mjs';
 import MenuList       from '../../../../src/menu/List.mjs';
+
+/**
+ * Returns the click delegate `Neo.selection.ListModel` actually registered on a list.
+ *
+ * The delegate is the *second* consumer of `nonInteractiveItemCls` — a hand-rolled class check,
+ * because a delegate cannot consume a CSS selector. Asserting the selector string proves the
+ * navigator's half only; this reaches the half a click travels through.
+ */
+const clickDelegate = list =>
+    list.domListeners.find(listener => listener.click && listener.delegate)?.delegate;
+
+/** A vdom path node as the delegate receives it. */
+const node = (...cls) => ({cls});
 
 /**
  * @summary Creates a Menu with DOM-dependent mount work neutralized.
@@ -156,6 +170,81 @@ test.describe('Neo.menu.Model declared fields', () => {
             expect(item.cls).not.toContain('neo-menu-separator');
             expect(item.role).toBeUndefined();
             expect(item.cn.length).toBeGreaterThan(0)
+        })
+    });
+
+    test.describe('the click delegate — the second consumer, executed', () => {
+        let menu;
+
+        test.beforeEach(() => {
+            menu = createMenu([
+                {id: 1, text: 'Cut'},
+                {id: 2, separator: true},
+                {id: 3, disabled: true, text: 'Paste'}
+            ])
+        });
+
+        test.afterEach(() => {
+            menu?.destroy();
+            menu = null
+        });
+
+        test('it is registered at all', () => {
+            // Guards every assertion below: a helper that silently returned undefined would make
+            // them all vacuously pass, since `undefined` is also the "no match" answer.
+            expect(typeof clickDelegate(menu)).toBe('function')
+        });
+
+        test('an ordinary item matches; a separator and a disabled item do not', () => {
+            const delegate = clickDelegate(menu);
+
+            expect(delegate([node('neo-list-item')])).toBe(0);
+            expect(delegate([node('neo-list-item', 'neo-menu-separator')])).toBeUndefined();
+            expect(delegate([node('neo-list-item', 'neo-disabled')])).toBeUndefined();
+            expect(delegate([node('neo-list-item', 'neo-list-header')])).toBeUndefined();
+            expect(delegate([node('something-else')])).toBeUndefined()
+        });
+
+        test('it walks the path and returns the index of the first eligible node', () => {
+            const delegate = clickDelegate(menu);
+
+            expect(delegate([node('neo-content'), node('neo-list-item')])).toBe(1)
+        });
+
+        test('CONTROL: a plain list DOES match a separator-classed node', () => {
+            // The causal arm. `list.Base` does not know about separators, so its delegate accepts
+            // one — which is what a menu's would do too if `menu.List` had not extended the config.
+            // Without this, the assertions above could hold for a delegate that rejects everything.
+            const plain    = Neo.create(BaseList, {appName, store: {data: []}}),
+                  delegate = clickDelegate(plain);
+
+            expect(delegate([node('neo-list-item', 'neo-menu-separator')])).toBe(0);
+            expect(delegate([node('neo-list-item', 'neo-disabled')])).toBeUndefined();
+
+            plain.destroy()
+        });
+
+        test('both consumers agree, which is the point of the shared config', () => {
+            // The navigator reads a CSS selector, the delegate reads class names. They are two
+            // expressions of one rule; the config exists so they cannot disagree.
+            const delegate = clickDelegate(menu),
+                  selector = menu.getNavigableItemSelector();
+
+            for (const cls of menu.nonInteractiveItemCls) {
+                expect(selector).toContain(`.${cls}`);
+                expect(delegate([node('neo-list-item', cls)])).toBeUndefined()
+            }
+        });
+
+        test('the menu set is DERIVED from the base set, not copied', () => {
+            // A restated copy would pass every assertion above and still silently miss a fourth
+            // concept added to list.Base later.
+            for (const cls of BaseList.config.nonInteractiveItemCls) {
+                expect(menu.nonInteractiveItemCls).toContain(cls)
+            }
+
+            expect(menu.nonInteractiveItemCls).toContain('neo-menu-separator');
+            expect(menu.nonInteractiveItemCls.length).toBe(BaseList.config.nonInteractiveItemCls.length + 1)
         })
     })
 });

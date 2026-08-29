@@ -61,9 +61,12 @@ class List extends BaseList {
          * selector and the delegate check from this config. Rendering the class without extending
          * this list would produce a rule that looks correct and still takes focus on the first
          * arrow-down — which is the defect this ticket exists to remove, in a subtler form.
-         * @member {String[]} nonInteractiveItemCls=['neo-disabled','neo-list-header','neo-menu-separator']
+         * Derived from the base set rather than restated, so a fourth non-interactive concept added
+         * to `list.Base` reaches menus without a second edit here. Restating the two inherited names
+         * would rebuild, one level down, exactly the drift this config was introduced to remove.
+         * @member {String[]} nonInteractiveItemCls=[...BaseList.config.nonInteractiveItemCls,'neo-menu-separator']
          */
-        nonInteractiveItemCls: ['neo-disabled', 'neo-list-header', 'neo-menu-separator'],
+        nonInteractiveItemCls: [...BaseList.config.nonInteractiveItemCls, 'neo-menu-separator'],
         /**
          * Internal flag.
          * True for a top level menu, false for sub-menus.
