@@ -221,7 +221,7 @@ class DragAffordances extends Base {
 
         let candidate   = indicators?.updatePointer(pointer) ?? null,
             dockPreview = candidate?.preview
-                ?? producer.produce({pointer, zones: geometry.zones, itemId, groupNodeId, sourceNodeId});
+                ?? producer.produce({pointer, zones: geometry.zones, itemId, groupNodeId, root: geometry.root, sourceNodeId});
 
         if (preview && writeRenderer) {
             preview.dockPreview = dockPreview;
@@ -267,6 +267,7 @@ class DragAffordances extends Base {
                 pointer,
                 zones: geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
                 itemId,
+                root : geometry.root,
                 sourceNodeId
             })
         }

@@ -51,6 +51,13 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(scss).toContain('.neo-dock-preview-affordance');
             expect(scss).toContain('.neo-dock-preview-accepted');
             expect(scss).toContain('.neo-dock-preview-rejected');
+            // the result-region mode class routes directional placements into the filled
+            // family, and each cut-side accent the renderer can emit is backed
+            expect(scss).toContain('.neo-dock-preview-region');
+            expect(scss).toContain('.neo-dock-preview-cut-top');
+            expect(scss).toContain('.neo-dock-preview-cut-right');
+            expect(scss).toContain('.neo-dock-preview-cut-bottom');
+            expect(scss).toContain('.neo-dock-preview-cut-left');
             // accepted/rejected states carry real visual treatment, not just class names
             expect(scss).toContain('background-color');
             expect(scss).toContain('border');
@@ -343,42 +350,79 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(DockPreview.affordanceGeometry(null, rect)).toBe(null)
         });
 
-        test('an edge-top affordance is a band across the top', () => {
-            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'}, rect)).toEqual({x: 10, y: 20, width: 200, height: 24})
+        test('DEFAULT (result regions): an edge affordance is the half the new pane would occupy', () => {
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'},   rect)).toEqual({x: 10,  y: 20, width: 200, height: 50});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'right'}, rect)).toEqual({x: 110, y: 20, width: 100, height: 100});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'bottom'},rect)).toEqual({x: 10,  y: 70, width: 200, height: 50});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left'},  rect)).toEqual({x: 10,  y: 20, width: 100, height: 100})
         });
 
-        test('an edge-right affordance is a band down the right side', () => {
-            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'right'}, rect)).toEqual({x: 186, y: 20, width: 24, height: 100})
+        test('DEFAULT (result regions): a split affordance is the new sibling\'s half along the axis', () => {
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'before'}, rect))
+                .toEqual({x: 10, y: 20, width: 100, height: 100});
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect))
+                .toEqual({x: 110, y: 20, width: 100, height: 100});
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'vertical', position: 'before'}, rect))
+                .toEqual({x: 10, y: 20, width: 200, height: 50});
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'vertical', position: 'after'}, rect))
+                .toEqual({x: 10, y: 70, width: 200, height: 50})
         });
 
-        test('a tab-into affordance highlights the whole node', () => {
-            expect(DockPreview.affordanceGeometry({group: 'tab', position: 'into'}, rect)).toEqual(rect)
+        test('a tab-into affordance highlights the whole node in both modes', () => {
+            expect(DockPreview.affordanceGeometry({group: 'tab', position: 'into'}, rect)).toEqual(rect);
+            expect(DockPreview.affordanceGeometry({group: 'tab', position: 'into'}, rect, {resultRegionPreviews: false})).toEqual(rect)
         });
 
-        test('a horizontal split-after affordance is a guide line on the right edge', () => {
-            const geo = DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect);
-            expect(geo).toEqual({x: 204, y: 20, width: 6, height: 100})
+        test('resultRegionPreviews: false restores the classic band and guide-line presentation', () => {
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'}, rect, {resultRegionPreviews: false}))
+                .toEqual({x: 10, y: 20, width: 200, height: 24});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'right'}, rect, {resultRegionPreviews: false}))
+                .toEqual({x: 186, y: 20, width: 24, height: 100});
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect, {resultRegionPreviews: false}))
+                .toEqual({x: 204, y: 20, width: 6, height: 100})
         });
 
-        test('sizing policy rides the options: explicit band/line values are honored + clamped', () => {
+        test('sizing policy rides the options in line mode: explicit band/line values honored + clamped', () => {
             // a touch-density consumer widens the band
-            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'}, rect, {edgeBandSize: 48}))
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'}, rect, {edgeBandSize: 48, resultRegionPreviews: false}))
                 .toEqual({x: 10, y: 20, width: 200, height: 48});
             // clamping survives the override: the band never exceeds the target rect
             // (edge-left renders the band as WIDTH: min(500, 200, 100) = 100)
-            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left'}, rect, {edgeBandSize: 500}))
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left'}, rect, {edgeBandSize: 500, resultRegionPreviews: false}))
                 .toEqual({x: 10, y: 20, width: 100, height: 100});
             // guide thickness follows the same policy surface
-            const geo = DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect, {splitLineSize: 10});
+            const geo = DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect, {resultRegionPreviews: false, splitLineSize: 10});
             expect(geo).toEqual({x: 200, y: 20, width: 10, height: 100})
+        })
+    });
+
+    test.describe('cutSide (the region\'s inner edge — where the future splitter sits)', () => {
+        test('edge regions cut on the side facing the remaining half', () => {
+            expect(DockPreview.cutSide({group: 'edge', edge: 'top'})).toBe('bottom');
+            expect(DockPreview.cutSide({group: 'edge', edge: 'bottom'})).toBe('top');
+            expect(DockPreview.cutSide({group: 'edge', edge: 'left'})).toBe('right');
+            expect(DockPreview.cutSide({group: 'edge', edge: 'right'})).toBe('left')
+        });
+
+        test('split regions cut on the boundary toward the existing sibling', () => {
+            expect(DockPreview.cutSide({group: 'split', orientation: 'horizontal', position: 'before'})).toBe('right');
+            expect(DockPreview.cutSide({group: 'split', orientation: 'horizontal', position: 'after'})).toBe('left');
+            expect(DockPreview.cutSide({group: 'split', orientation: 'vertical', position: 'before'})).toBe('bottom');
+            expect(DockPreview.cutSide({group: 'split', orientation: 'vertical', position: 'after'})).toBe('top')
+        });
+
+        test('non-directional affordances carry no cut', () => {
+            expect(DockPreview.cutSide({group: 'tab', position: 'into'})).toBe(null);
+            expect(DockPreview.cutSide(null)).toBe(null)
         })
     });
 
     test.describe('sizing policy (instance configuration)', () => {
         test('an instance override flows into the positioned affordance geometry', () => {
             const instance = Neo.create(DockPreview, {
-                edgeBandSize: 48,
-                id          : 'dock-preview-sizing-test'
+                edgeBandSize        : 48,
+                id                  : 'dock-preview-sizing-test',
+                resultRegionPreviews: false
             });
 
             instance.dockPreview = preview({placement: {kind: 'edge-top'}});
@@ -387,6 +431,33 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
 
             // the consumer's hardware/UI sizing is honored on the live overlay node
             expect(instance.vdom.cn[0].style.height).toBe('48px');
+
+            instance.destroy()
+        });
+
+        test('the region default paints the result half and marks its cut edge', () => {
+            const instance = Neo.create(DockPreview, {id: 'dock-preview-region-test'});
+
+            instance.dockPreview = preview({placement: {kind: 'edge-top'}});
+
+            instance.applyTargetGeometry({x: 0, y: 0, width: 300, height: 200});
+
+            const node = instance.vdom.cn[0];
+
+            // the outcome region: the top HALF of the target, not a 24px strip
+            expect(node.style.height).toBe('100px');
+            expect(node.style.width).toBe('300px');
+            expect(node.cls).toContain('neo-dock-preview-region');
+            expect(node.cls).toContain('neo-dock-preview-cut-bottom');
+
+            // flipping the config back re-renders the classic band on the next preview
+            instance.resultRegionPreviews = false;
+            instance.dockPreview = preview({placement: {kind: 'edge-top'}, previewId: 'preview:alpha:main-tabs:edge-top:2'});
+            instance.applyTargetGeometry({x: 0, y: 0, width: 300, height: 200});
+
+            const lineNode = instance.vdom.cn[0];
+            expect(lineNode.style.height).toBe('24px');
+            expect(lineNode.cls).not.toContain('neo-dock-preview-region');
 
             instance.destroy()
         })
@@ -454,7 +525,8 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(style.left).toBe('10px');
             expect(style.top).toBe('20px');
             expect(style.width).toBe('200px');
-            expect(style.height).toBe('24px')
+            // the region default paints the outcome half (100 / 2), not the 24px strip
+            expect(style.height).toBe('50px')
         })
     })
 });

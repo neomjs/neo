@@ -90,6 +90,17 @@ class Preview extends Component {
          */
         edgeBandSize: 24,
         /**
+         * True paints split and edge placements as the RESULT REGION — the half of the target
+         * the new pane would occupy — with the exact cut marked by a thicker border on the
+         * region's inner edge. False restores the thin insertion-line presentation. The pane
+         * center (tab-into) always paints the full-zone region; this config only widens the
+         * directional placements to match, so the whole preview language shows outcomes
+         * instead of cuts. Read per frame — a runtime flip applies on the next hover move.
+         * @member {Boolean} resultRegionPreviews_=true
+         * @reactive
+         */
+        resultRegionPreviews_: true,
+        /**
          * Thickness in px of a split / tab guide line. Per-instance policy, same rationale as
          * {@link Neo.dashboard.dock.interaction.Preview#edgeBandSize}.
          * @member {Number} splitLineSize=6
@@ -202,7 +213,7 @@ class Preview extends Component {
      * @returns {Object|null}
      * @static
      */
-    static affordanceGeometry(affordance, targetRect, {edgeBandSize = 24, splitLineSize = 6} = {}) {
+    static affordanceGeometry(affordance, targetRect, {edgeBandSize = 24, resultRegionPreviews = true, splitLineSize = 6} = {}) {
         if (!affordance || !targetRect) return null;
 
         let {height, width, x, y} = targetRect;
@@ -213,6 +224,17 @@ class Preview extends Component {
             line = splitLineSize;
 
         if (affordance.group === 'edge') {
+            // region mode paints the HALF the new pane would occupy toward that edge — the
+            // outcome, not the strip; line mode keeps the classic band affordance
+            if (resultRegionPreviews) {
+                switch (affordance.edge) {
+                    case 'top'   : return {x, y, width, height: height / 2};
+                    case 'bottom': return {x, y: y + height / 2, width, height: height / 2};
+                    case 'left'  : return {x, y, width: width / 2, height};
+                    case 'right' : return {x: x + width / 2, y, width: width / 2, height}
+                }
+            }
+
             switch (affordance.edge) {
                 case 'top'   : return {x, y, width, height: band};
                 case 'bottom': return {x, y: y + height - band, width, height: band};
@@ -222,6 +244,14 @@ class Preview extends Component {
         }
 
         if (affordance.group === 'split') {
+            if (resultRegionPreviews) {
+                // the new sibling's half along the split axis: before = first child, after = second
+                if (affordance.orientation === 'horizontal') {
+                    return {x: affordance.position === 'after' ? x + width / 2 : x, y, width: width / 2, height}
+                }
+                return {x, y: affordance.position === 'after' ? y + height / 2 : y, width, height: height / 2}
+            }
+
             if (affordance.orientation === 'horizontal') {
                 // children side-by-side -> a vertical guide on the left (before) / right (after)
                 return {x: affordance.position === 'after' ? x + width - line : x, y, width: line, height}
@@ -236,6 +266,32 @@ class Preview extends Component {
         }
 
         return {x: affordance.position === 'after' ? x + width - line : x, y, width: line, height}
+    }
+
+    /**
+     * @summary The region's INNER edge — where the actual cut (the future splitter) sits.
+     *
+     * A result region occupies one half of its target; the boundary facing the remaining half
+     * carries the exact-cut information the old insertion line encoded. Returns the side name
+     * for the accent class, or null for non-directional affordances (tab placements).
+     * @param {Object|null} affordance
+     * @returns {String|null} 'top' | 'right' | 'bottom' | 'left' | null
+     * @static
+     */
+    static cutSide(affordance) {
+        if (!affordance) return null;
+
+        if (affordance.group === 'edge') {
+            return {top: 'bottom', bottom: 'top', left: 'right', right: 'left'}[affordance.edge] ?? null
+        }
+
+        if (affordance.group === 'split') {
+            return affordance.orientation === 'horizontal'
+                ? (affordance.position === 'after' ? 'left' : 'right')
+                : (affordance.position === 'after' ? 'top'  : 'bottom')
+        }
+
+        return null
     }
 
     /**
@@ -268,8 +324,9 @@ class Preview extends Component {
         if (!affordance || !node) return;
 
         let geo = Preview.affordanceGeometry(affordance, targetRect, {
-            edgeBandSize : me.edgeBandSize,
-            splitLineSize: me.splitLineSize
+            edgeBandSize        : me.edgeBandSize,
+            resultRegionPreviews: me.resultRegionPreviews,
+            splitLineSize       : me.splitLineSize
         });
 
         if (!geo) return;
@@ -338,12 +395,21 @@ class Preview extends Component {
      * @returns {Object} VDOM node
      */
     getAffordanceVdom(affordance) {
+        let me      = this,
+            region  = me.resultRegionPreviews && (affordance.group === 'split' || affordance.group === 'edge'),
+            cutSide = region ? Preview.cutSide(affordance) : null;
+
         return {
             cls: [
                 'neo-dock-preview-affordance',
                 `neo-dock-preview-${affordance.group}`,
                 `neo-dock-preview-${affordance.kind}`,
-                affordance.accepted ? 'neo-dock-preview-accepted' : 'neo-dock-preview-rejected'
+                affordance.accepted ? 'neo-dock-preview-accepted' : 'neo-dock-preview-rejected',
+                // region mode routes directional placements into the filled-region visual
+                // family; the cut-side class thickens the border on the region's inner edge,
+                // preserving the exact-cut information the insertion line used to carry
+                ...(region  ? ['neo-dock-preview-region'] : []),
+                ...(cutSide ? [`neo-dock-preview-cut-${cutSide}`] : [])
             ],
             'data-dock-target': affordance.targetNodeId,
             style             : {pointerEvents: 'none'}
