@@ -190,38 +190,64 @@ test.describe('Neo.menu.List floating dismissal', () => {
         expect(dismissals).toBe(3)
     });
 
-    test('a leaf click inside a submenu dismisses the whole tree, not only its own level', () => {
+    /**
+     * @summary A root plus two descendant levels, wired so the real dismissal cascade can run.
+     *
+     * `activeSubMenu` is what `hideSubMenu()` follows, so it — not `subMenuMap` — is what makes an
+     * ancestor's `unmount()` reach its descendants. `Neo.applyDeltas` is stubbed by the unit setup,
+     * so no `unmount()` here needs replacing with a counter: the levels really do unmount, and
+     * `mounted` is the witness.
+     * @param {Object} [level2Config]
+     * @returns {Object}
+     */
+    function createTree(level2Config={}) {
         const
             root   = createMenu({floating: true, isRoot: true}),
             level1 = createMenu({floating: true, isRoot: false, parentMenu: root}),
-            level2 = createMenu({floating: true, isRoot: false, parentMenu: level1});
+            level2 = createMenu({floating: true, isRoot: false, parentMenu: level1, ...level2Config});
 
         menus.push(root, level1, level2);
 
         // Added after construct, not as an `items` config: resolving items during initConfig reaches
         // getController(), which needs a manager the unit harness does not stand up.
         level2.store.add({text: 'Copy name'});
+
         root._mounted = level1._mounted = level2._mounted = true;
-        root.subMenuMap   = {first: level1};
-        level1.subMenuMap = {second: level2};
-
-        let rootDismissals = 0,
-            leafDismissals = 0;
-
-        root.unmount   = () => rootDismissals++;
-        level2.unmount = () => leafDismissals++;
+        root.activeSubMenu   = level1;
+        level1.activeSubMenu = level2;
 
         // Focus reaching the deepest level primes the whole chain — afterSetMenuFocus bubbles upwards.
         level2.menuFocus = true;
 
+        return {root, level1, level2, leafNodeId: level2.getItemId(level2.store.getAt(0))}
+    }
+
+    test('a leaf click inside a submenu unmounts every level, not only its own', () => {
+        const {root, level1, level2, leafNodeId} = createTree();
+
         expect(root.menuFocus).toBe(true);
 
-        level2.onKeyDownEnter(level2.getItemId(level2.store.getAt(0)));
+        level2.onKeyDownEnter(leafNodeId);
 
-        // Depth 2 on purpose: at depth 1 the root IS the parent, so closing only the clicked menu
-        // passes by accident and the regression stays invisible.
-        expect(leafDismissals).toBe(1);
-        expect(rootDismissals).toBe(1)
+        // The regression left level1 and the root mounted while level2 closed under them, so the
+        // witness has to be every level's mounted state — counting that the root was TOLD to unmount
+        // would pass against exactly that bug. Depth 2 on purpose: at depth 1 the root IS the parent,
+        // so closing only the clicked menu passes by accident.
+        expect(level2.mounted).toBe(false);
+        expect(level1.mounted).toBe(false);
+        expect(root.mounted).toBe(false)
+    });
+
+    test('hideOnLeafItemClick: false leaves the whole tree mounted on a leaf click', () => {
+        const {root, level1, level2, leafNodeId} = createTree({hideOnLeafItemClick: false});
+
+        level2.onKeyDownEnter(leafNodeId);
+
+        // The policy gate still governs the new setter write, not just the unmount that follows it.
+        expect(level2.mounted).toBe(true);
+        expect(level1.mounted).toBe(true);
+        expect(root.mounted).toBe(true);
+        expect(root.menuFocus).toBe(true)
     });
 
     test('removes the exact app-root listener during destroy', () => {
