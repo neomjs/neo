@@ -5,9 +5,9 @@
 # Codex project-doc discovery loads at most one instruction file per directory:
 # AGENTS.override.md, then AGENTS.md, then configured fallbacks. Since the repo
 # root owns AGENTS.md, .codex/CODEX.md is a reference file, not an auto-loaded
-# fallback. Trusted Codex projects inject .codex/CODEX.md through
-# .codex/hooks.json, keeping this customizable config file out of the runtime
-# note source-of-truth path.
+# fallback. The hooks file that used to inject it left the Engine in the Agent OS
+# split (c623b2f63c) and has no replacement here yet, so treat CODEX.md as
+# reference material you open rather than context you are guaranteed to receive.
 project_doc_max_bytes = 131072
 
 # Repo-local shell command execpolicy lives in .codex/rules/pr-lifecycle.rules.
@@ -31,9 +31,18 @@ model_max_output_tokens = 128000
 [sandbox_workspace_write]
 network_access = true
 
+# The two stdio servers changed shape in the repository split. Their implementations moved to the
+# Brain checkout (neomjs/neo-agent-brain); the Engine keeps no `ai/` tree, so the former
+# `npm run ai:mcp-server-*` form cannot resolve from here. The Engine remains the working directory,
+# because it is the repository under work — a stdio entry therefore names BOTH checkouts.
+#
+# Replace <YOUR_NEO_REPO_PATH> and <YOUR_BRAIN_REPO_PATH> with your own absolute paths.
+#
+# `env_vars` stays the per-server allowlist: each server receives only the credentials it needs, and
+# the remote bearer below is deliberately absent here. See .github/AI_QUICK_START.md §5.
 [mcp_servers."neo-mjs-github-workflow"]
-command = "npm"
-args = ["run", "--silent", "ai:mcp-server-github-workflow"]
+command = "/bin/zsh"
+args = ["-lc", "cd <YOUR_NEO_REPO_PATH> && exec node <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"]
 env_vars = ["GH_TOKEN", "GITHUB_TOKEN", "NEO_AGENT_IDENTITY"]
 startup_timeout_sec = 30
 tool_timeout_sec = 120
@@ -57,8 +66,10 @@ enabled = true
 # .claude/claude_desktop_config.example.json for the form that does.
 #
 # NEO_MCP_REMOTE_TOKEN is the one slot for this plane, shared with the Fleet seat
-# generators (ai/services/fleet/mcpServers.mjs). A repository credential is a different
-# authority and may never be substituted for it.
+# generators (which moved to the Brain checkout in the Agent OS split). A repository
+# credential such as GH_TOKEN is a different authority and may never be substituted
+# for it: the two hold the same value in a GitHub-based setup only by coincidence,
+# and diverge for a team on GitLab.
 [mcp_servers."neo-mjs-knowledge-base"]
 url = "http://127.0.0.1:3102/kb/mcp"
 bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"
@@ -74,8 +85,8 @@ tool_timeout_sec = 120
 enabled = true
 
 [mcp_servers."neo-mjs-neural-link"]
-command = "npm"
-args = ["run", "--silent", "ai:mcp-server-neural-link"]
+command = "/bin/zsh"
+args = ["-lc", "cd <YOUR_NEO_REPO_PATH> && exec node <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"]
 env_vars = ["NEO_AGENT_IDENTITY"]
 startup_timeout_sec = 30
 tool_timeout_sec = 120
