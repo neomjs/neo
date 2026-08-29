@@ -1,28 +1,33 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary Whitebox E2E witness: a committed same-node splitter resize must be
- * classified as landed-in-place, not as a replacement tree.
+ * @summary Whitebox E2E witness: a committed splitter resize paints no visible double-take —
+ * in EITHER presentation mode.
  *
- * Defect mechanics (red state): the marker nodes of a committed resize survive in place with
- * unchanged ancestor lineage, so `hasPreservedMarkerSet()` can never classify the set — the
- * replacement-tree branch burns its full bounded detach poll (`maxFrames = 15`) on nodes that
- * never detach. The committed layout sits EXPOSED for ~15 frames, then the inverse transform
- * snaps the panes back to their pre-drag geometry and plays forward — a double-take on every
- * committed splitter drag, and the wide window in which async gBCR readers ingest scaled
- * fiction.
+ * The guarded property is the user-visible discontinuity around the commit, and it has two
+ * legitimate green shapes:
  *
- * Fix under test: the geometry discriminator `hasLandedInPlace()` — an exact, lineage-
- * unchanged marker set whose current rect already differs from First beyond the motion
- * epsilons has landed in place; stage A and the replacement-tree settle frame are bypassed.
+ * - **A FLIP plays** (deferred presentation, or any future path that moves pixels at commit):
+ *   the committed layout may sit exposed without its inverse transform for at most ~2 rAF
+ *   frames. The historic red state burned ~15 frames — the marker nodes of a same-node commit
+ *   survive in place with unchanged lineage, `hasPreservedMarkerSet()` could never classify
+ *   the set, and the replacement-tree branch exhausted its bounded detach poll before the
+ *   inverse snapped the panes back and played forward: a double-take on every committed drag,
+ *   and the window in which async gBCR readers ingest scaled fiction. The landed-in-place
+ *   discriminator (`hasLandedInPlace()`) closes that window.
+ * - **No FLIP plays** (the live boundary preview): the pane reaches the committed width UNDER
+ *   the pointer and release changes no pixels (terminal parity), so there is nothing to
+ *   invert — no transform ever appearing is the ideal, PROVIDED no untransformed frame leaves
+ *   the landed width again. That reversal is the double-take's visible signature, and the
+ *   witness stays failing-capable through it.
  *
  * Witness method: a page-side rAF sampler records the visual (computed, transform-inclusive)
- * width of the pane left of the dragged splitter across the commit. The discriminating
- * measurement is the exposed-Last window: the TIME between the committed layout first painting
- * and the inverse transform appearing. The assertion is time-based, not frame-count-based:
- * the close-target AC's "within 2 rAF frames" phrasing assumes a 60Hz cadence (~34ms); this host samples at
- * 120Hz, where a frame count would misread by 2x. Red: ~150-300ms (the 15-frame stage-A burn).
- * Green: <= 34ms, or the layout never paints without its inverse at all.
+ * width of the pane left of the dragged splitter across the whole gesture. When an inverse
+ * appears, the exposed-window assertion is time-based, not frame-count-based: the close-target
+ * AC's "within 2 rAF frames" phrasing assumes a 60Hz cadence (~34ms); this host samples at
+ * 120Hz, where a frame count would misread by 2x. Without an inverse, the reversal scan owns
+ * the verdict. Out of scope by design: a hypothetical jump-cut-without-flip (motion absence)
+ * belongs to the DockMotion specs, not this discontinuity witness.
  *
  * CDP page.mouse is REQUIRED: the commit must ride the trusted-input path (the app-side
  * synthetic path does not exercise the real drag lifecycle — measured in the drag-selection lane).
@@ -36,7 +41,7 @@ test.describe('Workstation — DockFlip classifies a committed splitter resize a
         viewport      : {height: 900, width: 1440}
     });
 
-    test('the inverse transform installs within 2 frames of the committed layout landing (no stage-A double-take)', async ({page, neuralLink}) => {
+    test('a committed splitter resize paints no double-take: bounded inverse when a FLIP plays, no untransformed reversal when live parity needs none', async ({page, neuralLink}) => {
         await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-dock-host', {timeout: 30000});
 
