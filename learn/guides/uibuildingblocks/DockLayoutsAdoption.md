@@ -24,7 +24,7 @@ flowchart TD
     Extend["extends Neo.dashboard.dock.Workspace"]:::yours
     Seed["Decision 1 — seed + mount<br/>your initial document, your shell placement"]:::yours
     Panes["Decision 2 — resolvePane<br/>your components become panes"]:::yours
-    Policy["Decision 3 — policies<br/>pinnable · movable today<br/>closable is a forward contract"]:::yours
+    Policy["Decision 3 — policies<br/>pinnable · movable · closable<br/>the reducer is the authority"]:::yours
     Skin["Decision 4 — skin by tokens<br/>override anchor, never repaint internals"]:::yours
     Persist["Decision 5 — persistence<br/>saved layouts + perspectives"]:::yours
 
@@ -55,6 +55,7 @@ loudly — to guess either one:
 ```javascript readonly
 import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
 import Document from '../../../src/dashboard/dock/model/Document.mjs';
+import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
 
 const initialDockModel = {
     schema: 'neo.dock.zone.v1',
@@ -64,7 +65,7 @@ const initialDockModel = {
         preview: {componentRef: 'Preview', title: 'Preview', kind: 'panel'}
     },
     nodes: {
-        root         : {type: 'edge-zone', zones: {center: 'main-split'}},
+        root         : {type: 'edge-zone', zones: {center: {nodeId: 'main-split'}}},
         'main-split' : {type: 'split', orientation: 'horizontal', children: ['editor-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
         'editor-tabs': {type: 'tabs', items: ['editor'],  activeItemId: 'editor'},
         'side-tabs'  : {type: 'tabs', items: ['preview'], activeItemId: 'preview'}
@@ -89,6 +90,24 @@ class Workspace extends DockWorkspace {
 That is a complete, working docking workspace: two tabbed zones in a resizable split, drag a tab across zones, done.
 The document is plain serializable JSON — an item **catalog** (what exists) and a **node tree** (where it lives) —
 and `Document.clone` gives your seed a private copy so later commits never mutate your constant.
+
+Initial edge bands use the same nested descriptor shape. Give the band a committed normalized extent and opt it into
+the splitter explicitly:
+
+```javascript readonly
+zones: {
+    center: {nodeId: 'main-split'},
+    right : {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}
+}
+```
+
+The adapter projects the right boundary splitter automatically. Move frames resize only the real band under its CSS
+min/max bounds; release emits one `resizeEdgeZone` operation. The descriptor is also what auto-hide reveal and
+perspective restore read, so there is no app-side size map to maintain.
+
+Tab activation is equally automatic. Every projected tab strip converts its live `activeIndex` change into
+`setActiveItem`; this does not depend on close-action chrome being enabled. Do not mirror the selected tab in app state
+or add a listener of your own—the next projection reads the committed `activeItemId`.
 
 Two placement configs cover the layouts real apps actually have. The example app
 (`examples/dashboard/dock/MainContainer.mjs`) puts a perspective toolbar above its shell, so it declares
@@ -159,12 +178,12 @@ titles — the workstation uses it to give cached panes stable header names.
 
 ## Decision 3 — policies live in the model, not in your UI
 
-Per item, the catalog carries policy hints. Two of them are enforced by the reducer **today** — `pinnable` and
-`movable` — and the honest way to teach them is by what the model actually refuses:
+Per item, the catalog carries policy hints. `pinnable`, `movable`, and `closable` are enforced by the reducer, and the
+honest way to teach them is by what the model actually refuses:
 
 ```javascript readonly
 items: {
-    console: {componentRef: 'Console', title: 'Console', pinnable: false, movable: false}
+    console: {componentRef: 'Console', title: 'Console', closable: false, pinnable: false, movable: false}
 }
 ```
 
@@ -172,12 +191,8 @@ A `setItemAutoHidden` against that item returns `{document, errors: ['item "cons
 committed document does not advance; a cross-document transfer containing an unmovable member fails the same way,
 atomically. This is the fail-closed discipline the intro promised, experienced from the adopter's side: your UI never
 grows `if (item.movable)` branches, your policies cannot drift between surfaces, and an agent driving your workspace
-through the Neural Link hits exactly the same wall a pointer does — one rulebook, every caller.
-
-The third hint, `closable`, is currently a declared catalog field the operations do not yet consult — `closeItem`
-removes any existing item. Routing close actions through model policy is an open engine leaf; declare the field now
-as a forward contract, and the enforcement arrives beneath your persisted documents unchanged when that leaf lands.
-Until then, do not present a close affordance as model-refused — it is not, yet.
+through the Neural Link hits exactly the same wall a pointer does — one rulebook, every caller. `closeItem` likewise
+refuses the console above, whether the request comes from projected close chrome or a programmatic operation.
 
 ## Decision 4 — skin it with tokens, on the right scope
 
@@ -235,8 +250,8 @@ const restored = Persistence.restoreSavedLayout(layout);
 restored.document && this.onDockZoneDocumentChange(restored.document)
 ```
 
-`createSavedLayoutCollection` and `restoreActiveSavedLayout` lift the same discipline to named perspective sets — the
-example's perspective toolbar is the working reference: a handful of named layouts, switchable live, surviving
+`PerspectiveLibrary.createSavedLayoutCollection` and `PerspectiveLibrary.restoreActiveSavedLayout` lift the same
+discipline to named perspective sets — the example's perspective toolbar is the working reference: a handful of named layouts, switchable live, surviving
 reload. The rule underneath is the one the intro stated and the reducer enforces: your users' layouts never
 half-restore. A saved layout either validates completely or it is rejected completely, and runtime-only preview state
 can never leak into a persisted document — `createSavedLayout` refuses to serialize it.
@@ -278,7 +293,8 @@ richest live reference for each):
 - `getDockProjectionOptions()` — its entire multi-window surface: cross-window drag participation, tear-out and
   vessel-conversion opt-ins, the drag-affordance layer's seams. Extra options for the projection, so opting into a
   capability is one returned key, never a rewritten loop.
-- `getRefreshOptions(descriptor)` — maps committed operations onto the reconciler's fast paths (`resizeSplit` →
+- `getRefreshOptions(descriptor)` — maps committed operations onto the reconciler's fast paths (`resizeSplit` and
+  `resizeEdgeZone` →
   geometry-only; `detachItem`/`transferNode` → retained topology; per-commit `preserveItemIds` for panes an owner
   holds mid-flight).
 - `beforeRefreshDockWorkspace()` — retires the active gesture session's geometry before the projection changes under
@@ -304,8 +320,8 @@ product policy in your app.
   substitute for a Viewport instance.
 - **Mutating the document anywhere but the reducer.** Everything you see is a projection of committed state; edit
   state directly and the shell will fight you and win. Commit descriptors; let the view-sync re-project.
-- **Enforcing `pinnable` or `movable` in the UI.** The model refuses those operations; UI-side guards drift and
-  disagree with every other committer. `closable` remains the forward contract described above.
+- **Enforcing `pinnable`, `movable`, or `closable` in the UI.** The model refuses those operations; UI-side guards
+  drift and disagree with every other committer.
 - **Awaiting motion you do not need to await.** Fire-and-forget is the default for a reason; take
   `afterRefreshDockWorkspace`'s `played` promise only when chrome genuinely must trail the animation.
 - **Pinning your tests to one fixture.** Derive expected remainders from a pre-operation topology read instead of

@@ -77,7 +77,7 @@ const createFourEdgeRailDocument = () => {
         });
 
         nodes[`${edge}-tabs`] = {type: 'tabs', items: itemIds, activeItemId: itemIds[0]};
-        nodes.root.zones[edge] = `${edge}-tabs`
+        nodes.root.zones[edge] = {nodeId: `${edge}-tabs`, extent: 0.2, resizable: true}
     }
 
     return {schema: 'neo.dock.zone.v1', root: 'root', items, nodes}
