@@ -2,6 +2,13 @@
 
 `@summary` Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
 
+**Code realization (v13.2 architecture).** The contract lives in the `Neo.dashboard.dock.model.*` tier:
+`model.Document` owns the committed tree (schema keys, validation, normalization, tree helpers,
+fingerprints, the fail-closed commit), `model.Operations` owns the semantic operation vocabulary and
+dispatch, `model.Persistence` owns the saved-layout envelope (capture, wrapper validation, restore), and
+`Neo.dashboard.dock.persistence.PerspectiveLibrary` is the sole named-collection/perspective authority.
+Method references below name their owning module.
+
 ## Scope
 
 This contract is the first concrete slice of the QT-grade docking line; the Agent Harness cockpit is one consumer among several (workstation, `examples/dashboard/*`). It defines the data model that rendering, preview, and persistence slices consume.
@@ -30,7 +37,7 @@ The model is a generic dashboard-layer contract (`src/dashboard/`), not a new co
 
 Initial durable surface: this document.
 
-**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.DockZoneModel` (the executor) co-located with `Neo.dashboard.dock.projection.LayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
+**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.dock.model.Document` (the executor) co-located with `Neo.dashboard.dock.projection.LayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
 
 The rationale that resolved to the dashboard layer:
 
@@ -51,7 +58,7 @@ The persisted document is a versioned JSON object:
 
 ```json
 {
-  "schema": "neo.harness.dockZone.v1",
+  "schema": "neo.dock.zone.v1",
   "root": "root",
   "items": {
     "strategy": {
@@ -171,11 +178,11 @@ Named perspectives collect multiple saved layouts without choosing a storage bac
 
 ```json
 {
-  "schema": "neo.harness.dockLayoutCollection.v1",
+  "schema": "neo.dock.layoutCollection.v1",
   "activeLayoutId": "operator-default",
   "layouts": {
     "operator-default": {
-      "schema": "neo.harness.dockLayout.v2",
+      "schema": "neo.dock.layout.v1",
       "layoutId": "operator-default",
       "title": "Operator Default",
       "dockZone": {},
@@ -240,7 +247,7 @@ Future drag-to-dock preview slices should listen to existing drag surfaces and p
 
 ```json
 {
-  "schema": "neo.harness.dockPreview.v1",
+  "schema": "neo.dock.preview.v1",
   "previewId": "preview:strategy:main-tabs:tab-after:1",
   "itemId": "strategy",
   "source": {
@@ -276,7 +283,7 @@ Required fields:
 
 | Field | Meaning | Persistence |
 |---|---|---|
-| `schema` | Preview payload version, initially `neo.harness.dockPreview.v1`. | Runtime only. |
+| `schema` | Preview payload version, initially `neo.dock.preview.v1`. | Runtime only. |
 | `previewId` | Stable-enough id for one hover frame or dwell window; useful for renderer diffing. | Runtime only. |
 | `itemId` | Stable dock item id from `items`. | Serializable only after a drop commits an operation. |
 | `source.surface` | Existing producer surface, e.g. `dashboard-sort-zone`, `drag-coordinator`, or `window-geometry`. | Runtime only. |
@@ -342,11 +349,11 @@ A persisted layout is a small versioned wrapper around the normalized dock-zone 
 
 ```json
 {
-  "schema": "neo.harness.dockLayout.v2",
+  "schema": "neo.dock.layout.v1",
   "layoutId": "operator-default",
   "title": "Operator Default",
   "dockZone": {
-    "schema": "neo.harness.dockZone.v1",
+    "schema": "neo.dock.zone.v1",
     "root": "root",
     "items": {},
     "nodes": {}
@@ -364,7 +371,7 @@ Required wrapper fields:
 - `schema`: saved-layout wrapper version. The inner dock-zone document keeps its own `schema`.
 - `layoutId`: stable user/workspace layout identity, distinct from dock item ids.
 - `title`: display label for layout pickers or recovery UIs.
-- `dockZone`: a normalized `neo.harness.dockZone.v1` model after semantic operations have run.
+- `dockZone`: a normalized `neo.dock.zone.v1` model after semantic operations have run.
 - `captureScope`: `window` for one document or `topology` for a multi-window capture.
 - `windowFingerprint`: JSON-only topology-shape evidence, or `null` when a legacy v1 record had no captured fingerprint.
 
@@ -379,11 +386,10 @@ Schema-name row (the canonical vocabulary both tiers share — the design record
 
 | Schema | Role | Notes |
 |---|---|---|
-| `neo.harness.dockLayout.v1` | legacy saved-layout wrapper | read-path only; migrates forward with honest defaults |
-| `neo.harness.dockLayout.v2` | THE saved-layout AND perspective wrapper | adds `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
-| `neo.harness.dockLayoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
+| `neo.dock.layout.v1` | THE saved-layout AND perspective wrapper | carries `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
+| `neo.dock.layoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
 
-The `neo.harness.` string prefix in these identifiers is a **frozen legacy wire format** (ADR 0029 §2.9): the runtime keeps emitting and accepting it unchanged, and renaming it is a schema migration, never a text edit.
+The `neo.dock.` prefix is the single greenfield wire family (ADR 0029 §2.9 amendment): readers fail closed on every other schema string — unsupported versions are proven rejected inside the family, the retired pre-release `neo.harness.` family is proven rejected as foreign, and no migration reader or alias exists.
 
 Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 
@@ -391,7 +397,7 @@ Restore must validate the wrapper schema, the inner dock-zone schema, and the no
 
 Component recovery remains the adapter's responsibility. A restored item with an unresolved `componentRef` follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
 
-Persistence ownership follows the landed placement: reusable import/export, validation, and storage projection logic lives in the dashboard layer (`src/dashboard/`, e.g. `DockPerspectiveStore`), per the 2026-06-13 operator resolution recorded in §Ownership Boundary. Only app-specific storage backends, pane registries, or preference wiring stay app-local — for any consumer, the harness cockpit included.
+Persistence ownership follows the landed placement: reusable import/export, validation, and storage projection logic lives in the dashboard layer (`src/dashboard/`, e.g. `PerspectiveLibrary`), per the 2026-06-13 operator resolution recorded in §Ownership Boundary. Only app-specific storage backends, pane registries, or preference wiring stay app-local — for any consumer, the harness cockpit included.
 
 ## Split/Tab Adapter Boundary
 

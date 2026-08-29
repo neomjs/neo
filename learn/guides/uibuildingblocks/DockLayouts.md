@@ -47,7 +47,7 @@ flowchart TD
     classDef cross fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
     Document["The committed document<br/>dockZone.v1 — persisted JSON tree<br/>owned by ONE workspace container"]:::doc
-    Model["Neo.dashboard.DockZoneModel<br/>the pure reducer: applyOperation"]:::doc
+    Model["Neo.dashboard.dock.model.Document<br/>the pure reducer: applyOperation"]:::doc
     Adapter["DockLayoutAdapter.project()<br/>document → ordinary Neo configs"]:::proj
     Reconciler["DockProjectionReconciler<br/>hands LIVE components across projections"]:::proj
     Surfaces["Interaction surfaces<br/>DockTabSortZone · DockSplitter · DockRail<br/>DockPreviewProducer → DockPreview"]:::inter
@@ -68,7 +68,7 @@ flowchart TD
     Vessels --> Descriptors
 ```
 
-Read the loop clockwise. The **document** is a serializable JSON tree (`neo.harness.dockZone.v1`): edge zones, nested
+Read the loop clockwise. The **document** is a serializable JSON tree (`neo.dock.zone.v1`): edge zones, nested
 splits, tabbed slots, an item catalog. The **model** is a pure executor — `applyOperation(descriptor)` in, new
 normalized document out, invariants guaranteed. The **adapter** projects the committed document into ordinary engine
 configs — `hbox`/`vbox` splits, tab containers, splitter affordances; it invents no layout engine of its own. The
@@ -163,7 +163,7 @@ dock demos still carry hand-rolled copies that are migrating next. The checklist
 of the guide series this page fronts. Once you extend the class, the adoption surface is:
 
 1. **Extend `Neo.dashboard.dock.Workspace`.** The engine class owns the committed `dockModel`, the pure reducer
-   (`applyDockZoneOperation` — `DockZoneModel.applyOperation` over the current document), the deferred, promise-chained
+   (`applyDockZoneOperation` — `Operations.applyOperation` over the current document), the deferred, promise-chained
    re-projection (`onDockZoneDocumentChange` → `DockLayoutAdapter` → `DockProjectionReconciler`, bracketed by FLIP
    motion) and the in-window cross-zone drop path. Your subclass overrides `resolvePane(itemId, item)` and, when it has
    them, the handful of hooks for owner-preserved panes, chrome that syncs on every re-projection, and extra projection
@@ -195,22 +195,24 @@ Styling arrives through the engine's token layer. The dock's visual language is 
 into `resources/scss/src/dashboard/` as neutral `--dock-*` tokens, so a consumer skins the affordances by
 overriding tokens rather than re-painting internals — the same discipline as every other engine surface.
 
-## The wire vocabulary — and why it does not follow renames
+## The wire vocabulary — one greenfield family
 
-Eight schema identifiers ship under the `neo.harness.` prefix — a historical name from the subsystem's origin,
-retired from every document title but deliberately **frozen on the wire**
-([ADR 0029 §2.9](../../agentos/decisions/0029-docking-design.md)). They split into two compatibility classes:
+Every schema identifier ships under the `neo.dock.` prefix — one coherent family selected in the v13.2
+greenfield cut ([ADR 0029 §2.9 amendment](../../agentos/decisions/0029-docking-design.md)). The subsystem's
+pre-release history shipped no compatibility obligation, so the cut is total: readers fail closed on any
+other family, and no migration reader, alias, or dual parser exists.
 
-- **Persisted** — `dockZone.v1`, `dockLayout.v1`, `dockLayout.v2`, `dockLayoutCollection.v1`: these live in saved
-  layouts and perspectives, and restore validation is fail-closed by design. Renaming one outside a documented,
-  shape-changing migration would silently reject every layout your users ever saved. The shipped `v1 → v2` migration
-  is the only sanctioned precedent.
-- **Runtime-only** — `dockPreview.v1`, `dockCandidates.v1`, `dockShape.v1`, `dockTopologyShape.v1`: never persisted,
-  but pinned by cross-window participation, Neural Link tooling, and the test suites. They version by coordinated
-  change, never by find-replace.
+- **Persisted** — `neo.dock.zone.v1`, `neo.dock.layout.v1`, `neo.dock.layoutCollection.v1`: these live in
+  saved layouts and perspectives, and restore validation is fail-closed by design. The layout wrapper carries
+  the perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`, `windowDocuments`) — the
+  envelope IS the perspective capability, and there is exactly one revision of it.
+- **Runtime-only** — `neo.dock.preview.v1`, `neo.dock.candidates.v1`, `neo.dock.shape.v1`,
+  `neo.dock.topologyShape.v1`: never persisted, but pinned by cross-window participation, Neural Link
+  tooling, and the test suites. They version by coordinated change, never by find-replace.
 
-If you take one sentence from this section: **a schema string is an API to every byte your users ever stored** —
-identity corrections rename documents and prose, never wire.
+If you take one sentence from this section: **a schema string is an API to every byte your users will
+store** — from here forward, identity lives in one family, unsupported versions are rejected inside it, and
+the retired pre-release family is rejected as foreign.
 
 ## Common design constraints
 

@@ -54,10 +54,10 @@ loudly — to guess either one:
 
 ```javascript readonly
 import DockWorkspace from '../../../src/dashboard/dock/Workspace.mjs';
-import DockZoneModel from '../../../src/dashboard/DockZoneModel.mjs';
+import Document from '../../../src/dashboard/dock/model/Document.mjs';
 
 const initialDockModel = {
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         editor : {componentRef: 'Editor',  title: 'Editor',  kind: 'panel'},
@@ -80,7 +80,7 @@ class Workspace extends DockWorkspace {
     construct(config) {
         super.construct(config);
 
-        this.dockModel = DockZoneModel.clone(initialDockModel);
+        this.dockModel = Document.clone(initialDockModel);
         this.add(this.projectDockModel())
     }
 }
@@ -88,7 +88,7 @@ class Workspace extends DockWorkspace {
 
 That is a complete, working docking workspace: two tabbed zones in a resizable split, drag a tab across zones, done.
 The document is plain serializable JSON — an item **catalog** (what exists) and a **node tree** (where it lives) —
-and `DockZoneModel.clone` gives your seed a private copy so later commits never mutate your constant.
+and `Document.clone` gives your seed a private copy so later commits never mutate your constant.
 
 Two placement configs cover the layouts real apps actually have. The example app
 (`examples/dashboard/dock/MainContainer.mjs`) puts a perspective toolbar above its shell, so it declares
@@ -217,7 +217,7 @@ fail-closed result objects — gate on `errors` before you trust either:
 
 ```javascript readonly
 // save the live arrangement — an invalid document refuses to serialize: `layout` stays null
-const {layout, errors} = DockZoneModel.createSavedLayout(this.getDockZoneDocument(), {
+const {layout, errors} = Persistence.createSavedLayout(this.getDockZoneDocument(), {
     layoutId: 'review-setup',
     title   : 'Review setup'
 });
@@ -228,7 +228,7 @@ if (!errors.length) {
 
 // later — restore takes the saved LAYOUT and is equally fail-closed: an invalid or
 // preview-contaminated envelope is refused WHOLE, `document` stays null, the errors say why
-const restored = DockZoneModel.restoreSavedLayout(layout);
+const restored = Persistence.restoreSavedLayout(layout);
 
 restored.document && this.onDockZoneDocumentChange(restored.document)
 ```
