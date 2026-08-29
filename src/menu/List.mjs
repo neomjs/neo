@@ -283,6 +283,14 @@ class List extends BaseList {
         me.syncOutsidePointerListener(false);
         activeSubMenu?.unmount();
 
+        // The tree store outlives every level, so a level that stops rendering must stop listening.
+        // Its own object literal — on() and un() both consume keys from what they are handed.
+        me.sourceStore?.un({
+            mutate      : me.onSourceStoreMutate,
+            recordChange: me.onSourceStoreRecordChange,
+            scope       : me
+        });
+
         Object.entries(subMenuMap).forEach(([key, value]) => {
             value.destroy();
             subMenuMap[key] = null
@@ -470,7 +478,21 @@ class List extends BaseList {
      */
     onConstructed() {
         super.onConstructed();
-        this.syncLevelRecords()
+
+        let me = this;
+
+        if (me.sourceStore) {
+            me.syncLevelRecords();
+
+            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
+            // (`scope` among them), so the two calls can never share one literal.
+            me.sourceStore.on({
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            })
+        }
     }
 
     /**
@@ -563,6 +585,70 @@ class List extends BaseList {
             me.activeSubMenu = subMenu;
             subMenu.initVnode(true)
         }
+    }
+
+    /**
+     * A mutation anywhere in the shared tree is broadcast to every level. Only the records parented by
+     * this level's `parentRecordId` belong here.
+     * @param {Object} record
+     * @returns {Boolean}
+     * @protected
+     */
+    belongsToLevel(record) {
+        return (record.parentId || 'root') === this.parentRecordId
+    }
+
+    /**
+     * Splices this level for a tree mutation, rather than re-deriving it.
+     *
+     * Records contributed to a group after mount therefore appear without rebuilding the cascade, and
+     * order follows the Structural Layer — so a sort applied to the tree store reaches every level.
+     * @param {Object} data
+     * @param {Object[]} data.addedItems
+     * @param {Object[]} data.removedItems
+     * @protected
+     */
+    onSourceStoreMutate(data) {
+        let me      = this,
+            added   = (data.addedItems   || []).filter(record => me.belongsToLevel(record)),
+            removed = (data.removedItems || []).filter(record => me.belongsToLevel(record));
+
+        // Splicing the level store is enough to repaint it: the collection turns a mutation into a
+        // `load` (via onCollectionMutate), which list.Base already re-renders on. Calling createItems()
+        // here as well rendered the level twice per contribution.
+        removed.length && me.store.remove(removed);
+        added.length   && me.store.add(added)
+    }
+
+    /**
+     * Re-derives this level after the tree store sorts.
+     *
+     * A sort reorders the Structural Layer wholesale, so sibling order is controlled at the tree and
+     * every level follows it. Re-deriving is correct here precisely because nothing is spliceable —
+     * unlike a mutation, a sort has no added or removed set.
+     * @protected
+     */
+    onSourceStoreSort() {
+        // syncLevelRecords() clears and refills the level store, and that mutation repaints it through
+        // the same load path a contribution uses. No explicit re-render here either.
+        this.syncLevelRecords()
+    }
+
+    /**
+     * Repaints the single row a changed record occupies, if this level renders it.
+     *
+     * A level shares record INSTANCES with the tree store, so the data is already current — only the
+     * rendering needs to catch up. `data.index` from the source is the tree's projection index and is
+     * meaningless here, so the row is resolved against this level's own store.
+     * @param {Object} data
+     * @param {Object} data.record
+     * @protected
+     */
+    onSourceStoreRecordChange(data) {
+        let me    = this,
+            index = me.store.indexOf(data.record);
+
+        index > -1 && me.onStoreRecordChange({...data, index})
     }
 
     /**

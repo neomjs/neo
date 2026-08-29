@@ -224,6 +224,86 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(root.store.getCount()).toBe(3)
     });
 
+    test('changing one record repaints that row only — no level rebuild', () => {
+        const menu = createMenu({store: treeStore});
+
+        menus.push(menu);
+
+        let rebuilds = 0, rowRepaints = 0;
+
+        menu.createItems         = () => {rebuilds++};
+        menu.onStoreRecordChange = () => {rowRepaints++};
+
+        treeStore.get('edit').text = 'Edit (modified)';
+
+        expect(rowRepaints).toBe(1);
+        expect(rebuilds).toBe(0);
+
+        // Levels share record instances with the tree, so the data was already current.
+        expect(menu.store.get('edit').text).toBe('Edit (modified)')
+    });
+
+    test('a record contributed after mount appears, and only its own level re-renders', () => {
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('edit'))});
+
+        menus.push(root, level1);
+
+        let rootRenders = 0, levelRenders = 0;
+
+        root.createItems   = () => {rootRenders++};
+        level1.createItems = () => {levelRenders++};
+
+        expect(level1.store.getCount()).toBe(1);
+
+        // An unrelated module contributes into a group it does not own.
+        treeStore.add({id: 'edit-find', text: 'Find', isLeaf: true, parentId: 'edit'});
+
+        expect(level1.store.get('edit-find').text).toBe('Find');
+        expect(level1.store.getCount()).toBe(2);
+        expect(levelRenders).toBe(1);
+
+        // The root level holds no record parented by 'edit', so it must not have moved at all.
+        expect(rootRenders).toBe(0);
+        expect(root.store.getCount()).toBe(3)
+    });
+
+    test('contribution order does not change the result', () => {
+        const storeA = createTreeStore(),
+              storeB = createTreeStore(),
+              menuA  = createMenu({store: storeA}),
+              menuB  = createMenu({store: storeB});
+
+        menus.push(menuA, menuB);
+
+        storeA.add({id: 'x', text: 'X', isLeaf: true});
+        storeA.add({id: 'y', text: 'Y', isLeaf: true});
+
+        storeB.add({id: 'y', text: 'Y', isLeaf: true});
+        storeB.add({id: 'x', text: 'X', isLeaf: true});
+
+        // Same set either way. Order is the tree's to decide (see the sort test), not the caller's.
+        expect(new Set(menuA.store.items.map(i => i.id)))
+            .toEqual(new Set(menuB.store.items.map(i => i.id)));
+
+        storeA.destroy();
+        storeB.destroy()
+    });
+
+    test('sibling order follows the tree, and a tree sort reaches every level', () => {
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});
+
+        menus.push(root, level1);
+
+        expect(level1.store.items.map(i => i.text)).toEqual(['New', 'Open']);
+
+        treeStore.sorters = [{property: 'text', direction: 'DESC'}];
+
+        // Order is controlled once, at the tree; a level never sorts independently of it.
+        expect(level1.store.items.map(i => i.text)).toEqual(['Open', 'New'])
+    });
+
     test('the classic nested-items API is untouched', () => {
         const menu = createMenu({
             items: [
