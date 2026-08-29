@@ -634,7 +634,7 @@ class Rail extends Container {
 
         // Runtime namespace lookup avoids an import cycle (the adapter imports this class);
         // fail-soft to null — the overlay then uses its default fraction.
-        return document ? (Neo.dashboard?.DockLayoutAdapter?.resolveRevealExtent(document, itemId) ?? null) : null
+        return document ? (Neo.dashboard?.dock?.projection?.LayoutAdapter?.resolveRevealExtent(document, itemId) ?? null) : null
     }
 
     /**
@@ -724,7 +724,7 @@ class Rail extends Container {
                     // Neither live instance nor blueprint resolves: recoverable placeholder,
                     // never a silently empty overlay — the adapter's own policy.
                     me.revealPaneCache[nextId] = slot.add(
-                        Neo.dashboard?.DockLayoutAdapter?.createPlaceholder?.(nextId, item) ??
+                        Neo.dashboard?.dock?.projection?.LayoutAdapter?.createPlaceholder?.(nextId, item) ??
                         {cls: ['neo-dashboard-dock-placeholder'], dockItemId: nextId, ntype: 'component'}
                     )
                 }

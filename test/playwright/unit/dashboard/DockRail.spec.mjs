@@ -409,6 +409,13 @@ test.describe('Neo.dashboard.dock.interaction.Rail', () => {
         expect(pane).toBeTruthy();
         expect(pane.cls).toContain('neo-dashboard-dock-placeholder');
         expect(pane.dockItemId).toBe('terminal');
+
+        // Adapter-only fields, absent from the inline factory fallback: these turn red if the
+        // runtime namespace lookup ever misses and the optional chain degrades the placeholder.
+        expect(pane.ntype).toBe('dashboard-panel');
+        expect(pane.header).toMatchObject({dockItemId: 'terminal', text: 'Terminal'});
+        // the `data` getter is the state-provider shortcut; the adapter's payload rides the raw config
+        expect(pane._data?.missingComponentRef).toBe(true);
     });
 
     test('threads the workspace default reveal fraction into the bound overlay', () => {
