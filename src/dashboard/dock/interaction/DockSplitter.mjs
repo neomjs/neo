@@ -352,14 +352,25 @@ class DockSplitter extends Splitter {
      */
     onDragEnd(data={}) {
         let me         = this,
-            descriptor = me.createResizeSplitDescriptor(data),
+            hasCapture = Boolean(me.dragStartState) || Array.isArray(data.sizes),
+            descriptor = hasCapture ? me.createResizeSplitDescriptor(data) : null,
             result;
 
         me.dragGeneration++;
         me.cleanupResize();
         me.dragZone?.dragEnd(data);
 
-        result = me.commitResizeSplit(descriptor);
+        // The end-overtakes-start race: a real-pointer release can land while the async start
+        // path is still capturing. A terminal without capture state (and no explicit vector) is
+        // not a gesture — committing would write a zero-delta operation; reject loudly instead.
+        if (!hasCapture) {
+            result = {
+                document: me.dockZoneDocument ?? null,
+                errors  : ['DockSplitter received a terminal without capture state; no resizeSplit was committed.']
+            }
+        } else {
+            result = me.commitResizeSplit(descriptor)
+        }
 
         me.fire(result.errors?.length ? 'dockSplitterResizeRejected' : 'dockSplitterResize', {
             descriptor,
@@ -375,11 +386,25 @@ class DockSplitter extends Splitter {
     /**
      * Captures the adjacent-pair geometry and projects the proxy paint BEFORE the generic parent
      * refreshes the zone and starts the gesture (the proxy is created inside the parent's start).
+     * The armed generation fences those awaits: the parent arms its own fence only inside
+     * `super.onDragStart()`, so a cancel, destroy, terminal, or newer start landing during the
+     * capture/projection awaits must invalidate the pending start here, before the real gesture
+     * can open. Taking the increment (not a read) makes a superseded start bail without ever
+     * opening the zone.
      * @param {Object} data
      */
     async onDragStart(data={}) {
-        await this.captureDragStart(data);
-        await this.projectProxyTokens();
+        let me         = this,
+            generation = ++me.dragGeneration;
+
+        await me.captureDragStart(data);
+        await me.projectProxyTokens();
+
+        if (generation !== me.dragGeneration || me.isDestroyed) {
+            me.dragStartState = null;
+            return
+        }
+
         await super.onDragStart(data)
     }
 

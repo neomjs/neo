@@ -183,6 +183,135 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         expect(before.nodes['split-1'].sizes).toEqual([0.5, 0.5])
     });
 
+    test('positive control: an uninterrupted start opens the zone exactly once', async () => {
+        mount();
+
+        const zoneStarts = [];
+        splitter.dragZone.dragStart = data => zoneStarts.push(data);
+        container.getDomRect = async () => [{width: 600}, {width: 300}, {width: 300}];
+
+        await splitter.onDragStart({clientX: 300, clientY: 150});
+
+        expect(zoneStarts).toHaveLength(1);
+        expect(splitter.dragStartState?.sizes).toEqual([300, 300])
+    });
+
+    test('cancel during the capture awaits invalidates the pending start: zero zone starts, no throw', async () => {
+        mount();
+
+        let release;
+        const zoneStarts = [];
+        splitter.dragZone.dragStart = data => zoneStarts.push(data);
+        container.getDomRect = () => new Promise(resolve => {
+            release = () => resolve([{width: 600}, {width: 300}, {width: 300}])
+        });
+
+        const pending = splitter.onDragStart({clientX: 300, clientY: 150});
+
+        splitter.onDragCancel({});
+        release();
+        await pending;
+
+        expect(zoneStarts).toHaveLength(0);
+        expect(splitter.dragStartState).toBe(null)
+    });
+
+    test('destroy during the capture awaits invalidates the pending start: zero zone starts, no throw', async () => {
+        mount();
+
+        let release;
+        const zoneStarts = [];
+        splitter.dragZone.dragStart = data => zoneStarts.push(data);
+        container.getDomRect = () => new Promise(resolve => {
+            release = () => resolve([{width: 600}, {width: 300}, {width: 300}])
+        });
+
+        const pending = splitter.onDragStart({clientX: 300, clientY: 150});
+
+        splitter.destroy();
+        release();
+        await pending;
+
+        expect(zoneStarts).toHaveLength(0)
+    });
+
+    test('a second start during the first\'s capture supersedes it: only the newest opens the zone', async () => {
+        mount();
+
+        const releases = [], zoneStarts = [];
+        splitter.dragZone.dragStart = data => zoneStarts.push(data);
+        container.getDomRect = () => new Promise(resolve => {
+            releases.push(() => resolve([{width: 600}, {width: 300}, {width: 300}]))
+        });
+
+        const first  = splitter.onDragStart({clientX: 300, clientY: 150}),
+              second = splitter.onDragStart({clientX: 310, clientY: 150});
+
+        releases.forEach(release => release());
+        await Promise.all([first, second]);
+
+        expect(zoneStarts).toHaveLength(1);
+        expect(zoneStarts[0]).toMatchObject({clientX: 310})
+    });
+
+    test('a real-pointer release overtaking the start commits nothing and cancels the pending start', async () => {
+        mount({dockZoneDocument: DOC()});
+
+        let release;
+        const zoneStarts = [], rejected = [], commits = [];
+        splitter.onDockZoneDocumentChange = (document, descriptor) => commits.push(descriptor);
+        splitter.on('dockSplitterResizeRejected', payload => rejected.push(payload));
+        splitter.dragZone.dragStart = data => zoneStarts.push(data);
+        container.getDomRect = () => new Promise(resolve => {
+            release = () => resolve([{width: 600}, {width: 300}, {width: 300}])
+        });
+
+        const before  = Neo.clone(splitter.dockZoneDocument, true),
+              pending = splitter.onDragStart({clientX: 300, clientY: 150}),
+              result  = splitter.onDragEnd({clientX: 340, clientY: 150});   // release overtakes the capture
+
+        release();
+        await pending;
+
+        expect(result.errors.join(' ')).toContain('without capture');
+        expect(rejected).toHaveLength(1);
+        expect(commits).toHaveLength(0);
+        expect(zoneStarts).toHaveLength(0);
+        expect(splitter.dockZoneDocument).toEqual(before)
+    });
+
+    test('a generation bump while the zone opens cancels the gesture through the inherited fence', async () => {
+        mount();
+
+        const zoneEnds = [];
+        splitter.dragZone.dragStart = async () => { splitter.dragGeneration++ };
+        splitter.dragZone.dragEnd   = data => zoneEnds.push(data);
+        container.getDomRect = async () => [{width: 600}, {width: 300}, {width: 300}];
+
+        await splitter.onDragStart({clientX: 300, clientY: 150});
+
+        expect(zoneEnds).toHaveLength(1);
+        expect(zoneEnds[0]).toMatchObject({cancelled: true})
+    });
+
+    test('the resize seam stays parked: no main-thread descriptor in either proxy mode', async () => {
+        mount();
+
+        // dock inherits the generic default: proxy presentation until the live-preview leaf lands
+        expect(splitter.liveResize).toBe(false);
+        expect(splitter.getResizeConfig()).toBe(null);
+
+        const pushed = [];
+        splitter.dragZone.set = config => pushed.push(config);
+
+        await splitter.refreshDragZone();
+        splitter.liveResize = true;               // afterSet re-drives the zone on its own
+        await splitter.refreshDragZone();
+
+        expect(pushed[0]).toMatchObject({resizeConfig: null, useProxy: true});
+        expect(pushed.at(-1)).toMatchObject({resizeConfig: null, useProxy: false})
+    });
+
     test('the descriptor factory resolves identity from configs when no projected data exists', () => {
         mount();
 
