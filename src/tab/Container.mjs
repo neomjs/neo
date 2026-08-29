@@ -80,8 +80,9 @@ class Container extends BaseContainer {
          */
         headerToolbar: null,
         /**
-         * Optional flat action configs for the tab header toolbar. Tab actions are contextual by
-         * default; an action can set contextual=false to stay persistent.
+         * Optional flat action configs for the tab header toolbar. Tab actions are gated on this
+         * TabContainer holding focus by default; an action can set `showOnFocus: false` to stay
+         * persistent.
          * @member {Object[]|String[]|null} headerActions=null
          * @reactive
          */
@@ -606,35 +607,14 @@ class Container extends BaseContainer {
         this.layout = {ntype: 'flexbox', ...this.getLayoutConfig()};
         super.onConstructed();
 
-        this.getTabBar().on('action', this.onHeaderAction, this)
-    }
+        let tabBar = this.getTabBar();
 
-    /**
-     * Arms contextual actions only when focus enters the tab body. Header/action focus retains the
-     * current state through manager.Focus's closest-common-component path.
-     * @param {Object} data
-     */
-    onFocusEnter(data) {
-        super.onFocusEnter(data);
+        tabBar.on('action', this.onHeaderAction, this);
 
-        this.isBodyFocusPath(data.path) && (this.getTabBar().contextualActionsVisible = true)
-    }
-
-    /**
-     * Arms contextual actions when an internal focus move enters the body.
-     * @param {Object} data
-     */
-    onFocusMove(data) {
-        this.isBodyFocusPath(data.path) && (this.getTabBar().contextualActionsVisible = true)
-    }
-
-    /**
-     * Disarms contextual actions only after focus leaves the complete TabContainer realm.
-     * @param {Object} data
-     */
-    onFocusLeave(data) {
-        super.onFocusLeave(data);
-        this.getTabBar().contextualActionsVisible = false
+        // The bar is constructed before its parent finished wiring, so its own attempt may have
+        // resolved nothing. The subject is this TabContainer: focus anywhere inside it — a tab
+        // button, the body, an action — exposes the gated actions; only leaving hides them.
+        tabBar.wireFocusSubject()
     }
 
     /**
@@ -774,27 +754,6 @@ class Container extends BaseContainer {
         })
     }
 
-    /**
-     * True when a focused DOM path resolves through the tab body component.
-     * @param {Object[]} [path=[]]
-     * @returns {Boolean}
-     * @protected
-     */
-    isBodyFocusPath(path=[]) {
-        let component = path
-            .map(node => Neo.getComponent(node.id))
-            .find(Boolean);
-
-        while (component && component !== this) {
-            if (component.id === this.bodyContainerId) {
-                return true
-            }
-
-            component = component.parent
-        }
-
-        return false
-    }
 }
 
 export default Neo.setupClass(Container);

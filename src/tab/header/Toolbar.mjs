@@ -7,11 +7,12 @@ import BaseToolbar from '../../toolbar/Base.mjs';
 class Toolbar extends BaseToolbar {
     static config = {
         /**
-         * Tab-header actions are contextual by default. Persistent actions opt out explicitly.
-         * @member {Object} actionDefaults={contextual:true}
+         * Tab-header actions are focus-gated by default. Persistent actions opt out explicitly with
+         * `showOnFocus: false` (or the deprecated `contextual: false`).
+         * @member {Object} actionDefaults={showOnFocus:true}
          */
         actionDefaults: {
-            contextual: true
+            showOnFocus: true
         },
         /**
          * @member {String} className='Neo.tab.header.Toolbar'

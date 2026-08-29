@@ -18,7 +18,18 @@ import LivePreview    from '../../../../src/code/LivePreview.mjs';
 import TabContainer   from '../../../../src/tab/Container.mjs';
 import EffectButton   from '../../../../src/tab/header/EffectButton.mjs';
 import Toolbar        from '../../../../src/toolbar/Base.mjs';
+import '../../../../src/manager/Focus.mjs';
 import '../../../../src/manager/Instance.mjs';
+
+/**
+ * Drives the real focus manager rather than a component's focus hooks. The gate is wired through
+ * `manager.Focus` firing `focusEnter` / `focusLeave` on each component in the path, so calling a
+ * container's hook directly would assert against a mechanism the product no longer uses.
+ */
+const focusOpts  = ids => ({componentPath: ids, data: {path: ids.map(id => ({id})), relatedTarget: null}}),
+      focusEnter = ids => Neo.manager.Focus.focusEnter(focusOpts(ids)),
+      focusLeave = ids => Neo.manager.Focus.focusLeave(focusOpts(ids)),
+      focusMove  = ids => Neo.manager.Focus.focusMove(focusOpts(ids));
 
 /**
  * @summary Pins flat toolbar action materialisation and mixed TabContainer semantics.
@@ -263,9 +274,9 @@ test.describe.serial('Neo tab header actions', () => {
         expect(bar.getActionItems().every(item => !item.wrapperCls.includes('neo-draggable'))).toBe(true)
     });
 
-    test('body focus arms contextual actions and the TabContainer realm retains them', () => {
+    test('TabContainer focus exposes showOnFocus actions and holds them across internal moves', () => {
         const tabs = own(Neo.create(TabContainer, {
-                  headerActions: [{action: 'contextual', iconCls: 'fa fa-eye'}],
+                  headerActions: [{action: 'gated', iconCls: 'fa fa-eye'}],
                   items        : [{module: Component, header: {text: 'One'}}]
               })),
               action = tabs.getActionItems()[0],
@@ -275,17 +286,110 @@ test.describe.serial('Neo tab header actions', () => {
 
         expect(action.cls).toContain('neo-toolbar-action-context-inactive');
 
-        tabs.onFocusEnter({path: [{id: card.id}, {id: body.id}, {id: tabs.id}]});
+        focusEnter([card.id, body.id, tabs.id]);
         expect(action.cls).not.toContain('neo-toolbar-action-context-inactive');
 
-        tabs.onFocusMove({
-            oldPath: [{id: card.id}, {id: body.id}, {id: tabs.id}],
-            path   : [{id: action.id}, {id: bar.id}, {id: tabs.id}]
-        });
+        // Reaching for the action must not hide it. `focusMove` fires `focusLeave` only up to the
+        // closest common component, which is the TabContainer itself, so the subject never sees a
+        // leave. An implementation observing the BODY would disarm here and hide the action being
+        // clicked.
+        focusMove([action.id, bar.id, tabs.id]);
         expect(action.cls).not.toContain('neo-toolbar-action-context-inactive');
 
-        tabs.onFocusLeave({oldPath: [{id: action.id}, {id: bar.id}, {id: tabs.id}]});
+        focusLeave([action.id, bar.id, tabs.id]);
         expect(action.cls).toContain('neo-toolbar-action-context-inactive')
+    });
+
+    test('focusing a tab button exposes the actions — the subject is the container, not the body', () => {
+        const tabs = own(Neo.create(TabContainer, {
+                  headerActions: [{action: 'gated', iconCls: 'fa fa-eye'}],
+                  items        : [{module: Component, header: {text: 'One'}}]
+              })),
+              action = tabs.getActionItems()[0],
+              bar    = tabs.getTabBar(),
+              button = tabs.getTabButtons()[0];
+
+        // The whole point of the container being the subject: a tab whose body holds nothing
+        // focusable would never expose its actions if arming required body focus.
+        focusEnter([button.id, bar.id, tabs.id]);
+        expect(action.cls).not.toContain('neo-toolbar-action-context-inactive');
+
+        focusLeave([button.id, bar.id, tabs.id]);
+        expect(action.cls).toContain('neo-toolbar-action-context-inactive')
+    });
+
+    test('a plain toolbar arms on its own parent, with no TabContainer involved', () => {
+        const container = own(Neo.create(BaseContainer, {
+                  items: [{
+                      module : Toolbar,
+                      actions: [{action: 'gated', iconCls: 'fa fa-eye', showOnFocus: true}]
+                  }, {
+                      module: Component
+                  }]
+              })),
+              toolbar = container.items[0],
+              sibling = container.items[1],
+              action  = toolbar.getActionItems()[0];
+
+        expect(action.cls).toContain('neo-toolbar-action-context-inactive');
+
+        focusEnter([sibling.id, container.id]);
+        expect(action.cls).not.toContain('neo-toolbar-action-context-inactive');
+
+        // Default subjects are both the parent, so moving focus INTO the toolbar cannot disarm it:
+        // the parent is the closest common component and never receives `focusLeave`.
+        focusMove([action.id, toolbar.id, container.id]);
+        expect(action.cls).not.toContain('neo-toolbar-action-context-inactive');
+
+        focusLeave([action.id, toolbar.id, container.id]);
+        expect(action.cls).toContain('neo-toolbar-action-context-inactive')
+    });
+
+    test('an explicit gate outranks actionDefaults in either spelling', () => {
+        const tabs = own(Neo.create(TabContainer, {
+                  headerActions: [
+                      {action: 'legacy-persistent', contextual : false, iconCls: 'fa fa-one'},
+                      {action: 'persistent',        showOnFocus: false, iconCls: 'fa fa-two'},
+                      {action: 'legacy-gated',      contextual : true,  iconCls: 'fa fa-three'},
+                      {action: 'defaulted',                             iconCls: 'fa fa-four'}
+                  ],
+                  items: [{module: Component, header: {text: 'One'}}]
+              })),
+              [legacyPersistent, persistent, legacyGated, defaulted] = tabs.getActionItems();
+
+        // The tab header defaults to `showOnFocus: true`. A consumer opting out with the deprecated
+        // `contextual: false` must still be persistent — the two shipped callers do exactly this,
+        // and a spread alone would leave both keys present and keep them gated.
+        expect(legacyPersistent.cls).not.toContain('neo-toolbar-action-context-inactive');
+        expect(persistent.cls).not.toContain('neo-toolbar-action-context-inactive');
+        expect(legacyGated.cls).toContain('neo-toolbar-action-context-inactive');
+        expect(defaulted.cls).toContain('neo-toolbar-action-context-inactive');
+
+        // The alias is resolved into the current name and dropped, so nothing downstream has to
+        // consult two keys.
+        expect(legacyPersistent.showOnFocus).toBe(false);
+        expect(legacyGated.showOnFocus).toBe(true)
+    });
+
+    test('an opt-out survives a subclass whose actionDefaults still use the deprecated spelling', () => {
+        const container = own(Neo.create(BaseContainer, {
+                  items: [{
+                      module        : Toolbar,
+                      actionDefaults: {contextual: true},
+                      actions       : [
+                          {action: 'persistent', showOnFocus: false, iconCls: 'fa fa-one'},
+                          {action: 'gated',                          iconCls: 'fa fa-two'}
+                      ]
+                  }]
+              })),
+              [persistent, gated] = container.items[0].getActionItems();
+
+        // `actionDefaults.contextual` and the action's `showOnFocus` are different keys, so both
+        // survive the spread. Unless the resolved intent drops the alias, this action stays gated
+        // despite opting out — and it would be invisible until its container took focus.
+        expect(persistent.cls).not.toContain('neo-toolbar-action-context-inactive');
+        expect(persistent.contextual).toBeUndefined();
+        expect(gated.cls).toContain('neo-toolbar-action-context-inactive')
     });
 
     test('LivePreview keeps semantic actions stable across active-tab and popup lifecycles', async () => {
