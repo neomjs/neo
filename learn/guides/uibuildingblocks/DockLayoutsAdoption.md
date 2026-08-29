@@ -36,8 +36,8 @@ flowchart TD
 
 Your subclass makes five decisions. The class owns the loop those decisions plug into: the pure reducer
 (`applyDockZoneOperation`), the view-sync that stores each committed document and schedules exactly one atomic
-re-projection (`onDockZoneDocumentChange`), the projection through `DockLayoutAdapter`, the identity-preserving
-reconciliation through `DockProjectionReconciler`, the FLIP motion bracket, and the in-window cross-zone drop path.
+re-projection (`onDockZoneDocumentChange`), the projection through `projection.LayoutAdapter`, the identity-preserving
+reconciliation through `projection.Reconciler`, the FLIP motion bracket, and the in-window cross-zone drop path.
 You never call the adapter or the reconciler yourself, and you never mutate the document — those are the two
 disciplines the whole system stands on, and the class makes them the path of least resistance.
 
@@ -216,6 +216,8 @@ Layouts persist as documents, and the model owns the envelope so you never hand-
 fail-closed result objects — gate on `errors` before you trust either:
 
 ```javascript readonly
+import Persistence from '../../../src/dashboard/dock/model/Persistence.mjs';
+
 // save the live arrangement — an invalid document refuses to serialize: `layout` stays null
 const {layout, errors} = Persistence.createSavedLayout(this.getDockZoneDocument(), {
     layoutId: 'review-setup',
@@ -251,9 +253,11 @@ is a designed, still-open second leaf of the same program that produced the clas
 shrinks the way the holder loop already shrank.
 
 What is stable under any future shape is the adopter-side obligation this section exists to teach: **the render
-target is yours** — a child app whose viewport is deliberately empty, because detached panes arrive at runtime. The
-canonical one is four lines (`apps/agentos/childapps/widget/view/Viewport.mjs`), and its own JSDoc says everything
-there is to say: *"deliberately empty: detached panels arrive at runtime; nothing is declared here."*
+target is yours** — a viewport that boots deliberately empty, because detached panes arrive at runtime. The
+canonical one is the cross-window demo's `?popout` boot branch (`examples/dashboard/crossWindow/Viewport.mjs`),
+and its own JSDoc says everything there is to say: *"This window carries no workspace of its own; the opener's
+workspace reparents the live pane into it on connect — the shared-heap contract, one App Worker, two render
+targets."*
 
 The deeper mechanics of the journey (claims, vessels, conversion, reintegration) are Part 2's territory. If your app
 needs tear-out today, read the workstation's composition first. The pending engine leaf will shrink the generic

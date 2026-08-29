@@ -490,7 +490,9 @@ generic `Neo.component.Splitter` and **subclasses it**, inheriting DragZone, liv
 and cancel mechanics; dock code owns only document descriptors and one terminal semantic commit, and a
 prototype-census control fails if the generic machinery is ever re-implemented locally.
 
-**Final wire family.** One enumerated `neo.dock.*` set replaces `neo.harness.*` outright:
+**Final wire family.** One enumerated `neo.dock.*` set replaces `neo.harness.*` outright. The runtime
+family is **exactly these seven** — every identity below exists in executable source, and no reserved,
+retired, or proposed name belongs in this table:
 
 | Concept | Identity |
 |---|---|
@@ -500,10 +502,12 @@ prototype-census control fails if the generic machinery is ever re-implemented l
 | drop candidates | `neo.dock.candidates.v1` |
 | saved-layout collection | `neo.dock.layoutCollection.v1` |
 | per-window shape fingerprint | `neo.dock.shape.v1` |
-| window placement hints (reserved) | `neo.dock.windowPlacementHints.v1` |
-| perspective (retired alias, see §2.2) | `neo.dock.perspective.v1` |
 | aggregate topology shape | `neo.dock.topologyShape.v1` |
-| topology | `neo.dock.topology.v1` |
+
+The §2.2 placement-hint obligation lands as **additive fields on `neo.dock.layout.v1`** when its leaf
+files — never as a new schema name (the §2.2 amendment's own rule); the retired `perspective` wrapper
+name exists only as §2.2 history. A future identity enters this table by amending this record, not by
+reserving a row.
 
 The former layout v1/v2 wrapper split collapses into one `neo.dock.layout.v1` carrying the perspective
 fields; the migration reader (`migrateSavedLayout`) and every v1-acceptance site are **deleted**, not

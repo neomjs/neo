@@ -2,7 +2,7 @@ import {setup} from '../../setup.mjs';
 
 setup({
     appConfig: {
-        name: 'DashboardDockPerspectiveStoreTest'
+        name: 'DashboardPerspectiveLibraryTest'
     }
 });
 

@@ -46,15 +46,15 @@ flowchart TD
     classDef inter fill:#2d1b4e,stroke:#9b59b6,stroke-width:1px,color:#eee
     classDef cross fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
-    Document["The committed document<br/>dockZone.v1 — persisted JSON tree<br/>owned by ONE workspace container"]:::doc
+    Document["The committed document<br/>neo.dock.zone.v1 — persisted JSON tree<br/>owned by ONE workspace container"]:::doc
     Model["Neo.dashboard.dock.model.Document<br/>the pure reducer: applyOperation"]:::doc
-    Adapter["DockLayoutAdapter.project()<br/>document → ordinary Neo configs"]:::proj
-    Reconciler["DockProjectionReconciler<br/>hands LIVE components across projections"]:::proj
-    Surfaces["Interaction surfaces<br/>DockTabSortZone · DockSplitter · DockRail<br/>DockPreviewProducer → DockPreview"]:::inter
+    Adapter["projection.LayoutAdapter.project()<br/>document → ordinary Neo configs"]:::proj
+    Reconciler["projection.Reconciler<br/>hands LIVE components across projections"]:::proj
+    Surfaces["Interaction surfaces<br/>TabSortZone · DockSplitter · Rail<br/>PreviewProducer → Preview"]:::inter
     Descriptors["operation descriptors<br/>moveItem · splitNode · addTab · resizeSplit<br/>detachItem · transferItem · moveNode"]:::inter
     Coordinator["Neo.manager.DragCoordinator<br/>cross-window arbitration — dock-BLIND"]:::cross
     Arbiter["GestureClaimArbiter<br/>one token per gesture, deterministic winner"]:::cross
-    Vessels["Vessel lifecycle<br/>DockTearOut choreography · Embodiment<br/>Conversion · Park"]:::cross
+    Vessels["Vessel lifecycle<br/>window.TearOut choreography · VesselEmbodiment<br/>VesselConversion · VesselPark"]:::cross
 
     Document --> Adapter
     Adapter --> Reconciler
@@ -143,7 +143,7 @@ before it lands ([ADR 0029 §2.1](../../agentos/decisions/0029-docking-design.md
 | If you are looking at… | It lives in… | Persisted? |
 |---|---|---|
 | the dock tree, item catalog, `sizes`, `pinned`/`autoHidden`, saved layouts and perspectives | **worker-owned shared truth** — the workspace container's committed documents | yes — serializable by contract |
-| projected configs, edge rails, splitter affordances, tab headers | **per-window render projection** — `DockLayoutAdapter.project()` output | never — derived |
+| projected configs, edge rails, splitter affordances, tab headers | **per-window render projection** — `projection.LayoutAdapter.project()` output | never — derived |
 | drag previews, hover state, reveal state of an auto-hidden pane, mid-drag splitter math | **per-window runtime interaction state** | never — dies with the gesture |
 | DOM nodes, `DOMRect`s, screen coordinates, native window geometry | **main-thread-only state** — addons and window managers | never — delivered upward as semantic events only |
 
@@ -164,7 +164,7 @@ of the guide series this page fronts. Once you extend the class, the adoption su
 
 1. **Extend `Neo.dashboard.dock.Workspace`.** The engine class owns the committed `dockModel`, the pure reducer
    (`applyDockZoneOperation` — `Operations.applyOperation` over the current document), the deferred, promise-chained
-   re-projection (`onDockZoneDocumentChange` → `DockLayoutAdapter` → `DockProjectionReconciler`, bracketed by FLIP
+   re-projection (`onDockZoneDocumentChange` → `projection.LayoutAdapter` → `projection.Reconciler`, bracketed by FLIP
    motion) and the in-window cross-zone drop path. Your subclass overrides `resolvePane(itemId, item)` and, when it has
    them, the handful of hooks for owner-preserved panes, chrome that syncs on every re-projection, and extra projection
    options. `examples/dashboard/dock/MainContainer.mjs` is the minimal consumer.
@@ -183,12 +183,12 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    declared forward contract whose close-routing enforcement has not landed yet; the
    [adoption guide](DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui) keeps that split
    explicit.
-4. **Give vessels a render target.** Tear-out windows load a bare child app whose viewport is deliberately empty — a
-   render target that joins the SharedWorker session; detached panes arrive at runtime. The agentos app's
-   `childapps/widget` viewport is the canonical example — a bare viewport class whose own JSDoc says it all:
-   "deliberately empty: detached panels arrive at runtime; nothing is declared here."
+4. **Give vessels a render target.** Tear-out windows load a viewport that is deliberately empty — a render target
+   that joins the SharedWorker session; detached panes arrive at runtime. The canonical example is the cross-window
+   demo's `?popout` boot branch (`examples/dashboard/crossWindow/Viewport.mjs`), whose own JSDoc says it all: "This
+   window carries no workspace of its own; the opener's workspace reparents the live pane into it on connect."
 5. **Persist through the wrappers, not by hand.** `createSavedLayout` / `restoreSavedLayout` and the
-   perspective-carrying `dockLayout.v2` envelope give you named, switchable, fail-closed-validated arrangements.
+   perspective-carrying `neo.dock.layout.v1` envelope give you named, switchable, fail-closed-validated arrangements.
    Restore refuses invalid documents wholesale — your users' layouts never half-restore.
 
 Styling arrives through the engine's token layer. The dock's visual language is being promoted from app stylesheets
