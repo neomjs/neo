@@ -18,7 +18,12 @@
     --menu-list-item-outline-focus            : none;
     --menu-list-item-padding                  : 5px;
     --menu-list-item-text-transform           : inherit;
-    --menu-separator-color                    : var(--sem-color-border-subtle);
+    // `border-subtle` is the semantically obvious token and is what neo-dark uses, but this family's
+    // ramp puts gray-100 only 15/255 from white: a 1px rule at 1.13:1, at or past the edge of visible
+    // on a non-retina panel. `border-default` lands at 1.46:1, just above the 1.25–1.37 the other
+    // three families measure. The asymmetry with neo-dark is the ramps, not an oversight — there,
+    // gray-800 against gray-900 already reads at 1.37:1.
+    --menu-separator-color                    : var(--sem-color-border-default);
     --menu-separator-inset                    : 8px;
     --menu-separator-margin                   : 4px;
     --menu-separator-thickness                : 1px;
