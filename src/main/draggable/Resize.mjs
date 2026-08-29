@@ -193,7 +193,13 @@ class Resize {
             minValue   = resolveCssBound(computed?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
             maxValue   = resolveCssBound(computed?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis]));
 
-        let minSize = Number.isFinite(minValue) ? Math.max(0, minValue) : 0,
+        // A descriptor-supplied floor folds in beneath the CSS bounds: the registering owner
+        // knows its commit domain (e.g. an edge extent must stay above zero), and the preview
+        // must never paint a frame that domain refuses — CSS alone cannot guarantee that.
+        let minSize = Math.max(
+                Number.isFinite(minValue) ? Math.max(0, minValue) : 0,
+                Number.isFinite(config.minSize) ? config.minSize : 0
+            ),
             maxSize = Math.max(minSize, Math.min(layoutMax, Number.isFinite(maxValue) ? maxValue : layoutMax));
 
         if (!Number.isFinite(startSize) || !Number.isFinite(maxSize)) return null;

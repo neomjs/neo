@@ -333,9 +333,13 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         }]);
         expect(result.errors).toEqual([]);
         expect(result.document.nodes.root.zones.left.extent).toBe(0.24);
+        // minSize: 1 is the commit-domain floor — resizeEdgeZone validates extent on the OPEN
+        // interval (0,1), so the registered preview window must exclude the 0px frame even when
+        // a consumer's CSS zeroes the band's own minimum.
         expect(splitter.getResizeConfig()).toEqual({
             axis                 : 'width',
             awaitWorkerSettlement: true,
+            minSize              : 1,
             parentId             : 'edge-parent',
             preview              : true,
             resizeNext           : false,
@@ -443,6 +447,39 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
             restore         : true
         }]);
         expect(document.nodes.root.zones.left.extent).toBe(0.2)
+    });
+
+    test('a zero-pixel terminal lands outside the open extent interval: refused, restored, uncommitted', async () => {
+        // The exact fingerprint the descriptor's minSize floor exists to prevent: a consumer
+        // whose CSS zeroes the band minimum lets the preview collapse to 0px, and 0 / parentSize
+        // is an extent the model refuses on the OPEN interval (0,1). The worker half must refuse
+        // loudly and settle a restore — never commit a vanished band.
+        const document    = createEdgeDocument(),
+              settlements = [];
+
+        splitter = createEdgeSplitter({
+            dockZoneDocument: document,
+            id              : 'dock-edge-splitter-zero-extent'
+        });
+
+        splitter.dragZone.settleResize = data => settlements.push(data);
+
+        await splitter.captureDragStart({clientX: 200, clientY: 0});
+        const result = splitter.onDragEnd({
+            clientX         : 0,
+            clientY         : 0,
+            resizeGeneration: 11,
+            resizeSize      : 0,
+            resizeTargetId  : 'left-wrapper'
+        });
+
+        expect(result.errors).toEqual(['extent must be a finite number between 0 and 1']);
+        expect(settlements).toEqual([{
+            resizeGeneration: 11,
+            resizeTargetId  : 'left-wrapper',
+            restore         : true
+        }]);
+        expect(splitter.dockZoneDocument.nodes.root.zones.left.extent).toBe(0.2)
     });
 });
 
