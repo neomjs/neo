@@ -498,6 +498,17 @@ export const test = base.extend({
                     // --- Interaction Methods ---
 
                     /**
+                     * Drives one complete Engine-owned Mouse gesture and returns its physical
+                     * lifecycle receipt. This fixture calls the raw Engine RPC directly so Engine
+                     * whitebox coverage does not depend on the blocked Brain MCP tool (#204).
+                     * @param {Object} request The `drive_drag` request object.
+                     * @returns {Promise<Object>}
+                     */
+                    async driveDrag(request) {
+                        return NeuralLink_ConnectionService.call(sessionId, 'drive_drag', request)
+                    },
+
+                    /**
                      * Simulates a native DOM event directly onto the VNode exactly as a user would.
                      * @param {Object|Object[]} events Sequence of events (e.g., {action: 'click', targetId: 'my-comp'})
                      * @returns {Promise<Object>}

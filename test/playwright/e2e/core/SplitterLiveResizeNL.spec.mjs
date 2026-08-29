@@ -41,10 +41,13 @@ test.describe('Neo.component.Splitter live resizing', () => {
               previousId     = itemIds[splitterIndex - 1],
               nextId         = itemIds[splitterIndex + 1];
 
+        const {windowId} = await app.manageNeoConfig('get');
+
         expect(splitterIndex, 'the Splitter sits between two sibling components').toBeGreaterThan(0);
         expect(nextId).toBeTruthy();
+        expect(windowId, 'the page-owned App registry exposes its logical source window').toBeTruthy();
 
-        return {app, nextId, pageErrors, parentId, previousId, splitterId}
+        return {app, nextId, pageErrors, parentId, previousId, splitterId, windowId}
     };
 
     const rects = async (app, ids) => {
@@ -136,18 +139,46 @@ test.describe('Neo.component.Splitter live resizing', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('successful live release persists, while deferred mode keeps geometry on the proxy until release', async ({page, neuralLink}) => {
-        const {app, nextId, pageErrors, parentId, splitterId} = await openExample(page, neuralLink),
-              liveBefore                                      = await rects(app, [splitterId, nextId]);
+    test('atomic live release persists, while deferred held mode keeps geometry on the proxy', async ({page, neuralLink}) => {
+        const {app, nextId, pageErrors, parentId, splitterId, windowId} = await openExample(page, neuralLink),
+              liveBefore                                                = await rects(app, [splitterId, nextId]);
 
-        await moveWhileHeld(page, splitterId, {x: 60});
+        await expect.poll(() => page.evaluate(() => Boolean(Neo.main.addon.DragDrop.mouseSensor)), {
+            message: 'the source Main realm retains its live Mouse sensor',
+            timeout: 5000
+        }).toBe(true);
 
-        await expect.poll(async () => {
-            const held = await rects(app, [splitterId]);
-            return held[splitterId].x - liveBefore[splitterId].x
-        }, {message: 'live geometry changes before mouseup', timeout: 5000}).toBeGreaterThan(40);
+        const priorThresholds = await page.evaluate(() => {
+            const sensor = Neo.main.addon.DragDrop.mouseSensor;
 
-        await page.mouse.up();
+            const prior = {delay: sensor.delay, minDistance: sensor.minDistance};
+
+            sensor.set({delay: 180, minDistance: 11});
+
+            return prior
+        });
+
+        let receipt;
+
+        try {
+            receipt = await app.driveDrag({
+                source     : {targetId: splitterId, windowId},
+                destination: {deltaX: 60, deltaY: 0},
+                durationMs : 160,
+                steps      : 8
+            })
+        } finally {
+            await page.evaluate(prior => Neo.main.addon.DragDrop.mouseSensor?.set(prior), priorThresholds)
+        }
+
+        expect(receipt, JSON.stringify(receipt, null, 2)).toMatchObject({
+            success : true,
+            phase   : 'complete',
+            released: true,
+            sensor  : {delayMs: 180, minDistance: 11},
+            observed: {started: true, ended: true}
+        });
+        expect(receipt.observed.moveCount).toBeGreaterThan(0);
 
         const liveAfter    = await rects(app, [splitterId, nextId]);
         const durableAfter = await app.getComponent(nextId, ['wrapperStyle']);
