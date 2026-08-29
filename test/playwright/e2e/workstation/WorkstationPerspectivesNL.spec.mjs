@@ -5,12 +5,12 @@ const {NeuralLink_DockService} = await loadNeuralLinkModules();
 /**
  * @summary Whitebox E2E witness for the Neural Link perspective path on the workstation Workspace.
  *
- * The workstation Workspace carries a `DockPerspectiveStore` (holder-resolved by the client
+ * The workstation Workspace carries a `PerspectiveLibrary` (holder-resolved by the client
  * DockService), so the agent-driven perspective trio activates on the film's primary surface:
  *
- *   capture_perspective (stored through the holder's store) → list_perspectives
+ *   capture_perspective (stored through the holder's library) → list_perspectives
  *   → execute_dock_operation (disruption) → restore_perspective
- *   (exact baseline dockZone.v1 document through the store's migration-honest load
+ *   (exact baseline neo.dock.zone.v1 document through the library's fail-closed load
  *    plus the workspace's document-commit seam)
  *
  * All assertions read worker truth, never the DOM. The baseline is read live, so the spec

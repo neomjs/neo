@@ -1,23 +1,25 @@
-import DockService   from '../../../src/ai/client/DockService.mjs';
-import DockWorkspace from '../../../src/dashboard/DockWorkspace.mjs';
-import DockZoneModel from '../../../src/dashboard/DockZoneModel.mjs';
-import TourRunner    from '../../../src/ai/client/TourRunner.mjs';
+import DockService        from '../../../src/ai/client/DockService.mjs';
+import DockWorkspace      from '../../../src/dashboard/dock/Workspace.mjs';
+import Document           from '../../../src/dashboard/dock/model/Document.mjs';
+import Persistence        from '../../../src/dashboard/dock/model/Persistence.mjs';
+import PerspectiveLibrary from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import TourRunner         from '../../../src/ai/client/TourRunner.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
 
 /**
- * A representative dock-zone document (`neo.harness.dockZone.v1`): an edge-zone root whose center is a
+ * A representative dock-zone document (`neo.dock.zone.v1`): an edge-zone root whose center is a
  * horizontal split of a two-tab main zone and a vertical side-split of two single-tab zones, plus a
  * right edge band holding a single-tab inspector zone — the auto-hide surface (committing
- * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.DockRail` edge tab).
- * The shape `Neo.dashboard.DockLayoutAdapter.project` consumes — see its spec for the full contract.
+ * `setItemAutoHidden` on an edge-band item collapses it to a `Neo.dashboard.dock.interaction.Rail` edge tab).
+ * The shape `Neo.dashboard.dock.projection.LayoutAdapter.project` consumes — see its spec for the full contract.
  * Used as the example's INITIAL committed document; the live document advances on each commit
  * (see `MainContainer#dockModel`).
  * @type {Object}
  */
 const initialDockModel = {
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
@@ -42,7 +44,7 @@ const initialDockModel = {
     }
 };
 
-const reviewDockModel = DockZoneModel.clone(initialDockModel);
+const reviewDockModel = Document.clone(initialDockModel);
 
 reviewDockModel.nodes['root-split'].sizes = [0.48, 0.52];
 reviewDockModel.nodes['main-tabs'].activeItemId = 'swarm';
@@ -65,7 +67,7 @@ const seededPerspectives = [{
 
 /**
  * @summary Standalone, interactive example for the dashboard dock-zone layout system — the minimal
- * consumer of {@link Neo.dashboard.DockWorkspace}.
+ * consumer of {@link Neo.dashboard.dock.Workspace}.
  *
  * The engine class owns the whole host loop: the committed document ({@link #dockModel}), the pure
  * reducer (`applyDockZoneOperation`), the deferred, promise-chained re-projection through
@@ -76,7 +78,7 @@ const seededPerspectives = [{
  *
  * What the example owns is exactly what an adopting app owns: which pane renders a catalog item
  * ({@link #resolvePane}), and its own chrome — a perspective toolbar consuming the saved-layout
- * collection helpers the model exposes (seed perspectives stored as `neo.harness.dockLayoutCollection.v1`,
+ * collection helpers the model exposes (seed perspectives stored as `neo.dock.layoutCollection.v1`,
  * selecting a perspective calls `restoreActiveSavedLayout()`, Save Current upserts the live committed
  * document, Delete Active keeps a valid replacement active) plus browser-local persistence through the
  * main-thread `LocalStorage` addon, so App-Worker code never reaches for `window.localStorage` directly.
@@ -89,7 +91,7 @@ const seededPerspectives = [{
  * See `learn/agentos/DockZoneModel.md` for the model/projection contract and
  * `learn/guides/uibuildingblocks/DockLayouts.md` for the adoption guide.
  * @class Neo.examples.dashboard.dock.MainContainer
- * @extends Neo.dashboard.DockWorkspace
+ * @extends Neo.dashboard.dock.Workspace
  */
 class MainContainer extends DockWorkspace {
     static config = {
@@ -154,7 +156,7 @@ class MainContainer extends DockWorkspace {
         let me = this;
 
         me.layoutCollection = me.createDefaultLayoutCollection();
-        me.dockModel        = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
+        me.dockModel        = PerspectiveLibrary.restoreActiveSavedLayout(me.layoutCollection).document || Document.clone(initialDockModel);
 
         me.add(me.buildWorkspaceItems());
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
@@ -222,7 +224,7 @@ class MainContainer extends DockWorkspace {
 
             await me.refreshPromise;
 
-            return {...result, document: DockZoneModel.clone(me.dockModel)}
+            return {...result, document: Document.clone(me.dockModel)}
         } finally {
             runner.destroy();
             dockService.destroy()
@@ -235,7 +237,7 @@ class MainContainer extends DockWorkspace {
      */
     createDefaultLayoutCollection() {
         let layouts = seededPerspectives.map(({document, layoutId, title}) => {
-                let {layout, errors} = DockZoneModel.createSavedLayout(document, {
+                let {layout, errors} = Persistence.createSavedLayout(document, {
                     layoutId,
                     title,
                     metadata: {
@@ -249,7 +251,7 @@ class MainContainer extends DockWorkspace {
 
                 return layout
             }),
-            {collection, errors} = DockZoneModel.createSavedLayoutCollection(layouts, {
+            {collection, errors} = PerspectiveLibrary.createSavedLayoutCollection(layouts, {
                 activeLayoutId: 'operator-default',
                 metadata      : {
                     owner: 'examples/dashboard/dock'
@@ -421,19 +423,19 @@ class MainContainer extends DockWorkspace {
             }
 
             parsed = JSON.parse(value);
-            errors = DockZoneModel.validateSavedLayoutCollection(parsed);
+            errors = PerspectiveLibrary.validateSavedLayoutCollection(parsed);
 
             if (errors.length) {
                 return {collection: null, document: null, errors, loaded: false}
             }
 
-            restored = DockZoneModel.restoreActiveSavedLayout(parsed);
+            restored = PerspectiveLibrary.restoreActiveSavedLayout(parsed);
 
             if (restored.errors.length) {
                 return {collection: null, document: null, errors: restored.errors, loaded: false}
             }
 
-            me.layoutCollection = DockZoneModel.clone(parsed);
+            me.layoutCollection = Document.clone(parsed);
             me.onDockZoneDocumentChange(restored.document);
             await me.refreshPromise;
 
@@ -469,20 +471,20 @@ class MainContainer extends DockWorkspace {
     }
 
     /**
-     * Selects and restores a named perspective through `DockZoneModel.restoreActiveSavedLayout()`.
+     * Selects and restores a named perspective through `PerspectiveLibrary.restoreActiveSavedLayout()`.
      * @param {String} layoutId
      * @returns {{collection:Object, document:(Object|null), errors:String[]}}
      */
     restorePerspective(layoutId) {
         let me       = this,
-            selected = DockZoneModel.selectSavedLayout(me.layoutCollection, layoutId),
+            selected = PerspectiveLibrary.selectSavedLayout(me.layoutCollection, layoutId),
             restored;
 
         if (selected.errors.length) {
             return {collection: me.layoutCollection, document: null, errors: selected.errors}
         }
 
-        restored = DockZoneModel.restoreActiveSavedLayout(selected.collection);
+        restored = PerspectiveLibrary.restoreActiveSavedLayout(selected.collection);
 
         if (restored.errors.length) {
             return {collection: me.layoutCollection, document: null, errors: restored.errors}
@@ -503,7 +505,7 @@ class MainContainer extends DockWorkspace {
         let me       = this,
             layoutId = me.nextSavedPerspectiveId(),
             title    = `Saved ${me.savedPerspectiveCount}`,
-            saved    = DockZoneModel.createSavedLayout(me.dockModel, {
+            saved    = Persistence.createSavedLayout(me.dockModel, {
                 layoutId,
                 title,
                 metadata: {
@@ -517,7 +519,7 @@ class MainContainer extends DockWorkspace {
             return {collection: me.layoutCollection, layout: null, errors: saved.errors}
         }
 
-        upserted = DockZoneModel.upsertSavedLayout(me.layoutCollection, saved.layout, {activate: true});
+        upserted = PerspectiveLibrary.upsertSavedLayout(me.layoutCollection, saved.layout, {activate: true});
 
         if (upserted.errors.length) {
             return {collection: me.layoutCollection, layout: null, errors: upserted.errors}
@@ -546,7 +548,7 @@ class MainContainer extends DockWorkspace {
             return {collection, document: null, errors: ['at least one replacement perspective must remain']}
         }
 
-        removed = DockZoneModel.removeSavedLayout(collection, {
+        removed = PerspectiveLibrary.removeSavedLayout(collection, {
             layoutId           : activeLayoutId,
             replacementLayoutId: replacementId
         });
@@ -555,7 +557,7 @@ class MainContainer extends DockWorkspace {
             return {collection, document: null, errors: removed.errors}
         }
 
-        restored = DockZoneModel.restoreActiveSavedLayout(removed.collection);
+        restored = PerspectiveLibrary.restoreActiveSavedLayout(removed.collection);
 
         if (restored.errors.length) {
             return {collection, document: null, errors: restored.errors}

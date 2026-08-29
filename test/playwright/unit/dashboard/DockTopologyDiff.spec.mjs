@@ -9,7 +9,7 @@ setup({
 import {test, expect}   from '@playwright/test';
 import Neo              from '../../../../src/Neo.mjs';
 import * as core        from '../../../../src/core/_export.mjs';
-import DockTopologyDiff from '../../../../src/dashboard/DockTopologyDiff.mjs';
+import DockTopologyDiff from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
 
 /**
  * A fresh canonical dockZone.v1 document mirroring the executor spec's fixture:
@@ -18,7 +18,7 @@ import DockTopologyDiff from '../../../../src/dashboard/DockTopologyDiff.mjs';
  */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy : {componentRef: 'strategy',  title: 'Strategy',  kind: 'panel'},
@@ -35,7 +35,7 @@ function doc() {
     }
 }
 
-test.describe('Neo.dashboard.DockTopologyDiff (#14650)', () => {
+test.describe('Neo.dashboard.dock.model.TopologyDiff (#14650)', () => {
     test('an identical pair yields only unchanged items — and catalog-only items stay invisible to topology', () => {
         const result = DockTopologyDiff.diffDockDocuments(doc(), doc());
 

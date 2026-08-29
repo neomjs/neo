@@ -387,7 +387,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             .toEqual({errors: [], saved: true});
 
         const expectedSource = {
-                  schema: 'neo.harness.dockZone.v1',
+                  schema: 'neo.dock.zone.v1',
                   root  : 'root',
                   items : {
                       inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'},
@@ -402,7 +402,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
                   }
               },
               expectedTarget = {
-                  schema: 'neo.harness.dockZone.v1',
+                  schema: 'neo.dock.zone.v1',
                   root  : 'popup-root',
                   items : {
                       workbench: {componentRef: 'Workbench', title: 'Workbench', kind: 'panel'}

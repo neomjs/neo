@@ -1,6 +1,7 @@
-import DockTopologyDiff       from '../../dashboard/DockTopologyDiff.mjs';
-import DockTopologyReconciler from '../../dashboard/DockTopologyReconciler.mjs';
-import DockZoneModel          from '../../dashboard/DockZoneModel.mjs';
+import DockTopologyDiff       from '../../dashboard/dock/model/TopologyDiff.mjs';
+import DockTopologyReconciler from '../../dashboard/dock/model/TopologyReconciler.mjs';
+import Operations             from '../../dashboard/dock/model/Operations.mjs';
+import Persistence            from '../../dashboard/dock/model/Persistence.mjs';
 import Service                from './Service.mjs';
 import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
 
@@ -11,14 +12,14 @@ import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
  * design tier built on it).
  *
  * The service never mutates layout state outside the landed commit path: operations dispatch
- * through `DockZoneModel.applyOperation()` (or the holder's own `applyDockZoneOperation`
+ * through `Operations.applyOperation()` (or the holder's own `applyDockZoneOperation`
  * override when present), and successful documents commit back exactly the way
  * `DockSplitter.commitResizeSplit()` does — including the `onDockZoneDocumentChange`
  * notification hook. Policy rejections (e.g. `pinnable: false`) therefore surface as the
  * executor's structured `errors`, never get bypassed.
  *
  * Perspective verbs consume the executable substrate directly: capture scope validates against
- * `DockZoneModel.CAPTURE_SCOPES` (the SSOT — never a hand-listed mirror), capture rides the
+ * `Persistence.CAPTURE_SCOPES` (the SSOT — never a hand-listed mirror), capture rides the
  * landed scope producers, and restore inspects the stored record's own `captureScope` BEFORE
  * any state moves, routing topology records through `DockTopologyReconciler` plus the holder's
  * atomic multi-document commit seam.
@@ -41,7 +42,7 @@ class DockService extends Service {
      * @member {ReadonlyArray<String>} operations
      * @static
      */
-    static operations = DockZoneModel.operations
+    static operations = Operations.operations
 
     /**
      * Resolves a live dock-document holder — a component that carries a `dockZoneDocument`,
@@ -110,7 +111,7 @@ class DockService extends Service {
      * @param {String} params.componentId     The dock workspace / holder component id
      * @param {Object} params.beforeDocument  The earlier dockZone.v1 document to compare against
      * @param {Number} [params.sizeEpsilon]   Optional resize tolerance on split size fractions
-     * @returns {Object} The {@link Neo.dashboard.DockTopologyDiff#diffDockDocuments} result
+     * @returns {Object} The {@link Neo.dashboard.dock.model.TopologyDiff#diffDockDocuments} result
      */
     async diffDockTopology({componentId, beforeDocument, sizeEpsilon}) {
         const holder = this.resolveHolder(componentId);
@@ -124,11 +125,11 @@ class DockService extends Service {
      * verb of the perspective tool trio.
      *
      * `captureScope` validates against the executable SSOT
-     * ({@link Neo.dashboard.DockZoneModel#CAPTURE_SCOPES}), never a hand-listed mirror:
+     * ({@link Neo.dashboard.dock.model.Document#CAPTURE_SCOPES}), never a hand-listed mirror:
      * `window` (the default) captures the holder's own document through
-     * `DockZoneModel.capturePerspective()` (fingerprint-coherent by construction); `topology`
+     * `Persistence.capturePerspective()` (fingerprint-coherent by construction); `topology`
      * captures the whole multi-window workspace through
-     * `DockZoneModel.captureTopologyPerspective()` over the holder's topology read seam —
+     * `Persistence.captureTopologyPerspective()` over the holder's topology read seam —
      * `getDockTopologyDocuments()`, returning the ordered committed documents, primary first.
      * A holder without that seam refuses topology capture with the missing seam declared —
      * never a silent downgrade to window scope.
@@ -142,11 +143,11 @@ class DockService extends Service {
      * @returns {Object} `{captured, stored, collision, errors, layout}`
      */
     async capturePerspective({componentId, layoutId, perspectiveName, title, captureScope = 'window', replace = false}) {
-        if (!DockZoneModel.CAPTURE_SCOPES.includes(captureScope)) {
+        if (!Persistence.CAPTURE_SCOPES.includes(captureScope)) {
             return {
                 captured : false,
                 collision: null,
-                errors   : [`unknown captureScope "${captureScope}" — the vocabulary is: ${DockZoneModel.CAPTURE_SCOPES.join(', ')}`],
+                errors   : [`unknown captureScope "${captureScope}" — the vocabulary is: ${Persistence.CAPTURE_SCOPES.join(', ')}`],
                 layout   : null,
                 stored   : false
             }
@@ -180,9 +181,9 @@ class DockService extends Service {
                 }
             }
 
-            produced = DockZoneModel.captureTopologyPerspective(holder.getDockTopologyDocuments(), metadata)
+            produced = Persistence.captureTopologyPerspective(holder.getDockTopologyDocuments(), metadata)
         } else {
-            produced = DockZoneModel.capturePerspective(this.readDocument(holder), metadata)
+            produced = Persistence.capturePerspective(this.readDocument(holder), metadata)
         }
 
         if (produced.errors.length) {
@@ -244,7 +245,7 @@ class DockService extends Service {
      * - **window** records prefer the holder's switch seam (`activatePerspective` — commit
      *   loop, animation and error rendering included), falling back to the store's fail-closed
      *   load plus the landed plain-holder commit semantics.
-     * - **topology** records route through {@link Neo.dashboard.DockTopologyReconciler} plus the
+     * - **topology** records route through {@link Neo.dashboard.dock.model.TopologyReconciler} plus the
      *   holder's atomic multi-document commit seam — see
      *   {@link #restoreTopologyPerspective}. `windowDocuments` are never dropped: a topology
      *   record can never report `switched: true` off a single-document commit.
@@ -331,7 +332,7 @@ class DockService extends Service {
 
     /**
      * The topology-scope restore branch: reconciles a multi-window record onto the live
-     * workspace through {@link Neo.dashboard.DockTopologyReconciler#reconcile} and commits
+     * workspace through {@link Neo.dashboard.dock.model.TopologyReconciler#reconcile} and commits
      * ALL result documents through the holder's atomic seam — all-or-nothing, by contract.
      *
      * The holder seam pair a topology-capable workspace exposes:
@@ -349,7 +350,7 @@ class DockService extends Service {
      * @param {Neo.component.Base} config.holder The resolved dock-document holder
      * @param {String} config.name               The perspective name being restored
      * @param {Object} config.record             The stored topology-scope saved-layout record
-     * @param {Neo.dashboard.DockPerspectiveStore} config.store The holder's perspective store
+     * @param {Neo.dashboard.dock.persistence.PerspectiveLibrary} config.store The holder's perspective store
      * @returns {Object} `{switched, captureScope, errors, document, documents, restored, unrestored, displaced}`
      * @protected
      */
@@ -450,7 +451,7 @@ class DockService extends Service {
      * path and returns the post-operation state, so agents can verify without a second call.
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
-     * @param {Object} params.descriptor  `{operation, ...}` — the `DockZoneModel.applyOperation()` shape
+     * @param {Object} params.descriptor  `{operation, ...}` — the `Operations.applyOperation()` shape
      * @param {Object|null} [context] The Bridge-stamped agent writer pair (2nd dispatch arg); null/undefined = legacy.
      * @returns {Object} `{applied, errors, document}` — `applied: false` carries the executor's errors
      */
@@ -484,7 +485,7 @@ class DockService extends Service {
             if (typeof holder.applyDockZoneOperation === 'function') {
                 result = holder.applyDockZoneOperation(descriptor, this) || null
             } else {
-                result = DockZoneModel.applyOperation(this.readDocument(holder), descriptor)
+                result = Operations.applyOperation(this.readDocument(holder), descriptor)
             }
         } catch (e) {
             // the reducer contract assumes a well-formed document; a malformed holder document

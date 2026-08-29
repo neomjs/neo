@@ -275,7 +275,7 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         await parkAuditDrag(page, center);
 
         const
-            indicators = await app.findInstances({className: 'Neo.dashboard.DockDropIndicators'}, ['id']),
+            indicators = await app.findInstances({className: 'Neo.dashboard.dock.interaction.DropIndicators'}, ['id']),
             indId      = (Array.isArray(indicators) ? indicators[0] : indicators)?.id,
             indState   = await app.getComponent(indId, ['candidateSet', 'mounted']),
             geometry   = await readParkedOverlayGeometry(page),
@@ -679,7 +679,7 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         // also witnesses the sensor's detached-node dispatch repair: the dense toolbar's
         // overflow re-collapse replaces the dragged button's node mid-gesture, and the move
         // stream must survive that (src/main/draggable/sensor/Base.mjs#trigger).
-        const indicators = await app.findInstances({className: 'Neo.dashboard.DockDropIndicators'}, ['id']);
+        const indicators = await app.findInstances({className: 'Neo.dashboard.dock.interaction.DropIndicators'}, ['id']);
         const indId      = (Array.isArray(indicators) ? indicators[0] : indicators)?.id;
         const indState   = await app.getComponent(indId, ['candidateSet', 'mounted']);
 

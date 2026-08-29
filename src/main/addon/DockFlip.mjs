@@ -664,7 +664,7 @@ class DockFlip extends Base {
             }
 
             // the observability signal (`neo-dashboard-dock-animating`) is OWNED by the
-            // worker-side Neo.dashboard.DockMotionSignal (counted lifecycle) — consumers
+            // worker-side Neo.dashboard.dock.projection.MotionSignal (counted lifecycle) — consumers
             // bracket enter/leave around this awaited promise; the addon never toggles it
             // (cleanup still strips the legacy `dock-animating` class defensively)
 

@@ -56,7 +56,7 @@ const baselineScript = {
     scenes: [{
         id   : 'read',
         title: 'assert schema, mutate nothing',
-        steps: [{type: 'topology-assert', expect: [{path: 'schema', equals: 'neo.harness.dockZone.v1'}]}]
+        steps: [{type: 'topology-assert', expect: [{path: 'schema', equals: 'neo.dock.zone.v1'}]}]
     }]
 };
 

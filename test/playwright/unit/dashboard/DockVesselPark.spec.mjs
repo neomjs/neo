@@ -12,7 +12,7 @@ setup({
 });
 
 import {test, expect}             from '@playwright/test';
-import {createVesselParkHandlers} from '../../../../src/dashboard/DockVesselPark.mjs';
+import {createVesselParkHandlers} from '../../../../src/dashboard/dock/window/VesselPark.mjs';
 
 /**
  * @summary The in-gesture vessel park machine, driven end-to-end through its injected seams.
@@ -24,7 +24,7 @@ import {createVesselParkHandlers} from '../../../../src/dashboard/DockVesselPark
  * every other outcome failing toward restore, and stale events (duplicate convert-in, slotless
  * out/terminal, mismatched itemId) are silent no-ops. The seams are the assertion surface.
  */
-test.describe('Neo.dashboard.DockVesselPark — createVesselParkHandlers', () => {
+test.describe('Neo.dashboard.dock.window.VesselPark — createVesselParkHandlers', () => {
     const harness = () => {
         const calls = {disposed: [], parked: [], reshown: []};
 

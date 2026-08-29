@@ -10,10 +10,11 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import DockService    from '../../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel  from '../../../../../../src/dashboard/DockZoneModel.mjs';
+import Document       from '../../../../../../src/dashboard/dock/model/Document.mjs';
+import Operations     from '../../../../../../src/dashboard/dock/model/Operations.mjs';
 import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
-import DockLayoutAdapter                  from '../../../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockLayoutAdapter                  from '../../../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import {validateTourScript}               from '../../../../../../src/ai/client/tourScript.mjs';
 import {demoATourScript, initialDocument} from '../../../../../../examples/dashboard/choreography/demoADockChoreography.mjs';
 
@@ -54,7 +55,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
      * @returns {Object}
      */
     function createHolder() {
-        const holder = {dockZoneDocument: DockZoneModel.clone(initialDocument), id: 'demo-a-stage'};
+        const holder = {dockZoneDocument: Document.clone(initialDocument), id: 'demo-a-stage'};
 
         Neo.getComponent = () => holder;
 
@@ -90,7 +91,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
     });
 
     test('the screenplay validates fail-closed against the live executor vocabulary', () => {
-        const {valid, errors} = validateTourScript(demoATourScript, {operations: DockZoneModel.operations});
+        const {valid, errors} = validateTourScript(demoATourScript, {operations: Operations.operations});
 
         expect(errors).toEqual([]);
         expect(valid).toBe(true)
@@ -142,7 +143,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
         // every op descriptor stays inside the executable vocabulary (no invented operations)
         demoATourScript.scenes.forEach(scene =>
             scene.steps.filter(step => step.type === 'op').forEach(step =>
-                expect(DockZoneModel.operations).toContain(step.descriptor.operation)
+                expect(Operations.operations).toContain(step.descriptor.operation)
             )
         )
     });
@@ -151,10 +152,10 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
         // fold the script's op descriptors through the reducer: S1 (2) + S2 (3) + the three tucks = 8 ops
         const opSteps = demoATourScript.scenes.flatMap(scene => scene.steps).filter(step => step.type === 'op');
 
-        let document = DockZoneModel.clone(initialDocument);
+        let document = Document.clone(initialDocument);
 
         const apply = step => {
-            const result = DockZoneModel.applyOperation(document, step.descriptor);
+            const result = Operations.applyOperation(document, step.descriptor);
 
             expect(result.errors).toEqual([]);
             document = result.document
@@ -184,7 +185,7 @@ test.describe.serial('examples/dashboard/choreography/demoADockChoreography', ()
         expect(revealStep.type).toBe('pause');
         expect(revealStep.cue).toEqual({type: 'reveal', itemId: 'preview'});
         // and the cue rides the runner's beat payload untouched (data-only passthrough)
-        expect(validateTourScript(demoATourScript, {operations: DockZoneModel.operations}).valid).toBe(true)
+        expect(validateTourScript(demoATourScript, {operations: Operations.operations}).valid).toBe(true)
     });
 
     test('the reveal-mode advisory rides the script: hover is an explicit workspace opt-in', () => {

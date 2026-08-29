@@ -467,7 +467,7 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
 
         await expect.poll(async () => {
             const targets = await app.findInstances(
-                {className: 'Neo.dashboard.CrossWindowDragTarget'},
+                {className: 'Neo.dashboard.dock.window.DragTarget'},
                 ['id', 'stableTargetId']
             );
 

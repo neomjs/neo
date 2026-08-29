@@ -11,7 +11,7 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
 /**
- * @summary Tests for Neo.dashboard.DockCrossWindowParticipation — the adapter-tier composition
+ * @summary Tests for Neo.dashboard.dock.window.Participation — the adapter-tier composition
  * that wires ONE dock workspace into the §2.3 cross-window contract over landed machinery only:
  * target registration lifecycle, the owner seams, foreign-vs-local drop discrimination, the
  * atomic `transferItem` composition, and finite-schema publication of the executor's document
@@ -21,7 +21,7 @@ import * as core      from '../../../../src/core/_export.mjs';
 /** A fresh source-workspace document ('A') — `terminal` is the item every transfer moves. */
 function sourceDoc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -38,7 +38,7 @@ function sourceDoc() {
 /** A fresh target-workspace document ('B') with a disjoint catalog. */
 function targetDoc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
         nodes : {
@@ -48,8 +48,8 @@ function targetDoc() {
     }
 }
 
-test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — workspace wiring)', () => {
-    let DockCrossWindowParticipation, DockTabSortZone, DockZoneModel, DragCoordinator, Rectangle, WindowManager;
+test.describe('Neo.dashboard.dock.window.Participation (ADR 0029 §2.3 — workspace wiring)', () => {
+    let DockCrossWindowParticipation, DockTabSortZone, Document, DragCoordinator, Persistence, Rectangle, WindowManager;
 
     const createCoordinatorStub = calls => ({
         register  : zone => calls.push(['register', zone]),
@@ -57,9 +57,10 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
     });
 
     test.beforeAll(async () => {
-        DockCrossWindowParticipation = (await import('../../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
-        DockTabSortZone              = (await import('../../../../src/dashboard/DockTabSortZone.mjs')).default;
-        DockZoneModel                = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
+        DockCrossWindowParticipation = (await import('../../../../src/dashboard/dock/window/Participation.mjs')).default;
+        DockTabSortZone              = (await import('../../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
+        Document                     = (await import('../../../../src/dashboard/dock/model/Document.mjs')).default;
+        Persistence                  = (await import('../../../../src/dashboard/dock/model/Persistence.mjs')).default;
         DragCoordinator              = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
         Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;
         WindowManager                = (await import('../../../../src/manager/Window.mjs')).default
@@ -323,12 +324,12 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
             expect(record).toEqual(sourceRecord);
             expect(record).not.toHaveProperty('owningWorkspaceId');
             expect(record).not.toHaveProperty('fallbackTarget');
-            expect(DockZoneModel.validate(sourceDocument)).toEqual([]);
-            expect(DockZoneModel.validate(targetDocument)).toEqual([]);
+            expect(Document.validate(sourceDocument)).toEqual([]);
+            expect(Document.validate(targetDocument)).toEqual([]);
 
             // The finite writer is the integration tripwire that the former loose fields failed.
             // Exercise the real two-document capture for BOTH placement shapes.
-            const captured = DockZoneModel.captureTopologyPerspective([sourceDocument, targetDocument], {
+            const captured = Persistence.captureTopologyPerspective([sourceDocument, targetDocument], {
                 layoutId       : `post-${operation.operation}`,
                 perspectiveName: `Post ${operation.operation}`,
                 revision       : 1,

@@ -9,12 +9,13 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
-import DockRestorePlanner from '../../../../src/dashboard/DockRestorePlanner.mjs';
-import DockTopologyDiff   from '../../../../src/dashboard/DockTopologyDiff.mjs';
-import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
+import DockRestorePlanner from '../../../../src/dashboard/dock/persistence/RestorePlanner.mjs';
+import DockTopologyDiff   from '../../../../src/dashboard/dock/model/TopologyDiff.mjs';
+import Document           from '../../../../src/dashboard/dock/model/Document.mjs';
+import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 
 /**
- * @summary Tests for Neo.dashboard.DockRestorePlanner — same-topology perspective restore via semantic ops.
+ * @summary Tests for Neo.dashboard.dock.persistence.RestorePlanner — same-topology perspective restore via semantic ops.
  * Pure-JSON: fingerprint gate, deterministic diff→op planning, fail-closed sequential application, and the
  * capture → mutate → restore round-trip (fingerprint equality + empty diff + itemId continuity: no pane is
  * ever destroyed, the unit-level never-remounted assertion).
@@ -23,7 +24,7 @@ import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
 /** A canonical split document: a horizontal split of a two-tab main zone and a single-tab side zone. */
 function doc() {
     return {
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'root',
         items : {
             strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -38,7 +39,7 @@ function doc() {
     }
 }
 
-const fp        = d => DockZoneModel.computeShapeFingerprint(d).fingerprint?.shape;
+const fp        = d => Document.computeShapeFingerprint(d).fingerprint?.shape;
 const emptyDiff = d => {
     const r = DockTopologyDiff.diffDockDocuments(d.a, d.b);
     return {moves: r.moves, adds: r.adds, removes: r.removes, resizes: r.resizes, tabReorders: r.tabReorders, autoHideFlips: r.autoHideFlips}
@@ -50,9 +51,9 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         const captured = doc();
 
         // mutate the live document: shrink the split + reorder main-tabs to [swarm, strategy]
-        let m1 = DockZoneModel.applyOperation(doc(), {operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]});
+        let m1 = Operations.applyOperation(doc(), {operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]});
         expect(m1.errors).toEqual([]);
-        let m2 = DockZoneModel.applyOperation(m1.document, {operation: 'moveItem', itemId: 'swarm', targetNodeId: 'main-tabs', index: 0});
+        let m2 = Operations.applyOperation(m1.document, {operation: 'moveItem', itemId: 'swarm', targetNodeId: 'main-tabs', index: 0});
         expect(m2.errors).toEqual([]);
         const current = m2.document;
         expect(current.nodes['main-tabs'].items).toEqual(['swarm', 'strategy']);
@@ -77,7 +78,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
 
     test('auto-hide flip round-trip: restore toggles the flag back through setItemAutoHidden', () => {
         const captured = doc();
-        let   m        = DockZoneModel.applyOperation(doc(), {operation: 'setItemAutoHidden', itemId: 'terminal', autoHidden: true});
+        let   m        = Operations.applyOperation(doc(), {operation: 'setItemAutoHidden', itemId: 'terminal', autoHidden: true});
         expect(m.errors).toEqual([]);
         const current = m.document;
         expect(current.items.terminal.autoHidden).toBe(true);
@@ -92,7 +93,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
         const captured = doc(); // main-tabs [strategy, swarm], side-tabs [terminal]
         // current EXCHANGES terminal ↔ strategy across the two zones — same counts (t2, t1), same shape.
         const current = {
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {
                 strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
@@ -120,7 +121,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
 
     test('unsolvable single-item swap cycle defers structurally (never crashes)', () => {
         const mk = (a, b) => ({
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {alpha: {componentRef: 'a', title: 'A', kind: 'panel'}, beta: {componentRef: 'b', title: 'B', kind: 'panel'}},
             nodes : {
@@ -140,7 +141,7 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
 
     test('fingerprint mismatch defers structurally (never a silent partial)', () => {
         // move terminal into main-tabs → side-tabs empties + collapses → a different shape
-        let mm = DockZoneModel.applyOperation(doc(), {operation: 'moveItem', itemId: 'terminal', targetNodeId: 'main-tabs', index: 2});
+        let mm = Operations.applyOperation(doc(), {operation: 'moveItem', itemId: 'terminal', targetNodeId: 'main-tabs', index: 2});
         expect(mm.errors).toEqual([]);
         expect(fp(mm.document)).not.toBe(fp(doc()));
 
@@ -152,8 +153,8 @@ test.describe('DockRestorePlanner — same-topology restore', () => {
     });
 
     test('planRestore is deterministic for identical inputs', () => {
-        let m1      = DockZoneModel.applyOperation(doc(), {operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]}),
-            m2      = DockZoneModel.applyOperation(m1.document, {operation: 'moveItem', itemId: 'swarm', targetNodeId: 'main-tabs', index: 0}),
+        let m1      = Operations.applyOperation(doc(), {operation: 'resizeSplit', splitNodeId: 'root', sizes: [0.25, 0.75]}),
+            m2      = Operations.applyOperation(m1.document, {operation: 'moveItem', itemId: 'swarm', targetNodeId: 'main-tabs', index: 0}),
             current = m2.document, captured = doc();
 
         expect(DockRestorePlanner.planRestore(current, captured).plan)

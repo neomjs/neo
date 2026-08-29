@@ -9,9 +9,9 @@ setup({
 import {test, expect}                                          from '@playwright/test';
 import Neo                                                     from '../../../../src/Neo.mjs';
 import * as core                                               from '../../../../src/core/_export.mjs';
-import DockDropIndicators                                      from '../../../../src/dashboard/DockDropIndicators.mjs';
-import DockPreviewProducer                                     from '../../../../src/dashboard/DockPreviewProducer.mjs';
-import {CANDIDATES_SCHEMA, PREVIEW_SCHEMA, previewToOperation} from '../../../../src/dashboard/dockPreviewContract.mjs';
+import DockDropIndicators                                      from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreviewProducer                                     from '../../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import {CANDIDATES_SCHEMA, PREVIEW_SCHEMA, previewToOperation} from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 // Geometry fixture (viewport space): host at (100, 50); hovered zone centered at (400, 300).
 const HOST_RECT = {x: 100, y: 50, width: 800, height: 600};
@@ -55,7 +55,7 @@ const indicatorChildren = layer => (layer.items || []).filter(item => item.candi
 const childByKey        = (layer, key) => layer.items.find(item => item.candidateKey === key);
 const isOff             = child => child.cls.includes('neo-dashboard-dock-drop-indicator-off');
 
-test.describe('Neo.dashboard.DockDropIndicators (§06 — the indicator-overlay menu)', () => {
+test.describe('Neo.dashboard.dock.interaction.DropIndicators (§06 — the indicator-overlay menu)', () => {
     let layer;
 
     test.afterEach(() => {

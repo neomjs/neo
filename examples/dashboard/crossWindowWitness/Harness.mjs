@@ -76,16 +76,16 @@ class Harness extends Viewport {
         let me              = this,
             Rectangle       = (await import('../../../src/util/Rectangle.mjs')).default,
             WindowManager   = (await import('../../../src/manager/Window.mjs')).default,
-            Participation   = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default,
-            DockTabSortZone = (await import('../../../src/dashboard/DockTabSortZone.mjs')).default;
+            Participation   = (await import('../../../src/dashboard/dock/window/Participation.mjs')).default,
+            DockTabSortZone = (await import('../../../src/dashboard/dock/interaction/TabSortZone.mjs')).default;
 
         const sourceDoc = () => ({
-            schema: 'neo.harness.dockZone.v1', root: 'root',
+            schema: 'neo.dock.zone.v1', root: 'root',
             items : {strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'}, terminal: {componentRef: 'terminal', title: 'Terminal', kind: 'terminal'}},
             nodes : {root: {type: 'edge-zone', zones: {center: 'main-tabs', right: 'side-tabs'}}, 'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'}, 'side-tabs': {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}}
         });
         const targetDoc = () => ({
-            schema: 'neo.harness.dockZone.v1', root: 'root',
+            schema: 'neo.dock.zone.v1', root: 'root',
             items : {alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'}},
             nodes : {root: {type: 'edge-zone', zones: {center: 'main-tabs'}}, 'main-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}}
         });

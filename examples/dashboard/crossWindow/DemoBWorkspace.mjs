@@ -2,24 +2,26 @@ import Component                            from '../../../src/component/Base.mj
 import Container                            from '../../../src/container/Base.mjs';
 import CounterPane                          from './CounterPane.mjs';
 import {createCrossWindowStage}             from './DemoBCrossWindowStage.mjs';
-import DockDropIndicators                   from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                    from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                     from '../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore                 from '../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                          from '../../../src/dashboard/DockPreview.mjs';
-import DockPreviewProducer                  from '../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler             from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockDropIndicators                   from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockLayoutAdapter                    from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockMotionSignal                     from '../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import PerspectiveLibrary                   from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import DockPreview                          from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockPreviewProducer                  from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
+import DockProjectionReconciler             from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                          from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler               from '../../../src/dashboard/DockTopologyReconciler.mjs';
-import DockZoneModel                        from '../../../src/dashboard/DockZoneModel.mjs';
+import DockTopologyReconciler               from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
+import Document                             from '../../../src/dashboard/dock/model/Document.mjs';
+import Operations                           from '../../../src/dashboard/dock/model/Operations.mjs';
+import Persistence                          from '../../../src/dashboard/dock/model/Persistence.mjs';
 import InteractionService                   from '../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}         from '../../../src/dashboard/DockKeyboardCommands.mjs';
-import {createDockTearOutHandlers}          from '../../../src/dashboard/DockTearOut.mjs';
-import {createDockVesselEmbodiment}         from '../../../src/dashboard/DockVesselEmbodiment.mjs';
-import {createDockWorkspaceSet}             from '../../../src/dashboard/DockWorkspaceSet.mjs';
-import {createVesselParkHandlers}           from '../../../src/dashboard/DockVesselPark.mjs';
+import {createDockKeyboardCommands}         from '../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
+import {createDockTearOutHandlers}          from '../../../src/dashboard/dock/window/TearOut.mjs';
+import {createDockVesselEmbodiment}         from '../../../src/dashboard/dock/window/VesselEmbodiment.mjs';
+import {createDockWorkspaceSet}             from '../../../src/dashboard/dock/window/WorkspaceSet.mjs';
+import {createVesselParkHandlers}           from '../../../src/dashboard/dock/window/VesselPark.mjs';
 import TourRunner                           from '../../../src/ai/client/TourRunner.mjs';
-import {PREVIEW_SCHEMA, previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
+import {PREVIEW_SCHEMA, previewToOperation} from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {demoBTourScript, initialDocument}   from './demoBPerspectives.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
@@ -30,7 +32,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * leaves for its own OS window and returns with its state unbroken — the only-Neo story.
  *
  * **This class hand-rolls a workspace host that the engine now owns, and is not the shape to
- * copy.** {@link Neo.dashboard.DockWorkspace} is the normative host — it owns the committed
+ * copy.** {@link Neo.dashboard.dock.Workspace} is the normative host — it owns the committed
  * document, the reducer, the read half of the holder contract, the deferred view-sync and the
  * projection/FLIP loop — and the docking design record fixes it as canonical. Demo A already
  * consumes it; this workspace has not migrated yet because its cross-window tear-out half is
@@ -43,10 +45,10 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * the single source of truth; the pure reducer + view-sync halves of the dock-holder
  * contract) carries the two capabilities this demo exists to show:
  *
- * - **Perspectives** ride a {@link Neo.dashboard.DockPerspectiveStore}: ordinary views are
+ * - **Perspectives** ride a {@link Neo.dashboard.dock.persistence.PerspectiveLibrary}: ordinary views are
  *   window-scoped; the detached view captures BOTH worker-owned workspace documents through
  *   `captureTopologyPerspective`. Loading that record composes the real
- *   {@link Neo.dashboard.DockTopologyReconciler} and renders its structured remainder.
+ *   {@link Neo.dashboard.dock.model.TopologyReconciler} and renders its structured remainder.
  *   The switcher bar rebuilds from store lifecycle events — buttons are born from
  *   `perspectiveSaved`, never hardcoded.
  * - **Pop-out** rides the shared-heap vessel: panes are INSTANCE-CACHED (created once,
@@ -162,12 +164,12 @@ class DemoBWorkspace extends Container {
     interactionService = null
     /**
      * Runtime-only dock-preview producer shared by the two window surfaces.
-     * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
+     * @member {Neo.dashboard.dock.interaction.PreviewProducer|null} dockPreviewProducer=null
      */
     dockPreviewProducer = null
     /**
      * The named-perspective home. Lifecycle events feed the switcher bar.
-     * @member {Neo.dashboard.DockPerspectiveStore|null} perspectiveStore=null
+     * @member {Neo.dashboard.dock.persistence.PerspectiveLibrary|null} perspectiveStore=null
      */
     perspectiveStore = null
     /**
@@ -195,7 +197,7 @@ class DemoBWorkspace extends Container {
     crossWindowHosts = new Map()
     /**
      * Registered target-side participation adapters keyed by workspace id.
-     * @member {Map<String,Neo.dashboard.DockCrossWindowParticipation>} crossWindowParticipations
+     * @member {Map<String,Neo.dashboard.dock.window.Participation>} crossWindowParticipations
      * @protected
      */
     crossWindowParticipations = new Map()
@@ -437,7 +439,7 @@ class DemoBWorkspace extends Container {
 
         let me = this;
 
-        me.dockModel        = DockZoneModel.clone(initialDocument);
+        me.dockModel        = Document.clone(initialDocument);
         me.popupDocument    = DemoBWorkspace.createPopupDocument();
         me.popup2Document   = DemoBWorkspace.createPopupDocument();
 
@@ -468,7 +470,7 @@ class DemoBWorkspace extends Container {
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
         me.dockService      = Neo.create(DockService, {});
         me.interactionService = Neo.create(InteractionService, {});
-        me.perspectiveStore = Neo.create(DockPerspectiveStore, {});
+        me.perspectiveStore = Neo.create(PerspectiveLibrary, {});
 
         // The cross-window stage choreography (decomposition Phase 1): a pure decision
         // machine over host-injected seams. Stage STATE stays host-owned by contract — the
@@ -883,7 +885,7 @@ class DemoBWorkspace extends Container {
             let document     = me.workspaceSet.getDocument(workspaceId),
                 nodes        = document?.nodes || {},
                 sourceTabsId = document?.items?.[itemId]
-                    ? DockZoneModel.findContainingTabsId(document, itemId)
+                    ? Document.findContainingTabsId(document, itemId)
                     : null,
                 tabsIds      = Object.keys(nodes).filter(nodeId =>
                     nodes[nodeId].type === 'tabs' && nodeId !== sourceTabsId
@@ -906,7 +908,7 @@ class DemoBWorkspace extends Container {
      * @summary Render (or clear) the keyboard cycle's current-candidate highlight through the
      * SHARED drag-affordance consumer: a hand-built `tab-into` dockPreview payload (the contract
      * module is the pure SSOT; the fail-closed renderer validates it) drives the target host's
-     * {@link Neo.dashboard.DockPreview} — the same overlay, geometry conversion, and skin the
+     * {@link Neo.dashboard.dock.interaction.Preview} — the same overlay, geometry conversion, and skin the
      * pointer hover renders through, so one affordance model serves both input paths. The
      * indicator MENU stays pointer-owned: its semantics are within-zone position choice, which
      * the keyboard cycle's zone-target grammar deliberately does not offer.
@@ -956,7 +958,7 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary The keyboard transfer commit — `DockZoneModel.transferItem` produces the
+     * @summary The keyboard transfer commit — `Operations.transferItem` produces the
      * commit-or-neither document pair, then the shared two-phase core lands it:
      * {@link #adoptCommittedTransferPair} (both-or-neither adoption, first exit on refusal) and
      * {@link #reconcileTransferPair} (target-first, unguarded — a discrete command has no
@@ -981,7 +983,7 @@ class DemoBWorkspace extends Container {
             return {errors: [`unknown item "${itemId}"`]}
         }
 
-        let {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(
+        let {sourceDocument, targetDocument, errors} = Operations.transferItem(
             me.workspaceSet.getDocument(sourceWorkspaceId),
             me.workspaceSet.getDocument(target.workspaceId),
             {
@@ -1068,7 +1070,7 @@ class DemoBWorkspace extends Container {
      * @returns {{document: Object, errors: String[]}}
      */
     applyDockZoneOperation(descriptor) {
-        return DockZoneModel.applyOperation(this.dockModel, descriptor)
+        return Operations.applyOperation(this.dockModel, descriptor)
     }
 
     /**
@@ -1117,7 +1119,7 @@ class DemoBWorkspace extends Container {
     applyWorkspaceOperation(workspaceId, descriptor) {
         let document = this.getWorkspaceDocument(workspaceId);
 
-        return document ? DockZoneModel.applyOperation(document, descriptor) : null
+        return document ? Operations.applyOperation(document, descriptor) : null
     }
 
     /**
@@ -1145,8 +1147,8 @@ class DemoBWorkspace extends Container {
         }
 
         created = scope === 'topology'
-            ? DockZoneModel.captureTopologyPerspective([me.dockModel, me.popupDocument], metadata)
-            : DockZoneModel.createSavedLayout(me.dockModel, metadata);
+            ? Persistence.captureTopologyPerspective([me.dockModel, me.popupDocument], metadata)
+            : Persistence.createSavedLayout(me.dockModel, metadata);
 
         if (created.errors.length) {
             return {errors: created.errors, saved: false}
@@ -1305,7 +1307,7 @@ class DemoBWorkspace extends Container {
             hasLivePopup  = Object.keys(me.detachedPanes).length > 0,
             liveDocuments = hasLivePopup ? [me.dockModel, me.popupDocument] : [me.dockModel],
             result        = DockTopologyReconciler.reconcile(layout, liveDocuments),
-            report        = DockZoneModel.clone({
+            report        = Document.clone({
                 applied        : result.applied,
                 displaced      : result.displaced,
                 errors         : result.errors,
@@ -1604,7 +1606,7 @@ class DemoBWorkspace extends Container {
 
                 let pane         = me.paneCache[itemId],
                     framesAfter  = pane?.frames ?? -1,
-                    targetTabsId = DockZoneModel.findContainingTabsId(targetDocument, itemId),
+                    targetTabsId = Document.findContainingTabsId(targetDocument, itemId),
                     proof        = {
                         framesAfter,
                         framesBefore      : context?.frames ?? null,
@@ -1615,7 +1617,7 @@ class DemoBWorkspace extends Container {
                         remoteSnapshot    : context?.remoteSnapshot ?? null,
                         sameInstance      : pane === context?.pane,
                         sourceItemRemoved : !sourceDocument.items?.[itemId]
-                            && DockZoneModel.findContainingTabsId(sourceDocument, itemId) === null,
+                            && Document.findContainingTabsId(sourceDocument, itemId) === null,
                         sourceSuppressionConsumed: sourceDecision.remoteDropOutFires === 1
                             && sourceDecision.localDropFires === 0,
                         targetItemPlaced        : !!targetDocument.items?.[itemId]
@@ -1648,8 +1650,8 @@ class DemoBWorkspace extends Container {
                     receipt        = {
                         applied       : errors.length === 0,
                         errors,
-                        sourceDocument: DockZoneModel.clone(sourceDocument),
-                        targetDocument: DockZoneModel.clone(targetDocument),
+                        sourceDocument: Document.clone(sourceDocument),
+                        targetDocument: Document.clone(targetDocument),
                         witness       : {
                             instanceId: pane?.id ?? null,
                             mountCount: pane?.mountCount ?? null
@@ -1668,7 +1670,7 @@ class DemoBWorkspace extends Container {
      * @summary Installs a gesture-local witness around the source's remote-drop-out hook.
      * The hook itself stays authoritative and runs unchanged; this wrapper only counts how
      * often the coordinator selected that exact completion path before projection teardown.
-     * @param {Neo.dashboard.DockTabSortZone} sourceZone
+     * @param {Neo.dashboard.dock.interaction.TabSortZone} sourceZone
      * @returns {Object}
      * @protected
      */
@@ -1785,8 +1787,8 @@ class DemoBWorkspace extends Container {
                         + (candidateSet?.root?.chips?.length ?? 0),
                     schema         : candidateSet?.schema ?? null
                 },
-                preview : preview ? DockZoneModel.clone(preview) : null,
-                rendered: rendered ? DockZoneModel.clone(rendered) : null,
+                preview : preview ? Document.clone(preview) : null,
+                rendered: rendered ? Document.clone(rendered) : null,
                 targetNodeId
             };
 
@@ -2019,7 +2021,7 @@ class DemoBWorkspace extends Container {
             }
 
             let sourceDocument = me.getWorkspaceDocument(sourceWorkspaceId),
-                sourceNodeId   = DockZoneModel.findContainingTabsId(sourceDocument, itemId),
+                sourceNodeId   = Document.findContainingTabsId(sourceDocument, itemId),
                 sourceItems    = sourceDocument.nodes[sourceNodeId]?.items || [],
                 sourceHost     = me.crossWindowHosts.get(sourceWorkspaceId),
                 sourceTabs     = sourceHost?.down({dockNodeId: sourceNodeId}),
@@ -2400,7 +2402,7 @@ class DemoBWorkspace extends Container {
                     detached = {
                         catalogRetained: !!sourceDocument?.items?.[itemId],
                         entry          : entry ? {...entry} : null,
-                        itemAbsent     : DockZoneModel.findContainingTabsId(sourceDocument, itemId) === null
+                        itemAbsent     : Document.findContainingTabsId(sourceDocument, itemId) === null
                     };
 
                     if (
@@ -2414,8 +2416,8 @@ class DemoBWorkspace extends Container {
                 await me.awaitProjectionIdle();
 
                 let terminalIdentity = identity(),
-                    sourceAfter      = DockZoneModel.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetAfter      = DockZoneModel.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                    sourceAfter      = Document.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetAfter      = Document.clone(me.getWorkspaceDocument(targetWorkspaceId)),
                     proof            = {
                         acquisitionAttempts: {
                             afterRestore            : acquisitionsAfterRestore,
@@ -2478,12 +2480,12 @@ class DemoBWorkspace extends Container {
             }
 
             if (cancelAtTarget) {
-                let sourceBefore = DockZoneModel.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetBefore = DockZoneModel.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                let sourceBefore = Document.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetBefore = Document.clone(me.getWorkspaceDocument(targetWorkspaceId)),
                     cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext),
                     cleanup      = await me.waitForCrossWindowCancellation(me.crossWindowGestureContext),
-                    sourceAfter  = DockZoneModel.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
-                    targetAfter  = DockZoneModel.clone(me.getWorkspaceDocument(targetWorkspaceId)),
+                    sourceAfter  = Document.clone(me.getWorkspaceDocument(sourceWorkspaceId)),
+                    targetAfter  = Document.clone(me.getWorkspaceDocument(targetWorkspaceId)),
                     result       = {
                         applied       : false,
                         cancelled     : true,
@@ -2560,7 +2562,7 @@ class DemoBWorkspace extends Container {
      * Drives the REAL G1 dock tear-out gesture end-to-end for the e2e witness leg. Unlike
      * {@link #executeCrossWindowStep} (a two-window transfer over the coordinator), this is the
      * single-window boundary grammar: it arms a tab drag, flings the proxy past the window
-     * boundary so {@link Neo.dashboard.DockTabSortZone} re-fires `dockTearOutExit`, the host opens
+     * boundary so {@link Neo.dashboard.dock.interaction.TabSortZone} re-fires `dockTearOutExit`, the host opens
      * a `?popout=` vessel, then — gated on that vessel's ACTUAL birth
      * ({@link #onWindowConnect} → {@link #tearOutConnects}) — survives deliberate post-birth moves
      * (the reap-regression survival probe) and either releases while detached (`dockTearOutTerminal`
@@ -2622,7 +2624,7 @@ class DemoBWorkspace extends Container {
 
             // The committed document BEFORE the gesture — both the zero-mutation (cancel) and the
             // detach-commit (terminal) proofs compare against this snapshot.
-            let documentBefore = DockZoneModel.clone(document),
+            let documentBefore = Document.clone(document),
                 catalogBefore  = Object.keys(documentBefore.items);
 
             let startX  = buttonRect.x + buttonRect.width / 2,
@@ -2725,7 +2727,7 @@ class DemoBWorkspace extends Container {
                 // dockTearOutCancel → the host closes its vessel. Assert the committed document is
                 // byte-identical — the zero-mutation invariant, proven from the third party (the doc).
                 let cancellation  = await me.cancelTearOutGesture(button, release),
-                    documentAfter = DockZoneModel.clone(me.getWorkspaceDocument(workspaceId));
+                    documentAfter = Document.clone(me.getWorkspaceDocument(workspaceId));
 
                 return {
                     applied  : false,
@@ -2751,7 +2753,7 @@ class DemoBWorkspace extends Container {
             }]});
 
             let committed      = await me.waitForTearOutCommit(itemId, sourceNodeId),
-                documentAfter  = DockZoneModel.clone(me.getWorkspaceDocument(workspaceId)),
+                documentAfter  = Document.clone(me.getWorkspaceDocument(workspaceId)),
                 absentFromTree = !Object.values(documentAfter.nodes).some(zoneNode => zoneNode.items?.includes(itemId)),
                 keptInCatalog  = Boolean(documentAfter.items?.[itemId]);
 
@@ -3207,7 +3209,7 @@ class DemoBWorkspace extends Container {
                 me.tearOutRetirements.add(itemId);
 
                 if (me.tearOutEmbodiment.isStaged(itemId)) {
-                    const sourceOwns = Boolean(DockZoneModel.findContainingTabsId(me.dockModel, itemId));
+                    const sourceOwns = Boolean(Document.findContainingTabsId(me.dockModel, itemId));
 
                     me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({itemId, windowId: entry.windowId})
                 }
@@ -3289,7 +3291,7 @@ class DemoBWorkspace extends Container {
     applyTearOutOperation(descriptor) {
         let me       = this,
             isDetach = descriptor?.operation === 'detachItem',
-            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            captured = isDetach ? Document.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
             result;
 
         captured && (me.tearOutPlacements[descriptor.itemId] = captured);
@@ -3327,7 +3329,7 @@ class DemoBWorkspace extends Container {
 
         delete me.tearOutPlacements[itemId];
 
-        if (!doc.items?.[itemId] || !fallback || DockZoneModel.findContainingTabsId(doc, itemId)) {
+        if (!doc.items?.[itemId] || !fallback || Document.findContainingTabsId(doc, itemId)) {
             return
         }
 
@@ -3352,7 +3354,7 @@ class DemoBWorkspace extends Container {
     async popOutPane(itemId) {
         let me   = this,
             pane = me.paneCache[itemId],
-            home = DockZoneModel.findContainingTabsId(me.dockModel, itemId);
+            home = Document.findContainingTabsId(me.dockModel, itemId);
 
         if (!pane || !home || me.detachedPanes[itemId]) {
             return {detached: false, errors: [`"${itemId}" is not a docked, cached, attached pane`]}
@@ -3365,7 +3367,7 @@ class DemoBWorkspace extends Container {
             popup        = Object.keys(me.popupDocument.items || {}).length
                 ? me.popupDocument
                 : DemoBWorkspace.createPopupDocument(),
-            result       = DockZoneModel.transferItem(sourceBefore, popup, {
+            result       = Operations.transferItem(sourceBefore, popup, {
                 itemId,
                 sourceWorkspaceId: 'main',
                 targetWorkspaceId: 'popup',
@@ -3503,7 +3505,7 @@ class DemoBWorkspace extends Container {
             itemId            = data.itemId ?? draggedItem?.dockItemId,
             sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId ?? workspaceId,
             sourceNodeId      = data.sourceNodeId
-                ?? DockZoneModel.findContainingTabsId(me.getWorkspaceDocument(sourceWorkspaceId), itemId),
+                ?? Document.findContainingTabsId(me.getWorkspaceDocument(sourceWorkspaceId), itemId),
             pointer    = {x: data.localX ?? data.clientX, y: data.localY ?? data.clientY};
 
         if (!host || !geometry || !itemId || !Neo.isNumber(pointer.x) || !Neo.isNumber(pointer.y)) {
@@ -3921,7 +3923,7 @@ class DemoBWorkspace extends Container {
     /**
      * The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit.
      * Reuses the `?popout=` pure-pane-host viewport mode. The granted child immediately carries
-     * the same live pane through {@link Neo.dashboard.DockVesselEmbodiment}; it still owns no
+     * the same live pane through {@link Neo.dashboard.dock.window.VesselEmbodiment}; it still owns no
      * workspace document, and NOTHING is written to {@link #detachedPanes}, so click-pop-out model
      * machinery remains structurally absent. Fail-closed per the admission contract: `windowOpen`
      * returns a BOOLEAN (a blocked popup never throws), and any falsy/throwing acquisition returns
@@ -4037,7 +4039,7 @@ class DemoBWorkspace extends Container {
         admission && (admission.invalidated = true);
 
         if (embodiedWindowId && me.tearOutEmbodiment.isStaged(itemId)) {
-            const sourceOwns = Boolean(DockZoneModel.findContainingTabsId(me.dockModel, itemId)),
+            const sourceOwns = Boolean(Document.findContainingTabsId(me.dockModel, itemId)),
                   settled    = me.tearOutEmbodiment[sourceOwns ? 'restore' : 'promote']({
                       itemId, windowId: embodiedWindowId
                   });
@@ -4173,7 +4175,7 @@ class DemoBWorkspace extends Container {
         let home = me.dockModel.nodes[entry.tabsNodeId]?.type === 'tabs'
                 ? entry.tabsNodeId
                 : Object.keys(me.dockModel.nodes).find(id => me.dockModel.nodes[id].type === 'tabs'),
-            result = DockZoneModel.transferItem(me.popupDocument, me.dockModel, {
+            result = Operations.transferItem(me.popupDocument, me.dockModel, {
                 itemId,
                 sourceWorkspaceId: 'popup',
                 targetWorkspaceId: 'main',
@@ -4373,7 +4375,7 @@ class DemoBWorkspace extends Container {
             me.popupDocument = DemoBWorkspace.createPopupDocument();
             await me.onWorkspaceDocumentChange(
                 DemoBWorkspace.MAIN_WORKSPACE_ID,
-                DockZoneModel.clone(initialDocument)
+                Document.clone(initialDocument)
             )
         }
 
@@ -4433,7 +4435,7 @@ class DemoBWorkspace extends Container {
      */
     static createPopupDocument() {
         return {
-            schema: DockZoneModel.SCHEMA,
+            schema: Document.SCHEMA,
             root  : 'popup-root',
             items : {},
             nodes : {

@@ -46,7 +46,7 @@ test.beforeEach(async ({page}) => {
         if (!dashboard.success) throw new Error(`dashboard: ${dashboard.error.message}`);
 
         const rail = await Neo.worker.App.createNeoInstance({
-            importPath: '../dashboard/DockRail.mjs',
+            importPath: '../dashboard/dock/interaction/Rail.mjs',
             ntype     : 'dashboard-dock-rail',
             edge      : 'left',
             parentId  : dashboard.id,
@@ -83,7 +83,7 @@ const applyTheme = (page, theme) => page.evaluate(name => {
     return document.body.className
 }, theme);
 
-test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
+test.describe('Neo.dashboard.dock.interaction.Rail — rendered rail-tab paint', () => {
     for (const theme of THEMES) {
         test(`the engine's min-width release survives the ${theme} button floor`, async ({page}) => {
             await applyTheme(page, theme);
@@ -308,7 +308,7 @@ test.describe('Neo.dashboard.DockRail — rendered rail-tab paint', () => {
     }
 });
 
-test.describe('Neo.dashboard.DockRail — the revealed tab reads as revealed', () => {
+test.describe('Neo.dashboard.dock.interaction.Rail — the revealed tab reads as revealed', () => {
     /**
      * The rail's job is answering "which pane is showing". Before this contract every tab painted
      * identically whether or not it was the one that opened the overlay, so the answer lived only

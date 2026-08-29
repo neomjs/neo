@@ -9,8 +9,8 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
-import DockMotionSignal  from '../../../../src/dashboard/DockMotionSignal.mjs';
-import DockRevealOverlay from '../../../../src/dashboard/DockRevealOverlay.mjs';
+import DockMotionSignal  from '../../../../src/dashboard/dock/projection/MotionSignal.mjs';
+import DockRevealOverlay from '../../../../src/dashboard/dock/interaction/RevealOverlay.mjs';
 
 const createItem = (config={}) => ({
     dockEdge  : 'right',
@@ -37,7 +37,7 @@ const createSerializedAnimationEnd = (targetId, pathIds=[targetId], rawId=target
     value    : undefined
 });
 
-test.describe('Neo.dashboard.DockRevealOverlay', () => {
+test.describe('Neo.dashboard.dock.interaction.RevealOverlay', () => {
     let overlay;
 
     test.afterEach(() => {

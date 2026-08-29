@@ -33,12 +33,12 @@ test.describe('Preview design language — the candidate specimen pair', () => {
         // that merges, its CSS map does not load the DockPreview skin — inject the compiled
         // sheet so the specimen renders the REAL zone/split treatments being compared.
         await page.evaluate(async () => {
-            if (![...document.styleSheets].some(sheet => sheet.href?.includes('dashboard/DockPreview.css'))) {
+            if (![...document.styleSheets].some(sheet => sheet.href?.includes('dashboard/dock/interaction/Preview.css'))) {
                 await new Promise(resolve => {
                     const link = document.createElement('link');
 
                     link.rel  = 'stylesheet';
-                    link.href = '/dist/development/css/src/dashboard/DockPreview.css';
+                    link.href = '/dist/development/css/src/dashboard/dock/interaction/Preview.css';
                     link.onload = link.onerror = resolve;
                     document.head.appendChild(link)
                 })

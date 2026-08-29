@@ -1,5 +1,0 @@
-@use 'preview-accents' as *;
-
-:where(.neo-theme-cyberpunk) {
-    @include preview-accents;
-}

@@ -10,14 +10,14 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 
-test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock preview producer)', () => {
+test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 — the dock preview producer)', () => {
     let DockPreviewProducer, DockPreview, producer;
 
     const RECT = {x: 0, y: 0, width: 100, height: 100}; // default band = 0.24 * 100 = 24
 
     test.beforeAll(async () => {
-        DockPreviewProducer = (await import('../../../../src/dashboard/DockPreviewProducer.mjs')).default;
-        DockPreview         = (await import('../../../../src/dashboard/DockPreview.mjs')).default;
+        DockPreviewProducer = (await import('../../../../src/dashboard/dock/interaction/PreviewProducer.mjs')).default;
+        DockPreview         = (await import('../../../../src/dashboard/dock/interaction/Preview.mjs')).default;
         producer            = Neo.create(DockPreviewProducer)
     });
 
@@ -148,7 +148,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         for (const [x, y, kind] of [[200, 150, 'tab-into'], [200, 50, 'edge-top'], [390, 150, 'edge-right'], [10, 150, 'edge-left'], [200, 290, 'edge-bottom']]) {
             const preview = producer.produce({pointer: {x, y}, zones, itemId: 'strategy', containerId: 'workspace'});
 
-            expect(preview.schema).toBe('neo.harness.dockPreview.v1');
+            expect(preview.schema).toBe('neo.dock.preview.v1');
             expect(preview.placement.kind).toBe(kind);
             expect(preview.target.nodeId).toBe('main-tabs');
             expect(preview.feedback.state).toBe('accepted');
@@ -171,7 +171,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('whole-stack production carries one coherent runtime group through previews and candidates', async () => {
-        const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
         const zones                 = [{nodeId: 'main-tabs', rect: RECT, orientation: 'vertical'}];
         const params                = {
             groupNodeId: 'popup-stack',
@@ -194,11 +194,12 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('the produce → previewToOperation → applyOperation pipeline SPLITS the target for an edge drop', async () => {
-        const DockZoneModel = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
+        const Operations = (await import('../../../../src/dashboard/dock/model/Operations.mjs')).default,
+              Document   = (await import('../../../../src/dashboard/dock/model/Document.mjs')).default;
 
         // a minimal dockZone.v1 doc: a vertical split of two single-tab zones
         const doc = {
-            schema: 'neo.harness.dockZone.v1',
+            schema: 'neo.dock.zone.v1',
             root  : 'root',
             items : {a: {componentRef: 'A', title: 'A', kind: 'panel'}, b: {componentRef: 'B', title: 'B', kind: 'panel'}},
             nodes : {
@@ -222,9 +223,9 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         expect(descriptor.targetNodeId).toBe('b-tabs');
 
         // the reducer applies it — a NEW split node appears (an interior tab-into move would not add one)
-        const result = DockZoneModel.applyOperation(doc, descriptor);
+        const result = Operations.applyOperation(doc, descriptor);
         expect(result.errors ?? []).toEqual([]);
-        expect(DockZoneModel.validate(result.document)).toEqual([]);                    // the split produced a valid dockZone.v1 tree
+        expect(Document.validate(result.document)).toEqual([]);                    // the split produced a valid dockZone.v1 tree
 
         // edge-left → a NEW horizontal split now exists (there were none before) → the pipeline genuinely split the target
         expect(Object.values(result.document.nodes).some(n => n.type === 'split' && n.orientation === 'horizontal'),
@@ -232,7 +233,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('produceCandidates emits the full §06 menu — schema-pinned, every preview consumer-valid', async () => {
-        const contract = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const contract = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
 
         const TALL  = {x: 100, y: 100, width: 400, height: 300};
         const ROOT  = {x: 0, y: 0, width: 800, height: 600};
@@ -303,7 +304,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
     });
 
     test('isValidCandidateSet rejects partial, duplicated, mismatched and lying menus', async () => {
-        const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
 
         const TALL  = {x: 0, y: 0, width: 400, height: 300};
         const valid = (orientation='vertical') => producer.produceCandidates({

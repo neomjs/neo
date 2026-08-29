@@ -10,10 +10,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import DockDragAffordances from '../../../../src/dashboard/DockDragAffordances.mjs';
-import DockDropIndicators  from '../../../../src/dashboard/DockDropIndicators.mjs';
-import DockPreview         from '../../../../src/dashboard/DockPreview.mjs';
-import DockZoneModel       from '../../../../src/dashboard/DockZoneModel.mjs';
+import DockDragAffordances from '../../../../src/dashboard/dock/interaction/DragAffordances.mjs';
+import DockDropIndicators  from '../../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreview         from '../../../../src/dashboard/dock/interaction/Preview.mjs';
+import Operations          from '../../../../src/dashboard/dock/model/Operations.mjs';
 
 /**
  * @summary The shared gesture controller's discrimination and generation witnesses.
@@ -30,13 +30,13 @@ import DockZoneModel       from '../../../../src/dashboard/DockZoneModel.mjs';
  * The geometry tests drive the PRODUCTION `ensureGeometry` path through a stubbed host
  * transport (real measure → map → self-heal code), not only the injected-promise seam.
  */
-test.describe('Neo.dashboard.DockDragAffordances', () => {
+test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
     /**
      * A real two-zone document: `left-tabs` (alpha, beta) | `right-tabs` (gamma).
      * @returns {Object}
      */
     const makeDocument = () => ({
-        schema: 'neo.harness.dockZone.v1',
+        schema: 'neo.dock.zone.v1',
         root  : 'split-main',
         items : {
             alpha: {componentRef: 'ref-alpha', title: 'Alpha', kind: 'pane'},
@@ -72,7 +72,7 @@ test.describe('Neo.dashboard.DockDragAffordances', () => {
             owner      = {
                 dockModel: makeDocument(),
                 applyDockZoneOperation(descriptor) {
-                    return DockZoneModel.applyOperation(this.dockModel, descriptor)
+                    return Operations.applyOperation(this.dockModel, descriptor)
                 },
                 onDockZoneDocumentChange(document) {
                     this.dockModel = document;

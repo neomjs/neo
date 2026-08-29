@@ -1,0 +1,5 @@
+@use '../../preview-accents' as *;
+
+:where(.neo-theme-dark) {
+    @include preview-accents;
+}

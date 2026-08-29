@@ -11,7 +11,7 @@ setup({
 });
 
 import {test, expect}              from '@playwright/test';
-import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.mjs';
+import {createDockTearOutHandlers} from '../../../../src/dashboard/dock/window/TearOut.mjs';
 
 /**
  * @summary The tear-out admission machine, driven end-to-end through its injected seams.
@@ -23,7 +23,7 @@ import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.m
  * and a committed tear-out KEEPS its vessel while a refused commit retires it. The seams are the
  * assertion surface — the machine exposes nothing else.
  */
-test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
+test.describe('Neo.dashboard.dock.window.TearOut — createDockTearOutHandlers', () => {
     const harness = ({admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null} = {}) => {
         const calls = {applied: [], closed: [], ended: 0, opened: [], started: [], synced: []};
 

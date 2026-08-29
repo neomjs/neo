@@ -22,7 +22,7 @@ const HOSTS = [
     {name: 'the example (engine floor, no app dock CSS)', url: '/examples/dashboard/dock/', ready: '.neo-dashboard-dock-splitter', handleDiscriminates: true}
 ];
 
-test.describe('Neo.dashboard.DockSplitter — the drag proxy carries its paint', () => {
+test.describe('Neo.dashboard.dock.interaction.DockSplitter — the drag proxy carries its paint', () => {
     test.setTimeout(90000);
 
     for (const host of HOSTS) {

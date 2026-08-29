@@ -10,12 +10,12 @@ import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import Button            from '../../../../src/button/Base.mjs';
-import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockRail          from '../../../../src/dashboard/DockRail.mjs';
+import DockLayoutAdapter from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockRail          from '../../../../src/dashboard/dock/interaction/Rail.mjs';
 import Panel             from '../../../../src/dashboard/Panel.mjs';
 
 const createDocument = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
         editor  : {componentRef: 'editor', title: 'Editor'},
@@ -52,7 +52,7 @@ const createStubOverlay = () => ({
     }
 });
 
-test.describe('Neo.dashboard.DockRail', () => {
+test.describe('Neo.dashboard.dock.interaction.Rail', () => {
     let rail;
 
     test.afterEach(() => {
@@ -409,6 +409,13 @@ test.describe('Neo.dashboard.DockRail', () => {
         expect(pane).toBeTruthy();
         expect(pane.cls).toContain('neo-dashboard-dock-placeholder');
         expect(pane.dockItemId).toBe('terminal');
+
+        // Adapter-only fields, absent from the inline factory fallback: these turn red if the
+        // runtime namespace lookup ever misses and the optional chain degrades the placeholder.
+        expect(pane.ntype).toBe('dashboard-panel');
+        expect(pane.header).toMatchObject({dockItemId: 'terminal', text: 'Terminal'});
+        // the `data` getter is the state-provider shortcut; the adapter's payload rides the raw config
+        expect(pane._data?.missingComponentRef).toBe(true);
     });
 
     test('threads the workspace default reveal fraction into the bound overlay', () => {
@@ -453,7 +460,7 @@ test.describe('Neo.dashboard.DockRail', () => {
     });
 });
 
-test.describe('Neo.dashboard.DockRail — revealed-tab state projection', () => {
+test.describe('Neo.dashboard.dock.interaction.Rail — revealed-tab state projection', () => {
     let rail;
 
     test.afterEach(() => {

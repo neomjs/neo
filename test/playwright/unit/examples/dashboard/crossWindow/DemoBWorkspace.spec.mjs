@@ -13,9 +13,10 @@ import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the 
 import Component                from '../../../../../../src/component/Base.mjs';
 import Container                from '../../../../../../src/container/Base.mjs';
 import DemoBWorkspace           from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
-import DockPreview              from '../../../../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler from '../../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockZoneModel            from '../../../../../../src/dashboard/DockZoneModel.mjs';
+import DockPreview              from '../../../../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockProjectionReconciler from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import Document                 from '../../../../../../src/dashboard/dock/model/Document.mjs';
+import Operations               from '../../../../../../src/dashboard/dock/model/Operations.mjs';
 
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
@@ -322,7 +323,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     test('a competing G1 child cannot steal a pane already owned by the workspace target', async () => {
         const harness = installWindowConnectHarness(workspace),
               pane    = workspace.resolvePane('workbench', initialDocument.items.workbench),
-              moved   = DockZoneModel.transferItem(
+              moved   = Operations.transferItem(
                   workspace.dockModel,
                   DemoBWorkspace.createPopupDocument(),
                   {
@@ -588,12 +589,12 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
             await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-committed'});
             expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'timeline', sortZone})).toBe(true);
-            expect(DockZoneModel.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
+            expect(Document.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
             expect(workspace.tearOutPanes.timeline.windowId).toBeNull();
 
             workspace.onWindowDisconnect({windowId: 'tear-stage-committed'});
 
-            expect(DockZoneModel.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
+            expect(Document.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
                 .toBe('side-tabs');
             expect(workspace.tearOutPanes.timeline).toBeUndefined();
             expect(workspace.tearOutConnectAdmissions.has('timeline')).toBe(false);
@@ -886,7 +887,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         // stage a REAL two-document transfer, then remember a home that no longer exists
         workspace.resolvePane('workbench', initialDocument.items.workbench);
 
-        const detached = DockZoneModel.transferItem(
+        const detached = Operations.transferItem(
             workspace.dockModel,
             DemoBWorkspace.createPopupDocument(),
             {
@@ -917,7 +918,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         try {
             workspace.resolvePane('workbench', initialDocument.items.workbench);
 
-            const detached = DockZoneModel.transferItem(
+            const detached = Operations.transferItem(
                 workspace.dockModel,
                 DemoBWorkspace.createPopupDocument(),
                 {
@@ -946,7 +947,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
     test('a manual cross-window close after transfer returns the live item to main ownership', () => {
         const pane     = workspace.resolvePane('workbench', initialDocument.items.workbench),
-              detached = DockZoneModel.transferItem(
+              detached = Operations.transferItem(
                   workspace.dockModel,
                   DemoBWorkspace.createPopupDocument(),
                   {
@@ -975,7 +976,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     test('a popup close during projection settlement cannot strand committed popup ownership', async () => {
         const
             pane     = workspace.resolvePane('workbench', initialDocument.items.workbench),
-            detached = DockZoneModel.transferItem(
+            detached = Operations.transferItem(
                 workspace.dockModel,
                 DemoBWorkspace.createPopupDocument(),
                 {
@@ -1040,7 +1041,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
     });
 
     test('whole-stack return commits synchronously, reconciles target-first, then unregisters the emptied popup', async () => {
-        const detached = DockZoneModel.transferItem(
+        const detached = Operations.transferItem(
             workspace.dockModel,
             DemoBWorkspace.createPopupDocument(),
             {
@@ -1061,12 +1062,12 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
         const descriptor = {
             operation        : 'transferNode',
-            nodeId           : DockZoneModel.resolveStackRoot(workspace.popupDocument),
+            nodeId           : Document.resolveStackRoot(workspace.popupDocument),
             sourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
             targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
             target           : {targetNodeId: 'side-tabs', placement: {kind: 'tab-into'}}
         };
-        const returned = DockZoneModel.transferNode(workspace.popupDocument, workspace.dockModel, descriptor);
+        const returned = Operations.transferNode(workspace.popupDocument, workspace.dockModel, descriptor);
 
         expect(returned.errors).toEqual([]);
 
@@ -1351,8 +1352,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(vessel.openCount).toBe(1);
             expect(workspace.dockModel.items.workbench).toBeUndefined();
             expect(workspace.popupDocument.items.workbench).toEqual(initialDocument.items.workbench);
-            expect(DockZoneModel.validate(workspace.dockModel)).toEqual([]);
-            expect(DockZoneModel.validate(workspace.popupDocument)).toEqual([]);
+            expect(Document.validate(workspace.dockModel)).toEqual([]);
+            expect(Document.validate(workspace.popupDocument)).toEqual([]);
 
             expect(workspace.capturePerspective('Detached', {scope: 'topology'}).saved).toBe(true);
 
@@ -1367,8 +1368,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(reattached).toEqual({errors: [], reattached: true});
             expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
             expect(workspace.popupDocument.items.workbench).toBeUndefined();
-            expect(DockZoneModel.validate(workspace.dockModel)).toEqual([]);
-            expect(DockZoneModel.validate(workspace.popupDocument)).toEqual([]);
+            expect(Document.validate(workspace.dockModel)).toEqual([]);
+            expect(Document.validate(workspace.popupDocument)).toEqual([]);
             expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
 
             const opensBeforeRestore = vessel.openCount,
@@ -1417,7 +1418,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
             expect(workspace.capturePerspective('Detached', {scope: 'topology'}).saved).toBe(true);
 
             const summary      = workspace.perspectiveStore.list().find(entry => entry.perspectiveName === 'Detached'),
-                  layout       = DockZoneModel.clone(workspace.perspectiveStore.collection.layouts[summary.layoutId]),
+                  layout       = Document.clone(workspace.perspectiveStore.collection.layouts[summary.layoutId]),
                   dockBefore   = workspace.dockModel,
                   popupBefore  = workspace.popupDocument,
                   dockSnapshot = JSON.stringify(dockBefore),
@@ -1495,8 +1496,8 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
     test('projection coalescing keeps the latest document and preservation policy atomic', async () => {
         const
-            topologyDocument = DockZoneModel.clone(initialDocument),
-            focusDocument    = DockZoneModel.clone(initialDocument),
+            topologyDocument = Document.clone(initialDocument),
+            focusDocument    = Document.clone(initialDocument),
             calls            = [];
 
         delete topologyDocument.items.workbench;
@@ -1650,7 +1651,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         // occurrence, in the node the other flow chose, placement record still consumed
         const doc = workspace.getDockZoneDocument();
 
-        expect(DockZoneModel.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
+        expect(Document.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
         expect(doc.nodes['workbench-tabs'].items.filter(id => id === 'timeline')).toHaveLength(1);
         expect(workspace.tearOutPlacements.timeline).toBeUndefined()
     });
@@ -1712,7 +1713,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
 
     test('resolveFocusedDockItem answers popup-origin identity from the POPUP workspace document', () => {
         // stage a real transfer so the popup document owns the workbench item
-        const detached = DockZoneModel.transferItem(
+        const detached = Operations.transferItem(
             workspace.dockModel,
             DemoBWorkspace.createPopupDocument(),
             {
@@ -1843,7 +1844,7 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(renderer.dockPreview).toMatchObject({
             itemId   : 'workbench',
             placement: {kind: 'tab-into'},
-            schema   : 'neo.harness.dockPreview.v1',
+            schema   : 'neo.dock.preview.v1',
             target   : {nodeId: 'popup-tabs'}
         });
         expect(DockPreview.isValidPreview(renderer.dockPreview)).toBe(true);

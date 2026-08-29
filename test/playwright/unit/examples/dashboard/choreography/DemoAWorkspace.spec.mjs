@@ -13,7 +13,7 @@ import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the 
 import Button                   from '../../../../../../src/button/Base.mjs';
 import ClockPane                from '../../../../../../examples/dashboard/choreography/ClockPane.mjs';
 import DemoAWorkspace           from '../../../../../../examples/dashboard/choreography/DemoAWorkspace.mjs';
-import DockProjectionReconciler from '../../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockProjectionReconciler from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 
 import {initialDocument} from '../../../../../../examples/dashboard/choreography/demoADockChoreography.mjs';
 

@@ -3,7 +3,7 @@ import {createHash}                                                 from 'node:c
 import path                                                         from 'node:path';
 import {promisify}                                                  from 'node:util';
 import fs                                                           from 'fs-extra';
-import {previewToOperation}                                         from '../../../../src/dashboard/dockPreviewContract.mjs';
+import {previewToOperation}                                         from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {test, expect}                                               from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects}             from '../utils/dockGeometry.mjs';
 import {pinToCaptureDisplay, placeNativeWindow, readBrowserSurface} from '../utils/filmStage.mjs';
@@ -1882,7 +1882,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(userAgent, 'a headless browser cannot witness an OS titlebar gesture')
             .not.toContain('HeadlessChrome');
 
-        const {default: DockZoneModel} = await import('../../../../src/dashboard/DockZoneModel.mjs');
+        const {default: Operations} = await import('../../../../src/dashboard/dock/model/Operations.mjs');
 
         const
             {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink}),
@@ -2259,7 +2259,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const
             expectedOperation = previewToOperation(committedPreview),
-            expectedReturn    = DockZoneModel.applyOperation(documentBeforeReturn, expectedOperation);
+            expectedReturn    = Operations.applyOperation(documentBeforeReturn, expectedOperation);
 
         expect(expectedOperation, 'the retained accepted preview must convert through the production contract')
             .toBeTruthy();

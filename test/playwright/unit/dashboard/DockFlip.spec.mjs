@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import DockFlip       from '../../../../src/main/addon/DockFlip.mjs';
-import DockWorkspace  from '../../../../src/dashboard/DockWorkspace.mjs';
+import DockWorkspace  from '../../../../src/dashboard/dock/Workspace.mjs';
 
 /**
  * Creates the iterable class-list surface consumed by DockFlip.
@@ -86,7 +86,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
     test('uses dock item ids rather than component refs for projection marker identity', () => {
         const
             model = {
-                schema: 'neo.harness.dockZone.v1',
+                schema: 'neo.dock.zone.v1',
                 root  : 'root-tabs',
                 items : {
                     'alpha pane': {componentRef: 'shared-ref', title: 'Alpha'},

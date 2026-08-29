@@ -2,6 +2,13 @@
 
 `@summary` Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON blueprint, and multi-window drag substrates without introducing a parallel docking engine.
 
+**Code realization (v13.2 architecture).** The contract lives in the `Neo.dashboard.dock.model.*` tier:
+`model.Document` owns the committed tree (schema keys, validation, normalization, tree helpers,
+fingerprints, the fail-closed commit), `model.Operations` owns the semantic operation vocabulary and
+dispatch, `model.Persistence` owns the saved-layout envelope (capture, wrapper validation, restore), and
+`Neo.dashboard.dock.persistence.PerspectiveLibrary` is the sole named-collection/perspective authority.
+Method references below name their owning module.
+
 ## Scope
 
 This contract is the first concrete slice of the QT-grade docking line; the Agent Harness cockpit is one consumer among several (workstation, `examples/dashboard/*`). It defines the data model that rendering, preview, and persistence slices consume.
@@ -18,11 +25,11 @@ The contract composes with these current Neo substrates:
 |---|---|---|
 | Declarative layouts | `learn/guides/uibuildingblocks/Layouts.md`, `src/layout/HBox.mjs`, `src/layout/VBox.mjs`, `src/layout/Card.mjs` | Dock splits map to `hbox` / `vbox`; tabbed slots map to a tab header plus `card`-style active content. |
 | JSON-first UI state | `learn/benefits/body/JSONFirstUIs.md`, `learn/gettingstarted/DescribingTheUI.md` | Persist only pure JSON. Runtime component instances, DOMRects, and window objects stay out of the serialized model. |
-| Dashboard drag substrate | `src/dashboard/Container.mjs`, `src/draggable/dashboard/SortZone.mjs` | Future dock rendering should adapt this model into dashboard/sort-zone mechanics instead of forking drag handling. |
+| Dashboard drag substrate | `src/dashboard/Container.mjs`, `src/draggable/dashboard/SortZone.mjs` | Dock rendering adapts this model into dashboard/sort-zone mechanics instead of forking drag handling. |
 | Cross-window geometry | `src/manager/Window.mjs`, `src/manager/DragCoordinator.mjs`, `src/main/addon/WindowPosition.mjs` | Dock drop targeting uses existing screen-coordinate and remote-drag authority. The model stores the accepted result, not transient geometry. |
-| Harness self-use | `apps/agentos/view/Viewport.mjs`, ADR 0020 | The first independent use shape is the Agent Harness operator cockpit: strategy, swarm, intervention, terminal, transcript, and inspector panes arranged as a persistent workspace. |
+| Flagship self-use | `apps/workstation/view/Workspace.mjs`, ADR 0020 | The flagship in-repo consumer is the Workstation operator workspace: terminal, transcript, preview, and inspector panes arranged as a persistent, perspective-switchable workspace. |
 
-No dedicated dock manager exists today. ADR 0020 names QT-grade docking as a gap, and the KB/source sweep found dashboard drag and layout primitives but no generic `DockManager`.
+The subsystem realizing this contract lives at `src/dashboard/dock/**` (`Neo.dashboard.dock.*`); ADR 0029's §2.9 amendment records the final package and wire family.
 
 ## Ownership Boundary
 
@@ -30,7 +37,7 @@ The model is a generic dashboard-layer contract (`src/dashboard/`), not a new co
 
 Initial durable surface: this document.
 
-**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.DockZoneModel` (the executor) co-located with `Neo.dashboard.DockLayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
+**Resolved (operator, 2026-06-13):** the dock-zone subsystem lives in `src/dashboard/` — `Neo.dashboard.dock.model.Document` (the executor) co-located with `Neo.dashboard.dock.projection.LayoutAdapter` (the renderer) — reusable across apps. Dock zones are a Neo layout topic available to other apps, not a harness-app-private concern; only app-specific pane wiring / persistence glue stays in the harness app. The decision tree below is the rationale that led here — its conditional "harness app layer" model placement (option 1) and the "second independent in-repo consumer required before lifting" gate (option 2) are superseded by this decision.
 
 The rationale that resolved to the dashboard layer:
 
@@ -51,7 +58,7 @@ The persisted document is a versioned JSON object:
 
 ```json
 {
-  "schema": "neo.harness.dockZone.v1",
+  "schema": "neo.dock.zone.v1",
   "root": "root",
   "items": {
     "strategy": {
@@ -167,15 +174,15 @@ If a future slice needs to restore detached windows, it should persist semantic 
 
 ## Named Layout Collections / Perspectives
 
-Named perspectives collect multiple saved layouts without choosing a storage backend or rendering a switcher. Current writers place the `dockLayout.v2` envelope inside the unchanged collection shape:
+Named perspectives collect multiple saved layouts without choosing a storage backend or rendering a switcher. Writers place the `neo.dock.layout.v1` envelope inside the unchanged collection shape:
 
 ```json
 {
-  "schema": "neo.harness.dockLayoutCollection.v1",
+  "schema": "neo.dock.layoutCollection.v1",
   "activeLayoutId": "operator-default",
   "layouts": {
     "operator-default": {
-      "schema": "neo.harness.dockLayout.v2",
+      "schema": "neo.dock.layout.v1",
       "layoutId": "operator-default",
       "title": "Operator Default",
       "dockZone": {},
@@ -199,11 +206,11 @@ Rules:
 
 Storage remains out of scope for this layer. Browser preferences, Memory Core persistence, import/export, and rendered layout switchers consume this collection contract later; they must not fork their own collection shape.
 
-Legacy `dockLayout.v1` entries remain valid on the read path only. `migrateSavedLayout()` upgrades them to v2 with the honest defaults `captureScope: 'window'` and `windowFingerprint: null`; no writer emits v1.
+`neo.dock.layout.v1` is the only accepted envelope. There is no migration reader: any other schema — a different version, or the retired pre-v13.2 family — is rejected fail-closed on every read path (`restoreSavedLayout`, collection validation, library load).
 
 ## Operations
 
-Future implementations should mutate the model through semantic operations instead of direct tree surgery in UI handlers:
+The model mutates only through semantic operations — `model.Operations.applyOperation()` is the single dispatch — never through direct tree surgery in UI handlers:
 
 | Operation | Inputs | Result |
 |---|---|---|
@@ -240,7 +247,7 @@ Future drag-to-dock preview slices should listen to existing drag surfaces and p
 
 ```json
 {
-  "schema": "neo.harness.dockPreview.v1",
+  "schema": "neo.dock.preview.v1",
   "previewId": "preview:strategy:main-tabs:tab-after:1",
   "itemId": "strategy",
   "source": {
@@ -276,7 +283,7 @@ Required fields:
 
 | Field | Meaning | Persistence |
 |---|---|---|
-| `schema` | Preview payload version, initially `neo.harness.dockPreview.v1`. | Runtime only. |
+| `schema` | Preview payload version, initially `neo.dock.preview.v1`. | Runtime only. |
 | `previewId` | Stable-enough id for one hover frame or dwell window; useful for renderer diffing. | Runtime only. |
 | `itemId` | Stable dock item id from `items`. | Serializable only after a drop commits an operation. |
 | `source.surface` | Existing producer surface, e.g. `dashboard-sort-zone`, `drag-coordinator`, or `window-geometry`. | Runtime only. |
@@ -322,7 +329,7 @@ Consumer boundaries:
 
 ## Blueprint Compatibility
 
-The contract is deliberately JSON-first. A future renderer can project the model into Neo configs without changing the persisted shape:
+The contract is deliberately JSON-first. `projection.LayoutAdapter` projects the model into Neo configs without changing the persisted shape:
 
 - `split.orientation: horizontal` -> container `layout: {ntype: 'hbox', align: 'stretch'}`
 - `split.orientation: vertical` -> container `layout: {ntype: 'vbox', align: 'stretch'}`
@@ -338,15 +345,15 @@ If neither a live component nor a valid `item.blueprint` exists, the adapter mus
 
 Layout persistence owns saved workspace documents, not drag-time state or component lifetime.
 
-A persisted layout is a small versioned wrapper around the normalized dock-zone model. Current writers emit v2:
+A persisted layout is a small versioned wrapper around the normalized dock-zone model. Writers emit `neo.dock.layout.v1`:
 
 ```json
 {
-  "schema": "neo.harness.dockLayout.v2",
+  "schema": "neo.dock.layout.v1",
   "layoutId": "operator-default",
   "title": "Operator Default",
   "dockZone": {
-    "schema": "neo.harness.dockZone.v1",
+    "schema": "neo.dock.zone.v1",
     "root": "root",
     "items": {},
     "nodes": {}
@@ -364,7 +371,7 @@ Required wrapper fields:
 - `schema`: saved-layout wrapper version. The inner dock-zone document keeps its own `schema`.
 - `layoutId`: stable user/workspace layout identity, distinct from dock item ids.
 - `title`: display label for layout pickers or recovery UIs.
-- `dockZone`: a normalized `neo.harness.dockZone.v1` model after semantic operations have run.
+- `dockZone`: a normalized `neo.dock.zone.v1` model after semantic operations have run.
 - `captureScope`: `window` for one document or `topology` for a multi-window capture.
 - `windowFingerprint`: JSON-only topology-shape evidence, or `null` when a legacy v1 record had no captured fingerprint.
 
@@ -379,11 +386,10 @@ Schema-name row (the canonical vocabulary both tiers share — the design record
 
 | Schema | Role | Notes |
 |---|---|---|
-| `neo.harness.dockLayout.v1` | legacy saved-layout wrapper | read-path only; migrates forward with honest defaults |
-| `neo.harness.dockLayout.v2` | THE saved-layout AND perspective wrapper | adds `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
-| `neo.harness.dockLayoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
+| `neo.dock.layout.v1` | THE saved-layout AND perspective wrapper | carries `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
+| `neo.dock.layoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
 
-The `neo.harness.` string prefix in these identifiers is a **frozen legacy wire format** (ADR 0029 §2.9): the runtime keeps emitting and accepting it unchanged, and renaming it is a schema migration, never a text edit.
+The `neo.dock.` prefix is the single greenfield wire family (ADR 0029 §2.9 amendment): readers fail closed on every other schema string — unsupported versions are proven rejected inside the family, the retired pre-release `neo.harness.` family is proven rejected as foreign, and no migration reader or alias exists.
 
 Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 
@@ -391,11 +397,11 @@ Restore must validate the wrapper schema, the inner dock-zone schema, and the no
 
 Component recovery remains the adapter's responsibility. A restored item with an unresolved `componentRef` follows the stale component reference policy above: preserve the item record and semantic placement long enough for validation, explicit recovery, placeholder rendering, or intentional removal. Persistence must not silently drop the item or rewrite the dock tree to hide the missing component.
 
-Persistence ownership follows the landed placement: reusable import/export, validation, and storage projection logic lives in the dashboard layer (`src/dashboard/`, e.g. `DockPerspectiveStore`), per the 2026-06-13 operator resolution recorded in §Ownership Boundary. Only app-specific storage backends, pane registries, or preference wiring stay app-local — for any consumer, the harness cockpit included.
+Persistence ownership follows the landed placement: reusable import/export, validation, and storage projection logic lives in the dashboard layer (`src/dashboard/`, e.g. `PerspectiveLibrary`), per the 2026-06-13 operator resolution recorded in §Ownership Boundary. Only app-specific storage backends, pane registries, or preference wiring stay app-local — for any consumer, the harness cockpit included.
 
 ## Split/Tab Adapter Boundary
 
-The rendering boundary is an adapter/reconciler pair, not a new layout engine. `Neo.dashboard.DockLayoutAdapter` consumes the dock-zone model and emits ordinary Neo child configs; `Neo.dashboard.DockProjectionReconciler` hands surviving live components into that projection without changing their identity. Existing containers still own layout, tabs, and cards.
+The rendering boundary is an adapter/reconciler pair, not a new layout engine. `Neo.dashboard.dock.projection.LayoutAdapter` consumes the dock-zone model and emits ordinary Neo child configs; `Neo.dashboard.dock.projection.Reconciler` hands surviving live components into that projection without changing their identity. Existing containers still own layout, tabs, and cards.
 
 Adapter, projection reconciler, and model live in the dashboard layer (`src/dashboard/`) — per the operator's 2026-06-13 placement decision (see §Ownership Boundary), the dock-zone subsystem is a reusable Neo layout topic, not harness-app-private. A *further* lift into a generic core layout primitive (beyond dashboard adaptation) still requires a second independent in-repo consumer and source evidence that the logic is reusable outside dashboard adaptation.
 
@@ -430,7 +436,7 @@ The adapter must not read `DOMRect`, `windowId`, pointer coordinates, preview pl
 | `children` | projected child configs in listed order | Ordering is model-owned and serializable. |
 | `sizes` | child `flex` values when present | Normalize or ignore invalid ratios before projection. |
 
-Resizable splitters are a later rendering affordance. When added, they should sit between projected children and write back semantic size changes through `resizeSplit`, not mutate persisted `sizes` directly from pointer handlers.
+Resizable splitters (`interaction.DockSplitter`) sit between projected children and write back semantic size changes through exactly one `resizeSplit` commit at drag end — pointer handlers never mutate persisted `sizes`.
 
 ### Tab Projection
 
@@ -456,7 +462,7 @@ The adapter must preserve the current `Neo.tab.Container` contract: tab headers 
 
 This aligns the adapter with stale `componentRef` restore behavior: runtime component references are recoverable state, not a reason to corrupt the persisted dock tree.
 
-Repeated projections add one ownership rule: the adapter remains pure and stateless, while `DockProjectionReconciler` keys surviving tab containers by `dockNodeId` and moves each pane/header-button pair before moving its retained tab-container ancestor. The reconciler commits those descendant and ancestor handoffs separately; app-local code owns only its pane resolver, animation, and app-specific menu readiness. Workstation and Dock Demo B exercise the same transaction with different pane policies, keeping the projection contract reusable without making `DockLayoutAdapter` stateful.
+Repeated projections add one ownership rule: the adapter remains pure and stateless, while `projection.Reconciler` keys surviving tab containers by `dockNodeId` and moves each pane/header-button pair before moving its retained tab-container ancestor. The reconciler commits those descendant and ancestor handoffs separately; app-local code owns only its pane resolver, animation, and app-specific menu readiness. Workstation and Dock Demo B exercise the same transaction with different pane policies, keeping the projection contract reusable without making `projection.LayoutAdapter` stateful.
 
 The resolver may return either an existing live component or a materializable component config; the reconciler normalizes an inserted config to its one live instance. Once every projected tabs destination is known, a live pane/header-button pair absent from all of them is a **true projection retirement** and is destroyed exactly once. This cleanup cannot infer broader app ownership from a single committed document. A consumer that intentionally retains a pane outside the currently renderable projection — for example, during a popup handoff or as an unrestored `no-live-window` topology remainder — must park that live instance with a non-destroying removal before reconciliation. A cache guard that recreates an `isDestroyed` entry is recovery safety, not identity preservation.
 

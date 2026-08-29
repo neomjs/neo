@@ -460,7 +460,7 @@ export function validateTourScript(script, {crossWindowAvailable = false, operat
 
             if (step.type === 'op') {
                 if (!isPlainObject(step.descriptor)) {
-                    errors.push(`${stepPath}.descriptor: required object ({operation, …} — the DockZoneModel.applyOperation() shape)`)
+                    errors.push(`${stepPath}.descriptor: required object ({operation, …} — the Operations.applyOperation() shape)`)
                 } else if (operations.length < 1) {
                     errors.push(`${stepPath}.descriptor.operation: no operation vocabulary supplied to the validator — op steps cannot validate fail-closed`)
                 } else if (!operations.includes(step.descriptor.operation)) {

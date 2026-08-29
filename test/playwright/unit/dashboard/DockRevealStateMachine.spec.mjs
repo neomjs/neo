@@ -1,5 +1,5 @@
 import {test, expect}         from '@playwright/test';
-import DockRevealStateMachine from '../../../../src/dashboard/DockRevealStateMachine.mjs';
+import DockRevealStateMachine from '../../../../src/dashboard/dock/interaction/RevealStateMachine.mjs';
 
 const createFakeTimers = () => {
     let nextId = 1,

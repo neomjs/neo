@@ -7,7 +7,7 @@ import {test, expect} from '../../fixtures.mjs';
  * The product truths a unit spec cannot certify, proven here against the running childapp:
  * 1. the tour button drives the FULL screenplay through the real reducer seam — 18 beats,
  *    deterministic, completing with the documented finale document in App Worker truth;
- * 2. scene 3's tucks project REAL interactive rail tabs (`Neo.dashboard.DockRail` buttons in
+ * 2. scene 3's tucks project REAL interactive rail tabs (`Neo.dashboard.dock.interaction.Rail` buttons in
  *    the DOM — the affordance tier, not just document flags);
  * 3. the reveal beat is EXECUTABLE — the scripted cue opens a genuine transient reveal
  *    overlay mid-tour, and the rollback releases it (nothing persisted, nothing left over);

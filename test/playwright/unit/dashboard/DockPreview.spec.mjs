@@ -9,25 +9,25 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
-import DockPreview     from '../../../../src/dashboard/DockPreview.mjs';
+import DockPreview     from '../../../../src/dashboard/dock/interaction/Preview.mjs';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
 /**
- * @summary Tests for Neo.dashboard.DockPreview — the drag-time dock preview renderer.
+ * @summary Tests for Neo.dashboard.dock.interaction.Preview — the drag-time dock preview renderer.
  * Covers the pure contract logic (validity / affordance mapping / semantic-drop conversion /
  * geometry) plus the component lifecycle (render, fail-closed cleanup, drag-source binding).
  */
 
 /**
- * Builds a well-formed `neo.harness.dockPreview.v1` object, with optional field overrides.
+ * Builds a well-formed `neo.dock.preview.v1` object, with optional field overrides.
  * @param {Object} [overrides]
  * @returns {Object}
  */
 function preview(overrides = {}) {
     return {
-        schema   : 'neo.harness.dockPreview.v1',
+        schema   : 'neo.dock.preview.v1',
         previewId: 'preview:strategy:main-tabs:tab-after:1',
         itemId   : 'strategy',
         source   : {surface: 'dashboard-sort-zone', sortZoneId: 'left-workspace'},
@@ -43,10 +43,10 @@ const
     __dirname  = path.dirname(__filename),
     repoRoot   = path.resolve(__dirname, '../../../..');
 
-test.describe('Neo.dashboard.DockPreview', () => {
+test.describe('Neo.dashboard.dock.interaction.Preview', () => {
     test.describe('stylesheet contract (visible affordances)', () => {
         test('the structural scss backs the emitted affordance classes with visible styling', () => {
-            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8');
+            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8');
 
             expect(scss).toContain('.neo-dock-preview-affordance');
             expect(scss).toContain('.neo-dock-preview-accepted');
@@ -58,7 +58,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
         });
 
         test('shared consumers stay on the declared DockPreview contract', () => {
-            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
+            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8'),
                   consumers  = [...new Set(
                       [...structural.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
                   )].sort();
@@ -76,7 +76,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
         test('the proxy surface and signal language have no fallbacks and stay dock-owned', () => {
             const
                 containerScss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/Container.scss'), 'utf8'),
-                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
+                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8'),
                 // strip line comments: the census asserts on SELECTORS and declarations, not prose
                 uncomment     = source => source.replace(/\/\/[^\n]*/g, ''),
                 signalStart   = containerScss.indexOf('.neo-preview-lang-signal');
@@ -153,7 +153,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
         });
 
         test('rejects a wrong or missing schema', () => {
-            expect(DockPreview.isValidPreview(preview({schema: 'neo.harness.dockPreview.v2'}))).toBe(false);
+            expect(DockPreview.isValidPreview(preview({schema: 'neo.dock.preview.v2'}))).toBe(false);
             expect(DockPreview.isValidPreview(preview({schema: undefined}))).toBe(false)
         });
 

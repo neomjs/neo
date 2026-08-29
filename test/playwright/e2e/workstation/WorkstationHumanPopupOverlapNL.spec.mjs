@@ -767,7 +767,7 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                     const
                         sourceWindowId = await awaitVesselWindowId(app, wsId, cell.itemId, false),
                         sourceZone     = await findOne(app, {
-                            className       : 'Neo.dashboard.DockTabSortZone',
+                            className       : 'Neo.dashboard.dock.interaction.TabSortZone',
                             dockSourceNodeId: cell.sourceNodeId,
                             dockWorkspaceId : 'workstation-main'
                         }, ['id']),

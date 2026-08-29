@@ -12,7 +12,7 @@ import {test, expect}               from '@playwright/test';
 // sibling spec populated Neo first) and red run ALONE: a test-isolation leak, not a machine fact
 import Neo                          from '../../../../src/Neo.mjs';
 import * as core                    from '../../../../src/core/_export.mjs';
-import {createDockKeyboardCommands} from '../../../../src/dashboard/DockKeyboardCommands.mjs';
+import {createDockKeyboardCommands} from '../../../../src/dashboard/dock/interaction/KeyboardCommands.mjs';
 
 /**
  * @summary The keyboard detach command machine, driven end-to-end through its injected seams —
@@ -31,7 +31,7 @@ const CYCLE_TARGETS = [
     {workspaceId: 'pop-2', tabsId: 'tabs-c', label: 'Popup two'}
 ];
 
-test.describe('Neo.dashboard.DockKeyboardCommands — createDockKeyboardCommands', () => {
+test.describe('Neo.dashboard.dock.interaction.KeyboardCommands — createDockKeyboardCommands', () => {
     const harness = ({admit = true, commitErrors = [], commitThrows = false, focusGranted = true, targets = CYCLE_TARGETS} = {}) => {
         const calls = {announced: [], applied: [], closed: [], committed: [], focused: [], focusedWs: [], highlights: [], opened: [], synced: []};
 

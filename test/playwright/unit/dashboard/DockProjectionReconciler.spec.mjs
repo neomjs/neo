@@ -11,15 +11,15 @@ import Neo                      from '../../../../src/Neo.mjs';
 import * as core                from '../../../../src/core/_export.mjs';
 import Component                from '../../../../src/component/Base.mjs';
 import Container                from '../../../../src/container/Base.mjs';
-import DockLayoutAdapter        from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockProjectionReconciler from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
+import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import '../../../../src/manager/Instance.mjs';
 import '../../../../src/button/Base.mjs';
 import '../../../../src/tab/Container.mjs';
 import '../../../../src/toolbar/Base.mjs';
 
 const createRootTabsModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root-tabs',
     items : {
         alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'}
@@ -30,7 +30,7 @@ const createRootTabsModel = () => ({
 });
 
 const createSplitModel = () => ({
-    schema: 'neo.harness.dockZone.v1',
+    schema: 'neo.dock.zone.v1',
     root  : 'root-split',
     items : {
         alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'},
@@ -105,7 +105,7 @@ const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemId
     return {host, nextModel, oldShell, panes, result, stagedCount}
 };
 
-test.describe('Neo.dashboard.DockProjectionReconciler', () => {
+test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
     test('keys retained tab chrome and reserves only its projected destination', () => {
         const
             retainedTab = {dockNodeId: 'primary-tabs', dockNodeType: 'tabs'},

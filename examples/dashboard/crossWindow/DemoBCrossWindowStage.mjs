@@ -1,8 +1,8 @@
 import Container            from '../../../src/container/Base.mjs';
-import DockDropIndicators   from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockPreview          from '../../../src/dashboard/DockPreview.mjs';
-import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
-import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
+import DockDropIndicators   from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
+import DockPreview          from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import Document             from '../../../src/dashboard/dock/model/Document.mjs';
+import {previewToOperation} from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 
 /**
  * @module Neo.examples.dashboard.crossWindow.DemoBCrossWindowStage
@@ -34,7 +34,7 @@ import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs
  * @param {Object} seams
  * @param {Object} seams.registries Stable host-owned collections, captured once:
  *     `{hosts: Map, participations: Map, geometry: Map, projectionRequests: Map, detachedPanes: Object}`.
- * @param {Neo.dashboard.DockWorkspaceSet} seams.workspaceSet The host's workspace-set registry.
+ * @param {Neo.dashboard.dock.window.WorkspaceSet} seams.workspaceSet The host's workspace-set registry.
  * @param {Object} seams.workspaceIds `{main, popup, popup2}` semantic workspace ids (`popup2`
  *     optional — the stage parameterizes over every popup id the host registers).
  * @param {String} seams.sortGroup The shared cross-window coordinator sort group.
@@ -152,10 +152,10 @@ export function createCrossWindowStage(seams) {
      * @param {String} windowId
      * @param {Neo.container.Base} host
      * @param {Number} generation
-     * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation|null>}
+     * @returns {Promise<Neo.dashboard.dock.window.Participation|null>}
      */
     async function createParticipation(workspaceId, windowId, host, generation) {
-        let Participation = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
+        let Participation = (await import('../../../src/dashboard/dock/window/Participation.mjs')).default;
 
         if (!isTargetCurrent(workspaceId, windowId, host, generation)) {
             return null
@@ -451,11 +451,11 @@ export function createCrossWindowStage(seams) {
         if (descriptor?.operation !== 'transferNode'
             || sourceWorkspaceId !== workspaceIds.popup
             || targetWorkspaceId !== workspaceIds.main
-            || DockZoneModel.resolveStackRoot(sourceBefore) !== descriptor.nodeId) {
+            || Document.resolveStackRoot(sourceBefore) !== descriptor.nodeId) {
             return false
         }
 
-        let nodeIds = DockZoneModel.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId}),
+        let nodeIds = Document.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId}),
             itemIds = [...new Set([...nodeIds].flatMap(nodeId =>
                 sourceBefore.nodes[nodeId]?.type === 'tabs' ? sourceBefore.nodes[nodeId].items || [] : []
             ))];

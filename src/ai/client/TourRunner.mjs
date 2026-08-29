@@ -161,7 +161,7 @@ class TourRunner extends Base {
         /**
          * The executable dock-operation vocabulary handed to the script validator.
          * `null` resolves to the injected service's exported SSOT
-         * (`DockService.operations`, itself read by reference from `DockZoneModel`).
+         * (`DockService.operations`, itself read by reference from `model.Operations`).
          * Override only in specs that fixture the seam.
          * @member {String[]|null} operations=null
          */

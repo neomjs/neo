@@ -43,7 +43,7 @@ test.beforeEach(async ({page}) => {
         if (!dashboard.success) throw new Error(`dashboard: ${dashboard.error.message}`);
 
         const splitter = await Neo.worker.App.createNeoInstance({
-            importPath : '../dashboard/DockSplitter.mjs',
+            importPath : '../dashboard/dock/interaction/DockSplitter.mjs',
             ntype      : 'dashboard-dock-splitter',
             orientation: 'horizontal',
             parentId   : dashboard.id
@@ -76,7 +76,7 @@ const applyTheme = (page, theme) => page.evaluate(name => {
     return document.body.className
 }, theme);
 
-test.describe('Neo.dashboard.DockSplitter — the rendered affordance floor', () => {
+test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affordance floor', () => {
     for (const theme of THEMES) {
         test(`a consumer that sets NO tokens gets a findable splitter — ${theme}`, async ({page}) => {
             await applyTheme(page, theme);
