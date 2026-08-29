@@ -1,6 +1,7 @@
 import BaseList  from '../list/Base.mjs';
 import ListModel from '../selection/menu/ListModel.mjs';
 import Store     from './Store.mjs';
+import TreeStore from '../data/TreeStore.mjs';
 
 /**
  * A floating root menu forms one interaction island with its exact align target and every mounted
@@ -75,10 +76,26 @@ class List extends BaseList {
          * @member {Neo.selection.menu.ListModel} selectionModel=ListModel
          * @reactive
          */
+        /**
+         * The key of the record whose children this level renders.
+         *
+         * Only relevant when the menu is driven by a `Neo.data.TreeStore`. The root menu keeps the
+         * default and renders the tree roots; every submenu is created with the key of the item that
+         * opened it. Distinct from the inherited `parentId`, which is the VDOM parent node.
+         * @member {String|Number} parentRecordId='root'
+         */
+        parentRecordId: 'root',
+        /**
+         * @member {Neo.selection.menu.ListModel} selectionModel=ListModel
+         */
         selectionModel: ListModel,
         /**
-         * Value for the list.Base store_ config
-         * @member {Neo.menu.Store} store=Store
+         * Value for the list.Base store_ config.
+         *
+         * Accepts either a flat `Neo.menu.Store` (nested `items` arrays on each record) or a
+         * `Neo.data.TreeStore` (hierarchy expressed via `parentId`). See `beforeSetStore()` for why a
+         * tree store is not rendered directly.
+         * @member {Neo.menu.Store|Neo.data.TreeStore} store=Store
          * @reactive
          */
         store: Store,
@@ -119,6 +136,16 @@ class List extends BaseList {
      * @protected
      */
     outsidePointerListenerOwner = null
+    /**
+     * The hierarchy source, when this menu is driven by a `Neo.data.TreeStore`.
+     *
+     * The tree store is the single source of truth and is shared by every level of the cascade; it is
+     * never owned by a level and never destroyed by one. Each level renders the flat `store` derived
+     * from it. Null for the classic nested-`items` API.
+     * @member {Neo.data.TreeStore|null} sourceStore=null
+     * @protected
+     */
+    sourceStore = null
 
     /**
      * Triggered after the items config got changed
@@ -190,6 +217,36 @@ class List extends BaseList {
      */
     afterSetZIndex(value, oldValue) {
         this.style = {...this.style, zIndex: value}
+    }
+
+    /**
+     * Triggered before the store config gets changed.
+     *
+     * A `Neo.data.TreeStore` is deliberately NOT handed to `list.Base` for rendering. The inherited
+     * index math walks the full store: `getSelectedIndex()` and `getHeaderlessIndex()` both index into
+     * `store.items`. A level rendering only a subset of a shared tree store would therefore resolve
+     * selection and key navigation against every record in the tree while its DOM held one level —
+     * it would render correctly and mis-target silently.
+     *
+     * Instead the tree store is kept as `sourceStore` and this level receives its own flat store
+     * holding exactly the records it renders. `syncLevelRecords()` fills it once the configs are applied.
+     * @param {Object|Neo.data.Store|Neo.data.TreeStore} value
+     * @param {Object|Neo.data.Store} oldValue
+     * @returns {Neo.data.Store}
+     * @protected
+     */
+    beforeSetStore(value, oldValue) {
+        if (value instanceof TreeStore) {
+            this.sourceStore = value;
+
+            // The level store reuses the tree store's model CLASS, so its records keep every field the
+            // hierarchy declares (isLeaf, parentId, depth) next to the menu fields. Re-adding records
+            // under menu.Model instead would silently drop them, and hasChildren() reads isLeaf.
+            // A fresh instance, not the shared one: a level owns and destroys its own store, never the source.
+            value = {model: value.model.constructor, module: Store}
+        }
+
+        return super.beforeSetStore(value, oldValue)
     }
 
     /**
@@ -302,11 +359,41 @@ class List extends BaseList {
     }
 
     /**
+     * Returns the data-related configs for a child level, for whichever store shape drives this menu.
+     *
+     * Tree-driven levels share the one `sourceStore` and identify their slice by `parentRecordId`;
+     * classic levels keep handing down the nested `items` array. Kept as its own method so both shapes
+     * stay side by side and visible, instead of hiding a branch inside `showSubMenu()`'s config literal.
+     * @param {Object} record The item that opened the submenu
+     * @returns {Object}
+     * @protected
+     */
+    getSubMenuData(record) {
+        let me = this;
+
+        if (me.sourceStore) {
+            return {
+                parentRecordId: me.store.getKey(record),
+                store         : me.sourceStore
+            }
+        }
+
+        return {items: record.items}
+    }
+
+    /**
      * Checks if a record has items
      * @param {Object} record
      * @returns {Boolean}
      */
     hasChildren(record) {
+        // TreeModel declares isLeaf: true by default, so a branch node opts in explicitly. Testing the
+        // declared flag rather than childCount keeps async subtree loading intact: a branch whose
+        // children have not arrived yet must still render its arrow and open.
+        if (this.sourceStore) {
+            return record.isLeaf === false
+        }
+
         return Array.isArray(record.items) && record.items.length > 0
     }
 
@@ -379,13 +466,22 @@ class List extends BaseList {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.syncLevelRecords()
+    }
+
+    /**
      * @param {String} nodeId
      */
     onKeyDownEnter(nodeId) {
         if (nodeId) {
-            let me       = this,
-                recordId = me.getItemRecordId(nodeId),
-                record   = me.store.get(recordId),
+            let me          = this,
+                recordId    = me.getItemRecordId(nodeId),
+                record      = me.store.get(recordId),
+                hasChildren = me.hasChildren(record),
                 submenu;
 
             me.callback(record.handler, me, [record]);
@@ -395,9 +491,11 @@ class List extends BaseList {
                 value  : record.route
             });
 
-            me.hideOnLeafItemClick && !record.items && me.unmount();
+            // hasChildren() is the single branch predicate: it is store-shape aware, and it does not
+            // treat an empty `items: []` array as a parent the way a raw truthiness test would.
+            me.hideOnLeafItemClick && !hasChildren && me.unmount();
 
-            if (record.items) {
+            if (hasChildren) {
                 submenu = me.subMenuMap?.[me.getMenuMapId(recordId)];
 
                 if (submenu) {
@@ -451,7 +549,7 @@ class List extends BaseList {
                 appName        : me.appName,
                 displayField   : me.displayField,
                 floating       : true,
-                items          : record.items,
+                ...me.getSubMenuData(record),
                 isRoot         : false,
                 parentComponent: me.parentComponent,
                 parentId       : me.app.mainView.id,
@@ -464,6 +562,24 @@ class List extends BaseList {
         if (me.activeSubMenu !== subMenu) {
             me.activeSubMenu = subMenu;
             subMenu.initVnode(true)
+        }
+    }
+
+    /**
+     * Fills this level's flat store with exactly the records it renders.
+     *
+     * A no-op for the classic nested-`items` API, where `afterSetItems()` already owns the contents.
+     * Driven from `onConstructed()` rather than a config setter because the derivation needs both
+     * `sourceStore` and `parentRecordId`, and config application order is not a contract worth
+     * depending on.
+     * @protected
+     */
+    syncLevelRecords() {
+        let me = this;
+
+        if (me.sourceStore) {
+            me.store.clear();
+            me.store.add(me.sourceStore.getChildren(me.parentRecordId))
         }
     }
 

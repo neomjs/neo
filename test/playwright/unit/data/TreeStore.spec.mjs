@@ -977,7 +977,7 @@ test.describe('Neo.data.TreeStore (updateKey override)', () => {
         expect(store.get('1-1-1').parentId).toBe('1-1');
 
         let itemToUpdate = store.get('1-1');
-        
+
         // Perform the key update
         store.updateKey(itemToUpdate, 'new-id');
 
@@ -988,7 +988,7 @@ test.describe('Neo.data.TreeStore (updateKey override)', () => {
         // Validate base maps fallback resolving correctly
         expect(store.get('1-1')).toBeNull();
         expect(store.get('new-id')).toBe(itemToUpdate);
-        
+
         // Validate children have correct new parentId
         let child1 = store.get('1-1-1');
         let child2 = store.get('1-1-2');
@@ -1013,11 +1013,93 @@ test.describe('Neo.data.TreeStore (updateKey override)', () => {
         store.updateKey(itemToUpdate, 'new-root-x');
 
         expect(store.getKey(itemToUpdate)).toBe('new-root-x');
-        
+
         // Child X1 is hidden because root is collapsed.
         // Getting it will hydrate it via allRecordsMap.
         let hydratedChild = store.get('1-1');
-        
+
         expect(hydratedChild.parentId).toBe('new-root-x');
     });
+});
+
+test.describe('Neo.data.TreeStore (getChildren)', () => {
+    let store;
+
+    class GetChildrenTreeModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.GetChildrenTreeModel',
+            fields   : [
+                {name: 'id',   type: 'String'},
+                {name: 'name', type: 'String'}
+            ]
+        }
+    }
+
+    const GetChildrenModel = Neo.setupClass(GetChildrenTreeModel);
+
+    test.beforeEach(() => {
+        store = Neo.create(TreeStore, {
+            model: GetChildrenModel,
+            data : [
+                {id: 'root-1', name: 'src',          isLeaf: false, collapsed: false},
+                {id: 'folder', name: 'component',    isLeaf: false, collapsed: true, parentId: 'root-1'},
+                {id: 'leaf-a', name: 'Base.mjs',     isLeaf: true,                   parentId: 'folder'},
+                {id: 'leaf-b', name: 'Button.mjs',   isLeaf: true,                   parentId: 'folder'},
+                {id: 'root-2', name: 'package.json', isLeaf: true}
+            ]
+        })
+    });
+
+    test.afterEach(() => {
+        store?.destroy()
+    });
+
+    test('returns the children of a COLLAPSED node — the case find() cannot serve', () => {
+        expect(store.get('folder').collapsed).toBe(true);
+
+        // Premise control. The Projection Layer holds visible nodes only, so this is the exact gap
+        // getChildren() exists to close. If this assertion ever flips, the accessor has stopped
+        // earning its existence and this block should be revisited rather than quietly kept green.
+        expect(store.find('parentId', 'folder')).toHaveLength(0);
+
+        const children = store.getChildren('folder');
+
+        expect(children).toHaveLength(2);
+        expect(children.map(item => item.name)).toEqual(['Base.mjs', 'Button.mjs'])
+    });
+
+    test('returns the root level by default', () => {
+        expect(store.getChildren().map(item => item.id)).toEqual(['root-1', 'root-2'])
+    });
+
+    test('returns an empty array for a leaf and for an unknown key', () => {
+        expect(store.getChildren('leaf-a')).toEqual([]);
+        expect(store.getChildren('does-not-exist')).toEqual([])
+    });
+
+    test('hands back a copy — mutating the result cannot corrupt the Structural Layer', () => {
+        store.getChildren('folder').push({id: 'injected'});
+
+        expect(store.getChildren('folder')).toHaveLength(2)
+    });
+
+    test('hydrates records in Turbo Mode', () => {
+        const turboStore = Neo.create(TreeStore, {
+            autoInitRecords: false,
+            model          : GetChildrenModel,
+            data           : [
+                {id: 'r',  name: 'Root',  isLeaf: false, collapsed: true},
+                {id: 'c1', name: 'Child', isLeaf: true, parentId: 'r'}
+            ]
+        });
+
+        // Raw objects in the map, records on the way out: a Turbo Mode caller must not have to know.
+        const children = turboStore.getChildren('r');
+
+        expect(children).toHaveLength(1);
+        expect(children[0].isRecord).toBe(true);
+        expect(children[0].name).toBe('Child');
+
+        turboStore.destroy()
+    })
 });
