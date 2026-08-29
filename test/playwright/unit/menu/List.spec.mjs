@@ -40,6 +40,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Instance       from '../../../../src/manager/Instance.mjs';
 import MenuList       from '../../../../src/menu/List.mjs';
 
 /**
@@ -187,6 +188,40 @@ test.describe('Neo.menu.List floating dismissal', () => {
         root.onKeyDownEscape({});
 
         expect(dismissals).toBe(3)
+    });
+
+    test('a leaf click inside a submenu dismisses the whole tree, not only its own level', () => {
+        const
+            root   = createMenu({floating: true, isRoot: true}),
+            level1 = createMenu({floating: true, isRoot: false, parentMenu: root}),
+            level2 = createMenu({floating: true, isRoot: false, parentMenu: level1});
+
+        menus.push(root, level1, level2);
+
+        // Added after construct, not as an `items` config: resolving items during initConfig reaches
+        // getController(), which needs a manager the unit harness does not stand up.
+        level2.store.add({text: 'Copy name'});
+        root._mounted = level1._mounted = level2._mounted = true;
+        root.subMenuMap   = {first: level1};
+        level1.subMenuMap = {second: level2};
+
+        let rootDismissals = 0,
+            leafDismissals = 0;
+
+        root.unmount   = () => rootDismissals++;
+        level2.unmount = () => leafDismissals++;
+
+        // Focus reaching the deepest level primes the whole chain — afterSetMenuFocus bubbles upwards.
+        level2.menuFocus = true;
+
+        expect(root.menuFocus).toBe(true);
+
+        level2.onKeyDownEnter(level2.getItemId(level2.store.getAt(0)));
+
+        // Depth 2 on purpose: at depth 1 the root IS the parent, so closing only the clicked menu
+        // passes by accident and the regression stays invisible.
+        expect(leafDismissals).toBe(1);
+        expect(rootDismissals).toBe(1)
     });
 
     test('removes the exact app-root listener during destroy', () => {
