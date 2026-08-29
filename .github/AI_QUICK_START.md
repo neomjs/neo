@@ -147,7 +147,7 @@ Configuration path:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete structure, including the `NEO_AGENT_IDENTITY` env-var requirement for A2A mailbox binding.
+See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete structure, including where `NEO_AGENT_IDENTITY` is required (the stdio servers) and where it is not (the remote pair, which binds from the bearer).
 
 ### Option D: Codex
 
@@ -155,7 +155,18 @@ Codex is OpenAI's CLI harness, and several maintainer seats run on it. Unlike op
 
 Configuration source: repo-local `.codex/config.toml`, seeded from `.codex/config.template.toml`. The repository also ships `.codex/CODEX.md` (a reference document, not an auto-loaded instruction file) and `.codex/rules/pr-lifecycle.rules` (the shell execpolicy).
 
-> **Known gap ([#17847](https://github.com/neomjs/neo/issues/17847)):** the tracked template still declares its stdio servers as `npm run --silent ai:mcp-server-*`. Those scripts live in the Brain checkout, not the Engine, so the template describes the pre-split layout. It is being reconciled against what Codex seats actually run; until then, treat §5's topology section as authoritative over the template.
+**Codex speaks remote MCP natively, so it needs no adapter for the remote pair.** Where options A–C wrap `mcp-remote` in a login shell, Codex declares a `url` and the name of the env-var holding the bearer:
+
+```toml
+[mcp_servers."neo-mjs-knowledge-base"]
+url                  = "http://127.0.0.1:3102/kb/mcp"
+bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"
+enabled              = true
+```
+
+`bearer_token_env_var` names a slot Codex reads from **its own** environment at MCP startup — the value never appears in the file. Export it from the shell profile that launches Codex, and verify with `printenv NEO_MCP_REMOTE_TOKEN` in that same shell. A GUI-launched harness inherits from launchd rather than a shell, which is why options A–C need the login-shell wrapper and Codex does not.
+
+The two stdio servers still resolve their scripts from the Brain checkout while keeping the Engine as working directory — the same split described in §5, expressed in TOML. The tracked template carries the current form of all four.
 
 ## 5. Understanding the Configuration Files
 
@@ -163,27 +174,24 @@ The agent's behavior is controlled by several configuration files depending on y
 
 ### Where each MCP server actually comes from
 
-Read this before editing any harness config. The four servers do **not** all come from the same place, and the difference is invisible in the config files themselves.
+Read this before editing any harness config. Four questions have four different answers, and collapsing them is the mistake this section exists to prevent: **what transport a server speaks**, **where its implementation lives**, **which credential it needs**, and **how it learns who you are**.
 
-| server | transport | resolves from |
-|---|---|---|
-| `neo-mjs-knowledge-base` | remote (`url` + bearer) | the container plane on loopback — **no checkout involved** |
-| `neo-mjs-memory-core` | remote (`url` + bearer) | the container plane on loopback — **no checkout involved** |
-| `neo-mjs-github-workflow` | stdio (script path) | **the Brain checkout** |
-| `neo-mjs-neural-link` | stdio (script path) | **the Brain checkout** |
+| server | transport | implementation lives | credential | request identity from |
+|---|---|---|---|---|
+| `neo-mjs-knowledge-base` | remote HTTP | the container plane on loopback — **no checkout** | `NEO_MCP_REMOTE_TOKEN` | the validated `Authorization: Bearer` |
+| `neo-mjs-memory-core` | remote HTTP | the container plane on loopback — **no checkout** | `NEO_MCP_REMOTE_TOKEN` | the validated `Authorization: Bearer` |
+| `neo-mjs-github-workflow` | stdio | **the Brain checkout** | `GH_TOKEN` | `NEO_AGENT_IDENTITY`, else `gh api user` |
+| `neo-mjs-neural-link` | stdio | **the Brain checkout** | — | `NEO_AGENT_IDENTITY`, else `gh api user` |
 
-**The two stdio servers are the ones the split moved.** Their implementations left `neomjs/neo` for [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain); the Engine retains no `ai/` tree. Everything *else* about those entries still points at the Engine:
+**Identity binds two different ways, and only one of them involves your `.env`.** For the remote servers, the Memory Core validates the bearer token and derives your identity from the authenticated context — `NEO_AGENT_IDENTITY` is *not* what binds you there, and setting it changes nothing. For the stdio servers, identity resolves at server boot from `NEO_AGENT_IDENTITY`, falling back to an authenticated `gh api user`. The healthcheck reports which happened via `identity.source`: `oidc` for the bearer path, `env-var` or `gh-cli` for stdio.
 
-- the **script** (`args`) → your Brain checkout
-- the **working directory** → your Engine checkout, because the Engine is the repository under work
-- **`--env-file`** → the Engine's `.env`
-- the **`.env` that is sourced** (and therefore your `NEO_AGENT_IDENTITY`) → the Engine checkout
+**Credentials are scoped per server, not shared.** `NEO_MCP_REMOTE_TOKEN` authenticates the remote plane; `GH_TOKEN` is your repository credential. They may hold the same value in a GitHub-based setup and still must not be substituted for one another — a team on GitLab has different values, and a config that exports every variable to every subprocess hands each server credentials it has no business holding.
 
-So a working stdio entry names both checkouts, and mixing them up produces a server that fails to start with a missing-module error naming a path you never typed.
+**How your client reaches a remote server is a client question, not part of the architecture.** Codex speaks remote MCP natively: a `url` plus `bearer_token_env_var`, no wrapper. Claude Desktop / Claude Code and Antigravity do not, so they run `mcp-remote` as a local stdio adapter that proxies to the same URL. **The adapter is a client detail** — the server is remote either way, and its identity still comes from the bearer, not from anything the adapter's shell inherits.
 
-**The two remote servers are unaffected by any of this.** They carry a `url` and a bearer-token env-var name, reach the container plane over loopback, and do not care where — or whether — you have checked anything out. If Knowledge Base and Memory Core work while GitHub Workflow and Neural Link do not, this split is the first thing to check.
+**The two stdio servers are the ones the split moved.** Their implementations left `neomjs/neo` for [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain); the Engine retains no `ai/` tree. Everything else about those entries still points at the Engine — the working directory, and the `.env` supplying `GH_TOKEN` and `NEO_AGENT_IDENTITY` — because the Engine is the repository under work. A working stdio entry therefore names both checkouts, and mixing them up produces a missing-module error naming a path you never typed.
 
-To see what your own harness resolved, read the config your harness actually launched from (§4 names the file per harness) and compare each server's `args` path against the table above.
+If Knowledge Base and Memory Core work while GitHub Workflow and Neural Link do not, that split is the first thing to check: the remote pair does not care whether you have checked anything out.
 
 ### Core Configuration (Antigravity 2.x)
 [Antigravity documents](https://antigravity.google/docs/mcp) two MCP authorities: global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`. Create one of them and configure it with your API keys, identity, and local paths. `--user-data-dir` selects an Electron UI profile; it does not relocate this MCP authority.
@@ -196,12 +204,14 @@ To see what your own harness resolved, read the config your harness actually lau
 
 > **Two checkouts, one session.** After the Agent OS split, the two placeholders above are not
 > interchangeable and the difference is easy to miss because only one of them appears in the `args`
-> line. The Engine stays the anchor — working directory, `--env-file`, and the `.env` that supplies
-> your identity all point at it — while the server **script** resolves from the Brain. See
+> line. For the two **stdio** servers the Engine stays the anchor — working directory, and the `.env`
+> supplying their credentials and identity — while the server **script** resolves from the Brain. See
 > [§5 "Where each MCP server actually comes from"](#where-each-mcp-server-actually-comes-from) for
 > the whole picture, including which servers ignore your checkouts entirely.
 
-**Every entry launches through a login shell that sources your `.env` first.** GUI-launched harnesses do not inherit an interactive shell, so `${...}` values and per-server secrets never reach the subprocess on their own. Rather than repeating each variable in a per-server `env` block, each entry runs `set -a; source <YOUR_NEO_REPO_PATH>/.env; set +a` and then `exec`s the real command — so **every variable in that checkout's `.env` reaches the server**, and there is one place to rotate a credential.
+**Antigravity and Claude need a login-shell wrapper; each entry passes only the variables that server needs.** A GUI-launched harness inherits its environment from the window manager, not from your interactive shell, so a `~/.zshrc` export never reaches the subprocess. Each entry therefore sources your `.env` inside a login shell — but **without `set -a`**, so nothing is exported wholesale — and then names the specific variables on the `exec` line.
+
+That scoping is deliberate. `set -a; source .env` would hand every server every credential in the file, including provider keys and any unrelated tokens; the remote bearer would reach GitHub Workflow and your repository credential would reach the Knowledge Base proxy. Keep one credential per server, as the table above defines.
 
 ```json
 {
@@ -210,7 +220,7 @@ To see what your own harness resolved, read the config your harness actually lau
       "command": "/bin/zsh",
       "args": [
         "-lc",
-        "set -a; source <YOUR_NEO_REPO_PATH>/.env; set +a; exec <YOUR_NPX_PATH> -y mcp-remote \"$1\" --header 'Authorization:Bearer ${NEO_MCP_REMOTE_TOKEN}'",
+        ". <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_MCP_REMOTE_TOKEN=\"$NEO_MCP_REMOTE_TOKEN\" exec <YOUR_NPX_PATH> -y mcp-remote \"$1\" --header \"Authorization:Bearer $NEO_MCP_REMOTE_TOKEN\"",
         "neo-mcp-remote",
         "http://127.0.0.1:3102/kb/mcp"
       ]
@@ -219,7 +229,7 @@ To see what your own harness resolved, read the config your harness actually lau
       "command": "/bin/zsh",
       "args": [
         "-lc",
-        "set -a; source <YOUR_NEO_REPO_PATH>/.env; set +a; exec <YOUR_NPX_PATH> -y mcp-remote \"$1\" --header 'Authorization:Bearer ${NEO_MCP_REMOTE_TOKEN}'",
+        ". <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_MCP_REMOTE_TOKEN=\"$NEO_MCP_REMOTE_TOKEN\" exec <YOUR_NPX_PATH> -y mcp-remote \"$1\" --header \"Authorization:Bearer $NEO_MCP_REMOTE_TOKEN\"",
         "neo-mcp-remote",
         "http://127.0.0.1:3102/mc/mcp"
       ]
@@ -228,14 +238,14 @@ To see what your own harness resolved, read the config your harness actually lau
       "command": "/bin/zsh",
       "args": [
         "-lc",
-        "cd <YOUR_NEO_REPO_PATH> && exec <YOUR_NODE_PATH> --env-file=<YOUR_NEO_REPO_PATH>/.env <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+        "cd <YOUR_NEO_REPO_PATH>; . <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; GH_TOKEN=\"$GH_TOKEN\" NEO_AGENT_IDENTITY=\"$NEO_AGENT_IDENTITY\" exec <YOUR_NODE_PATH> <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
       ]
     },
     "neo-mjs-neural-link": {
       "command": "/bin/zsh",
       "args": [
         "-lc",
-        "cd <YOUR_NEO_REPO_PATH> && exec <YOUR_NODE_PATH> --env-file=<YOUR_NEO_REPO_PATH>/.env <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"
+        "cd <YOUR_NEO_REPO_PATH>; . <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_AGENT_IDENTITY=\"$NEO_AGENT_IDENTITY\" exec <YOUR_NODE_PATH> <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"
       ]
     }
   }
@@ -265,13 +275,13 @@ Configuring one harness configures the other — both spawn the same MCP subproc
 
 **Critical: `NEO_AGENT_IDENTITY` and the checkout that carries it.**
 
-For the A2A (Agent-to-Agent) mailbox substrate to bind your session to its AgentIdentity graph node, `NEO_AGENT_IDENTITY` must reach the Memory Core process, set to the GitHub login of the bound identity (e.g. `neo-opus`). It lives in **`<YOUR_NEO_REPO_PATH>/.env`**, and reaches the process because every entry sources that file through a login shell before `exec` — see §"Core Configuration (Antigravity 2.x)" above.
+`NEO_AGENT_IDENTITY` binds your session for the **stdio** servers — GitHub Workflow and Neural Link. It lives in **`<YOUR_NEO_REPO_PATH>/.env`** and reaches those two processes because their entries name it explicitly on the `exec` line. The remote pair does not use it at all: Knowledge Base and Memory Core derive identity from the validated bearer, so setting `NEO_AGENT_IDENTITY` changes nothing there. See the table in §"Where each MCP server actually comes from".
 
-A plain `export` in `~/.zshrc` will **not** work: a GUI-launched harness inherits its environment from the window manager, not from your interactive shell. That is the problem the `source` step solves.
+A plain `export` in `~/.zshrc` will **not** work for the stdio pair: a GUI-launched harness inherits its environment from the window manager, not from your interactive shell. That is the problem the `source` step solves.
 
-**This makes the checkout the seat.** Identity is a property of the checkout you point the config at, not of the harness. Two identities means two checkouts, each with its own `.env` — which is exactly how several agents run side by side on one machine. Pointing two harnesses at the same checkout binds them to the same identity.
+**For the stdio servers this makes the checkout the seat.** Which `.env` an entry sources decides which identity those two bind to, so running two agents side by side means two checkouts. Pointing two harnesses at the same checkout binds both stdio pairs to the same identity — and note this is a property of the checkout, not of the harness.
 
-**Configuration structure:** identical to the Antigravity block above — same `mcpServers` shape, same four entries, same login-shell wrapper. Only the file location differs (`claude_desktop_config.json` rather than `mcp_config.json`). Use that block, and keep a single copy of the credentials in `.env`.
+**Configuration structure:** same `mcpServers` shape and the same four entries as the Antigravity block above; only the file location differs (`claude_desktop_config.json` rather than `mcp_config.json`). Both clients need the `mcp-remote` adapter for the remote pair. **Codex does not** — see Option D, which configures those two natively.
 
 **File System MCP scope:** frontier harnesses such as Codex, Claude Code, Gemini CLI, and Antigravity already provide their own filesystem and command-execution tools. Neo still ships `ai:mcp-server-file-system`, but it is for `Neo.ai.Agent` instances and local harnessless profiles such as Gemma-powered QA/documentation loops that need file access through the Agent OS client.
 
@@ -289,14 +299,16 @@ A healthy identity binding returns:
 ```json
 {
   "identity": {
-    "source": "env-var",
+    "source": "oidc",
     "bound": true,
     "nodeId": "@<your-github-login>"
   }
 }
 ```
 
-If `identity.bound` is `false` despite `source: 'env-var'`, or if you see any other identity-binding error, see `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting for the full diagnostic flow.
+**`source` tells you which path bound you, and the expected value depends on the transport.** Reaching Memory Core over HTTP — the remote configuration above, whether natively or through the `mcp-remote` adapter — binds from the validated bearer and reports `oidc`. Running it as a stdio process instead reports `env-var` (from `NEO_AGENT_IDENTITY`) or `gh-cli` (from an authenticated `gh api user`). Seeing `env-var` where you expected `oidc` means the server is not the remote one you think you configured.
+
+If `identity.bound` is `false` despite a resolved `source`, or you see any other identity-binding error, see `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting for the full diagnostic flow.
 
 ### Multi-Harness Development (`.neo-ai-data` Granular-Link Convention)
 
@@ -381,8 +393,8 @@ and understand your codebase.
 
 If your agent can save memories but A2A messaging tools (`list_messages`, `add_message`) return `"no agent identity context bound"`:
 
-- **First diagnostic**: ask the agent to run `healthcheck` on `neo-mjs-memory-core` and inspect the `identity` block. A healthy result shows `source: 'env-var'`, `bound: true`, `nodeId: '@<your-github-login>'`.
-- **`identity.source: 'unresolved'`**: `NEO_AGENT_IDENTITY` never reached the MCP process. Check three things in order: it is set in the `.env` of the checkout your config points at (**not** as a `~/.zshrc` export — a GUI-launched harness never reads that); that entry's `args` really do `source` that same `.env`; and you have fully quit and relaunched the harness (⌘Q on macOS). Pointing at a different checkout's `.env` binds a different identity rather than failing, so confirm the path as well as the value.
+- **First diagnostic**: ask the agent to run `healthcheck` on `neo-mjs-memory-core` and inspect the `identity` block. A healthy result shows `bound: true`, `nodeId: '@<your-github-login>'`, and a `source` matching your transport — `oidc` when Memory Core is configured remotely (the documented setup), `env-var` or `gh-cli` when it runs as a stdio process.
+- **`identity.source: 'unresolved'`**: no identity resolved. **Which fix applies depends on the transport, so check `source` first.** For a *remote* Memory Core the bearer is what binds you: verify `NEO_MCP_REMOTE_TOKEN` is set and the plane accepted it — `NEO_AGENT_IDENTITY` is irrelevant there and adding it will not help. For a *stdio* Memory Core, `NEO_AGENT_IDENTITY` never reached the process: confirm it is in the `.env` of the checkout your entry sources (**not** a `~/.zshrc` export — a GUI-launched harness never reads that), that the entry actually passes it on the `exec` line, and that you fully quit and relaunched the harness (⌘Q on macOS). Sourcing a different checkout's `.env` binds a different identity rather than failing, so confirm the path as well as the value.
 - **`identity.source: 'env-var'` but `identity.bound: false`**: the env-var reached the process but the AgentIdentity graph-node lookup failed. Multi-harness symlink state may be inconsistent (see §5 "Multi-Harness Development"), or identity seeds may be missing. Full diagnostic chain in `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting.
 - **Changes to `claude_desktop_config.json` aren't picking up**: you likely forgot the full-quit step. Config changes do NOT hot-reload — ⌘Q / right-click-Quit is required to respawn the MCP subprocess with the updated env block.
 
