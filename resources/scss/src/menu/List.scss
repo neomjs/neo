@@ -54,6 +54,24 @@
             }
         }
 
+        // A rule between groups, not a row. It is drawn as the element's own box rather than as a
+        // border on the preceding item, because a border cannot be given breathing room: margin on
+        // the neighbour moves the whole row, leaving the rule flush against the next command.
+        //
+        // `margin` supplies both axes — the vertical value is the space above and below, the
+        // horizontal one insets the rule from the menu edges so it reads as a divider rather than a
+        // full-bleed edge. `pointer-events: none` is belt-and-braces: the record is already excluded
+        // from the click delegate and the navigator, so this only guarantees the hover background
+        // inherited above can never paint on something the user cannot activate.
+        &.neo-menu-separator {
+            background-color: var(--menu-separator-color);
+            height          : var(--menu-separator-thickness);
+            margin          : var(--menu-separator-margin) var(--menu-separator-inset);
+            min-height      : var(--menu-separator-thickness);
+            padding         : 0;
+            pointer-events  : none;
+        }
+
         &.neo-selected {
             background-color: var(--menu-list-item-background-color-selected);
 

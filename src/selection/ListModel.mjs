@@ -119,13 +119,18 @@ class ListModel extends Model {
             click: me.onListClick,
             scope: me,
 
-            // Should be `.${view.itemCls}:not(.neo-disabled,.neo-list-header)`
-            // TODO parse delegate selectors
+            // The class-name equivalent of `view.getNavigableItemSelector()`, which delegates cannot
+            // consume as a selector yet (TODO parse delegate selectors). Both read the same
+            // `nonInteractiveItemCls` config, so the two expressions of this rule cannot drift: a
+            // subclass adding a non-interactive concept is excluded from clicking and from arrow-key
+            // navigation by one declaration. Evaluated per event, so it always reflects the live value.
             delegate: path => {
+                const excluded = view.nonInteractiveItemCls;
+
                 for (let i = 0, { length } = path; i < length; i++) {
                     const { cls } = path[i];
 
-                    if (cls.includes(view.itemCls) && !cls.includes('neo-disabled') && !cls.includes('neo-list-header')) {
+                    if (cls.includes(view.itemCls) && !excluded.some(name => cls.includes(name))) {
                         return i;
                     }
                 }

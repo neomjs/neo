@@ -117,6 +117,24 @@ class List extends Component {
          */
         keys: {},
         /**
+         * Class names that mark a rendered item as non-interactive: excluded from the click delegate
+         * and from arrow-key navigation alike.
+         *
+         * The rule needs a single source because it is consumed twice, in two different languages —
+         * as a CSS `:not()` selector handed to `Neo.main.addon.Navigator` (see `afterSetMounted`), and
+         * as a class check inside `Neo.selection.ListModel`'s click delegate, which cannot parse a
+         * selector. Both were hardcoded literals until a third concept needed adding and revealed that
+         * editing one and missing the other yields a row that is unclickable but still arrow-navigable.
+         *
+         * **Read at construct time.** The navigator selector is built once, behind `hasNavigator`, and
+         * frozen at subscribe time — so a later change would leave the subscribed selector disagreeing
+         * with the per-event delegate, which is the same drift in a harder-to-see form. Extend it as a
+         * class config on a subclass, not per instance after mount. An instance may still override the
+         * navigator's `selector` outright via the `navigator` config; that escape hatch is preserved.
+         * @member {String[]} nonInteractiveItemCls=['neo-disabled','neo-list-header']
+         */
+        nonInteractiveItemCls: ['neo-disabled', 'neo-list-header'],
+        /**
          * config values for Neo.list.plugin.Animate
          * @member {Object} pluginAnimateConfig=null
          */
@@ -315,7 +333,7 @@ class List extends Component {
                     autoClick     : me.selectOnFocus,
                     id            : me.id,
                     keepFocusIndex: me.keepFocusIndex,
-                    selector      : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
+                    selector      : me.getNavigableItemSelector(),
                     windowId      : me.windowId
                 }, me.navigator);
 
@@ -716,6 +734,26 @@ class List extends Component {
         }
 
         return `${this.id}__${id}`
+    }
+
+    /**
+     * Builds the CSS selector matching every item a pointer or an arrow key may land on.
+     *
+     * The single source for the rule `Neo.selection.ListModel` re-evaluates per click event. Both
+     * derive from `nonInteractiveItemCls`, so a subclass adding a non-interactive concept — a menu
+     * separator, say — is excluded from clicking and navigation by one declaration instead of two
+     * hand-kept copies.
+     * @returns {String}
+     */
+    getNavigableItemSelector() {
+        let me        = this,
+            {itemCls} = me,
+            excluded  = me.nonInteractiveItemCls;
+
+        // An empty list must degrade to "every item is navigable", not to `:not(.)` — that is invalid
+        // CSS and throws inside the addon's querySelectorAll, taking navigation down entirely rather
+        // than widening it.
+        return excluded?.length > 0 ? `.${itemCls}:not(.${excluded.join(',.')})` : `.${itemCls}`
     }
 
     /**
