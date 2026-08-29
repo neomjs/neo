@@ -177,7 +177,7 @@ Read this before editing any harness config. The four servers do **not** all com
 - the **script** (`args`) → your Brain checkout
 - the **working directory** → your Engine checkout, because the Engine is the repository under work
 - **`--env-file`** → the Engine's `.env`
-- the `node_modules/.bin` entry in **`PATH`** → the Engine
+- the **`.env` that is sourced** (and therefore your `NEO_AGENT_IDENTITY`) → the Engine checkout
 
 So a working stdio entry names both checkouts, and mixing them up produces a server that fails to start with a missing-module error naming a path you never typed.
 
@@ -188,73 +188,72 @@ To see what your own harness resolved, read the config your harness actually lau
 ### Core Configuration (Antigravity 2.x)
 [Antigravity documents](https://antigravity.google/docs/mcp) two MCP authorities: global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`. Create one of them and configure it with your API keys, identity, and local paths. `--user-data-dir` selects an Electron UI profile; it does not relocate this MCP authority.
 
-- **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
-  - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
+- **`<YOUR_NPX_PATH>`**: the absolute path to `npx` (e.g. `/opt/homebrew/bin/npx`).
+  - **M-Series Mac note (Apple Silicon):** GUI applications do not inherit Homebrew paths such as `/opt/homebrew/bin`, which is why MCP servers used to crash claiming a binary was missing. The `zsh -lc` wrapper in the structure below is what resolves that — `-l` makes it a **login** shell, so your profile is read and Homebrew's path comes with it. Absolute paths for `node` and `npx` keep it working even when it is not.
 - **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v24.x.x/bin/node`).
 - **`<YOUR_NEO_REPO_PATH>`**: your `neomjs/neo` (Engine) checkout.
 - **`<YOUR_BRAIN_REPO_PATH>`**: your [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) checkout — **the MCP server implementations live here, not in the Engine.**
 
 > **Two checkouts, one session.** After the Agent OS split, the two placeholders above are not
 > interchangeable and the difference is easy to miss because only one of them appears in the `args`
-> line. The Engine stays the anchor — working directory, `--env-file`, and the `node_modules/.bin`
-> entry in `PATH` all point at it — while the server **script** resolves from the Brain. See
+> line. The Engine stays the anchor — working directory, `--env-file`, and the `.env` that supplies
+> your identity all point at it — while the server **script** resolves from the Brain. See
 > [§5 "Where each MCP server actually comes from"](#where-each-mcp-server-actually-comes-from) for
 > the whole picture, including which servers ignore your checkouts entirely.
 
-Use the following structure:
+**Every entry launches through a login shell that sources your `.env` first.** GUI-launched harnesses do not inherit an interactive shell, so `${...}` values and per-server secrets never reach the subprocess on their own. Rather than repeating each variable in a per-server `env` block, each entry runs `set -a; source <YOUR_NEO_REPO_PATH>/.env; set +a` and then `exec`s the real command — so **every variable in that checkout's `.env` reaches the server**, and there is one place to rotate a credential.
 
 ```json
 {
   "mcpServers": {
     "neo-mjs-knowledge-base": {
-      "command": "<YOUR_NODE_PATH>",
+      "command": "/bin/zsh",
       "args": [
-        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"
-      ],
-      "env": {
-        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
+        "-lc",
+        "set -a; source <YOUR_NEO_REPO_PATH>/.env; set +a; exec <YOUR_NPX_PATH> -y mcp-remote \"$1\" --header 'Authorization:Bearer ${NEO_MCP_REMOTE_TOKEN}'",
+        "neo-mcp-remote",
+        "http://127.0.0.1:3102/kb/mcp"
+      ]
     },
     "neo-mjs-memory-core": {
-      "command": "<YOUR_NODE_PATH>",
+      "command": "/bin/zsh",
       "args": [
-        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"
-      ],
-      "env": {
-        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "NEO_AGENT_IDENTITY": "<YOUR_AGENT_GITHUB_LOGIN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
+        "-lc",
+        "set -a; source <YOUR_NEO_REPO_PATH>/.env; set +a; exec <YOUR_NPX_PATH> -y mcp-remote \"$1\" --header 'Authorization:Bearer ${NEO_MCP_REMOTE_TOKEN}'",
+        "neo-mcp-remote",
+        "http://127.0.0.1:3102/mc/mcp"
+      ]
     },
     "neo-mjs-github-workflow": {
-      "command": "<YOUR_NODE_PATH>",
+      "command": "/bin/zsh",
       "args": [
-        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
-      ],
-      "env": {
-        "GH_TOKEN": "<YOUR_GH_TOKEN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
+        "-lc",
+        "cd <YOUR_NEO_REPO_PATH> && exec <YOUR_NODE_PATH> --env-file=<YOUR_NEO_REPO_PATH>/.env <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+      ]
     },
     "neo-mjs-neural-link": {
-      "command": "<YOUR_NODE_PATH>",
+      "command": "/bin/zsh",
       "args": [
-        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
-        "--cwd",
-        "<YOUR_NEO_REPO_PATH>"
-      ],
-      "env": {
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
+        "-lc",
+        "cd <YOUR_NEO_REPO_PATH> && exec <YOUR_NODE_PATH> --env-file=<YOUR_NEO_REPO_PATH>/.env <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"
+      ]
     }
   }
 }
 ```
 
+**Two different credentials, and they are not interchangeable.**
+
+| variable | authority | used by |
+|---|---|---|
+| `NEO_MCP_REMOTE_TOKEN` | the bearer for the remote MCP plane's loopback ingress | Knowledge Base, Memory Core |
+| `GH_TOKEN` | your repository credential | GitHub Workflow |
+
+In a GitHub-based setup these may hold the same value, and it is tempting to use one everywhere. Do not — they answer to different authorities, and for a team on GitLab the repository credential differs from the plane bearer entirely. Keep both names in `.env` even when the values coincide today.
+
 ### Core Configuration (Gemini CLI, enterprise/API-key)
 
-Use Google's current Gemini CLI configuration contract for enterprise or explicit API-key access. Keep the same `command`, `args`, and per-server `env` semantics shown above, but do not copy an Antigravity path or expect Neo to generate a repository workspace template.
+Use Google's current Gemini CLI configuration contract for enterprise or explicit API-key access. Keep the same `command` and `args` semantics shown above — including the login-shell wrapper that sources `.env`, which is what carries your credentials and `NEO_AGENT_IDENTITY` into the server process — but do not copy an Antigravity path or expect Neo to generate a repository workspace template.
 
 ### Core Configuration (Claude Desktop / Claude Code)
 
@@ -264,54 +263,15 @@ Claude Desktop (the macOS / Windows agent app) and Claude Code (Anthropic's CLI 
 
 Configuring one harness configures the other — both spawn the same MCP subprocesses from this file.
 
-**Critical: `NEO_AGENT_IDENTITY` placement for A2A mailbox binding.**
+**Critical: `NEO_AGENT_IDENTITY` and the checkout that carries it.**
 
-For the A2A (Agent-to-Agent) mailbox substrate to bind your agent session to its AgentIdentity graph node, the Memory Core server's `env` block MUST include `NEO_AGENT_IDENTITY` set to the GitHub login of the bound identity (e.g., `neo-opus`). **This MUST live inside the per-server `env` block — not as a shell export** — because Claude Desktop launches MCP subprocesses directly from the GUI without inheriting interactive-shell state. A shell export in `~/.zshrc` will NOT reach the spawned MCP process.
+For the A2A (Agent-to-Agent) mailbox substrate to bind your session to its AgentIdentity graph node, `NEO_AGENT_IDENTITY` must reach the Memory Core process, set to the GitHub login of the bound identity (e.g. `neo-opus`). It lives in **`<YOUR_NEO_REPO_PATH>/.env`**, and reaches the process because every entry sources that file through a login shell before `exec` — see §"Core Configuration (Antigravity 2.x)" above.
 
-Use the following structure (replace the placeholders as in the Antigravity section above):
+A plain `export` in `~/.zshrc` will **not** work: a GUI-launched harness inherits its environment from the window manager, not from your interactive shell. That is the problem the `source` step solves.
 
-```json
-{
-  "mcpServers": {
-    "neo-mjs-knowledge-base": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"],
-      "env": {
-        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-memory-core": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"],
-      "env": {
-        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
-        "NEO_AGENT_IDENTITY": "<YOUR_GITHUB_LOGIN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-github-workflow": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": ["<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"],
-      "env": {
-        "GH_TOKEN": "<YOUR_GH_TOKEN>",
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    },
-    "neo-mjs-neural-link": {
-      "command": "<YOUR_NODE_PATH>",
-      "args": [
-        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
-        "--cwd",
-        "<YOUR_NEO_REPO_PATH>"
-      ],
-      "env": {
-        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
-      }
-    }
-  }
-}
-```
+**This makes the checkout the seat.** Identity is a property of the checkout you point the config at, not of the harness. Two identities means two checkouts, each with its own `.env` — which is exactly how several agents run side by side on one machine. Pointing two harnesses at the same checkout binds them to the same identity.
+
+**Configuration structure:** identical to the Antigravity block above — same `mcpServers` shape, same four entries, same login-shell wrapper. Only the file location differs (`claude_desktop_config.json` rather than `mcp_config.json`). Use that block, and keep a single copy of the credentials in `.env`.
 
 **File System MCP scope:** frontier harnesses such as Codex, Claude Code, Gemini CLI, and Antigravity already provide their own filesystem and command-execution tools. Neo still ships `ai:mcp-server-file-system`, but it is for `Neo.ai.Agent` instances and local harnessless profiles such as Gemma-powered QA/documentation loops that need file access through the Agent OS client.
 
@@ -319,7 +279,7 @@ Use the following structure (replace the placeholders as in the Antigravity sect
 - **macOS**: ⌘Q in the menu bar — simply closing the window leaves the app running in the background
 - **Windows**: right-click the taskbar icon → Quit
 
-This applies equally to Claude Desktop, Antigravity, and any future GUI harness. The MCP subprocess inherits env + args from the launch moment; there is no hot-reload. The same warning applies after changing `NEO_AGENT_IDENTITY`, adding a new MCP server entry, or rotating API keys in the `env` block.
+This applies equally to Claude Desktop, Antigravity, and any future GUI harness. The MCP subprocess inherits env + args from the launch moment; there is no hot-reload. The same warning applies after changing `NEO_AGENT_IDENTITY`, adding a new MCP server entry, or rotating a credential in `.env` — the file is sourced once, at launch, so editing it changes nothing until the harness is fully restarted.
 
 **Post-setup verification** — once your harness has fully restarted, ask your agent:
 
@@ -422,7 +382,7 @@ and understand your codebase.
 If your agent can save memories but A2A messaging tools (`list_messages`, `add_message`) return `"no agent identity context bound"`:
 
 - **First diagnostic**: ask the agent to run `healthcheck` on `neo-mjs-memory-core` and inspect the `identity` block. A healthy result shows `source: 'env-var'`, `bound: true`, `nodeId: '@<your-github-login>'`.
-- **`identity.source: 'unresolved'`**: `NEO_AGENT_IDENTITY` never reached the MCP process. Verify it lives in the per-server `env` block of your harness config (not as a shell export), then fully quit and relaunch the harness (⌘Q on macOS).
+- **`identity.source: 'unresolved'`**: `NEO_AGENT_IDENTITY` never reached the MCP process. Check three things in order: it is set in the `.env` of the checkout your config points at (**not** as a `~/.zshrc` export — a GUI-launched harness never reads that); that entry's `args` really do `source` that same `.env`; and you have fully quit and relaunched the harness (⌘Q on macOS). Pointing at a different checkout's `.env` binds a different identity rather than failing, so confirm the path as well as the value.
 - **`identity.source: 'env-var'` but `identity.bound: false`**: the env-var reached the process but the AgentIdentity graph-node lookup failed. Multi-harness symlink state may be inconsistent (see §5 "Multi-Harness Development"), or identity seeds may be missing. Full diagnostic chain in `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting.
 - **Changes to `claude_desktop_config.json` aren't picking up**: you likely forgot the full-quit step. Config changes do NOT hot-reload — ⌘Q / right-click-Quit is required to respawn the MCP subprocess with the updated env block.
 
