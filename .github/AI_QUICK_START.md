@@ -183,7 +183,9 @@ Read this before editing any harness config. Four questions have four different 
 | `neo-mjs-github-workflow` | stdio | **the Brain checkout** | `GH_TOKEN` | `NEO_AGENT_IDENTITY`, else `gh api user` |
 | `neo-mjs-neural-link` | stdio | **the Brain checkout** | — | `NEO_AGENT_IDENTITY`, else `gh api user` |
 
-**Identity binds two different ways, and only one of them involves your `.env`.** For the remote servers, the Memory Core validates the bearer token and derives your identity from the authenticated context — `NEO_AGENT_IDENTITY` is *not* what binds you there, and setting it changes nothing. For the stdio servers, identity resolves at server boot from `NEO_AGENT_IDENTITY`, falling back to an authenticated `gh api user`. The healthcheck reports which happened via `identity.source`: `oidc` for the bearer path, `env-var` or `gh-cli` for stdio.
+**Identity binds two different ways, and only one of them involves your `.env`.** For the remote servers, the Memory Core validates the bearer token and derives your identity from the authenticated context — `NEO_AGENT_IDENTITY` is *not* what binds you there, and setting it changes nothing. For the stdio servers, identity resolves once at server boot from `NEO_AGENT_IDENTITY`, falling back to an authenticated `gh api user`.
+
+**The two paths are also observed differently, and reaching for the wrong witness is the common mistake.** Remote identity is *per request*, so it is visible on a request-scoped call such as `list_permissions`. It is **not** visible in `healthcheck.identity`, which projects the stdio boot state and therefore reports `unresolved` on a perfectly healthy remote server. For stdio, that health block is the correct witness, reporting `env-var` or `gh-cli`. See §"Post-setup verification".
 
 **Credentials are scoped per server, not shared.** `NEO_MCP_REMOTE_TOKEN` authenticates the remote plane; `GH_TOKEN` is your repository credential. They may hold the same value in a GitHub-based setup and still must not be substituted for one another — a team on GitLab has different values, and a config that exports every variable to every subprocess hands each server credentials it has no business holding.
 
@@ -293,22 +295,18 @@ This applies equally to Claude Desktop, Antigravity, and any future GUI harness.
 
 **Post-setup verification** — once your harness has fully restarted, ask your agent:
 
-> "Run the healthcheck tool on the `neo-mjs-memory-core` MCP server."
+> "Run the `list_permissions` tool on the `neo-mjs-memory-core` MCP server."
 
-A healthy identity binding returns:
+A bound remote session returns your identity:
 ```json
-{
-  "identity": {
-    "source": "oidc",
-    "bound": true,
-    "nodeId": "@<your-github-login>"
-  }
-}
+{"identity": "@<your-github-login>", "capabilities": [], "grantedToOthers": []}
 ```
 
-**`source` tells you which path bound you, and the expected value depends on the transport.** Reaching Memory Core over HTTP — the remote configuration above, whether natively or through the `mcp-remote` adapter — binds from the validated bearer and reports `oidc`. Running it as a stdio process instead reports `env-var` (from `NEO_AGENT_IDENTITY`) or `gh-cli` (from an authenticated `gh api user`). Seeing `env-var` where you expected `oidc` means the server is not the remote one you think you configured.
+**Use `list_permissions`, not `healthcheck`, to verify a remote Memory Core.** The healthcheck's `identity` block projects the **stdio boot** identity, and under Streamable HTTP that state is never populated — so a perfectly healthy remote seat reports `{"source": "unresolved", "bound": false, "nodeId": null}`. That is the documented behaviour, not a fault. `list_permissions` is request-scoped: it resolves identity from the validated bearer on the call itself, which is the thing you actually want to confirm.
 
-If `identity.bound` is `false` despite a resolved `source`, or you see any other identity-binding error, see `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting for the full diagnostic flow.
+If you configured Memory Core as a **stdio** process instead, the healthcheck block is the right witness there, reporting `source: 'env-var'` (from `NEO_AGENT_IDENTITY`) or `gh-cli` (from an authenticated `gh api user`), with `bound: true` and your `nodeId`.
+
+If `list_permissions` returns no identity, or a stdio healthcheck stays unresolved, see `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting for the full diagnostic flow.
 
 ### Multi-Harness Development (`.neo-ai-data` Granular-Link Convention)
 
@@ -393,8 +391,10 @@ and understand your codebase.
 
 If your agent can save memories but A2A messaging tools (`list_messages`, `add_message`) return `"no agent identity context bound"`:
 
-- **First diagnostic**: ask the agent to run `healthcheck` on `neo-mjs-memory-core` and inspect the `identity` block. A healthy result shows `bound: true`, `nodeId: '@<your-github-login>'`, and a `source` matching your transport — `oidc` when Memory Core is configured remotely (the documented setup), `env-var` or `gh-cli` when it runs as a stdio process.
-- **`identity.source: 'unresolved'`**: no identity resolved. **Which fix applies depends on the transport, so check `source` first.** For a *remote* Memory Core the bearer is what binds you: verify `NEO_MCP_REMOTE_TOKEN` is set and the plane accepted it — `NEO_AGENT_IDENTITY` is irrelevant there and adding it will not help. For a *stdio* Memory Core, `NEO_AGENT_IDENTITY` never reached the process: confirm it is in the `.env` of the checkout your entry sources (**not** a `~/.zshrc` export — a GUI-launched harness never reads that), that the entry actually passes it on the `exec` line, and that you fully quit and relaunched the harness (⌘Q on macOS). Sourcing a different checkout's `.env` binds a different identity rather than failing, so confirm the path as well as the value.
+- **First diagnostic — pick the witness that matches your transport.** For a **remote** Memory Core (the documented setup) run `list_permissions`: it resolves identity per request from the validated bearer, and a bound session returns `identity: '@<your-github-login>'`. For a **stdio** Memory Core run `healthcheck` and read the `identity` block, expecting `bound: true`, your `nodeId`, and `source` of `env-var` or `gh-cli`.
+- **`healthcheck` reports `identity.source: 'unresolved'` on a remote server — this is normal, not a fault.** That block projects the *stdio boot* identity, which Streamable HTTP never populates, so a healthy remote seat reports `unresolved`/`bound: false`. Confirm with `list_permissions` before changing anything. Setting `NEO_AGENT_IDENTITY` will not alter it and is not what binds you there; the bearer is.
+- **`list_permissions` returns no identity on a remote server**: the bearer is what binds you, so verify `NEO_MCP_REMOTE_TOKEN` is set in the environment the harness launched from and that the plane accepted it.
+- **A stdio server stays unresolved**: `NEO_AGENT_IDENTITY` never reached the process. Confirm it is in the `.env` of the checkout your entry sources (**not** a `~/.zshrc` export — a GUI-launched harness never reads that), that the entry actually passes it on the `exec` line, and that you fully quit and relaunched the harness (⌘Q on macOS). Sourcing a different checkout's `.env` binds a different identity rather than failing, so confirm the path as well as the value.
 - **`identity.source: 'env-var'` but `identity.bound: false`**: the env-var reached the process but the AgentIdentity graph-node lookup failed. Multi-harness symlink state may be inconsistent (see §5 "Multi-Harness Development"), or identity seeds may be missing. Full diagnostic chain in `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting.
 - **Changes to `claude_desktop_config.json` aren't picking up**: you likely forgot the full-quit step. Config changes do NOT hot-reload — ⌘Q / right-click-Quit is required to respawn the MCP subprocess with the updated env block.
 
