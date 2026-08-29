@@ -294,22 +294,29 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — behavior equivale
         expect(zoneEnds[0]).toMatchObject({cancelled: true})
     });
 
-    test('the resize seam stays parked: no main-thread descriptor in either proxy mode', async () => {
-        mount();
+    test('the resize seam is live by default: conserved-pair descriptor, proxy fallback on opt-out', async () => {
+        mount({dockZoneDocument: DOC()});
 
-        // dock inherits the generic default: proxy presentation until the live-preview leaf lands
-        expect(splitter.liveResize).toBe(false);
-        expect(splitter.getResizeConfig()).toBe(null);
+        // the dock default flips the inherited proxy presentation to the main-thread pair preview
+        expect(splitter.liveResize).toBe(true);
+        expect(splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            counterTargetId: 'equiv-pane-b',
+            preview        : true,
+            resizeNext     : false,
+            targetId       : 'equiv-pane-a'
+        });
 
         const pushed = [];
         splitter.dragZone.set = config => pushed.push(config);
 
         await splitter.refreshDragZone();
-        splitter.liveResize = true;               // afterSet re-drives the zone on its own
+        splitter.liveResize = false;              // afterSet re-drives the zone on its own
         await splitter.refreshDragZone();
 
-        expect(pushed[0]).toMatchObject({resizeConfig: null, useProxy: true});
-        expect(pushed.at(-1)).toMatchObject({resizeConfig: null, useProxy: false})
+        expect(pushed[0].useProxy).toBe(false);
+        expect(pushed[0].resizeConfig).toMatchObject({counterTargetId: 'equiv-pane-b', targetId: 'equiv-pane-a'});
+        expect(pushed.at(-1)).toMatchObject({resizeConfig: null, useProxy: true})
     });
 
     test('the descriptor factory resolves identity from configs when no projected data exists', () => {
