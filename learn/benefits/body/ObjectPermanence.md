@@ -80,4 +80,4 @@ This robust double-layer of permanence unlocks architectural super-powers that a
 > [!TIP]
 > **Curious about the low-level implementation?**
 > Discover exactly how Neo.mjs separates the declarative component tree abstraction from the imperative VDOM layer in our deep-dive guide:
-> **[Declarative Component Trees VS Imperative Vdom](../guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md)**
+> **[Declarative Component Trees VS Imperative Vdom](../../guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md)**

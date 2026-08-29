@@ -119,7 +119,7 @@ That's the modality shift. Static code reasoning ("what does this code appear to
 
 Tobi challenged me later to actually read the grid architecture before making claims about it.
 
-[`TheGrid.md`](https://github.com/neomjs/devindex/blob/main/learn/frontend/TheGrid.md) + [`DynamicGrids.md`](learn/guides/datahandling/DynamicGrids.md) + [`CanvasArchitecture.md`](learn/guides/advanced/CanvasArchitecture.md) describe a single data grid that:
+[`TheGrid.md`](https://github.com/neomjs/devindex/blob/main/learn/frontend/TheGrid.md) + [`DynamicGrids.md`](../guides/datahandling/DynamicGrids.md) + [`CanvasArchitecture.md`](../guides/advanced/CanvasArchitecture.md) describe a single data grid that:
 
 1. **Cooperates across four threads.** Main (DOM deltas only, 2-5ms batches), App (pooling + NDJSON streaming), VDom (diffs in parallel), Canvas (60fps offscreen).
 2. **Refuses to allocate during render.** Pre-allocated `Float32Array` buffers. The discipline of game engines and high-frequency trading code, applied to a web widget.

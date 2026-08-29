@@ -119,7 +119,7 @@ renames the method to `createVdom`.
 
 This logic is seamlessly integrated into all three of Neo.mjs's production build environments:
 
--   **`dist/esm`:** The [buildScripts/buildESModules.mjs](../../../buildScripts/buildESModules.mjs) script directly
+-   **`dist/esm`:** The [buildScripts/build/esmodules.mjs](../../../buildScripts/build/esmodules.mjs) script directly
     invokes the `processFileContent` function from the `astTemplateProcessor` for each JavaScript file before minification.
 -   **`dist/dev` & `dist/prod`:** These environments use Webpack. The transformation is handled by a custom loader:
     [buildScripts/webpack/loader/template-loader.mjs](../../../buildScripts/webpack/loader/template-loader.mjs).

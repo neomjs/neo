@@ -1,0 +1,41 @@
+name: Learn Link Guard
+
+# Custody decisions move link targets; nothing moves the referrers. This is the surface that
+# notices. It runs on any `learn/**` change and on the guard's own files, so a checker that stops
+# working is caught by the same trigger that would have caught the links.
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'learn/**'
+      - 'buildScripts/util/check-relative-links.mjs'
+      - '.github/workflows/check-relative-links.yml'
+      - 'package.json'
+  push:
+    branches: [dev]
+    paths:
+      - 'learn/**'
+      - 'buildScripts/util/check-relative-links.mjs'
+      - '.github/workflows/check-relative-links.yml'
+      - 'package.json'
+
+concurrency:
+  group: check-relative-links-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # No `npm ci`: the guard shells out to git and uses only Node built-ins, so a dependency
+      # install would be latency with no bearing on the result.
+      - name: Check relative links under learn/
+        run: npm run check-relative-links
