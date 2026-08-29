@@ -1,6 +1,8 @@
-import RecordFactory from './RecordFactory.mjs';
-import Store         from './Store.mjs';
-import TreeModel     from './TreeModel.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import PathNormalizer  from './normalizer/Path.mjs';
+import RecordFactory   from './RecordFactory.mjs';
+import Store           from './Store.mjs';
+import TreeModel       from './TreeModel.mjs';
 
 const
     isFiltered    = Symbol.for('isFiltered'),
@@ -53,6 +55,14 @@ class TreeStore extends Store {
          */
         model: TreeModel,
         /**
+         * The normalizer backing `materializePath()`. Left unset, it is created on first use, so a
+         * store that never materializes a path never pays for one. Provide a config to change the
+         * path grammar, e.g. `pathNormalizer: {separator: '.'}`.
+         * @member {Object|Neo.data.normalizer.Path|null} pathNormalizer_=null
+         * @reactive
+         */
+        pathNormalizer_: null,
+        /**
          * If true, expanding a node will automatically collapse its siblings.
          * @member {Boolean} singleExpand=false
          */
@@ -73,6 +83,22 @@ class TreeStore extends Store {
      * @private
      */
     #childrenMap = new Map()
+
+    /**
+     * Triggered before the pathNormalizer config gets changed.
+     * Instantiates a config object, defaulting to `Neo.data.normalizer.Path`. A falsy value stays
+     * falsy on purpose: the normalizer is created on first `materializePath()` call, not eagerly for
+     * every store.
+     * @param {Object|Neo.data.normalizer.Path|null} value
+     * @param {Object|Neo.data.normalizer.Path|null} oldValue
+     * @protected
+     * @returns {Neo.data.normalizer.Path|null}
+     */
+    beforeSetPathNormalizer(value, oldValue) {
+        oldValue?.destroy();
+
+        return value ? ClassSystemUtil.beforeSetInstance(value, PathNormalizer) : value
+    }
 
     /**
      * @summary Overrides `clear` to prevent memory leaks and split-brain states.
@@ -266,6 +292,15 @@ class TreeStore extends Store {
                 me.collectVisibleDescendants(children[i], resultArr)
             }
         }
+    }
+
+    /**
+     * Releases the lazily created path normalizer alongside the store.
+     */
+    destroy() {
+        this.pathNormalizer?.destroy();
+
+        super.destroy()
     }
 
     /**
@@ -770,6 +805,54 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Creates every node a path addresses that does not exist yet, and returns its leaf.
+     *
+     * Plugin and module architectures address hierarchy by path — `'A/B/C'` — without knowing which
+     * siblings exist or which contributor already created the intermediate groups. This method is the
+     * idempotent entry point for that shape: missing ancestors are synthesized, existing ones are
+     * reused, and the whole path is ingested in a single mutation.
+     *
+     * Two contributors declaring `'Group/A'` and `'Group/B'` converge on **one** `Group` node in
+     * either order, because ancestor identity is the path prefix rather than an insertion artifact.
+     * Re-materializing a path that already exists is a no-op that still returns the leaf, so callers
+     * need no "does this exist yet" branch of their own.
+     *
+     * **Ordering matters and is handled here.** `splice()` resolves `depth` from the parent record and
+     * re-parents a node whose parent it cannot find to `'root'` — silently, and without re-adopting it
+     * when the parent arrives later. Emitting ancestors before descendants in one call is what keeps
+     * that path from being reachable.
+     *
+     * The Structural Layer keeps ownership of `depth`, `childCount`, `siblingIndex` and `siblingCount`;
+     * this method writes none of them, so an incremental materialization maintains the same ARIA
+     * invariants as a bulk load and fires the store's normal `mutate` event rather than rebuilding.
+     *
+     * @example
+     *     store.materializePath('View/Tools/Inspect', {iconCls: 'fa fa-search'});
+     *     // creates 'View', 'View/Tools' and the 'View/Tools/Inspect' leaf
+     *
+     * @param {String} path Separator-delimited, e.g. `'A/B/C'`. A segment may contain the separator
+     * when escaped: `'a\\/b/c'` is the two-level path `a/b` → `c`.
+     * @param {Object} [data={}] Fields for the leaf record. The key and `parentId` always derive from
+     * the path, so supplying them here has no effect.
+     * @returns {Object|null} The leaf record, whether it was just created or already present.
+     * @see Neo.data.normalizer.Path
+     */
+    materializePath(path, data={}) {
+        let me = this,
+            records;
+
+        if (!me.pathNormalizer) {
+            me.pathNormalizer = {keyProperty: me.getKeyProperty()}
+        }
+
+        records = me.pathNormalizer.materialize(path, data, id => me.#allRecordsMap.has(id));
+
+        records.length > 0 && me.add(records);
+
+        return me.get(path)
+    }
+
+    /**
      * @summary Rebuilds the Projection Layer's internal indexing arrays and map to match the flat `_items` array.
      *
      * This method is an architectural requirement when performing bulk projections (like `expandAll`,
@@ -1081,7 +1164,31 @@ class TreeStore extends Store {
             }
         }
 
-        // --- 3. Synchronize ARIA Stats ---
+        // --- 3. Re-apply the active sort to levels the projection will not touch ---
+        //
+        // A mutation with a visible delta reaches `super.splice()` below, and the Collection's own
+        // sort re-orders every structural level on the way through. A mutation confined to a
+        // collapsed branch never gets there, so its children would keep insertion order while
+        // `getChildren()` documents that order follows the store's active sort — the tree renders
+        // correctly on expansion and reports the wrong order until then.
+        //
+        // This must precede `updateSiblingStats`, which assigns `siblingIndex` by array position:
+        // sorting afterwards would leave the ARIA indices describing the pre-sort order.
+        // `autoSort` is half the predicate, not a detail: every sort trigger in `Collection.Base` is
+        // guarded by `autoSort && sorters.length`, so a store that configured sorters and disabled
+        // automatic sorting keeps declaration order by design. Sorting on `sorters.length` alone
+        // would impose an order the consumer explicitly opted out of — and only on the hidden path,
+        // which is a fresh divergence between hidden and visible in the opposite direction from the
+        // one this block exists to close.
+        if (me.autoSort && me.sorters?.length > 0 && visibleToAdd.length < 1 && visibleToRemove.length < 1) {
+            for (const pid of affectedParents) {
+                const siblings = me.#childrenMap.get(pid);
+
+                siblings?.length > 1 && me.sortArray(siblings)
+            }
+        }
+
+        // --- 3b. Synchronize ARIA Stats ---
         for (const pid of affectedParents) {
             me.updateSiblingStats(pid)
         }

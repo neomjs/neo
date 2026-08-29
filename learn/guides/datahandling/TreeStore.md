@@ -141,9 +141,76 @@ reorders the child arrays in the Structural Layer itself, so returned siblings f
 current sort. That is deliberate — it lets a level-at-a-time consumer inherit ordering from the tree
 instead of implementing its own.
 
+This holds for an incremental insertion too, including one confined to a collapsed branch: a mutation
+with no visible delta re-applies the active sorters to the levels it touched, so a hidden child does
+not sit in arrival order waiting for an expansion to fix it. The condition is the store's own —
+`autoSort` **and** configured sorters, the same predicate `Collection.Base` guards every sort with.
+A store that sets `autoSort: false` keeps declaration order everywhere, hidden and visible alike.
+
 Reach for `collectAllDescendants()` instead when you want an entire subtree; `getChildren()` is
 deliberately one level deep. And note that reading children this way **does not expand anything** —
 expansion is a view-state concern, and a level-at-a-time consumer should never mutate it just to render.
+
+### Building a tree from paths
+
+Plugin and module architectures address hierarchy by **path**, not by parent key. A contributor
+declares where it belongs — `'View/Tools/Inspect'` — without knowing which siblings exist, or which
+of them already created the intermediate groups. `materializePath()` is the entry point for that
+shape:
+
+```javascript readonly
+// Creates 'View', 'View/Tools' and the leaf, correctly parented, in one mutation.
+treeStore.materializePath('View/Tools/Inspect', {iconCls: 'fa fa-search'});
+
+// A second contributor under the same prefix. 'View' and 'View/Tools' already exist,
+// so only the new leaf is added — they converge on ONE group, in either order.
+treeStore.materializePath('View/Tools/Highlight');
+
+// Re-declaring a path is a no-op that still returns the leaf, so callers need no
+// "does this exist yet" branch of their own.
+const leaf = treeStore.materializePath('View/Tools/Inspect');
+```
+
+**Node ids are the path itself**, so `'A/B/C'` creates the ids `'A'`, `'A/B'` and `'A/B/C'`. Identity
+is therefore a deterministic function of the prefix: whoever materializes a prefix first, every later
+contributor resolves to that same node. Ids drawn from insertion counters would let two contributors
+racing the same prefix produce two groups, which is exactly the defect this method removes. A key
+supplied in the payload does not override this — the path always wins.
+
+**Order is handled for you, and it matters.** `splice()` resolves `depth` from the parent record and
+re-parents a node whose parent it cannot find to `'root'` — silently, and without re-adopting it when
+the parent arrives later. Adding path-derived records by hand is therefore only safe ancestors-first:
+
+```javascript readonly
+// Wrong: 'A' does not exist yet when its child is ingested, so the child is
+// detached to the root and stays there even after 'A' arrives.
+treeStore.add([
+    {id: 'A/B', parentId: 'A',    name: 'B'},
+    {id: 'A',   parentId: 'root', name: 'A', isLeaf: false}
+]);
+```
+
+`materializePath()` emits ancestors before descendants in a single call, which is what makes that path
+unreachable.
+
+The **Structural Layer keeps ownership of the derived invariants**: `depth`, `childCount`,
+`siblingIndex` and `siblingCount` are calculated on ingestion, never written by the materializer. An
+incremental contribution therefore maintains the same ARIA state as a bulk load, and fires the store's
+normal `mutate` event instead of rebuilding.
+
+A segment may contain the separator when escaped, so `'a\\/b/c'` is the two-level path `a/b` → `c`.
+Change the grammar per store with `pathNormalizer: {separator: '.'}`. An ambiguous path — leading,
+trailing or doubled separator — throws rather than resolving to a guess.
+
+Two things it deliberately does not do. It does not **merge** into a node that already exists: an
+ancestor synthesized on demand keeps the fields it was created with, and a later explicit declaration
+of that same path resolves to it rather than updating it. And it does not **reconcile deletions** —
+removing a leaf leaves its now-empty ancestors in place, because whether an empty group should
+disappear is a consumer policy rather than a store invariant.
+
+The transform itself lives in `Neo.data.normalizer.Path`, the sibling of `Neo.data.normalizer.Tree`:
+same category of reshaping, different input encoding. Use the normalizer directly through a
+`Neo.data.Pipeline` when path-addressed data arrives from a remote source in bulk.
 
 ### Expanding and Collapsing
 
