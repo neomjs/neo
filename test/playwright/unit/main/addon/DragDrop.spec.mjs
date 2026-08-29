@@ -1318,7 +1318,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         }
     };
 
-    const createState = ({axis='width', preview=true, resizeNext=true}={}) => {
+    const createState = ({axis='width', awaitWorkerSettlement=false, preview=true, resizeNext=true}={}) => {
         const style  = createStyle({flex: '1 1 0%'}),
               target = {style};
 
@@ -1326,7 +1326,9 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
 
         resize.state = {
             axis,
+            awaitWorkerSettlement,
             coordinate   : axis === 'width' ? 'clientX' : 'clientY',
+            dragZoneId   : 'splitter-zone',
             lastSize     : 300,
             maxSize      : 590,
             minSize      : 0,
@@ -1335,6 +1337,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
                 flex  : {priority: '', value: '1 1 0%'}
             },
             preview,
+            parentId       : 'parent-wrapper',
             resizeNext,
             startCoordinate: 100,
             startSize      : 300,
@@ -1389,6 +1392,98 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
             axis: 'width', size: 420, targetId: 'target-wrapper'
         });
         expect(style.getPropertyValue('width')).toBe('420px')
+    });
+
+    test('worker settlement keeps accepted pixels, restores rejected pixels, and rejects stale generations', () => {
+        let state = createState({awaitWorkerSettlement: true}),
+            terminal;
+
+        terminal = state.resize.finish({clientX: 190, clientY: 0});
+
+        expect(terminal).toEqual({
+            axis      : 'width',
+            generation: 1,
+            size      : 210,
+            targetId  : 'target-wrapper'
+        });
+        expect(state.style.getPropertyValue('width')).toBe('210px');
+        expect(state.resize.settle({
+            dragZoneId: 'splitter-zone',
+            generation: 2,
+            restore   : true,
+            targetId  : 'target-wrapper'
+        }), 'a stale verdict cannot touch the current terminal').toBe(false);
+        expect(state.style.getPropertyValue('width')).toBe('210px');
+        expect(state.resize.settle({
+            dragZoneId: 'splitter-zone',
+            generation: 1,
+            restore   : true,
+            targetId  : 'target-wrapper'
+        })).toBe(true);
+        expect(state.style.getPropertyValue('width')).toBe('');
+        expect(state.style.getPropertyValue('flex')).toBe('1 1 0%');
+        expect(state.resize.pendingTerminal).toBeNull();
+
+        state    = createState({awaitWorkerSettlement: true});
+        terminal = state.resize.finish({clientX: 180, clientY: 0});
+
+        expect(state.resize.settle({
+            dragZoneId: 'splitter-zone',
+            generation: terminal.generation,
+            targetId  : 'target-wrapper'
+        })).toBe(true);
+        expect(state.style.getPropertyValue('width'), 'acceptance retains terminal pixels until projection owns them')
+            .toBe('220px');
+        expect(state.resize.pendingTerminal).toBeNull()
+    });
+
+    test('a same-gesture registration replaces a retired target and replays the latest pointer frame', () => {
+        const
+            first             = createState(),
+            replacementStyle  = createStyle({flex: '1 1 0%'}),
+            replacementTarget = {style: replacementStyle};
+
+        first.resize.apply({clientX: 150, clientY: 0});
+        first.resize.gesture = {
+            clientX      : 100,
+            clientY      : 0,
+            dragZoneId   : 'splitter-zone',
+            latestClientX: 180,
+            latestClientY: 0
+        };
+        first.resize.createState = config => ({
+            ...first.resize.state,
+            axis         : config.axis,
+            dragZoneId   : config.dragZoneId,
+            lastSize     : 300,
+            originalStyle: {
+                flex : {priority: '', value: '1 1 0%'},
+                width: {priority: '', value: ''}
+            },
+            parentId       : config.parentId,
+            startCoordinate: 100,
+            startSize      : 300,
+            target         : replacementTarget,
+            targetId       : config.targetId
+        });
+
+        first.resize.register({
+            dragElementRootId: 'splitter-root',
+            dragZoneId       : 'splitter-zone',
+            resizeConfig     : {
+                axis      : 'width',
+                parentId  : 'current-parent',
+                preview   : true,
+                resizeNext: true,
+                targetId  : 'current-target'
+            }
+        });
+
+        expect(first.style.getPropertyValue('width'), 'the retired target regains its original authority').toBe('');
+        expect(first.style.getPropertyValue('flex')).toBe('1 1 0%');
+        expect(first.resize.state.targetId).toBe('current-target');
+        expect(replacementStyle.getPropertyValue('width'), 'the latest frame is replayed on the current target')
+            .toBe('220px')
     });
 
     test('createState derives pixel bounds from the target computed style', () => {

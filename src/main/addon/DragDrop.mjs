@@ -191,6 +191,7 @@ class DragDrop extends Base {
                 'resumeWindowDrag',
                 'setConfigs',
                 'setDragProxyElement',
+                'settleResize',
                 'startWindowDrag',
                 'unregisterZone'
             ]
@@ -329,9 +330,10 @@ class DragDrop extends Base {
             DomEvents.sendMessageToApp({
                 ...parsedEvent,
                 ...(resize ? {
-                    resizeAxis    : resize.axis,
-                    resizeSize    : resize.size,
-                    resizeTargetId: resize.targetId
+                    resizeAxis      : resize.axis,
+                    resizeGeneration: resize.generation,
+                    resizeSize      : resize.size,
+                    resizeTargetId  : resize.targetId
                 } : {}),
                 dragZoneId: me.dragZoneId,
                 isDrop,
@@ -788,6 +790,25 @@ class DragDrop extends Base {
             me.zoneRegistrations[data.dragElementRootId] = data.dragZoneId;
             me.dragResize?.register(data)
         }
+    }
+
+    /**
+     * Settles one generation-scoped main-thread resize terminal after the App Worker accepts or
+     * rejects its semantic commit.
+     * @param {Object} data
+     * @param {String} data.dragZoneId
+     * @param {Number} data.resizeGeneration
+     * @param {Boolean} [data.restore=false]
+     * @param {String} data.resizeTargetId
+     * @returns {Boolean}
+     */
+    settleResize({dragZoneId, resizeGeneration, resizeTargetId, restore=false}={}) {
+        return this.dragResize?.settle({
+            dragZoneId,
+            generation: resizeGeneration,
+            restore,
+            targetId  : resizeTargetId
+        }) === true
     }
 
     /**

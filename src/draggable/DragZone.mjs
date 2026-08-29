@@ -263,6 +263,25 @@ class DragZone extends Base {
     }
 
     /**
+     * Routes one semantic resize verdict back to the exact main-thread gesture owner.
+     * @param {Object} data
+     * @param {Number} data.resizeGeneration
+     * @param {String} data.resizeTargetId
+     * @param {Boolean} [data.restore=false]
+     * @returns {Promise<Boolean>|undefined}
+     */
+    settleResize(data={}) {
+        let me = this;
+
+        return Neo.main.addon.DragDrop.settleResize?.({
+            appName   : me.appName,
+            dragZoneId: me.id,
+            windowId  : me.windowId,
+            ...data
+        })
+    }
+
+    /**
      * Triggered after the windowId config got changed
      * @param {Number|null} value
      * @param {Number|null} oldValue

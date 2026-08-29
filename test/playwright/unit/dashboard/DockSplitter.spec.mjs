@@ -121,7 +121,8 @@ const createEdgeSplitter = config => {
     });
 
     instance.dragZone = {
-        destroy: () => {}, dragEnd: () => {}, isDestroyed: false, registerZone: async () => {}, set: () => {}
+        destroy     : () => {}, dragEnd: () => {}, isDestroyed: false, registerZone: async () => {}, set: () => {},
+        settleResize: () => {}
     };
     instance.dockNodeType    = 'splitter';
     instance.parent.items[1] = instance;
@@ -316,11 +317,12 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         await splitter.captureDragStart({clientX: 200, clientY: 0});
 
         const result = splitter.onDragEnd({
-            clientX       : 240,
-            clientY       : 0,
-            resizeAxis    : 'width',
-            resizeSize    : 240,
-            resizeTargetId: 'left-wrapper'
+            clientX         : 240,
+            clientY         : 0,
+            resizeAxis      : 'width',
+            resizeGeneration: 7,
+            resizeSize      : 240,
+            resizeTargetId  : 'left-wrapper'
         });
 
         expect(operations).toEqual([{
@@ -332,13 +334,40 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         expect(result.errors).toEqual([]);
         expect(result.document.nodes.root.zones.left.extent).toBe(0.24);
         expect(splitter.getResizeConfig()).toEqual({
-            axis        : 'width',
-            parentId    : 'edge-parent',
-            preview     : true,
-            resizeNext  : false,
-            splitterSize: 6,
-            targetId    : 'left-wrapper'
+            axis                 : 'width',
+            awaitWorkerSettlement: true,
+            parentId             : 'edge-parent',
+            preview              : true,
+            resizeNext           : false,
+            splitterSize         : 6,
+            targetId             : 'left-wrapper'
         })
+    });
+
+    test('instance edge identity cannot be hijacked by colliding StateProvider data', () => {
+        splitter = createEdgeSplitter({id: 'dock-edge-splitter-provider-collision'});
+
+        splitter.getStateProvider = () => ({
+            getHierarchyData: () => ({
+                dockNodeId: 'provider-root',
+                edge      : 'right',
+                edgeZoneId: 'provider-root',
+                operation : 'resizeEdgeZone'
+            })
+        });
+
+        expect(DockLayoutAdapter.createResizeEdgeZoneOperation(splitter, 0.25)).toEqual({
+            operation : 'resizeEdgeZone',
+            edgeZoneId: 'root',
+            edge      : 'left',
+            extent    : 0.25
+        });
+
+        splitter.edge       = null;
+        splitter.edgeZoneId = null;
+
+        expect(splitter.isEdgeZoneResize(), 'provider data cannot reclassify a split affordance as an edge affordance')
+            .toBe(false)
     });
 
     test('a cancelled edge terminal restores presentation and commits zero operations', async () => {
@@ -379,9 +408,10 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
         expect(splitter.dragStartState).toBeNull()
     });
 
-    test('a rejected edge terminal re-projects the unchanged committed document', async () => {
-        const document = createEdgeDocument(),
-              restores = [];
+    test('a rejected edge terminal restores the exact pending main-thread preview', async () => {
+        const document    = createEdgeDocument(),
+              notifies    = [],
+              settlements = [];
 
         splitter = createEdgeSplitter({
             applyDockZoneOperation() {
@@ -390,23 +420,28 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter', () => {
             dockZoneDocument: document,
             id              : 'dock-edge-splitter-reject',
             onDockZoneDocumentChange(current, descriptor, instance) {
-                restores.push({current, descriptor, instance})
+                notifies.push({current, descriptor, instance})
             }
         });
 
+        splitter.dragZone.settleResize = data => settlements.push(data);
+
         await splitter.captureDragStart({clientX: 200, clientY: 0});
-        const result = splitter.onDragEnd({clientX: 240, clientY: 0, resizeSize: 240});
+        const result = splitter.onDragEnd({
+            clientX         : 240,
+            clientY         : 0,
+            resizeGeneration: 9,
+            resizeSize      : 240,
+            resizeTargetId  : 'left-wrapper'
+        });
 
         expect(result.errors).toEqual(['rejected edge extent']);
-        expect(restores).toHaveLength(1);
-        expect(restores[0].current).toEqual(document);
-        expect(restores[0].descriptor).toEqual({
-            operation : 'resizeEdgeZone',
-            edgeZoneId: 'root',
-            edge      : 'left',
-            extent    : 0.24
-        });
-        expect(restores[0].instance).toBe(splitter);
+        expect(notifies, 'unchanged projection is not a presentation rollback mechanism').toEqual([]);
+        expect(settlements).toEqual([{
+            resizeGeneration: 9,
+            resizeTargetId  : 'left-wrapper',
+            restore         : true
+        }]);
         expect(document.nodes.root.zones.left.extent).toBe(0.2)
     });
 });

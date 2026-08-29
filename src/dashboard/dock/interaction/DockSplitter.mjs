@@ -86,8 +86,7 @@ class DockSplitter extends Splitter {
          */
         dockZoneDocument_: null,
         /**
-         * View-sync callback. Notified after a successful local document commit; an edge-terminal
-         * rejection receives the unchanged committed document so its main-thread preview is restored.
+         * View-sync callback. Notified after a successful local document commit.
          * @member {Function|null} onDockZoneDocumentChange=null
          */
         onDockZoneDocumentChange: null,
@@ -319,7 +318,9 @@ class DockSplitter extends Splitter {
      * @protected
      */
     getResizeConfig() {
-        return this.isEdgeZoneResize() ? super.getResizeConfig() : null
+        let config = this.isEdgeZoneResize() ? super.getResizeConfig() : null;
+
+        return config ? {...config, awaitWorkerSettlement: true} : null
     }
 
     /**
@@ -328,8 +329,7 @@ class DockSplitter extends Splitter {
      * @protected
      */
     isEdgeZoneResize() {
-        return this.data?.operation === 'resizeEdgeZone'
-            || (typeof this.edgeZoneId === 'string' && typeof this.edge === 'string')
+        return typeof this.edgeZoneId === 'string' && typeof this.edge === 'string'
     }
 
     /**
@@ -380,6 +380,7 @@ class DockSplitter extends Splitter {
      */
     onDragEnd(data={}) {
         let me         = this,
+            edgeResize = me.isEdgeZoneResize(),
             hasCapture = Boolean(me.dragStartState) || Array.isArray(data.sizes),
             descriptor = null,
             result;
@@ -388,40 +389,61 @@ class DockSplitter extends Splitter {
         me.cleanupResize();
         me.dragZone?.dragEnd(data);
 
-        if (data.cancelled) {
+        try {
+            if (data.cancelled) {
+                result = {document: me.dockZoneDocument, errors: []}
+            }
+            // The end-overtakes-start race: a real-pointer release can land while the async start
+            // path is still capturing. A terminal without capture state (and no explicit vector) is
+            // not a gesture — committing would write a zero-delta operation; reject loudly instead.
+            else if (!hasCapture) {
+                result = {
+                    document: me.dockZoneDocument ?? null,
+                    errors  : ['DockSplitter received a terminal without capture state; no semantic resize was committed.']
+                }
+            } else {
+                descriptor = me.createResizeDescriptor(data);
+                result     = me.commitResizeOperation(descriptor)
+            }
+        } catch (error) {
+            edgeResize && me.settleMainThreadResize(data, true);
             me.dragStartState = null;
-            return {document: me.dockZoneDocument, errors: []}
+            throw error
         }
 
-        // The end-overtakes-start race: a real-pointer release can land while the async start
-        // path is still capturing. A terminal without capture state (and no explicit vector) is
-        // not a gesture — committing would write a zero-delta operation; reject loudly instead.
-        if (!hasCapture) {
-            result = {
-                document: me.dockZoneDocument ?? null,
-                errors  : ['DockSplitter received a terminal without capture state; no semantic resize was committed.']
-            }
-        } else {
-            descriptor = me.createResizeDescriptor(data);
-            result     = me.commitResizeOperation(descriptor);
+        edgeResize && me.settleMainThreadResize(data, data.cancelled || Boolean(result.errors?.length));
 
-            // Main-thread live resize intentionally retains its terminal pixels on success. A rejected
-            // semantic edge descriptor owns no such pixels, so re-project the unchanged committed document
-            // through the existing view-sync seam to restore the prior band geometry.
-            if (me.isEdgeZoneResize() && result.errors?.length && typeof me.onDockZoneDocumentChange === 'function') {
-                me.onDockZoneDocumentChange(me.dockZoneDocument, descriptor, me)
-            }
+        if (!data.cancelled) {
+            me.fire(result.errors?.length ? 'dockSplitterResizeRejected' : 'dockSplitterResize', {
+                descriptor,
+                result,
+                splitter: me
+            })
         }
-
-        me.fire(result.errors?.length ? 'dockSplitterResizeRejected' : 'dockSplitterResize', {
-            descriptor,
-            result,
-            splitter: me
-        });
 
         me.dragStartState = null;
 
         return result
+    }
+
+    /**
+     * Routes the semantic terminal verdict to the generation-scoped main-thread preview owner.
+     * @param {Object} data
+     * @param {Number} data.resizeGeneration
+     * @param {String} data.resizeTargetId
+     * @param {Boolean} restore
+     * @protected
+     */
+    settleMainThreadResize(data, restore) {
+        if (!Number.isInteger(data.resizeGeneration)) return;
+
+        this.dragZone?.settleResize?.({
+            resizeGeneration: data.resizeGeneration,
+            resizeTargetId  : data.resizeTargetId,
+            restore
+        })?.catch?.(error => {
+            error !== Neo.isDestroyed && console.error('DockSplitter: main-thread resize settlement failed', error)
+        })
     }
 
     /**

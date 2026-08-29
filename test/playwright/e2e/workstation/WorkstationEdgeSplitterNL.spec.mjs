@@ -152,7 +152,7 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             expect(splitterId, `${edge}: the initial workspace projects one complete visible edge affordance`).toBeTruthy()
         }
 
-        const dragEdge = async ({edge, dx=0, dy=0, cancel=false}) => {
+        const dragEdge = async ({edge, dx=0, dy=0, cancel=false, reject=false}) => {
             await expect(workspaceRoot, `${edge}: prior projection motion has released`)
                 .not.toHaveClass(/neo-dashboard-dock-animating/, {timeout: 10000});
             await expect(page.locator('.neo-dock-flip-fixed-stage'), `${edge}: no fixed-stage residue remains`)
@@ -168,6 +168,13 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             expect(resizeConfig, `${edge}: the generic main-thread resize descriptor is registered`).toMatchObject({
                 preview: true
             });
+
+            const registeredResize = await page.evaluate(id => (
+                Neo.main.addon.DragDrop.dragResize.registrations[id] ?? null
+            ), splitterId);
+
+            expect(registeredResize, `${edge}: an eager main-thread registration exists before pointer start`)
+                .toMatchObject({axis: resizeConfig.axis, dragZoneId: expect.any(String), preview: true});
 
             expect(rect, `${edge}: the settled splitter has pointer geometry`).toBeTruthy();
 
@@ -200,6 +207,15 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
             await page.mouse.move(startX + Math.sign(dx || 1) * 12, startY + Math.sign(dy || 1) * 12, {steps: 4});
             await page.mouse.move(startX + dx, startY + dy, {steps: 16});
 
+            await expect.poll(() => page.evaluate(() => Neo.main.addon.DragDrop.dragResize.active), {
+                message  : `${edge}: the real pointer gesture activates main-thread resize ownership`,
+                timeout  : 10000,
+                intervals: [25, 50]
+            }).toBe(true);
+
+            expect(await page.evaluate(() => Neo.main.addon.DragDrop.dragResize.state?.targetId ?? null),
+                `${edge}: the same-gesture refresh replaces any retired eager target`).toBe(resizeConfig.targetId);
+
             await expect.poll(async () => Math.abs((await readResizeRatio(resizeConfig)) - beforeRatio), {
                 message  : `${edge}: main-thread preview changes the real band before release`,
                 timeout  : 10000,
@@ -228,7 +244,30 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
                 return before
             }
 
+            if (reject) {
+                const state = (await app.getComponent(splitterId, ['dragStartState'])).dragStartState;
+
+                expect(state, `${edge}: the semantic splitter still owns its geometry capture`).toBeTruthy();
+                await app.setProperties(splitterId, {dragStartState: {...state, parentSize: null}})
+            }
+
             await page.mouse.up();
+
+            if (reject) {
+                await expect.poll(() => readResizeRatio(resizeConfig), {
+                    message  : `${edge}: reducer rejection restores the exact pre-gesture rendered band`,
+                    timeout  : 10000,
+                    intervals: [25, 50]
+                }).toBeCloseTo(beforeRatio, 2);
+                expect(JSON.stringify(await readDocument()), `${edge}: reducer rejection commits zero document bytes`)
+                    .toBe(beforeRaw);
+                expect(
+                    (await app.getComponent(splitterId, ['dragStartState'])).dragStartState,
+                    `${edge}: reducer rejection retires the worker-side geometry snapshot`
+                ).toBeNull();
+
+                return before
+            }
 
             await expect.poll(async () => {
                 const document = await readDocument();
@@ -252,6 +291,13 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
                 intervals: [50, 100]
             }).toBeLessThan(0.015);
 
+            const settledBand = await app.getComponent(settledConfig.targetId, ['height', 'width']);
+
+            expect(
+                settledBand[settledConfig.axis],
+                `${edge}: the retained component adopts committed percentage authority`
+            ).toBe(`${after.nodes.root.zones[edge].extent * 100}%`);
+
             return after
         };
 
@@ -268,6 +314,10 @@ test.describe('Workstation edge splitters — runtime pixels commit once as docu
         expect((await readActiveTabs()).activeIndex).toBe(1);
         await expect(page.locator('.workstation-pane-audit'), 'cancel leaves the same selected pane rendered').toBeVisible();
 
-        expect(pageErrors, 'the two-axis resize and cancellation surface no page errors').toEqual([])
+        await dragEdge({edge: 'left', dx: 70, reject: true});
+        expect((await readDocument()).nodes['right-top-tabs'].activeItemId).toBe('audit');
+        expect((await readActiveTabs()).activeIndex).toBe(1);
+
+        expect(pageErrors, 'the two-axis resize, cancellation, and rejection surface no page errors').toEqual([])
     })
 });

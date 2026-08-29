@@ -286,12 +286,14 @@ class LayoutAdapter extends Base {
      * @static
      */
     static createResizeEdgeZoneOperation(splitter, extent) {
-        let metadata = splitter?.data || splitter || {};
+        let edgeZoneId = splitter?.edgeZoneId || splitter?.dockNodeId,
+            edge       = splitter?.edge,
+            metadata   = !edgeZoneId || !edge ? splitter?.data || {} : {};
 
         return {
             operation : 'resizeEdgeZone',
-            edgeZoneId: metadata.edgeZoneId || metadata.dockNodeId || splitter?.edgeZoneId,
-            edge      : metadata.edge || splitter?.edge,
+            edgeZoneId: edgeZoneId || metadata.edgeZoneId || metadata.dockNodeId,
+            edge      : edge || metadata.edge,
             extent
         }
     }
