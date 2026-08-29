@@ -200,6 +200,30 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(treeStore.getChildren('edit')).toHaveLength(1)
     });
 
+    test('showSubMenu opens a real child level and leaves the parent alive', () => {
+        const root = createMenu({store: treeStore});
+
+        menus.push(root);
+
+        const record = root.store.get('file'),
+              nodeId = root.getItemId(root.store.getKey(record));
+
+        root.showSubMenu(nodeId, record);
+
+        const submenu = root.activeSubMenu;
+
+        menus.push(submenu);
+
+        expect(submenu).toBeTruthy();
+        expect(submenu.sourceStore).toBe(treeStore);
+        expect(submenu.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+
+        // Opening a child must not tear the parent down. Guards the whole interaction path, which a
+        // themeless browser cannot report on reliably.
+        expect(root.isDestroyed).toBeFalsy();
+        expect(root.store.getCount()).toBe(3)
+    });
+
     test('the classic nested-items API is untouched', () => {
         const menu = createMenu({
             items: [
