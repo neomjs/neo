@@ -1,28 +1,33 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary Whitebox E2E witness: a committed same-node splitter resize must be
- * classified as landed-in-place, not as a replacement tree.
+ * @summary Whitebox E2E witness: a committed splitter resize paints no visible double-take —
+ * in EITHER presentation mode.
  *
- * Defect mechanics (red state): the marker nodes of a committed resize survive in place with
- * unchanged ancestor lineage, so `hasPreservedMarkerSet()` can never classify the set — the
- * replacement-tree branch burns its full bounded detach poll (`maxFrames = 15`) on nodes that
- * never detach. The committed layout sits EXPOSED for ~15 frames, then the inverse transform
- * snaps the panes back to their pre-drag geometry and plays forward — a double-take on every
- * committed splitter drag, and the wide window in which async gBCR readers ingest scaled
- * fiction.
+ * The guarded property is the user-visible discontinuity around the commit, and it has two
+ * legitimate green shapes:
  *
- * Fix under test: the geometry discriminator `hasLandedInPlace()` — an exact, lineage-
- * unchanged marker set whose current rect already differs from First beyond the motion
- * epsilons has landed in place; stage A and the replacement-tree settle frame are bypassed.
+ * - **A FLIP plays** (deferred presentation, or any future path that moves pixels at commit):
+ *   the committed layout may sit exposed without its inverse transform for at most ~2 rAF
+ *   frames. The historic red state burned ~15 frames — the marker nodes of a same-node commit
+ *   survive in place with unchanged lineage, `hasPreservedMarkerSet()` could never classify
+ *   the set, and the replacement-tree branch exhausted its bounded detach poll before the
+ *   inverse snapped the panes back and played forward: a double-take on every committed drag,
+ *   and the window in which async gBCR readers ingest scaled fiction. The landed-in-place
+ *   discriminator (`hasLandedInPlace()`) closes that window.
+ * - **No FLIP plays** (the live boundary preview): the pane reaches the committed width UNDER
+ *   the pointer and release changes no pixels (terminal parity), so there is nothing to
+ *   invert — no transform ever appearing is the ideal, PROVIDED no untransformed frame leaves
+ *   the landed width again. That reversal is the double-take's visible signature, and the
+ *   witness stays failing-capable through it.
  *
  * Witness method: a page-side rAF sampler records the visual (computed, transform-inclusive)
- * width of the pane left of the dragged splitter across the commit. The discriminating
- * measurement is the exposed-Last window: the TIME between the committed layout first painting
- * and the inverse transform appearing. The assertion is time-based, not frame-count-based:
- * the close-target AC's "within 2 rAF frames" phrasing assumes a 60Hz cadence (~34ms); this host samples at
- * 120Hz, where a frame count would misread by 2x. Red: ~150-300ms (the 15-frame stage-A burn).
- * Green: <= 34ms, or the layout never paints without its inverse at all.
+ * width of the pane left of the dragged splitter across the whole gesture. When an inverse
+ * appears, the exposed-window assertion is time-based, not frame-count-based: the close-target
+ * AC's "within 2 rAF frames" phrasing assumes a 60Hz cadence (~34ms); this host samples at
+ * 120Hz, where a frame count would misread by 2x. Without an inverse, the reversal scan owns
+ * the verdict. Out of scope by design: a hypothetical jump-cut-without-flip (motion absence)
+ * belongs to the DockMotion specs, not this discontinuity witness.
  *
  * CDP page.mouse is REQUIRED: the commit must ride the trusted-input path (the app-side
  * synthetic path does not exercise the real drag lifecycle — measured in the drag-selection lane).
@@ -36,16 +41,17 @@ test.describe('Workstation — DockFlip classifies a committed splitter resize a
         viewport      : {height: 900, width: 1440}
     });
 
-    test('the inverse transform installs within 2 frames of the committed layout landing (no stage-A double-take)', async ({page, neuralLink}) => {
+    test('a committed splitter resize paints no double-take: bounded inverse when a FLIP plays, no untransformed reversal when live parity needs none', async ({page, neuralLink}) => {
         await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-dock-host', {timeout: 30000});
 
-        const app            = await neuralLink.connectToApp('Workstation'),
-              splitterResult = await app.queryVdom({cls: 'neo-dashboard-dock-splitter-horizontal'}),
-              splitterNode   = Array.isArray(splitterResult) ? splitterResult[0] : (splitterResult?.vdom ?? splitterResult),
-              splitterDomId  = splitterNode?.id;
+        // resizable edge zones share the orientation class — only the SPLIT container's own child
+        // commits resizeSplit and plays the landed-in-place FLIP this journey measures
+        const app           = await neuralLink.connectToApp('Workstation'),
+              splitterDomId = await page.evaluate(() =>
+                  document.querySelector('.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal')?.id);
 
-        expect(splitterDomId, 'the horizontal splitter must exist in the vdom').toBeTruthy();
+        expect(splitterDomId, 'the main split splitter must exist in the rendered projection').toBeTruthy();
 
         const [rect] = await app.getDomRect(splitterDomId),
               cx     = rect.x + rect.width / 2,
@@ -101,6 +107,11 @@ test.describe('Workstation — DockFlip classifies a committed splitter resize a
 
         await page.mouse.move(cx, cy);
         await page.mouse.down();
+        // the Mouse sensor arms once delay AND minDistance are both satisfied — evaluated at
+        // move events and once more when the delay timer re-enters with the latest coords. A
+        // drive that moves and releases inside the delay window clears that timer on mouseup,
+        // so no drag session ever opens, nothing commits, and nothing can flip
+        await page.waitForTimeout(130);
         await page.mouse.move(cx + 40, cy, {steps: 4});
         await page.mouse.move(cx + 160, cy, {steps: 8});
         await page.mouse.up();
@@ -112,22 +123,37 @@ test.describe('Workstation — DockFlip classifies a committed splitter resize a
 
         const landedIdx  = samples.findIndex(s => Math.abs(s.w - w1) <= 2),
               inverseIdx = landedIdx < 0 ? -1 : samples.findIndex((s, i) => i >= landedIdx && s.transformed),
-              exposed    = landedIdx < 0 ? 0 : (inverseIdx < 0 ? Infinity : inverseIdx - landedIdx),
-              exposedMs  = landedIdx < 0 ? 0 : (inverseIdx < 0 ? Infinity : samples[inverseIdx].t - samples[landedIdx].t);
+              // a reversal = an UNTRANSFORMED sample leaving the landed width again — the
+              // double-take's visible snap-back without the motion system owning the frame
+              reversalIdx = landedIdx < 0 ? -1 : samples.findIndex((s, i) => i > landedIdx && !s.transformed && Math.abs(s.w - w1) > 2),
+              exposed     = landedIdx < 0 || inverseIdx < 0 ? 0 : inverseIdx - landedIdx,
+              exposedMs   = landedIdx < 0 || inverseIdx < 0 ? 0 : samples[inverseIdx].t - samples[landedIdx].t;
 
-        console.log('[flip-diag] w0:', w0, 'w1:', w1, 'landedIdx:', landedIdx, 'inverseIdx:', inverseIdx, 'exposedFrames:', exposed, 'exposedMs:', exposedMs, 'samples:', samples.length);
+        console.log('[flip-diag] w0:', w0, 'w1:', w1, 'landedIdx:', landedIdx, 'inverseIdx:', inverseIdx, 'reversalIdx:', reversalIdx, 'exposedFrames:', exposed, 'exposedMs:', exposedMs, 'samples:', samples.length);
         console.log('[flip-diag] window:', JSON.stringify(samples.slice(Math.max(0, (landedIdx < 0 ? 0 : landedIdx) - 3), (landedIdx < 0 ? 0 : landedIdx) + 20)));
 
         expect(Math.abs(w1 - w0), 'the drag must have committed a real resize (~+160px on the left pane)').toBeGreaterThan(100);
 
-        // AC1/AC2: the committed layout may sit exposed WITHOUT its inverse for at most ~2 rAF
-        // frames at a 60Hz cadence — asserted as 34ms because rAF cadence is host-dependent
-        // (this host samples at 120Hz; the red state's stage-A burn measured ~150-300ms here).
-        // landedIdx === -1 means the layout never painted without its inverse — the ideal landing.
-        expect(
-            exposedMs,
-            `the committed layout sat exposed for ${exposed} frames / ${exposedMs}ms before the inverse installed (red state: ~15 frames / 150-300ms)`
-        ).toBeLessThanOrEqual(34);
+        // AC1/AC2, mode-aware. The double-take needs a DISCONTINUITY: the committed layout
+        // painting displaced frames the motion system does not own.
+        // - When a FLIP plays (a transform appears), the committed layout may sit exposed
+        //   without its inverse for at most ~2 rAF frames — asserted as 34ms because rAF
+        //   cadence is host-dependent (the red state's stage-A burn measured ~150-300ms here).
+        // - Under the live boundary preview there is nothing to invert: the pane reaches the
+        //   committed width UNDER THE POINTER and release changes no pixels (terminal parity),
+        //   so no transform ever appearing is the ideal — provided no untransformed frame
+        //   leaves the landed width again (that reversal IS the double-take's signature).
+        if (inverseIdx >= 0) {
+            expect(
+                exposedMs,
+                `the committed layout sat exposed for ${exposed} frames / ${exposedMs}ms before the inverse installed (red state: ~15 frames / 150-300ms)`
+            ).toBeLessThanOrEqual(34)
+        } else {
+            expect(
+                reversalIdx,
+                'without a playing flip, no untransformed frame may leave the landed width again (the visible double-take)'
+            ).toBe(-1)
+        }
 
         // Settlement truth: after the full gesture + play, the pane converges to the committed
         // geometry and no transform lingers.
