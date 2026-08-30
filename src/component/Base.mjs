@@ -196,6 +196,18 @@ class Component extends Abstract {
          */
         minWidth_: null,
         /**
+         * Declares part of this component's DOM as a native HTML5 drag source, so a drag can carry
+         * a `DataTransfer` payload into content the synthetic drag pipeline cannot reach — an
+         * embedded iframe, another window's foreign document, the OS. The declaration is pure JSON:
+         * a `delegate` selector for the draggable nodes, a `types` map of mime type to attribute
+         * template (`'{data-record-id}'` reads that attribute off the source node at drag time),
+         * and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread addon; see
+         * its class docs for the payload contract and the partition with the synthetic pipeline.
+         * @member {Object|null} nativeDragZone_=null
+         * @reactive
+         */
+        nativeDragZone_: null,
+        /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
          * @protected
@@ -601,6 +613,30 @@ class Component extends Abstract {
     afterSetMinWidth(value, oldValue) {
         this.configuredMinWidth = addUnits(value);
         this.changeVdomRootKey('minWidth', value)
+    }
+
+    /**
+     * Triggered after the nativeDragZone config got changed.
+     *
+     * The declaration reaches the main thread once this component is mounted — the addon scopes
+     * matches to the LIVE DOM subtree, so an earlier registration could match nothing and a boot
+     * race against the addon's remote registration is avoided in the same move. A registration is
+     * per owner id and replaces on re-set; a stale one after unmount matches nothing (the subtree
+     * is gone) and {@link #destroy} retires it.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetNativeDragZone(value, oldValue) {
+        let me   = this,
+            send = () => Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId});
+
+        if (!value) {
+            oldValue && Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.windowId});
+            return
+        }
+
+        me.mounted ? send() : me.on('mounted', send, me, {once: true})
     }
 
     /**
@@ -1192,6 +1228,9 @@ class Component extends Abstract {
             parentVdom;
 
         me.revertFocus();
+
+        // the main thread holds the registration, so nothing else would retire it with the component
+        me.nativeDragZone && Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.windowId});
 
         me.controller = null; // triggers destroy()
 
