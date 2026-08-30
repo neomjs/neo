@@ -396,6 +396,46 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(geometry.width).toBe(rect.width * operation.sizes[0])
         });
 
+        // Hand-built affordances above prove the GEOMETRY. These drive `mapPreviewToAffordance`, so a
+        // mapper that stops carrying the fraction — or indexes the wrong child of the committed pair —
+        // reddens here rather than passing on a fixture that never used the mapper.
+        test('the MAPPED affordance carries the committed fraction, for every direction', () => {
+            const mapped = kind => DockPreview.mapPreviewToAffordance(
+                preview({placement: {kind, orientation: 'horizontal', ratio: 0.3}})
+            );
+
+            // `before` takes the pair's first child, `after` its second — both are 0.3 here, so the
+            // index alone cannot be checked by value; the geometry below is what separates them.
+            expect(mapped('split-before').ratio).toBeCloseTo(0.3);
+            expect(mapped('split-after').ratio).toBeCloseTo(0.3);
+            expect(mapped('edge-top').ratio).toBeCloseTo(0.3);
+            expect(mapped('edge-bottom').ratio).toBeCloseTo(0.3);
+
+            // …and an ASYMMETRIC pair separates them: ratio 0.3 `after` commits [0.7, 0.3], so a mapper
+            // reading the first child reports 0.7 and paints the wrong pane.
+            expect(DockPreview.newNodeFraction(0.3, 'after')).toBeCloseTo(0.3);
+            expect(DockPreview.newNodeFraction(0.3, 'before')).toBeCloseTo(0.3);
+            expect(DockPreview.ratioToSizes(0.3, 'after')).toEqual([0.7, 0.3])
+        });
+
+        test('MAPPED end-to-end: the painted region matches the descriptor, per direction', () => {
+            for (const [kind, expected] of [
+                ['split-before', {x: 10,  y: 20, width: 60, height: 100}],
+                ['split-after',  {x: 150, y: 20, width: 60, height: 100}],
+                ['edge-left',    {x: 10,  y: 20, width: 60, height: 100}],
+                ['edge-right',   {x: 150, y: 20, width: 60, height: 100}]
+            ]) {
+                const source     = preview({placement: {kind, orientation: 'horizontal', ratio: 0.3}}),
+                      affordance = DockPreview.mapPreviewToAffordance(source),
+                      operation  = DockPreview.previewToOperation(source),
+                      sizes      = operation.sizes ?? operation.target?.placement?.sizes;
+
+                expect(DockPreview.affordanceGeometry(affordance, rect), kind).toEqual(expected);
+                // the descriptor's own share for the new pane, whichever child it is
+                expect(Math.min(...sizes)).toBeCloseTo(0.3)
+            }
+        });
+
         test('an absent or out-of-domain ratio still paints the even split', () => {
             for (const ratio of [undefined, null, 0, 1, -0.2, 1.5, 'half', NaN]) {
                 expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'before', ratio}, rect))
