@@ -167,6 +167,10 @@
     <lastmod>2026-06-29T21:10:09+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/agentos/tooling/NeuralLinkCapabilityMatrix</loc>
+    <lastmod>2026-08-29T12:54:02+02:00</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/agentos/DockZoneModel</loc>
     <lastmod>2026-08-22T00:04:27+02:00</lastmod>
   </url>
@@ -181,6 +185,10 @@
   <url>
     <loc>https://neomjs.com/learn/agentos/SeatMemoryLayer</loc>
     <lastmod>2026-07-22T22:32:33+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/agentos/decisions/0008-skill-anatomy-and-authoring-contract</loc>
+    <lastmod>2026-08-26T22:07:10+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/agentos/decisions/0018-neo-identity-source-of-truth-model</loc>
