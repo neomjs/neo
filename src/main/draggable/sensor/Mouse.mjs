@@ -139,6 +139,18 @@ class Mouse extends Base {
                 event.path = event.composedPath()
             }
 
+            /*
+                The partition contract with `Neo.main.addon.NativeDragSource`: a gesture starting on
+                a REGISTERED native drag source belongs to the native pipeline, even under a
+                `neo-draggable` ancestor. Claiming it here would install this sensor's `dragstart`
+                suppression (killing the payload) and stamp `neo-drag-active` (shielding the very
+                iframe the native drag exists to reach). Optional lookup: without the addon loaded,
+                nothing changes.
+            */
+            if (target && Neo.main?.addon?.NativeDragSource?.claimsEvent?.(event)) {
+                return
+            }
+
             if (target) {
                 Object.assign(me, {
                     currentElement: target.node,

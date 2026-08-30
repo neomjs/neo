@@ -196,6 +196,18 @@ class Component extends Abstract {
          */
         minWidth_: null,
         /**
+         * Declares part of this component's DOM as a native HTML5 drag source, so a drag can carry
+         * a `DataTransfer` payload into content the synthetic drag pipeline cannot reach — an
+         * embedded iframe, another window's foreign document, the OS. The declaration is pure JSON:
+         * a `delegate` selector for the draggable nodes, a `types` map of mime type to attribute
+         * template (`'{data-record-id}'` reads that attribute off the source node at drag time),
+         * and an optional `effectAllowed`. Requires the `NativeDragSource` main-thread addon; see
+         * its class docs for the payload contract and the partition with the synthetic pipeline.
+         * @member {Object|null} nativeDragZone_=null
+         * @reactive
+         */
+        nativeDragZone_: null,
+        /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
          * @protected
@@ -319,6 +331,23 @@ class Component extends Abstract {
          */
         _vdom: {}
     }
+
+    /**
+     * Monotonic guard for {@link #registerNativeDragZone}'s mount-gated sends: a pending send
+     * whose generation no longer matches was superseded (reset, replaced, or moved) and drops.
+     * @member {Number} nativeDragZoneGeneration=0
+     * @protected
+     */
+    nativeDragZoneGeneration = 0
+
+    /**
+     * The windowId whose main thread currently holds this component's native drag registration —
+     * the realm {@link #retireNativeDragZone} must address, which after a window transfer is not
+     * the current `windowId`. `null` = not registered.
+     * @member {Number|null} nativeDragZoneWindowId=null
+     * @protected
+     */
+    nativeDragZoneWindowId = null
 
     /**
      * @param {Object} config
@@ -604,6 +633,63 @@ class Component extends Abstract {
     }
 
     /**
+     * Triggered after the nativeDragZone config got changed.
+     *
+     * A reset retires first — in the realm that actually holds the registration — and every set
+     * issues a fresh, generation-guarded registration. See {@link #registerNativeDragZone} for the
+     * mount gating and {@link #retireNativeDragZone} for why pending sends cannot fire stale.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetNativeDragZone(value, oldValue) {
+        let me = this;
+
+        oldValue && me.retireNativeDragZone();
+        value    && me.registerNativeDragZone()
+    }
+
+    /**
+     * Issues this component's {@link #nativeDragZone} declaration to the main-thread addon,
+     * gated on the mount: the addon scopes matches to the LIVE DOM subtree, so registering
+     * earlier could match nothing — and the gate doubles as the boot-order guard against the
+     * addon's own remote registration. The send is generation-checked, so a declaration reset,
+     * replaced, or moved between the listener attaching and the mount firing is dropped instead
+     * of resurrecting stale state. Records the realm it registered with, for the retire side.
+     * @protected
+     */
+    registerNativeDragZone() {
+        let me   = this,
+            gen  = ++me.nativeDragZoneGeneration,
+            send = () => {
+                if (gen === me.nativeDragZoneGeneration && me.nativeDragZone) {
+                    me.nativeDragZoneWindowId = me.windowId;
+                    Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId})
+                }
+            };
+
+        me.mounted ? send() : me.on('mounted', send, me, {once: true})
+    }
+
+    /**
+     * Retires this component's native drag registration in the realm that HOLDS it — after a
+     * window transfer that is the old window, not the current one — and invalidates any pending
+     * mount-gated send by bumping the generation. Never-registered declarations (a pre-mount
+     * reset) skip the remote call entirely.
+     * @protected
+     */
+    retireNativeDragZone() {
+        let me = this;
+
+        me.nativeDragZoneGeneration++;
+
+        if (me.nativeDragZoneWindowId !== null) {
+            Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.nativeDragZoneWindowId});
+            me.nativeDragZoneWindowId = null
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -840,10 +926,22 @@ class Component extends Abstract {
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
 
-        let controller = this.controller;
+        let me         = this,
+            controller = me.controller;
 
         if (controller) {
             controller.windowId = value
+        }
+
+        /*
+            A native drag source is registered with ONE window's main thread. Moving the component
+            (a dock tear-out, a window transfer) must retire the registration in the realm that
+            holds it and re-issue it in the new one — waiting for the new mount, exactly like the
+            first registration did.
+        */
+        if (oldValue && me.nativeDragZone) {
+            me.retireNativeDragZone();
+            me.registerNativeDragZone()
         }
     }
 
@@ -1192,6 +1290,9 @@ class Component extends Abstract {
             parentVdom;
 
         me.revertFocus();
+
+        // the main thread holds the registration, so nothing else would retire it with the component
+        me.nativeDragZone && me.retireNativeDragZone();
 
         me.controller = null; // triggers destroy()
 
