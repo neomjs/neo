@@ -411,6 +411,14 @@ class LayoutAdapter extends Base {
      *     into every tabs header. The workspace owns the effect and policy synchronization.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
+     * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
+     *     actions, called per tabs node as `(nodeId)` and returning an array of action configs (or
+     *     nothing). The set is **node-static**: it is resolved per tabs node and lives for that
+     *     node's retained lifetime, so per-active-item behaviour belongs on the action instance
+     *     (`hidden` / `disabled`), never in a changing list. Actions project BEFORE the close action,
+     *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
+     *     tab header's own default. Semantic names must be unique per node, and `close` is reserved
+     *     while `enableDockCloseAction` is on.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
@@ -472,6 +480,7 @@ class LayoutAdapter extends Base {
             onDockCrossZoneDrop              : options.onDockCrossZoneDrop,
             onDockActiveIndexChange          : options.onDockActiveIndexChange,
             onDockHeaderAction               : options.onDockHeaderAction,
+            resolveDockHeaderActions         : options.resolveDockHeaderActions,
             onDockStackDragTerminal          : options.onDockStackDragTerminal,
             onDockTearOutCancel              : options.onDockTearOutCancel,
             onDockTearOutEntry               : options.onDockTearOutEntry,
@@ -934,18 +943,59 @@ class LayoutAdapter extends Base {
             }
         ));
 
+        // Host actions precede the close action so `close` stays the rightmost control — the position
+        // it already occupies for every consumer that enables it, and the one the gesture is reached
+        // at. A host resolver returning nothing leaves the projection byte-identical to before.
+        //
+        // The resolver receives the node id ALONE, deliberately. Handing it the active item would
+        // invite a per-item action LIST, and a list that changes between projections replaces the
+        // action group — destroying the stable instances `actionVisibilityChange` consumers such as
+        // tab Overflow depend on. The engine's own close action varies per active item without that
+        // cost by keeping one instance and moving `hidden` (`Workspace#syncDockCloseAction`); a host
+        // needing per-item behaviour has the same mechanism, on actions it owns.
+        const hostActions = context.resolveDockHeaderActions?.(nodeId) || [],
+              seen        = new Set();
+
+        for (const action of hostActions) {
+            const name = action?.action;
+
+            // Semantic names address actions: `getActionItem(name)` returns the FIRST match, and
+            // intents are routed by name. A duplicate makes one of them unaddressable; a host `close`
+            // while the engine's is enabled would additionally capture the engine's own policy sync
+            // and its intent. Both are host programming errors, and both are silent — so they throw
+            // here, as malformed action configs already do in `toolbar.Base#createActionItemConfig`.
+            if (!name) {
+                throw new Error('Neo.dashboard.dock.projection.LayoutAdapter: a host header action requires a semantic `action` name')
+            }
+
+            if (seen.has(name)) {
+                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: duplicate host header action "${name}" on dock node "${nodeId}"`)
+            }
+
+            if (name === 'close' && context.enableDockCloseAction) {
+                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "close" is reserved while enableDockCloseAction is on (dock node "${nodeId}")`)
+            }
+
+            seen.add(name)
+        }
+
+        const headerActions = [
+            ...hostActions,
+            ...(context.enableDockCloseAction ? [{
+                action    : 'close',
+                contextual: false,
+                hidden    : !activeItemId || context.items[activeItemId]?.closable === false,
+                iconCls   : 'fa fa-times'
+            }] : [])
+        ];
+
         return {
             activeIndex,
             cls         : ['neo-dashboard-dock-tabs'],
             dockNodeId  : nodeId,
             dockNodeType: 'tabs',
+            ...(headerActions.length > 0 && {headerActions}),
             ...(context.enableDockCloseAction && {
-                headerActions: [{
-                    action    : 'close',
-                    contextual: false,
-                    hidden    : !activeItemId || context.items[activeItemId]?.closable === false,
-                    iconCls   : 'fa fa-times'
-                }],
                 // The empty-tabs fallback receives focus after its last close. A plain div cannot
                 // own programmatic focus, so the opt-in makes the projected root focusable.
                 vdom: {tabIndex: -1}
@@ -1009,11 +1059,11 @@ class LayoutAdapter extends Base {
                     dockNodeId  : nodeId,
                     tabContainer: data.item?.parent?.parent ?? null
                 }),
-                headerAction: data => {
-                    if (data.action === 'close') {
-                        context.onDockHeaderAction?.({...data, dockNodeId: nodeId})
-                    }
-                },
+                // Every action intent is forwarded, not just `close`. Filtering here made the slot
+                // unusable for a host: an action could be projected and pressing it would reach
+                // nothing. The owner decides what it handles — the workspace already ignores actions
+                // it does not own — so the filter belonged there, never in the wire.
+                headerAction: data => context.onDockHeaderAction?.({...data, dockNodeId: nodeId}),
                 // Cancel is a gesture lifecycle signal, not a synthetic drop: the workspace clears
                 // transient affordances while the sort zone restores its captured layout.
                 dockCrossZoneDragCancel: data => context.onDockCrossZoneDragCancel?.(data),

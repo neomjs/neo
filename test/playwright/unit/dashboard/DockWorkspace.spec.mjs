@@ -34,6 +34,36 @@ const createDocument = () => ({
 });
 
 /**
+ * A host that projects its OWN header actions through the documented options hook — the seam a real
+ * application uses, exercised end to end rather than through the adapter in isolation.
+ */
+const hostResolverCalls = [];
+
+class HostActionWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.HostActionWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    // Module-scoped rather than an instance field: a plain class field on a Neo class enters the
+    // config machinery and fails its descriptor lookup. State belongs in `static config`, and a test
+    // probe belongs outside the class entirely.
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            resolveDockHeaderActions: nodeId => {
+                hostResolverCalls.push(nodeId);
+                return [{action: 'pin', iconCls: 'fa fa-thumbtack'}]
+            }
+        }
+    }
+}
+
+/**
  * The minimal consumer: the document arrives as a config-assigned field, the projection sits at
  * shell index 0 of the workspace itself, and nothing is overridden.
  */
@@ -196,6 +226,7 @@ Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
 Neo.setupClass(TearOutWorkspace);
+Neo.setupClass(HostActionWorkspace);
 
 const
     tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
@@ -229,6 +260,109 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(workspace.getDockZoneDocument()).toBe(document);
         expect(workspace.getDockHost()).toBe(workspace);
         expect(tabsOf(workspace.items[0]).size).toBe(2)
+    });
+
+    test('an action the workspace does not own is re-emitted to the host with its node id', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const received     = [],
+              tabContainer = {id: 'live-tabs'};
+
+        workspace.on('dockHeaderAction', data => received.push(data));
+
+        // No close opt-in here on purpose: a host projecting only its OWN actions must still receive
+        // their intent. Swallowing it — which the class did for everything but `close` — is what made
+        // the header slot unusable for anyone else.
+        const result = workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'main-tabs', tabContainer});
+
+        expect(result, 'the workspace still declines to act on an action it does not own').toBeNull();
+        expect(received).toEqual([{
+            action    : 'pin',
+            dockNodeId: 'main-tabs',
+            source    : workspace.id,
+            tabContainer
+        }]);
+
+        // The WIRING, not just the method. Projecting without the close opt-in must still bind the
+        // seam onto every tabs node, which is the half that was conditional.
+        const findTabs = config => config?.dockNodeType === 'tabs'
+            ? config
+            : (config?.items || []).reduce((found, child) => found || findTabs(child), null);
+
+        const tabsNode = findTabs(workspace.projectDockModel());
+
+        expect(tabsNode, 'the projection exposes a tabs node to wire').toBeTruthy();
+        tabsNode.listeners.headerAction({action: 'pin', tabContainer});
+
+        expect(received).toHaveLength(2)
+    });
+
+    test('a host resolver reaches the live toolbar, routes its intent, and survives reprojection', async () => {
+        hostResolverCalls.length = 0;
+        workspace = Neo.create(HostActionWorkspace, {dockModel: createDocument()});
+
+        const received = [];
+        workspace.on('dockHeaderAction', data => received.push(data));
+
+        // `side-tabs` deliberately, not the first node: `editor-tabs` holds ONE item already at
+        // index 0, so the activation below would be a no-op and the identity assertion would hold
+        // across nothing happening.
+        const nodeId       = 'side-tabs',
+              tabContainer = tabsOf(workspace.items[0]).get(nodeId),
+              action       = tabContainer.getActionItem('pin');
+
+        // The adapter-level arms prove the projection CONFIG carries the action. This proves the
+        // config became a real toolbar item on a live workspace that supplied the resolver through
+        // the documented hook — the layer a host actually touches.
+        expect(action, 'the host action materialized as a live toolbar item').toBeTruthy();
+        expect(hostResolverCalls, 'the resolver is asked per tabs node').toContain(nodeId);
+        expect(workspace.enableDockCloseAction, 'host actions work with the close action OFF').toBe(false);
+
+        // Dispatch the action itself rather than calling the projected listener by hand: the handler
+        // is what a press runs, and it is the part that was previously wired only under the close
+        // opt-in.
+        action.handler({component: action});
+
+        expect(received).toHaveLength(1);
+        expect(received[0]).toMatchObject({action: 'pin', dockNodeId: nodeId, source: workspace.id});
+
+        // AC-5, which the first round asserted by reasoning rather than by evidence: a commit and
+        // reprojection must not REPLACE the action instance, or `actionVisibilityChange` consumers
+        // such as tab Overflow lose the component they are bound to.
+        //
+        // The transition has to be REAL, and the three guards below exist because an identity
+        // assertion is trivially true when nothing happened: the index actually moves, the COMMITTED
+        // document records the new active item, and a fresh refresh is scheduled.
+        const refreshBefore   = workspace.refreshPromise,
+              resolvesForNode = () => hostResolverCalls.filter(id => id === nodeId).length,
+              resolvesBefore  = resolvesForNode();
+
+        expect(tabContainer.activeIndex, 'starts on the first item').toBe(0);
+
+        await tabContainer.set({activeIndex: 1});
+        await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes[nodeId].activeItemId,
+            'the activation committed to the document, not just the view').toBe('terminal');
+        expect(workspace.refreshPromise,
+            'a reprojection was actually scheduled by that commit').not.toBe(refreshBefore);
+
+        const afterReproject = [...tabsOf(workspace.items[0]).entries()]
+            .find(([id]) => id === nodeId)?.[1]?.getActionItem('pin');
+
+        expect(afterReproject, 'the action survives reprojection').toBeTruthy();
+        expect(afterReproject, 'and it is the SAME instance, not a rebuilt group').toBe(action);
+
+        // This is what makes the identity assertion mean something. The projection path DID run
+        // again — the resolver was asked a second time for this node — and the retained node kept
+        // its existing action instance anyway. So the stability above is reconciliation winning over
+        // a real re-projection, not an absence of one.
+        //
+        // It is also why `node-static` is the honest contract rather than a convenience: a resolver
+        // returning a DIFFERENT action set on that second call does not take effect, so promising
+        // per-active-item lists would have been a promise the machinery cannot keep.
+        expect(resolvesForNode(),
+            'the projection path really re-ran for this node').toBeGreaterThan(resolvesBefore)
     });
 
     test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {
