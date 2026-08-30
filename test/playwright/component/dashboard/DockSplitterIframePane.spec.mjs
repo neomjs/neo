@@ -12,8 +12,14 @@ import {test, expect} from '@playwright/test';
  * and without the fix — it is structurally incapable of failing here, which is precisely why the
  * defect reached a consumer with the suite green. `page.mouse` drives the real input pipeline.
  *
- * The fix is a CSS shield scoped to the gesture class, so the assertions are the gesture's
- * observable ends: the splitter commits its travel, and the body class does not outlive the drag.
+ * **The witness is the release, and the timing is part of it.** The sensor claims the pointer at
+ * mousedown, while a DragZone session — which shields the whole page through
+ * `body:has(.neo-is-dragging) *` — only begins after its own arming delay, and a splitter resize
+ * opens no session at all. This guard covers that interval, so the arm must cross the iframe
+ * immediately: pausing first hands the job to the other rule and the arm passes with the fix
+ * reverted. Splitter travel and the `drag:move` stream were both tried as witnesses and both fail
+ * for that reason — travel is impossible on a sibling-less splitter, and the stream only exists once
+ * the session that already shields the page has begun.
  */
 
 const IFRAME_ID = 'dock-splitter-iframe-pane';
@@ -60,6 +66,21 @@ test.beforeEach(async ({page}) => {
 
         if (!iframe.success) throw new Error(`iframe: ${iframe.error.message}`);
 
+        // The opt-out sibling: an iframe that must stay interactive THROUGH a gesture, because some
+        // drags legitimately target the embedded document.
+        const passthrough = await Neo.worker.App.createNeoInstance({
+            importPath: '../component/Base.mjs',
+            ntype     : 'component',
+            id        : `${iframeIdArg}-passthrough`,
+            parentId  : dashboard.id,
+            tag       : 'iframe',
+            cls       : ['neo-drag-passthrough'],
+            vdom      : {tag: 'iframe', src: 'about:blank'},
+            style     : {position: 'absolute', top: '460px', left: '24px', width: '200px', height: '80px'}
+        });
+
+        if (!passthrough.success) throw new Error(`passthrough: ${passthrough.error.message}`);
+
         return {dashboardId: dashboard.id, iframeId: iframe.id, splitterId: splitter.id}
     }, IFRAME_ID);
 
@@ -82,6 +103,51 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
         const idle = await page.evaluate(id => getComputedStyle(document.getElementById(id)).pointerEvents, IFRAME_ID);
 
         expect(idle).not.toBe('none')
+    });
+
+    test('neo-drag-passthrough opts an iframe out of the gesture shield', async ({page}) => {
+        // A pure test of THIS rule's contract, keyed on the class the rule is keyed on, and
+        // deliberately NOT run inside a live gesture. During a DragZone drag
+        // `resources/scss/src/draggable/DragProxyComponent.scss` applies
+        // `body:has(.neo-is-dragging) * { pointer-events: none !important }` — a universal selector
+        // carrying `!important`, which no `:not()` exclusion can outrank. Measuring the opt-out
+        // there would report the other rule's verdict, not this one's.
+        const measured = await page.evaluate(id => {
+            document.body.classList.add('neo-drag-active');
+
+            const read = el => getComputedStyle(el).pointerEvents,
+                  out  = {
+                      shielded   : read(document.getElementById(id)),
+                      passthrough: read(document.getElementById(`${id}-passthrough`))
+                  };
+
+            document.body.classList.remove('neo-drag-active');
+
+            return out
+        }, IFRAME_ID);
+
+        expect(measured.shielded,    'a plain iframe is shielded while the gesture class is set').toBe('none');
+        expect(measured.passthrough, 'an opted-out iframe is not').not.toBe('none')
+    });
+
+    test('a native drag does not stamp the shield class', async ({page}) => {
+        // The invariant the whole scope rests on: `pointer-events: none` also removes an element as a
+        // native drag-and-drop target, so if this class were ever stamped for a native HTML5 drag the
+        // shield would suppress the very drops it must not touch. Dispatching the event our own code
+        // would have to listen to is the right probe — a future change that stamps on `dragstart`
+        // fails here.
+        const stamped = await page.evaluate(() => {
+            const before = document.body.classList.contains('neo-drag-active'),
+                  target = document.querySelector('.neo-dashboard-dock-splitter'),
+                  event  = new DragEvent('dragstart', {bubbles: true, cancelable: true});
+
+            target.dispatchEvent(event);
+
+            return {before, after: document.body.classList.contains('neo-drag-active')}
+        });
+
+        expect(stamped.before, 'no gesture may be in flight when this arm runs').toBe(false);
+        expect(stamped.after,  'a native dragstart must not stamp the synthetic-gesture shield').toBe(false)
     });
 
     test('the gesture completes and terminates when the pointer passes over the iframe', async ({page}) => {
@@ -109,8 +175,14 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
         await page.mouse.move(startX, startY);
         await page.mouse.down();
 
-        // Cross the iframe mid-gesture. Without the shield the child document swallows this move and
-        // the release below, and the sensor never reaches endGesture.
+        // NO hold before moving, and that is the whole point of this arm.
+        //
+        // The sensor claims the pointer at mousedown; a DragZone session — which shields the entire
+        // page via `body:has(.neo-is-dragging) *` — only begins after its own arming delay, and a
+        // splitter resize never opens one at all. The unguarded interval between those two is where
+        // a crossing loses the stream. Pausing here to let a session start walks the test straight
+        // out of the window it exists to cover: with a 250ms hold this arm passed even with the
+        // shield reverted, because the other rule had taken over by then.
         await page.mouse.move(endX, startY, {steps: 10});
 
         const activeDuringDrag = await page.evaluate(() => document.body.classList.contains('neo-drag-active'));
@@ -127,6 +199,15 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
             {message: 'neo-drag-active outlived the gesture — the release never reached the sensor'}
         ).toBe(false);
 
+        // AC-1 is witnessed by the terminal above, not by splitter travel or a drag:move count.
+        //
+        // Both were tried and both are wrong instruments here. Travel is impossible: a standalone
+        // splitter has no siblings to resize. And the sensor's `drag:move` stream only exists once a
+        // session has been armed — which is precisely the state in which the DragZone rule already
+        // shields the page, so an arm that waits for the stream cannot fail on this defect. What the
+        // release proves is the property travel would only have proxied: the parent document still
+        // held the pointer after the crossing.
+        //
         // `neo-is-dragging` is deliberately NOT asserted here. It is a component cls owned by
         // `Neo.draggable.DragZone` in the App Worker, on a different drag family from the
         // sensor-driven splitter gesture this spec exercises, and this CSS shield does not touch its

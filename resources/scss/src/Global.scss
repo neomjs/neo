@@ -73,6 +73,17 @@ html, .neo-body-viewport {
 // hit-testing governs dragover/drop. This class is stamped only inside sensor-driven synthetic
 // gestures and never for a native drag, so the shield can never suppress a real HTML5 drop. A drag
 // whose legitimate target IS the iframe opts out per element.
+//
+// This covers a window nothing else does. Once a DragZone session is live,
+// `draggable/DragProxyComponent.scss` shields the whole page with
+// `body:has(.neo-is-dragging) * {pointer-events: none !important}`. But that class lands only after
+// the session starts, while the sensor claims the pointer at mousedown — and a splitter resize never
+// opens a DragZone session at all. The unguarded interval is exactly where a crossing loses the
+// stream, which is why the guard keys on the sensor's own class rather than the session's.
+//
+// The same rule bounds the opt-out: a universal selector carrying `!important` outranks any `:not()`
+// here, so an opted-out iframe stays interactive through a sensor gesture and is still inert through
+// a DragZone drag. That is the contract, not an oversight; widening it means changing that rule.
 .neo-drag-active iframe:not(.neo-drag-passthrough) {
     pointer-events: none;
 }
