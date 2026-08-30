@@ -181,10 +181,14 @@ jobs:
             // Unit has committed content guards, notably the release-note mutable
             // GitHub-link scan, discussion markdown fixture reads, and generated
             // portal index fixtures.
+            // `learn/` is docs-only by path but not by consequence: its links are checked against
+            // learn/tree.json, so a guide-only edit can introduce a route that resolves to no record.
+            // Without this the corpus gate is skipped exactly on the PRs it exists to catch.
             const requiresUnitForContent = file =>
               file.startsWith('resources/content/release-notes/') ||
               file.startsWith('resources/content/discussions/') ||
-              file.startsWith('apps/portal/resources/data/');
+              file.startsWith('apps/portal/resources/data/') ||
+              file.startsWith('learn/');
 
             // Whitelist: the components suite mounts real components in a browser against
             // the webpack dev server — engine (src/), live-compiled theme SCSS, the component

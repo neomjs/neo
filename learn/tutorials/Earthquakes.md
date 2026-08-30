@@ -124,7 +124,7 @@ As you can see, `MicroLoader.mjs` runs `Main.mjs`, which in turn spawns the thre
 - `neomjs-vdom-worker` keeps track of the view (and applies delta updates to the main thread)
 - `neomjs-app-worker` is where app logic is run
 
-Neo.mjs apps run in multiple webworkers, and each webworker is run in a separate parallel thread.
+Neo.mjs apps run in multiple webworkers, and each webworker is run in a separate parallel thread.<br>
 Parallel processing &mdash; along wih the efficient way the vdom worker applies delta updates &mdash; is why Neo.mjs applications run so fast.
 
 ##Commonly-used Scripts

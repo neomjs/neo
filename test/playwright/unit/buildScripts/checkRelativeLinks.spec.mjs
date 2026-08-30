@@ -84,10 +84,14 @@ test.describe('check-relative-links — resolution', () => {
             .toBe('learn/guides/fundamentals/X.md')
     });
 
-    test('a root-absolute target resolves against the repo root, NOT the referrer', () => {
-        // Joining these to the referrer's directory invented six false positives on the first pass.
-        expect(resolveTarget({kind: 'path', value: '/learn/comparisons/Overview.md'}, base))
-            .toBe('learn/comparisons/Overview.md')
+    test('a root-absolute target has no repository resolution and is reported unresolvable', () => {
+        // Joining these to the referrer's directory invented six false positives on the first pass,
+        // and the correction over-swung: resolving them from the repo root reported them HEALTHY.
+        // Neither reader works that way — a browser on GitHub sends `/learn/x.md` to
+        // `https://github.com/learn/x.md`, and the portal sends it outside the app. There is no
+        // repository path to check, so the only honest answer is "unresolvable".
+        expect(resolveTarget({kind: 'path', value: '/learn/comparisons/Overview.md'}, base)).toBeNull();
+        expect(resolveTarget({kind: 'path', value: '/.github/AI_QUICK_START.md'}, base)).toBeNull()
     });
 
     test('a trailing slash does not hide a directory that exists', () => {

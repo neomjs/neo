@@ -135,12 +135,17 @@ export function resolveTarget({kind, value}, base) {
         return `${PORTAL_ROOT}/${value.replaceAll('.', '/')}.md`
     }
 
+    // A root-absolute target is not a repository path. Both readers resolve it against an ORIGIN:
+    // a browser on GitHub sends `/learn/x.md` to `https://github.com/learn/x.md`, and the portal
+    // sends it outside the app. Treating the leading slash as "repo root" is a resolver convenience
+    // that reports a dead link as healthy, so it has no resolution and is reported as unresolvable.
+    if (value.startsWith('/')) {
+        return null
+    }
+
     // `normalize` preserves a trailing slash, and the directory set has none — so a link written
     // `./guides/` would miss a directory that is right there. Strip it before lookup.
-    return (value.startsWith('/')
-        ? value.slice(1)
-        : path.posix.normalize(path.posix.join(base, value))
-    ).replace(/\/+$/, '')
+    return path.posix.normalize(path.posix.join(base, value)).replace(/\/+$/, '')
 }
 
 export function collectDeadLinks({files, tracked, read}) {
@@ -172,7 +177,7 @@ export function collectDeadLinks({files, tracked, read}) {
 
             const resolved = resolveTarget(classified, base);
 
-            if (!tracked.has(resolved) && !dirs.has(resolved)) {
+            if (resolved === null || (!tracked.has(resolved) && !dirs.has(resolved))) {
                 findings.push({file, target: raw, resolved, kind: classified.kind})
             }
         }
@@ -201,7 +206,9 @@ function main() {
         for (const {file, target, resolved, kind} of findings) {
             console.error(`  ${file}`);
             console.error(`      -> ${target}${kind === 'portal' ? '   [portal id]' : ''}`);
-            console.error(`         resolves to ${resolved}, which the repository does not contain`)
+            console.error(resolved === null
+                ? '         is root-absolute: both readers resolve it against an origin, not the repository root'
+                : `         resolves to ${resolved}, which the repository does not contain`)
         }
 
         console.error('\nA custody move updates the target and leaves the referrer behind. Repoint the link,');
