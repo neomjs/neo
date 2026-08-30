@@ -1,0 +1,62 @@
+import {test, expect} from '@playwright/test';
+
+/**
+ * A guide's relative Markdown link must reach its destination in the running portal.
+ *
+ * The component and corpus arms both proved properties of the rewrite in isolation — and both stayed
+ * green when the production `rewriteLinks` invocation was deleted, because neither executed it. That
+ * mutation is what this arm exists to catch: it drives the real Portal app, so the render path, the
+ * view's declared route, the router and the tree store all participate. Removing the hook call or the
+ * Portal's `contentRoute` turns it red.
+ *
+ * It also answers the question the other two structurally cannot: not "is the href well-formed" but
+ * "does clicking it arrive".
+ */
+
+const GUIDE       = '/apps/portal/index.html#/learn/guides/uibuildingblocks/DockLayouts',
+      ADOPTION_ID = 'guides/uibuildingblocks/DockLayoutsAdoption';
+
+/** The content component's own class, so the assertions cannot drift onto sidebar or chrome links. */
+const CONTENT = '.neo-app-content-component';
+
+test.describe('learn link routing', () => {
+    test('a relative guide link is rendered as a route, not a file path', async ({page}) => {
+        await page.goto(GUIDE);
+
+        const content = page.locator(CONTENT);
+
+        // Auto-waits: the record fetch and render are async, and an empty article would make every
+        // locator below match nothing and pass vacuously.
+        await expect(content.locator('h1')).toContainText('Dock');
+
+        // The corpus authors this as `DockLayoutsAdoption.md`; only the rewrite can turn it into a
+        // route. Deleting the hook leaves the raw `.md` href here.
+        await expect(content.locator(`a[href="#/learn/${ADOPTION_ID}"]`).first()).toHaveCount(1)
+    });
+
+    test('a fragment-bearing link keeps its anchor on the route', async ({page}) => {
+        await page.goto(GUIDE);
+
+        const content = page.locator(CONTENT);
+        await expect(content.locator('h1')).toContainText('Dock');
+
+        // Authored as `DockLayoutsAdoption.md#decision-3--...`. The router's `{*itemId}` captures the
+        // whole suffix, so the id and the anchor must both survive for the controller to split them.
+        await expect(
+            content.locator(`a[href^="#/learn/${ADOPTION_ID}#"]`).first()
+        ).toHaveCount(1)
+    });
+
+});
+
+/*
+ * Not covered here, and deliberately not asserted: that CLICKING one of these links arrives at the
+ * destination. A click arm was written and reverted, because its own control — clicking the sidebar
+ * tree, which is the app's own navigation and owes nothing to this feature — failed in the same
+ * harness. A red assertion whose control is also red measures the harness, not the subject, and
+ * shipping it would have read as "routing is broken" on this evidence.
+ *
+ * So the arms above prove the href a reader is given, and stop there. What remains open is whether an
+ * in-content route link re-renders on click in a real session; that needs the navigation question
+ * settled in this tier first, and it is not something the rewrite can answer.
+ */
