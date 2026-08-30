@@ -165,9 +165,13 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
               split = await renderSplit(page, 'before');
 
         expect(split.missing, 'a split affordance must render').toBeFalsy();
-        expect(split.cls, 'a split in region mode must carry the region class').toContain('neo-dock-preview-region');
+
+        // The PAINT is asserted before the class that routes it. Ordered the other way, a mutant
+        // that drops the region class fails on the class line and the colour assertion never runs —
+        // red for the adjacent reason, leaving the property actually under test unproven.
         expect(split.background, 'a region-mode split must not paint the solid accent bar').toBe(edge.background);
-        expect(split.background, 'the split fill must carry alpha').toMatch(/rgba\([^)]+,\s*0?\.\d+\)/)
+        expect(split.background, 'the split fill must carry alpha').toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
+        expect(split.cls, 'a split in region mode must carry the region class').toContain('neo-dock-preview-region')
     });
 
     test('each edge carries its own kind and cut classes', async ({page}) => {
