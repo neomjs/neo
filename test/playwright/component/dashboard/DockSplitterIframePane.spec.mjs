@@ -130,24 +130,53 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
         expect(measured.passthrough, 'an opted-out iframe is not').not.toBe('none')
     });
 
-    test('a native drag does not stamp the shield class', async ({page}) => {
+    test('a real native HTML5 drag neither stamps the shield nor disables a drop target', async ({page}) => {
         // The invariant the whole scope rests on: `pointer-events: none` also removes an element as a
-        // native drag-and-drop target, so if this class were ever stamped for a native HTML5 drag the
-        // shield would suppress the very drops it must not touch. Dispatching the event our own code
-        // would have to listen to is the right probe — a future change that stamps on `dragstart`
-        // fails here.
-        const stamped = await page.evaluate(() => {
-            const before = document.body.classList.contains('neo-drag-active'),
-                  target = document.querySelector('.neo-dashboard-dock-splitter'),
-                  event  = new DragEvent('dragstart', {bubbles: true, cancelable: true});
+        // native drag-and-drop target, because the same hit-testing governs `dragover`/`drop`. So the
+        // shield is only safe while the sensor never stamps its class for a native drag.
+        //
+        // This drives a REAL native drag — a `draggable` source through the browser's own DnD path —
+        // rather than dispatching a `DragEvent` at an element. A dispatched event proves nothing here:
+        // it bypasses the native path entirely and the assertion passes even when no drag ever starts,
+        // which is the vacuity this arm exists to avoid. The counters below are the positive control.
+        await page.evaluate(id => {
+            const src = document.createElement('div'),
+                  dst = document.createElement('div');
 
-            target.dispatchEvent(event);
+            src.id        = 'native-drag-source';
+            src.draggable = true;
+            dst.id        = 'native-drag-target';
 
-            return {before, after: document.body.classList.contains('neo-drag-active')}
-        });
+            Object.assign(src.style, {position: 'absolute', left: '760px', top: '60px',  width: '90px', height: '40px', background: '#333'});
+            Object.assign(dst.style, {position: 'absolute', left: '760px', top: '180px', width: '120px', height: '90px', background: '#444'});
 
-        expect(stamped.before, 'no gesture may be in flight when this arm runs').toBe(false);
-        expect(stamped.after,  'a native dragstart must not stamp the synthetic-gesture shield').toBe(false)
+            window.__native = {start: 0, over: 0, drop: 0, stamped: false, iframePointerEvents: null};
+
+            const sample = () => {
+                window.__native.stamped ||= document.body.classList.contains('neo-drag-active');
+                window.__native.iframePointerEvents = getComputedStyle(document.getElementById(id)).pointerEvents
+            };
+
+            src.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', 'probe'); window.__native.start++; sample() });
+            dst.addEventListener('dragover',  e => { e.preventDefault(); window.__native.over++; sample() });
+            dst.addEventListener('drop',      e => { e.preventDefault(); window.__native.drop++ });
+
+            document.body.append(src, dst)
+        }, IFRAME_ID);
+
+        await page.dragAndDrop('#native-drag-source', '#native-drag-target');
+
+        const native = await page.evaluate(() => window.__native);
+
+        // NON-VACUITY: the native path must actually have run, start to finish. Without these the
+        // assertions below are satisfied by a drag that never happened.
+        expect(native.start, 'a real dragstart must have fired').toBeGreaterThan(0);
+        expect(native.over,  'the drop target must have been entered').toBeGreaterThan(0);
+        expect(native.drop,  'a real drop must have completed').toBeGreaterThan(0);
+
+        // The partition itself, sampled DURING the live native drag rather than after it.
+        expect(native.stamped,             'a native drag must not stamp the synthetic-gesture shield').toBe(false);
+        expect(native.iframePointerEvents, 'and must not render an iframe undroppable').not.toBe('none')
     });
 
     test('the gesture completes and terminates when the pointer passes over the iframe', async ({page}) => {
