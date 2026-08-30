@@ -206,6 +206,18 @@ export function isValidCandidateSet(set) {
  * @param {String} position 'before' | 'after' — which child the new node becomes
  * @returns {Number[]} normalized [first, second] sizes summing to 1
  */
+/**
+ * @summary Which side of a two-child split an edge drop lands the NEW node on.
+ *
+ * `bottom` and `right` append; `top` and `left` prepend. Shared so the operation descriptor and the
+ * rendered region cannot disagree about which half the drop will occupy.
+ * @param {String} edge
+ * @returns {String} `'before'` or `'after'`
+ */
+export function edgeSplitPosition(edge) {
+    return (edge === 'bottom' || edge === 'right') ? 'after' : 'before'
+}
+
 export function ratioToSizes(ratio, position) {
     let r = (typeof ratio === 'number' && ratio > 0 && ratio < 1) ? ratio : 0.5;
     return position === 'after' ? [1 - r, r] : [r, 1 - r]
@@ -251,7 +263,7 @@ export function previewToOperation(preview) {
             nodePlacement = {
                 edge,
                 orientation: (edge === 'left' || edge === 'right') ? 'horizontal' : 'vertical',
-                sizes      : ratioToSizes(placement.ratio, edge === 'bottom' || edge === 'right' ? 'after' : 'before')
+                sizes      : ratioToSizes(placement.ratio, edgeSplitPosition(edge))
             }
         }
 
@@ -278,6 +290,6 @@ export function previewToOperation(preview) {
         targetNodeId: nodeId,
         edge,
         orientation : (edge === 'left' || edge === 'right') ? 'horizontal' : 'vertical',
-        sizes       : ratioToSizes(placement.ratio, edge === 'bottom' || edge === 'right' ? 'after' : 'before')
+        sizes       : ratioToSizes(placement.ratio, edgeSplitPosition(edge))
     }
 }

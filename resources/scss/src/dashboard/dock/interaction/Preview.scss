@@ -14,8 +14,12 @@
                          border-color var(--dock-transition-duration) var(--dock-transition-easing);
     }
 
-    // Zone highlights — edge bands and whole-node tab targets — read as a translucent filled region.
+    // Zone highlights — edge/split RESULT REGIONS and whole-node tab targets — read as a
+    // translucent filled region: the half (or whole) of the target the drop would occupy.
+    // `neo-dock-preview-region` is the mode class the renderer adds for directional
+    // placements when result-region previews are on (the default).
     .neo-dock-preview-edge,
+    .neo-dock-preview-region,
     .neo-dock-preview-tab-into {
         &.neo-dock-preview-accepted {
             background-color : var(--agent-dock-preview-accept-fill, rgba(88, 166, 255, 0.22));
@@ -29,8 +33,19 @@
         }
     }
 
-    // Insertion guides — split lines and tab before/after markers — read as a solid bar.
-    .neo-dock-preview-split,
+    // The exact-cut accent: a result region's INNER edge is where the future splitter sits —
+    // the information the old insertion line carried survives as a thicker boundary there.
+    .neo-dock-preview-region {
+        &.neo-dock-preview-cut-top    { border-top-width   : 4px; }
+        &.neo-dock-preview-cut-right  { border-right-width : 4px; }
+        &.neo-dock-preview-cut-bottom { border-bottom-width: 4px; }
+        &.neo-dock-preview-cut-left   { border-left-width  : 4px; }
+    }
+
+    // Insertion guides — split lines (the `resultRegionPreviews: false` presentation) and tab
+    // before/after markers — read as a solid bar. The `:not(...)` guard keeps region-mode split
+    // affordances in the filled family above.
+    .neo-dock-preview-split:not(.neo-dock-preview-region),
     .neo-dock-preview-tab-before,
     .neo-dock-preview-tab-after {
         border-radius : 2px;
@@ -60,6 +75,7 @@
     // Same boundary as the indicator variant: component-domain aliases only — the apps
     // project their palettes; this file never reaches for an app palette directly.
     .neo-dock-preview-edge,
+    .neo-dock-preview-region,
     .neo-dock-preview-tab-into {
         &.neo-dock-preview-accepted {
             background-color : var(--agent-dock-preview-signal-fill);
@@ -69,7 +85,7 @@
         }
     }
 
-    .neo-dock-preview-split,
+    .neo-dock-preview-split:not(.neo-dock-preview-region),
     .neo-dock-preview-tab-before,
     .neo-dock-preview-tab-after {
         &.neo-dock-preview-accepted {

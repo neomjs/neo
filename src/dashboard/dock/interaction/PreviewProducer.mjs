@@ -83,7 +83,19 @@ class PreviewProducer extends Base {
          * grammar. Non-reactive config for the same tunability rationale as `edgeBandRatio`.
          * @member {Number} tabHeaderCarveOutPx=36
          */
-        tabHeaderCarveOutPx: 36
+        tabHeaderCarveOutPx: 36,
+        /**
+         * Pixel width of the container-border strip in which pointer inference resolves the
+         * ROOT `edge-*` placement — docking across the full surface without aiming at a 26px
+         * chip. The strip sits along the root rect's border, so it only overrides zone
+         * inference where a pane touches the container edge; the chips remain the precision
+         * targets and the indicator tier still wins over every inference. `0` disables the
+         * band (chips-only root docking). Pixels, not a ratio: it mirrors the renderer's
+         * `edgeBandSize` reach so the affordance and the hit strip agree at the border.
+         * Non-reactive config for the same tunability rationale as `edgeBandRatio`.
+         * @member {Number} rootEdgeBandPx=24
+         */
+        rootEdgeBandPx: 24
     }
 
     /**
@@ -144,6 +156,43 @@ class PreviewProducer extends Base {
     }
 
     /**
+     * @summary Resolves the root edge whose border strip contains `pointer`, or null.
+     *
+     * The strip runs `rootEdgeBandPx` inward from each border of the root rect. Inside it, the
+     * NEAREST border wins (corner ties resolve to the smaller distance; equal distances prefer
+     * top → bottom → left → right for stable diffing, mirroring `resolvePlacementKind`). A
+     * pointer outside the root rect, a degenerate rect, or a disabled band (`rootEdgeBandPx`
+     * <= 0) returns null — zone inference then owns the frame.
+     * @param {Object|null} root {nodeId, rect}
+     * @param {Object|null} pointer {x, y}
+     * @returns {String|null} 'top' | 'bottom' | 'left' | 'right' | null
+     * @protected
+     */
+    resolveRootEdge(root, pointer) {
+        let band = this.rootEdgeBandPx,
+            rect = root?.rect;
+
+        if (!(band > 0) || typeof root?.nodeId !== 'string' || !root.nodeId || !rect || !pointer) return null;
+
+        let {height, width, x, y} = rect,
+            {x: px, y: py}        = pointer;
+
+        if ([height, width, x, y, px, py].some(v => typeof v !== 'number' || Number.isNaN(v))) return null;
+        if (width <= 0 || height <= 0)                                                          return null;
+        if (px < x || px > x + width || py < y || py > y + height)                              return null;
+
+        let distances = [
+                ['top',    py - y],
+                ['bottom', (y + height) - py],
+                ['left',   px - x],
+                ['right',  (x + width) - px]
+            ],
+            [edge, nearest] = distances.reduce((best, entry) => entry[1] < best[1] ? entry : best);
+
+        return nearest <= band ? edge : null
+    }
+
+    /**
      * @summary Finds the innermost dock zone whose rect contains `pointer`, or null.
      *
      * Zones are expected already ordered outermost → innermost (the adapter projects them in tree
@@ -183,13 +232,25 @@ class PreviewProducer extends Base {
      * @param {String} params.itemId the representative dragged dock item id
      * @param {String} [params.groupNodeId] runtime-only whole-stack source node id
      * @param {String} [params.containerId] the hovered workspace/container id
+     * @param {Object} [params.root] {nodeId, rect} the container's root node — enables the root-edge
+     * border strip. Absent (the cross-window callers) fail-closes to plain zone inference.
      * @param {Object} [params.source] producer surface, e.g. {surface, sortZoneId}
      * @param {String} [params.sourceNodeId] the drag's origin dock node (used as sortZoneId fallback)
      * @returns {Object|null} a `neo.dock.preview.v1` payload, or null
      */
-    produce({pointer, zones, itemId, groupNodeId=null, containerId=null, source=null, sourceNodeId=null}={}) {
+    produce({pointer, zones, itemId, groupNodeId=null, containerId=null, root=null, source=null, sourceNodeId=null}={}) {
         if (typeof itemId !== 'string' || !itemId ||
             (groupNodeId != null && (typeof groupNodeId !== 'string' || !groupNodeId))) return null;
+
+        let params = {containerId, groupNodeId, itemId, source, sourceNodeId},
+            // the container-border strip outranks zone inference (mirroring the indicator
+            // menu's root chips): near the surface boundary, "dock across the full edge" is
+            // the intended reading even where a pane sits underneath
+            rootEdge = this.resolveRootEdge(root, pointer);
+
+        if (rootEdge) {
+            return this.buildPreview(params, root.nodeId, `edge-${rootEdge}`)
+        }
 
         let zone = this.hitTestZone(zones, pointer);
 
@@ -199,7 +260,7 @@ class PreviewProducer extends Base {
 
         if (kind === 'rejected') return null;
 
-        return this.buildPreview({containerId, groupNodeId, itemId, source, sourceNodeId}, zone.nodeId, kind, zone.orientation)
+        return this.buildPreview(params, zone.nodeId, kind, zone.orientation)
     }
 
     /**

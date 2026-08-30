@@ -170,6 +170,35 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 §2.3 �
         expect(producer.produce()).toBeNull()                                                        // no args
     });
 
+    test('the root-edge border strip outranks zone inference — docking across the full surface without a chip', () => {
+        // one zone touching the container border: without the strip, a pointer 10px inside the
+        // left border resolves the ZONE's placement; the strip re-reads it as the ROOT edge
+        const root  = {nodeId: 'root', rect: {x: 0, y: 0, width: 400, height: 300}},
+              zones = [{nodeId: 'main-tabs', rect: {x: 0, y: 0, width: 400, height: 300}, orientation: 'horizontal'}];
+
+        const strip = producer.produce({pointer: {x: 10, y: 150}, zones, itemId: 'strategy', root});
+        expect(strip.placement.kind).toBe('edge-left');
+        expect(strip.target.nodeId).toBe('root');
+        expect(strip.previewId).toBe('preview:strategy:root:edge-left');
+
+        // corner ambiguity: the NEAREST border wins
+        const corner = producer.produce({pointer: {x: 20, y: 8}, zones, itemId: 'strategy', root});
+        expect(corner.placement.kind).toBe('edge-top');
+        expect(corner.target.nodeId).toBe('root');
+
+        // inside the surface, past the strip: zone inference owns the frame unchanged
+        const interior = producer.produce({pointer: {x: 200, y: 150}, zones, itemId: 'strategy', root});
+        expect(interior.target.nodeId).toBe('main-tabs');
+        expect(interior.placement.kind).toBe('tab-into');
+
+        // no root supplied (legacy callers) and a disabled band both fall through to zones
+        expect(producer.produce({pointer: {x: 10, y: 150}, zones, itemId: 'strategy'}).target.nodeId).toBe('main-tabs');
+
+        const disabled = Neo.create(DockPreviewProducer, {id: 'producer-root-band-off', rootEdgeBandPx: 0});
+        expect(disabled.produce({pointer: {x: 10, y: 150}, zones, itemId: 'strategy', root}).target.nodeId).toBe('main-tabs');
+        disabled.destroy()
+    });
+
     test('whole-stack production carries one coherent runtime group through previews and candidates', async () => {
         const {isValidCandidateSet} = await import('../../../../src/dashboard/dock/model/PreviewContract.mjs');
         const zones                 = [{nodeId: 'main-tabs', rect: RECT, orientation: 'vertical'}];
