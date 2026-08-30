@@ -159,11 +159,24 @@ class Preview extends Component {
         };
 
         if (this.EDGE_KINDS.has(kind)) {
-            return {...base, group: 'edge', edge: kind.slice('edge-'.length)}
+            let edge     = kind.slice('edge-'.length),
+                position = dockPreviewContract.edgeSplitPosition(edge);
+
+            // The fraction the NEW pane commits to, resolved through the same authority
+            // `previewToOperation` uses, so the region cannot paint a size the drop will not produce.
+            return {...base, group: 'edge', edge, ratio: this.newNodeFraction(placement.ratio, position)}
         }
 
         if (this.SPLIT_KINDS.has(kind)) {
-            return {...base, group: 'split', orientation: placement.orientation, position: kind.slice('split-'.length)}
+            let position = kind.slice('split-'.length);
+
+            return {
+                ...base,
+                group      : 'split',
+                orientation: placement.orientation,
+                position,
+                ratio      : this.newNodeFraction(placement.ratio, position)
+            }
         }
 
         return {...base, group: 'tab', index: Number.isInteger(placement.index) ? placement.index : null, position: kind.slice('tab-'.length)}
@@ -198,6 +211,49 @@ class Preview extends Component {
     }
 
     /**
+     * @summary The fraction of the target axis the NEW pane will occupy.
+     *
+     * Reads the committed size pair rather than the raw ratio, so an absent or out-of-domain ratio
+     * lands on whatever `ratioToSizes` normalizes it to. `before` places the new node first, `after`
+     * second — the pair is indexed accordingly rather than re-deriving the ratio.
+     * @param {Number} [ratio] the new node's fraction; normalized by `ratioToSizes`
+     * @param {String} position `'before'` or `'after'`
+     * @returns {Number}
+     * @static
+     */
+    /**
+     * @summary The already-resolved region fraction on an affordance, or the even split.
+     *
+     * An affordance built before this field existed, or one whose fraction fell out of domain, paints
+     * halves — the previous behaviour — rather than collapsing the region to nothing.
+     * @param {Object|null} affordance
+     * @returns {Number}
+     * @static
+     */
+    static regionFraction(affordance) {
+        let ratio = affordance?.ratio;
+
+        return (typeof ratio === 'number' && ratio > 0 && ratio < 1) ? ratio : 0.5
+    }
+
+    /**
+     * @summary The fraction of the target axis the NEW pane will occupy.
+     *
+     * Reads the committed size pair rather than the raw ratio, so an absent or out-of-domain ratio
+     * lands on whatever `ratioToSizes` normalizes it to. `before` places the new node first, `after`
+     * second — the pair is indexed accordingly rather than re-deriving the ratio.
+     * @param {Number} [ratio] the new node's fraction; normalized by `ratioToSizes`
+     * @param {String} position `'before'` or `'after'`
+     * @returns {Number}
+     * @static
+     */
+    static newNodeFraction(ratio, position) {
+        let sizes = this.ratioToSizes(ratio, position);
+
+        return position === 'after' ? sizes[1] : sizes[0]
+    }
+
+    /**
      * @summary Pure geometry: projects an affordance onto a target node rect.
      *
      * Given an affordance descriptor and the target node's runtime rect, returns the overlay box
@@ -224,14 +280,18 @@ class Preview extends Component {
             line = splitLineSize;
 
         if (affordance.group === 'edge') {
-            // region mode paints the HALF the new pane would occupy toward that edge — the
+            // region mode paints the fraction the new pane would occupy toward that edge — the
             // outcome, not the strip; line mode keeps the classic band affordance
             if (resultRegionPreviews) {
+                let fraction = Preview.regionFraction(affordance),
+                    regionW  = width  * fraction,
+                    regionH  = height * fraction;
+
                 switch (affordance.edge) {
-                    case 'top'   : return {x, y, width, height: height / 2};
-                    case 'bottom': return {x, y: y + height / 2, width, height: height / 2};
-                    case 'left'  : return {x, y, width: width / 2, height};
-                    case 'right' : return {x: x + width / 2, y, width: width / 2, height}
+                    case 'top'   : return {x, y, width, height: regionH};
+                    case 'bottom': return {x, y: y + height - regionH, width, height: regionH};
+                    case 'left'  : return {x, y, width: regionW, height};
+                    case 'right' : return {x: x + width - regionW, y, width: regionW, height}
                 }
             }
 
@@ -245,11 +305,18 @@ class Preview extends Component {
 
         if (affordance.group === 'split') {
             if (resultRegionPreviews) {
-                // the new sibling's half along the split axis: before = first child, after = second
+                // the new sibling's share along the split axis: before = first child, after = second
+                let fraction = Preview.regionFraction(affordance);
+
                 if (affordance.orientation === 'horizontal') {
-                    return {x: affordance.position === 'after' ? x + width / 2 : x, y, width: width / 2, height}
+                    let regionW = width * fraction;
+
+                    return {x: affordance.position === 'after' ? x + width - regionW : x, y, width: regionW, height}
                 }
-                return {x, y: affordance.position === 'after' ? y + height / 2 : y, width, height: height / 2}
+
+                let regionH = height * fraction;
+
+                return {x, y: affordance.position === 'after' ? y + height - regionH : y, width, height: regionH}
             }
 
             if (affordance.orientation === 'horizontal') {

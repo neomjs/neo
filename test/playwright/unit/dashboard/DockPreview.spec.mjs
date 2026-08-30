@@ -357,6 +357,52 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left'},  rect)).toEqual({x: 10,  y: 20, width: 100, height: 100})
         });
 
+        // A valid preview may carry `placement.ratio`, and `previewToOperation` commits
+        // `ratioToSizes(ratio, position)`. A region painted at a fixed half then shows a size the drop
+        // will not produce — a confidently wrong outcome, which is worse than the line it replaced.
+        test('a ratio-bearing SPLIT paints the committed fraction, on the committed side', () => {
+            // ratio 0.3, before -> sizes [0.3, 0.7]; the new pane is the FIRST child: 30% at the start.
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'before', ratio: 0.3}, rect))
+                .toEqual({x: 10, y: 20, width: 60, height: 100});
+            // ratio 0.3, after -> sizes [0.7, 0.3]; the new pane is the SECOND child: 30% at the end.
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after', ratio: 0.3}, rect))
+                .toEqual({x: 150, y: 20, width: 60, height: 100});
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'vertical', position: 'before', ratio: 0.25}, rect))
+                .toEqual({x: 10, y: 20, width: 200, height: 25});
+            expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'vertical', position: 'after', ratio: 0.25}, rect))
+                .toEqual({x: 10, y: 95, width: 200, height: 25})
+        });
+
+        test('a ratio-bearing EDGE paints the committed fraction, on the committed side', () => {
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top', ratio: 0.3}, rect))
+                .toEqual({x: 10, y: 20, width: 200, height: 30});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'bottom', ratio: 0.3}, rect))
+                .toEqual({x: 10, y: 90, width: 200, height: 30});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left', ratio: 0.25}, rect))
+                .toEqual({x: 10, y: 20, width: 50, height: 100});
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'right', ratio: 0.25}, rect))
+                .toEqual({x: 160, y: 20, width: 50, height: 100})
+        });
+
+        // 🔴 The region and the descriptor must agree for the SAME preview, or the UI is honest about
+        // a number nothing commits. This pins them to one authority rather than to each other's shape.
+        test('the painted fraction equals the size the descriptor commits', () => {
+            const source     = preview({placement: {kind: 'split-before', orientation: 'horizontal', ratio: 0.3}}),
+                  affordance = DockPreview.mapPreviewToAffordance(source),
+                  geometry   = DockPreview.affordanceGeometry(affordance, rect),
+                  operation  = DockPreview.previewToOperation(source);
+
+            expect(operation.sizes[0]).toBe(0.3);
+            expect(geometry.width).toBe(rect.width * operation.sizes[0])
+        });
+
+        test('an absent or out-of-domain ratio still paints the even split', () => {
+            for (const ratio of [undefined, null, 0, 1, -0.2, 1.5, 'half', NaN]) {
+                expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'before', ratio}, rect))
+                    .toEqual({x: 10, y: 20, width: 100, height: 100})
+            }
+        });
+
         test('DEFAULT (result regions): a split affordance is the new sibling\'s half along the axis', () => {
             expect(DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'before'}, rect))
                 .toEqual({x: 10, y: 20, width: 100, height: 100});
