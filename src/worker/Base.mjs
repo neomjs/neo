@@ -407,8 +407,16 @@ class Worker extends Base {
                 msgId   = message?.id;
 
             if (!msgId) {
-                // a window got closed and the message port no longer exist (SharedWorkers)
-                reject()
+                // A window got closed and its message port no longer exists (SharedWorkers).
+                // Typed, so consumers can discriminate expected teardown from real failures
+                // (see draggable.DragZone#destroyDragProxy); the message carries the routing
+                // context because envelope forwarding may preserve only the string.
+                const remote = opts.remoteClassName ? ` ${opts.remoteClassName}.${opts.remoteMethod}` : '';
+
+                reject(Object.assign(
+                    new Error(`worker.Base#promiseMessage: no live port for destination "${dest}" (${opts.action}${remote}) — a window closed?`),
+                    {code: 'NEO_DEAD_PORT'}
+                ))
             } else {
                 me.promises[msgId] = {
                     portEntry: message.port ? me.getPort({id: message.port}) : null,
