@@ -176,6 +176,35 @@ Within each of these folders, the SCSS files are organized to mirror the compone
 -   `resources/scss/theme-light/button/Base.scss`
 -   `resources/scss/theme-dark/button/Base.scss`
 
+### The Browser Reads a Build, Not Your SCSS
+
+In development Neo.mjs serves **JavaScript from source** as native ES modules, so a class change is live on reload. **CSS is different:** the browser loads compiled stylesheets from `dist/development/css/`, which are only as fresh as your last theme build. Edit an `.scss` file without rebuilding and you get current JS against an older stylesheet — a render that is confidently wrong, and whose first suspect is always your component code rather than the build.
+
+**The workflow that makes that state impossible** — two steps, and worth making a habit:
+
+1. **On a fresh checkout — and after any `git pull` or branch switch that brings someone else's SCSS**, build the themes:
+
+    ```bash readonly
+    npm run build-themes
+    ```
+
+    The compiled CSS is gitignored, so it never travels with a pull or a branch switch. The watcher only rebuilds what it *observes changing*, which means incoming SCSS is covered when the watcher happens to be running and missed entirely when it is not. Rebuilding after a pull costs seconds and removes the question.
+
+2. **Before you start editing SCSS**, start the watcher and leave it running:
+
+    ```bash readonly
+    npm run watch-themes
+    ```
+
+    It recompiles each `.scss` you touch, so the built CSS cannot fall behind your sources while you work.
+
+The watcher is also your safety net if you skip step 1: it **refuses to start** against an incomplete or stale build, names exactly which outputs are missing or stale, and prints the rebuild command. A watcher that started anyway would silently paper over the problem, so a startup failure here is the feature.
+
+Two things worth knowing about the failure mode itself:
+
+- `npm run server-start` warns when served CSS trails your SCSS, but **that warning is a dev-server feature.** Serve the same app from anything else — an IDE's built-in web server, `python -m http.server`, nginx — and there is no signal at all.
+- The browser-based suites never run against a stale build, by two different mechanisms: the **e2e and component** suites *materialize* fresh assets in their shared `globalSetup`, while the **visual** suite *refuses to run* and points you at the rebuild. Either way a green suite is **not** evidence that what you are looking at in your own browser is current — the suites fixed their own inputs, not yours.
+
 ## 4. SCSS File & Namespace Mapping
 
 For the automatic lazy-loading of theme files to work, it is **critical** that the path of an SCSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
