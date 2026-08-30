@@ -573,4 +573,4 @@ high-performance, and maintainable web applications. It's a testament to Neo.mjs
 unified and developer-friendly experience.
 
 For a detailed understanding of the internal mechanics, advanced usage patterns, and the full power of config lifecycle
-hooks, please refer to the [Config System Deep Dive guide](#/learn/guides.ConfigSystemDeepDive).
+hooks, please refer to the [Config System Deep Dive guide](../../guides/fundamentals/ConfigSystemDeepDive.md).

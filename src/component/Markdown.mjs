@@ -244,6 +244,25 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Hook for rewriting rendered anchor hrefs before the html is set. Identity by default.
+     *
+     * Markdown content can outlive the surface that renders it: the same file is read on GitHub, where a
+     * relative path is the correct link, and inside an app, where only that app knows how to turn the
+     * path into something navigable. This seam lets a subclass supply that translation without the
+     * author having to pick one consumer and break the other.
+     *
+     * Deliberately positioned after `marked.parse`, alongside the table and image post-processing, so it
+     * operates on the parser's OUTPUT. Rewriting the markdown instead would mean re-deciding what counts
+     * as a link, and a second opinion on that eventually disagrees with the renderer.
+     *
+     * @param {String} html Rendered Markdown HTML.
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        return html
+    }
+
+    /**
      * @summary Wraps Markdown-generated tables in a scroll container while preserving manual frontmatter tables.
      *
      * Mirrors the image-wrapper post-processing step: the rendered content keeps native table layout, while
@@ -566,13 +585,15 @@ class Markdown extends Component {
 
         // Parse the (now modified) markdown content into HTML
         // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
-        
+
         // Remove the backslash escape from special blocks so marked.js treats them as normal markdown blocks
         content = content.replace(/\\```/g, '```');
-        
+
         html = marked.parse(content);
 
         html = me.wrapMarkdownTables(html);
+
+        html = me.rewriteLinks(html);
 
         // Wrap raw HTML img tags in a scrollable container
         html = html.replace(/<img([^>]*)>/g, '<div class="neo-markdown-image-wrapper"><img$1></div>');

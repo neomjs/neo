@@ -38,9 +38,23 @@ export const LinkKind = {
     IN_PAGE: 'in-page',
     /** absolute `http(s)` — leaves the app by design; liveness is a separate question */
     EXTERNAL: 'external',
+    /** a repository file with no content route — source, build script, example entry point */
+    REPO_FILE: 'repo-file',
     /** anything else: resolves against the document URL and leaves the SPA (bare token, relative path) */
     UNROUTED: 'unrouted'
 };
+
+/**
+ * Extensions that identify a link into the repository tree rather than the content tree. A guide
+ * pointing at `../../../src/foo.mjs` is unreachable in the app, but no route exists for source files,
+ * so it is a different question from a broken content link and is reported rather than failed.
+ *
+ * Matched on the extension, deliberately not as "anything that is not .md": a bare portal-ish token
+ * like `benefits.body.ConfigSystem` is also not `.md`, and that negative would quietly absolve the
+ * exact defect this module exists to catch.
+ * @type {RegExp}
+ */
+const regexRepoFile = /\.(mjs|js|cjs|json|html|s?css|ts|yml|yaml|sh|txt)($|#|\?)/;
 
 /**
  * @summary Reads the portal's own routing authority.
@@ -75,6 +89,10 @@ export function classifyHref(href, itemIds) {
 
     if (href.startsWith('#')) {
         return {kind: LinkKind.IN_PAGE, itemId: null}
+    }
+
+    if (regexRepoFile.test(href)) {
+        return {kind: LinkKind.REPO_FILE, itemId: null}
     }
 
     return {kind: LinkKind.UNROUTED, itemId: null}

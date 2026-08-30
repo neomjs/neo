@@ -3,14 +3,14 @@
 In this topic you'll create an application that fetches data on earthquakes in Iceland,
 and show the information in two views: a table, and a map.
 
-You'll do this in a series of labs. 
+You'll do this in a series of labs.
 
 <span style='color: red;'>
     Important: The labs inside this Tutorial cannot run currently, since the Google Maps API changed
     and our addon needs adjustments. The chapters still contain valuable input.
 </span>
 
-## Goals 
+## Goals
 
 What are the goals of this lengthy topic?
 
@@ -19,7 +19,7 @@ What are the goals of this lengthy topic?
 
 Most of these labs are copy-and-paste because we're focusing on _what_ the code is doing on rather than _how_.
 
-For this tutorial don't worry about syntax details. Other tutorials and guides will spend more and 
+For this tutorial don't worry about syntax details. Other tutorials and guides will spend more and
 more time on syntax.e
 
 ## Key concepts
@@ -36,9 +36,9 @@ A few key concepts we'll be discussing:
 
 ## Advice
 
-A word of advice: Keep a high-level perspective, especially early on. We'll have plenty of time to get 
+A word of advice: Keep a high-level perspective, especially early on. We'll have plenty of time to get
 into the code, and we'll do most things multiple times. In other words, focus on what you're accomplishing,
-and don't worry about syntax details. 
+and don't worry about syntax details.
 
 ## Lab. Generate a Workspace
 
@@ -48,7 +48,7 @@ In this lab, you'll generate a Neo.mjs workspace and run the starter app.
 
 <details>
 <summary>Wait!</summary>
-You may already have a workspace! If so, you can skip this lab. For example, if you followed the <a href="#/learn/Setup">Getting Started > Setup</a> topic, above, you should already have a workspace.
+You may already have a workspace! If so, you can skip this lab. For example, if you followed the <a href="#/learn/gettingstarted/Setup">Getting Started > Setup</a> topic, above, you should already have a workspace.
 
 If you don't have a workspace, then continue on to the next step.
 </details>
@@ -56,8 +56,8 @@ If you don't have a workspace, then continue on to the next step.
 <details>
 <summary>Use the command-line to generate the workspace</summary>
 
-Use a terminal window to navigate to some parent folder, 
-then run 
+Use a terminal window to navigate to some parent folder,
+then run
 
     npx neo-app@latest
 
@@ -68,7 +68,7 @@ As the command finishes it starts a server and opens a browser window.
 <details>
 <summary>Inspect the workspace</summary>
 
-The workspace contains a local copy of the API docs, an `apps` directory (where your apps are found), 
+The workspace contains a local copy of the API docs, an `apps` directory (where your apps are found),
 and some other directories.
 </details>
 
@@ -85,7 +85,7 @@ at port 8080 and opens a new browser window.
 <details>
 <summary>Run the starter app</summary>
 
-By default, an app named `myapp` was created. You can run it by entering the `apps` directory and 
+By default, an app named `myapp` was created. You can run it by entering the `apps` directory and
 clicking `myapp`. It's a folder containing an `index.html` along with the source code for the app.
 
 <img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/RunTheStarterApp.png" style="width:80%"/>
@@ -106,10 +106,10 @@ at the `workspace/apps/myapp` directory.
 - `neo-config.json`
 
 Application source is in `.mjs` files. These are standard _modular JavaScript_ files
-with `import` and `export` statements, and class definitions. Neo.mjs apps have one class 
-definition per `.mjs` source file. 
+with `import` and `export` statements, and class definitions. Neo.mjs apps have one class
+definition per `.mjs` source file.
 
-The index file contains a script tag that runs `MicroLoader.mjs`, which is a simple 
+The index file contains a script tag that runs `MicroLoader.mjs`, which is a simple
 file that launches the app based on information found in `neo-config.json`.
 
 Don't worry about the file contents for now: we'll do that in the next lab.
@@ -124,12 +124,12 @@ As you can see, `MicroLoader.mjs` runs `Main.mjs`, which in turn spawns the thre
 - `neomjs-vdom-worker` keeps track of the view (and applies delta updates to the main thread)
 - `neomjs-app-worker` is where app logic is run
 
-Neo.mjs apps run in multiple webworkers, and each webworker is run in a separate parallel thread.  
-Parallel processing &mdash; along wih the efficient way the vdom worker applies delta updates &mdash; is why Neo.mjs applications run so fast. 
+Neo.mjs apps run in multiple webworkers, and each webworker is run in a separate parallel thread.
+Parallel processing &mdash; along wih the efficient way the vdom worker applies delta updates &mdash; is why Neo.mjs applications run so fast.
 
 ##Commonly-used Scripts
 
-If you look in the `package.json` script block you'll see several scripts used for generating applications 
+If you look in the `package.json` script block you'll see several scripts used for generating applications
 and classes, doing builds, and starting a server. We'll use several of them throughout the tutorials.
 
 - &mdash; creates a simple demo app
@@ -162,7 +162,7 @@ After the script runs yous should see these files in the `app/earthquakes` direc
 - `index.html`
 - `neo-config.json`
 
-If you look in `neo-config.json` you should see this content. Note the `mainThreadAddons` block 
+If you look in `neo-config.json` you should see this content. Note the `mainThreadAddons` block
 &mdash; it reflects the add-ons you chose when you followed the instructions in the script.
 ```json readonly
 {
@@ -178,7 +178,7 @@ If you look in `neo-config.json` you should see this content. Note the `mainThre
 You're free to edit `neo-config.json` if you were to change your mind later about the theme or need for other add-ons.
 
 If you refresh browser at <a href="http://localhost:8080/apps/" target="apps">http://localhost:8080/apps/</a>
-you'll see the new _earthquakes_ app listed, and if you run it you'll see... nothing! That's because the 
+you'll see the new _earthquakes_ app listed, and if you run it you'll see... nothing! That's because the
 minimal starter app is the shell of an application without any view content. We'll add a little content
 later in the lab.
 
@@ -189,8 +189,8 @@ later in the lab.
 <details>
 <summary>Look at the main view source</summary>
 
-Use a code editor and look at `workspace/apps/earthquakes/src/view/MainView.mjs`. You'll see the 
-following class definition: 
+Use a code editor and look at `workspace/apps/earthquakes/src/view/MainView.mjs`. You'll see the
+following class definition:
 
 ```javascript readonly
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
@@ -201,7 +201,7 @@ class MainView extends Base {
     static config = {
         className: 'Earthquakes.view.MainView',
         ntype: 'earthquakes-main',
-        
+
         controller: {module: Controller},
         stateProvider: {module: MainStateProvider},
 
@@ -213,8 +213,8 @@ class MainView extends Base {
 export default Neo.setupClass(MainView);
 ```
 
-As you can see, `MainView extends Base`, and `Base` is a _container_ (`Neo.container.Base`). 
-A container is a component &mdash; it holds other components, specified in `items:[]`. There 
+As you can see, `MainView extends Base`, and `Base` is a _container_ (`Neo.container.Base`).
+A container is a component &mdash; it holds other components, specified in `items:[]`. There
 are no items in the starter app. The `layout` config specifies how the items are arranged.
 
 </details>
@@ -223,7 +223,7 @@ are no items in the starter app. The `layout` config specifies how the items are
 <summary>Add a component</summary>
 
 Let's add a button. To do that, add an import for the button base class, then configure it
-in the container's `items:[]`. If you were to read the API docs for buttons, you'd see 
+in the container's `items:[]`. If you were to read the API docs for buttons, you'd see
 that buttons have various configs, such as `text`, which is the button text, `iconCls`, which
 is typically a FontAwesome CSS class used to show an icon, and `handler`, which specifies
 which method to run when the button is clicked. We'll use `text`.
@@ -270,7 +270,7 @@ take up the full window.
 The `layout` configures how child items are visually arranged. First, note that the config
 specifies `ntype`. We used `module` for the button config. An `ntype` is a class alias &mdash; if a class
 has already been imported, you can use the `ntype` rather than importing it again and using the `module`
-config. We haven't imported any layouts, but it turns out that `Neo.container.Base` _does_ import all the 
+config. We haven't imported any layouts, but it turns out that `Neo.container.Base` _does_ import all the
 layout types, which means we're always free to use `ntype` with layouts. You're free to specify an `ntype`
 for the classes you define.
 
@@ -317,20 +317,20 @@ Keep in mind that `Neo.manager.Component.items`, `Neo.find()` and `Neo.findFirst
 are debugging aids _only_, and <u>_should never be used in app logic_</u>.
 
 Why? There's nothing stopping you from using these statements, and they would work fine,
-but those methods completely break encapsulation and scoping principles! Their 
+but those methods completely break encapsulation and scoping principles! Their
 use would make an application brittle and hard to maintain.
 
 Once we have a reference in the debugger console you can inspect and update its
-properties, or run its methods. For example, if we have devtools open in the 
+properties, or run its methods. For example, if we have devtools open in the
 `earthquakes` app, then run `Neo.findFirst({ntype:'button'})` from the _neomjs-app-worker_
-context, we can inspect the button. 
+context, we can inspect the button.
 
 <img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesFindFirstButton.png">
 
-Once we find the component, we can expand it and scroll down until we see the grayed-out properties &mdash; 
+Once we find the component, we can expand it and scroll down until we see the grayed-out properties &mdash;
 those are set/get properties.
 
-We can choose whatever property we're interested in, and click on the ellipses. That runs the getter, and if 
+We can choose whatever property we're interested in, and click on the ellipses. That runs the getter, and if
 we change the value we'll be running the setter. An obvious button property to change is `text`.
 Editing that value is immediately reflected in the view.
 
@@ -339,7 +339,7 @@ Editing that value is immediately reflected in the view.
 Or, we can change the property directly via `Neo.findFirst({ntype:'button'}).text = "Hi there!`.
 
 There's an even more convenient way to get a component reference: Doing a Shift-Ctrl-right-click on a component
-will show the container hierarchy for the selected component. 
+will show the container hierarchy for the selected component.
 
 <img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesDemoShiftCtrl.png">
 
@@ -349,7 +349,7 @@ and inspect or update component.
 
 ##Lab. Debugging
 
-In this lab you'll get a little debugging practice by getting component references, changing properties, 
+In this lab you'll get a little debugging practice by getting component references, changing properties,
 and running methods.
 
 Remember that when using the debugger console you need to be in the _neo-app-worker_ context.
@@ -365,7 +365,7 @@ context, and run this statement:
     Neo.manager.Component.items
 
 The `items` property is an array of all created components. The array may have a lot of entries, depending on
-the complexity of an app and how much you've done while running it. But it's an easy way to explore what's 
+the complexity of an app and how much you've done while running it. But it's an easy way to explore what's
 been created.
 
 </details>
@@ -387,9 +387,9 @@ you can right click on the object and choose _Store as global_ variable. Chrome 
 <summary>Use `Neo.find()` and `Neo.findFirst()`</summary>
 
 If you know what you're looking for, and don't want to bother inspecting everything in `Neo.manager.Component.items`,
-you can use `Neo.find()`, passing an object used to match against what you're searching for. 
+you can use `Neo.find()`, passing an object used to match against what you're searching for.
 
-`Neo.find()` returns an array of matching instances, and `Neo.findFirst()` returns the first matching item. 
+`Neo.find()` returns an array of matching instances, and `Neo.findFirst()` returns the first matching item.
 Often you know there's only a single instance, so in practice `Neo.findFirst()` is more commonly used.
 
 You could find the button via Neo.find({ntype:'button'}) or Neo.find({text:'Button!'} (assuming you haven't changed
@@ -422,7 +422,7 @@ Note that _Shift-Ctrl-right-click_ is only available during development &mdash; 
 <details>
 <summary>Add a method</summary>
 
-As we mentioned, when debugging, if you a have a reference you can access or update its properties, or run 
+As we mentioned, when debugging, if you a have a reference you can access or update its properties, or run
 its methods. Let's try that out by adding a method.
 
 Edit `apps/earthquakes/view/MainView.mjs` and add a method.
@@ -479,10 +479,10 @@ Remember that you _must_ run console statement in the _neomjs-app-worker_ contex
 <details>
 <summary>Use _Shift-Ctrl-right-click_ to run the method</summary>
 
-Now try the _Shift-Ctrl-right-click_ technique. 
+Now try the _Shift-Ctrl-right-click_ technique.
 
-With your cursor over the button, do a _Shift-Ctrl-right-click_ &mdash; you'll see the component hierarchy logged. 
-As you did in the previous step, right-click on the entry for `MainView` and choose `Store object as global variable`. 
+With your cursor over the button, do a _Shift-Ctrl-right-click_ &mdash; you'll see the component hierarchy logged.
+As you did in the previous step, right-click on the entry for `MainView` and choose `Store object as global variable`.
 Then run `doFoo()` using that variable.
 </details>
 
@@ -569,7 +569,7 @@ Save and refresh.
 
 ##Key Features
 
-The code accomplishes a lot. 
+The code accomplishes a lot.
 
 As we discussed before, the app is
 - Class-based
@@ -580,7 +580,7 @@ The app logic
 - Populates a store
 - Shows store data in a table
 
-Let's review the code and see what it's doing. 
+Let's review the code and see what it's doing.
 
 ### The Store
 
@@ -623,12 +623,12 @@ The feed looks like this.
       "location": "2.8 km WSW of Raufarhólshellir",
       "magnitude": "0.80979",
       "depth": "10.2"
-    }, ... 
+    }, ...
     ]
 }
 ```
 
-The store defines a `type` for the date field. There are a few pre-defined field types that convert 
+The store defines a `type` for the date field. There are a few pre-defined field types that convert
 the value from the feed into what's stored in the store's record. The store specifies the URL for the
 data feed, and the store uses `responseRoot` to specify the value in the feed that holds the array
 of items.
@@ -659,10 +659,10 @@ In the code above it's using standard JavaScript methods to format the data and 
 
 ## Defining Views as Reusable Components
 
-The way we've coded the app, the grid is _not_ reusable. In other words, if we needed two identical grids we'd 
+The way we've coded the app, the grid is _not_ reusable. In other words, if we needed two identical grids we'd
 have to copy-and-paste the same config block.
 
-You can reuse any class config block by creating a new class that extends the component's class. In other words, 
+You can reuse any class config block by creating a new class that extends the component's class. In other words,
 if you want to reuse a table, you create a new class that extends `Neo.container.Table` and uses the same config.
 
 Besides reuse, other good reasons to simplify and modularize your code is to make your views more descriptive and
@@ -719,7 +719,7 @@ export default Neo.setupClass(Table);
 <details>
 <summary>Use the new component</summary>
 
-Edit `apps/earthquakes/view/MainView` and make these changes. 
+Edit `apps/earthquakes/view/MainView` and make these changes.
 
 - Add `import EarthquakesTable from './earthquakes/Table.mjs';`
 - Replace the `module: Table` with `module: EarthquakesTable`
@@ -794,10 +794,10 @@ It's a matter of re-use and what you need in a given situation. By leaving the w
 outside the table class we're to specify a different value in all the places we're using the table.
 
 Similarly, if the store were in the table class, it would be using that specific store and
-each instance of the table would have its own instance of the store. If we want multiple 
+each instance of the table would have its own instance of the store. If we want multiple
 instance of the table with each using a different store &mdash; or if
-we wanted to share the store with other components &mdash; then it makes sense for the 
-store to be outside the table class. 
+we wanted to share the store with other components &mdash; then it makes sense for the
+store to be outside the table class.
 
 </details>
 
@@ -820,12 +820,12 @@ Save and refresh and you should see two tables.
 
 The _earthquakes_ app has a problem: even though the table is nicely reusable, we duplicated the config for the store,
 and we can't share it. If you were to look at network traffic you'd see that we're also fetching the data
-twice. 
+twice.
 
 If we simply wanted to re-use the store's description we could refactor the store config into a new
 store class, just like we did for the table. But in _earthquakes_ we want to share the store _instance_.
 
-Neo has a feature that allows shared, bindable, data. A `Neo.state.Provider` instance holds properties that 
+Neo has a feature that allows shared, bindable, data. A `Neo.state.Provider` instance holds properties that
 can be values like strings, numbers, or even references, like component or store references. `Neo.state.Provider`
 is commonly called a _state provider_.<small><sup>*</sup></small>
 
@@ -856,7 +856,7 @@ You'll see two calls to the web service.
 <details>
 <summary>Copy the store config to the state provider</summary>
 
-State Providers have two key configs: `data` and `stores`. 
+State Providers have two key configs: `data` and `stores`.
 
 - `data` holds name/value pairs where the value can be a simple value, or object references
 - `stores` holds configs of stores
@@ -894,7 +894,7 @@ class MainView extends Base {
                     url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                     responseRoot: "data",
                     autoLoad: true
-                },    
+                },
             }
         },
 
@@ -947,13 +947,13 @@ export default Neo.setupClass(MainView);
 ```
 
 In the `stores` config we named the store _earthquakes_. We could have named it anything, like _foo_
-or _myStore_. We're calling it _earthquakes_ simply because that seems like a good descriptive name 
+or _myStore_. We're calling it _earthquakes_ simply because that seems like a good descriptive name
 of the data the store holds.
 
 At this point we have _three_ identical store configs! Save and refresh, and look at network traffic &mdash; you
 should see three calls.
 
-Having an instance in the state provider means we can share it. It can be shared anywhere in the containment 
+Having an instance in the state provider means we can share it. It can be shared anywhere in the containment
 hierarchy. The app doesn't have much of a hierarchy: it's just the main view and two child components (the two
 tables). But now that the store is in the parent's state provider we can share it.
 
@@ -965,14 +965,14 @@ tables). But now that the store is in the parent's state provider we can share i
 The way to bind an instance to a state provider property is with the `bind` config. For example
 
     bind: {
-        store: 'stores.earthquakes' 
+        store: 'stores.earthquakes'
     }
 
 binds a `store` property to a store called `foo`. The code is saying _in the future, when the value
 of "stores.earthquakes" changes, assign it to this object's "store" property_. In this case, `stores.earthquakes`
 starts out undefined, then at runtime within a few milliseconds as the state provider is processed, the configured
-store is created and a reference is assigned to `stores.earthquakes`. That wakes the binding up, and the 
-value is assigned to the table's `store` property. 
+store is created and a reference is assigned to `stores.earthquakes`. That wakes the binding up, and the
+value is assigned to the table's `store` property.
 
 Replace each table's `store` config with the binding.
 
@@ -1052,7 +1052,7 @@ c = Neo.find({ntype:'earthquakes-table'})[1].store;
 
 We configured the state provider in-line, in the `stateProvider` config at the top of `MainView`. But the starter app
 has a `MainStateProvider` class. In theory, if you have a trivial state provider you could configure it in-line. But
-in general you want to keep that code separate by coding it in a separate class. This is what we did for the 
+in general you want to keep that code separate by coding it in a separate class. This is what we did for the
 table config &mdash; we started by coding it in-line in the main view, then we refactored it into its own
 class. The result was a simpler and more abstract main view. We want to do the same for the state provider.
 
@@ -1085,7 +1085,7 @@ class MainStateProvider extends StateProvider {
                 url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                 responseRoot: "data",
                 autoLoad: true
-            },    
+            },
         }
     }
 }
@@ -1130,7 +1130,7 @@ class MainView extends Container {
 export default Neo.setupClass(MainView);
 ```
 
-The refactorings to have separate table and state provider classes means the code is more modular, more reusable, 
+The refactorings to have separate table and state provider classes means the code is more modular, more reusable,
 and each class is simpler than using complex source files that try to configure every detail.
 
 </details>
@@ -1139,18 +1139,18 @@ and each class is simpler than using complex source files that try to configure 
 
 ## Google Maps Add-on
 
-Neo.mjs has a Google Map component. This component is a little different from a button or table, 
-because it's implemented as a _main thread add-on_. 
+Neo.mjs has a Google Map component. This component is a little different from a button or table,
+because it's implemented as a _main thread add-on_.
 
 When you use Google Maps you use the Google Map API to ask it to draw the map and markers.
-In a normal app, Google Maps &mdahs; and everything else &mdash; runs in the main browser thread. 
-But as you know, Neo.mjs logic runs in _neomjs-app-worker_. That means Neo.mjs has to pass instructions 
+In a normal app, Google Maps &mdahs; and everything else &mdash; runs in the main browser thread.
+But as you know, Neo.mjs logic runs in _neomjs-app-worker_. That means Neo.mjs has to pass instructions
 run in _neomjs-app-worker_ to the main thread.
 
-To handle this situation, Neo.mjs has the concept of a main-thread add-on, which is a class that exposes main 
-thread methods to the _neomjs-app-worker_ thread. In addition, if the library you're using has a UI, it's common 
+To handle this situation, Neo.mjs has the concept of a main-thread add-on, which is a class that exposes main
+thread methods to the _neomjs-app-worker_ thread. In addition, if the library you're using has a UI, it's common
 to also provide a wrapper class so it can be used like any other component within Neo.mjs. That's how Google
-Maps is implemented: there's a main-thread add-on and a corresponding Neo.mjs component. The add-on is 
+Maps is implemented: there's a main-thread add-on and a corresponding Neo.mjs component. The add-on is
 specified in _neo-config.json_, and the component is imported and used like any other component.
 
 How do you specify which main-thread add-ons you want? If you recall the script you used to create the starter
@@ -1175,10 +1175,10 @@ Marker store records are required to have these properties:
 
 <details>
 <summary>Get the code for the custom add-on</summary>
-At the time this tutorial was written, the Neo.mjs Google Maps addon was about to be updated to 
-accommodate Google's "AdvancedMarker" class. Until that's ready, we're going to use a modified version of the add-on. 
+At the time this tutorial was written, the Neo.mjs Google Maps addon was about to be updated to
+accommodate Google's "AdvancedMarker" class. Until that's ready, we're going to use a modified version of the add-on.
 
-Download and unzip this file, and copy the two source files to the corresponding subdirectories in 
+Download and unzip this file, and copy the two source files to the corresponding subdirectories in
 your workspace's `src` directory. Note that `src` already contains some files, so don't replace the whole
 directory, but instead, move the files to their individual locations.
 
@@ -1210,9 +1210,9 @@ Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-
 }
 ```
 
-It's unusual to need to edit `neo-config.json`. The app theme is specified there, and so are main thread add-ons. 
+It's unusual to need to edit `neo-config.json`. The app theme is specified there, and so are main thread add-ons.
 In our case, we're adding `WS/GoogleMaps` which in turn requires that we specify the map key. The `WS/`
-prefix tells Neo.mjs that the add-on is in our workspace, rather than an add-on provided by Neo.mjs. 
+prefix tells Neo.mjs that the add-on is in our workspace, rather than an add-on provided by Neo.mjs.
 
 Save and refresh, and you'll see a console log emanating from the plugin.
 
@@ -1225,7 +1225,7 @@ Save and refresh, and you'll see a console log emanating from the plugin.
 
 The Google Maps component has a `markerStore` property, which is a reference to a store whose records have
 the properties `title` and `location`, where `location` is of the form `{lat: 0, lng: 0}`. The `fields:[]`
-lets us implement those via two properties: 
+lets us implement those via two properties:
 
 - `mapping` &mdash; the path to a feed property holding the value
 - `calculate` &mdash; a function that returns a value
@@ -1249,7 +1249,7 @@ fields: [{
 }],
 ```
 
-As you can see, _title_ is mapped to the existing feed value _location_, and _position_ is 
+As you can see, _title_ is mapped to the existing feed value _location_, and _position_ is
 calculated by returning an object with _lat_ and _lng_ set to the corresponding values from the feed.
 
 Save and refresh _earthquakes_. You can use the debugger to inspect the store via _Shift-Ctrl-right-click_ and
@@ -1334,8 +1334,8 @@ export default Neo.setupClass(MainView);
 <summary>Show the markers</summary>
 
  The markers are shown by setting up the marker store, which is a regular store whose records must contain
- _location_ and _title_. We assign the store using a `bind`, just like we did with the tables. 
- 
+ _location_ and _title_. We assign the store using a `bind`, just like we did with the tables.
+
 Add this config to the map.
 
 ```javascript readonly
@@ -1354,7 +1354,7 @@ bind: {
 Neo.mjs has an `Neo.core.Observable` class that handles configuring listeners and associated event handler functions.
 All components are observable, and some non-visual classes, like stores, are also observable.
 
-Listeners are set up either declaratively, via the `listeners:{}` config, or procedurally, 
+Listeners are set up either declaratively, via the `listeners:{}` config, or procedurally,
 via the `component.on()` method.
 
 ## Lab. Events
@@ -1412,7 +1412,7 @@ Save, refresh, and confirm that you see the value logged when you click on a map
 
 ## Summary
 
-Congratulations on completing the tutorial! 
+Congratulations on completing the tutorial!
 
 The goals was to give you hands-on coding a simple app to let you get a feel for syntax
 and to introduce some basic Neo.mjs concepts
