@@ -1176,6 +1176,51 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(order).toEqual(['captureFirst', 'chromeHook', 'play'])
     });
 
+    test('both FLIP dispatches carry the host windowId — the payload routes to the host realm, never the first port', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'flip-realm-7'});
+
+        const
+            payloads = [],
+            hadMain  = Object.prototype.hasOwnProperty.call(Neo, 'main'),
+            mainNs   = Neo.main = Neo.main || {},
+            hadAddon = Object.prototype.hasOwnProperty.call(mainNs, 'addon'),
+            addonNs  = mainNs.addon = mainNs.addon || {},
+            previous = addonNs.DockFlip;
+
+        addonNs.DockFlip = {
+            captureFirst: data => {payloads.push(['captureFirst', data])},
+            play        : data => {payloads.push(['play', data])}
+        };
+
+        try {
+            const result = workspace.applyDockZoneOperation({operation: 'moveItem', itemId: 'terminal', targetNodeId: 'editor-tabs', index: 1});
+
+            workspace.onDockZoneDocumentChange(result.document);
+            await workspace.refreshPromise;
+
+            const hostWindowId = workspace.getDockHost().windowId;
+
+            // a both-undefined match would be vacuous: the routing key must actually exist
+            expect(hostWindowId).not.toBeNull();
+            expect(hostWindowId).toBeDefined();
+
+            expect(payloads).toHaveLength(2);
+
+            for (const [method, data] of payloads) {
+                expect(data.windowId, `${method} routes to the host realm`).toBe(hostWindowId);
+                expect(data.hostId).toBe(workspace.getDockHost().id)
+            }
+        } finally {
+            if (previous === undefined) {
+                delete addonNs.DockFlip
+            } else {
+                addonNs.DockFlip = previous
+            }
+            !hadAddon && delete mainNs.addon;
+            !hadMain  && delete Neo.main
+        }
+    });
+
     test('a persisted title renders as escaped text, never as markup', async () => {
         const
             evil     = '<img src=x onerror="window.__pwned = 1">',
