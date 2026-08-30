@@ -129,8 +129,17 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
 
         // And the app-side zone class must not leak either; it is removed on the drag-end the lost
         // release would have prevented.
-        const stuckZone = await page.evaluate(() => document.querySelectorAll('.neo-is-dragging').length);
-
-        expect(stuckZone).toBe(0)
+        //
+        // Polled, not read once: the two classes are cleared by DIFFERENT threads. `neo-drag-active`
+        // comes off on the main thread in the sensor's endGesture, while `neo-is-dragging` is a
+        // component cls removed in the App Worker by `Neo.draggable.DragZone`. Waiting on the
+        // main-thread class says nothing about the worker having caught up, and reading the worker's
+        // class synchronously after it is a cross-thread race — one this passed locally and lost on a
+        // slower CI runner. The bounded poll still goes red on the real defect: when the release is
+        // swallowed the drag never ends at all, so the class never clears rather than clearing late.
+        await expect.poll(
+            () => page.evaluate(() => document.querySelectorAll('.neo-is-dragging').length),
+            {message: 'the app-side zone class outlived the gesture — the worker never saw a drag end'}
+        ).toBe(0)
     })
 });
