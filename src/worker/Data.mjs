@@ -78,18 +78,75 @@ class Data extends Base {
      * @param {String} msg.path The path to the module to load.
      * @returns {Promise<Object>} {success: true, id} or {success: false, error}
      */
+    /**
+     * @summary Imports one app-space module through an EXPLICIT per-root context.
+     *
+     * Each branch below carries a STATIC prefix, so webpack roots its lazy context at that exact
+     * directory. The previous shape — one `../../${path}.mjs` context narrowed by a `webpackInclude`
+     * — could not do that: include/exclude are matched against the ABSOLUTE resource path, so a
+     * workspace nested under an ancestor directory named `apps`, `examples` or `docs/app` matched on
+     * the ancestor and the include stopped narrowing anything. Measured before this change: this
+     * repo's own build registered 797 modules with 762 legitimately matching, while a workspace one
+     * level under an `apps/` ancestor registered 1244 with 7 — the entire tree, including root-level
+     * Node scripts, reachable from a browser worker.
+     *
+     * An explicit base cannot be widened by a name further up the filesystem, which is why this is a
+     * different shape rather than a stricter regex: anchoring the include to a separator does not
+     * help when the ancestor supplies the separator too.
+     *
+     * The sibling `loadDataModule` switch already resolved its three roots this way; this is that
+     * pattern applied to the two call sites that predated it.
+     * @param {String} path App-space module path without the `.mjs` suffix.
+     * @returns {Promise<Object>} The imported module namespace.
+     * @throws {Error} When the path names no supported root.
+     * @protected
+     */
+    async importAppSpaceModule(path) {
+        if (path.startsWith('apps/')) {
+            return import(
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackMode: "lazy" */
+                `../../apps/${path.slice(5)}.mjs`
+            )
+        }
+
+        if (path.startsWith('examples/')) {
+            return import(
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackMode: "lazy" */
+                `../../examples/${path.slice(9)}.mjs`
+            )
+        }
+
+        if (path.startsWith('docs/app/')) {
+            return import(
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackMode: "lazy" */
+                `../../docs/app/${path.slice(9)}.mjs`
+            )
+        }
+
+        if (path.startsWith('src/data/')) {
+            return import(
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+                /* webpackMode: "lazy" */
+                `../data/${path.slice(9)}.mjs`
+            )
+        }
+
+        // A typed refusal, matching `loadDataModule`'s own default branch: an unsupported root is a
+        // caller error, and resolving it through a wider context is exactly what this method exists
+        // to stop.
+        throw new Error(`Unsupported module root: ${path}`)
+    }
+
     async createInstance({config, path}) {
         if (path.endsWith('.mjs')) {
             path = path.slice(0, -4)
         }
 
         try {
-            let module = await import(
-                /* webpackInclude: /(?:apps|docs\/app|examples|src\/data)\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
-                /* webpackMode: "lazy" */
-                `../../${path}.mjs`
-            );
+            let module = await this.importAppSpaceModule(path);
 
             // module.default is the Neo class
             let instance = Neo.create(module.default, config);
@@ -176,12 +233,7 @@ class Data extends Base {
         }
 
         try {
-            await import(
-                /* webpackInclude: /(?:apps|docs\/app|examples|src\/data)\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
-                /* webpackMode: "lazy" */
-                `../../${path}.mjs`
-            );
+            await this.importAppSpaceModule(path);
             return {success: true, path}
         } catch (e) {
             console.error(`Data Worker: Failed to load module ${path}`, e);
