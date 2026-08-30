@@ -39,7 +39,10 @@ const ITEM_IDS  = loadLearnItemIds(),
       // outside the population and its links go unchecked while the run still reports clean.
       FILES     = execSync("git ls-files 'learn/*.md' 'learn/**/*.md'", {encoding: 'utf8'})
                       .trim().split('\n').filter(isServed),
-      regexHref = /<a\s[^>]*href="([^"]*)"/g;
+      // Both quote styles, matching what the rewriter and the build-time guard extract. A
+      // double-quote-only oracle silently drops every single-quoted raw-HTML anchor in the corpus
+      // and reports the sweep clean over a population it never looked at.
+      regexHref = /<a\b[^>]*\bhref\s*=\s*(["'])([^"']*)\1/g;
 
 /**
  * Renders one guide the way the portal does: `marked`, then the content component's own link
@@ -75,7 +78,7 @@ test.describe('learn corpus link reachability', () => {
                   html = renderFor(id, fs.readFileSync(file, 'utf8'));
 
             for (const match of html.matchAll(regexHref)) {
-                const href = match[1];
+                const href = match[2];
 
                 linksSeen++;
 
@@ -106,5 +109,28 @@ test.describe('learn corpus link reachability', () => {
             'A portal reader cannot follow these; only `#/learn/<id>` (id from learn/tree.json), an ' +
             'in-page `#anchor`, or an absolute URL can be navigated:\n\n  ' + unreachable.join('\n  ')
         ).toEqual([])
+    });
+
+    // The corpus sweep above can only fail on links that exist today, so it cannot witness a
+    // quote-style the corpus has not yet used for a relative target. Raw HTML passes through
+    // `marked` verbatim, and the corpus already carries single-quoted anchors — so this is the
+    // shape a guide author can write tomorrow, rewritten under both quote styles or not at all.
+    test('a raw-HTML relative link is rewritten under either quote style', () => {
+        const rendered = renderFor('guides/uibuildingblocks/DockLayouts', [
+            `<a href="./Splitters.md">double</a>`,
+            `<a href='./Splitters.md' target='_blank'>single</a>`
+        ].join('\n\n'));
+
+        const hrefs = [...rendered.matchAll(regexHref)].map(m => m[2]);
+
+        expect(hrefs).toEqual([
+            '#/learn/guides/uibuildingblocks/Splitters',
+            '#/learn/guides/uibuildingblocks/Splitters'
+        ]);
+
+        // The quote characters themselves must survive: rewriting the value but normalising the
+        // delimiter would corrupt any attribute that follows on the same tag.
+        expect(rendered).toContain(`href="#/learn/guides/uibuildingblocks/Splitters"`);
+        expect(rendered).toContain(`href='#/learn/guides/uibuildingblocks/Splitters'`)
     })
 });

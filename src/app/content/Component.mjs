@@ -239,7 +239,12 @@ class Component extends Markdown {
             return html
         }
 
-        return html.replace(/(<a\s[^>]*href=")([^"]+)(")/g, (match, prefix, href, suffix) => {
+        // Quote-style agnostic on purpose: this must extract exactly what the build-time guard
+        // extracts (`check-relative-links.mjs` HTML_HREF), or one half of the contract validates a
+        // link the other half never rewrites. A single-quoted raw-HTML anchor is ordinary authoring
+        // — the corpus already contains them — and it would render a href that works in a file tree
+        // and 404s in the SPA, which is the exact failure this pair exists to prevent.
+        return html.replace(/(<a\b[^>]*\bhref\s*=\s*(["']))([^"']+)\2/gi, (match, prefix, quote, href) => {
             if (/^(https?:|#|\/|mailto:)/.test(href) || !/\.md($|#)/.test(href)) {
                 return match
             }
@@ -254,7 +259,7 @@ class Component extends Markdown {
                 return match
             }
 
-            return `${prefix}${contentRoute}${id}${fragment ? `#${fragment}` : ''}${suffix}`
+            return `${prefix}${contentRoute}${id}${fragment ? `#${fragment}` : ''}${quote}`
         })
     }
 
