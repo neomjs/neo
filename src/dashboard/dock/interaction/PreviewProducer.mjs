@@ -232,6 +232,8 @@ class PreviewProducer extends Base {
      * @param {String} params.itemId the representative dragged dock item id
      * @param {String} [params.groupNodeId] runtime-only whole-stack source node id
      * @param {String} [params.containerId] the hovered workspace/container id
+     * @param {Object} [params.root] {nodeId, rect} the container's root node — enables the root-edge
+     * border strip. Absent (the cross-window callers) fail-closes to plain zone inference.
      * @param {Object} [params.source] producer surface, e.g. {surface, sortZoneId}
      * @param {String} [params.sourceNodeId] the drag's origin dock node (used as sortZoneId fallback)
      * @returns {Object|null} a `neo.dock.preview.v1` payload, or null

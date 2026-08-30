@@ -299,5 +299,74 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         rig.indicators.destroy();
         rig.preview.destroy()
+    });
+
+    /**
+     * The root-edge border strip, driven through the production gesture rather than the producer.
+     *
+     * `produce()` receiving a root is what turns a pointer near the container border into a ROOT edge
+     * placement instead of the zone under it. The producer's own specs prove that mapping; they say
+     * nothing about whether the controller actually PASSES the root, and it must pass it on two
+     * independent call sites — the hover path and the release path. A producer-only witness leaves
+     * both wires free to be deleted.
+     *
+     * The strip is 24px inward from the root rect, so `clientY: 10` sits inside it while remaining
+     * deep inside `left-tabs` — which is the whole point: without the root argument, zone inference
+     * owns that pointer and the assertions below describe a different target.
+     */
+    test.describe('the root-edge strip is wired on both gesture paths', () => {
+        /** Captures the descriptor the owner is asked to apply, without disturbing the commit. */
+        const withDescriptorCapture = rig => {
+            const seen     = [],
+                  original = rig.owner.applyDockZoneOperation.bind(rig.owner);
+
+            rig.owner.applyDockZoneOperation = function (descriptor) {
+                seen.push(descriptor);
+                return original(descriptor)
+            };
+
+            return seen
+        };
+
+        test('hover inside the strip previews the ROOT edge, not the zone beneath it', async () => {
+            const rig = compose();
+
+            rig.controller.dragGeometry = Promise.resolve(GEOMETRY());
+            rig.indicators.hostRect     = GEOMETRY().hostRect;
+
+            await rig.controller.onDragMove({clientX: 200, clientY: 10, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+            const {dockPreview} = rig.preview;
+
+            // Control: the same x deeper into the surface must resolve the ZONE, or this test would
+            // pass on any pointer and prove nothing about the strip.
+            expect(dockPreview?.target?.nodeId, 'the strip must resolve the ROOT').toBe('split-main');
+            expect(dockPreview?.placement?.kind).toBe('edge-top');
+
+            await rig.controller.onDragMove({clientX: 200, clientY: 300, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+            expect(rig.preview.dockPreview?.target?.nodeId, 'away from the border the zone owns it').toBe('left-tabs');
+
+            destroyAll(rig)
+        });
+
+        test('release inside the strip commits against the ROOT target', async () => {
+            const rig         = compose(),
+                  descriptors = withDescriptorCapture(rig);
+
+            rig.controller.dragGeometry = Promise.resolve(GEOMETRY());
+            rig.indicators.hostRect     = GEOMETRY().hostRect;
+
+            await rig.controller.onDragMove({clientX: 200, clientY: 10, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+            await rig.controller.onDrop    ({clientX: 200, clientY: 10, itemId: 'gamma', sourceNodeId: 'right-tabs'});
+
+            expect(descriptors).toHaveLength(1);
+
+            // The release path passes its own root; the descriptor is what proves it arrived, since a
+            // committed document could reach a similar shape by another route.
+            expect(descriptors[0].targetNodeId, 'the commit must target the ROOT').toBe('split-main');
+            expect(rig.committed).toHaveLength(1);
+
+            destroyAll(rig)
+        })
     })
 });
