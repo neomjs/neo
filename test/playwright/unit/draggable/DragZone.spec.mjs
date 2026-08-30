@@ -23,7 +23,7 @@ import '../../../../src/manager/Instance.mjs';
  * @param {Object} [options]
  * @param {Function} [options.deltaResult] Maps a recorded call to the spy's returned promise —
  *     the seam for simulating the transport's terminal outcomes (a vanished destination rejects
- *     with bare `undefined`; live-window failures reject with a reason).
+ *     with `code: 'NEO_DEAD_PORT'`; live-window failures reject with any other reason).
  * @returns {Promise<{proxyId: String, recorded: Object[]}>}
  */
 async function recordProxyRemoval(scenario, {deltaResult}={}) {
@@ -132,19 +132,61 @@ test.describe('Neo.draggable.DragZone', () => {
     });
 
     test('a vanished destination settles silently — the closed-port rejection is owned, not unhandled', async () => {
-        // worker.Base's closed-port branch rejects the request promise with bare `undefined`
-        // (a vanished SharedWorker port). The detached teardown chain must observe that terminal
-        // outcome: an unowned rejection escapes as unhandledRejection, which this runner converts
-        // into a test failure — the unrepaired chain fails this test by construction.
-        const {recorded} = await recordProxyRemoval(zone => {
-            zone.destroyDragProxy();
-            zone.destroy();
-            return Promise.resolve()
-        }, {
-            deltaResult: () => Promise.reject(undefined)
-        });
+        // worker.Base's closed-port branch rejects the request promise with a typed reason,
+        // `code: 'NEO_DEAD_PORT'`. The detached teardown chain must observe that
+        // terminal outcome silently on BOTH surfaces: an unowned rejection escapes as
+        // unhandledRejection (which this runner converts into a test failure), and a
+        // misclassified one would surface through console.error.
+        const
+            originalConsoleError = console.error,
+            surfaced             = [];
 
-        expect(recorded, 'the dispatch is still attempted at the vanished destination').toHaveLength(1)
+        console.error = (...args) => surfaced.push(args);
+
+        let outcome;
+
+        try {
+            outcome = await recordProxyRemoval(zone => {
+                zone.destroyDragProxy();
+                zone.destroy();
+                return Promise.resolve()
+            }, {
+                deltaResult: () => Promise.reject(Object.assign(new Error('no live port for destination "main"'), {code: 'NEO_DEAD_PORT'}))
+            })
+        } finally {
+            console.error = originalConsoleError
+        }
+
+        expect(outcome.recorded, 'the dispatch is still attempted at the vanished destination').toHaveLength(1);
+        expect(surfaced, 'expected teardown must not be logged as a failure').toHaveLength(0)
+    });
+
+    test('a reasonless rejection is no longer classified as teardown — it surfaces', async () => {
+        // The historical confusable: the closed-port branch used to reject with bare
+        // `undefined`, and this seam treated ANY reasonless rejection as expected teardown.
+        // The discrimination now keys on the typed code, so an unexplained failure surfaces
+        // instead of vanishing into the teardown classification.
+        const
+            originalConsoleError = console.error,
+            surfaced             = [];
+
+        console.error = (...args) => surfaced.push(args);
+
+        let outcome;
+
+        try {
+            outcome = await recordProxyRemoval(zone => {
+                zone.destroyDragProxy();
+                return Promise.resolve()
+            }, {
+                deltaResult: () => Promise.reject(undefined)
+            })
+        } finally {
+            console.error = originalConsoleError
+        }
+
+        expect(outcome.recorded).toHaveLength(1);
+        expect(surfaced, 'a reasonless rejection surfaces exactly once').toHaveLength(1)
     });
 
     test('a reasoned delta failure in a live window stays visible instead of being swallowed', async () => {

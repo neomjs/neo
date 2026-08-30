@@ -150,7 +150,7 @@ class Stylesheet extends Base {
                 link.id = id
             }
 
-            link.addEventListener('error', function() {reject()})
+            link.addEventListener('error', function() {reject(new Error(`Stylesheet failed to load: ${url}`))})
             link.addEventListener('load',  function() {resolve()})
 
             document.head.appendChild(link)
