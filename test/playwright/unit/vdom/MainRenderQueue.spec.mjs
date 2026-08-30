@@ -8,7 +8,7 @@ const __dirname     = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT     = path.resolve(__dirname, '../../../..');
 const execFileAsync = promisify(execFile);
 
-async function runRenderQueueProbe(hidden) {
+async function runRenderQueueProbe(hidden, probeForwarding=false) {
     const script = `
         import Neo from './src/Neo.mjs';
         import * as core from './src/core/_export.mjs';
@@ -84,13 +84,54 @@ async function runRenderQueueProbe(hidden) {
         next?.callback();
         globalThis.setTimeout = originalTimeout;
 
+        let forwarded;
+
+        if (${probeForwarding}) {
+            const
+                {default: WorkerBase} = await import('./src/worker/Base.mjs'),
+                sent                  = [],
+                consumer              = Object.create(WorkerBase.prototype);
+
+            WorkerManager.promiseMessage = () => Promise.reject({
+                data  : new Error('vdom projection failed'),
+                reject: true
+            });
+            WorkerManager.sendMessage = (destination, message) => sent.push({destination, message});
+            WorkerManager.onWorkerMessage({
+                data: {action: 'remoteMethod', destination: 'vdom', id: 'origin-q', origin: 'app'}
+            });
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            let consumerRejection;
+            const [{destination, message}] = sent;
+
+            consumer.promises = {
+                'origin-q': {
+                    reject : value => {consumerRejection = value},
+                    resolve: () => {}
+                }
+            };
+            consumer.onMessage({data: message});
+
+            forwarded = {
+                consumerMessage: consumerRejection?.message,
+                dataMessage    : message.data?.message,
+                destination,
+                reject         : message.reject,
+                replyId        : message.replyId
+            }
+        }
+
         console.log(JSON.stringify({
             applied       : applied.length,
             delay         : next?.delay,
             kind          : next?.kind,
             queueRemaining: Main.writeQueue.length,
             resolved,
-            running       : Main.running
+            running       : Main.running,
+            ...(${probeForwarding} ? {forwarded} : {})
         }))
     `;
     const {stdout} = await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
@@ -132,6 +173,18 @@ test.describe('Neo.Main render queue scheduling', () => {
             queueRemaining: 0,
             resolved      : {settled: true},
             running       : false
+        })
+    });
+
+    test('forwards a rejected worker cause through the reply data the origin consumes', async () => {
+        const {forwarded} = await runRenderQueueProbe(false, true);
+
+        expect(forwarded).toEqual({
+            consumerMessage: 'vdom projection failed',
+            dataMessage    : 'vdom projection failed',
+            destination    : 'app',
+            reject         : true,
+            replyId        : 'origin-q'
         })
     })
 });
