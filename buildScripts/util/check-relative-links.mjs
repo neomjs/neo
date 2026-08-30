@@ -186,17 +186,36 @@ export function collectDeadLinks({files, tracked, read}) {
     return {findings, checked, portal}
 }
 
-/** @returns {String[]} every path in the git index */
-function trackedFiles() {
-    return execFileSync('git', ['ls-files'], {cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024})
+/**
+ * Every path in the git index.
+ *
+ * Exported with an injectable root so the index-authority claim in this module's header is
+ * testable. Injecting `tracked` into {@link collectDeadLinks} proves the resolver; it cannot prove
+ * that the CLI's membership set comes from the index rather than the filesystem, and that
+ * distinction is the entire reason this guard resolves against git.
+ * @param {String} [root=repoRoot]
+ * @returns {String[]}
+ */
+export function trackedFiles(root = repoRoot) {
+    return execFileSync('git', ['ls-files'], {cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024})
         .split('\n')
         .filter(Boolean)
+}
+
+/**
+ * Reads one tracked path out of the git index — `:<path>`, not the working tree — so a staged edit
+ * is what gets scanned.
+ * @param {String} [root=repoRoot]
+ * @returns {function(String): String}
+ */
+export function stagedReader(root = repoRoot) {
+    return f => execFileSync('git', ['show', `:${f}`], {cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024})
 }
 
 function main() {
     const tracked = new Set(trackedFiles()),
           files   = [...tracked].filter(f => f.endsWith('.md') && SCAN_ROOTS.some(r => f.startsWith(r))),
-          read    = f => execFileSync('git', ['show', `:${f}`], {cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024});
+          read    = stagedReader();
 
     const {findings, checked, portal} = collectDeadLinks({files, tracked, read});
 

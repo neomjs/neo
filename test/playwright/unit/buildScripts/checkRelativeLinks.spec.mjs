@@ -1,6 +1,10 @@
 import {test, expect} from '@playwright/test';
+import {execFileSync} from 'child_process';
+import fs             from 'fs';
+import os             from 'os';
+import path           from 'path';
 
-import {classifyTarget, collectDeadLinks, extractLinkTargets, resolveTarget}
+import {classifyTarget, collectDeadLinks, extractLinkTargets, resolveTarget, stagedReader, trackedFiles}
     from '../../../../buildScripts/util/check-relative-links.mjs';
 
 /**
@@ -37,6 +41,15 @@ test.describe('check-relative-links — extraction', () => {
 
     test('an inline link with a title yields the target, not the title', () => {
         expect(extractLinkTargets('[x](./a.md "A title")')).toEqual(['./a.md'])
+    });
+
+    // The corpus already contains single-quoted raw-HTML anchors, so this is authoring that
+    // happens, not a hypothetical. It is pinned on both sides because the guard and the runtime
+    // rewriter (app/content/Component.mjs#rewriteLinks) must extract the same set: a link only one
+    // of them can see is validated as healthy and then rendered unrewritten.
+    test('a single-quoted HTML href is extracted exactly like a double-quoted one', () => {
+        expect(extractLinkTargets("<a href='./c.md' target='_blank'>html</a>")).toEqual(['./c.md']);
+        expect(extractLinkTargets('<a href = "./d.md">spaced</a>')).toEqual(['./d.md'])
     });
 
     test('CONTROL: prose shaped like a reference definition is NOT a link', () => {
@@ -151,5 +164,58 @@ test.describe('check-relative-links — findings', () => {
         const {findings} = scan('learn/README.md', '[a](./guides/)');
 
         expect(findings).toEqual([])
+    })
+});
+
+/**
+ * Everything above injects `tracked` and `read`, which proves the resolver and nothing about where
+ * the CLI's inputs come from. The module header claims the index is the authority — staged edits
+ * are scanned, untracked files on disk are invisible — and that claim is what makes the guard work
+ * on a stale checkout. It needs a real git repository to be witnessed at all.
+ */
+test.describe('check-relative-links — the index is the authority, not the filesystem', () => {
+    let root;
+
+    test.beforeAll(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'link-guard-index-'));
+
+        const git = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf8'});
+
+        git('init', '-q');
+        git('config', 'user.email', 'guard@test.invalid');
+        git('config', 'user.name', 'Guard Test');
+
+        fs.writeFileSync(path.join(root, 'committed.md'), 'committed body\n');
+        git('add', 'committed.md');
+        git('commit', '-qm', 'seed');
+
+        // Staged but never committed — the "a PR adds a guide and links to it in one commit" case.
+        fs.writeFileSync(path.join(root, 'staged.md'), 'staged body\n');
+        git('add', 'staged.md');
+
+        // On disk, unknown to git — the stale-checkout blind spot the guard exists to close.
+        fs.writeFileSync(path.join(root, 'untracked.md'), 'untracked body\n');
+
+        // Staged content and worktree content now DIFFER, so a reader that opens the file gets a
+        // different answer than one that reads `:path`. Without this divergence both readers agree
+        // and the arm cannot tell them apart.
+        fs.writeFileSync(path.join(root, 'staged.md'), 'WORKTREE EDIT, NOT STAGED\n');
+    });
+
+    test.afterAll(() => {
+        fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('membership includes staged-but-uncommitted files and excludes untracked ones', () => {
+        const tracked = new Set(trackedFiles(root));
+
+        expect(tracked.has('committed.md')).toBe(true);
+        expect(tracked.has('staged.md')).toBe(true);
+        expect(tracked.has('untracked.md')).toBe(false)
+    });
+
+    test('the reader returns staged content, not what is sitting in the working tree', () => {
+        expect(stagedReader(root)('staged.md')).toBe('staged body\n');
+        expect(fs.readFileSync(path.join(root, 'staged.md'), 'utf8')).toBe('WORKTREE EDIT, NOT STAGED\n')
     })
 });
