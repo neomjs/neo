@@ -19,8 +19,9 @@ test.describe('Neo.component.Base#nativeDragZone lifecycle', () => {
         Neo.main.DomEvents = {registerPreventDefaultTargets: () => {}};
         Neo.main.addon     = {
             NativeDragSource: {
-                register  : data => calls.push(['register',   data.windowId, data.ownerId, data.delegate]),
-                unregister: data => calls.push(['unregister', data.windowId, data.ownerId])
+                claimsEvent: () => false,
+                register   : data => calls.push(['register',   data.windowId, data.ownerId, data.delegate]),
+                unregister : data => calls.push(['unregister', data.windowId, data.ownerId])
             }
         }
     });

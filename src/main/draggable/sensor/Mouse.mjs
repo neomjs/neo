@@ -147,7 +147,7 @@ class Mouse extends Base {
                 iframe the native drag exists to reach). Optional lookup: without the addon loaded,
                 nothing changes.
             */
-            if (target && Neo.main?.addon?.NativeDragSource?.claimsEvent(event)) {
+            if (target && Neo.main?.addon?.NativeDragSource?.claimsEvent?.(event)) {
                 return
             }
 
