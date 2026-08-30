@@ -1,5 +1,12 @@
+import fs      from 'fs';
 import path    from 'path';
 import webpack from 'webpack';
+
+/**
+ * @summary A pattern that matches nothing, used to empty an optional root's context.
+ * @private
+ */
+const MATCHES_NOTHING = /(?!)/;
 
 /**
  * @summary Does this context root resolve inside the installed `neo.mjs` package?
@@ -37,6 +44,13 @@ function isPackageLocal(request) {
  * marker built from the request string cannot tell an authored `../../apps` from a rebased one, and
  * would silently leave the former pointing into the package.
  *
+ * **Optional roots.** App-space roots are optional for a consumer: most workspaces have `apps` and
+ * no `examples` or `docs/app`. A rebased root that does not exist would fail the build, so an absent
+ * one keeps its package-relative request — which always resolves, since the published package ships
+ * all of them — and has its match emptied instead. Resolving it to the framework's own tree without
+ * emptying it would pull the engine's examples into a consumer bundle, which is the bloat this
+ * change exists to remove.
+ *
  * @param {Boolean} insideNeo Building the framework repository itself, where no rebasing applies.
  * @returns {webpack.ContextReplacementPlugin}
  */
@@ -49,8 +63,14 @@ export default function workerContextRebasePlugin(insideNeo) {
 
         if (insideNeo || !con || !(con.includes('/src/worker') || con.includes('\\src\\worker'))) return;
 
-        if (!isPackageLocal(context.request)) {
-            context.request = path.join('../../', context.request)
+        if (isPackageLocal(context.request)) return;
+
+        const rebased = path.join('../../', context.request);
+
+        if (fs.existsSync(path.resolve(con, rebased))) {
+            context.request = rebased
+        } else {
+            context.regExp = MATCHES_NOTHING
         }
     })
 }
