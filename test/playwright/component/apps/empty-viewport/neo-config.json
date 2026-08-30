@@ -1,6 +1,12 @@
 {
-    "appPath"    : "test/playwright/component/apps/empty-viewport/app.mjs",
-    "basePath"   : "../../../../../",
+    "appPath": "test/playwright/component/apps/empty-viewport/app.mjs",
+    "basePath": "../../../../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "mainPath": "./Main.mjs",
+    "mainThreadAddons": [
+        "DragDrop",
+        "Navigator",
+        "NativeDragSource",
+        "Stylesheet"
+    ]
 }

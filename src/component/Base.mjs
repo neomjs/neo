@@ -333,6 +333,23 @@ class Component extends Abstract {
     }
 
     /**
+     * Monotonic guard for {@link #registerNativeDragZone}'s mount-gated sends: a pending send
+     * whose generation no longer matches was superseded (reset, replaced, or moved) and drops.
+     * @member {Number} nativeDragZoneGeneration=0
+     * @protected
+     */
+    nativeDragZoneGeneration = 0
+
+    /**
+     * The windowId whose main thread currently holds this component's native drag registration —
+     * the realm {@link #retireNativeDragZone} must address, which after a window transfer is not
+     * the current `windowId`. `null` = not registered.
+     * @member {Number|null} nativeDragZoneWindowId=null
+     * @protected
+     */
+    nativeDragZoneWindowId = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -618,25 +635,58 @@ class Component extends Abstract {
     /**
      * Triggered after the nativeDragZone config got changed.
      *
-     * The declaration reaches the main thread once this component is mounted — the addon scopes
-     * matches to the LIVE DOM subtree, so an earlier registration could match nothing and a boot
-     * race against the addon's remote registration is avoided in the same move. A registration is
-     * per owner id and replaces on re-set; a stale one after unmount matches nothing (the subtree
-     * is gone) and {@link #destroy} retires it.
+     * A reset retires first — in the realm that actually holds the registration — and every set
+     * issues a fresh, generation-guarded registration. See {@link #registerNativeDragZone} for the
+     * mount gating and {@link #retireNativeDragZone} for why pending sends cannot fire stale.
      * @param {Object|null} value
      * @param {Object|null} oldValue
      * @protected
      */
     afterSetNativeDragZone(value, oldValue) {
-        let me   = this,
-            send = () => Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId});
+        let me = this;
 
-        if (!value) {
-            oldValue && Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.windowId});
-            return
-        }
+        oldValue && me.retireNativeDragZone();
+        value    && me.registerNativeDragZone()
+    }
+
+    /**
+     * Issues this component's {@link #nativeDragZone} declaration to the main-thread addon,
+     * gated on the mount: the addon scopes matches to the LIVE DOM subtree, so registering
+     * earlier could match nothing — and the gate doubles as the boot-order guard against the
+     * addon's own remote registration. The send is generation-checked, so a declaration reset,
+     * replaced, or moved between the listener attaching and the mount firing is dropped instead
+     * of resurrecting stale state. Records the realm it registered with, for the retire side.
+     * @protected
+     */
+    registerNativeDragZone() {
+        let me   = this,
+            gen  = ++me.nativeDragZoneGeneration,
+            send = () => {
+                if (gen === me.nativeDragZoneGeneration && me.nativeDragZone) {
+                    me.nativeDragZoneWindowId = me.windowId;
+                    Neo.main?.addon?.NativeDragSource?.register({...me.nativeDragZone, ownerId: me.id, windowId: me.windowId})
+                }
+            };
 
         me.mounted ? send() : me.on('mounted', send, me, {once: true})
+    }
+
+    /**
+     * Retires this component's native drag registration in the realm that HOLDS it — after a
+     * window transfer that is the old window, not the current one — and invalidates any pending
+     * mount-gated send by bumping the generation. Never-registered declarations (a pre-mount
+     * reset) skip the remote call entirely.
+     * @protected
+     */
+    retireNativeDragZone() {
+        let me = this;
+
+        me.nativeDragZoneGeneration++;
+
+        if (me.nativeDragZoneWindowId !== null) {
+            Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.nativeDragZoneWindowId});
+            me.nativeDragZoneWindowId = null
+        }
     }
 
     /**
@@ -876,10 +926,22 @@ class Component extends Abstract {
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
 
-        let controller = this.controller;
+        let me         = this,
+            controller = me.controller;
 
         if (controller) {
             controller.windowId = value
+        }
+
+        /*
+            A native drag source is registered with ONE window's main thread. Moving the component
+            (a dock tear-out, a window transfer) must retire the registration in the realm that
+            holds it and re-issue it in the new one — waiting for the new mount, exactly like the
+            first registration did.
+        */
+        if (oldValue && me.nativeDragZone) {
+            me.retireNativeDragZone();
+            me.registerNativeDragZone()
         }
     }
 
@@ -1230,7 +1292,7 @@ class Component extends Abstract {
         me.revertFocus();
 
         // the main thread holds the registration, so nothing else would retire it with the component
-        me.nativeDragZone && Neo.main?.addon?.NativeDragSource?.unregister({ownerId: me.id, windowId: me.windowId});
+        me.nativeDragZone && me.retireNativeDragZone();
 
         me.controller = null; // triggers destroy()
 

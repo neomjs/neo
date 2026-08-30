@@ -21,6 +21,11 @@ documentRef.getElementById = id => owners[id] ?? null;
 documentRef.querySelector  = () => null;
 globalThis.document        = documentRef;
 
+// the addon resolves owners through the dual-identity authority, not document.getElementById
+const originalDomAccess = Neo.main?.DomAccess;
+Neo.main           = Neo.main || {};
+Neo.main.DomAccess = {getElement: id => owners[id] ?? null};
+
 const {default: NativeDragSource} = await import('../../../../../src/main/addon/NativeDragSource.mjs');
 
 /**
@@ -52,10 +57,12 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
     let addon;
 
     test.beforeEach(() => {
-        // Re-assert the stub: under fully-parallel CI, a sibling spec's afterAll teardown can
-        // delete globalThis.document between this file's tests — module-level assignment alone
-        // only survives single-worker ordering.
+        // Re-assert the stubs: under fully-parallel CI, a sibling spec's afterAll teardown can
+        // delete these globals between this file's tests — module-level assignment alone only
+        // survives single-worker ordering.
         globalThis.document = documentRef;
+        Neo.main            = Neo.main || {};
+        Neo.main.DomAccess  = {getElement: id => owners[id] ?? null};
 
         addon = Neo.create(NativeDragSource, {})
     });
@@ -66,7 +73,8 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
     });
 
     test.afterAll(() => {
-        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument
+        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
+        originalDomAccess === undefined ? delete Neo.main.DomAccess : Neo.main.DomAccess = originalDomAccess
     });
 
     function registerGrid(config = {}) {
@@ -165,6 +173,27 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         expect(addon.claimsEvent(press(node))).toBe(false);
         addon.onMouseDown(press(node));
         expect(node.draggable).toBe(false)
+    });
+
+    test('a node that was ALREADY draggable still arms, still fills, and keeps its attribute on terminal', () => {
+        const node = registerGrid();
+
+        node.draggable = true;   // author-owned attribute, e.g. a link or image
+
+        addon.onMouseDown(press(node));
+
+        // claim and arm must agree: the sensor yielded via claimsEvent, so the addon owns the gesture
+        expect(addon.armed).not.toBe(null);
+        expect(addon.armed.addedAttribute).toBe(false);
+
+        const dt = fakeDataTransfer();
+        addon.onDragStart({target: node, dataTransfer: dt});
+        expect(dt.data['text/plain']).toBe('entity:cid-42');
+
+        addon.onGestureEnd();
+
+        // restore only addon-owned DOM state: the author's attribute survives the gesture
+        expect(node.draggable).toBe(true)
     });
 
     test('re-registering an owner replaces its declaration', () => {

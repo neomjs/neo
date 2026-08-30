@@ -96,6 +96,13 @@ class NativeDragSource extends Base {
     sources = new Map()
 
     /**
+     * The bound document listeners, kept so {@link #destroy} can remove exactly what construct added.
+     * @member {Object|null} listeners=null
+     * @protected
+     */
+    listeners = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -103,12 +110,26 @@ class NativeDragSource extends Base {
 
         let me = this;
 
+        me.listeners = {
+            dragend  : me.onGestureEnd.bind(me),
+            dragstart: me.onDragStart.bind(me),
+            mousedown: me.onMouseDown.bind(me),
+            mouseup  : me.onGestureEnd.bind(me)
+        };
+
         // Capture phase throughout: grids and lists stop propagation of some of their own pointer
         // handling, and arming has to happen regardless. Nothing here cancels anything.
-        document.addEventListener('mousedown', me.onMouseDown.bind(me), true);
-        document.addEventListener('dragstart', me.onDragStart.bind(me), true);
-        document.addEventListener('dragend',   me.onGestureEnd.bind(me), true);
-        document.addEventListener('mouseup',   me.onGestureEnd.bind(me), true)
+        Object.entries(me.listeners).forEach(([type, fn]) => document.addEventListener(type, fn, true))
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        Object.entries(this.listeners || {}).forEach(([type, fn]) => document.removeEventListener(type, fn, true));
+        this.listeners = null;
+
+        super.destroy(...args)
     }
 
     /**
@@ -157,7 +178,8 @@ class NativeDragSource extends Base {
         let {armed} = this;
 
         if (armed) {
-            armed.node.removeAttribute('draggable');
+            // restore only addon-owned DOM state: a node that was draggable before stays draggable
+            armed.addedAttribute && armed.node.removeAttribute('draggable');
             this.armed = null
         }
     }
@@ -176,9 +198,19 @@ class NativeDragSource extends Base {
 
         const source = this.sourceOf(event);
 
-        if (source && !source.node.draggable) {
-            source.node.draggable = true;
-            this.armed = source
+        if (source) {
+            /*
+                A registered node arms UNCONDITIONALLY — claim and arm must never diverge. A node
+                that is already `draggable` (a link, an image, an author-set attribute) still made
+                the sensor yield through {@link #claimsEvent}, so this addon owns its gesture and
+                must fill the payload. What stays conditional is DOM restoration: only an attribute
+                this addon ADDED is removed on terminal.
+            */
+            const addedAttribute = !source.node.draggable;
+
+            addedAttribute && (source.node.draggable = true);
+
+            this.armed = {...source, addedAttribute}
         }
     }
 
@@ -206,7 +238,14 @@ class NativeDragSource extends Base {
         for (const registration of this.sources.values()) {
             const node = event.target?.closest?.(registration.delegate);
 
-            if (node && document.getElementById(registration.ownerId)?.contains(node)) {
+            /*
+                Owner resolution goes through `DomAccess.getElement()` — the authority for BOTH DOM
+                identity modes (`id` attributes and `useDomIds: false`'s `data-neo-id`). A direct
+                `getElementById` here would silently never match half the supported apps. Runtime
+                lookup rather than an import: the namespace is guaranteed on a booted main thread,
+                and it keeps the seam swappable for the unit harness.
+            */
+            if (node && Neo.main?.DomAccess?.getElement(registration.ownerId)?.contains?.(node)) {
                 return {node, registration}
             }
         }
