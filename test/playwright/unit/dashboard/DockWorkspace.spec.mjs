@@ -304,8 +304,12 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         const received = [];
         workspace.on('dockHeaderAction', data => received.push(data));
 
-        const [nodeId, tabContainer] = [...tabsOf(workspace.items[0]).entries()][0],
-              action                 = tabContainer.getActionItem('pin');
+        // `side-tabs` deliberately, not the first node: `editor-tabs` holds ONE item already at
+        // index 0, so the activation below would be a no-op and the identity assertion would hold
+        // across nothing happening.
+        const nodeId       = 'side-tabs',
+              tabContainer = tabsOf(workspace.items[0]).get(nodeId),
+              action       = tabContainer.getActionItem('pin');
 
         // The adapter-level arms prove the projection CONFIG carries the action. This proves the
         // config became a real toolbar item on a live workspace that supplied the resolver through
@@ -325,14 +329,40 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // AC-5, which the first round asserted by reasoning rather than by evidence: a commit and
         // reprojection must not REPLACE the action instance, or `actionVisibilityChange` consumers
         // such as tab Overflow lose the component they are bound to.
-        await tabContainer.set({activeIndex: 0});
+        //
+        // The transition has to be REAL, and the three guards below exist because an identity
+        // assertion is trivially true when nothing happened: the index actually moves, the COMMITTED
+        // document records the new active item, and a fresh refresh is scheduled.
+        const refreshBefore   = workspace.refreshPromise,
+              resolvesForNode = () => hostResolverCalls.filter(id => id === nodeId).length,
+              resolvesBefore  = resolvesForNode();
+
+        expect(tabContainer.activeIndex, 'starts on the first item').toBe(0);
+
+        await tabContainer.set({activeIndex: 1});
         await workspace.refreshPromise;
+
+        expect(workspace.getDockZoneDocument().nodes[nodeId].activeItemId,
+            'the activation committed to the document, not just the view').toBe('terminal');
+        expect(workspace.refreshPromise,
+            'a reprojection was actually scheduled by that commit').not.toBe(refreshBefore);
 
         const afterReproject = [...tabsOf(workspace.items[0]).entries()]
             .find(([id]) => id === nodeId)?.[1]?.getActionItem('pin');
 
         expect(afterReproject, 'the action survives reprojection').toBeTruthy();
-        expect(afterReproject, 'and it is the SAME instance, not a rebuilt group').toBe(action)
+        expect(afterReproject, 'and it is the SAME instance, not a rebuilt group').toBe(action);
+
+        // This is what makes the identity assertion mean something. The projection path DID run
+        // again — the resolver was asked a second time for this node — and the retained node kept
+        // its existing action instance anyway. So the stability above is reconciliation winning over
+        // a real re-projection, not an absence of one.
+        //
+        // It is also why `node-static` is the honest contract rather than a convenience: a resolver
+        // returning a DIFFERENT action set on that second call does not take effect, so promising
+        // per-active-item lists would have been a promise the machinery cannot keep.
+        expect(resolvesForNode(),
+            'the projection path really re-ran for this node').toBeGreaterThan(resolvesBefore)
     });
 
     test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {
