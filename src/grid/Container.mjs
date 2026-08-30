@@ -602,6 +602,11 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Keeps the ScrollManager realm aligned on initial attachment and later window transfers.
+     *
+     * Grids can be constructed while detached, so their first real `windowId` transition is
+     * `null` → id. Forwarding only when `oldValue` was truthy left the ScrollManager permanently
+     * windowless and routed its main-thread addon registrations through the first-port fallback.
      * Triggered after the windowId config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -612,7 +617,7 @@ class GridContainer extends BaseContainer {
 
         let {scrollManager} = this;
 
-        if (oldValue && scrollManager) {
+        if (scrollManager) {
             scrollManager.windowId = value
         }
     }

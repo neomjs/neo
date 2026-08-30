@@ -235,6 +235,7 @@ class Sparkline extends Canvas {
     }
 
     /**
+     * @summary Ensures the Canvas Worker through the main-thread realm that owns this Sparkline.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -242,7 +243,10 @@ class Sparkline extends Canvas {
 
         if (this.rendererImportPath) {
              // Ensure Canvas Worker is running
-            await Neo.worker.Manager.startWorker({name: 'canvas'});
+            await Neo.worker.Manager.startWorker({
+                name    : 'canvas',
+                windowId: this.windowId
+            });
 
             // Wait for the Canvas Worker remote to be available.
             let i = 0;

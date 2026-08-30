@@ -222,6 +222,102 @@ test.describe('Grid Locked Columns', () => {
         expect(hoverSyncActive).toBe(true);
     });
 
+    test('a late initial windowId owns every ScrollManager addon registration', async () => {
+        const
+            {scrollManager} = grid,
+            originalGetAddon = Neo.currentWorker.getAddon,
+            getAddonCalls     = [],
+            registrations    = [],
+            targetAddons     = new Set([
+                'GridDragScroll',
+                'GridRowScrollPinning',
+                'GridHorizontalScrollSync'
+            ]),
+            windowId         = 'grid-late-window';
+
+        grid.mounted = false;
+
+        Neo.currentWorker.getAddon = async (name, targetWindowId) => {
+            getAddonCalls.push({name, windowId: targetWindowId});
+
+            return {
+                register: data => registrations.push({data, name}),
+                unregister() {}
+            }
+        };
+
+        try {
+            expect(scrollManager.windowId).toBeNull();
+
+            grid.windowId = windowId;
+
+            expect(scrollManager.windowId).toBe(windowId);
+
+            grid.mounted = true;
+            await grid.timeout(0);
+
+            expect(getAddonCalls.filter(({name}) => targetAddons.has(name))).toEqual([
+                {name: 'GridDragScroll',           windowId},
+                {name: 'GridRowScrollPinning',     windowId},
+                {name: 'GridHorizontalScrollSync', windowId}
+            ]);
+            expect(registrations
+                .filter(({name}) => targetAddons.has(name))
+                .map(({data, name}) => ({name, windowId: data.windowId}))).toEqual([
+                {name: 'GridDragScroll',           windowId},
+                {name: 'GridRowScrollPinning',     windowId},
+                {name: 'GridHorizontalScrollSync', windowId}
+            ])
+        } finally {
+            Neo.currentWorker.getAddon = originalGetAddon
+        }
+    });
+
+    test('a cross-window remount retires old-realm addon registrations before adopting the new realm', async () => {
+        const
+            originalGetAddon = Neo.currentWorker.getAddon,
+            events           = [],
+            targetAddons     = new Set([
+                'GridDragScroll',
+                'GridRowScrollPinning',
+                'GridHorizontalScrollSync'
+            ]),
+            oldWindowId      = 'grid-window-old',
+            newWindowId      = 'grid-window-new';
+
+        grid.mounted = false;
+
+        Neo.currentWorker.getAddon = async name => ({
+            register: data => targetAddons.has(name) && events.push({action: 'register', name, windowId: data.windowId}),
+            unregister: data => targetAddons.has(name) && events.push({action: 'unregister', name, windowId: data.windowId})
+        });
+
+        try {
+            grid.windowId = oldWindowId;
+            grid.mounted  = true;
+            await grid.timeout(0);
+
+            events.length = 0;
+            grid.mounted  = false;
+            await grid.timeout(0);
+
+            grid.windowId = newWindowId;
+            grid.mounted  = true;
+            await grid.timeout(0);
+
+            expect(events).toEqual([
+                {action: 'unregister', name: 'GridDragScroll',           windowId: oldWindowId},
+                {action: 'unregister', name: 'GridRowScrollPinning',     windowId: oldWindowId},
+                {action: 'unregister', name: 'GridHorizontalScrollSync', windowId: oldWindowId},
+                {action: 'register',   name: 'GridDragScroll',           windowId: newWindowId},
+                {action: 'register',   name: 'GridRowScrollPinning',     windowId: newWindowId},
+                {action: 'register',   name: 'GridHorizontalScrollSync', windowId: newWindowId}
+            ])
+        } finally {
+            Neo.currentWorker.getAddon = originalGetAddon
+        }
+    });
+
     test('responsiveLockPolicy applies matching breakpoint lock states through column setters', async () => {
         grid.responsiveLockPolicy = {
             breakpoints: [{

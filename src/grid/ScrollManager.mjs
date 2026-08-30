@@ -94,14 +94,21 @@ class ScrollManager extends Base {
     }
 
     /**
+     * @summary Registers mount-owned addons in the current realm and retires them before unmount transfers.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
     afterSetMounted(value, oldValue) {
+        let me = this;
+
         if (value) {
-            this.dragScroll && this.updateDragScrollAddon(true);
-            this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
-            this.updateGridHorizontalScrollSyncAddon(true);
+            me.dragScroll && me.updateDragScrollAddon(true);
+            me.rowScrollPinning && me.updateRowScrollPinningAddon(true);
+            me.updateGridHorizontalScrollSyncAddon(true)
+        } else if (oldValue && me.windowId) {
+            me.dragScroll && me.updateDragScrollAddon(false);
+            me.rowScrollPinning && me.updateRowScrollPinningAddon(false);
+            me.updateGridHorizontalScrollSyncAddon(false)
         }
     }
 
