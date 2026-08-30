@@ -158,3 +158,11 @@ resources/content/computed-route.json
 # bytes (neomjs/neo#17798).
 .agents/skills
 .claude/skills/
+
+# Agent OS seat hooks are generated-not-tracked projections under ADR 0040 §2.7.
+# Keep the Engine-owned contributor guard and Kimi hook-root README visible.
+.claude/hooks/*
+!.claude/hooks/rgReplaceGuardHook.mjs
+.codex/hooks/
+.kimi-code/hooks/*
+!.kimi-code/hooks/README.md
