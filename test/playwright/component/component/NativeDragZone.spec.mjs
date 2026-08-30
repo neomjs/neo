@@ -20,6 +20,61 @@ test.describe('Neo.component.Base#nativeDragZone (browser)', () => {
         }
     });
 
+    test('a REAL browser drag carries the declared payload into a drop target, effectAllowed included', async ({page}) => {
+        componentId = await page.evaluate(() => Neo.worker.App.createNeoInstance({
+            ntype   : 'component',
+            appName : 'ComponentTestApp',
+            parentId: 'component-test-viewport',
+            html    : '<span class="entity" data-record-id="cid-7" style="display:inline-block;padding:20px">row 7</span>' +
+                            '<div class="drop-zone" style="display:inline-block;width:120px;height:60px;border:1px solid"></div>',
+            nativeDragZone: {
+                delegate     : '.entity',
+                effectAllowed: 'copy',
+                types        : {
+                    'application/x-entity-id': '{data-record-id}',
+                    'text/plain'             : 'entity:{data-record-id}'
+                }
+            }
+        }));
+
+        await page.waitForSelector('.entity', {state: 'attached'});
+
+        // a real drop target observing the LIVE drag data store — no constructed events anywhere
+        await page.evaluate(() => {
+            const witness = globalThis.__dragWitness = {};
+
+            document.querySelector('.drop-zone').addEventListener('dragover', event => {
+                event.preventDefault();
+                witness.effectAllowed = event.dataTransfer.effectAllowed;
+                // the browser orders the types list by its own rules, not by insertion
+                witness.types         = [...event.dataTransfer.types].sort();
+                witness.shieldStamped = document.body.classList.contains('neo-drag-active')
+            });
+
+            document.querySelector('.drop-zone').addEventListener('drop', event => {
+                event.preventDefault();
+                witness.entityId = event.dataTransfer.getData('application/x-entity-id');
+                witness.plain    = event.dataTransfer.getData('text/plain')
+            })
+        });
+
+        await page.dragAndDrop('.entity', '.drop-zone');
+
+        const verdict = await page.evaluate(() => ({
+            ...globalThis.__dragWitness,
+            restored: !document.querySelector('.entity').hasAttribute('draggable')
+        }));
+
+        expect(verdict).toEqual({
+            effectAllowed: 'copy',
+            types        : ['application/x-entity-id', 'text/plain'],
+            shieldStamped: false,
+            entityId     : 'cid-7',
+            plain        : 'entity:cid-7',
+            restored     : true
+        })
+    });
+
     test('declared types fill from the real drag store; the sensor stays out; terminal restores the DOM', async ({page}) => {
         componentId = await page.evaluate(() => Neo.worker.App.createNeoInstance({
             ntype         : 'component',

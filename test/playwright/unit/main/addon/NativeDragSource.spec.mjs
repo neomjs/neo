@@ -165,6 +165,30 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         expect(addon.claimsEvent(press(node))).toBe(false)
     });
 
+    test('an owner only the dual-identity authority resolves still claims and arms (useDomIds:false red control)', () => {
+        // `useDomIds: false` renders `data-neo-id` instead of `id`: document.getElementById misses,
+        // DomAccess.getElement resolves. Production reverted to a direct getElementById lookup
+        // cannot pass this test — that revert stayed green before this red control existed.
+        const node = fakeNode({'data-record-id': 'cid-neo'});
+
+        node.closestMap['.grid [data-record-id]'] = node;
+
+        Neo.main.DomAccess = {getElement: id => id === 'grid-neo' ? {contains: candidate => candidate === node} : null};
+        expect(documentRef.getElementById('grid-neo')).toBe(null);
+
+        addon.register({
+            delegate: '.grid [data-record-id]',
+            ownerId : 'grid-neo',
+            types   : {'text/plain': 'entity:{data-record-id}'}
+        });
+
+        expect(addon.claimsEvent(press(node))).toBe(true);
+
+        addon.onMouseDown(press(node));
+        expect(addon.armed).not.toBe(null);
+        expect(node.draggable).toBe(true)
+    });
+
     test('a delegate match outside the owner subtree neither arms nor claims', () => {
         const node = registerGrid();
 
