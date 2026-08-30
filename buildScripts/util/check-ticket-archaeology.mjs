@@ -13,17 +13,54 @@ const scriptRoot = path.resolve(__dirname, '../..');
 // file. Keep mirror-aligned with the `paths:` trigger of .github/workflows/ticket-archaeology-lint.yml so
 // every path that can trigger the gate is also scanned (else it passes vacuously). The guard lists ITSELF
 // here so it self-guards at the merge-gate, not only via the pre-commit lint-staged `*.mjs` glob.
-export const DEFAULT_SCAN_PATHS = ['ai', 'src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
+// `ai` is deliberately absent: the Agent OS tree moved to `neo-agent-brain` in the split, and `find`
+// aborts the whole audit on a missing root rather than skipping it — so carrying the dead root left
+// the default whole-repo mode failing closed on every invocation, silently, since the cut. Staged and
+// `--base` runs were unaffected, which is why nothing surfaced it.
+export const DEFAULT_SCAN_PATHS = ['src', 'test/playwright', 'buildScripts/util/check-ticket-archaeology.mjs'];
 export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 
 // Inline relief valve for a genuinely load-bearing comment ref (judgment-call escape, not a blanket bypass).
 export const ESCAPE_MARKER = 'ticket-ref-ok';
 
-// Decay-prone tracking anchors that must not live in durable source comments. `#\d{4,}\b` targets
-// issue/PR numbers (Neo tickets are 5 digits) while a trailing word boundary avoids matching hex colors
-// like `#1234ff`; the named forms catch the prose variants.
+// A colour literal appears as a VALUE — assigned, quoted, backticked, or after a colon — while a
+// tracking ref appears as a bare word in prose. The old bound used LENGTH as a stand-in for that
+// distinction and the stand-in leaked: the comment reasoned from `#1234ff`, where letters stop
+// `\d{4,}` short of a word boundary, but an all-numeric colour has no letters to stop it, so
+// `#000000` was read as an issue reference on lines a change never touched.
+//
+// Only real colour LENGTHS are stripped (3/4/6/8 hex digits), so a 5-digit Engine ref stays visible
+// even when quoted. Position decides; length only says "this could be a colour at all".
+const VALUE_POSITION_COLOR = /(?:[=:]\s*|['"`])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g;
+
+/**
+ * @summary Blanks colour literals that sit in value position, so the ref patterns cannot read them.
+ * @param {String} comment
+ * @returns {String}
+ */
+export function stripValueColors(comment) {
+    return comment.replace(VALUE_POSITION_COLOR, ' ')
+}
+
+// Decay-prone tracking anchors that must not live in durable source comments.
+//
+// `#\d{4,}` stays for Engine refs: at four-plus digits a bare `#N` is unambiguous. Widening it to
+// `#\d+` to reach the sibling repositories (2–3 digits) was measured against the tree and rejected —
+// it took 9 findings to 27, and the new ones were almost all ORDINALS: `Refresh #2`, `Product truth
+// #1`, `To solve #3`. Those are English, not archaeology, and a guard that flags them trains authors
+// to reach for the escape marker.
+//
+// A short cross-repo ref is only decidable when it is QUALIFIED, which is the form that survives the
+// split anyway — a bare `#204` in an Engine comment cannot be told from an ordinal by any pattern,
+// and cannot be resolved to a repository by a reader either.
 export const TICKET_PATTERNS = [
     /#\d{4,}\b/,
+    // Matches a repo-qualified ref: `brain#<n>`, `neo-agent-brain#<n>`, `neomjs/neo-agent-skills#<n>`.
+    // Written with `<n>` rather than a digit on purpose — a literal example here would be flagged by
+    // this very pattern, and reaching for the escape marker to relieve it would assert a deliberate
+    // ticket reference where there is only an example — the same false statement the marker makes
+    // when it is used to silence a colour literal.
+    /\b(?:neomjs\/)?(?:neo-agent-)?(?:brain|institution|skills)#\d+\b/i,
     /\bEpic\s+#?\d+\b/i,
     /\bDiscussion\s+#?\d+\b/i,
     /\bADR[-\s]?\d{3,4}\b/i
@@ -125,7 +162,7 @@ export function findTicketRefs(content) {
             return
         }
 
-        if (TICKET_PATTERNS.some(re => re.test(comment))) {
+        if (TICKET_PATTERNS.some(re => re.test(stripValueColors(comment)))) {
             hits.push({line: index + 1, text: line.trim()})
         }
     });
