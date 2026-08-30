@@ -482,6 +482,8 @@ class Reconciler extends Base {
      *
      * Cross-tab card/button moves must commit before this method runs. The distinct ancestor commit
      * prevents the main-thread delta from retiring a child after its retained ancestor has landed.
+     * The destination projection also owns fixed `width` / `height`: retained edge-band chrome must
+     * take those values (or clear obsolete ones) instead of carrying source geometry across the move.
      * @param {Map<String,Object>} plans
      * @returns {Map<String,Object>}
      * @static
@@ -513,6 +515,8 @@ class Reconciler extends Base {
                 flex     : plan.config.flex,
                 listeners: plan.config.listeners,
                 style    : plan.config.style,
+                height   : Object.hasOwn(plan.config, 'height') ? plan.config.height : null,
+                width    : Object.hasOwn(plan.config, 'width')  ? plan.config.width  : null,
                 // Flexbox stores parent-owned sizing on the child's wrapper. A retained tab
                 // otherwise carries its source split ratio into the destination projection.
                 wrapperStyle: {...tab.wrapperStyle, flex: plan.config.flex ?? null}

@@ -1,5 +1,8 @@
 import { test, expect } from '../../fixtures.mjs';
 
+const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
+const values  = record => record?.properties || record || {};
+
 /**
  * Whitebox-e2e for the dockZone.v1 semantic-operation surface through the Neural Link service tier:
  * every structural op class executes via `execute_dock_operation` against the LIVE example workspace,
@@ -63,6 +66,135 @@ test.describe('Dock semantic operations (Neural Link, structural)', () => {
         expect(tabsNodeHolding(topo, 'inspector')).toBe('inspector-tabs');
         // the read half and the holder's own committed truth are the SAME document
         expect(JSON.stringify(topo)).toBe(JSON.stringify(committed));
+    });
+
+    test('a deferred first document cannot poison the SharedWorker mount or later edge resizes', async ({page, neuralLink}) => {
+        const pageErrors = [];
+
+        page.on('pageerror', error => pageErrors.push(String(error?.message || error)));
+
+        await page.goto('/test/playwright/component/apps/dock-first-mount/');
+        await page.waitForSelector('.neo-dock-workspace', {state: 'visible'});
+
+        const
+            app     = await neuralLink.connectToApp('Test.Playwright.DockFirstMount'),
+            holders = asArray(await app.findInstances(
+                {className: 'Test.Playwright.Component.DockFirstMount.Workspace'},
+                ['deferredBootFixture', 'id', 'mounted', 'refreshBeforeMount']
+            )),
+            holderId  = holders[0]?.id,
+            shellRoot = page.locator('.neo-dock-workspace .neo-dashboard-dock-edge-zone');
+
+        expect(holderId, 'the deferred dock holder exists in the Shared App Worker').toBeTruthy();
+        expect(values(holders[0]).deferredBootFixture, 'the bootstrap-to-real browser fixture loaded').toBe(true);
+        expect(values(holders[0]).refreshBeforeMount, 'refresh staging begins only after the host mount').toBe(false);
+        expect(await page.evaluate(() => Neo.config.useSharedWorkers)).toBe(true);
+
+        const readTopology = async () => {
+            const result = await app.getDockTopology(holderId);
+
+            return result?.document ?? result
+        };
+
+        await expect.poll(async () => Object.keys((await readTopology())?.items || {}).length, {
+            message: 'the deferred real document becomes committed worker truth',
+            timeout: 10000
+        }).toBe(5);
+        await expect(shellRoot, 'the DOM must contain exactly one projected root shell').toHaveCount(1);
+
+        const directChildren = asArray(await app.findInstances(
+                {parentId: holderId},
+                ['id', 'dockNodeId', 'dockNodeType', 'mounted']
+            )),
+            projectionRoots = directChildren.filter(record => values(record).dockNodeType === 'edge-zone'),
+            consistency     = await app.verifyComponentConsistency(holderId);
+
+        expect(projectionRoots, 'worker ownership contains one projected root shell').toHaveLength(1);
+        expect(consistency.consistent, `workspace items/vdom/DOM: ${JSON.stringify(consistency)}`).toBe(true);
+
+        const readEdgeResizeParticipants = async () => {
+            const
+                centerRecord    = asArray(await app.queryComponent({dockNodeId: 'root-split'}, ['id', 'mounted']))[0],
+                inspectorRecord = asArray(await app.queryComponent({dockNodeId: 'inspector-tabs'}, ['id', 'mounted']))[0],
+                splitters       = asArray(await app.findInstances(
+                    {className: 'Neo.dashboard.dock.interaction.DockSplitter'},
+                    ['id', 'edge', 'edgeZoneId', 'mounted']
+                )),
+                edgeSplitter    = splitters.find(record => {
+                    const data = values(record);
+
+                    return data.edge === 'right' && data.edgeZoneId === 'root'
+                }),
+                ids = {
+                    center   : centerRecord?.id ?? values(centerRecord).id,
+                    inspector: inspectorRecord?.id ?? values(inspectorRecord).id,
+                    splitter : edgeSplitter?.id ?? values(edgeSplitter).id
+                };
+
+            expect(ids, 'all three edge-resize participants exist').toMatchObject({
+                center   : expect.any(String),
+                inspector: expect.any(String),
+                splitter : expect.any(String)
+            });
+
+            const [center, splitter, inspector] = await app.getDomRect([
+                ids.center,
+                ids.splitter,
+                ids.inspector
+            ]);
+
+            return {center, ids, inspector, splitter}
+        };
+
+        const assertVisibleGeometryInsideViewport = async label => {
+            const receipt = await page.locator(
+                '.neo-dashboard-dock-edge-zone, .neo-dashboard-dock-splitter, [class*="dock-flip-item-"]'
+            ).evaluateAll(nodes => ({
+                height: innerHeight,
+                width : innerWidth,
+                rects : nodes.map(node => node.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0)
+                    .map(({bottom, left, right, top}) => ({bottom, left, right, top}))
+            }));
+
+            expect(receipt.rects.length, `${label}: visible dock geometry exists`).toBeGreaterThan(5);
+            receipt.rects.forEach(rect => {
+                expect(rect.left,   `${label}: left edge`).toBeGreaterThanOrEqual(-1);
+                expect(rect.top,    `${label}: top edge`).toBeGreaterThanOrEqual(-1);
+                expect(rect.right,  `${label}: right edge`).toBeLessThanOrEqual(receipt.width + 1);
+                expect(rect.bottom, `${label}: bottom edge`).toBeLessThanOrEqual(receipt.height + 1)
+            })
+        };
+
+        await assertVisibleGeometryInsideViewport('first projection');
+
+        const before  = await readEdgeResizeParticipants();
+        const resized = await app.executeDockOperation(holderId, {
+            operation : 'resizeEdgeZone',
+            edgeZoneId: 'root',
+            edge      : 'right',
+            extent    : 0.33
+        });
+
+        expect(resized).toMatchObject({applied: true, errors: []});
+        await expect.poll(async () => (await readEdgeResizeParticipants()).inspector.width, {
+            message: 'the right band follows the committed edge extent',
+            timeout: 10000
+        }).toBeGreaterThan(before.inspector.width + 20);
+
+        const after = await readEdgeResizeParticipants();
+
+        expect(after.center.width, 'the center contracts with the larger right band').toBeLessThan(before.center.width);
+        expect(after.splitter.x, 'the edge splitter moves with the band').toBeLessThan(before.splitter.x);
+        expect(after.inspector.width, 'the right band itself resizes').toBeGreaterThan(before.inspector.width);
+        expect((await readTopology()).nodes.root.zones.right.extent).toBe(0.33);
+        await expect(shellRoot, 'post-resize DOM still owns one projection shell').toHaveCount(1);
+        await assertVisibleGeometryInsideViewport('post-resize projection');
+
+        const postResizeConsistency = await app.verifyComponentConsistency(holderId);
+
+        expect(postResizeConsistency.consistent,
+            `post-resize items/vdom/DOM: ${JSON.stringify(postResizeConsistency)}`).toBe(true);
+        expect(pageErrors, 'no anonymous promise rejection or page error survives').toEqual([])
     });
 
     test('close action resolves reordered live identity, retains chrome and restores successor or root focus', async ({ page, neuralLink }) => {

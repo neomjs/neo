@@ -16,6 +16,8 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper               from '../../../../src/vdom/Helper.mjs';
 
 const createDocument = () => ({
     schema: 'neo.dock.zone.v1',
@@ -30,6 +32,36 @@ const createDocument = () => ({
         'root-split' : {type: 'split', orientation: 'horizontal', children: ['editor-tabs', 'side-tabs'], sizes: [0.6, 0.4]},
         'editor-tabs': {type: 'tabs', items: ['editor'],              activeItemId: 'editor'},
         'side-tabs'  : {type: 'tabs', items: ['preview', 'terminal'], activeItemId: 'preview'}
+    }
+});
+
+const createEmptyDocument = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {},
+    nodes : {
+        root        : {type: 'edge-zone', zones: {center: {nodeId: 'empty-tabs'}}},
+        'empty-tabs': {type: 'tabs', items: []}
+    }
+});
+
+const createEdgeDocument = () => ({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {
+        center   : {componentRef: 'Center',    title: 'Center',    kind: 'panel'},
+        inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'}
+    },
+    nodes: {
+        root            : {
+            type : 'edge-zone',
+            zones: {
+                center: {nodeId: 'center-tabs'},
+                right : {nodeId: 'inspector-tabs', extent: 0.25, resizable: true}
+            }
+        },
+        'center-tabs'   : {type: 'tabs', items: ['center'], activeItemId: 'center'},
+        'inspector-tabs': {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'}
     }
 });
 
@@ -954,6 +986,82 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(timeline).toEqual(['start:1', 'end:1', 'start:1', 'end:1']);
         expect(workspace.items.length).toBe(1);
         expect(tabsOf(workspace.items[0]).get('editor-tabs').getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'editor', 'terminal'])
+    });
+
+    test('a deferred first document does not stage a second shell before the workspace mounts', async () => {
+        const
+            allowVdomUpdatesInTests = Neo.config.allowVdomUpdatesInTests,
+            useDomApiRenderer       = Neo.config.useDomApiRenderer,
+            domAccessAlign          = Neo.main.DomAccess.align,
+            enteredRefresh          = Promise.withResolvers();
+
+        Neo.config.allowVdomUpdatesInTests = true;
+        Neo.config.useDomApiRenderer       = true;
+        Neo.main.DomAccess.align           = async () => {};
+        workspace = Neo.create(PlainWorkspace, {
+            appName  : 'DashboardDockWorkspaceTest',
+            dockModel: createEmptyDocument(),
+            windowId : 1
+        });
+
+        const refreshDockWorkspace = workspace.refreshDockWorkspace.bind(workspace);
+
+        workspace.refreshDockWorkspace = (...args) => {
+            enteredRefresh.resolve();
+            return refreshDockWorkspace(...args)
+        };
+
+        try {
+            // Build the first vnode without mounting it. This is the real boot window: the app's
+            // main-view mount is still pending while an async catalog can commit the real document.
+            await workspace.initVnode();
+            expect(workspace.mounted).toBe(false);
+
+            const initialShell = workspace.items[0];
+
+            workspace.onDockZoneDocumentChange(createDocument());
+
+            await enteredRefresh.promise;
+            await Promise.resolve();
+
+            // Reconciler may not insert its hidden staging shell until the initial tree exists in
+            // the DOM. Otherwise initVnode can serialize old + staged shells as the first mount.
+            expect(workspace.items).toHaveLength(1);
+            expect(workspace.items[0]).toBe(initialShell)
+        } finally {
+            workspace.mounted = true;
+            await workspace.refreshPromise?.catch(() => {});
+            Neo.config.allowVdomUpdatesInTests = allowVdomUpdatesInTests;
+            Neo.config.useDomApiRenderer       = useDomApiRenderer;
+            Neo.main.DomAccess.align           = domAccessAlign
+        }
+
+        expect(workspace.items).toHaveLength(1);
+        expect(tabsOf(workspace.items[0]).has('editor-tabs')).toBe(true)
+    });
+
+    test('a staged edge resize transfers fixed dimensions onto retained tab chrome', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+
+        const inspector = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(inspector.width).toBe('25%');
+
+        const result = workspace.applyDockZoneOperation({
+            operation : 'resizeEdgeZone',
+            edgeZoneId: 'root',
+            edge      : 'right',
+            extent    : 0.33
+        });
+
+        workspace.onDockZoneDocumentChange(result.document, {operation: 'resizeEdgeZone'}, workspace);
+        await workspace.refreshPromise;
+
+        const retainedInspector = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(retainedInspector).toBe(inspector);
+        expect(retainedInspector.width).toBe('33%');
+        expect(retainedInspector.vdom.width).toBe('33%')
     });
 
     test('a destroyed workspace drops its pending refresh without throwing', async () => {

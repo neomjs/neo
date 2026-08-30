@@ -463,7 +463,8 @@ class Manager extends Base {
      *     that contain DOM updates. It normalizes `autoMount` operations into `insertNode` deltas and delegates
      *     them to `handleDomUpdate`.
      * 2.  **Promise Resolution:** It resolves pending promises for `reply` messages (e.g., remote method calls).
-     * 3.  **Message Forwarding:** It routes messages between workers (e.g., App -> Data).
+     * 3.  **Message Forwarding:** It routes messages between workers (e.g., App -> Data), preserving
+     *     a rejected worker's named cause inside the reply `data` field the origin consumes.
      *
      * @param {Object} event
      */
@@ -534,11 +535,17 @@ class Manager extends Base {
             me.promiseMessage(dest, data, transfer).then(response => {
                 me.sendMessage(response.destination, response)
             }).catch(err => {
+                const
+                    reason  = err?.data ?? err,
+                    message = reason?.error?.message || reason?.error || reason?.message ||
+                        'Worker message forwarding failed',
+                    error   = reason instanceof Error ? reason : new Error(String(message));
+
                 me.sendMessage(data.origin, {
                     action : 'reply',
+                    data   : error,
                     reject : true,
-                    replyId: data.id,
-                    error  : err.message
+                    replyId: data.id
                 })
             })
         }

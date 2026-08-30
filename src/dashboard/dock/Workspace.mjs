@@ -1552,6 +1552,9 @@ class Workspace extends Container {
      * A `null` document reconciles toward the EMPTY projection: every pane retires, the shell
      * survives. A configured {@link #dockHostReference} that resolves to no live host throws —
      * the committed document is not rendered, and that must fail loudly, never settle silently.
+     * Before the first mount, the host's own {@link Neo.component.Base#promiseUpdate} is the
+     * ordering boundary: it settles when the initial tree mounts (or rejects on destruction), so
+     * the reconciler can never insert a staging shell into the tree that `initVnode()` is serializing.
      * The reconciler's outcome is captured and its `landedInPlace` — the path it ACTUALLY took,
      * never the requested one — rides the FLIP play as `geometryOnly`; after the play is
      * dispatched, {@link #afterRefreshDockWorkspace} is awaited with the outcome and the play's
@@ -1581,6 +1584,22 @@ class Workspace extends Container {
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
+        }
+
+        if (!host.mounted) {
+            try {
+                await host.promiseUpdate()
+            } catch (error) {
+                if (error === Neo.isDestroyed || me.isDestroyed || host.isDestroyed) {
+                    return
+                }
+
+                throw error
+            }
+        }
+
+        if (me.isDestroyed || host.isDestroyed) {
+            return
         }
 
         try {
