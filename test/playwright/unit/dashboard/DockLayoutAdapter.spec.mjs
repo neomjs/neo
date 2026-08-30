@@ -288,6 +288,32 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(intents).toEqual([{action: 'pin', dockNodeId: 'main-tabs', tabContainer}])
     });
 
+    test('rejects host action names that would make an action unaddressable', () => {
+        const model       = createModel(),
+              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+              project     = (resolveDockHeaderActions, extra={}) => () => DockLayoutAdapter.project(model, {
+                  resolveComponentRef: resolvePane, resolveDockHeaderActions, ...extra
+              });
+
+        // Semantic names ADDRESS actions — `getActionItem(name)` returns the first match and intents
+        // route by name — so a duplicate leaves one of the pair permanently unreachable. Silent is the
+        // wrong failure here: the host sees a header that is simply missing a control.
+        expect(project(() => [{action: 'pin'}, {action: 'pin'}])).toThrow(/duplicate host header action "pin"/);
+        expect(project(() => [{iconCls: 'fa fa-x'}])).toThrow(/requires a semantic `action` name/);
+
+        // Host actions project BEFORE the close action, so a host `close` would win `getActionItem`
+        // and capture BOTH the engine's `hidden` policy sync and its intent — the engine's own close
+        // would go dark with nothing reporting it.
+        expect(project(() => [{action: 'close'}], {enableDockCloseAction: true}))
+            .toThrow(/"close" is reserved while enableDockCloseAction is on/);
+
+        // Scoped, not blanket: with the engine's close action off there is nothing to shadow, so a
+        // host may own the name.
+        const hostClose = getProjectedChildren(project(() => [{action: 'close', iconCls: 'fa fa-x'}])())[0];
+
+        expect(hostClose.headerActions.map(action => action.action)).toEqual(['close'])
+    });
+
     test('a projection with no host resolver and no close action carries no action slot at all', () => {
         const bare = getProjectedChildren(DockLayoutAdapter.project(createModel(), {
             resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})

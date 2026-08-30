@@ -34,6 +34,36 @@ const createDocument = () => ({
 });
 
 /**
+ * A host that projects its OWN header actions through the documented options hook — the seam a real
+ * application uses, exercised end to end rather than through the adapter in isolation.
+ */
+const hostResolverCalls = [];
+
+class HostActionWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.HostActionWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    // Module-scoped rather than an instance field: a plain class field on a Neo class enters the
+    // config machinery and fails its descriptor lookup. State belongs in `static config`, and a test
+    // probe belongs outside the class entirely.
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            resolveDockHeaderActions: nodeId => {
+                hostResolverCalls.push(nodeId);
+                return [{action: 'pin', iconCls: 'fa fa-thumbtack'}]
+            }
+        }
+    }
+}
+
+/**
  * The minimal consumer: the document arrives as a config-assigned field, the projection sits at
  * shell index 0 of the workspace itself, and nothing is overridden.
  */
@@ -196,6 +226,7 @@ Neo.setupClass(ChromeWorkspace);
 Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
 Neo.setupClass(TearOutWorkspace);
+Neo.setupClass(HostActionWorkspace);
 
 const
     tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
@@ -264,6 +295,44 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         tabsNode.listeners.headerAction({action: 'pin', tabContainer});
 
         expect(received).toHaveLength(2)
+    });
+
+    test('a host resolver reaches the live toolbar, routes its intent, and survives reprojection', async () => {
+        hostResolverCalls.length = 0;
+        workspace = Neo.create(HostActionWorkspace, {dockModel: createDocument()});
+
+        const received = [];
+        workspace.on('dockHeaderAction', data => received.push(data));
+
+        const [nodeId, tabContainer] = [...tabsOf(workspace.items[0]).entries()][0],
+              action                 = tabContainer.getActionItem('pin');
+
+        // The adapter-level arms prove the projection CONFIG carries the action. This proves the
+        // config became a real toolbar item on a live workspace that supplied the resolver through
+        // the documented hook — the layer a host actually touches.
+        expect(action, 'the host action materialized as a live toolbar item').toBeTruthy();
+        expect(hostResolverCalls, 'the resolver is asked per tabs node').toContain(nodeId);
+        expect(workspace.enableDockCloseAction, 'host actions work with the close action OFF').toBe(false);
+
+        // Dispatch the action itself rather than calling the projected listener by hand: the handler
+        // is what a press runs, and it is the part that was previously wired only under the close
+        // opt-in.
+        action.handler({component: action});
+
+        expect(received).toHaveLength(1);
+        expect(received[0]).toMatchObject({action: 'pin', dockNodeId: nodeId, source: workspace.id});
+
+        // AC-5, which the first round asserted by reasoning rather than by evidence: a commit and
+        // reprojection must not REPLACE the action instance, or `actionVisibilityChange` consumers
+        // such as tab Overflow lose the component they are bound to.
+        await tabContainer.set({activeIndex: 0});
+        await workspace.refreshPromise;
+
+        const afterReproject = [...tabsOf(workspace.items[0]).entries()]
+            .find(([id]) => id === nodeId)?.[1]?.getActionItem('pin');
+
+        expect(afterReproject, 'the action survives reprojection').toBeTruthy();
+        expect(afterReproject, 'and it is the SAME instance, not a rebuilt group').toBe(action)
     });
 
     test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {

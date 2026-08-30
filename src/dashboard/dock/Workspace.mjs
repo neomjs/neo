@@ -1124,6 +1124,14 @@ class Workspace extends Container {
      * `onDockCrossZoneDragCancel` / `onDockCrossZoneDrop` seams, tear-out or conversion policy.
      * Returned keys override the default cross-zone drop seam; they never replace the reducer and
      * view-sync callbacks, which stay bound to this instance. The default contributes nothing.
+     *
+     * **Host header actions** arrive here too: return `resolveDockHeaderActions: nodeId => [...]` to
+     * project a host's own actions into that tabs node's header. The set is node-static and lives for
+     * the node's retained lifetime — vary an action per active item by moving `hidden` on its stable
+     * instance, the way {@link #syncDockCloseAction} does, not by returning a different list. Names
+     * must be unique per node and `close` is reserved while {@link #enableDockCloseAction} is on;
+     * both violations throw at projection rather than silently unaddressing an action. Their intent
+     * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
      * @returns {Object}
      */
     getDockProjectionOptions() {
@@ -1222,7 +1230,14 @@ class Workspace extends Container {
     }
 
     /**
-     * Routes one persistent header action through the model and the class-owned projection chain.
+     * Routes one persistent header action through the model and the class-owned projection chain,
+     * and re-emits everything it does not own.
+     *
+     * This class owns exactly one action: `close`, and only while {@link #enableDockCloseAction} is
+     * on. Every other intent — including host actions projected through
+     * `resolveDockHeaderActions` — is re-emitted as a **`dockHeaderAction`** event carrying
+     * `{action, dockNodeId, tabContainer}`, so a host receives it without subclassing this class or
+     * overriding a protected method, and this method returns `null` for it.
      * Live reconciled order owns the close target at dispatch time. The current model locates that
      * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
      * is chained onto `refreshPromise`, so it cannot reach chrome the reconciler retires.
