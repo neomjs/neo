@@ -371,6 +371,35 @@ test.describe.serial('Neo tab header actions', () => {
         expect(legacyGated.showOnFocus).toBe(true)
     });
 
+    test('a mixed actionDefaults lets the CURRENT key decide, not the deprecated one', () => {
+        const container = own(Neo.create(BaseContainer, {
+                  items: [{
+                      module        : Toolbar,
+                      actionDefaults: {contextual: true, showOnFocus: false},
+                      actions       : [{action: 'persistent', iconCls: 'fa fa-one'}]
+                  }, {
+                      module        : Toolbar,
+                      actionDefaults: {contextual: false, showOnFocus: true},
+                      actions       : [{action: 'gated', iconCls: 'fa fa-two'}]
+                  }]
+              })),
+              [persistent] = container.items[0].getActionItems(),
+              [gated]      = container.items[1].getActionItems();
+
+        // Both keys arrive from actionDefaults, so there is no "own" value to prefer and positional
+        // spread order cannot express precedence — whichever deprecated value happened to be truthy
+        // would decide. The current key must win in BOTH directions, which is why the second toolbar
+        // inverts the pair.
+        expect(persistent.cls).not.toContain('neo-toolbar-action-context-inactive');
+        expect(persistent.showOnFocus).toBe(false);
+        expect(gated.cls).toContain('neo-toolbar-action-context-inactive');
+        expect(gated.showOnFocus).toBe(true);
+
+        // The alias is an INPUT only; no instance carries both keys for a later reader to reconcile.
+        expect(persistent.contextual).toBeUndefined();
+        expect(gated.contextual).toBeUndefined()
+    });
+
     test('an opt-out survives a subclass whose actionDefaults still use the deprecated spelling', () => {
         const container = own(Neo.create(BaseContainer, {
                   items: [{

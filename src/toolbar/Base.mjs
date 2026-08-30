@@ -252,16 +252,15 @@ class Toolbar extends Container {
     /**
      * Whether one action item is gated on the focus subject.
      *
-     * `contextual` is the deprecated spelling of `showOnFocus`, kept because it is shipped. The
-     * current name wins when both are present, and it is the one an action ends up carrying —
-     * {@link #createActionItemConfig} resolves a consumer's explicit `contextual` into it, so a
-     * subclass default expressed in either spelling cannot outrank an explicit opt-out.
+     * One key decides it. `contextual` is the deprecated spelling and is an INPUT alias only:
+     * {@link #createActionItemConfig} resolves it into `showOnFocus` and deletes it, so no instance
+     * ever carries both and no reader has to know which spelling won.
      * @param {Neo.component.Base} item
      * @returns {Boolean}
      * @protected
      */
     isFocusGatedAction(item) {
-        return item.showOnFocus === true || item.contextual === true
+        return item.showOnFocus === true
     }
 
     /**
@@ -368,18 +367,11 @@ class Toolbar extends Container {
             vdom['aria-label'] = String(resolved.action).replace(/[-_]+/g, ' ')
         }
 
-        // An explicit gate on the action always outranks `actionDefaults`, in EITHER spelling. Order
-        // alone cannot deliver that: a subclass default of `showOnFocus: true` and a consumer's
-        // `contextual: false` are different keys, so both survive the spread and the opt-out is lost.
-        // Resolving the consumer's intent into the current name — and dropping the alias — keeps the
-        // two shipped `contextual: false` callers gated exactly as before.
-        let showOnFocus = Object.hasOwn(resolved, 'showOnFocus') ? resolved.showOnFocus === true :
-                          Object.hasOwn(resolved, 'contextual')  ? resolved.contextual  === true :
-                          undefined;
+        let defaults = me.actionDefaults || {};
 
         let config = {
             role: 'button',
-            ...(me.actionDefaults || {}),
+            ...defaults,
             handler: me.fireAction.bind(me),
             ...resolved,
             cls,
@@ -387,10 +379,24 @@ class Toolbar extends Container {
             ...(Object.keys(vdom).length > 0 && {vdom})
         };
 
-        if (showOnFocus !== undefined) {
-            config.showOnFocus = showOnFocus;
-            delete config.contextual
-        }
+        // The gate is normalized to exactly ONE key, so nothing downstream has to reconcile two
+        // spellings. Precedence is explicit rather than positional, because the spread cannot express
+        // it: `showOnFocus` and `contextual` are different keys, so BOTH survive it and the
+        // deprecated one would decide whenever it happened to be truthy — including when both arrive
+        // from `actionDefaults`, where there is no "own" value to prefer.
+        //
+        // Nearest wins, current name before the alias: the action's own `showOnFocus`, then its
+        // `contextual`, then the defaults' `showOnFocus`, then the defaults' `contextual`.
+        let gate = Object.hasOwn(resolved,  'showOnFocus') ? resolved.showOnFocus  === true :
+                   Object.hasOwn(resolved,  'contextual')  ? resolved.contextual   === true :
+                   Object.hasOwn(defaults,  'showOnFocus') ? defaults.showOnFocus  === true :
+                   Object.hasOwn(defaults,  'contextual')  ? defaults.contextual   === true :
+                   undefined;
+
+        // `contextual` is an INPUT alias only; it never survives onto the instance.
+        delete config.contextual;
+
+        gate === undefined ? delete config.showOnFocus : (config.showOnFocus = gate);
 
         return config
     }
