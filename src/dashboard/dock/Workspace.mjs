@@ -1603,7 +1603,10 @@ class Workspace extends Container {
         }
 
         try {
-            await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix})
+            // windowId routes the call to the host's OWN main thread: without it, SharedWorker
+            // port resolution falls back to the first connected window — the wrong realm the
+            // moment a second window exists.
+            await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
         if (me.isDestroyed) {
@@ -1670,7 +1673,7 @@ class Workspace extends Container {
             MotionSignal.enter(me);
 
             try {
-                rawPlayed = flip.play({hostId: host.id, markerPrefix: flipMarkerPrefix, geometryOnly: result?.landedInPlace === true})
+                rawPlayed = flip.play({geometryOnly: result?.landedInPlace === true, hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
             } catch (error) {
                 rawPlayed = Promise.reject(error)
             }
