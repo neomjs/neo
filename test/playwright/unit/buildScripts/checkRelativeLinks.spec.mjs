@@ -22,9 +22,15 @@ const tracked = new Set([
     'buildScripts/build/esmodules.mjs'
 ]);
 
-/** Drives the collector over one in-memory document. */
-const scan = (file, markdown) =>
-    collectDeadLinks({files: [file], tracked, read: () => markdown});
+/**
+ * Drives the collector over one in-memory document.
+ *
+ * `portalIds` is injected rather than defaulted to something convenient: a portal ref is reachable
+ * iff `learn/tree.json` lists that exact id, so a scan with no manifest must report every portal ref
+ * dead. Defaulting it full would make the fossil arm below pass for the wrong reason.
+ */
+const scan = (file, markdown, portalIds = new Set()) =>
+    collectDeadLinks({files: [file], tracked, portalIds, read: () => markdown});
 
 test.describe('check-relative-links — extraction', () => {
     test('reads inline, reference-style and HTML links', () => {
@@ -111,17 +117,27 @@ test.describe('check-relative-links — resolution', () => {
         expect(resolveTarget({kind: 'path', value: './guides/'}, 'learn')).toBe('learn/guides')
     });
 
-    test('a portal id resolves the way the portal resolves it', () => {
-        // apps/portal/view/learn/Component.mjs#getContentPath: id.replaceAll('.', '/') + '.md'
-        expect(resolveTarget({kind: 'portal', value: 'guides.userinteraction.events.DomEvents'}, base))
-            .toBe('learn/guides/userinteraction/events/DomEvents.md')
+    test('a portal ref has NO repository resolution — it is judged by tree.json membership', () => {
+        // Retired: `id.replaceAll('.', '/') + '.md'`. That rule described a scheme the portal had
+        // already left — 0 of 135 live ids contain a dot — and it certified the dotted form as
+        // healthy by resolving it to a file that a differently-spelled id happens to own. The router
+        // is an exact `store.get(itemId)`, and ids like `Benefits` are section nodes with no file at
+        // all, so a path is the wrong answer in both directions.
+        expect(resolveTarget({kind: 'portal', value: 'guides.userinteraction.events.DomEvents'}, base)).toBeNull();
+        expect(resolveTarget({kind: 'portal', value: 'Benefits'}, base)).toBeNull()
     })
 });
 
 test.describe('check-relative-links — findings', () => {
     test('a live document reports nothing', () => {
-        const {findings, checked} = scan('learn/guides/uibuildingblocks/Custom.md',
-            '[a](../fundamentals/ApplicationBootstrap.md) and [b](guides.uibuildingblocks.WorkingWithVDom)');
+        // The portal ref here is a slash-less id present in the injected manifest. It used to be the
+        // dotted `guides.uibuildingblocks.WorkingWithVDom`, which passed only because the retired
+        // dot-to-slash rule resolved it onto a real file owned by a differently-spelled id.
+        const {findings, checked} = scan(
+            'learn/guides/uibuildingblocks/Custom.md',
+            '[a](../fundamentals/ApplicationBootstrap.md) and [b](Benefits)',
+            new Set(['Benefits'])
+        );
 
         expect(findings).toEqual([]);
         expect(checked).toBe(2)
@@ -142,15 +158,44 @@ test.describe('check-relative-links — findings', () => {
         const {findings} = scan('learn/guides/uibuildingblocks/Custom.md', '[a](benefits.ConfigSystem)');
 
         expect(findings.length).toBe(1);
-        expect(findings[0].kind).toBe('portal');
-        expect(findings[0].resolved).toBe('learn/benefits/ConfigSystem.md')
+        expect(findings[0].kind).toBe('portal')
     });
 
-    test('the corrected portal id resolves, so the arm above is about the TARGET not the syntax', () => {
-        const {findings, portal} = scan('learn/guides/uibuildingblocks/Custom.md', '[a](benefits.body.ConfigSystem)');
+    // The fossil arm, inverted. It used to assert this exact href healthy, on the retired rule that
+    // dots map to slashes — so the guard certified a form dead in BOTH readers: the router misses it
+    // (ids are slash-separated) and no `learn/benefits.body.ConfigSystem.md` exists to open. A guard
+    // that blesses a known-dead syntax is fail-open for every future edit, which is the one thing
+    // this guard exists not to be.
+    test('a DOTTED id is dead for both readers, and no longer certified by the dot-to-slash fossil', () => {
+        const {findings} = scan('learn/guides/uibuildingblocks/Custom.md', '[a](benefits.body.ConfigSystem)');
 
-        expect(findings).toEqual([]);
-        expect(portal).toBe(1)
+        expect(findings.length).toBe(1);
+        expect(findings[0].kind).toBe('portal');
+        expect(findings[0].target).toBe('benefits.body.ConfigSystem')
+    });
+
+    // A documented limit, pinned rather than left implied. Live portal ids are slash-separated, and
+    // a slash-separated target is indistinguishable from a relative path — so only the slash-less
+    // form is ever classified `portal`. Checking the rest as paths is the honest reading: a GitHub
+    // reader given `benefits/body/ConfigSystem` gets a 404 too, since the file carries `.md`.
+    test('LIMIT: a slash-separated portal id is checked as a path, not as a portal ref', () => {
+        const {findings, portal} = scan(
+            'learn/guides/uibuildingblocks/Custom.md',
+            '[a](benefits/body/ConfigSystem)',
+            new Set(['benefits/body/ConfigSystem'])
+        );
+
+        expect(portal).toBe(0);
+        expect(findings.length).toBe(1);
+        expect(findings[0].kind).toBe('path')
+    });
+
+    test('a section node with NO markdown file is still reachable — membership, not a path', () => {
+        // `Benefits` and `GettingStarted` are live tree.json ids with no backing file. Any rule that
+        // resolves a portal ref to `learn/<id>.md` reports these dead; the router routes them fine.
+        const {findings} = scan('learn/x.md', '[a](Benefits)', new Set(['Benefits']));
+
+        expect(findings).toEqual([])
     });
 
     test('external links are neither checked nor counted', () => {

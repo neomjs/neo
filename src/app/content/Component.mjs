@@ -245,7 +245,13 @@ class Component extends Markdown {
         // — the corpus already contains them — and it would render a href that works in a file tree
         // and 404s in the SPA, which is the exact failure this pair exists to prevent.
         return html.replace(/(<a\b[^>]*\bhref\s*=\s*(["']))([^"']+)\2/gi, (match, prefix, quote, href) => {
-            if (/^(https?:|#|\/|mailto:)/.test(href) || !/\.md($|#)/.test(href)) {
+            // Case-insensitive because URI schemes are (RFC 3986 §3.1), and a browser follows
+            // `HTTPS://…` exactly like `https://…`. A case-sensitive test rewrote
+            // `HTTPS://example.com/docs/Foo.md` into `#/learn/…`, corrupting an absolute URL — and
+            // the build guard failed on the same href in the opposite direction, calling a live URL
+            // a dead repository path. The rule is pinned against the guard's `EXTERNAL_TARGET` in
+            // test/playwright/unit/app/content/LinkPredicateParity.spec.mjs; change both or neither.
+            if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(href) || !/\.md($|#)/i.test(href)) {
                 return match
             }
 

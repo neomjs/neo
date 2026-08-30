@@ -22,11 +22,16 @@
  * repository, where a first pass produced 17 findings of which only 7 were real:
  *
  *   1. **Relative** (`../guides/X.md`) — resolved against the referring file's directory.
- *   2. **Root-absolute** (`/learn/comparisons/X.md`) — resolved against the repository root. Joining
- *      these to the referrer's directory is what invented six of those ten false positives.
- *   3. **Portal refs** (`guides.events.DomEvents`) — the portal's own dotted addressing, resolved by
- *      the portal's own rule: `apps/portal/view/learn/Component.mjs#getContentPath` does
- *      `record.id.replaceAll('.', '/')` under the learn root and appends `.md`.
+ *   2. **Root-absolute** (`/learn/comparisons/X.md`) — **unresolvable, and reported.** Joining these
+ *      to the referrer's directory invented six false positives on the first pass; resolving them
+ *      from the repository root then over-corrected and reported dead links as healthy. Neither
+ *      reader works that way — both send a leading slash to an ORIGIN, not to the repo root.
+ *   3. **Portal refs** (`Benefits`, `guides/uibuildingblocks/DockLayouts`) — judged by membership in
+ *      `learn/tree.json`, because the portal's router is an exact `store.get(itemId)`. Ids are
+ *      slash-separated: **0 of 135 contain a dot**, and several (`Benefits`, `GettingStarted`) are
+ *      section nodes with no markdown file, so resolving a portal ref to a path is wrong in both
+ *      directions. A dotted `benefits.body.ConfigSystem` is dead for the router AND has no file for
+ *      a GitHub reader; the retired `replaceAll('.', '/')` rule certified exactly that as healthy.
  *
  * **Nothing is skipped, and that is the point.** The first version of this guard *exempted* class 3
  * with a suffix heuristic — anything slash-less and extension-less was assumed to be a portal ref and
@@ -65,6 +70,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       HTML_HREF = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
 
 /**
+ * Targets neither reader resolves inside the repository: an absolute URI, or a bare in-page anchor.
+ *
+ * Case-insensitive because **URI schemes are case-insensitive** (RFC 3986 §3.1), and both readers
+ * honour that — a browser follows `HTTPS://…` exactly like `https://…`. A case-sensitive test made
+ * the two sides fail in opposite directions on the same href: this guard classified
+ * `HTTPS://example.com/docs/Foo.md` as a repository path and reported a live URL dead, while
+ * `app/content/Component.mjs#rewriteLinks` failed to skip it and rewrote an absolute URL into
+ * `#/learn/…`. `MailTo:a@b.c` was classified `portal`.
+ *
+ * Exported so the renderer's skip-list can be pinned against this one in a single table rather than
+ * maintained twice and allowed to drift.
+ * @type {RegExp}
+ */
+export const EXTERNAL_TARGET = /^(?:[a-z][a-z0-9+.-]*:|#)/i;
+
+/**
  * Extracts every link target from one markdown document, across all three syntaxes.
  *
  * Reference-style and HTML links are read as well as inline ones: a guard that only understands
@@ -95,7 +116,7 @@ export function extractLinkTargets(markdown) {
  * @returns {{kind: 'external'|'portal'|'path', value: String}}
  */
 export function classifyTarget(target) {
-    if (/^(https?:|mailto:|tel:|data:|#)/.test(target)) {
+    if (EXTERNAL_TARGET.test(target)) {
         return {kind: 'external', value: target}
     }
 
@@ -130,9 +151,11 @@ export function classifyTarget(target) {
  * @returns {String}
  */
 export function resolveTarget({kind, value}, base) {
+    // A portal ref has no repository resolution at all — see `portalIds` in collectDeadLinks. It is
+    // judged by tree.json membership, because the portal's router is an exact `store.get(itemId)`
+    // and several live ids (`Benefits`, `GettingStarted`) are section nodes with NO markdown file.
     if (kind === 'portal') {
-        // The portal's own rule, from `apps/portal/view/learn/Component.mjs#getContentPath`.
-        return `${PORTAL_ROOT}/${value.replaceAll('.', '/')}.md`
+        return null
     }
 
     // A root-absolute target is not a repository path. Both readers resolve it against an ORIGIN:
@@ -148,7 +171,26 @@ export function resolveTarget({kind, value}, base) {
     return path.posix.normalize(path.posix.join(base, value)).replace(/\/+$/, '')
 }
 
-export function collectDeadLinks({files, tracked, read}) {
+/**
+ * Every `id` in the portal's content manifest, which is the ONLY thing that makes a portal ref
+ * reachable: the router does an exact `store.get(itemId)`.
+ * @param {String} json raw `learn/tree.json`
+ * @returns {Set<String>}
+ */
+export function portalIdsFrom(json) {
+    const ids = new Set();
+
+    (function walk(nodes) {
+        for (const node of nodes || []) {
+            node?.id !== undefined && ids.add(String(node.id));
+            walk(node?.items)
+        }
+    })(JSON.parse(json).data);
+
+    return ids
+}
+
+export function collectDeadLinks({files, tracked, read, portalIds = new Set()}) {
     // A link may address a directory (`../guides/`); derive the directory set once.
     const dirs = new Set();
 
@@ -173,7 +215,19 @@ export function collectDeadLinks({files, tracked, read}) {
             if (classified.kind === 'external') continue;
 
             checked++;
-            classified.kind === 'portal' && portal++;
+
+            // A portal ref is reachable iff tree.json lists that EXACT id. The former rule mapped
+            // dots to slashes and checked for a file, which certified `benefits.body.ConfigSystem`
+            // as healthy — a form dead in BOTH readers: 0 of 135 live ids contain a dot, so the
+            // router misses it, and no such file exists for a GitHub reader to open either.
+            if (classified.kind === 'portal') {
+                portal++;
+
+                portalIds.has(classified.value) ||
+                    findings.push({file, target: raw, resolved: null, kind: 'portal'});
+
+                continue
+            }
 
             const resolved = resolveTarget(classified, base);
 
@@ -217,7 +271,9 @@ function main() {
           files   = [...tracked].filter(f => f.endsWith('.md') && SCAN_ROOTS.some(r => f.startsWith(r))),
           read    = stagedReader();
 
-    const {findings, checked, portal} = collectDeadLinks({files, tracked, read});
+    const {findings, checked, portal} = collectDeadLinks({
+        files, tracked, read, portalIds: portalIdsFrom(read(`${PORTAL_ROOT}/tree.json`))
+    });
 
     if (findings.length > 0) {
         console.error(`check-relative-links: ${findings.length} unresolved link(s) in ${files.length} file(s).\n`);
