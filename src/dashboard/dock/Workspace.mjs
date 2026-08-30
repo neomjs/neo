@@ -1233,7 +1233,15 @@ class Workspace extends Container {
      * @returns {{document:Object,errors:String[]}|null}
      */
     onDockHeaderAction({action, dockNodeId, tabContainer}={}) {
-        if (action !== 'close' || !this.enableDockCloseAction) return null;
+        if (action !== 'close' || !this.enableDockCloseAction) {
+            // Not an action this class owns. Re-emit it so a host that projected its own actions
+            // through `resolveDockHeaderActions` receives the intent with its tabs node identified,
+            // without having to override a protected method or subclass at all. Dropping it here is
+            // what made the header slot unusable for anyone but the close action.
+            this.fire('dockHeaderAction', {action, dockNodeId, tabContainer});
+
+            return null
+        }
 
         let me     = this,
             itemId = me.getActiveDockItemId(tabContainer);
@@ -1502,10 +1510,11 @@ class Workspace extends Container {
                 onDockCrossZoneDrop: me.onDockCrossZoneDrop.bind(me),
                 ...me.getDockProjectionOptions(),
                 onDockActiveIndexChange: me.onDockActiveIndexChange.bind(me),
-                ...(me.enableDockCloseAction && {
-                    enableDockCloseAction: true,
-                    onDockHeaderAction   : me.onDockHeaderAction.bind(me)
-                }),
+                // Bound unconditionally: a host can project its OWN header actions without enabling
+                // the close action, and wiring the seam inside that opt-in left those intents with
+                // nowhere to arrive.
+                onDockHeaderAction     : me.onDockHeaderAction.bind(me),
+                ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),

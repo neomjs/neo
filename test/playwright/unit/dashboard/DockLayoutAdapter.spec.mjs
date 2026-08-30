@@ -185,13 +185,13 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(sideChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
     });
 
-    test('projects the opt-in persistent Dock close action and forwards runtime intent only', () => {
+    test('projects the opt-in persistent Dock close action and forwards every runtime intent', () => {
         const model = createModel();
 
         model.items.swarm.closable = false;
 
         const
-            closeIntents  = [],
+            intents       = [],
             activeChanges = [],
             disabled      = DockLayoutAdapter.project(model, {
                 resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
@@ -199,7 +199,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             enabled       = DockLayoutAdapter.project(model, {
                 enableDockCloseAction  : true,
                 onDockActiveIndexChange: data => activeChanges.push(data),
-                onDockHeaderAction     : data => closeIntents.push(data),
+                onDockHeaderAction     : data => intents.push(data),
                 resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             }),
             disabledMain = getProjectedChildren(disabled)[0],
@@ -219,14 +219,84 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
 
         const tabContainer = {id: 'live-tabs'};
 
+        // EVERY intent reaches the owner, not just `close`. Filtering in the wire is what made the
+        // header slot unusable for a host: an action could be projected and reach nothing when
+        // pressed. Deciding what to act on belongs to the owner, which ignores what it does not own.
         enabledMain.listeners.headerAction({action: 'custom', tabContainer});
-        expect(closeIntents).toEqual([]);
+        expect(intents).toEqual([{action: 'custom', dockNodeId: 'main-tabs', tabContainer}]);
 
         enabledMain.listeners.headerAction({action: 'close', tabContainer});
         enabledMain.listeners.activeIndexChange({item: {id: 'live-card'}, value: 0});
 
-        expect(closeIntents).toEqual([{action: 'close', dockNodeId: 'main-tabs', tabContainer}]);
+        expect(intents).toEqual([
+            {action: 'custom', dockNodeId: 'main-tabs', tabContainer},
+            {action: 'close',  dockNodeId: 'main-tabs', tabContainer}
+        ]);
         expect(activeChanges).toEqual([{dockNodeId: 'main-tabs', item: {id: 'live-card'}, tabContainer: null, value: 0}])
+    });
+
+    test('projects host-authored header actions before the close action and routes their intent', () => {
+        const
+            model       = createModel(),
+            intents     = [],
+            seenNodeIds = [],
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            pinAction   = () => [{action: 'pin', iconCls: 'fa fa-thumbtack'}],
+
+            hostOnly = DockLayoutAdapter.project(model, {
+                onDockHeaderAction      : data => intents.push(data),
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: nodeId => {
+                    seenNodeIds.push(nodeId);
+                    return nodeId === 'main-tabs' ? pinAction() : []
+                }
+            }),
+
+            both = DockLayoutAdapter.project(model, {
+                enableDockCloseAction   : true,
+                onDockHeaderAction      : data => intents.push(data),
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: pinAction
+            }),
+
+            hostMain = getProjectedChildren(hostOnly)[0],
+            bothMain = getProjectedChildren(both)[0];
+
+        // The slot is usable WITHOUT the close opt-in; wiring it only under that flag is what left a
+        // host with no way in.
+        expect(hostMain.headerActions.map(action => action.action)).toEqual(['pin']);
+
+        // The focusable-root fallback stays tied to the close action, which is what needs it: closing
+        // the last item leaves the empty projection as the focus successor.
+        expect(hostMain.vdom).toBeUndefined();
+
+        // Composition, and the order: close remains the rightmost control it already was.
+        expect(bothMain.headerActions.map(action => action.action)).toEqual(['pin', 'close']);
+
+        // Host actions inherit the tab header's focus gating. Opting out is the close action's
+        // choice, not a default imposed on everyone sharing its rail.
+        expect(bothMain.headerActions[0].contextual).toBeUndefined();
+        expect(bothMain.headerActions[1].contextual).toBe(false);
+
+        // The resolver is consulted per tabs node, by id, so a host can differ per zone.
+        expect(seenNodeIds).toContain('main-tabs');
+        expect(new Set(seenNodeIds).size, 'asked once per node, not once per item').toBe(seenNodeIds.length);
+
+        const tabContainer = {id: 'live-tabs'};
+
+        hostMain.listeners.headerAction({action: 'pin', tabContainer});
+        expect(intents).toEqual([{action: 'pin', dockNodeId: 'main-tabs', tabContainer}])
+    });
+
+    test('a projection with no host resolver and no close action carries no action slot at all', () => {
+        const bare = getProjectedChildren(DockLayoutAdapter.project(createModel(), {
+            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+        }))[0];
+
+        // Byte-identical to before the seam existed: an empty resolver result must not materialise an
+        // empty action group, which would add a spacer and change the header's geometry.
+        expect(bare.headerActions).toBeUndefined();
+        expect(bare.vdom).toBeUndefined()
     });
 
     test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {

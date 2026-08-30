@@ -231,6 +231,41 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(tabsOf(workspace.items[0]).size).toBe(2)
     });
 
+    test('an action the workspace does not own is re-emitted to the host with its node id', () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const received     = [],
+              tabContainer = {id: 'live-tabs'};
+
+        workspace.on('dockHeaderAction', data => received.push(data));
+
+        // No close opt-in here on purpose: a host projecting only its OWN actions must still receive
+        // their intent. Swallowing it — which the class did for everything but `close` — is what made
+        // the header slot unusable for anyone else.
+        const result = workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'main-tabs', tabContainer});
+
+        expect(result, 'the workspace still declines to act on an action it does not own').toBeNull();
+        expect(received).toEqual([{
+            action    : 'pin',
+            dockNodeId: 'main-tabs',
+            source    : workspace.id,
+            tabContainer
+        }]);
+
+        // The WIRING, not just the method. Projecting without the close opt-in must still bind the
+        // seam onto every tabs node, which is the half that was conditional.
+        const findTabs = config => config?.dockNodeType === 'tabs'
+            ? config
+            : (config?.items || []).reduce((found, child) => found || findTabs(child), null);
+
+        const tabsNode = findTabs(workspace.projectDockModel());
+
+        expect(tabsNode, 'the projection exposes a tabs node to wire').toBeTruthy();
+        tabsNode.listeners.headerAction({action: 'pin', tabContainer});
+
+        expect(received).toHaveLength(2)
+    });
+
     test('#17681 owns the reusable tear-out lifecycle on DockWorkspace, not on application hosts', () => {
         for (const method of [
             'adoptTearOutPane',
