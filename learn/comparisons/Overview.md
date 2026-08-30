@@ -35,12 +35,12 @@ articles.
 
 ### Available Comparisons
 
-*   [Neo.mjs vs. React](/learn/comparisons/NeoVsReact.md)
-*   [Neo.mjs vs. Angular](/learn/comparisons/NeoVsAngular.md)
-*   [Neo.mjs vs. Vue.js](/learn/comparisons/NeoVsVue.md)
-*   [Neo.mjs vs. Solid.js](/learn/comparisons/NeoVsSolid.md)
-*   [Neo.mjs vs. Next.js](/learn/comparisons/NeoVsNextJs.md)
-*   [Neo.mjs vs. Ext.js](/learn/comparisons/NeoVsExtJs.md)
+*   [Neo.mjs vs. React](NeoVsReact.md)
+*   [Neo.mjs vs. Angular](NeoVsAngular.md)
+*   [Neo.mjs vs. Vue.js](NeoVsVue.md)
+*   [Neo.mjs vs. Solid.js](NeoVsSolid.md)
+*   [Neo.mjs vs. Next.js](NeoVsNextJs.md)
+*   [Neo.mjs vs. Ext.js](NeoVsExtJs.md)
 
 If you have feedback on any of our comparisons or would like to see a new one, please feel free to open an issue on our
 [GitHub repository](https://github.com/neomjs/neo/issues).

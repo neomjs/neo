@@ -53,7 +53,7 @@ MainView = Neo.setupClass(MainView);
 ```
 
 
-If you're interested, there's <a href="../../examples/component/helix/index.html" target="_blank">a more full-featured helix example</a> that includes showing delta updates,
+If you're interested, there's <a href="../../../examples/component/helix/index.html" target="_blank">a more full-featured helix example</a> that includes showing delta updates,
 along with some other control. Look at the upper-right corner to see delta updates.
 
 </details>

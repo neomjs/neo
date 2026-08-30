@@ -71,4 +71,4 @@ The other 9 buttons are completely untouched in the cycle. This surgical data pr
 > [!TIP]
 > **Curious about the low-level implementation?**
 > Learn exactly how Neo.mjs handles disjoint payloads, atomic batches, and teleportation in our deep-dive guide:
-> **[Asymmetric VDOM Updates](../guides/fundamentals/AsymmetricUpdates.md)**
+> **[Asymmetric VDOM Updates](../../guides/fundamentals/AsymmetricUpdates.md)**

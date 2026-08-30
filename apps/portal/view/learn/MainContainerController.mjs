@@ -105,18 +105,25 @@ class MainContainerController extends Controller {
             store         = stateProvider.getStore('tree'),
             tree          = this.getReference('tree');
 
+        // The route's `{*itemId}` compiles to `(.*)`, so a deep link to a section arrives with its
+        // fragment attached: `guides/x/Page#some-heading`. Record ids never contain one, so passing it
+        // through means an exact-lookup miss and a blank page — the id has to be separated from the
+        // in-page anchor here. Route params are the app's to interpret; widening the shared router's
+        // wildcard would change capture semantics for every routed app.
+        const recordId = itemId.split('#')[0];
+
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/learn') {
             tree.routePrefix = '/learn'
         }
 
         const select = async () => {
-            stateProvider.data.currentPageRecord = store.get(itemId);
+            stateProvider.data.currentPageRecord = store.get(recordId);
 
             if (!oldValue?.hashString?.startsWith('/learn')) {
-                await tree.expandAndScrollToItem(itemId)
+                await tree.expandAndScrollToItem(recordId)
             } else {
-                tree.expandParents(itemId)
+                tree.expandParents(recordId)
             }
         };
 

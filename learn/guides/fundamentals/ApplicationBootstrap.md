@@ -10,7 +10,7 @@ Unlike traditional web architectures that run everything on the main thread, Neo
 using Web Workers.
 
 > **Note:** For a deeper understanding of Neo.mjs's multi-threaded architecture, see the
-> [Off The Main Thread](../benefits/body/OffTheMainThread.md) guide.
+> [Off The Main Thread](../../benefits/body/OffTheMainThread.md) guide.
 
 ## Bootstrap Sequence
 

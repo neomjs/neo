@@ -29,6 +29,7 @@
         "check-examples-body-only"             : "node ./buildScripts/util/check-examples-body-only.mjs",
         "check-package-contents"               : "node ./buildScripts/util/check-package-contents.mjs",
         "check-reactive-tags"                  : "node ./buildScripts/helpers/checkReactiveTags.mjs",
+        "check-relative-links"                 : "node ./buildScripts/util/check-relative-links.mjs",
         "convert-design-tokens"                : "node ./buildScripts/helpers/convertDesignTokens.mjs",
         "create-app"                           : "node ./buildScripts/create/app.mjs",
         "create-app-minimal"                   : "node ./buildScripts/create/appMinimal.mjs",
@@ -161,6 +162,9 @@
         ],
         "resources/content/archive/**/*.md": [
             "node ./buildScripts/util/check-content-logical-identity.mjs"
+        ],
+        "learn/**/*.md": [
+            "node ./buildScripts/util/check-relative-links.mjs"
         ]
     }
 }

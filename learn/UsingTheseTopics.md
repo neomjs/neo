@@ -26,7 +26,7 @@ You'll find a few special features integrated into our content to enhance your l
 
 ### Disclosure widgets
 
-Topics sometimes contain "disclosure" widgets, which are just `<details>` tags. These are used in cases 
+Topics sometimes contain "disclosure" widgets, which are just `<details>` tags. These are used in cases
 where we want to present high-level points and reveal details when the disclosure is expanded.
 
 <details>
@@ -63,4 +63,4 @@ MainView = Neo.setupClass(MainView);
 ---
 
 Your journey into Neo.mjs starts here. The next page will guide you through its core benefits, or if you're ready to get
-hands-on, jump directly to [Getting Started](#/learn/gettingstarted.Setup) to build your first application.
+hands-on, jump directly to [Getting Started](gettingstarted/Setup.md) to build your first application.

@@ -366,7 +366,7 @@ this is your opportunity to contribute to a truly innovative project. The AI-nat
 to empower new contributors. You don't need to be an expert; you just need to be curious.
 
 1.  **Fork the repository:** [https://github.com/neomjs/neo](https://github.com/neomjs/neo)
-2.  **Follow the setup:** Get your local knowledge base running in minutes with our [AI Quick Start Guide](/.github/AI_QUICK_START.md).
+2.  **Follow the setup:** Get your local knowledge base running in minutes with our [AI Quick Start Guide](../../.github/AI_QUICK_START.md).
 3.  **Start a conversation:** Ask the platform a question. Find a small bug or a documentation gap.
     Use the AI as your partner to fix it.
 

@@ -106,7 +106,7 @@ blueprints from natural language prompts.
 ### 3. The Onboarding Ramp: Developer-Friendly HTML Templates
 
 While JSON is the framework's native tongue, we recognize the universal fluency of HTML. To lower the barrier to entry
-and provide a familiar authoring experience, the recent [v10.3.0 release](../../.github/RELEASE_NOTES/v10.3.0.md)
+and provide a familiar authoring experience, the recent [v10.3.0 release](../../resources/content/release-notes/chunk-2/v10.3.0.md)
 introduced an intuitive, HTML-like syntax built on standard JavaScript Tagged Template Literals.
 
 ```javascript readonly
