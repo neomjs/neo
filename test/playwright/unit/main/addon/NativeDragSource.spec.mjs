@@ -52,6 +52,11 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
     let addon;
 
     test.beforeEach(() => {
+        // Re-assert the stub: under fully-parallel CI, a sibling spec's afterAll teardown can
+        // delete globalThis.document between this file's tests — module-level assignment alone
+        // only survives single-worker ordering.
+        globalThis.document = documentRef;
+
         addon = Neo.create(NativeDragSource, {})
     });
 
