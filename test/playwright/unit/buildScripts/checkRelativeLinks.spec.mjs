@@ -4,8 +4,9 @@ import fs             from 'fs';
 import os             from 'os';
 import path           from 'path';
 
-import {classifyTarget, collectDeadLinks, extractLinkTargets, resolveTarget, stagedReader, trackedFiles}
-    from '../../../../buildScripts/util/check-relative-links.mjs';
+import {
+    classifyTarget, collectDeadLinks, describeFinding, extractLinkTargets, resolveTarget, stagedReader, trackedFiles
+} from '../../../../buildScripts/util/check-relative-links.mjs';
 
 /**
  * The guard's classifier is where a link checker lives or dies. A first pass over this repository
@@ -87,6 +88,15 @@ test.describe('check-relative-links — classification', () => {
     test('a slash-less, extension-less target is a portal id', () => {
         expect(classifyTarget('guides.events.DomEvents').kind).toBe('portal');
         expect(classifyTarget('Overview').kind).toBe('portal')
+    });
+
+    // These must NOT carry a slash. `./Splitters.MD` reaches the path branch on `includes('/')`
+    // before the suffix test runs, so it looks like a case arm while witnessing nothing — the
+    // extension branch is only reachable for a bare filename.
+    test('extension case is not significant — the suffix branch, reached without a slash', () => {
+        for (const target of ['Foo.MD', 'README.Md', 'Boot.MJS', 'styles.SCSS']) {
+            expect(classifyTarget(target).kind, target).toBe('path')
+        }
     });
 
     test('the fragment and query are stripped before resolution', () => {
@@ -188,6 +198,22 @@ test.describe('check-relative-links — findings', () => {
         expect(portal).toBe(0);
         expect(findings.length).toBe(1);
         expect(findings[0].kind).toBe('path')
+    });
+
+    // The remedy text is part of the guard's authority. A dead dotted id is unresolved by
+    // construction, so a `resolved === null` test described it as root-absolute and the footer told
+    // the author to spell it with dots — prescribing the fossil that caused the finding.
+    test('the remedy text names the ACTUAL failure, and never prescribes the retired rule', () => {
+        expect(describeFinding({kind: 'portal', resolved: null}))
+            .toBe('is not an id in learn/tree.json, which is the only thing the router resolves');
+        expect(describeFinding({kind: 'path', resolved: null}))
+            .toContain('root-absolute');
+        expect(describeFinding({kind: 'path', resolved: 'learn/x.md'}))
+            .toContain('learn/x.md');
+
+        for (const kind of ['portal', 'path']) {
+            expect(describeFinding({kind, resolved: null}), kind).not.toMatch(/dots|replaceAll/i)
+        }
     });
 
     test('a section node with NO markdown file is still reachable — membership, not a path', () => {

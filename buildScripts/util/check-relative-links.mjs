@@ -127,7 +127,12 @@ export function classifyTarget(target) {
         return {kind: 'external', value: target}
     }
 
-    if (!value.includes('/') && !FILE_SUFFIXES.some(suffix => value.endsWith(suffix))) {
+    // Lower-cased for the same reason the scheme test is case-insensitive: `Foo.MD` is one file on
+    // every system this corpus is read on, and a case-sensitive suffix test classified it `portal`
+    // — then judged a markdown file against tree.json membership and reported it dead.
+    const lower = value.toLowerCase();
+
+    if (!value.includes('/') && !FILE_SUFFIXES.some(suffix => lower.endsWith(suffix))) {
         return {kind: 'portal', value}
     }
 
@@ -188,6 +193,29 @@ export function portalIdsFrom(json) {
     })(JSON.parse(json).data);
 
     return ids
+}
+
+/**
+ * Why one finding failed, in the author's terms.
+ *
+ * Branches on KIND, not on `resolved === null`. Portal findings are unresolved by construction, so
+ * a null test described every dead id as root-absolute — and the CLI footer then told the author to
+ * spell it with dots, the exact rule this guard stopped honouring. **A guard whose remedy text is
+ * wrong teaches the repair that caused the finding**, which is worse than saying nothing. Exported
+ * so the prose is pinned by a spec rather than only reachable by running the binary.
+ * @param {Object}      finding
+ * @param {String}      finding.kind
+ * @param {String|null} finding.resolved
+ * @returns {String}
+ */
+export function describeFinding({kind, resolved}) {
+    if (kind === 'portal') {
+        return 'is not an id in learn/tree.json, which is the only thing the router resolves'
+    }
+
+    return resolved === null
+        ? 'is root-absolute: both readers resolve it against an origin, not the repository root'
+        : `resolves to ${resolved}, which the repository does not contain`
 }
 
 export function collectDeadLinks({files, tracked, read, portalIds = new Set()}) {
@@ -281,14 +309,15 @@ function main() {
         for (const {file, target, resolved, kind} of findings) {
             console.error(`  ${file}`);
             console.error(`      -> ${target}${kind === 'portal' ? '   [portal id]' : ''}`);
-            console.error(resolved === null
-                ? '         is root-absolute: both readers resolve it against an origin, not the repository root'
-                : `         resolves to ${resolved}, which the repository does not contain`)
+
+            console.error(`         ${describeFinding({kind, resolved})}`)
         }
 
         console.error('\nA custody move updates the target and leaves the referrer behind. Repoint the link,');
         console.error('or make it a canonical sibling URL when the target now lives in another repository.');
-        console.error('A [portal id] resolves as learn/<dots-become-slashes>.md — see apps/portal/view/learn/Component.mjs.');
+        console.error('A [portal id] must match a learn/tree.json id EXACTLY — ids are slash-separated and the');
+        console.error('router does a plain store.get, so a dotted spelling never resolves. Relative .md links are');
+        console.error('rewritten for you by app/content/Component.mjs#rewriteLinks; prefer them.');
 
         process.exit(1)
     }
