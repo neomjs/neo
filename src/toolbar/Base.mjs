@@ -57,8 +57,11 @@ class Toolbar extends Container {
          */
         baseCls: ['neo-toolbar'],
         /**
-         * Whether focus-contextual actions are currently exposed. Inactive contextual actions keep
-         * their layout extent but leave pointer, keyboard, and accessibility navigation.
+         * Whether focus-gated actions are currently exposed. Inactive actions keep their layout
+         * extent but leave pointer, keyboard, and accessibility navigation.
+         *
+         * Driven by {@link #focusSubjectId}; a composition may still set it directly when its
+         * exposing signal is not a focus event.
          * @member {Boolean} contextualActionsVisible=false
          * @reactive
          */
@@ -68,6 +71,18 @@ class Toolbar extends Container {
          * @reactive
          */
         dock_: null,
+        /**
+         * Component whose focus exposes this toolbar's `showOnFocus` actions. `null` resolves to the
+         * toolbar's parent container — for a tab header toolbar that is the TabContainer itself.
+         *
+         * One subject covers both edges, and that is a property of `manager.Focus` rather than a
+         * simplification: it fires `focusEnter` / `focusLeave` only up to the closest component
+         * common to the old and new paths. Focus moving anywhere INSIDE the subject — including onto
+         * one of these actions — never fires `focusLeave` on it, so an action cannot vanish from
+         * under the pointer reaching for it. Only leaving the subject entirely re-hides them.
+         * @member {String|null} focusSubjectId=null
+         */
+        focusSubjectId: null,
         /**
          * @member {Object} itemDefaults={ntype:'button'}
          * @reactive
@@ -139,6 +154,17 @@ class Toolbar extends Container {
     }
 
     /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        value && this.wireFocusSubject()
+    }
+
+    /**
      * Checks if the new dock position matches a value of the static dockPositions config
      * @param {String} value
      * @param {String} oldValue
@@ -170,6 +196,15 @@ class Toolbar extends Container {
     }
 
     /**
+     * @protected
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        this.wireFocusSubject()
+    }
+
+    /**
      * Reserves or releases contextual action interactivity while preserving layout geometry.
      * @param {Boolean} [silent=false]
      */
@@ -178,7 +213,7 @@ class Toolbar extends Container {
             visible = me.contextualActionsVisible;
 
         me.getActionItems().forEach(item => {
-            if (item.contextual !== true) {
+            if (!me.isFocusGatedAction(item)) {
                 return
             }
 
@@ -212,6 +247,58 @@ class Toolbar extends Container {
 
             !silent && item.update()
         })
+    }
+
+    /**
+     * Whether one action item is gated on the focus subject.
+     *
+     * One key decides it. `contextual` is the deprecated spelling and is an INPUT alias only:
+     * {@link #createActionItemConfig} resolves it into `showOnFocus` and deletes it, so no instance
+     * ever carries both and no reader has to know which spelling won.
+     * @param {Neo.component.Base} item
+     * @returns {Boolean}
+     * @protected
+     */
+    isFocusGatedAction(item) {
+        return item.showOnFocus === true
+    }
+
+    /**
+     * Subscribes the focus gate to its subject.
+     *
+     * Idempotent and safe to call early: the subject may not exist yet when a toolbar is built as
+     * an early child, so the first attempt can resolve nothing. It then leaves the toolbar unwired
+     * rather than marking it done, and the owner's `onConstructed` or this toolbar's mount retries.
+     * Binding once at a single moment would be either too early for the subject or too late for a
+     * toolbar that never mounts.
+     * @protected
+     */
+    wireFocusSubject() {
+        let me = this;
+
+        if (me.focusSubjectWired) {
+            return
+        }
+
+        let subject = me.focusSubjectId ? Neo.getComponent(me.focusSubjectId) : me.parent;
+
+        if (!subject) {
+            return
+        }
+
+        me.focusSubjectWired = true;
+
+        // `containsFocus` is a reactive config that `manager.Focus` already maintains on every
+        // component in the focus path, so the gate is a subscription to existing state rather than
+        // a second interpretation of focus events. `observeConfig()` also ties the subscription to
+        // this toolbar's lifecycle, which hand-rolled listeners do not.
+        me.observeConfig(subject, 'containsFocus', value => {
+            me.contextualActionsVisible = value === true
+        });
+
+        // Wiring can land after the subject already holds focus; the subscription only reports
+        // CHANGES, so the current value has to be adopted once.
+        me.contextualActionsVisible = subject.containsFocus === true
     }
 
     /**
@@ -280,15 +367,38 @@ class Toolbar extends Container {
             vdom['aria-label'] = String(resolved.action).replace(/[-_]+/g, ' ')
         }
 
-        return {
+        let defaults = me.actionDefaults || {};
+
+        let config = {
             role: 'button',
-            ...(me.actionDefaults || {}),
+            ...defaults,
             handler: me.fireAction.bind(me),
             ...resolved,
             cls,
             isToolbarAction: true,
             ...(Object.keys(vdom).length > 0 && {vdom})
-        }
+        };
+
+        // The gate is normalized to exactly ONE key, so nothing downstream has to reconcile two
+        // spellings. Precedence is explicit rather than positional, because the spread cannot express
+        // it: `showOnFocus` and `contextual` are different keys, so BOTH survive it and the
+        // deprecated one would decide whenever it happened to be truthy — including when both arrive
+        // from `actionDefaults`, where there is no "own" value to prefer.
+        //
+        // Nearest wins, current name before the alias: the action's own `showOnFocus`, then its
+        // `contextual`, then the defaults' `showOnFocus`, then the defaults' `contextual`.
+        let gate = Object.hasOwn(resolved,  'showOnFocus') ? resolved.showOnFocus  === true :
+                   Object.hasOwn(resolved,  'contextual')  ? resolved.contextual   === true :
+                   Object.hasOwn(defaults,  'showOnFocus') ? defaults.showOnFocus  === true :
+                   Object.hasOwn(defaults,  'contextual')  ? defaults.contextual   === true :
+                   undefined;
+
+        // `contextual` is an INPUT alias only; it never survives onto the instance.
+        delete config.contextual;
+
+        gate === undefined ? delete config.showOnFocus : (config.showOnFocus = gate);
+
+        return config
     }
 
     /**

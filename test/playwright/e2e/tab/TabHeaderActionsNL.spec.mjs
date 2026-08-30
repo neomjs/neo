@@ -40,7 +40,7 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
 
         const actionRecords = asArray(await app.queryComponent(
                   {isToolbarAction: true},
-                  ['id', 'action', 'contextual', 'role', 'vdom', 'wrapperCls']
+                  ['id', 'action', 'showOnFocus', 'role', 'vdom', 'wrapperCls']
               )),
               actionsByName = Object.fromEntries(actionRecords.map(record => [valueOf(record, 'action'), record])),
               nextRecord    = actionsByName['next-tab'],
@@ -100,11 +100,14 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
         await expect(previousAction).toHaveCSS('visibility', 'hidden');
         await expect(page.getByRole('button', {name: 'previous tab', exact: true})).toHaveCount(0);
 
-        // Entering through a persistent header action does not arm the contextual sibling.
+        // The gate subject is the TabContainer, not its body: entering through ANY descendant --
+        // here a persistent header action -- is focus inside the container, so the gated sibling is
+        // exposed too. Gating on body focus instead would leave a tab whose body holds nothing
+        // focusable unable to ever reach its own actions.
         await nextAction.click();
         await expect.poll(async () => (await app.getComponent(tabId, ['activeIndex'])).activeIndex)
             .toBe(0);
-        await expect(previousAction).toHaveCSS('visibility', 'hidden');
+        await expect(previousAction).toHaveCSS('visibility', 'visible');
 
         const tabIds = await bar.locator('.neo-tab-header-button').evaluateAll(nodes => nodes.map(node => node.id));
 
@@ -203,7 +206,17 @@ test.describe('TabContainer flat header actions (Neural Link)', () => {
         await expect(previousAction,
             'focus moving into the logically-owned Overflow/menu realm retains contextual actions').toHaveCSS('visibility', 'visible');
 
+        // Dismiss the menu BEFORE leaving. An outside click while it is open is absorbed by its own
+        // dismissal and focus REVERTS to the floating Overflow control — which this toolbar logically
+        // owns, so the container still contains focus and the actions correctly stay visible (the
+        // assertion just above says exactly that). Without the Escape this step asserts a transition
+        // that never happens; it passed under the old body-armed gate only because focus leaving the
+        // body once meant it never re-armed.
+        await page.keyboard.press('Escape');
         await outsideField.click();
+        await expect.poll(() => page.evaluate(() => document.activeElement?.id),
+            {message: 'the outside field really took focus, so the next assertion covers a genuine exit'}
+        ).toBe('activeIndexField__input');
         await expect(previousAction).toHaveCSS('visibility', 'hidden');
 
         // Start from an all-fit header. Mid-gesture action growth would overflow, but the SortZone's
