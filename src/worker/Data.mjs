@@ -69,33 +69,21 @@ class Data extends Base {
     }
 
     /**
-     * @summary Remotely loads an ES module and creates an instance of it inside the Data Worker.
-     * This is crucial for avoiding the loading of heavy data-shaping logic (like Parsers/Normalizers)
-     * inside the App Worker.
+     * @summary Imports one app-space module through an explicit per-root context.
      *
-     * @param {Object} msg
-     * @param {Object} msg.config The configuration object to pass to the new instance.
-     * @param {String} msg.path The path to the module to load.
-     * @returns {Promise<Object>} {success: true, id} or {success: false, error}
-     */
-    /**
-     * @summary Imports one app-space module through an EXPLICIT per-root context.
+     * Each branch carries a static prefix, so webpack roots its lazy context at that exact
+     * directory. A single context rooted above the app-space trees and narrowed by a
+     * `webpackInclude` cannot express the same guarantee: include patterns are matched against the
+     * absolute resource path, so a directory named `apps`, `examples` or `docs/app` anywhere *above*
+     * the workspace satisfies them and the include stops narrowing. An explicit base is not widenable
+     * by an ancestor's name, and holding that invariant is why this method exists.
      *
-     * Each branch below carries a STATIC prefix, so webpack roots its lazy context at that exact
-     * directory. The previous shape — one `../../${path}.mjs` context narrowed by a `webpackInclude`
-     * — could not do that: include/exclude are matched against the ABSOLUTE resource path, so a
-     * workspace nested under an ancestor directory named `apps`, `examples` or `docs/app` matched on
-     * the ancestor and the include stopped narrowing anything. Measured before this change: this
-     * repo's own build registered 797 modules with 762 legitimately matching, while a workspace one
-     * level under an `apps/` ancestor registered 1244 with 7 — the entire tree, including root-level
-     * Node scripts, reachable from a browser worker.
+     * This owns only the package-relative half of the contract. When the framework is an installed
+     * dependency these roots point inside `node_modules/neo.mjs`, and rebasing them out to the
+     * consuming workspace belongs to the worker webpack configs — see
+     * `buildScripts/webpack/workerContextRebasePlugin.mjs`. Changing the prefixes here without
+     * changing that mapping breaks module resolution for every consumer.
      *
-     * An explicit base cannot be widened by a name further up the filesystem, which is why this is a
-     * different shape rather than a stricter regex: anchoring the include to a separator does not
-     * help when the ancestor supplies the separator too.
-     *
-     * The sibling `loadDataModule` switch already resolved its three roots this way; this is that
-     * pattern applied to the two call sites that predated it.
      * @param {String} path App-space module path without the `.mjs` suffix.
      * @returns {Promise<Object>} The imported module namespace.
      * @throws {Error} When the path names no supported root.
@@ -140,6 +128,16 @@ class Data extends Base {
         throw new Error(`Unsupported module root: ${path}`)
     }
 
+    /**
+     * @summary Remotely loads an ES module and creates an instance of it inside the Data Worker.
+     * This is crucial for avoiding the loading of heavy data-shaping logic (like Parsers/Normalizers)
+     * inside the App Worker.
+     *
+     * @param {Object} msg
+     * @param {Object} msg.config The configuration object to pass to the new instance.
+     * @param {String} msg.path The path to the module to load.
+     * @returns {Promise<Object>} {success: true, id} or {success: false, error}
+     */
     async createInstance({config, path}) {
         if (path.endsWith('.mjs')) {
             path = path.slice(0, -4)
