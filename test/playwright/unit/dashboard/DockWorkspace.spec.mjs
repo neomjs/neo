@@ -1176,7 +1176,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(order).toEqual(['captureFirst', 'chromeHook', 'play'])
     });
 
-    test('both FLIP dispatches carry the host windowId — the payload routes to the host realm, never the first port', async () => {
+    test('both FLIP dispatches carry the host windowId — the key generateRemote swaps the destination on', async () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), windowId: 'flip-realm-7'});
 
         const
