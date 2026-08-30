@@ -192,8 +192,12 @@ const expectSparklineCellFit = geometry => {
  */
 const readDockChrome = page => page.evaluate(() => {
     const
-        horizontal = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
-        vertical   = document.querySelector('.neo-dashboard-dock-splitter-vertical'),
+        horizontal = document.querySelector(
+            '.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'
+        ),
+        vertical = document.querySelector(
+            '.neo-dashboard-dock-split-vertical > .neo-dashboard-dock-splitter-vertical'
+        ),
         scalePane  = document.querySelector('.workstation-scale-pane'),
         tabBody    = scalePane?.closest('.neo-tab-body-container'),
         readStyle  = element => {
@@ -320,7 +324,9 @@ const readOverflowMenuSkin = page => page.evaluate(() => {
  */
 const readHorizontalSplitGeometry = page => page.evaluate(() => {
     const
-        splitter = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
+        splitter = document.querySelector(
+            '.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'
+        ),
         children = splitter && [...splitter.parentElement.children]
             .filter(element => !element.classList.contains('neo-dashboard-dock-splitter'));
 
@@ -680,17 +686,17 @@ test.describe('Workstation — dense living-data composition', () => {
             expect(geometry.bottomBand.nearestQueryContainerId).toBe(dockHost.id);
             expect(geometry.leftBand.computedExtent).toBeCloseTo(clamp(
                 rootFontSize * 11.25,
-                dockHost.contentInlineSize * 0.20,
+                dockHost.contentInlineSize * 0.11,
                 dockHost.contentInlineSize * 0.5
             ), 1);
             expect(geometry.rightBand.computedExtent).toBeCloseTo(clamp(
                 rootFontSize * 13.75,
-                dockHost.contentInlineSize * 0.25,
+                dockHost.contentInlineSize * 0.14,
                 dockHost.contentInlineSize * 0.5
             ), 1);
             expect(geometry.bottomBand.computedExtent).toBeCloseTo(clamp(
                 rootFontSize * 8.75,
-                dockHost.contentBlockSize * 0.25,
+                dockHost.contentBlockSize * 0.17,
                 dockHost.contentBlockSize * 0.5
             ), 1)
         };
@@ -700,8 +706,11 @@ test.describe('Workstation — dense living-data composition', () => {
         assertHostRelativeBandGeometry(wideGeometry);
         assertHostRelativeBandGeometry(narrowGeometry);
         assertHostRelativeBandGeometry(shortGeometry);
-        expect(narrowGeometry.leftBand.width).toBeLessThan(wideGeometry.leftBand.width);
-        expect(narrowGeometry.rightBand.width).toBeLessThan(wideGeometry.rightBand.width);
+        // The film-stage extents deliberately leave ordinary desktop sizes on the existing
+        // usability floors; shrinking the viewport must preserve those floors, not squeeze the
+        // side surfaces below them. The center absorbs the responsive delta.
+        expect(narrowGeometry.leftBand.width).toBeCloseTo(wideGeometry.leftBand.width, 1);
+        expect(narrowGeometry.rightBand.width).toBeCloseTo(wideGeometry.rightBand.width, 1);
         expect(narrowGeometry.center.width, 'the primary center keeps its desktop working floor')
             .toBeGreaterThanOrEqual(400);
         expect(narrowGeometry.scale.width, 'the 100k-row primary grid remains usable')
@@ -714,7 +723,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(narrowGeometry.scale.right).toBeLessThanOrEqual(narrowGeometry.center.right + 1);
         expect(narrowGeometry.overflowControls, 'tab overflow remains owner-exact at the narrow desktop floor')
             .toBe(1);
-        expect(shortGeometry.bottomBand.height).toBeLessThan(wideGeometry.bottomBand.height);
+        expect(shortGeometry.bottomBand.height).toBeCloseTo(wideGeometry.bottomBand.height, 1);
         expect(shortGeometry.center.width).toBeCloseTo(narrowGeometry.center.width, 1);
         expect(shortGeometry.scale.width).toBeCloseTo(narrowGeometry.scale.width, 1);
         expect(shortGeometry.scale.height, 'the short desktop keeps a usable primary grid height')
@@ -726,23 +735,23 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await readAtViewport({height: 900, width: 1400});
 
-        const largeHostGeometry = await readAtHost({height: 600, width: 1100});
+        const largeHostGeometry = await readAtHost({height: 900, width: 1600});
 
         assertHostRelativeBandGeometry(largeHostGeometry);
         // unclamped mid-range spot check: both bands render their COMMITTED document extents
-        // (right 0.25, bottom 0.25 of the host axis), not a preferred-size fraction
+        // (right 0.14, bottom 0.17 of the host axis), not a preferred-size fraction
         expect(largeHostGeometry.rightBand.computedExtent)
-            .toBeCloseTo(largeHostGeometry.dockHost.contentInlineSize * 0.25, 1);
+            .toBeCloseTo(largeHostGeometry.dockHost.contentInlineSize * 0.14, 1);
         expect(largeHostGeometry.bottomBand.computedExtent)
-            .toBeCloseTo(largeHostGeometry.dockHost.contentBlockSize * 0.25, 1);
+            .toBeCloseTo(largeHostGeometry.dockHost.contentBlockSize * 0.17, 1);
 
         await page.setViewportSize({height: 850, width: 1300});
 
         const fixedHostGeometry = await readResponsiveDockGeometry(page);
 
         expect(fixedHostGeometry.viewport).toEqual({height: 850, width: 1300});
-        expect(fixedHostGeometry.dockHost.contentInlineSize).toBeCloseTo(1100, 1);
-        expect(fixedHostGeometry.dockHost.contentBlockSize).toBeCloseTo(600, 1);
+        expect(fixedHostGeometry.dockHost.contentInlineSize).toBeCloseTo(1600, 1);
+        expect(fixedHostGeometry.dockHost.contentBlockSize).toBeCloseTo(900, 1);
         assertHostRelativeBandGeometry(fixedHostGeometry);
         expect(fixedHostGeometry.leftBand.computedExtent)
             .toBeCloseTo(largeHostGeometry.leftBand.computedExtent, 2);
@@ -790,9 +799,12 @@ test.describe('Workstation — dense living-data composition', () => {
 
         const restoredGeometry = await readAtViewport({height: 1440, width: 2560});
 
-        expect(restoredGeometry.leftBand.computedExtent).toBeCloseTo(260, 1);
-        expect(restoredGeometry.rightBand.computedExtent).toBeCloseTo(320, 1);
-        expect(restoredGeometry.bottomBand.computedExtent).toBeCloseTo(200, 1);
+        expect(restoredGeometry.leftBand.computedExtent)
+            .toBeCloseTo(restoredGeometry.dockHost.contentInlineSize * 0.11, 1);
+        expect(restoredGeometry.rightBand.computedExtent)
+            .toBeCloseTo(restoredGeometry.dockHost.contentInlineSize * 0.14, 1);
+        expect(restoredGeometry.bottomBand.computedExtent)
+            .toBeCloseTo(restoredGeometry.dockHost.contentBlockSize * 0.17, 1);
         expect(restoredGeometry.overflowControls).toBe(1);
 
         await expect(tourButton).toHaveText('Start dense tour');
@@ -854,13 +866,17 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(hoverTourBackground, 'hover remains in the Workstation signal palette').not.toBe('rgb(67, 93, 177)');
 
         const
-            horizontalSplitter = page.locator('.neo-dashboard-dock-splitter-horizontal'),
-            verticalSplitter   = page.locator('.neo-dashboard-dock-splitter-vertical'),
+            horizontalSplitter = page.locator(
+                '.neo-dashboard-dock-split-horizontal > .neo-dashboard-dock-splitter-horizontal'
+            ),
+            verticalSplitter = page.locator(
+                '.neo-dashboard-dock-split-vertical > .neo-dashboard-dock-splitter-vertical'
+            ),
             darkDockRest       = await readDockChrome(page);
 
         await expect(horizontalSplitter, 'the horizontal document boundary projects one real splitter').toHaveCount(1);
         await expect(verticalSplitter, 'the vertical document boundary projects one real splitter').toHaveCount(1);
-        expect(darkDockRest.splitterCount).toBe(2);
+        expect(darkDockRest.splitterCount).toBe(5);
         expect(darkDockRest.horizontal.cursor).toBe('ew-resize');
         expect(darkDockRest.vertical.cursor).toBe('ns-resize');
         expect(darkDockRest.horizontal.background, 'the horizontal splitter is visible at rest')
@@ -933,7 +949,7 @@ test.describe('Workstation — dense living-data composition', () => {
 
         const lightDockRest = await readDockChrome(page);
 
-        expect(lightDockRest.splitterCount).toBe(2);
+        expect(lightDockRest.splitterCount).toBe(5);
         expect(lightDockRest.horizontal.background, 'light mode retains a visible resting splitter')
             .not.toBe('rgba(0, 0, 0, 0)');
         expect(lightDockRest.tabBody.background, 'light mode keeps the tab body out of pane chrome')
@@ -1039,9 +1055,9 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(gridLayout.scaleTrailingSpace).toBeLessThanOrEqual(140);
         expect(gridLayout.heavyWidth, 'the dense heavy-tab panel is no longer cramped by the scale grid')
             .toBeGreaterThanOrEqual(700);
-        expect(gridLayout.leftBandWidth).toBeCloseTo(260, 0);
+        expect(gridLayout.leftBandWidth).toBeCloseTo(restoredGeometry.leftBand.computedExtent, 1);
         expect(gridLayout.rightBandWidth, 'the stacked evidence cards get more room than the queue card')
-            .toBeCloseTo(320, 0);
+            .toBeCloseTo(restoredGeometry.rightBand.computedExtent, 1);
         expect(feedWidths.Event / feedWidths.State,
             'Event remains the narrative column without consuming nearly the whole feed').toBeLessThanOrEqual(2.1);
         expect(feedWidths.Event / feedWidths.Value).toBeLessThanOrEqual(2.1);
@@ -1051,13 +1067,20 @@ test.describe('Workstation — dense living-data composition', () => {
             boundaryCount                = Object.values(dragModelBefore.nodes)
                 .filter(node => node.type === 'split')
                 .reduce((count, node) => count + node.children.length - 1, 0),
+            edgeSplitterCount              = Object.values(dragModelBefore.nodes)
+                .filter(node => node.type === 'edge-zone')
+                .reduce((count, node) => count + Object.values(node.zones || {})
+                    .filter(zone => zone?.resizable === true).length, 0),
             dragGeometryBefore = await readHorizontalSplitGeometry(page),
             dragIdentityBefore = await readIdentity(app, workspaceId),
             dragSplitterBox    = await horizontalSplitter.boundingBox();
 
         expect(boundaryCount, 'each opening-document split contributes one boundary').toBe(2);
+        expect(await page.locator('.neo-dashboard-dock-split > .neo-dashboard-dock-splitter').count(),
+            'the DOM owns exactly one split child per model boundary').toBe(boundaryCount);
         expect(await page.locator('.neo-dashboard-dock-splitter').count(),
-            'the DOM owns exactly one real splitter per model boundary').toBe(boundaryCount);
+            'the DOM additionally owns one splitter per resizable edge descriptor')
+            .toBe(boundaryCount + edgeSplitterCount);
         expect(dragGeometryBefore.boundaryWidth).toBe(6);
 
         await page.evaluate(() => {
@@ -1150,7 +1173,8 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(dragChromeAfter, 'a resize preserves every opening tab surface and paired button identity')
             .toEqual(beforeChrome);
         expect(scalePanePreserved, 'the exact scale pane DOM node survives splitter re-projection').toBe(true);
-        expect(await page.locator('.neo-dashboard-dock-splitter').count()).toBe(boundaryCount);
+        expect(await page.locator('.neo-dashboard-dock-splitter').count())
+            .toBe(boundaryCount + edgeSplitterCount);
         expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-scale-pane'));
         expectSparklineCellFit(await readSparklineGeometry(page,'.workstation-feed-pane'));
 
