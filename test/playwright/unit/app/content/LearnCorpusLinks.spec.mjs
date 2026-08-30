@@ -35,7 +35,10 @@ import {classifyHref, LinkKind, loadLearnItemIds} from '../../../util/learnLinkN
 
 const ITEM_IDS  = loadLearnItemIds(),
       isServed  = path => path.startsWith('learn/') && ITEM_IDS.has(path.slice('learn/'.length).replace(/\.md$/, '')),
-      FILES     = execSync("git ls-files 'learn/**/*.md'", {encoding: 'utf8'}).trim().split('\n').filter(isServed),
+      // Both globs: `learn/**/*.md` does not match top-level files, so a `learn/*.md` guide sits
+      // outside the population and its links go unchecked while the run still reports clean.
+      FILES     = execSync("git ls-files 'learn/*.md' 'learn/**/*.md'", {encoding: 'utf8'})
+                      .trim().split('\n').filter(isServed),
       regexHref = /<a\s[^>]*href="([^"]*)"/g;
 
 /**
