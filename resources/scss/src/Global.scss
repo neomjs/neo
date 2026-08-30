@@ -60,3 +60,30 @@ html, .neo-body-viewport {
 .neo-drag-active * {
     user-select: none !important;
 }
+
+// The same gesture scope has to suppress iframe pointer capture, and for the same reason the rule
+// above exists: a nested browsing context claims input the gesture needs. `user-select` stops dead
+// at the iframe boundary, and so does the parent's pointer stream — once the cursor is over an
+// iframe, pointermove/pointerup are delivered to the CHILD document, the sensor never observes the
+// release, and the gesture never ends. The stuck class then outlives the drag. Shielding iframes for
+// the gesture's duration keeps the stream in the parent document, where the sensor is listening.
+//
+// Scoped to the gesture class on purpose, and the scope is load-bearing rather than tidy:
+// `pointer-events: none` also removes an element as a NATIVE drag-and-drop target, because the same
+// hit-testing governs dragover/drop. This class is stamped only inside sensor-driven synthetic
+// gestures and never for a native drag, so the shield can never suppress a real HTML5 drop. A drag
+// whose legitimate target IS the iframe opts out per element.
+//
+// This covers a window nothing else does. Once a DragZone session is live,
+// `draggable/DragProxyComponent.scss` shields the whole page with
+// `body:has(.neo-is-dragging) * {pointer-events: none !important}`. But that class lands only after
+// the session starts, while the sensor claims the pointer at mousedown — and a splitter resize never
+// opens a DragZone session at all. The unguarded interval is exactly where a crossing loses the
+// stream, which is why the guard keys on the sensor's own class rather than the session's.
+//
+// The same rule bounds the opt-out: a universal selector carrying `!important` outranks any `:not()`
+// here, so an opted-out iframe stays interactive through a sensor gesture and is still inert through
+// a DragZone drag. That is the contract, not an oversight; widening it means changing that rule.
+.neo-drag-active iframe:not(.neo-drag-passthrough) {
+    pointer-events: none;
+}
