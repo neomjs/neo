@@ -118,6 +118,13 @@ class Rail extends Container {
          */
         resolveComponentRef: null,
         /**
+         * Workspace-owned lock presentation callback for the materialized reveal pane:
+         * `(pane, itemId) => void`. Reveal remains policy-free; this callback only derives inert
+         * presentation from committed item truth.
+         * @member {Function|null} syncDockLockPane=null
+         */
+        syncDockLockPane: null,
+        /**
          * Dismiss-grace override in ms; `null` keeps the machine's named design constant.
          * @member {Number|null} revealDismissGraceMs_=null
          * @reactive
@@ -680,6 +687,10 @@ class Rail extends Container {
      * empty overlay). Blueprint- and placeholder-created panes are cached per item and parked
      * the same way: mounted children are never destroyed mid-session (`revealPaneCache` tears
      * down with the rail).
+     *
+     * The optional Workspace lock callback runs after first materialization and again when the
+     * same revealed identity is synchronized, so reveal stays available while its pane derives
+     * inert presentation directly from current committed item truth.
      * @param {Object|null} railItem
      * @protected
      */
@@ -695,12 +706,12 @@ class Rail extends Container {
 
         currentId = me.revealOverlay.revealPaneItemId ?? null;
         nextId    = railItem?.dockItemId ?? null;
+        child     = slot.items?.[0];
 
         if (currentId === nextId) {
+            child && nextId && me.syncDockLockPane?.(child, nextId);
             return
         }
-
-        child = slot.items?.[0];
 
         if (child) {
             slot.remove(child, false)
@@ -733,6 +744,9 @@ class Rail extends Container {
         }
 
         me.revealOverlay.revealPaneItemId = nextId
+
+        child = slot.items?.[0];
+        child && nextId && me.syncDockLockPane?.(child, nextId)
     }
 }
 

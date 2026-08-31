@@ -415,6 +415,10 @@ class LayoutAdapter extends Base {
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
      * @param {Boolean} [options.enableDockCloseAction=false] Projects one persistent close action
      *     into every tabs header. The workspace owns the effect and policy synchronization.
+     * @param {Boolean} [options.enableDockLockAction=false] Projects one engine-owned lock toggle
+     *     into every tabs header. The workspace owns committed-state dispatch and presentation sync.
+     * @param {String} [options.dockLockIconCls='fa fa-lock'] Icon while the active item is unlocked.
+     * @param {String} [options.dockUnlockIconCls='fa fa-lock-open'] Icon while it is locked.
      * @param {Boolean} [options.enableDockPinAction=false] Projects one persistent pin action into
      *     every tabs header — the collapse-to-rail entry of docking design record §2.7. The workspace
      *     owns the effect and policy synchronization, exactly as it does for close.
@@ -445,10 +449,11 @@ class LayoutAdapter extends Base {
      *     (`hidden` / `disabled`), never in a changing list. Actions project BEFORE the engine set,
      *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
      *     tab header's own default. Semantic names must be unique per node, and every engine-owned
-     *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`, `maximize` under `enableDockMaximizeAction`, `pin`
-     *     under `enableDockPinAction`, `reload` under `enableDockReloadAction`, `pop-out` under
-     *     `enableDockPopOutAction`. A name is reserved exactly while the engine can project it, so
-     *     `pop-out` is free for a host whenever the workspace's tear-out lifecycle is not armed.
+     *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`,
+     *     `lock` under `enableDockLockAction`, `maximize` under `enableDockMaximizeAction`,
+     *     `pin` under `enableDockPinAction`, `reload` under `enableDockReloadAction`, and `pop-out`
+     *     under `enableDockPopOutAction`. A name is reserved exactly while the engine can project it,
+     *     so `pop-out` is free for a host whenever the workspace's tear-out lifecycle is not armed.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
@@ -459,6 +464,8 @@ class LayoutAdapter extends Base {
      *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
      * @param {Function} [options.resolveComponentRef]
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
+     * @param {Function} [options.syncDockLockPane] Workspace-owned lock presentation for a resolved
+     *     rail reveal pane: `(pane, itemId) => void`.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
      * @param {Number} [options.vesselConversionConvertThreshold] Provisional convert-in threshold;
@@ -506,9 +513,12 @@ class LayoutAdapter extends Base {
             dockTabSortBoundaryContainerId   : options.dockTearOutBoundaryContainerId
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
+            dockLockIconCls                  : options.dockLockIconCls || 'fa fa-lock',
             dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
             dockPopOutIconCls                : options.dockPopOutIconCls || 'far fa-window-restore',
+            dockUnlockIconCls                : options.dockUnlockIconCls || 'fa fa-lock-open',
             enableDockCloseAction            : options.enableDockCloseAction === true,
+            enableDockLockAction             : options.enableDockLockAction === true,
             enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
             enableDockPinAction              : options.enableDockPinAction === true,
             enableDockPopOutAction           : options.enableDockPopOutAction === true,
@@ -539,6 +549,7 @@ class LayoutAdapter extends Base {
                 || options.resolveComponentRef
                 || (() => null),
             stackDragNodeId,
+            syncDockLockPane                   : options.syncDockLockPane,
             tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
             vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
             vesselConversionPointerExitGraceMs: options.vesselConversionPointerExitGraceMs,
@@ -596,7 +607,8 @@ class LayoutAdapter extends Base {
      * The metadata carries stable `dockItemId` + `dockEdge` so the rail's click (and the follow-up
      * reveal/pin slice) can address the item semantically, plus the `restorable` policy projection
      * (`pinnable !== false`) — a tab whose restore the model would reject renders disabled instead
-     * of lying about the affordance.
+     * of lying about the affordance. Lock never removes the rail affordance; Workspace derives inert
+     * reveal presentation directly from committed item truth rather than duplicating it here.
      * No DOMRect, hover, or open geometry is emitted — reveal/open state stays runtime-only per the
      * JSON-first guardrail (DockZoneModel.md §Serializable vs Runtime).
      * @param {String} itemId
@@ -646,7 +658,8 @@ class LayoutAdapter extends Base {
             ntype                   : 'dashboard-dock-rail',
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
-            resolveComponentRef     : context.resolveRevealComponentRef
+            resolveComponentRef     : context.resolveRevealComponentRef,
+            syncDockLockPane        : context.syncDockLockPane
         }
     }
 
@@ -1033,6 +1046,7 @@ class LayoutAdapter extends Base {
                   // is not one lowercase word — `pop-out` yielded `enableDockPop-outAction`, sending
                   // the host to grep for something unfindable. Pairing them here cannot drift.
                   ['close',    {enabled: context.enableDockCloseAction,    optIn: 'enableDockCloseAction'}],
+                  ['lock',     {enabled: context.enableDockLockAction,     optIn: 'enableDockLockAction'}],
                   ['maximize', {enabled: context.enableDockMaximizeAction, optIn: 'enableDockMaximizeAction'}],
                   ['pin',      {enabled: context.enableDockPinAction,      optIn: 'enableDockPinAction'}],
                   // Reserved only while the flag is on — and that flag is already the AND of
@@ -1070,7 +1084,7 @@ class LayoutAdapter extends Base {
 
         const headerActions = [
             ...hostActions,
-            // Reload leads the engine set per the frozen family order (reload · pin · maximize —
+            // Reload leads the engine set per the frozen family order (reload · lock · pin · maximize —
             // close always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
             // CONSTANT true here — per-item availability must ride the ONE retained instance's
             // runtime state (`Workspace#syncDockReloadAction`, the `syncDockCloseAction`
@@ -1082,6 +1096,13 @@ class LayoutAdapter extends Base {
                 action : 'reload',
                 hidden : true,
                 iconCls: 'fa fa-rotate-right'
+            }] : []),
+            ...(context.enableDockLockAction ? [{
+                action : 'lock',
+                hidden : !activeItemId || context.items[activeItemId]?.lockable === false,
+                iconCls: context.items[activeItemId]?.locked === true
+                    ? context.dockUnlockIconCls
+                    : context.dockLockIconCls
             }] : []),
             ...(context.enableDockPinAction ? [{
                 action    : 'pin',
@@ -1122,7 +1143,9 @@ class LayoutAdapter extends Base {
             ...(context.enableDockCloseAction ? [{
                 action    : 'close',
                 contextual: false,
-                hidden    : !activeItemId || context.items[activeItemId]?.closable === false,
+                hidden    : !activeItemId
+                    || context.items[activeItemId]?.closable === false
+                    || context.items[activeItemId]?.locked === true,
                 iconCls   : 'fa fa-times'
             }] : [])
         ];
