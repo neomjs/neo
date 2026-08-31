@@ -2755,8 +2755,6 @@ class Workspace extends Container {
             waitForOverflowProjection
         });
 
-        me.syncDockHeaderActions(result?.currentTabs);
-
         // Awaited on purpose: refreshPromise is the settled-surface contract, and a maximize
         // presentation that re-applies after it settles is a surface nobody can await.
         await me.syncDockMaximizeProjection();
@@ -2785,6 +2783,12 @@ class Workspace extends Container {
 
         if (!me.isDestroyed) {
             await me.afterRefreshDockWorkspace({document, refreshOptions, result, played});
+
+            // Header-action state syncs on the SETTLED tree, never beside the projection
+            // application: a bar write with the refresh's own update train still open is the
+            // collision that duplicated retained chrome on slow rigs. Every write is
+            // change-guarded, so post-settle is both the safe and the idempotent slot.
+            me.syncDockHeaderActions(result?.currentTabs);
 
             // Once more on SETTLED chrome: the pre-settle sync above can run while projected
             // header actions are still instantiating (a fresh boot's first refresh), and a
