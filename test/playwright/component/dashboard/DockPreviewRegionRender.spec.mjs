@@ -2,8 +2,8 @@ import {test, expect} from '@playwright/test';
 
 /**
  * What a drop-preview region actually RENDERS, per edge (ticket-ref-ok: this is the enforcement AC
- * for the left/right region-preview defect — the four edges must be visually equal apart from which
- * side carries the thicker cut border).
+ * for the left/right region-preview defect — the four edges must be visually equal, uniform border
+ * included; the cut side is a stamped class, never a thicker edge).
  *
  * **Why this arm exists at all.** Three layers of coverage already touch this surface and none of
  * them can fail on it: the e2e symmetry spec compares band *thicknesses*, the unit spec asserts the
@@ -140,27 +140,27 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
 
         // Border, compared ACROSS edges — not merely within each one.
         //
-        // An earlier revision asserted only that the four SIDES of a given edge shared a colour and
-        // that exactly one was thicker. Every edge could satisfy that independently while differing
-        // from its siblings: a right-only border colour, or a base/cut width that changes with the
-        // axis, stayed green. AC-1 asks for equality across edges, so the per-edge facts are reduced
-        // to one normalized signature and the SIGNATURES are compared.
+        // An earlier revision asserted only that the four SIDES of a given edge shared a colour.
+        // Every edge could satisfy that independently while differing from its siblings: a
+        // right-only border colour, or a width that changes with the axis, stayed green. AC-1 asks
+        // for equality across edges, so the per-edge facts are reduced to one normalized signature
+        // and the SIGNATURES are compared. The border is UNIFORM by contract: the cut
+        // side survives only as the stamped semantic class, never as a thicker edge — an
+        // asymmetric width reads as a rendering glitch, and the region fill already shows where
+        // the splitter lands.
         const signatures = EDGES.map(edge => {
             const r      = rendered[edge],
                   sides  = [r.borderTop, r.borderRight, r.borderBottom, r.borderLeft],
-                  widths = sides.map(side => parseFloat(side.width)),
-                  cut    = widths.filter(width => width > 2),
-                  base   = widths.filter(width => width <= 2),
+                  widths = new Set(sides.map(side => parseFloat(side.width))),
                   colors = new Set(sides.map(side => side.color));
 
-            // Structure first: exactly one cut side, three base sides, one shared colour. Without
+            // Structure first: one shared width, one shared colour, and a real border. Without
             // this the reduction below could collapse a genuinely broken edge into a tidy signature.
-            expect(cut,      `${edge}: exactly one border side may carry the cut accent`).toHaveLength(1);
-            expect(base,     `${edge}: the other three sides must stay at the base width`).toHaveLength(3);
+            expect(widths.size, `${edge}: all four border widths must match — no cut accent`).toBe(1);
+            expect([...widths][0], `${edge}: the border must render`).toBeGreaterThan(0);
             expect(colors.size, `${edge}: all four border colours must match`).toBe(1);
-            expect(new Set(base).size, `${edge}: the three base sides must share one width`).toBe(1);
 
-            return `${[...colors][0]}|base:${base[0]}|cut:${cut[0]}`
+            return `${[...colors][0]}|width:${[...widths][0]}`
         });
 
         expect(new Set(signatures).size,
