@@ -64,6 +64,69 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * @class Neo.examples.dashboard.crossWindow.DemoBWorkspace
  * @extends Neo.container.Base
  */
+/**
+ * @summary Compares the observed source-drag chrome against the committed document, one term at a time.
+ *
+ * Each term is observed SEPARATELY, for the same reason the coordinator observes its own claim
+ * candidates one by one (`manager/DragCoordinator#recordClaimResolution`): `||` short-circuits, so a
+ * single collapsed error string cannot distinguish a projection-identity mismatch from a tab-bar arity
+ * one. A receipt that proves the step aborted before any gesture started, but not on which term, cannot
+ * be re-run into an answer — the term is already gone.
+ *
+ * Pure by construction: it takes values already read from the live chrome rather than the components
+ * that carry them, so the comparison is reachable from a unit spec without a rendered workspace. The
+ * caller owns the reads; this owns the verdict AND the message, so a collapse back to one generic
+ * receipt cannot happen on one side without failing the other's coverage.
+ *
+ * Every `actual` is normalized to `null` rather than left `undefined`: an absent surface is exactly
+ * when a term mismatches, and `JSON.stringify` DROPS undefined-valued keys — so the untotalled shape
+ * lost the field on precisely the failures it exists to explain. Verdicts are computed from the RAW
+ * observation before normalization, so the admitted/rejected population is unchanged by it.
+ * @param {Object} data
+ * @param {Number|undefined} data.observedBarItemCount Rendered tab-bar child count.
+ * @param {String|undefined} data.observedNodeId Live `dockNodeId` of the source tabs node.
+ * @param {String[]} [data.observedProjectedItemIds=[]] Live projected dock item ids.
+ * @param {String|undefined} data.observedWorkspaceId Live `dockWorkspaceId` of the source sort zone.
+ * @param {String[]} data.sourceItemIds Committed item ids for the source node.
+ * @param {String} data.sourceNodeId Committed source node id.
+ * @param {String} data.sourceWorkspaceId Committed source workspace id.
+ * @returns {{chromeMismatch:Object,error:(String|null),mismatchedTerms:String[]}}
+ */
+export const describeCrossWindowChromeMismatch = ({
+    observedBarItemCount,
+    observedNodeId,
+    observedProjectedItemIds=[],
+    observedWorkspaceId,
+    sourceItemIds,
+    sourceNodeId,
+    sourceWorkspaceId
+}={}) => {
+    // `barItemCount` compares the tab bar's rendered children against the DOCUMENT's item count, so any
+    // header-action chrome the bar carries that is not a projected dock item makes the two disagree —
+    // the first term to suspect while header actions keep landing on that surface.
+    let chromeMismatch = {
+        dockNodeId      : {expected: sourceNodeId,           actual: observedNodeId,                 mismatch: observedNodeId          !== sourceNodeId},
+        dockWorkspaceId : {expected: sourceWorkspaceId,      actual: observedWorkspaceId,            mismatch: observedWorkspaceId     !== sourceWorkspaceId},
+        barItemCount    : {expected: sourceItemIds.length,   actual: observedBarItemCount,           mismatch: observedBarItemCount    !== sourceItemIds.length},
+        projectedCount  : {expected: sourceItemIds.length,   actual: observedProjectedItemIds.length, mismatch: observedProjectedItemIds.length !== sourceItemIds.length},
+        projectedItemIds: {expected: [...sourceItemIds],     actual: [...observedProjectedItemIds],  mismatch: observedProjectedItemIds.some((projectedItemId, index) => projectedItemId !== sourceItemIds[index])}
+    };
+
+    Object.values(chromeMismatch).forEach(term => {
+        term.actual = term.actual ?? null
+    });
+
+    let mismatchedTerms = Object.keys(chromeMismatch).filter(term => chromeMismatch[term].mismatch);
+
+    return {
+        chromeMismatch,
+        error: mismatchedTerms.length > 0
+            ? `source drag chrome does not match the current workspace document: ${mismatchedTerms.join(', ')}`
+            : null,
+        mismatchedTerms
+    }
+};
+
 class DemoBWorkspace extends Container {
     /**
      * Shared coordinator registry key for the two active Demo-B workspaces.
@@ -2046,15 +2109,18 @@ class DemoBWorkspace extends Container {
                 }
             }
 
-            if (sourceTabs?.dockNodeId !== sourceNodeId
-                || sourceZone?.dockWorkspaceId !== sourceWorkspaceId
-                || sourceBar?.items?.length !== sourceItems.length
-                || projectedItems.length !== sourceItems.length
-                || projectedItems.some((projectedItemId, index) => projectedItemId !== sourceItems[index])) {
-                return {
-                    applied: false,
-                    errors : ['source drag chrome does not match the current workspace document']
-                }
+            let {chromeMismatch, error: chromeError} = describeCrossWindowChromeMismatch({
+                observedBarItemCount    : sourceBar?.items?.length,
+                observedNodeId          : sourceTabs?.dockNodeId,
+                observedProjectedItemIds: projectedItems,
+                observedWorkspaceId     : sourceZone?.dockWorkspaceId,
+                sourceItemIds           : sourceItems,
+                sourceNodeId,
+                sourceWorkspaceId
+            });
+
+            if (chromeError) {
+                return {applied: false, errors: [chromeError], debug: {chromeMismatch}}
             }
 
             if (!sourceButton || !sourceZone || !buttonRect || !targetRect
