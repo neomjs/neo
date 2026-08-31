@@ -394,8 +394,8 @@ export function relativeSpecifiers(code) {
 export function computedSpecifierRoot(specifier) {
     const interpolation = specifier.indexOf('${');
 
-    // The regex only ever captures specifiers opening `./` or `../`, so a separator always precedes
-    // the interpolation and the slice is never the whole specifier.
+    // `relativeSpecifiers` keeps only specifiers opening `./` or `../`, so a separator always
+    // precedes the interpolation and the slice is never the whole specifier.
     return interpolation === -1 ? null : specifier.slice(0, specifier.lastIndexOf('/', interpolation) + 1)
 }
 
