@@ -348,6 +348,40 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             id         : 'live-tabs'
         });
 
+        test('the double gate is enforced at the Workspace, not the adapter', () => {
+            // `tabsOf` yields item IDS, not tab nodes — reading `.headerActions` off one is
+            // always undefined, which made the two `not.toContain` arms below pass vacuously until
+            // the positive arm exposed it. `collect` walks the projection for the real node.
+            const actionNames = ws => {
+                const tabs = collect(ws.projectDockModel(), config => config.dockNodeType === 'tabs')[0];
+
+                expect(tabs, 'the fixture must project a tabs node, or these assertions prove nothing').toBeTruthy();
+
+                return (tabs.headerActions || []).map(action => action.action)
+            };
+
+            // Default off.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+            expect(actionNames(workspace)).not.toContain('pop-out');
+            workspace.destroy();
+
+            // The action opt-in ALONE must not project it: without the lifecycle there are no
+            // tear-out handlers to dispatch into, so the button would offer a gesture the workspace
+            // cannot perform. This is the arm that pins the gate to the context assembly — the
+            // adapter reads one flag and would happily project on it.
+            workspace = Neo.create(PlainWorkspace, {dockModel: createDocument(), enableDockPopOutAction: true});
+            expect(actionNames(workspace)).not.toContain('pop-out');
+            workspace.destroy();
+
+            // Both on.
+            workspace = Neo.create(PlainWorkspace, {
+                dockModel                 : createDocument(),
+                enableDockPopOutAction    : true,
+                enableDockTearOutLifecycle: true
+            });
+            expect(actionNames(workspace)).toContain('pop-out')
+        });
+
         test('the happy path calls exit then terminal, and carries the measured rect', async () => {
             const calls = [];
 
