@@ -185,8 +185,10 @@ In development Neo.mjs serves **JavaScript from source** as native ES modules, s
 1. **On a fresh checkout — and after any `git pull` or branch switch that brings someone else's SCSS**, build the themes:
 
     ```bash readonly
-    npm run build-themes
+    npm run build-themes -- -n -e dev -t all
     ```
+
+    Those flags are not optional decoration: without `-n` the script stops to *ask* you which themes and environment to build, and `-e dev -t all` is what produces the full set the browser and the suites expect. This is the exact string the watcher, the dev server and the e2e preflight all print when they refuse — they share one constant, so the command you are told to run is always the command documented here.
 
     The compiled CSS is gitignored, so it never travels with a pull or a branch switch. The watcher only rebuilds what it *observes changing*, which means incoming SCSS is covered when the watcher happens to be running and missed entirely when it is not. Rebuilding after a pull costs seconds and removes the question.
 
