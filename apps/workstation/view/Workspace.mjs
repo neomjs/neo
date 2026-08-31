@@ -139,6 +139,21 @@ class Workspace extends DockWorkspace {
          */
         dockHostReference: 'dock-host',
         /**
+         * Workstation is the public living witness for the model-authoritative close action.
+         * @member {Boolean} enableDockCloseAction=true
+         */
+        enableDockCloseAction: true,
+        /**
+         * Workstation is the public living witness for edge-pane collapse and reveal.
+         * @member {Boolean} enableDockPinAction=true
+         */
+        enableDockPinAction: true,
+        /**
+         * Workstation is the public living witness for transient in-place pane maximize.
+         * @member {Boolean} enableDockMaximizeAction=true
+         */
+        enableDockMaximizeAction: true,
+        /**
          * @member {String} flipMarkerPrefix='workstation-pane-'
          */
         flipMarkerPrefix: 'workstation-pane-',

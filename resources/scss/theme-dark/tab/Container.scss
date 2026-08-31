@@ -1,5 +1,15 @@
 :root .neo-theme-dark { // .neo-tab-container
-    --tab-container-content-border: 1px solid #3c3f41;
+    --tab-container-content-border                 : 1px solid #3c3f41;
+    --tab-header-action-background-color-active   : rgba(255, 255, 255, .14);
+    --tab-header-action-background-color-hover    : rgba(255, 255, 255, .08);
+    --tab-header-action-border-radius              : 2px;
+    --tab-header-action-glyph-color                : #bbb;
+    --tab-header-action-glyph-color-active         : #fff;
+    --tab-header-action-glyph-color-hover          : #fff;
+    --tab-header-action-size                       : 20px;
+    // Classic chrome remains intentionally flat; this explicit value must not decay into reliance
+    // on the structural fallback.
+    --tab-header-inline-background-image           : none;
 
     // Inline inherits the classic theme's established 25px / square geometry and tightens only
     // horizontal padding. Keeping inherited defaults out of this block prevents copy-drift while
