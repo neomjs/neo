@@ -51,8 +51,36 @@ export default Neo.setupClass(MyReactiveClass);
 ```
 
 Assigning a new value to a reactive property (e.g., `this.myReactiveProp = 'new value'`) triggers its setter, which in
-turn can invoke lifecycle hooks, enabling automatic updates and side effects. Properties without the underscore are
-static and do not trigger this reactive behavior.
+turn can invoke lifecycle hooks, enabling automatic updates and side effects. When you are declaring a **new** config,
+leaving the underscore off makes it a plain prototype value that does not trigger this reactive behavior.
+
+### Overriding an inherited reactive config
+
+A config is declared reactive exactly once per prototype chain, so the sentence above inverts as soon as you are
+*extending* rather than declaring. To give an inherited reactive config a new default, use the **bare name** — it stays
+fully reactive, lifecycle hooks included:
+
+```javascript readonly
+class MyComponent extends Neo.component.Base {
+    static config = {
+        className: 'My.Component',
+        width    : 300 // overrides the inherited `width_` default — still reactive
+    }
+}
+```
+
+Repeating the underscore is not merely unidiomatic — `Neo.setupClass` **throws**, because the parent class already owns
+the accessor:
+
+```javascript readonly
+static config = {
+    width_: 300 // ✗ throws: 'width' is already defined as reactive by a parent class
+}
+```
+
+If what you need is custom behavior rather than a new default, implement the `beforeGetWidth()`, `beforeSetWidth()` or
+`afterSetWidth()` hooks described in section 3 instead of redeclaring the config. The canonical statement of this rule
+lives in [Class Compilation → Prototype Chain Walking & Config Merging](../coreengine/SetupClass.md#1-prototype-chain-walking--config-merging).
 
 ## 3. Configuration Lifecycle Hooks (`beforeSet`, `afterSet`, `beforeGet`)
 
