@@ -2,7 +2,7 @@ import { test, expect } from '../../fixtures.mjs';
 
 /**
  * Whitebox-e2e: the gesture proof for the pin/collapse ENTRY of the auto-hide round-trip
- * (neomjs/neo#17945, ADR 0029 §2.7).
+ * (docking design record §2.7).
  *
  * `DockAutoHideRevealNL` proves the way BACK — a committed auto-hidden item rails, the rail reveals,
  * and the overlay's pin control returns it. It has to auto-hide its subject programmatically first,
