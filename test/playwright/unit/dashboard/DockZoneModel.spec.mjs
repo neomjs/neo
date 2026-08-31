@@ -11,6 +11,7 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import Document           from '../../../../src/dashboard/dock/model/Document.mjs';
+import LayoutAdapter      from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence        from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary from '../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
@@ -1704,6 +1705,126 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             });
 
             expect(appended.nodes['main-tabs'].items).toEqual(['swarm', 'strategy'])
+        })
+    });
+
+    test.describe('findOwningEdge (collapse-target derivation, §2.7)', () => {
+        // Nested edge-zones: the OUTER root owns a `left` band holding an inner edge-zone, whose own
+        // `top` band holds `buried`. Two directional ancestors, deliberately different edges, so a
+        // wrong answer cannot coincide with the right one.
+        const nested = () => ({
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : {
+                main  : {componentRef: 'main',   title: 'Main',   kind: 'panel'},
+                buried: {componentRef: 'buried', title: 'Buried', kind: 'panel'},
+                plain : {componentRef: 'plain',  title: 'Plain',  kind: 'panel'}
+            },
+            nodes: {
+                root        : {type: 'edge-zone', zones: {center: {nodeId: 'main-tabs'}, left: {nodeId: 'inner'}}},
+                'main-tabs' : {type: 'tabs', items: ['main'], activeItemId: 'main'},
+                inner       : {type: 'edge-zone', zones: {center: {nodeId: 'plain-tabs'}, top: {nodeId: 'buried-tabs'}}},
+                'plain-tabs': {type: 'tabs', items: ['plain'],  activeItemId: 'plain'},
+                'buried-tabs': {type: 'tabs', items: ['buried'], activeItemId: 'buried'}
+            }
+        });
+
+        test('an edge-owned item resolves its band; a center-owned item resolves null', () => {
+            const d = doc();
+
+            expect(Document.findOwningEdge(d, 'terminal')).toBe('right');
+
+            // Center is not a claim: §2.7's fail-safe is that main content never rails.
+            expect(Document.findOwningEdge(d, 'strategy')).toBe(null);
+            expect(Document.findOwningEdge(d, 'swarm')).toBe(null)
+        });
+
+        test('resolves through an ancestor climb, not just a direct zone slot', () => {
+            const d = doc();
+
+            // `side-tabs` moves UNDER a split that occupies the right zone, so the item is now two
+            // levels below the band. A derivation that only read the item's immediate parent slot
+            // would answer null here and silently hide the collapse affordance.
+            d.nodes['side-split']      = {type: 'split', orientation: 'vertical', children: ['side-tabs'], sizes: [1]};
+            d.nodes.root.zones.right   = {nodeId: 'side-split'};
+
+            expect(Document.findOwningEdge(d, 'terminal')).toBe('right')
+        });
+
+        test('an unknown item and a catalog-only item resolve null, never a stray edge', () => {
+            const d = doc();
+
+            expect(Document.findOwningEdge(d, 'ghost')).toBe(null);
+
+            // `inspector` is in the catalog but not in the tree. Catalog presence is not placement —
+            // the same rule `captureItemPlacement` fails closed on.
+            expect(d.items.inspector).toBeTruthy();
+            expect(Document.findOwningEdge(d, 'inspector')).toBe(null)
+        });
+
+        test('nested edge-zones: the OUTERMOST directional band wins, because that is the one that rails it', () => {
+            const d = nested();
+
+            // `buried` sits in inner.top, and inner sits in root.left. The projection collects the
+            // root's `left` band with `collectAutoHiddenItems`, which recurses THROUGH `inner` and
+            // claims the item first — so `left` is the rail it would actually reach, not `top`.
+            expect(Document.findOwningEdge(d, 'buried')).toBe('left');
+
+            // `plain` sits in the INNER edge-zone's center — but that whole edge-zone is inside root's
+            // left band, and the collection recurses through it without treating a nested center as a
+            // stop. So `plain` rails LEFT too. "Center never rails" is a rule about the center of the
+            // edge-zone being projected, not about every center slot on the path.
+            expect(Document.findOwningEdge(d, 'plain')).toBe('left');
+
+            // The genuine fail-safe: reaching the root through the ROOT's center is no claim.
+            expect(Document.findOwningEdge(d, 'main')).toBe(null)
+        });
+
+        test('agrees with the projection it must not contradict: every railed item names the band it railed to', () => {
+            const d = nested();
+
+            d.items.buried.autoHidden = true;
+            d.items.plain.autoHidden  = true;
+            d.items.main.autoHidden   = true;
+
+            // The adapter's own collection, per band of the ROOT edge-zone — the exact derivation the
+            // rails are built from. Whatever it claims for a band, this query must answer for the item;
+            // whatever it never claims, this query must answer null. Two derivations of one §2.7 rule
+            // that could silently drift apart are pinned together here instead.
+            let railed = 0;
+
+            ['top', 'right', 'bottom', 'left'].forEach(edge => {
+                const zoneId = Document.getZoneNodeId(d.nodes.root.zones[edge]);
+
+                (zoneId ? LayoutAdapter.collectAutoHiddenItems(zoneId, d) : []).forEach(itemId => {
+                    railed++;
+                    expect(Document.findOwningEdge(d, itemId), `${itemId} rails on ${edge}`).toBe(edge)
+                })
+            });
+
+            // Non-vacuity: the loop above must actually have compared the pair it claims to.
+            expect(railed, 'the projection railed both left-band items to compare against').toBe(2);
+
+            // `main` is auto-hidden in the ROOT's center: the projection never rails it (it stays in
+            // the tab flow as §2.7's fail-safe), and the query agrees by answering null. This is the
+            // negative half — without it the loop above could pass by railing everything.
+            expect(Document.findOwningEdge(d, 'main')).toBe(null)
+        });
+
+        test('a cyclic document terminates instead of hanging the render thread', () => {
+            const d = doc();
+
+            // Not a shape `validate` admits — but this query also runs against documents mid-operation,
+            // and an unbounded climb would spin forever rather than fail. `a` and `b` are each other's
+            // parent, so the climb out of `side-tabs` returns to a node it has already visited.
+            delete d.nodes.root.zones.right;
+
+            d.nodes.a = {type: 'split', orientation: 'vertical',   children: ['b'],              sizes: [1]};
+            d.nodes.b = {type: 'split', orientation: 'horizontal', children: ['a', 'side-tabs'], sizes: [0.5, 0.5]};
+
+            // No edge-zone ancestor is reachable at all, so the fail-safe answer is null — and the
+            // point of the assertion is that it ARRIVES.
+            expect(Document.findOwningEdge(d, 'terminal')).toBe(null)
         })
     });
 

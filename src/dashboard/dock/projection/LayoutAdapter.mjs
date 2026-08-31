@@ -415,16 +415,20 @@ class LayoutAdapter extends Base {
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
      * @param {Boolean} [options.enableDockCloseAction=false] Projects one persistent close action
      *     into every tabs header. The workspace owns the effect and policy synchronization.
+     * @param {Boolean} [options.enableDockPinAction=false] Projects one persistent pin action into
+     *     every tabs header — the collapse-to-rail entry of docking design record §2.7. The workspace
+     *     owns the effect and policy synchronization, exactly as it does for close.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
      *     actions, called per tabs node as `(nodeId)` and returning an array of action configs (or
      *     nothing). The set is **node-static**: it is resolved per tabs node and lives for that
      *     node's retained lifetime, so per-active-item behaviour belongs on the action instance
-     *     (`hidden` / `disabled`), never in a changing list. Actions project BEFORE the close action,
+     *     (`hidden` / `disabled`), never in a changing list. Actions project BEFORE the engine set,
      *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
-     *     tab header's own default. Semantic names must be unique per node, and `close` is reserved
-     *     while `enableDockCloseAction` is on.
+     *     tab header's own default. Semantic names must be unique per node, and every engine-owned
+     *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`, `pin`
+     *     under `enableDockPinAction`.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
@@ -483,6 +487,7 @@ class LayoutAdapter extends Base {
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
             enableDockCloseAction            : options.enableDockCloseAction === true,
+            enableDockPinAction              : options.enableDockPinAction === true,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
             items                            : model.items || {},
@@ -955,9 +960,13 @@ class LayoutAdapter extends Base {
             }
         ));
 
-        // Host actions precede the close action so `close` stays the rightmost control — the position
+        // Host actions precede the ENGINE SET, and `close` stays the rightmost control — the position
         // it already occupies for every consumer that enables it, and the one the gesture is reached
-        // at. A host resolver returning nothing leaves the projection byte-identical to before.
+        // at. The family's frozen order is
+        // `[tab overflow] → [host actions] → [lock · reload · pin · pop-out · maximize] → [close]`;
+        // each engine action ships behind its own `enableDock<X>Action` opt-in, so a header renders
+        // the subset its consumer enabled, in that order, never a different order.
+        // A host resolver returning nothing leaves the projection byte-identical to before.
         //
         // The resolver receives the node id ALONE, deliberately. Handing it the active item would
         // invite a per-item action LIST, and a list that changes between projections replaces the
@@ -966,7 +975,16 @@ class LayoutAdapter extends Base {
         // cost by keeping one instance and moving `hidden` (`Workspace#syncDockCloseAction`); a host
         // needing per-item behaviour has the same mechanism, on actions it owns.
         const hostActions = context.resolveDockHeaderActions?.(nodeId) || [],
-              seen        = new Set();
+              seen        = new Set(),
+              // Engine-owned names are reserved while their own opt-in is on. One table rather than a
+              // branch per action: every leaf of the §2.7 family reserves its name by construction, so
+              // adding an engine action cannot forget its guard. A Map (not an object literal) because
+              // the key is host-supplied — `constructor` and `__proto__` must miss, exactly as they do
+              // in `Operations.applyOperation`'s own-key dispatch.
+              reservedActionNames = new Map([
+                  ['close', context.enableDockCloseAction],
+                  ['pin',   context.enableDockPinAction]
+              ]);
 
         for (const action of hostActions) {
             const name = action?.action;
@@ -984,8 +1002,10 @@ class LayoutAdapter extends Base {
                 throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: duplicate host header action "${name}" on dock node "${nodeId}"`)
             }
 
-            if (name === 'close' && context.enableDockCloseAction) {
-                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "close" is reserved while enableDockCloseAction is on (dock node "${nodeId}")`)
+            if (reservedActionNames.get(name)) {
+                let optIn = `enableDock${name[0].toUpperCase()}${name.slice(1)}Action`;
+
+                throw new Error(`Neo.dashboard.dock.projection.LayoutAdapter: host header action "${name}" is reserved while ${optIn} is on (dock node "${nodeId}")`)
             }
 
             seen.add(name)
@@ -993,6 +1013,19 @@ class LayoutAdapter extends Base {
 
         const headerActions = [
             ...hostActions,
+            ...(context.enableDockPinAction ? [{
+                action    : 'pin',
+                contextual: false,
+                // Hidden wherever the gesture could not complete, so the header never offers a
+                // collapse the model or the projection would refuse: no active item, an item whose
+                // policy forbids pinning (`Operations.setItemAutoHidden` rejects `pinnable: false`),
+                // or a center-owned item (§2.7 — center never rails, main content does not auto-hide).
+                // `Workspace#syncDockPinAction` recomputes exactly this on every active-item change.
+                hidden    : !activeItemId
+                    || context.items[activeItemId]?.pinnable === false
+                    || !Document.findOwningEdge({nodes: context.nodes}, activeItemId),
+                iconCls   : 'fa fa-thumbtack'
+            }] : []),
             ...(context.enableDockCloseAction ? [{
                 action    : 'close',
                 contextual: false,
