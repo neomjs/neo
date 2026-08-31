@@ -1355,7 +1355,6 @@ test.describe('Workstation — dense living-data composition', () => {
                 sampledFrames                  : 0,
                 securityCaptured               : false,
                 securityActiveHeaderMissFrames : 0,
-                securityEnterMotionFrames      : 0,
                 securityBodyMissingFrames      : 0,
                 securityFullyClippedFrames     : 0,
                 securityFullyClippedSamples    : [],
@@ -1363,11 +1362,21 @@ test.describe('Workstation — dense living-data composition', () => {
                 securityPresenceTransitions    : [],
                 securityOverflowMutationFrames : 0,
                 securityReplacementFrames      : 0,
+                securityStageTransitions       : [],
                 securityStageFramesByBurst     : []
             };
-            const activeTabEmptySpans = {};
-            let   securityNode        = null,
-                  securityWasStaged   = false;
+            const
+                activeTabEmptySpans = {},
+                roundRect           = rect => rect && ({
+                    bottom: Math.round(rect.bottom),
+                    height: Math.round(rect.height),
+                    left  : Math.round(rect.left),
+                    right : Math.round(rect.right),
+                    top   : Math.round(rect.top),
+                    width : Math.round(rect.width)
+                });
+            let   securityNode      = null,
+                  securityWasStaged = false;
 
             state.securityStageBursts = 0;
             state.securityStageFrames = 0;
@@ -1548,6 +1557,7 @@ test.describe('Workstation — dense living-data composition', () => {
                     if (staged) {
                         const
                             bodyStyle = securityBody && getComputedStyle(securityBody),
+                            nodeStyle = getComputedStyle(currentSecurityNode),
                             rect      = currentSecurityNode.getBoundingClientRect(),
                             insetX    = Math.min(8, rect.width / 4),
                             insetY    = Math.min(8, rect.height / 4),
@@ -1566,7 +1576,23 @@ test.describe('Workstation — dense living-data composition', () => {
 
                         if (!securityWasStaged) {
                             state.securityStageBursts++;
-                            state.securityStageFramesByBurst.push(0)
+                            state.securityStageFramesByBurst.push(0);
+                            state.securityStageTransitions.push({
+                                activeHeader       : activeHeader?.textContent?.trim() || null,
+                                activeHeaderVisible: Boolean(activeHeader && isVisible(activeHeader)),
+                                caption            : document.querySelector('.workstation-tour-caption')?.textContent?.trim() || '',
+                                computedTransform  : nodeStyle.transform,
+                                connected          : currentSecurityNode.isConnected,
+                                firstRect          : roundRect(rect),
+                                inlineTransform    : currentSecurityNode.style.transform,
+                                lastRect           : roundRect(securityBody?.getBoundingClientRect()),
+                                stagePins          : {
+                                    height: currentSecurityNode.style.height,
+                                    left  : currentSecurityNode.style.left,
+                                    top   : currentSecurityNode.style.top,
+                                    width : currentSecurityNode.style.width
+                                }
+                            })
                         }
 
                         state.securityStageFrames++;
@@ -1580,7 +1606,6 @@ test.describe('Workstation — dense living-data composition', () => {
 
                         if (!painted) {
                             const
-                                nodeStyle  = getComputedStyle(currentSecurityNode),
                                 parentRect = currentSecurityNode.parentElement?.getBoundingClientRect();
 
                             state.securityFullyClippedFrames++;
@@ -1614,10 +1639,6 @@ test.describe('Workstation — dense living-data composition', () => {
                                     width: Math.round(rect.width)
                                 })
                         }
-                    }
-
-                    if (!staged && getComputedStyle(currentSecurityNode).transform !== 'none') {
-                        state.securityEnterMotionFrames++
                     }
 
                     securityWasStaged = staged
@@ -1804,22 +1825,53 @@ test.describe('Workstation — dense living-data composition', () => {
             `the active Security pane never leaves the DOM after capture: ${JSON.stringify(monitor.securityPresenceTransitions)}`)
             .toBe(0);
         expect(monitor.securityReplacementFrames, 'Security keeps the same DOM node across split and return').toBe(0);
+
+        const expectedSecurityStageCaptions = workstationTourScript.scenes
+            .flatMap(scene => scene.steps)
+            .filter(step => step.type === 'op' && step.descriptor?.itemId === 'security')
+            .map(step => step.caption);
+
         expect(monitor.securityStageBursts,
-            'only the return crossing stages: the split promotes a never-presented card (entering, unstaged)').toBe(1);
-        expect(monitor.securityEnterMotionFrames,
-            'the promoted never-presented pane presents its entering grow-in without a fixed stage')
-            .toBeGreaterThan(0);
-        expect(monitor.securityStageFramesByBurst, 'the sequential sampler isolates the return stage')
-            .toHaveLength(1);
-        expect(monitor.securityStageFramesByBurst[0], 'the return stage spans multiple sequential samples')
-            .toBeGreaterThan(1);
+            `the reducer-owned active tab stages on split and return: ${JSON.stringify(monitor.securityStageTransitions)}`)
+            .toBe(2);
+        expect(monitor.securityStageTransitions.map(transition => transition.caption),
+            'the sampler names the split and return crossings in screenplay order')
+            .toEqual(expectedSecurityStageCaptions);
+        expect(monitor.securityStageFramesByBurst, 'the sequential sampler isolates both crossings')
+            .toHaveLength(2);
+        expect(monitor.securityStageFramesByBurst.every(count => count > 1),
+            'each staged crossing spans multiple sequential samples').toBe(true);
+        monitor.securityStageTransitions.forEach((transition, index) => {
+            expect(transition.connected, `crossing ${index + 1}: the exact pane remains connected`).toBe(true);
+            expect(transition.activeHeaderVisible,
+                `crossing ${index + 1}: the reducer-owned Security tab remains visibly active`).toBe(true);
+            expect(transition.activeHeader, `crossing ${index + 1}: active header identity`)
+                .toBe('Security Signal Center');
+            expect(transition.computedTransform, `crossing ${index + 1}: fixed-stage inverse is live`)
+                .not.toBe('none');
+            expect(transition.inlineTransform, `crossing ${index + 1}: inline inverse is installed`)
+                .toContain('translate(');
+            expect(Number.parseFloat(transition.stagePins.width),
+                `crossing ${index + 1}: fixed-stage Last width is pinned`).toBeGreaterThan(0);
+            expect(Number.parseFloat(transition.stagePins.height),
+                `crossing ${index + 1}: fixed-stage Last height is pinned`).toBeGreaterThan(0);
+
+            for (const [name, rect] of Object.entries({First: transition.firstRect, Last: transition.lastRect})) {
+                expect(rect?.width, `crossing ${index + 1}: ${name} width is presentable`).toBeGreaterThan(0);
+                expect(rect?.height, `crossing ${index + 1}: ${name} height is presentable`).toBeGreaterThan(0)
+            }
+        });
+        expect(monitor.securityStageTransitions[0].firstRect,
+            'the split First is the return Last').toEqual(monitor.securityStageTransitions[1].lastRect);
+        expect(monitor.securityStageTransitions[0].lastRect,
+            'the split Last is the return First').toEqual(monitor.securityStageTransitions[1].firstRect);
         expect(monitor.securityStageFrames).toBe(monitor.securityStageFramesByBurst.reduce((sum, count) => sum + count, 0));
         expect(monitor.securityBodyMissingFrames,
-            'fixed staging keeps the exact pane inside its real destination body').toBe(0);
+            'both fixed stages keep the exact pane inside its real destination body').toBe(0);
         expect(monitor.securityActiveHeaderMissFrames,
             'every staged frame retains a visible active tab header').toBe(0);
         expect(monitor.securityOverflowMutationFrames,
-            'the real tab-body overflow contract stays hidden throughout the staged return').toBe(0);
+            'the real tab-body overflow contract stays hidden throughout both staged crossings').toBe(0);
         expect(monitor.securityFullyClippedFrames,
             `every staged frame paints pane content: ${JSON.stringify(monitor.securityFullyClippedSamples)}`).toBe(0);
         expect(monitor.palettes.length, 'the actual tour materially renders both theme palettes').toBeGreaterThanOrEqual(2);
