@@ -1,0 +1,47 @@
+# Asserts every per-turn agent substrate entry point still fits its byte budget.
+#
+# `AGENTS.md` is injected on every turn of every seat. Past its harness limit the file is not
+# rejected — its tail is silently truncated, and agents lose the bottom of their own rules without
+# any surface saying so. The margin is currently 2 bytes, so this is a live edge rather than a
+# theoretical one.
+#
+# The guard measures what a seat LOADS, not what the entry point weighs: `.claude/CLAUDE.md` is a
+# symlink whose own `lstat` is 12 bytes, and PR #17156 nearly replaced it with a stub carrying two
+# `@`-imports. Both forms are followed, so neither shape can under-report.
+#
+# No path filter, deliberately, matching `substrate-sync`: a path-skipped workflow reports *pending*
+# rather than success and can therefore never be bound as a required status check. A guard that a
+# path filter can switch off is the failure this workflow exists to end — the previous incarnation
+# lived in another repository, was wired to nothing, and passed by never being looked at.
+#
+# No `npm ci`: the guard uses only Node built-ins, so an install would be latency with no bearing on
+# the result.
+
+name: substrate-size-guard
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: substrate-size-guard-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  substrate-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Check agent substrate sizes
+        run: npm run check-substrate-size
