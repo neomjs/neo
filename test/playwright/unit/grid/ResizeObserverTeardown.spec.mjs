@@ -102,7 +102,12 @@ test.describe('grid.Container — releasing the native resize target', () => {
 
     test.afterEach(() => {
         Neo.main.addon.ResizeObserver = originalAddon;
-        Neo.currentWorker.getAddon    = originalGetAddon
+        Neo.currentWorker.getAddon    = originalGetAddon;
+
+        // Worker processes are reused across spec files, so an instance left registered here is an
+        // instance the next file inherits. The destroy arm has already torn its own grid down.
+        !grid.isDestroyed && grid.destroy();
+        !store.isDestroyed && store.destroy()
     });
 
     test('destroy names the grid on its unregister, so the holder list can empty', () => {
@@ -137,12 +142,15 @@ test.describe('grid.Container — releasing the native resize target', () => {
     test('the register arm names it as well, so the holder it adds is the one destroy removes', async () => {
         calls = [];
 
-        // Deliberately NOT awaited: the mounted arm continues into `passSizeToBody()`, which waits
-        // on a main-thread measurement that never arrives in unit mode. The register precedes it, so
-        // one macrotask is enough to observe the payload without hanging on the rest of the method.
-        grid.addResizeObserver(true);
+        // The mounted arm continues into `passSizeToBody()`, which measures through
+        // `Neo.main.DomAccess` and, with no main thread, retries itself indefinitely. Left running it
+        // outlives this file: the next spec in the same worker process resumes it, and the addon
+        // suite deletes `Neo.main.DomAccess` on purpose, so the recursion dies there instead — a
+        // failure reported against a file that did nothing wrong. Size hand-off is a separate
+        // contract; this arm is about the register payload, so it is stubbed rather than left loose.
+        grid.passSizeToBody = async () => {};
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await grid.addResizeObserver(true);
 
         const [register] = calls.filter(entry => entry.method === 'register');
 
