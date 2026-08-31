@@ -488,4 +488,34 @@ test.describe('Neo.vdom.Helper', () => {
 
         Registry.clear()
     });
+
+    test('the coherence flag adds exact update-owner ranges without changing deltas', () => {
+        const previous = Neo.config.useDeltaCoherenceRegistry;
+
+        Neo.config.useDeltaCoherenceRegistry = true;
+
+        try {
+            const
+                alphaOld = VdomHelper.create({vdom: {id: 'owner-alpha'}}).vnode,
+                betaOld  = VdomHelper.create({vdom: {id: 'owner-beta', cls: ['before']}}).vnode,
+                response = VdomHelper.updateBatch({updates: {
+                    'alpha-component': {
+                        vdom : {id: 'owner-alpha', cn: [{id: 'owner-alpha-child'}]},
+                        vnode: alphaOld
+                    },
+                    'beta-component': {
+                        vdom : {id: 'owner-beta', cls: ['after']},
+                        vnode: betaOld
+                    }
+                }});
+
+            expect(response.deltas).toHaveLength(2);
+            expect(response.coherenceBatches).toEqual([
+                {end: 1, ownerId: 'alpha-component', start: 0},
+                {end: 2, ownerId: 'beta-component',  start: 1}
+            ])
+        } finally {
+            Neo.config.useDeltaCoherenceRegistry = previous
+        }
+    });
 });

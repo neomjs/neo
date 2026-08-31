@@ -5,5 +5,6 @@
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DockFlip", "DragDrop", "Navigator", "ResizeObserver", "Stylesheet"],
     "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+    "useDeltaCoherenceRegistry": true,
     "useSharedWorkers": false
 }

@@ -851,23 +851,31 @@ class Helper extends Base {
      *
      * @param {Object} data
      * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
-     * @returns {Object} { deltas: Object[], meta: Object, vnodes: Object }
+     * When the coherence registry is enabled, `coherenceBatches` maps each update owner onto its
+     * exact half-open delta range so a Main-thread finding can name the App-worker flight that
+     * produced it. Flag-off responses stay byte-identical.
+     * @returns {Object} { deltas: Object[], meta: Object, vnodes: Object, coherenceBatches?: Object[] }
      */
     updateBatch(data) {
-        let me        = this,
-            allDeltas = [],
-            meta      = {},
-            vnodes    = {},
-            hasMeta   = false,
+        let me               = this,
+            allDeltas        = [],
+            coherenceBatches = NeoConfig.useDeltaCoherenceRegistry ? [] : null,
+            meta             = {},
+            vnodes           = {},
+            hasMeta          = false,
             result, id, updateOpts;
 
         for (id in data.updates) {
             if (Object.hasOwn(data.updates, id)) {
+                let start = allDeltas.length;
+
                 updateOpts = data.updates[id];
                 result     = me.update(updateOpts);
                 
                 allDeltas.push(...result.deltas);
                 vnodes[id] = result.vnode;
+
+                coherenceBatches?.push({end: allDeltas.length, ownerId: id, start});
 
                 if (updateOpts.meta) {
                     meta[id] = updateOpts.meta;
@@ -884,6 +892,10 @@ class Helper extends Base {
 
         if (hasMeta) {
             response.meta = meta
+        }
+
+        if (coherenceBatches) {
+            response.coherenceBatches = coherenceBatches
         }
 
         return response

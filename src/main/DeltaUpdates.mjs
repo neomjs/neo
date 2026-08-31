@@ -989,14 +989,20 @@ class DeltaUpdates extends Base {
      * by `importDeltaInstruments()` — each browser window owns its own realm, which IS the
      * `{windowId, idSort, id}` partition.
      * @param {Object[]} deltas The normalized batch after `update` listeners had their mutation window.
+     * @param {Object[]|null} [coherenceBatches=null] Flag-gated update-owner to delta-range map
+     *     supplied by the VDom worker for diagnostic attribution.
      * @returns {Function} The ledger commit handle
      * @protected
      */
-    observeDeltaCoherence(deltas) {
+    observeDeltaCoherence(deltas, coherenceBatches=null) {
         const evaluation = this.coherenceRegistry.evaluateBatch(deltas);
 
         if (evaluation.findings.length > 0) {
-            console.warn('Delta coherence findings', {deltas, findings: evaluation.findings})
+            console.warn('Delta coherence findings', {
+                coherenceBatches,
+                deltas,
+                findings: evaluation.findings
+            })
         }
 
         return evaluation.commit
@@ -1091,7 +1097,7 @@ class DeltaUpdates extends Base {
             len = deltas.length;
 
             if (len > 0) {
-                coherenceCommit = me.observeDeltaCoherence(deltas)
+                coherenceCommit = me.observeDeltaCoherence(deltas, data.coherenceBatches)
             }
         }
 

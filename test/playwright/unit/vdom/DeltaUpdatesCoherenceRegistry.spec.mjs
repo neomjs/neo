@@ -137,24 +137,29 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
 
     test('enabled registry logs cross-batch findings WITHOUT blocking dispatch (observe-mode)', async () => {
         const
-            birth     = {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-dup', nodeName: 'div'}},
-            warnCalls = [];
+            birth            = {action: 'insertNode', parentId: 'neo-parent', index: 0, vnode: {id: 'neo-dup', nodeName: 'div'}},
+            coherenceBatches = [{end: 1, ownerId: 'toolbar-owner', start: 0}],
+            warnCalls        = [];
 
         Neo.config.useDeltaCoherenceRegistry = true;
         await DeltaUpdates.importDeltaInstruments();
         console.warn = (...args) => warnCalls.push(args);
 
-        DeltaUpdates.update({deltas: [birth]});
+        DeltaUpdates.update({coherenceBatches, deltas: [birth]});
         expect(warnCalls).toEqual([]);
 
         // The stale-baseline cross-batch replay: each batch is per-batch-legal, the collision is
         // only visible against ledger state — and it must surface as a warning, never a throw.
-        expect(() => DeltaUpdates.update({deltas: [{...birth, index: 1}]})).not.toThrow();
+        expect(() => DeltaUpdates.update({
+            coherenceBatches,
+            deltas: [{...birth, index: 1}]
+        })).not.toThrow();
 
         expect(applied).toHaveLength(2);
         expect(warnCalls).toHaveLength(1);
         expect(warnCalls[0][0]).toBe('Delta coherence findings');
-        expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert'])
+        expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert']);
+        expect(warnCalls[0][1].coherenceBatches).toEqual(coherenceBatches)
     });
 
     test('the ledger commits after application: state advances batch by batch', async () => {
