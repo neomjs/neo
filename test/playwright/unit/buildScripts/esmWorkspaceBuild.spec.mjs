@@ -1,4 +1,4 @@
-import {execFileSync} from 'child_process';
+import {spawnSync}    from 'child_process';
 import fs             from 'fs-extra';
 import os             from 'os';
 import path           from 'path';
@@ -34,7 +34,7 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
      * rather than the real `src/`: the defect is about path arithmetic and copy sets, so a real
      * engine would add minutes of Terser work without adding a single observation.
      */
-    const createWorkspace = ({declareExtraRoot, engineReExport, sourceRoots}) => {
+    const createWorkspace = ({computedFamily, declareExtraRoot, engineReExport, sourceRoots}) => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-ws-'));
 
         fs.outputJsonSync(path.join(root, 'package.json'), {
@@ -49,6 +49,15 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         if (engineReExport) {
             fs.outputFileSync(path.join(root, 'components/engine.mjs'),
                 "export {default as Base} from '../node_modules/neo.mjs/src/core/Base.mjs';\n")
+        }
+
+        // A lazily-loaded family whose directory the output tree does not have. The module itself is
+        // emitted and every literal specifier in it resolves; only the interpolated root is absent,
+        // which is the shape the engine's own optional branches take (`examples/`, `docs/app/`, `WS/`
+        // addons) and which no consuming workspace can supply. See #17971.
+        if (computedFamily) {
+            fs.outputFileSync(path.join(root, 'components/Lazy.mjs'),
+                'export const load = name => import(`../plugins/${name}.mjs`);\n')
         }
 
         // The engine, as a workspace consumes it.
@@ -73,13 +82,17 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         return root
     };
 
-    /** Runs the build in the workspace, returning `{status, output}` rather than throwing. */
+    /**
+     * Runs the build in the workspace, returning `{status, output}` rather than throwing.
+     *
+     * Both streams, on every exit code. The previous shape returned `execFileSync`'s stdout when the
+     * build succeeded and only reached stderr through the throw path — which made a diagnostic that
+     * does NOT fail the build unobservable to a spec, exactly the shape of the warning arm below.
+     */
     const runBuild = cwd => {
-        try {
-            return {status: 0, output: execFileSync('node', [buildPath], {cwd, encoding: 'utf8', stdio: 'pipe'})}
-        } catch (error) {
-            return {status: error.status, output: `${error.stdout || ''}${error.stderr || ''}`}
-        }
+        const {status, stdout, stderr} = spawnSync('node', [buildPath], {cwd, encoding: 'utf8'});
+
+        return {status, output: `${stdout || ''}${stderr || ''}`}
     };
 
     test.afterEach(() => {
@@ -125,6 +138,34 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         expect(output).toContain('apps/myapp/view/Viewport.mjs');
         expect(output).toContain('components/Button.mjs');
         expect(output).toContain('neo.esmSourceRoots')
+    });
+
+    /**
+     * The counterpart arm, and the reason the two are worth reading together: an absent directory is
+     * a defect when a LITERAL specifier names it (above) and merely a diagnostic when only a computed
+     * family reads it (here). This stage cannot tell an uncopied source root from a branch the
+     * workspace never takes, and inside this repository the second reading never applies — every
+     * default root exists — so the arm shipped fatal and no build here ever noticed. Every consuming
+     * workspace failed on it. See #17971.
+     */
+    test('a computed family whose root is absent warns and leaves the build green', () => {
+        workspace = createWorkspace({computedFamily: true, declareExtraRoot: true});
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, `build should have stayed green, output:\n${output}`).toBe(0);
+
+        // The diagnostic still reaches the developer, naming the module and the absent directory.
+        expect(output).toContain('computed import(s) read from a directory the output tree does not have');
+        expect(output).toContain('components/Lazy.mjs');
+
+        // Both readings are offered. Asserting the wording is the point: the old text asserted the
+        // uncopied-root reading as fact, which is what made a warning look like a build error.
+        expect(output).toContain('the branch that reads it is one this workspace never takes');
+
+        // Non-vacuity: the module carrying the computed specifier was really emitted, so the arm
+        // cannot pass by the build having skipped the file altogether.
+        expect(fs.existsSync(path.join(workspace, 'dist/esm/components/Lazy.mjs'))).toBe(true)
     });
 
     /**
