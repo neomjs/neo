@@ -771,6 +771,150 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.tearOutPanes.preview, 'the vessel holds the pane').toBeTruthy()
         });
 
+        // A click is asynchronous across two awaits while `destroy()` is synchronous, so the window
+        // between them is reachable in production: the pane is measured through the main thread, and
+        // the host's vessel seam can take arbitrarily long to answer. These two arms drive a REAL
+        // `destroy()` into each gap. The stub harness cannot host them — `destroy()` only nulls
+        // `tearOutHandlers` under `enableDockTearOutLifecycle`, so a stubbed pair would be testing a
+        // teardown that never happens.
+        const popOutTabContainer = () => ({
+            activeIndex: 0,
+            getTabBar  : () => ({sortZoneConfig: {dockItemIds: ['preview']}}),
+            id         : 'popout-tabs'
+        });
+
+        test('#17947 a pop-out whose MEASUREMENT outlives the workspace never asks for a vessel', async () => {
+            const ws = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            workspace = null;   // this arm owns the teardown; afterEach must not destroy twice
+
+            // Collected test-side, not read off the instance: `destroy()` clears the harness fields,
+            // so `ws.openRequests` is gone by the time the assertion runs and would read as an empty
+            // observation rather than as an observed absence.
+            const opens = [];
+
+            ws.openTearOutVessel = request => {
+                opens.push(request);
+
+                return {admissionToken: request.admissionToken, windowName: 'tearout-unreachable'}
+            };
+
+            // Teardown lands inside the FIRST await. Nothing has been admitted yet, so the only
+            // correct outcome is to refuse before the seam is ever called: opening a vessel for a
+            // workspace that is already gone is the orphan this guard exists to prevent.
+            ws.measureDockPaneRect = async () => {
+                ws.destroy();
+                return null
+            };
+
+            const result = await ws.handleDockPopOutAction({
+                dockNodeId: 'main-tabs', tabContainer: popOutTabContainer()
+            });
+
+            // Settles as an envelope. A rejection here would surface as an unhandled rejection in
+            // production, because the projection listener discards this promise.
+            expect(result, 'the abandoned path must settle, never reject').toBeTruthy();
+            expect(result.errors?.[0]).toMatch(/destroyed before admission/);
+            expect(opens, 'no vessel may be requested for a workspace that is gone').toEqual([])
+        });
+
+        test('#17947 an ADMISSION that lands after teardown closes its vessel exactly once', async () => {
+            const ws = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            workspace = null;
+
+            let admitLate, reachedSeam;
+
+            const
+                atSeam   = new Promise(resolve => {reachedSeam = resolve}),
+                admitted = new Promise(resolve => {admitLate = resolve}),
+                opens    = [],
+                closes   = [];
+
+            // Both collected test-side: `destroy()` clears the harness fields, and the close under
+            // test happens on the far side of that teardown — recording into the instance would
+            // either throw or be swept away with it.
+            ws.closeTearOutVessel = vessel => {
+                closes.push(vessel);
+
+                return true
+            };
+
+            // Deterministic, not timed: the seam itself signals that the handler is parked in the
+            // admission await, so the teardown below lands in the gap every run rather than when a
+            // sleep happens to be long enough.
+            ws.openTearOutVessel = request => {
+                opens.push(request);
+                reachedSeam();
+
+                return admitted
+            };
+
+            // The terminal is the ONLY commit seam, so watching it is how "no post-destroy commit"
+            // is observed directly rather than inferred from a document that teardown already took.
+            const
+                terminals    = [],
+                realTerminal = ws.tearOutHandlers.onDockTearOutTerminal;
+
+            ws.tearOutHandlers.onDockTearOutTerminal = data => {
+                terminals.push(data);
+
+                return realTerminal(data)
+            };
+
+            const pending = ws.handleDockPopOutAction({
+                dockNodeId: 'main-tabs', tabContainer: popOutTabContainer()
+            });
+
+            await atSeam;
+
+            // The vessel is REAL and open by the time the workspace goes away.
+            ws.destroy();
+
+            admitLate({
+                admissionToken: opens[0]?.admissionToken,
+                popupHeight   : 360,
+                popupWidth    : 480,
+                windowName    : 'tearout-late-preview'
+            });
+
+            const result = await pending;
+
+            // Settles as an envelope rather than rejecting: the projection listener discards this
+            // promise, so a rejection here is an unhandled rejection in production.
+            expect(result, 'the abandoned path must settle, never reject').toBeTruthy();
+
+            // The refusal is REAL but its attribution is the seam's, not the workspace's: the
+            // coordinator refuses because its own state was retired underneath it, which arrives at
+            // the handler indistinguishable from a host declining the window. The handler's
+            // "destroyed after admission" branch is therefore not reached on this path — the
+            // admission never resolves truthy for it to check.
+            expect(result.errors?.[0]).toMatch(/refused by the host vessel seam/);
+
+            // No commit and no terminal: whatever the attribution, teardown must not advance the
+            // document. This is the half that is unambiguously contractual.
+            expect(terminals, 'a destroyed workspace reaches no commit seam').toEqual([]);
+
+            // ⚠️ TRIPWIRE — asserts the CURRENT behaviour, which is a LEAK, not the desired one.
+            // The host opened a real window and is never asked to close it: teardown does not
+            // invalidate the coordinator's pending admission, so the late-vessel retirement path
+            // that exists for exactly this case never runs. Measured across BOTH close collectors,
+            // not inferred — the harness seam and the instance override are each empty.
+            //
+            // The gap lives in the shared tear-out machine and is reachable from the drag gesture
+            // too, so it is NOT this leaf's to repair; it is tracked as its own leaf. When that
+            // lands, this assertion goes RED and must become the exactly-once close it should
+            // always have been. That is the point of pinning it: a leak nobody can silently keep.
+            expect(closes.filter(vessel => vessel.windowName === 'tearout-late-preview'))
+                .toHaveLength(0)
+        });
+
         test('terminal-first connect lands one admitted live pane, then returns it before observers fire', async () => {
             workspace = Neo.create(TearOutWorkspace, {dockModel: createDocument()});
 
