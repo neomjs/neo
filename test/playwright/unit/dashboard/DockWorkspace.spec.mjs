@@ -952,6 +952,12 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         document.items.notes = {componentRef: 'Notes', title: 'Notes', kind: 'panel', pinnable: false};
         document.nodes['inspector-tabs'].items.push('notes');
 
+        // A SECOND center item, so activating it drives the workspace's own policy sync over a
+        // center-owned pane. With only one center item the sync never runs there and the assertion
+        // below would only re-read what the adapter computed at projection time.
+        document.items.readme = {componentRef: 'Readme', title: 'Readme', kind: 'panel'};
+        document.nodes['center-tabs'].items.push('readme');
+
         workspace = Neo.create(PlainWorkspace, {
             dockModel          : document,
             enableDockPinAction: true
@@ -967,7 +973,14 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         inspector.getTabBar().on('actionVisibilityChange', data => visibility.push([data.action, data.component.hidden]));
 
         // Center-owned: §2.7's fail-safe — main content never rails, so the affordance is not offered.
+        // Asserted BOTH where the adapter computed it and, below, after the workspace recomputes it:
+        // the two derive it independently, and only the switch exercises the workspace's own sync.
         expect(center.getActionItem('pin').hidden, 'a center-owned pane cannot collapse').toBe(true);
+
+        await center.set({activeIndex: 1});
+
+        expect(center.getActionItem('pin').hidden, 'still no collapse after the workspace re-syncs a center pane')
+            .toBe(true);
 
         expect(pinAction.hidden).toBe(false);
 
