@@ -11,18 +11,19 @@ import {test, expect} from '@playwright/test';
  * test that reads its own SCSS cannot observe what a browser composites, which is how an edge that
  * paints far darker than its siblings shipped with everything green.
  *
- * So this mounts the real renderer, drives one affordance per edge through the real config, and
- * reads COMPUTED style off the produced node. Colour is the property under test; geometry is
- * asserted only enough to prove each edge actually painted the band it claims.
+ * So this mounts the real renderer, drives one affordance per edge and both split positions through
+ * the real config, and reads COMPUTED style off the produced node.
+ *
+ * **Colour is the whole subject; geometry is deliberately NOT asserted.** Placement comes from
+ * `applyTargetGeometry`, which is a method rather than a remote config and so cannot be driven over
+ * RMA — an earlier revision carried a target rect, a viewport id and a returned `rect` that nothing
+ * ever read. Dead witnesses are worse than absent ones: they read as coverage. The pure geometry
+ * contract is a unit concern and is tested there.
  */
 
-const
-    EDGES  = ['top', 'right', 'bottom', 'left'],
-    // A deliberately non-square target: a square one would hide any axis-dependent defect, since
-    // width and height would be interchangeable.
-    TARGET = {x: 0, y: 0, width: 800, height: 400};
+const EDGES = ['top', 'right', 'bottom', 'left'];
 
-let previewId, viewportId;
+let previewId;
 
 const buildPreview = kind => ({
     schema   : 'neo.dock.preview.v1',
@@ -37,8 +38,6 @@ const buildPreview = kind => ({
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/dock-splitter/index.html');
     await page.waitForSelector('#dock-splitter-test-viewport', {state: 'attached'});
-
-    viewportId = 'dock-splitter-test-viewport';
 
     previewId = await page.evaluate(async () => {
         const preview = await Neo.worker.App.createNeoInstance({
@@ -81,8 +80,7 @@ const renderEdge = async (page, edge) => {
 
         if (!node) return {missing: true};
 
-        const s = getComputedStyle(node),
-              r = node.getBoundingClientRect();
+        const s = getComputedStyle(node);
 
         return {
             background  : s.backgroundColor,
@@ -91,8 +89,7 @@ const renderEdge = async (page, edge) => {
             borderBottom: {width: s.borderBottomWidth, color: s.borderBottomColor},
             borderLeft  : {width: s.borderLeftWidth,   color: s.borderLeftColor},
             opacity     : s.opacity,
-            cls         : node.className,
-            rect        : {width: Math.round(r.width), height: Math.round(r.height)}
+            cls         : node.className
         }
     })
 };
@@ -141,16 +138,33 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
         expect(fill, 'the fill must not be transparent').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
         expect(fill, 'the fill must carry alpha — an opaque fill is the reported defect').toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
 
-        // Border colour is shared; only ONE side per edge may be thicker (the cut side).
-        for (const edge of EDGES) {
+        // Border, compared ACROSS edges — not merely within each one.
+        //
+        // An earlier revision asserted only that the four SIDES of a given edge shared a colour and
+        // that exactly one was thicker. Every edge could satisfy that independently while differing
+        // from its siblings: a right-only border colour, or a base/cut width that changes with the
+        // axis, stayed green. AC-1 asks for equality across edges, so the per-edge facts are reduced
+        // to one normalized signature and the SIGNATURES are compared.
+        const signatures = EDGES.map(edge => {
             const r      = rendered[edge],
-                  widths = [r.borderTop.width, r.borderRight.width, r.borderBottom.width, r.borderLeft.width],
-                  thick  = widths.filter(w => parseFloat(w) > 2);
+                  sides  = [r.borderTop, r.borderRight, r.borderBottom, r.borderLeft],
+                  widths = sides.map(side => parseFloat(side.width)),
+                  cut    = widths.filter(width => width > 2),
+                  base   = widths.filter(width => width <= 2),
+                  colors = new Set(sides.map(side => side.color));
 
-            expect(thick, `${edge}: exactly one border side may carry the cut accent`).toHaveLength(1);
-            expect(new Set([r.borderTop.color, r.borderRight.color, r.borderBottom.color, r.borderLeft.color]).size,
-                `${edge}: all four border colours must match`).toBe(1)
-        }
+            // Structure first: exactly one cut side, three base sides, one shared colour. Without
+            // this the reduction below could collapse a genuinely broken edge into a tidy signature.
+            expect(cut,      `${edge}: exactly one border side may carry the cut accent`).toHaveLength(1);
+            expect(base,     `${edge}: the other three sides must stay at the base width`).toHaveLength(3);
+            expect(colors.size, `${edge}: all four border colours must match`).toBe(1);
+            expect(new Set(base).size, `${edge}: the three base sides must share one width`).toBe(1);
+
+            return `${[...colors][0]}|base:${base[0]}|cut:${cut[0]}`
+        });
+
+        expect(new Set(signatures).size,
+            `border signature must be identical across edges, got ${JSON.stringify(signatures)}`).toBe(1);
 
         // Opacity is a multiplier on the whole overlay; an edge-dependent value would darken one axis.
         expect(new Set(EDGES.map(e => rendered[e].opacity)).size, 'opacity must not vary by edge').toBe(1)
@@ -161,17 +175,23 @@ test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region 
         // as a SOLID background — correct for a thin insertion guide, and exactly what "the border
         // colour with no transparency" looks like if a region-mode split ever reaches it. Region
         // mode is the default, so a split must land in the translucent family with the edges.
-        const edge  = await renderEdge(page, 'top'),
-              split = await renderSplit(page, 'before');
+        const edge = await renderEdge(page, 'top');
 
-        expect(split.missing, 'a split affordance must render').toBeFalsy();
+        // BOTH positions, not one. `before` and `after` take different branches in
+        // `affordanceGeometry` and carry inverted cut sides, so proving one says nothing about the
+        // other — and `after` is the branch a right-hand drop actually produces.
+        for (const position of ['before', 'after']) {
+            const split = await renderSplit(page, position);
 
-        // The PAINT is asserted before the class that routes it. Ordered the other way, a mutant
-        // that drops the region class fails on the class line and the colour assertion never runs —
-        // red for the adjacent reason, leaving the property actually under test unproven.
-        expect(split.background, 'a region-mode split must not paint the solid accent bar').toBe(edge.background);
-        expect(split.background, 'the split fill must carry alpha').toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
-        expect(split.cls, 'a split in region mode must carry the region class').toContain('neo-dock-preview-region')
+            expect(split.missing, `split-${position}: an affordance must render`).toBeFalsy();
+
+            // The PAINT is asserted before the class that routes it. Ordered the other way, a mutant
+            // that drops the region class fails on the class line and the colour assertion never runs —
+            // red for the adjacent reason, leaving the property actually under test unproven.
+            expect(split.background, `split-${position}: must not paint the solid accent bar`).toBe(edge.background);
+            expect(split.background, `split-${position}: the fill must carry alpha`).toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
+            expect(split.cls, `split-${position}: a region-mode split must carry the region class`).toContain('neo-dock-preview-region')
+        }
     });
 
     test('each edge carries its own kind and cut classes', async ({page}) => {
