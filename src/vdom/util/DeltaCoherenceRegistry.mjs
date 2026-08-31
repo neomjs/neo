@@ -169,7 +169,7 @@ const DeltaCoherenceRegistry = {
      */
     children: new Map(),
     /**
-     * The live set: id → `{idSort, parentId, bornAt, witnessed}`.
+     * The live set: id → `{idSort, parentId, bornAt, ownerId?, witnessed}`.
      * `witnessed` records how the entry came to be known: `'insert'`, `'rekey'`, or
      * `'first-touch'` (pre-session id accepted as live on first reference).
      * @member {Map<String, Object>} live
@@ -231,9 +231,10 @@ const DeltaCoherenceRegistry = {
      * @param {String|undefined} parentId The witnessed parent
      * @param {Number} deltaIndex
      * @param {String} action The acting delta's action (for the finding detail)
+     * @param {String|null} [ownerId=null] App-worker update owner attributed to this delta
      * @protected
      */
-    birth(tx, id, idSort, parentId, deltaIndex, action) {
+    birth(tx, id, idSort, parentId, deltaIndex, action, ownerId=null) {
         if (typeof id !== 'string' || id === '') {
             return
         }
@@ -241,10 +242,12 @@ const DeltaCoherenceRegistry = {
         const resolved = this.resolve(tx, id);
 
         if (resolved.state === 'live') {
+            const bornOwner = resolved.entry.ownerId ? `, owner ${JSON.stringify(resolved.entry.ownerId)}` : '';
+
             tx.findings.push({
                 rule      : COHERENCE_RULES.insert,
                 deltaIndex,
-                detail    : `${action} births id "${id}" which is already live (born batch ${resolved.entry.bornAt}, sort ${resolved.entry.idSort})`
+                detail    : `${action} births id "${id}" which is already live (born batch ${resolved.entry.bornAt}${bornOwner}, sort ${resolved.entry.idSort})`
             });
             return
         }
@@ -253,7 +256,13 @@ const DeltaCoherenceRegistry = {
             this.orphanChildren(tx, id)
         }
 
-        tx.live.set(id, {idSort, parentId: parentId ?? null, bornAt: this.batchSeq, witnessed: 'insert'});
+        tx.live.set(id, {
+            idSort,
+            parentId : parentId ?? null,
+            bornAt   : this.batchSeq,
+            ownerId  : ownerId ?? null,
+            witnessed: 'insert'
+        });
         tx.retired.delete(id);
         tx.touchedRetired.add(id);
         this.linkChild(tx, parentId, id)
@@ -350,26 +359,41 @@ const DeltaCoherenceRegistry = {
      * invoked — call it strictly AFTER the batch applied to the DOM. Never throws; malformed
      * deltas are U1/U2 territory (the grammar guards) and are skipped here.
      * @param {Object|Object[]} deltas A delta batch (array) or a single delta object
+     * @param {Object} [options]
+     * @param {Object[]} [options.coherenceBatches=[]] Ordered half-open owner ranges from Helper
      * @returns {Object} `{findings: Object[], commit: Function}` — `commit()` applies the
      * witnessed transitions and increments the batch sequence; safe to drop on rejection.
      */
-    evaluateBatch(deltas) {
+    evaluateBatch(deltas, {coherenceBatches=[]}={}) {
         const
-            me    = this,
-            batch = normalizeBatch(deltas),
-            tx    = me.createTransaction();
+            me     = this,
+            batch  = normalizeBatch(deltas),
+            ranges = Array.isArray(coherenceBatches) ? coherenceBatches : [],
+            tx     = me.createTransaction();
+
+        let rangeIndex = 0;
 
         batch.forEach((delta, deltaIndex) => {
             if (!delta || typeof delta !== 'object') {
                 return // U1 territory; grammar guards own the report
             }
 
+            while (ranges[rangeIndex]?.end <= deltaIndex) {
+                rangeIndex++
+            }
+
+            const
+                range   = ranges[rangeIndex],
+                ownerId = range && range.start <= deltaIndex && deltaIndex < range.end
+                    ? range.ownerId ?? null
+                    : null;
+
             switch (resolveAction(delta)) {
                 case 'focusNode':
                     me.touchTarget(tx, delta.id, deltaIndex, 'focusNode');
                     break
                 case 'insertNode':
-                    me.evaluateInsert(tx, delta, deltaIndex);
+                    me.evaluateInsert(tx, delta, deltaIndex, ownerId);
                     break
                 case 'moveNode':
                     me.touchTarget(tx, delta.id, deltaIndex, 'moveNode');
@@ -389,7 +413,7 @@ const DeltaCoherenceRegistry = {
                     me.touchTarget(tx, delta.fromId, deltaIndex, 'replaceChild');
                     me.touchParent(tx, delta.parentId, deltaIndex, 'replaceChild');
                     me.retire(tx, delta.fromId);
-                    me.birth(tx, delta.toId, ID_SORTS.element, delta.parentId, deltaIndex, 'replaceChild');
+                    me.birth(tx, delta.toId, ID_SORTS.element, delta.parentId, deltaIndex, 'replaceChild', ownerId);
                     break
                 case 'updateNode':
                     me.evaluateUpdate(tx, delta, deltaIndex);
@@ -414,15 +438,16 @@ const DeltaCoherenceRegistry = {
      * @param {Object} tx
      * @param {Object} delta
      * @param {Number} deltaIndex
+     * @param {String|null} [ownerId=null]
      * @protected
      */
-    evaluateInsert(tx, delta, deltaIndex) {
+    evaluateInsert(tx, delta, deltaIndex, ownerId=null) {
         this.touchParent(tx, delta.parentId, deltaIndex, 'insertNode');
 
         const rootId = extractInsertRootId(delta);
 
         if (rootId) {
-            this.birth(tx, rootId, witnessInsertSort(delta), delta.parentId, deltaIndex, 'insertNode')
+            this.birth(tx, rootId, witnessInsertSort(delta), delta.parentId, deltaIndex, 'insertNode', ownerId)
         }
     },
 

@@ -995,7 +995,7 @@ class DeltaUpdates extends Base {
      * @protected
      */
     observeDeltaCoherence(deltas, coherenceBatches=null) {
-        const evaluation = this.coherenceRegistry.evaluateBatch(deltas);
+        const evaluation = this.coherenceRegistry.evaluateBatch(deltas, {coherenceBatches});
 
         if (evaluation.findings.length > 0) {
             console.warn('Delta coherence findings', {

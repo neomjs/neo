@@ -159,6 +159,7 @@ test.describe('Neo.main.DeltaUpdates coherence registry', () => {
         expect(warnCalls).toHaveLength(1);
         expect(warnCalls[0][0]).toBe('Delta coherence findings');
         expect(warnCalls[0][1].findings.map(finding => finding.rule)).toEqual(['C-insert']);
+        expect(warnCalls[0][1].findings[0].detail).toContain('toolbar-owner');
         expect(warnCalls[0][1].coherenceBatches).toEqual(coherenceBatches)
     });
 

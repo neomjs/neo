@@ -33,8 +33,8 @@ const freshLedger = (windowId = null) => {
 };
 
 /** Evaluates AND commits a batch, returning its findings — the applied-batch happy path. */
-const apply = (registry, batch) => {
-    const evaluation = registry.evaluateBatch(batch);
+const apply = (registry, batch, options) => {
+    const evaluation = registry.evaluateBatch(batch, options);
 
     evaluation.commit();
     return evaluation.findings
@@ -109,18 +109,25 @@ test.describe('DeltaCoherenceRegistry — C-insert (AC: the stale-baseline defec
         // Batch 1: the legitimate birth.
         expect(apply(registry, [
             {action: 'insertNode', parentId: 'neo-grid-body', index: 0, vnode: {id: 'neo-row-1', nodeName: 'div'}}
-        ])).toEqual([]);
+        ], {
+            coherenceBatches: [{end: 1, ownerId: 'first-owner', start: 0}]
+        })).toEqual([]);
+
+        expect(registry.liveSnapshot.get('neo-row-1').ownerId).toBe('first-owner');
 
         // Batch 2: the stale-baseline shape — a producer working from a stale baseline births
         // the same id again. Each batch is internally well-formed (the per-batch guards stay
         // silent); only the cross-batch ledger sees the collision.
         const findings = apply(registry, [
             {action: 'insertNode', parentId: 'neo-grid-body', index: 1, vnode: {id: 'neo-row-1', nodeName: 'div'}}
-        ]);
+        ], {
+            coherenceBatches: [{end: 1, ownerId: 'stale-owner', start: 0}]
+        });
 
         expect(rulesOf(findings)).toEqual([COHERENCE_RULES.insert]);
         expect(findings[0].deltaIndex).toBe(0);
-        expect(findings[0].detail).toContain('neo-row-1')
+        expect(findings[0].detail).toContain('neo-row-1');
+        expect(findings[0].detail).toContain('first-owner')
     });
 
     test('catches a string-rendered re-birth through the outerHTML root id', () => {
