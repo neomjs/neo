@@ -330,6 +330,15 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Observes, or stops observing, this grid's own box.
+     *
+     * `componentId` and `id` carry the same value here and are still both required: `id` is the DOM
+     * target the addon observes, while `componentId` is the App-Worker holder it refcounts. The
+     * addon unobserves a target only once its holder list is empty, and `unregister` removes exactly
+     * `data.componentId` — so a payload naming only `id` asks to remove an anonymous holder, leaves
+     * the real one in place, and releases nothing while looking like a teardown. `list.Buffered`
+     * carries the same contract.
+     *
      * @param {Boolean} mounted
      * @protected
      */
@@ -337,7 +346,7 @@ class GridContainer extends BaseContainer {
         let me             = this,
             {windowId}     = me,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {id: me.id, windowId};
+            resizeParams   = {componentId: me.id, id: me.id, windowId};
 
         if (mounted) {
             ResizeObserver.register(resizeParams);
@@ -1035,9 +1044,12 @@ class GridContainer extends BaseContainer {
         me.verticalScrollbar?.destroy();
         me.scrollManager.destroy();
 
+        // `componentId` names the holder to drop; without it the addon removes nothing and the
+        // native observer outlives this grid. See addResizeObserver().
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            id      : me.id,
-            windowId: me.windowId
+            componentId: me.id,
+            id         : me.id,
+            windowId   : me.windowId
         });
 
         super.destroy(...args)

@@ -383,9 +383,13 @@ class MonacoEditor extends Base {
     destroy(...args) {
         let me = this;
 
+        // `componentId` names the holder to drop. The addon refcounts observation per component and
+        // unobserves only once a target's holder list is empty, so a payload carrying just `id`
+        // removes nothing and leaves the native observer attached to a destroyed editor.
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
-            id      : me.id,
-            windowId: me.windowId
+            componentId: me.id,
+            id         : me.id,
+            windowId   : me.windowId
         });
 
         Neo.main.addon.MonacoEditor.destroyInstance({
