@@ -33,14 +33,10 @@
         }
     }
 
-    // The exact-cut accent: a result region's INNER edge is where the future splitter sits —
-    // the information the old insertion line carried survives as a thicker boundary there.
-    .neo-dock-preview-region {
-        &.neo-dock-preview-cut-top    { border-top-width   : 4px; }
-        &.neo-dock-preview-cut-right  { border-right-width : 4px; }
-        &.neo-dock-preview-cut-bottom { border-bottom-width: 4px; }
-        &.neo-dock-preview-cut-left   { border-left-width  : 4px; }
-    }
+    // The region's border stays UNIFORM on purpose: the filled region already shows the
+    // outcome, and its inner edge IS the future splitter position by construction — a thicker
+    // cut edge restated that and read as a rendering glitch. The renderer still stamps
+    // `neo-dock-preview-cut-<side>` as the semantic marker; themes may restyle it.
 
     // Insertion guides — split lines (the `resultRegionPreviews: false` presentation) and tab
     // before/after markers — read as a solid bar. The `:not(...)` guard keeps region-mode split

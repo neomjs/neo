@@ -52,12 +52,11 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(scss).toContain('.neo-dock-preview-accepted');
             expect(scss).toContain('.neo-dock-preview-rejected');
             // the result-region mode class routes directional placements into the filled
-            // family, and each cut-side accent the renderer can emit is backed
+            // family. The cut-side classes the renderer stamps are deliberately UNSTYLED —
+            // semantic markers only: the region border stays uniform, so this guard
+            // pins their absence from the styling the same way it pins the styled set.
             expect(scss).toContain('.neo-dock-preview-region');
-            expect(scss).toContain('.neo-dock-preview-cut-top');
-            expect(scss).toContain('.neo-dock-preview-cut-right');
-            expect(scss).toContain('.neo-dock-preview-cut-bottom');
-            expect(scss).toContain('.neo-dock-preview-cut-left');
+            expect(scss).not.toContain('.neo-dock-preview-cut-');
             // accepted/rejected states carry real visual treatment, not just class names
             expect(scss).toContain('background-color');
             expect(scss).toContain('border');

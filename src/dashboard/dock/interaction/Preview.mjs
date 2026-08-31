@@ -91,8 +91,9 @@ class Preview extends Component {
         edgeBandSize: 24,
         /**
          * True paints split and edge placements as the RESULT REGION — the half of the target
-         * the new pane would occupy — with the exact cut marked by a thicker border on the
-         * region's inner edge. False restores the thin insertion-line presentation. The pane
+         * the new pane would occupy, drawn with a uniform border. The exact cut survives as the
+         * stamped `neo-dock-preview-cut-<side>` class only: the region's inner edge IS
+         * the future splitter position. False restores the thin insertion-line presentation. The pane
          * center (tab-into) always paints the full-zone region; this config only widens the
          * directional placements to match, so the whole preview language shows outcomes
          * instead of cuts. Read per frame — a runtime flip applies on the next hover move.
