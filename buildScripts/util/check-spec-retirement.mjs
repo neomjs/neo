@@ -26,7 +26,20 @@ import process    from 'node:process';
 
 const
     ZERO_SHA = '0'.repeat(40),
-    exec     = command => execSync(command, {encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}).trim(),
+    /**
+     * node's `execSync` default `maxBuffer` is 1 MB, and `git ls-tree -r --name-only` over this
+     * repository already emits 1,327,472 bytes. The overrun throws `ENOBUFS` — and every read below
+     * that swallows a throw then yields an EMPTY string, which downstream is indistinguishable from
+     * a genuinely empty result. Measured on this tree: the surviving-subject scan saw 0 tracked
+     * paths and reported nothing, on every commit, in a repository where the answer is never zero.
+     *
+     * Sized well past the repository rather than trimmed to it. The cost of a generous ceiling is
+     * memory that is never allocated unless the output actually arrives; the cost of a tight one is
+     * the silence this guard exists to catch, reproduced inside the catcher.
+     * @type {Number}
+     */
+    MAX_BUFFER = 64 * 1024 * 1024,
+    exec     = command => execSync(command, {encoding: 'utf8', maxBuffer: MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore']}).trim(),
     tryExec  = command => { try { return exec(command) } catch { return '' } };
 
 /**
@@ -120,6 +133,30 @@ export function parseDeletedSpecs(output) {
 }
 
 /**
+ * @summary Every path the commit deleted, specs included — the same rows, without the spec filter.
+ *
+ * Read for one purpose: to tell "the subject stayed" apart from "the subject left with its spec, and
+ * an unrelated namesake remains". Without it the guard sees only the post-deletion tree, in which a
+ * departed subject is indistinguishable from one that was never there — see
+ * {@link unaccountedSurvivors}.
+ *
+ * @param {String} output `git show --name-status` output.
+ * @returns {String[]} Deleted paths, in encounter order.
+ */
+export function parseDeletedPaths(output) {
+    return String(output || '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+            const [status, ...paths] = line.split(/\t/);
+
+            return status?.startsWith('D') && paths.length === 1 ? paths[0] : null
+        })
+        .filter(Boolean)
+}
+
+/**
  * @summary The account line: the marker at the head of its own line, followed by actual content.
  *
  * A substring test is not a grammar. `includes('spec-retired:')` accepted the marker with nothing
@@ -136,12 +173,42 @@ export function parseDeletedSpecs(output) {
 const RETIREMENT_ACCOUNT_PATTERN = /^[ \t>*-]*spec-retired:[ \t]*(\S.*)$/im;
 
 /**
+ * @summary The same grammar, global, for reading every account payload rather than testing existence.
+ *
+ * A separate constant because a `g` regex carries `lastIndex` across calls: sharing one instance
+ * between `test()` and `matchAll()` makes each answer depend on the previous caller.
+ * @type {RegExp}
+ */
+const RETIREMENT_ACCOUNT_PATTERN_ALL = /^[ \t>*-]*spec-retired:[ \t]*(\S.*)$/gim;
+
+/**
  * @summary Whether a commit message carries a retirement account.
  * @param {String} message Full commit message (subject + body).
  * @returns {Boolean}
  */
 export function hasRetirementAccount(message) {
     return RETIREMENT_ACCOUNT_PATTERN.test(String(message || ''));
+}
+
+/**
+ * @summary The payloads of every `spec-retired:` account line in a commit message.
+ *
+ * Separate from {@link hasRetirementAccount} because the two questions differ: existence is answered
+ * by any one line, while "does the account name this survivor" may only be answered by what the
+ * account lines actually SAY.
+ *
+ * **Why the payload rather than the whole message.** The first draft matched surviving paths against
+ * the entire commit body, which let a path anywhere — the headline, a rationale paragraph, a `Refs:`
+ * trailer, a footer — discharge an account that named nothing. A commit reading
+ * `refactor: rework buildScripts/util/check-block-alignment.mjs` with a generic
+ * `spec-retired: moved to Brain` was accepted, although the account itself named no survivor. The
+ * demand is that the ACCOUNT names the file, so the account is the only text that can satisfy it.
+ *
+ * @param {String} message Full commit message (subject + body).
+ * @returns {String[]} Account payloads, in message order.
+ */
+export function retirementAccounts(message) {
+    return [...String(message || '').matchAll(RETIREMENT_ACCOUNT_PATTERN_ALL)].map(match => match[1].trim())
 }
 
 /**
@@ -226,19 +293,51 @@ export function findSurvivingSubjects(specPath, treePaths) {
  * had a surviving subject and the account named none. Naming is what a general sentence cannot fake —
  * which is the whole point, since a general sentence is exactly what went wrong.
  *
+ * **Ambiguous affinity yields no finding, deliberately.** `deriveSubjectSuffix` is a heuristic, and
+ * on this tree it is genuinely ambiguous for real paths: portal `content/Component.mjs` has 2
+ * candidates, `button/Base.mjs` 2, draggable `toolbar/SortZone.mjs` 3. When more than one tracked
+ * path answers the suffix, the guard cannot tell which one was this spec's subject — so deleting the
+ * REAL subject while an unrelated namesake survives would demand an account for a file the author
+ * never touched. That is the expensive error, and it is the one the header of
+ * {@link deriveSubjectSuffix} already commits this guard against: under-report rather than
+ * over-report. A single candidate is the only case where "the subject survived" is a fact rather
+ * than a guess, so it is the only case that fires.
+ *
+ * **A subject that left WITH its spec is not a survivor, even when a namesake remains.** Counting
+ * candidates in the post-deletion tree cannot see this on its own: delete
+ * `src/functional/button/Base.mjs` and its spec, and the two candidates for `button/Base.mjs`
+ * collapse to one — `src/button/Base.mjs`, a different component the author never touched — which
+ * then reads as an unambiguous survivor. The commit's own deleted paths are what disambiguate it, so
+ * they are consulted before the tree: if this commit deleted a file answering the spec's subject
+ * suffix, the subject departed and nothing is owed.
+ *
  * @param {String[]} specs Deleted spec paths.
  * @param {String[]} treePaths Tracked paths in the tree the deleting commit produced.
  * @param {String} message Full commit message.
+ * @param {String[]} [deletedPaths=[]] Every path the same commit deleted, specs included.
  * @returns {Array<{spec: String, subjects: String[]}>} Unnamed survivors, in encounter order.
  */
-export function unaccountedSurvivors(specs, treePaths, message) {
-    const body = String(message || '');
+export function unaccountedSurvivors(specs, treePaths, message, deletedPaths = []) {
+    // RA-3: the ACCOUNT must name the survivor, so only the account payloads are searched. Matching
+    // the whole body let a path in the headline, a rationale, or a `Refs:` trailer discharge an
+    // account that named nothing.
+    const accounts = retirementAccounts(message).join('\n');
 
     return (specs || [])
+        .filter(spec => {
+            // The subject left in this very commit — a remaining namesake is a different file.
+            const suffix = deriveSubjectSuffix(spec);
+
+            return suffix && !(deletedPaths || []).some(path => {
+                const lower = String(path).toLowerCase();
+
+                return lower.endsWith(`/${suffix}`) || lower === suffix
+            })
+        })
         .map(spec => ({spec, subjects: findSurvivingSubjects(spec, treePaths)}))
-        // Naming ANY one of a subject's candidate paths discharges the row. The author is being asked
-        // to acknowledge that the implementation stayed, not to enumerate every file that shares a name.
-        .filter(({subjects}) => subjects.length > 0 && !subjects.some(subject => body.includes(subject)))
+        // Exactly one candidate: see the ambiguity note above. Naming that path in the account
+        // discharges the row — the author is asked to acknowledge that the implementation stayed.
+        .filter(({subjects}) => subjects.length === 1 && !accounts.includes(subjects[0]))
 }
 
 /**
@@ -311,11 +410,60 @@ export function formatSurvivingSubjectFailure(violations) {
 }
 
 /**
+ * @summary Every git read the collector performs, in one injectable port.
+ *
+ * Extracted so the collector can be driven end to end by a test. Before this existed the only
+ * coverage was of the pure helpers, and the two defects that actually shipped both lived in the
+ * consumed path rather than in a helper: a tree read that failed open, and a survivor search that
+ * read the whole commit body. Helper-level green said nothing about either.
+ *
+ * `treePaths` is STRICT where the others are tolerant, and the asymmetry is the point — see
+ * {@link collectViolations}.
+ *
+ * @param {String} [root] Repository to read; defaults to the working directory.
+ * @returns {Object}
+ */
+export function createGit(root) {
+    // `-C` rather than a chdir: the spec drives this against a throwaway fixture repository, and
+    // `process.chdir` is process-global — under parallel test workers it would race.
+    const at = root ? `git -C '${root}'` : 'git';
+
+    const git = {
+        revList     : range => exec(`${at} rev-list ${range}`).split('\n').map(sha => sha.trim()).filter(Boolean),
+        nameStatus  : sha   => tryExec(`${at} show ${sha} --name-status -M --format=`),
+        deletedSpecs: sha   => parseDeletedSpecs(git.nameStatus(sha)),
+        deletedPaths: sha   => parseDeletedPaths(git.nameStatus(sha)),
+        message     : sha   => tryExec(`${at} log -1 ${sha} --format=%B`),
+        subject     : sha   => tryExec(`${at} log -1 ${sha} --format=%s`),
+        treePaths   : sha   => exec(`${at} ls-tree -r --name-only ${sha}`).split('\n').map(path => path.trim()).filter(Boolean)
+    };
+
+    return git
+}
+
+/**
+ * @summary The port bound to the working directory — what the hook actually runs with.
+ * @type {Object}
+ */
+export const defaultGit = createGit();
+
+/**
  * @summary Collects unaccounted spec deletions across the pushed ranges.
+ *
+ * **The tree read fails CLOSED.** It was a `tryExec`, and that is the defect this revision repairs:
+ * `git ls-tree -r` over this repository emits 1,327,472 bytes against a 1 MB default `maxBuffer`, so
+ * it threw `ENOBUFS`, the catch returned `''`, and the surviving-subject scan graded every commit
+ * against an EMPTY tree — in which nothing has ever survived. The guard reported zero rows and
+ * exited green. A raised ceiling alone would not have been enough: any other read failure would
+ * reproduce it, because the bug is not the size, it is that an unreadable tree and a clean one
+ * returned the same value. So the read now throws and the caller refuses, on the same reasoning the
+ * range read above already used.
+ *
  * @param {String[]} ranges Rev-list ranges.
+ * @param {Object} [git=defaultGit] Git port; injected by the spec to drive the consumed path.
  * @returns {{unaccounted: Array<{sha: String, subject: String, specs: String[]}>, survived: Array<{sha: String, subject: String, survivors: Array<{spec: String, subjects: String[]}>}>}}
  */
-function collectViolations(ranges) {
+export function collectViolations(ranges, git = defaultGit) {
     const
         violations = [],
         survived   = [];
@@ -336,14 +484,13 @@ function collectViolations(ranges) {
         let shas;
 
         try {
-            shas = exec(`git rev-list ${range}`).split('\n').map(s => s.trim()).filter(Boolean)
+            shas = git.revList(range)
         } catch {
-            console.error(
+            throw new Error(
                 `check-spec-retirement: cannot resolve the range \`${range}\`.\n` +
                 'The guard refuses to pass on a range it could not read — in CI this usually means a\n' +
                 'shallow checkout (needs `fetch-depth: 0`) or a missing `origin/dev` remote-tracking ref.'
-            );
-            process.exit(1)
+            )
         }
 
         shas.forEach(sha => {
@@ -365,16 +512,16 @@ function collectViolations(ranges) {
             // `--first-parent` would report the second case as a deletion too, demanding an account on
             // every merge that carries an already-accounted retirement — a false positive on exactly
             // the workflow this guard is meant to permit.
-            const specs = parseDeletedSpecs(tryExec(`git show ${sha} --name-status -M --format=`));
+            const specs = git.deletedSpecs(sha);
 
             if (specs.length === 0) {
                 return
             }
 
-            const message = tryExec(`git log -1 ${sha} --format=%B`);
+            const message = git.message(sha);
 
             if (!hasRetirementAccount(message)) {
-                violations.push({sha, subject: tryExec(`git log -1 ${sha} --format=%s`), specs});
+                violations.push({sha, subject: git.subject(sha), specs});
 
                 // One defect per commit. Demanding the surviving-subject detail from a commit that has
                 // not written an account at all buries the primary instruction under a longer one.
@@ -383,19 +530,62 @@ function collectViolations(ranges) {
 
             // Only reached when an account EXISTS, so the tree listing is paid for on the rare commit
             // that deletes specs and answers for them — not on every commit in the range.
-            const survivors = unaccountedSurvivors(
-                specs,
-                tryExec(`git ls-tree -r --name-only ${sha}`).split('\n').map(path => path.trim()).filter(Boolean),
-                message
-            );
+            //
+            // Fail CLOSED: an unreadable tree is not an empty one. See this function's header for the
+            // ENOBUFS case that made the two indistinguishable.
+            let treePaths;
+
+            try {
+                treePaths = git.treePaths(sha)
+            } catch (error) {
+                throw new Error(
+                    `check-spec-retirement: cannot read the tree of ${sha.slice(0, 10)} ` +
+                    `(${error.code || error.message}).\n` +
+                    'The guard refuses to grade surviving subjects against a tree it could not read — an\n' +
+                    'empty listing is indistinguishable from a repository in which nothing survived.'
+                )
+            }
+
+            // Second `git show` for the same commit, and deliberately not hoisted: like the tree read
+            // it is paid only on the rare commit that deletes specs AND answers for them, rather than
+            // on every commit in the range.
+            const survivors = unaccountedSurvivors(specs, treePaths, message, git.deletedPaths(sha));
 
             if (survivors.length > 0) {
-                survived.push({sha, subject: tryExec(`git log -1 ${sha} --format=%s`), survivors})
+                survived.push({sha, subject: git.subject(sha), survivors})
             }
         })
     });
 
     return {unaccounted: violations, survived}
+}
+
+/**
+ * @summary Renders every report a collection produced, in report order.
+ *
+ * Both classes are reported in one run. Exiting on the first would hide the second behind a
+ * fix-and-re-push cycle, and a guard discovered one row at a time is how a bulk deletion gets
+ * accounted for one sentence at a time.
+ *
+ * Split out of `main` so that aggregation is reachable by a test: as an `if`/`if` pair inlined in the
+ * entry point, an `if`→`else if` regression would have silenced the second class with nothing able to
+ * observe it.
+ *
+ * @param {{unaccounted: Array<Object>, survived: Array<Object>}} collected Output of {@link collectViolations}.
+ * @returns {String[]}
+ */
+export function buildReports({unaccounted = [], survived = []} = {}) {
+    const reports = [];
+
+    if (unaccounted.length > 0) {
+        reports.push(formatFailure(unaccounted))
+    }
+
+    if (survived.length > 0) {
+        reports.push(formatSurvivingSubjectFailure(survived))
+    }
+
+    return reports
 }
 
 /**
@@ -411,22 +601,21 @@ async function main() {
         }
     }
 
-    const
-        {unaccounted, survived} = collectViolations(pendingRanges(stdin)),
-        reports                 = [];
+    let collected;
 
-    if (unaccounted.length > 0) {
-        reports.push(formatFailure(unaccounted))
+    // Every refusal the collector raises — an unresolvable range, an unreadable tree — lands here and
+    // exits non-zero. The guard never passes on a read it could not make.
+    try {
+        collected = collectViolations(pendingRanges(stdin))
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+        return
     }
 
-    if (survived.length > 0) {
-        reports.push(formatSurvivingSubjectFailure(survived))
-    }
+    const reports = buildReports(collected);
 
     if (reports.length > 0) {
-        // Both classes are reported in one run. Exiting on the first would hide the second behind a
-        // fix-and-re-push cycle, and a guard discovered one row at a time is how a bulk deletion gets
-        // accounted for one sentence at a time.
         console.error(reports.join('\n\n'));
         process.exit(1)
     }
