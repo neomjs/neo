@@ -50,6 +50,22 @@ const
 const domScrollTop = page => page.evaluate(id => document.getElementById(id)?.scrollTop ?? -1, LIST_ID);
 
 /**
+ * The list's own `mountedRange`, read from the App Worker.
+ *
+ * This is the executable half of the boundary claim. The pixel arithmetic in the docblock says 180px
+ * crosses and 120px does not, but a comment cannot fail — if later geometry moved the first boundary
+ * above 180px, both arms below would keep passing while **no spacer ever rebuilt**, and the regression
+ * would silently stop exercising the causal path it exists to pin. Asserting the range makes the
+ * crossing a measured precondition rather than a derived assumption.
+ * @param {Object} page
+ * @returns {Promise<Number[]>}
+ */
+const mountedRange = page => page.evaluate(
+    id => Neo.worker.App.getConfigs({id, keys: 'mountedRange'}),
+    LIST_ID
+);
+
+/**
  * Drives `count` wheel deltas, then lets the page settle long enough for a runaway to express itself.
  * @param {Object} page
  * @param {Number} count
@@ -84,6 +100,11 @@ test.describe('Neo.list.Buffered — the scroll seat survives a mounted-range re
         // report distinguishes "never scrolled correctly" from "scrolled correctly, then ran away".
         expect(immediate, 'the gesture itself must land on its exact sum').toBe(180);
 
+        // The crossing is a MEASURED precondition, not an inference from the fixture's pixel arithmetic.
+        // Without this the arm could pass under a geometry where no rebuild ever happened.
+        expect(await mountedRange(page), 'the gesture must actually have crossed into the next window')
+            .toEqual([1, 17]);
+
         expect(settled, `the seat must not move after the input stops (settled ${SETTLE_MS}ms)`).toBe(180)
     });
 
@@ -94,6 +115,13 @@ test.describe('Neo.list.Buffered — the scroll seat survives a mounted-range re
         const {immediate, settled} = await wheelThenSettle(page, 4);
 
         expect(immediate, 'a below-boundary gesture lands on its sum').toBe(120);
+
+        // The symmetric half of the crossing assertion: this arm's whole meaning is that NO rebuild
+        // occurred. Asserting the range stayed put is what makes it a control rather than a second
+        // sample of the same condition.
+        expect(await mountedRange(page), 'no buffer edge was crossed, so the window must not have moved')
+            .toEqual([0, 16]);
+
         expect(settled, 'and stays there — this arm never reproduced the defect').toBe(120)
     })
 });
