@@ -70,10 +70,15 @@ const IMPORT_SPECIFIER_REGEX =
     /((?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
 
 /**
- * The AST node types that carry a module specifier.
+ * The AST node types whose `source` may name a module.
  *
  * `ExportNamedDeclaration` is included but only counts when it actually has a `source` — a plain
  * `export {x}` re-exports nothing and its `source` is null.
+ *
+ * For the three static forms the grammar guarantees that `source` is a string literal.
+ * `ImportExpression` is the exception, and the reason {@link staticSpecifier} exists: its `source` is
+ * an ARBITRARY expression, so `import(base + name)` is a node of this type that names no module at
+ * all. Membership here means "may carry a specifier", never "does".
  *
  * @type {Set<String>}
  */
@@ -260,6 +265,54 @@ export function unsafeSourceRootReason(root) {
 }
 
 /**
+ * The module specifier an AST source node statically names, or `null` when it names none.
+ *
+ * The three properties this preserves are the three ways that reading the raw source text instead
+ * gets it wrong — a parser recovers node kind and cooked value, and slicing delimiters off the text
+ * throws both away again:
+ *
+ * - **a source node is not always a string.** `import('../' + name + '/x.mjs')` is a
+ *   `BinaryExpression`, and removing its first and last character yields `../' + name + '/x.mjs`,
+ *   which the guard would report as a file that is not there. Nothing about that import is
+ *   statically knowable, so `null` is the honest answer and the guard says nothing about it.
+ * - **a quoted string containing `${…}` is a literal, not a template.** `import('../data/${x}.mjs')`
+ *   requests a file spelled exactly that way; classifying it as computed checks only that
+ *   `../data/` exists and lets a genuinely absent file through.
+ * - **a literal's escapes resolve.** `import('./foo.mjs')` requests `./foo.mjs` — which is what
+ *   `value` holds, and what the raw text does not.
+ *
+ * A template literal is rebuilt from its COOKED quasis with each interpolation reinserted as the
+ * source wrote it, so the static text is what the runtime concatenates while the report still prints
+ * something a developer recognizes. One with no interpolation is a literal path that happens to be
+ * written in backticks: it names a single file and is checked as one.
+ *
+ * @param {Object} source a {@link SPECIFIER_NODE_TYPES} node's `source`
+ * @param {String} code   the module text it was parsed from
+ * @returns {Object|null} `{specifier, computed}`, or `null` when nothing is statically knowable
+ */
+export function staticSpecifier(source, code) {
+    if (source.type === 'Literal') {
+        // `import(0)` parses; a non-string literal names no module.
+        return typeof source.value === 'string' ? {specifier: source.value, computed: false} : null
+    }
+
+    if (source.type === 'TemplateLiteral') {
+        const specifier = source.quasis.map((quasi, index) => {
+            const expression = source.expressions[index];
+
+            // `cooked` is null only for an invalid escape, which is legal exclusively in a TAGGED
+            // template and so cannot occur here; `raw` keeps this total regardless.
+            return (quasi.value.cooked ?? quasi.value.raw) +
+                (expression ? '${' + code.slice(expression.start, expression.end) + '}' : '')
+        }).join('');
+
+        return {specifier, computed: source.expressions.length > 0}
+    }
+
+    return null
+}
+
+/**
  * Every relative specifier imported by a piece of emitted code.
  *
  * Read from the module's AST rather than matched out of its text, because a regex over minified code
@@ -272,12 +325,11 @@ export function unsafeSourceRootReason(root) {
  * — so this reads the grammar the transform already depends on rather than adding a second opinion
  * about what the code says.
  *
- * A template-literal specifier is returned with its interpolation intact, exactly as the source wrote
- * it, so the consumer can apply {@link computedSpecifierRoot} and the report can print something a
- * developer recognizes.
+ * What each entry carries is decided by the node's TYPE, never by re-reading its text: using a parser
+ * only helps if the semantics it recovered survive extraction. See {@link staticSpecifier}.
  *
  * @param {String} code
- * @returns {String[]}
+ * @returns {Object[]} `{specifier, computed}` records, in source order
  */
 export function relativeSpecifiers(code) {
     const
@@ -293,12 +345,10 @@ export function relativeSpecifiers(code) {
             }
 
             if (SPECIFIER_NODE_TYPES.has(node.type) && node.source) {
-                // The raw slice minus its delimiters: identical to what the source wrote, whether it
-                // was quoted or a template literal.
-                const specifier = code.slice(node.source.start + 1, node.source.end - 1);
+                const entry = staticSpecifier(node.source, code);
 
-                if (specifier.startsWith('./') || specifier.startsWith('../')) {
-                    specifiers.push(specifier)
+                if (entry && (entry.specifier.startsWith('./') || entry.specifier.startsWith('../'))) {
+                    specifiers.push(entry)
                 }
             }
 
@@ -333,8 +383,13 @@ export function relativeSpecifiers(code) {
  * `../../`, which trivially exists. That is the honest answer: nothing about it is statically
  * knowable, so the guard says nothing about it.
  *
- * @param {String} specifier
- * @returns {String|null} the prefix through its last `/`, or `null` for a literal specifier
+ * Whether a specifier IS computed is not this function's call and must not be read from its return
+ * value: a quoted `'../data/${x}.mjs'` is a literal filename that contains those two characters.
+ * {@link staticSpecifier} decides it from the AST node type, and {@link findUnresolvableImports}
+ * carries that flag; this only answers *where* an already-computed one reads from.
+ *
+ * @param {String} specifier a specifier {@link staticSpecifier} flagged `computed`
+ * @returns {String|null} the prefix through its last `/`, or `null` when it holds no interpolation
  */
 export function computedSpecifierRoot(specifier) {
     const interpolation = specifier.indexOf('${');
@@ -367,7 +422,8 @@ export function computedSpecifierRoot(specifier) {
  * is gone — and a developer told the wrong thing goes looking in the wrong place. All three exit 1;
  * the separation is what the reader is told, never whether the build refuses.
  *
- * @param {Object[]} modules `{outputPath, specifiers}` records, as emitted
+ * @param {Object[]} modules `{outputPath, specifiers}` records whose `specifiers` are
+ *                           {@link relativeSpecifiers} entries — `{specifier, computed}`, not strings
  * @param {Function} exists  predicate over an absolute path, injected so specs need no fixture tree
  * @param {Function} resolve `(from, specifier) => absolutePath`
  * @returns {Object[]} `{outputPath, specifier, resolved, reason}`; reason is `missing`, `computed-root`
@@ -377,9 +433,11 @@ export function findUnresolvableImports(modules, exists, resolve) {
     const failures = [];
 
     modules.forEach(({outputPath, specifiers}) => {
-        specifiers.forEach(specifier => {
+        specifiers.forEach(({specifier, computed}) => {
             const
-                computedRoot = computedSpecifierRoot(specifier),
+                // Read from the flag the parser set, never re-derived from the text: a literal
+                // filename may contain `${…}` and is still one file.
+                computedRoot = computed ? computedSpecifierRoot(specifier) : null,
                 // A computed specifier names no file, so what gets resolved is the directory its
                 // family reads from. A literal one resolves as itself, exactly as before.
                 resolved     = resolve(outputPath, computedRoot ?? specifier);
@@ -392,7 +450,7 @@ export function findUnresolvableImports(modules, exists, resolve) {
             if (addressesSourceEngine(resolved) || addressesSourceEngine(specifier)) {
                 reason = 'engine-identity'
             } else if (!exists(resolved)) {
-                reason = computedRoot === null ? 'missing' : 'computed-root'
+                reason = computed ? 'computed-root' : 'missing'
             }
 
             if (reason) {

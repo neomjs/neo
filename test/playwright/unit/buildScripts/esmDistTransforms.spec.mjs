@@ -21,6 +21,16 @@ import {test, expect} from '@playwright/test';
 test.describe('esmDistTransforms — a dist/esm build that finishes must also be able to boot', () => {
     let transforms;
 
+    /**
+     * `findUnresolvableImports` consumes `relativeSpecifiers` records, and whether an entry is
+     * computed is a property the PARSER established, never one re-read from the text. These two
+     * state it per fixture for the same reason: a spec that derived the flag from the string would
+     * be asserting the defect it exists to pin.
+     */
+    const
+        literal  = specifier => ({specifier, computed: false}),
+        computed = specifier => ({specifier, computed: true});
+
     test.beforeAll(async () => {
         transforms = await import('../../../../buildScripts/util/esmDistTransforms.mjs')
     });
@@ -260,8 +270,11 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                 'import"./side-effect.mjs";'
             ].join('');
 
-            expect(transforms.relativeSpecifiers(emitted).sort())
-                .toEqual(['../b.mjs', '../d.mjs', './a.mjs', './c.mjs', './side-effect.mjs'])
+            expect(transforms.relativeSpecifiers(emitted).map(entry => entry.specifier).sort())
+                .toEqual(['../b.mjs', '../d.mjs', './a.mjs', './c.mjs', './side-effect.mjs']);
+
+            // `./c.mjs` is written in backticks and still names exactly one file.
+            expect(transforms.relativeSpecifiers(emitted).every(entry => entry.computed === false)).toBe(true)
         });
 
         /** Bare specifiers are the resolver's business, not the output tree's. */
@@ -283,13 +296,13 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                 'import real from"./real.mjs";'
             ].join('');
 
-            expect(transforms.relativeSpecifiers(emitted)).toEqual(['./real.mjs'])
+            expect(transforms.relativeSpecifiers(emitted)).toEqual([{specifier: './real.mjs', computed: false}])
         });
 
         /** A dynamic import is an expression, so it can sit at any depth rather than in the body. */
         test('a dynamic import nested inside a function is seen', () => {
             expect(transforms.relativeSpecifiers('async function f(){return(await import("../deep/x.mjs")).default}'))
-                .toEqual(['../deep/x.mjs'])
+                .toEqual([{specifier: '../deep/x.mjs', computed: false}])
         });
 
         /** `export {x}` re-exports nothing; only the sourced form names a module. */
@@ -300,7 +313,48 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         /** The interpolation survives extraction, because the prefix rule downstream needs it. */
         test('a template-literal specifier keeps its interpolation verbatim', () => {
             expect(transforms.relativeSpecifiers('import(`../data/parser/${t}.mjs`);'))
-                .toEqual(['../data/parser/${t}.mjs'])
+                .toEqual([{specifier: '../data/parser/${t}.mjs', computed: true}])
+        });
+
+        /**
+         * The three arms that red against the first AST version of this guard, which recovered the
+         * node and then threw its type away by slicing `start + 1` … `end - 1` off the raw text.
+         * Each is a distinct falsifier of that slice, and the first two are wrong in OPPOSITE
+         * directions — one invents a failure, one hides a real file.
+         *
+         * @see https://github.com/neomjs/neo/pull/17946#pullrequestreview
+         */
+        test.describe('the node type decides, because the text cannot', () => {
+            /**
+             * `ImportExpression.source` is an arbitrary expression. The old slice produced
+             * `../" + p + "/x.mjs` and the guard reported a missing file on a perfectly valid
+             * concatenated import. Nothing here is statically knowable, so nothing is said.
+             */
+            test('a concatenated dynamic import contributes nothing', () => {
+                expect(transforms.relativeSpecifiers('import("../"+p+"/x.mjs");')).toEqual([])
+            });
+
+            /**
+             * The inverse failure: a QUOTED string containing `${…}` is a filename spelled exactly
+             * that way, not a template. Classifying it as computed checked `../data/` alone and let
+             * an absent file board.
+             */
+            test('a quoted specifier containing an interpolation marker is a literal filename', () => {
+                expect(transforms.relativeSpecifiers('import("../data/${x}.mjs");'))
+                    .toEqual([{specifier: '../data/${x}.mjs', computed: false}])
+            });
+
+            /** What the runtime requests is the cooked value; the raw spelling reaches no disk. */
+            test('an escaped literal resolves to the path the runtime requests', () => {
+                expect(transforms.relativeSpecifiers('import("./\\u0066oo.mjs");'))
+                    .toEqual([{specifier: './foo.mjs', computed: false}])
+            });
+
+            /** Escapes cook inside a template's static parts too, and the expression stays readable. */
+            test('a template cooks its quasis and keeps the expression as written', () => {
+                expect(transforms.relativeSpecifiers('import(`../\\u0064ata/${a.b}.mjs`);'))
+                    .toEqual([{specifier: '../data/${a.b}.mjs', computed: true}])
+            })
         })
     });
 
@@ -312,7 +366,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
 
         test('a resolvable tree reports nothing', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: ['./view.mjs']}],
+                [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: [literal('./view.mjs')]}],
                 candidate => candidate === 'dist/esm/apps/x/view.mjs',
                 resolve);
 
@@ -326,7 +380,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
          */
         test('an import inside the output tree but never emitted is a failure', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: ['./node_modules/neo.mjs/src/Neo.mjs']}],
+                [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: [literal('./node_modules/neo.mjs/src/Neo.mjs')]}],
                 () => false,
                 resolve);
 
@@ -338,7 +392,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         /** The uncopied-source-root shape: a sibling import that no root ever emitted. */
         test('an import into an uncopied source root is a failure and names the specifier', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: ['../../components/Button.mjs']}],
+                [{outputPath: 'dist/esm/apps/x/app.mjs', specifiers: [literal('../../components/Button.mjs')]}],
                 () => false,
                 resolve);
 
@@ -348,7 +402,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
 
         test('every offending specifier is reported, not just the first', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: 'dist/esm/a.mjs', specifiers: ['./x.mjs', './y.mjs']}],
+                [{outputPath: 'dist/esm/a.mjs', specifiers: [literal('./x.mjs'), literal('./y.mjs')]}],
                 () => false,
                 resolve);
 
@@ -373,7 +427,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{
                     outputPath: '/workspace/dist/esm/apps/x/app.mjs',
-                    specifiers: ['../../../../node_modules/neo.mjs/src/Neo.mjs']
+                    specifiers: [literal('../../../../node_modules/neo.mjs/src/Neo.mjs')]
                 }],
                 () => true,
                 resolveReal);
@@ -393,7 +447,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             expect(transforms.findUnresolvableImports(
                 [{
                     outputPath: '/workspace/dist/esm/apps/x/app.mjs',
-                    specifiers: ['../../../../node_modules/some-lib/index.mjs']
+                    specifiers: [literal('../../../../node_modules/some-lib/index.mjs')]
                 }],
                 () => true,
                 resolveReal)).toEqual([])
@@ -404,7 +458,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             expect(transforms.findUnresolvableImports(
                 [{
                     outputPath: '/workspace/dist/esm/apps/x/app.mjs',
-                    specifiers: ['../../../../node_modules/neo.mjs-examples/index.mjs']
+                    specifiers: [literal('../../../../node_modules/neo.mjs-examples/index.mjs')]
                 }],
                 () => true,
                 resolveReal)).toEqual([])
@@ -413,7 +467,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         /** The two classes are distinguishable downstream, because the build reports them apart. */
         test('a missing import is reported as missing, not as an identity failure', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: '/workspace/dist/esm/apps/x/app.mjs', specifiers: ['../../components/Button.mjs']}],
+                [{outputPath: '/workspace/dist/esm/apps/x/app.mjs', specifiers: [literal('../../components/Button.mjs')]}],
                 () => false,
                 resolveReal);
 
@@ -439,7 +493,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
 
         test('the prefix directory is what gets resolved, and its presence passes', () => {
             expect(transforms.findUnresolvableImports(
-                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: ['../data/parser/${t}.mjs']}],
+                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: [computed('../data/parser/${t}.mjs')]}],
                 candidate => candidate === '/w/dist/esm/src/data/parser',
                 resolveReal)).toEqual([])
         });
@@ -447,7 +501,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         /** The signal the exemption would have thrown away: a source root nothing copied. */
         test('an absent prefix directory fails as computed-root and resolves to the directory', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: ['../data/parser/${t}.mjs']}],
+                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: [computed('../data/parser/${t}.mjs')]}],
                 () => false,
                 resolveReal);
 
@@ -464,7 +518,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
          */
         test('a specifier interpolated from its first segment is never reported', () => {
             expect(transforms.findUnresolvableImports(
-                [{outputPath: '/w/dist/esm/src/worker/Task.mjs', specifiers: ['../../${path}/task.mjs']}],
+                [{outputPath: '/w/dist/esm/src/worker/Task.mjs', specifiers: [computed('../../${path}/task.mjs')]}],
                 candidate => candidate === '/w/dist/esm',
                 resolveReal)).toEqual([])
         });
@@ -478,7 +532,7 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             const failures = transforms.findUnresolvableImports(
                 [{
                     outputPath: '/w/dist/esm/apps/x/app.mjs',
-                    specifiers: ['../../../node_modules/neo.mjs/src/main/addon/${name}.mjs']
+                    specifiers: [computed('../../../node_modules/neo.mjs/src/main/addon/${name}.mjs')]
                 }],
                 () => true,
                 resolveReal);
@@ -489,12 +543,28 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
 
         test('a literal specifier keeps reporting as missing, so no path becomes exempt', () => {
             const failures = transforms.findUnresolvableImports(
-                [{outputPath: '/w/dist/esm/src/f/u/HtmlTemplateProcessor.mjs', specifiers: ['../../../dist/parse5.mjs']}],
+                [{outputPath: '/w/dist/esm/src/f/u/HtmlTemplateProcessor.mjs', specifiers: [literal('../../../dist/parse5.mjs')]}],
                 () => false,
                 resolveReal);
 
             expect(failures).toHaveLength(1);
             expect(failures[0].reason).toBe('missing')
+        });
+
+        /**
+         * The end of the false-negative path: a literal filename that merely CONTAINS `${…}` must be
+         * resolved whole. The text-derived classification passed it on `../data/` existing, so an
+         * absent file boarded the build — the guard's own failure mode, inverted.
+         */
+        test('a literal specifier containing an interpolation marker is resolved whole', () => {
+            const failures = transforms.findUnresolvableImports(
+                [{outputPath: '/w/dist/esm/src/worker/Data.mjs', specifiers: [literal('../data/${x}.mjs')]}],
+                candidate => candidate === '/w/dist/esm/src/data',
+                resolveReal);
+
+            expect(failures).toHaveLength(1);
+            expect(failures[0].reason).toBe('missing');
+            expect(failures[0].resolved).toBe('/w/dist/esm/src/data/${x}.mjs')
         });
 
         test.describe('computedSpecifierRoot', () => {
