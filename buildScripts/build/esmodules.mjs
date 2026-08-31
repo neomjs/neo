@@ -1,6 +1,7 @@
 import fs                   from 'fs-extra';
 import path                 from 'path';
 import * as Terser          from 'terser';
+import {isDistAppAsset}     from '../util/distAppAssets.mjs';
 import {minifyHtml}         from '../util/minifyHtml.mjs';
 import {processFileContent} from '../util/astTemplateProcessor.mjs';
 
@@ -54,7 +55,7 @@ async function minifyDirectory(inputDir, outputDir) {
             if (dirent.name.endsWith('.mjs') || dirent.name.endsWith('.json') || dirent.name.endsWith('.html')) {
                 const content = fs.readFileSync(inputPath, 'utf8');
                 await minifyFile(content, outputPath);
-            } else if (normalizedInput.includes('/resources/')) {
+            } else if (isDistAppAsset(dirent.name) || normalizedInput.includes('/resources/')) {
                 fs.mkdirSync(path.dirname(outputPath), {recursive: true});
                 fs.copyFileSync(inputPath, outputPath);
             }
