@@ -37,8 +37,18 @@ export const enginePackagePath = 'node_modules/neo.mjs';
 /**
  * Matches a static import, a dynamic import, or a re-export whose specifier mentions `node_modules`.
  *
- * Returned as a factory, not a shared constant: the pattern carries the `g` flag, so a single shared
- * instance would carry `lastIndex` between unrelated callers and skip matches non-deterministically.
+ * A module-scope constant, compiled once. It was a factory, justified on the `g` flag carrying
+ * `lastIndex` between callers — which is a real hazard and **does not reach either consumer here**:
+ * `String.replace` and `String.matchAll` both leave `lastIndex` at 0 (`matchAll` iterates a clone).
+ * Measured both ways before this was changed. A function around a literal is not a defence; it is
+ * this cache discarded once per call, on a path that runs over every emitted module in the tree.
+ *
+ * **The invariant that keeps it safe, stated because it is now shared:** no consumer may leave
+ * `lastIndex` dirty. `.exec()` or `.test()` against this constant would do exactly that, and the
+ * next `matchAll` would silently start mid-string. Neither is used; a future one must reset it.
+ *
+ * Module-private for the same reason — an exported factory hands a fresh object to every caller and
+ * so hides that invariant instead of stating it. Nothing outside this file consumed either pattern.
  *
  * The quote class is `["'`]` and the single quote is the point. It was `["`]` — double quote or
  * backtick only — while the engine's house style, and every generated workspace's, is the single
@@ -51,20 +61,22 @@ export const enginePackagePath = 'node_modules/neo.mjs';
  * from inside `dist/esm`. It used to be skipped, and the emitted path happened to resolve, so nothing
  * failed — it simply booted two disjoint engine graphs.
  *
- * @returns {RegExp}
+ * @type {RegExp}
  */
-export const createImportSpecifierRegex = () =>
+const IMPORT_SPECIFIER_REGEX =
     /((?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
 
 /**
  * Matches any relative import specifier, whatever the quote style.
  *
+ * Module-scope constant, same reasoning and same `lastIndex` invariant as the pattern above.
+ *
  * Deliberately separate from the rewrite pattern: this one runs over *emitted* code, which Terser has
  * already normalized, so it cannot assume the source's quoting.
  *
- * @returns {RegExp}
+ * @type {RegExp}
  */
-export const createRelativeSpecifierRegex = () =>
+const RELATIVE_SPECIFIER_REGEX =
     /(?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)(["'`])(\.{1,2}\/(?:(?!\1).)*)\1/g;
 
 /**
@@ -78,7 +90,7 @@ export const createRelativeSpecifierRegex = () =>
  * @returns {String}
  */
 export function rewriteImportPaths(content) {
-    return content.replace(createImportSpecifierRegex(), (match, prefix, quote, specifier) => {
+    return content.replace(IMPORT_SPECIFIER_REGEX, (match, prefix, quote, specifier) => {
         const rewritten = specifier.includes('/node_modules/neo.mjs/')
             ? specifier.replace('/node_modules/neo.mjs/', '/')
             : '../../' + specifier;
@@ -252,7 +264,7 @@ export function unsafeSourceRootReason(root) {
  * @returns {String[]}
  */
 export function relativeSpecifiers(code) {
-    return [...code.matchAll(createRelativeSpecifierRegex())].map(match => match[2])
+    return [...code.matchAll(RELATIVE_SPECIFIER_REGEX)].map(match => match[2])
 }
 
 /**
