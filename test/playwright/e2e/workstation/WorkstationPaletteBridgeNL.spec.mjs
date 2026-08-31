@@ -20,26 +20,48 @@ import {test, expect} from '../../fixtures.mjs';
  */
 
 /**
- * Every bridged token, paired with the `--workstation-*` entry it must resolve to, and the selector
- * of a real element that CONSUMES it. Reading on the consumer rather than the viewport is the whole
- * point: a viewport-only probe passed while the tab header resolved theme values, because a nearer
- * skin-carrying ancestor shadowed the bridge.
+ * EVERY declaration the bridge makes, paired with what it must resolve to on a real CONSUMER.
+ *
+ * Reading on the consumer rather than the viewport is the whole point: a viewport-only probe passed
+ * while the tab header resolved theme values, because a nearer skin-carrying ancestor shadowed the
+ * bridge. The census is exhaustive against the SCSS block on purpose — the PR claims "every bridged
+ * token", and a claim wider than its instrument is the defect class this whole spec exists for.
+ *
+ * `expect` is a function of the live palette rather than a literal, so a palette retune stays green
+ * and only a token resolving to the THEME goes red.
  * @type {Object[]}
  */
 const bridgedTokens = [
-    {token: '--grid-container-border-color',               palette: '--workstation-line',     consumer: '.neo-grid-cell'},
-    {token: '--grid-container-cell-background-color',      palette: '--workstation-panel',    consumer: '.neo-grid-cell'},
-    {token: '--grid-container-cell-background-color-even', palette: '--workstation-panel-2',  consumer: '.neo-grid-cell'},
-    {token: '--grid-container-color',                      palette: '--workstation-ink-dim',  consumer: '.neo-grid-cell'},
-    {token: '--grid-cell-progress-active-color',           palette: '--workstation-signal',   consumer: '.neo-grid-cell'},
-    {token: '--grid-cell-progress-track-color',            palette: '--workstation-line',     consumer: '.neo-grid-cell'},
-    {token: '--tab-button-glyph-color',                    palette: '--workstation-ink-dim',  consumer: '.neo-tab-header-button'},
-    {token: '--tab-button-text-color',                     palette: '--workstation-ink-dim',  consumer: '.neo-tab-header-button'},
-    {token: '--tab-indicator-background-color-active',     palette: '--workstation-signal',   consumer: '.neo-tab-header-button'},
-    {token: '--tab-strip-background-color',                palette: '--workstation-panel-2',  consumer: '.neo-tab-header-button'},
-    {token: '--tab-header-action-glyph-color',             palette: '--workstation-ink-dim',  consumer: '.neo-toolbar-action'},
-    {token: '--tab-header-action-glyph-color-active',      palette: '--workstation-signal',   consumer: '.neo-toolbar-action'},
-    {token: '--tab-header-action-glyph-color-hover',       palette: '--workstation-signal',   consumer: '.neo-toolbar-action'}
+    // Direct palette mappings.
+    {token: '--grid-container-border-color',               consumer: '.neo-grid-cell',           expect: p => p.line},
+    {token: '--grid-container-cell-background-color',      consumer: '.neo-grid-cell',           expect: p => p.panel},
+    {token: '--grid-container-cell-background-color-even', consumer: '.neo-grid-cell',           expect: p => p.panel2},
+    {token: '--grid-container-color',                      consumer: '.neo-grid-cell',           expect: p => p.inkDim},
+    {token: '--grid-cell-progress-active-color',           consumer: '.neo-grid-cell',           expect: p => p.signal},
+    {token: '--grid-cell-progress-track-color',            consumer: '.neo-grid-cell',           expect: p => p.line},
+    {token: '--tab-button-glyph-color',                    consumer: '.neo-tab-header-button',   expect: p => p.inkDim},
+    {token: '--tab-button-text-color',                     consumer: '.neo-tab-header-button',   expect: p => p.inkDim},
+    {token: '--tab-indicator-background-color-active',     consumer: '.neo-tab-header-button',   expect: p => p.signal},
+    {token: '--tab-strip-background-color',                consumer: '.neo-tab-header-button',   expect: p => p.panel2},
+    {token: '--tab-header-action-glyph-color',             consumer: '.neo-toolbar-action',      expect: p => p.inkDim},
+    {token: '--tab-header-action-glyph-color-active',      consumer: '.neo-toolbar-action',      expect: p => p.signal},
+    {token: '--tab-header-action-glyph-color-hover',       consumer: '.neo-toolbar-action',      expect: p => p.signal},
+
+    // Composed values. A `color-mix()` or a border shorthand is still a bridged declaration, and
+    // omitting them is how a census silently shrinks to the tokens that were easy to assert.
+    {token: '--grid-cell-background-color-hover',          consumer: '.neo-grid-cell',           expect: p => `color-mix(in srgb, ${p.signal} 10%, ${p.panel})`},
+    {token: '--grid-container-header-cell-border-bottom',  consumer: '.neo-grid-cell',           expect: p => `1px solid ${p.line}`},
+    {token: '--tab-button-background-color-active',        consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
+    {token: '--tab-button-background-color-hover',         consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
+    {token: '--tab-header-action-background-color-active', consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
+    {token: '--tab-header-action-background-color-hover',  consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
+    {token: '--tab-header-inline-background-image',        consumer: '.neo-tab-header-toolbar',  expect: p => `linear-gradient( 180deg, ${p.panel2}, ${p.panel} )`},
+
+    // A literal, and the one declaration this spec CANNOT discriminate: the app and both neo themes
+    // independently arrive at `transparent` here, so deleting the bridge does not move it. Carried in
+    // the census with that stated rather than dropped, because an unlisted token reads as an
+    // oversight while a listed non-discriminating one reads as a measurement.
+    {token: '--tab-button-background-color',               consumer: '.neo-tab-header-button',   expect: () => 'transparent', nonDiscriminating: true}
 ];
 
 /**
@@ -65,44 +87,72 @@ async function bootWorkstation(page) {
  * @param {Object[]} spec bridgedTokens, or a subset
  * @returns {Promise<Object[]>}
  */
-function readBridge(page, spec) {
-    return page.evaluate(rows => {
-        const viewport = document.querySelector('.workstation-viewport'),
-              palette  = getComputedStyle(viewport);
+function readPalette(page) {
+    return page.evaluate(() => {
+        const style = getComputedStyle(document.querySelector('.workstation-viewport')),
+              read  = name => style.getPropertyValue(name).trim();
 
-        return rows.map(row => {
-            const consumer = document.querySelector(row.consumer);
-
-            return {
-                ...row,
-                resolved: consumer ? getComputedStyle(consumer).getPropertyValue(row.token).trim() : null,
-                expected: palette.getPropertyValue(row.palette).trim(),
-                found   : !!consumer
-            }
-        })
-    }, spec)
+        return {
+            inkDim: read('--workstation-ink-dim'),
+            line  : read('--workstation-line'),
+            panel : read('--workstation-panel'),
+            panel2: read('--workstation-panel-2'),
+            signal: read('--workstation-signal')
+        }
+    })
 }
 
 /**
- * Every token resolves to the palette entry it maps to, case-insensitively — values, not literals.
+ * Resolves each declaration on its consuming element. Only serialisable fields cross into the page —
+ * the expectation is computed in Node from the live palette, so a retune cannot make it stale.
+ * @param {Object} page Playwright page
+ * @param {Object[]} spec bridgedTokens, or a subset
+ * @returns {Promise<Object[]>}
+ */
+function readBridge(page, spec) {
+    return page.evaluate(rows => rows.map(row => {
+        const consumer = document.querySelector(row.consumer);
+
+        return {
+            ...row,
+            found   : !!consumer,
+            resolved: consumer ? getComputedStyle(consumer).getPropertyValue(row.token).trim() : null
+        }
+    }), spec.map(({consumer, token}) => ({consumer, token})));
+}
+
+/**
+ * A custom property resolves as substituted TOKENS, not as a computed colour, so the only difference
+ * a browser introduces is whitespace around the substitutions.
+ * @param {String} value
+ * @returns {String}
+ */
+const squash = value => (value ?? '').replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')').trim().toLowerCase();
+
+/**
+ * Every declaration resolves to what the palette composes, never to a literal.
  * @param {Object[]} readings
+ * @param {Object[]} spec
+ * @param {Object} palette
  * @param {String} label
  */
-function assertBridgeHolds(readings, label) {
-    for (const reading of readings) {
-        expect(reading.found, `${label}: a consumer for ${reading.token} must exist`).toBe(true);
-        expect(reading.expected, `${label}: ${reading.palette} must be defined`).not.toBe('');
-        expect(reading.resolved.toLowerCase(),
-            `${label}: ${reading.token} must resolve to ${reading.palette}, not the theme`)
-            .toBe(reading.expected.toLowerCase())
-    }
+function assertBridgeHolds(readings, spec, palette, label) {
+    readings.forEach((reading, index) => {
+        const row = spec[index];
+
+        expect(reading.found, `${label}: a consumer for ${row.token} must exist`).toBe(true);
+        expect(squash(reading.resolved), `${label}: ${row.token} must resolve to the instrument palette, not the theme`)
+            .toBe(squash(row.expect(palette)))
+    })
 }
 
 test.describe('Workstation — the palette bridge out-ranks the theme', () => {
     test('every bridged token resolves to the instrument palette in both skins', async ({page}) => {
         await bootWorkstation(page);
 
-        assertBridgeHolds(await readBridge(page, bridgedTokens), 'boot skin');
+        let palette = await readPalette(page);
+
+        assertBridgeHolds(await readBridge(page, bridgedTokens), bridgedTokens, palette, 'boot skin');
 
         // The inline header band is the one bridged value that is a function of two palette entries,
         // so it is asserted against a composed expectation rather than a single lookup.
@@ -138,7 +188,9 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
             [...document.querySelector('.workstation-viewport').classList].find(value => value.startsWith('neo-theme-')));
 
         expect(switchedSkin, 'the toggle really changed the live skin').toBe('neo-theme-neo-light');
-        assertBridgeHolds(await readBridge(page, bridgedTokens), 'switched skin')
+        palette = await readPalette(page);
+
+        assertBridgeHolds(await readBridge(page, bridgedTokens), bridgedTokens, palette, 'switched skin')
     });
 
     test('the bridge, not the theme, is what holds those values', async ({page}) => {
@@ -146,7 +198,7 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
 
         const before = await readBridge(page, bridgedTokens);
 
-        assertBridgeHolds(before, 'pre-mutation');
+        assertBridgeHolds(before, bridgedTokens, await readPalette(page), 'pre-mutation');
 
         // Mutation control. Delete the bridge rules from the live stylesheet: if the readings above
         // survive that, they were observing the theme and this spec proves nothing.
@@ -173,11 +225,25 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
 
         expect(removed, 'the bridge rule must be findable and removable').toBeGreaterThan(0);
 
-        const after = await readBridge(page, bridgedTokens),
-              moved = after.filter((row, index) => row.resolved !== before[index].resolved);
+        const after       = await readBridge(page, bridgedTokens),
+              movedTokens = bridgedTokens
+                  .filter((row, index) => after[index].resolved !== before[index].resolved)
+                  .map(row => row.token),
+              expectedToMove = bridgedTokens.filter(row => !row.nonDiscriminating).map(row => row.token),
+              expectedToHold = bridgedTokens.filter(row =>  row.nonDiscriminating).map(row => row.token);
 
-        expect(moved.length, 'every bridged token must move once the bridge is deleted')
-            .toBe(bridgedTokens.length)
+        // Exactly the discriminating declarations move — asserted as a SET, not a count. A count
+        // tolerates one token going quiet while another unexpectedly moves; naming them means the
+        // failure message says which declaration changed character.
+        expect(movedTokens.sort(), 'exactly the discriminating declarations move when the bridge is deleted')
+            .toEqual(expectedToMove.sort());
+
+        // And the one that does not is pinned rather than excused. The app and both neo themes
+        // independently arrive at `transparent` for it, so no mutation of the bridge can move it —
+        // measured here rather than asserted in prose. If a theme ever changes that value this arm
+        // reds and the census gains a discriminating member, which is the outcome we want.
+        expect(expectedToHold, 'the census names its non-discriminating member').toEqual(['--tab-button-background-color']);
+        expect(movedTokens, 'and that member genuinely does not move').not.toContain('--tab-button-background-color')
     });
 
     test('the pop-out vessel keeps the bridge it has no workspace to inherit it from', async ({page}) => {
@@ -198,19 +264,16 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
         // The vessel hosts no grid or tab of its own until a pane lands, so the bridge is asserted on
         // the viewport itself here — the element every future consumer will inherit from.
         const readings = await page.evaluate(rows => {
-            const viewport = document.querySelector('.workstation-viewport'),
-                  style    = getComputedStyle(viewport);
+            const style = getComputedStyle(document.querySelector('.workstation-viewport'));
 
             return rows.map(row => ({
-                token   : row.token,
-                palette : row.palette,
+                found   : true,
                 resolved: style.getPropertyValue(row.token).trim(),
-                expected: style.getPropertyValue(row.palette).trim(),
-                found   : true
+                token   : row.token
             }))
-        }, bridgedTokens);
+        }, bridgedTokens.map(({token}) => ({token})));
 
-        assertBridgeHolds(readings, 'pop-out vessel')
+        assertBridgeHolds(readings, bridgedTokens, await readPalette(page), 'pop-out vessel')
     });
 
     test('the grid header button block keeps winning on the element it declares on', async ({page}) => {
