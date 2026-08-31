@@ -418,6 +418,12 @@ class LayoutAdapter extends Base {
      * @param {Boolean} [options.enableDockPinAction=false] Projects one persistent pin action into
      *     every tabs header — the collapse-to-rail entry of docking design record §2.7. The workspace
      *     owns the effect and policy synchronization, exactly as it does for close.
+     * @param {Boolean} [options.enableDockMaximizeAction=false] Projects one engine-owned maximize
+     *     toggle into every tabs header, focus-gated by the tab header's own default. The
+     *     workspace owns the transient state, geometry, motion and input policy; `maximize`
+     *     becomes a reserved host-action name while on.
+     * @param {String} [options.dockMaximizeIconCls='far fa-window-maximize'] Icon of the projected
+     *     maximize action in its un-maximized state; the workspace flips it per toggle.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
@@ -427,7 +433,7 @@ class LayoutAdapter extends Base {
      *     (`hidden` / `disabled`), never in a changing list. Actions project BEFORE the engine set,
      *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
      *     tab header's own default. Semantic names must be unique per node, and every engine-owned
-     *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`, `pin`
+     *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`, `maximize` under `enableDockMaximizeAction`, `pin`
      *     under `enableDockPinAction`.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
@@ -486,7 +492,9 @@ class LayoutAdapter extends Base {
             dockTabSortBoundaryContainerId   : options.dockTearOutBoundaryContainerId
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
+            dockMaximizeIconCls              : options.dockMaximizeIconCls || 'far fa-window-maximize',
             enableDockCloseAction            : options.enableDockCloseAction === true,
+            enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
             enableDockPinAction              : options.enableDockPinAction === true,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
@@ -1002,8 +1010,9 @@ class LayoutAdapter extends Base {
               // the key is host-supplied — `constructor` and `__proto__` must miss, exactly as they do
               // in `Operations.applyOperation`'s own-key dispatch.
               reservedActionNames = new Map([
-                  ['close', context.enableDockCloseAction],
-                  ['pin',   context.enableDockPinAction]
+                  ['close',    context.enableDockCloseAction],
+                  ['maximize', context.enableDockMaximizeAction],
+                  ['pin',      context.enableDockPinAction]
               ]);
 
         for (const action of hostActions) {
@@ -1050,6 +1059,12 @@ class LayoutAdapter extends Base {
                     || context.items[activeItemId]?.pinnable === false
                     || !Document.findOwningEdge({nodes: context.nodes}, activeItemId),
                 iconCls   : 'fa fa-thumbtack'
+            }] : []),
+            // Maximize inherits the same focus-gating default; the family ordering contract keeps
+            // the engine set between host actions and the always-visible, always-last `close`.
+            ...(context.enableDockMaximizeAction ? [{
+                action : 'maximize',
+                iconCls: context.dockMaximizeIconCls
             }] : []),
             ...(context.enableDockCloseAction ? [{
                 action    : 'close',
