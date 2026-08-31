@@ -218,5 +218,96 @@ test.describe('Neo.manager.GestureClaimArbiter — the §2.8.1 claim protocol', 
 
         // resolving again yields the SAME winner — resolution is a pure read, not a consumption
         expect(arbiter.resolve()).toEqual(winner)
+    });
+
+    /**
+     * The witness above hands all three claims the same millisecond because the clock is held by
+     * hand. Production does not hold it: a real pass does per-zone geometry and hit-test work
+     * between claims, so a millisecond boundary can land mid-pass. These witnesses drive that
+     * boundary deliberately — a clock that ticks once, at a chosen point in the pass.
+     */
+    test.describe('one instant per claim pass — the boundary that made all three windows win', () => {
+        /**
+         * A clock that ticks once, immediately after its `tickAfter`-th read.
+         * @param {Number} tickAfter 1 = the boundary lands after the first read; Infinity = never
+         * @returns {Function}
+         */
+        function tickingClock(tickAfter) {
+            let value = 1_000,
+                reads = 0;
+
+            return () => {
+                const current = value;
+                if (++reads === tickAfter) { value += 1 }
+                return current
+            }
+        }
+
+        // Registration order is reverse-lexicographic, exactly as the coordinator-tier falsifier
+        // registers its three overlapping windows: an insertion-order resolver answers 'workspace-c'.
+        const passOrder = ['workspace-c', 'workspace-b', 'workspace-a'];
+
+        /**
+         * @param {Number} tickAfter
+         * @param {Boolean} sharePassInstant Whether the caller samples ONE instant for the pass.
+         * @returns {String|null}
+         */
+        function runPass(tickAfter, sharePassInstant) {
+            const
+                subject     = createGestureClaimArbiter({now: tickingClock(tickAfter)}),
+                passInstant = sharePassInstant ? subject.passInstant() : undefined;
+
+            for (const stableId of passOrder) {
+                subject.claim(stableId, {id: stableId}, passInstant)
+            }
+
+            return subject.resolve()?.stableId ?? null
+        }
+
+        test('the lexicographic winner survives a boundary anywhere in the pass', () => {
+            // No boundary: the case the suite could already see.
+            expect(runPass(Infinity, true)).toBe('workspace-a');
+
+            // Boundary after the FIRST claim — the shape observed on CI, which answered 'workspace-c'.
+            expect(runPass(1, true)).toBe('workspace-a');
+
+            // Boundary after the SECOND — the shape observed locally, which answered 'workspace-b'.
+            expect(runPass(2, true)).toBe('workspace-a')
+        });
+
+        test('the NEGATIVE witness: per-claim clock reads let the boundary pick the winner', () => {
+            // Without a shared pass instant each claim reads the clock itself, so the boundary
+            // manufactures a seniority ordering out of the caller's iteration order. This is the
+            // defect the parameter exists to remove — pinned so a regression cannot pass silently.
+            expect(runPass(Infinity, false)).toBe('workspace-a');
+            expect(runPass(1,        false)).toBe('workspace-c');
+            expect(runPass(2,        false)).toBe('workspace-b')
+        });
+
+        test('seniority ACROSS passes still dominates — the age axis is untouched', () => {
+            const elderInstant = arbiter.passInstant();
+
+            arbiter.claim('workspace-b', {id: 'zone-b'}, elderInstant);
+
+            clock += 10;
+
+            // A later pass re-claims the elder and adds the lexicographically smaller newcomer.
+            const laterInstant = arbiter.passInstant();
+
+            arbiter.claim('workspace-b', {id: 'zone-b'}, laterInstant);
+            arbiter.claim('workspace-a', {id: 'zone-a'}, laterInstant);
+
+            // The refresh keeps the elder's acquisition, so it outranks the newcomer it would
+            // otherwise lose the lexicographic tiebreak to.
+            expect(arbiter.resolve().stableId).toBe('workspace-b')
+        });
+
+        test('passInstant() reads the arbiter\'s own injected clock, not the wall clock', () => {
+            expect(arbiter.passInstant()).toBe(1_000);
+
+            clock += 7;
+
+            expect(arbiter.passInstant()).toBe(1_007)
+        })
     })
 });

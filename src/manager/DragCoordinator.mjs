@@ -659,7 +659,16 @@ class DragCoordinator extends Manager {
             return null
         }
 
-        const candidates = [];
+        const
+            candidates = [],
+            // ONE acquisition instant for the whole pass. Every zone below is evaluated against the
+            // SAME pointer event, so none of them holds seniority over another — they must tie, so
+            // that `resolve()` settles them on stable-identity lexicographic order. Sampling the
+            // clock inside `claim()` instead would let a millisecond boundary falling between two
+            // iterations invent an ordering, and the winner would degrade to this loop's iteration
+            // order: the registration-order nondeterminism §2.8.1 replaces. Seniority ACROSS moves
+            // is untouched — each pass samples anew.
+            passInstant = arbiter.passInstant();
 
         for (const [windowId, zone] of group) {
             if (
@@ -702,7 +711,7 @@ class DragCoordinator extends Manager {
             });
 
             if (intersects && accepts) {
-                arbiter.claim(zone.stableTargetId, zone)
+                arbiter.claim(zone.stableTargetId, zone, passInstant)
             } else {
                 arbiter.release(zone.stableTargetId)
             }
