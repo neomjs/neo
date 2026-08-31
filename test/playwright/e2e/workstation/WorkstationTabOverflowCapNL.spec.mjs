@@ -9,8 +9,12 @@ import {test, expect} from '../../fixtures.mjs';
  * beneath the floating overflow control. The workstation heavy header stages this degenerate
  * case at default boot (twelve canonical titles in a narrow pane), so the assertions run against
  * the real composition: the capped box must end where the control begins, the reservation the cap
- * used must equal the RENDERED control width (one value, render-grounded, never a second
+ * used must equal the RENDERED trailing action cluster (one value, render-grounded, never a second
  * derivation), and headers without an overflow control must keep their full natural width.
+ *
+ * The reserve is the cluster and not the control alone because the header's trailing partition is
+ * variable — an engine action set opts in per consumer, and gated actions keep their box — so a
+ * cap measured against one control would let the active tab run under the rest of them.
  *
  * Run: NEO_E2E_PORT=8156 npx playwright test workstation/WorkstationTabOverflowCapNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -50,9 +54,21 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
                   toolbar = capped?.closest('.neo-tab-header-toolbar'),
                   pressed = [...document.querySelectorAll('.neo-tab-header-button.pressed')];
 
+            // The reserve is the WHOLE trailing action partition, not the overflow control alone.
+            // Gated actions count: the focus-gating carrier hides them with `visibility`, which
+            // preserves their box, so a tab allowed to run under a quiet action would still be
+            // covered the moment its pane takes focus. Measured from the DOM rather than a count
+            // times an assumed size — the partition is per-consumer and per-opt-in flag.
+            const actions = toolbar ? [...toolbar.querySelectorAll(':scope > .neo-toolbar-action')] : [],
+                  cluster = actions.length && toolbar
+                      ? rect(toolbar).right - Math.min(...actions.map(action => rect(action).left))
+                      : 0;
+
             return {
-                control: control && rect(control),
-                capped : capped && {
+                control     : control && rect(control),
+                actionCount : actions.length,
+                clusterWidth: cluster,
+                capped      : capped && {
                     rect         : rect(capped),
                     maxWidth     : parseFloat(capped.style.maxWidth),
                     textOverflow : getComputedStyle(capped.querySelector('.neo-button-text')).textOverflow,
@@ -97,12 +113,21 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
             'the per-button indicator spans exactly the capped box'
         ).toBeLessThanOrEqual(1);
 
+        // The staging guard: this identity is only meaningful while the header carries a real action
+        // partition. If the app ever collapses back to a lone overflow control, the assertion below
+        // degenerates into the single-operand form it replaced and stops testing the cluster at all.
+        expect(facts.actionCount, 'the heavy header must stage a multi-action trailing partition')
+            .toBeGreaterThan(1);
+
         // Reservation truth (single value, render-grounded): the cap the plugin applied equals the
-        // toolbar extent minus the RENDERED control width — not the pre-creation estimate.
+        // toolbar extent minus the RENDERED trailing action cluster — not the pre-creation estimate,
+        // and not the overflow control alone. The control was the whole partition once; the engine
+        // action set made it a cluster, and a cap that reserved only the control would let the active
+        // tab run under close and maximize — the exact covered-tab symptom this spec guards against.
         expect(
             facts.capped.maxWidth,
-            `cap must derive from the rendered control width (extent ${facts.toolbarRect.width}, control ${facts.control.width})`
-        ).toBe(Math.floor(facts.toolbarRect.width) - Math.ceil(facts.control.width));
+            `cap must derive from the rendered action cluster (extent ${facts.toolbarRect.width}, ${facts.actionCount} actions spanning ${facts.clusterWidth})`
+        ).toBe(Math.floor(facts.toolbarRect.width) - Math.ceil(facts.clusterWidth));
 
         // The covered cut becomes an honest ellipsis.
         expect(facts.capped.textOverflow, 'capped label must ellipsize').toBe('ellipsis');
