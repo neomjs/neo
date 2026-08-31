@@ -1,0 +1,22 @@
+.neo-buffered-list {
+    // A buffered list owns its scroll seat and rebuilds its bounded pool between two spacers whose
+    // heights encode the unmounted extents (`topHeight = range[0] * itemHeight`). Crossing a
+    // mounted-range boundary therefore RESIZES the top spacer while the user is scrolling.
+    //
+    // Browser scroll anchoring reads that resize as content shifting under the viewport and compensates
+    // by moving `scrollTop` to hold the visible rows still. For an ordinary document that is the right
+    // behaviour; for a virtualized list it is a feedback loop — the compensated position crosses the
+    // next boundary, which resizes the spacer again, which compensates again. Measured before this
+    // rule: a 180px wheel gesture reached 3,780px within 1.5s and kept climbing (~3,600px/s), with
+    // `mountedRange` advancing in lockstep. Gestures that stayed below the boundary drifted zero.
+    //
+    // The spacer heights ARE the scroll geometry here, so the engine must own the seat outright rather
+    // than let the user agent second-guess it. `grid/View.scss` and `grid/Container.scss` carry the
+    // same rule for the same reason; this is that lesson applied to the list surface, which never
+    // received it.
+    //
+    // Pinned by `test/playwright/component/list/BufferedScrollAnchor.spec.mjs`, whose assertions are
+    // deliberately delayed — the position is correct at the instant the gesture ends and only diverges
+    // ~100ms later, so an immediate assertion cannot witness this.
+    overflow-anchor: none;
+}
