@@ -195,10 +195,11 @@ test.describe('dock maximize — presentation, never topology', () => {
         await page.waitForFunction(() => document.querySelectorAll('.neo-dock-maximized').length === 1);
         expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual(['main-tabs']);
 
-        // …and the fail-safe clears an unresolvable one — never a half state.
+        // …and the fail-safe clears an unresolvable one — never a half state. Eventual by
+        // contract: the clear is deterministic, not synchronous with the config write.
         await setWorkspace(page, {maximizedNodeId: 'ghost-tabs'});
         await page.waitForFunction(() => document.querySelectorAll('.neo-dock-maximized').length === 0);
-        expect(await readWorkspace(page, ['maximizedNodeId'])).toEqual([null])
+        await expect.poll(async () => (await readWorkspace(page, ['maximizedNodeId']))[0]).toBe(null)
     });
 
     test('while maximized, the workspace resize observation re-measures the rect live', async ({page}) => {

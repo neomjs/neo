@@ -1867,10 +1867,6 @@ class Workspace extends Container {
             host = null,
             rect, tabContainer;
 
-        // Serialize on any in-flight FLIP window: its end-of-window cleanup restores the
-        // inline-style snapshot from invert time, which would overwrite geometry written here.
-        await me.dockMaximizePlay;
-
         tabContainer = me.getDockHost()?.down?.({dockNodeId: nodeId});
 
         if (!tabContainer || tabContainer.isDestroyed) {
@@ -1884,6 +1880,16 @@ class Workspace extends Container {
             me.failDockMaximize(nodeId);
             return
         }
+
+        if (me.maximizedNodeId !== nodeId || me.isDestroyed) {
+            return
+        }
+
+        // Serialize on any in-flight FLIP window before WRITING: its end-of-window cleanup
+        // restores the inline-style snapshot from invert time, which would overwrite geometry
+        // written inside the window. Deliberately after the fail-guards — a fail-safe clear
+        // writes nothing and must never queue behind motion.
+        await me.dockMaximizePlay;
 
         if (me.maximizedNodeId !== nodeId || me.isDestroyed) {
             return
