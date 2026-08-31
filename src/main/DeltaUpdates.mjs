@@ -410,23 +410,6 @@ class DeltaUpdates extends Base {
             let localPostMountUpdates = [],
                 newNode;
 
-            // An id is unique by contract, so an element already carrying this one IS this node.
-            // Two concurrent update batches each diff against the vnode snapshot they captured at
-            // their own collection time, so the second legitimately computes an insert for a subtree
-            // the first already added — and creating a fresh node here is what turns that race into
-            // two DOM nodes answering to one id. Reuse is the only reading that can be correct: a
-            // genuine remove-then-re-add emits `removeNode` first, so nothing live is swallowed.
-            if (vnode?.id) {
-                const existing = DomAccess.getElement(vnode.id);
-
-                if (existing) {
-                    // `insertBefore(node, node)` is legal but a no-op; anchor past itself so a
-                    // reordering insert still moves.
-                    parentNode.insertBefore(existing, siblingRef === existing ? existing.nextSibling : (siblingRef || null));
-                    return
-                }
-            }
-
             if (NeoConfig.useDomApiRenderer) {
                 newNode = render.DomApiRenderer.createDomTree({
                     index           : -1,
@@ -509,19 +492,6 @@ class DeltaUpdates extends Base {
             batch.forEach(delta => {
                 let localPostMountUpdates = delta.postMountUpdates || [],
                     node;
-
-                // Same contract as the single-node path: an element already carrying this id IS
-                // this node, so it is appended to the fragment — which MOVES it — rather than
-                // re-created. Without this the batched path is a second door to the same
-                // two-nodes-one-id outcome.
-                if (delta.vnode?.id) {
-                    const existing = DomAccess.getElement(delta.vnode.id);
-
-                    if (existing) {
-                        fragment.appendChild(existing);
-                        return
-                    }
-                }
 
                 if (NeoConfig.useDomApiRenderer) {
                     node = render.DomApiRenderer.createDomTree({
