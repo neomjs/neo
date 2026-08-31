@@ -440,6 +440,72 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(bare.vdom).toBeUndefined()
     });
 
+    test('projects the opt-in engine-owned maximize toggle between host actions and close', () => {
+        const
+            model       = createModel(),
+            intents     = [],
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+
+            disabled = DockLayoutAdapter.project(model, {resolveComponentRef: resolvePane}),
+
+            enabled = DockLayoutAdapter.project(model, {
+                enableDockCloseAction   : true,
+                enableDockMaximizeAction: true,
+                onDockHeaderAction      : data => intents.push(data),
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: () => [{action: 'filter', iconCls: 'fa fa-filter'}]
+            }),
+
+            disabledMain = getProjectedChildren(disabled)[0],
+            enabledMain  = getProjectedChildren(enabled)[0],
+            maximize     = enabledMain.headerActions[1];
+
+        // Default off = byte-identical: no action slot materialises for the flag alone.
+        expect(disabledMain.headerActions).toBeUndefined();
+
+        // The frozen ordering contract: host actions → engine set → close, always last.
+        expect(enabledMain.headerActions.map(action => action.action)).toEqual(['filter', 'maximize', 'close']);
+
+        // Maximize rides the tab header's focus-gating default — no `contextual` opt-out, which is
+        // the close action's exemption alone.
+        expect(maximize.contextual).toBeUndefined();
+        expect(maximize.iconCls).toBe('far fa-window-maximize');
+
+        // The icon is workspace-owned and threads through as an option.
+        const themed = getProjectedChildren(DockLayoutAdapter.project(model, {
+            dockMaximizeIconCls     : 'fa fa-expand',
+            enableDockMaximizeAction: true,
+            resolveComponentRef     : resolvePane
+        }))[0];
+
+        expect(themed.headerActions.map(action => action.action)).toEqual(['maximize']);
+        expect(themed.headerActions[0].iconCls).toBe('fa fa-expand');
+
+        // Intent arrives like any other action, with its tabs node identified.
+        const tabContainer = {id: 'live-tabs'};
+
+        enabledMain.listeners.headerAction({action: 'maximize', tabContainer});
+        expect(intents).toEqual([{action: 'maximize', dockNodeId: 'main-tabs', tabContainer}])
+    });
+
+    test('reserves the maximize name exactly while its flag is on', () => {
+        const model       = createModel(),
+              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+              project     = (resolveDockHeaderActions, extra={}) => () => DockLayoutAdapter.project(model, {
+                  resolveComponentRef: resolvePane, resolveDockHeaderActions, ...extra
+              });
+
+        // Same failure class as a host `close`: the host copy would win `getActionItem` and capture
+        // the engine's icon sync and intent — silently.
+        expect(project(() => [{action: 'maximize'}], {enableDockMaximizeAction: true}))
+            .toThrow(/"maximize" is reserved while enableDockMaximizeAction is on/);
+
+        // Scoped, not blanket: with the engine action off, the name belongs to whoever projects it.
+        const hostOwned = getProjectedChildren(project(() => [{action: 'maximize', iconCls: 'fa fa-expand'}])())[0];
+
+        expect(hostOwned.headerActions.map(action => action.action)).toEqual(['maximize'])
+    });
+
     test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
         let result = DockLayoutAdapter.project(createModel(), {
                 resolveComponentRef: componentRef => ({
