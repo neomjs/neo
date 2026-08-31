@@ -132,6 +132,23 @@ class Workspace extends Container {
          */
         enableDockPinAction: false,
         /**
+         * Projects one engine-owned, delegation-only reload action into each Dock tab header —
+         * runtime only: no operation is committed and the document never changes. A pane
+         * implementing `dockReload(): void | Promise<*>` owns what reload means (its stores,
+         * caches, re-render — the author's decision, opted into by implementing the method); a
+         * pane without the contract simply hides the action, decided by a pure `typeof` probe on
+         * the live card, never a resolver call. One invocation per item may be in flight (the
+         * action disables for the window), and every completion — sync throw, async rejection,
+         * async success — settles exactly once through the `dockReloadSettled` event
+         * (`{dockNodeId, itemId, errors}`); a failing `dockReload()` keeps the pane, always.
+         * Destroy-and-recreate is deliberately NOT here: resolved panes are moved, never
+         * destroyed (docking design record §2.6) — the recreate capability lives with the
+         * two-phase transaction that can honestly promise rollback. Disabled by default; the
+         * projection is byte-identical while off.
+         * @member {Boolean} enableDockReloadAction=false
+         */
+        enableDockReloadAction: false,
+        /**
          * Projects one engine-owned maximize toggle into each Dock tab header — presentation
          * only: the committed document, perspectives and topology diffs never observe maximize
          * state. Disabled by default.
@@ -349,6 +366,14 @@ class Workspace extends Container {
      * @protected
      */
     dockMaximizeRestore = null
+
+    /**
+     * Item ids with a `dockReload()` invocation in flight — the single-flight guard: a second
+     * activation during the window neither invokes nor settles.
+     * @member {Set<String>} dockReloadInFlight=new Set()
+     * @protected
+     */
+    dockReloadInFlight = new Set()
 
     /**
      * The in-flight maximizedNodeId transition as an awaitable — every consumer that must
@@ -1254,7 +1279,7 @@ class Workspace extends Container {
      * instance, the way {@link #syncDockCloseAction} does, not by returning a different list. Names
      * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
      * `close` under {@link #enableDockCloseAction}, `maximize` under {@link #enableDockMaximizeAction},
-     * `pin` under {@link #enableDockPinAction};
+     * `pin` under {@link #enableDockPinAction}, `reload` under {@link #enableDockReloadAction};
      * both violations throw at projection rather than silently unaddressing an action. Their intent
      * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
      * @returns {Object}
@@ -1337,11 +1362,42 @@ class Workspace extends Container {
     }
 
     /**
+     * The boot-time header-action sync. A consumer may mount its FIRST projection statically —
+     * items assembled in `construct()` — without ever entering {@link #refreshDockWorkspace},
+     * and on that path no header-action sync runs at all: projected action rows are
+     * projection-constant by design (per-item state must never vary the actions array), so a
+     * pane-dependent action such as reload would stay at its projected default forever. Mount is
+     * the one surface every boot path shares.
+     *
+     * A workspace whose boot DID run the refresh already synced on settled chrome (the
+     * post-reconcile sweep), so this hook narrows to the never-refreshed case: `refreshPromise`
+     * present means the refresh owns boot truth and writing again from the mount window would
+     * only race the initial application train (observed on slow rigs as duplicated bar chrome).
+     * For the static case the sync is additionally deferred off the mount cascade (the
+     * MonacoEditor post-mount idiom) — container mount flips every child's `mounted` in the same
+     * frame. Every write in the sweep is change-guarded and idempotent, and `timeout()` is
+     * destroy-rejected, so a torn-down workspace never runs it.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        value && !this.refreshPromise && this.timeout(100).then(() => {
+            !this.isDestroyed && this.syncDockHeaderActions()
+        }).catch(() => null)
+    }
+
+    /**
      * Synchronizes every projected engine header action after reconciliation, including retained tabs
      * whose action instance outlived a model-policy or active-item change.
      *
-     * Each action's own sync is a no-op when that action was never projected (`getActionItem` misses),
-     * so this sweep stays correct for any subset of the engine set a consumer enabled.
+     * Each action's own sync guards on its own opt-in and is a no-op when the action was never
+     * projected — the opt-in guard is load-bearing, not redundant: a host may legally own an
+     * engine action NAME while that engine flag is off (the reserved-name guard fires only for
+     * enabled actions), and `getActionItem` finds the host's action by name. Without the guard,
+     * this sweep would rewrite consumer-owned action state.
      * @param {Map<String,Neo.tab.Container>|null} [tabs=null]
      * @protected
      */
@@ -1349,7 +1405,11 @@ class Workspace extends Container {
         let me            = this,
             projectedTabs = tabs;
 
-        if (!projectedTabs) {
+        // A fresh boot reconciles with nothing retained, so the reconciler's map arrives EMPTY —
+        // yet the staged projection resolved PLACEHOLDERS, whose pane-dependent action states
+        // (reload's contract probe) are wrong until this sync reaches the live chrome. Walk the
+        // shell whenever the handed map cannot.
+        if (!projectedTabs?.size) {
             let shell = me.getDockHost()?.items?.[me.dockShellIndex];
 
             projectedTabs = shell ? Reconciler.collectProjectedTabs(shell) : new Map()
@@ -1357,7 +1417,8 @@ class Workspace extends Container {
 
         projectedTabs?.forEach?.(tab => {
             me.syncDockCloseAction(tab);
-            me.syncDockPinAction(tab)
+            me.syncDockPinAction(tab);
+            me.syncDockReloadAction(tab)
         })
     }
 
@@ -1384,8 +1445,16 @@ class Workspace extends Container {
         me.syncDockPinAction(container);
 
         if (!me.dockModel || !itemId || committed === itemId) {
+            // No commit follows (a reconciliation re-emit, or no model): this sync is the only
+            // writer of the reload action's per-item state for this activation.
+            me.syncDockReloadAction(container);
             return null
         }
+
+        // A commit follows, and with it the post-reconcile header-action sync on settled chrome.
+        // Reload's sync WRITES on every contract boundary (hidden/disabled flip), so running it
+        // here too would put a vdom update in flight against the reconcile's own updates on the
+        // same subtree — the race that intermittently dropped retained tab chrome.
 
         descriptor = {operation: 'setActiveItem', tabsNodeId: dockNodeId, itemId};
         result     = me.applyDockZoneOperation(descriptor);
@@ -1410,7 +1479,9 @@ class Workspace extends Container {
      *
      * This class owns the ENGINE SET, each action only while its own opt-in is on: `close`
      * ({@link #enableDockCloseAction}), `maximize` ({@link #enableDockMaximizeAction} — a pure
-     * presentation toggle that never reaches the reducer) and `pin` ({@link #enableDockPinAction}). Every other intent —
+     * presentation toggle that never reaches the reducer), `pin` ({@link #enableDockPinAction})
+     * and `reload` ({@link #enableDockReloadAction} — runtime-only like maximize: delegation
+     * into the pane's own `dockReload()`, never an operation). Every other intent —
      * including host actions projected through `resolveDockHeaderActions` — is re-emitted as a
      * **`dockHeaderAction`** event carrying `{action, dockNodeId, tabContainer}`, so a host receives it
      * without subclassing this class or overriding a protected method, and this method returns `null`
@@ -1438,6 +1509,10 @@ class Workspace extends Container {
         if (action === 'maximize' && me.enableDockMaximizeAction) {
             me.toggleDockMaximize(dockNodeId);
             return null
+        }
+
+        if (action === 'reload' && me.enableDockReloadAction) {
+            return me.handleDockReloadAction({dockNodeId, tabContainer})
         }
 
         // Not an action this class owns. Re-emit it so a host that projected its own actions
@@ -1559,6 +1634,138 @@ class Workspace extends Container {
         }
 
         return result
+    }
+
+    /**
+     * Runs the engine-owned, delegation-only reload for the active pane: `dockReload()` when the
+     * pane implements the contract — the author owns what reload means, and the method is
+     * explicitly promise-aware (`void | Promise<*>`). Runtime-only by contract: no operation is
+     * committed and the document never changes. Every completion — sync throw, async rejection,
+     * async success — settles exactly once through the `dockReloadSettled` event
+     * (`{dockNodeId, itemId, errors}`), because the action wire has no result channel
+     * (`Observable.fire` discards listener returns). A failing `dockReload()` keeps the pane,
+     * always. One invocation per item may be in flight; the action's `disabled` state derives
+     * from the ACTIVE item's in-flight membership through {@link #syncDockReloadAction} — both
+     * at the flight edges here and on every active-item change — so switching panes mid-flight
+     * never inherits another item's window. Teardown mid-flight settles terminally through
+     * `core.Base#trap`: destroy rejects the trapped delegation even when the pane's producer
+     * never settles, and the post-destroy continuation returns without touching erased state.
+     * The no-active race (teardown, active-item flip mid-dispatch) settles through the channel
+     * too, carrying `itemId: null` — one settlement per activation, with the single-flight
+     * absorption as the only silent path.
+     * @param {Object} data
+     * @param {String} data.dockNodeId
+     * @param {Neo.tab.Container} data.tabContainer
+     * @returns {Promise<{errors: String[]}|null>} `null` when an in-flight invocation absorbed
+     *     the activation.
+     * @protected
+     */
+    async handleDockReloadAction({dockNodeId, tabContainer}={}) {
+        let me     = this,
+            itemId = me.getActiveDockItemId(tabContainer),
+            errors = [];
+
+        if (!itemId) {
+            // The no-active race (teardown, active-item flip mid-dispatch) settles through the
+            // SAME channel as every other completion — the action wire discards returns, so an
+            // unsettled early return here would be an activation the event contract never saw.
+            errors.push('Dock reload action requires an active item');
+            !me.isDestroyed && me.fire('dockReloadSettled', {dockNodeId, errors, itemId: null});
+            return {errors}
+        }
+
+        // Single-flight: a second activation during the window neither invokes nor settles —
+        // one settlement per invocation is the channel's contract.
+        if (me.dockReloadInFlight.has(itemId)) {
+            return null
+        }
+
+        let itemIds = tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || [],
+            index   = itemIds.indexOf(itemId),
+            pane    = index > -1 ? tabContainer.getCard(index) : null;
+
+        if (!pane || pane.isDestroyed || typeof pane.dockReload !== 'function') {
+            // The visibility sync hides the action for exactly these panes; reaching this guard
+            // means a race (teardown, active-item flip mid-dispatch) — settle it honestly.
+            errors.push(`Dock reload has no live dockReload() contract for item "${itemId}"`)
+        } else {
+            me.dockReloadInFlight.add(itemId);
+            me.syncDockReloadAction(tabContainer);
+
+            try {
+                // trap() is the engine-native teardown race: destroy rejects every registered
+                // async, so this await settles even when the pane's producer never does — and a
+                // producer settling later lands in the trap's already-settled no-op handlers,
+                // never as an unhandled rejection.
+                await me.trap(Promise.resolve().then(() => pane.dockReload()))
+            } catch (error) {
+                error !== Neo.isDestroyed && errors.push(`dockReload() failed for item "${itemId}": ${error?.message || error}`)
+            }
+
+            // Teardown rejected the trap: settle terminally — destroy erased the instance
+            // fields this continuation would otherwise mutate.
+            if (me.isDestroyed) {
+                return {errors}
+            }
+
+            me.dockReloadInFlight.delete(itemId);
+
+            // Re-derive both action axes from current truth: the active item may have changed
+            // mid-flight, so assigning `disabled = false` here would leak across items. The
+            // settle edge queues BEHIND any in-flight refresh (settled tail, never a raw write
+            // beside a reconcile) — a settlement is not latency-sensitive, and the post-reconcile
+            // sweep re-derives the same truth anyway when a commit is what changed the item.
+            (me.refreshPromise?.catch(() => {}) || Promise.resolve()).then(() => {
+                !me.isDestroyed && me.syncDockReloadAction(tabContainer)
+            })
+        }
+
+        !me.isDestroyed && me.fire('dockReloadSettled', {dockNodeId, errors, itemId});
+
+        return {errors}
+    }
+
+    /**
+     * Synchronizes one retained reload action against the live active pane, owning BOTH state
+     * axes: `hidden` while no active item resolves OR the active card does not carry the
+     * `dockReload()` contract; `disabled` while the ACTIVE item — not whichever item started a
+     * flight — has an invocation in flight. Deriving both here (called at the flight edges and
+     * on every active-item change) is what keeps per-item single-flight and the one node-level
+     * action instance consistent when the active item changes mid-flight. The contract probe is
+     * pure — a `typeof` on the card instance, or on its config's `module` prototype while the
+     * card container has not instantiated the slot yet (the post-reconcile sync runs before
+     * card children materialize) — never a resolver call, which may be side-effectful.
+     * @param {Neo.tab.Container|null} tabContainer
+     * @protected
+     */
+    syncDockReloadAction(tabContainer) {
+        // Opt-in guard first (the pin precedent): while the engine flag is off, a host may own
+        // the semantic name `reload` — getActionItem() would find THAT action, and writing to it
+        // here would overwrite consumer-owned state. Default-off means behaviorally inert.
+        if (!this.enableDockReloadAction) return;
+
+        let action   = tabContainer?.getActionItem?.('reload'),
+            itemId   = this.getActiveDockItemId(tabContainer),
+            disabled = false,
+            hidden   = true;
+
+        if (action && itemId) {
+            let itemIds = tabContainer.getTabBar()?.sortZoneConfig?.dockItemIds || [],
+                index   = itemIds.indexOf(itemId),
+                pane    = index > -1 ? tabContainer.getCard(index) : null,
+                carrier = pane?.isDestroyed ? null : (pane?.dockReload ?? pane?.module?.prototype?.dockReload);
+
+            disabled = this.dockReloadInFlight.has(itemId);
+            hidden   = typeof carrier !== 'function'
+        }
+
+        // ONE batched update for both axes (`set()`), never two sequential writes: each write
+        // opens its own vdom round trip on the tab bar, and stacked in-flight bar updates racing
+        // a following reconcile is exactly the collision that duplicated retained chrome on slow
+        // rigs.
+        if (action && (action.disabled !== disabled || action.hidden !== hidden)) {
+            action.set({disabled, hidden})
+        }
     }
 
     /**
@@ -2415,6 +2622,7 @@ class Workspace extends Container {
                 onDockHeaderAction     : me.onDockHeaderAction.bind(me),
                 ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
                 ...(me.enableDockPinAction && {enableDockPinAction: true}),
+                ...(me.enableDockReloadAction && {enableDockReloadAction: true}),
                 ...(me.enableDockMaximizeAction && {
                     dockMaximizeIconCls     : me.dockMaximizeIconCls,
                     enableDockMaximizeAction: true
@@ -2547,8 +2755,6 @@ class Workspace extends Container {
             waitForOverflowProjection
         });
 
-        me.syncDockHeaderActions(result?.currentTabs);
-
         // Awaited on purpose: refreshPromise is the settled-surface contract, and a maximize
         // presentation that re-applies after it settles is a surface nobody can await.
         await me.syncDockMaximizeProjection();
@@ -2576,7 +2782,20 @@ class Workspace extends Container {
         }
 
         if (!me.isDestroyed) {
-            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played})
+            await me.afterRefreshDockWorkspace({document, refreshOptions, result, played});
+
+            // Header-action state syncs on the SETTLED tree, never beside the projection
+            // application: a bar write with the refresh's own update train still open is the
+            // collision that duplicated retained chrome on slow rigs. Every write is
+            // change-guarded, so post-settle is both the safe and the idempotent slot.
+            me.syncDockHeaderActions(result?.currentTabs);
+
+            // Once more on SETTLED chrome: the pre-settle sync above can run while projected
+            // header actions are still instantiating (a fresh boot's first refresh), and a
+            // pane-dependent action state (reload's contract probe) corrected on chrome that
+            // does not exist yet is a correction nobody received. Every write in the sync is
+            // change-guarded, so re-running it on settled chrome is idempotent.
+            me.syncDockHeaderActions(result?.currentTabs)
         }
     }
 

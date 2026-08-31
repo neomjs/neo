@@ -424,6 +424,10 @@ class LayoutAdapter extends Base {
      *     becomes a reserved host-action name while on.
      * @param {String} [options.dockMaximizeIconCls='far fa-window-maximize'] Icon of the projected
      *     maximize action in its un-maximized state; the workspace flips it per toggle.
+     * @param {Boolean} [options.enableDockReloadAction=false] Projects one engine-owned,
+     *     delegation-only reload action into every tabs header — runtime only, no operation is
+     *     ever committed. The workspace owns the `dockReload()` dispatch, the single-flight
+     *     window, the `dockReloadSettled` settlement event and the per-active-pane visibility.
      * @param {Function} [options.onDockActiveIndexChange] Runtime active-item signal for action policy.
      * @param {Function} [options.onDockHeaderAction] Runtime Dock action intent; never persisted.
      * @param {Function} [options.resolveDockHeaderActions] Host resolver for additional tab-header
@@ -434,7 +438,7 @@ class LayoutAdapter extends Base {
      *     their intent arrives through `onDockHeaderAction` like any other, and focus gating is the
      *     tab header's own default. Semantic names must be unique per node, and every engine-owned
      *     name is reserved while its own opt-in is on — `close` under `enableDockCloseAction`, `maximize` under `enableDockMaximizeAction`, `pin`
-     *     under `enableDockPinAction`.
+     *     under `enableDockPinAction`, `reload` under `enableDockReloadAction`.
      * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
      * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
      * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
@@ -496,6 +500,7 @@ class LayoutAdapter extends Base {
             enableDockCloseAction            : options.enableDockCloseAction === true,
             enableDockMaximizeAction         : options.enableDockMaximizeAction === true,
             enableDockPinAction              : options.enableDockPinAction === true,
+            enableDockReloadAction           : options.enableDockReloadAction === true,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
             items                            : model.items || {},
@@ -1012,7 +1017,8 @@ class LayoutAdapter extends Base {
               reservedActionNames = new Map([
                   ['close',    context.enableDockCloseAction],
                   ['maximize', context.enableDockMaximizeAction],
-                  ['pin',      context.enableDockPinAction]
+                  ['pin',      context.enableDockPinAction],
+                  ['reload',   context.enableDockReloadAction]
               ]);
 
         for (const action of hostActions) {
@@ -1042,6 +1048,19 @@ class LayoutAdapter extends Base {
 
         const headerActions = [
             ...hostActions,
+            // Reload leads the engine set per the frozen family order (reload · pin · maximize —
+            // close always last). Not a toggle, so the icon is fixed like pin's. `hidden` is a
+            // CONSTANT true here — per-item availability must ride the ONE retained instance's
+            // runtime state (`Workspace#syncDockReloadAction`, the `syncDockCloseAction`
+            // pattern), never this config: a row that varies between projections changes the
+            // actions array, and replacing the action group mid-reconcile is exactly what the
+            // stable-instance note below forbids. Fresh boots reveal through the workspace's
+            // shell-walk sync, which reaches chrome the reconciler retained nothing of.
+            ...(context.enableDockReloadAction ? [{
+                action : 'reload',
+                hidden : true,
+                iconCls: 'fa fa-rotate-right'
+            }] : []),
             ...(context.enableDockPinAction ? [{
                 action    : 'pin',
                 // No `contextual` key, deliberately: the engine set inherits the tab header's

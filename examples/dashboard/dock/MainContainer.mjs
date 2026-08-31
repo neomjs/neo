@@ -3,6 +3,7 @@ import DockWorkspace      from '../../../src/dashboard/dock/Workspace.mjs';
 import Document           from '../../../src/dashboard/dock/model/Document.mjs';
 import Persistence        from '../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
+import ReloadablePane     from './ReloadablePane.mjs';
 import TourRunner         from '../../../src/ai/client/TourRunner.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
@@ -127,6 +128,14 @@ class MainContainer extends DockWorkspace {
          */
         enableDockPinAction: true,
         /**
+         * And into the engine-owned, delegation-only reload action. The Strategy pane implements
+         * the `dockReload()` contract below, so the example shows both halves of the policy: the
+         * action appears on the pane that owns a reload meaning and stays hidden on every pane
+         * that does not.
+         * @member {Boolean} enableDockReloadAction=true
+         */
+        enableDockReloadAction: true,
+        /**
          * The perspective toolbar sits at index 0; the projected shell follows it.
          * @member {Number} dockShellIndex=1
          */
@@ -197,6 +206,14 @@ class MainContainer extends DockWorkspace {
      * @returns {Object}
      */
     resolvePane(itemId, item) {
+        // Strategy demonstrates the reload delegation contract; see ReloadablePane below.
+        if (itemId === 'strategy') {
+            return {
+                module: ReloadablePane,
+                style : {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'}
+            }
+        }
+
         return {
             ntype: 'component',
             style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
