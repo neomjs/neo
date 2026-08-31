@@ -120,6 +120,13 @@ class MainContainer extends DockWorkspace {
          */
         enableDockCloseAction: true,
         /**
+         * And into the engine-owned pin action, so the example demonstrates the WHOLE auto-hide
+         * round-trip: a pane collapses to its edge rail from its own header, and the rail's reveal
+         * overlay brings it back. Before this the example could only show the way back.
+         * @member {Boolean} enableDockPinAction=true
+         */
+        enableDockPinAction: true,
+        /**
          * The perspective toolbar sits at index 0; the projected shell follows it.
          * @member {Number} dockShellIndex=1
          */

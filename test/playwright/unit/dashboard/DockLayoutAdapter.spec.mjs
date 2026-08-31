@@ -164,6 +164,25 @@ const createTabsBandModel = () => ({
 
 const getProjectedSplitters = splitConfig => splitConfig.items.filter(item => item.dockNodeType === 'splitter');
 
+/**
+ * Every projected tabs node anywhere in a projection, keyed by its `dockNodeId` — so a test can
+ * address one tabs header without hand-walking the row/band/split nesting that surrounds it.
+ * @param {Object} config
+ * @returns {Map<String,Object>}
+ */
+const collectProjectedTabsById = config => {
+    const found = new Map();
+
+    (function walk(node) {
+        if (!node || typeof node !== 'object') return;
+
+        node.dockNodeType === 'tabs' && found.set(node.dockNodeId, node);
+        (Array.isArray(node.items) ? node.items : []).forEach(walk)
+    })(config);
+
+    return found
+};
+
 test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
     test('projects split nodes to existing hbox and vbox layout primitives', () => {
         let model  = createModel(),
@@ -312,6 +331,102 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         const hostClose = getProjectedChildren(project(() => [{action: 'close', iconCls: 'fa fa-x'}])())[0];
 
         expect(hostClose.headerActions.map(action => action.action)).toEqual(['close'])
+    });
+
+    test('the pin action is absent and the projection byte-identical while its opt-in is off', () => {
+        const
+            model       = createEdgeZoneModel(),
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            options     = {enableDockCloseAction: true, resolveComponentRef: resolvePane},
+
+            without = DockLayoutAdapter.project(model, options),
+            offFlag = DockLayoutAdapter.project(model, {...options, enableDockPinAction: false});
+
+        // Explicit-false is the same projection as absent, and both are the same projection the
+        // consumers that never heard of this leaf already receive.
+        expect(JSON.stringify(offFlag)).toBe(JSON.stringify(without));
+        expect(JSON.stringify(without)).not.toContain('"pin"')
+    });
+
+    test('the opt-in pin action projects at its frozen slot and is hidden wherever the collapse could not complete', () => {
+        const model = createEdgeZoneModel();
+
+        model.items.inspector.pinnable = false;
+
+        const
+            resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            result      = DockLayoutAdapter.project(model, {
+                enableDockCloseAction   : true,
+                enableDockPinAction     : true,
+                resolveComponentRef     : resolvePane,
+                resolveDockHeaderActions: nodeId => nodeId === 'terminal-tabs' ? [{action: 'diagnose'}] : []
+            }),
+            tabs          = collectProjectedTabsById(result),
+            centerTab     = tabs.get('main-tabs'),
+            terminalTabs  = tabs.get('terminal-tabs'),
+            inspectorTabs = tabs.get('inspector-tabs');
+
+        // The frozen order, with a host action present: host actions, then the engine set, then close.
+        expect(terminalTabs.headerActions.map(action => action.action)).toEqual(['diagnose', 'pin', 'close']);
+        expect(centerTab.headerActions.map(action => action.action)).toEqual(['pin', 'close']);
+
+        // Right-band-owned, pinnable, active — the one case where the gesture can complete.
+        expect(terminalTabs.headerActions[1]).toMatchObject({action: 'pin', hidden: false});
+        expect(terminalTabs.headerActions[1].iconCls).toBeTruthy();
+
+        // Focus-gated like a host action, NOT like close. `close` opts out with `contextual: false`
+        // because it must stay reachable on an unfocused pane; the engine set inherits the tab
+        // header's `showOnFocus` default, and carrying close's opt-out would leave a permanently
+        // visible control on every header.
+        expect(terminalTabs.headerActions[1].contextual, 'pin inherits the header focus gate').toBeUndefined();
+        expect(terminalTabs.headerActions[0].contextual, 'the host action is gated too').toBeUndefined();
+        expect(terminalTabs.headerActions[2].contextual, 'close is the one deliberate exemption').toBe(false);
+
+        // Center-owned: §2.7 never rails main content, so the affordance must not offer it.
+        expect(centerTab.headerActions[0].hidden, 'a center-owned active item cannot collapse').toBe(true);
+
+        // Policy-refused: `setItemAutoHidden` rejects `pinnable: false`, so offering it would be a lie.
+        expect(inspectorTabs.headerActions.find(action => action.action === 'pin').hidden).toBe(true)
+    });
+
+    test('a host may own the name `pin` — until the engine action that reserves it is switched on', () => {
+        const model       = createEdgeZoneModel(),
+              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+              project     = extra => () => DockLayoutAdapter.project(model, {
+                  resolveComponentRef     : resolvePane,
+                  resolveDockHeaderActions: () => [{action: 'pin', iconCls: 'fa fa-thumbtack'}],
+                  ...extra
+              });
+
+        // Scoped exactly like `close`: with the engine's pin off there is nothing to shadow, and the
+        // host keeps a name it may well already ship.
+        expect(collectProjectedTabsById(project({})()).get('main-tabs').headerActions.map(action => action.action))
+            .toEqual(['pin']);
+
+        // With it on, the host action would win `getActionItem('pin')` and capture BOTH the engine's
+        // `hidden` policy sync and its intent — the collapse would go dark with nothing reporting it.
+        expect(project({enableDockPinAction: true}))
+            .toThrow(/"pin" is reserved while enableDockPinAction is on/);
+
+        // The close message is unchanged by sharing one reserved-name table with pin.
+        expect(project({enableDockCloseAction: true, resolveDockHeaderActions: () => [{action: 'close'}]}))
+            .toThrow(/"close" is reserved while enableDockCloseAction is on/)
+    });
+
+    test('a prototype-shaped host action name is not silently treated as reserved', () => {
+        const model       = createEdgeZoneModel(),
+              resolvePane = componentRef => ({ntype: 'dashboard-panel', reference: componentRef});
+
+        // The reserved-name lookup is keyed by host-supplied strings. Backed by an object literal,
+        // `constructor` would resolve to `Object.prototype.constructor` — truthy — and throw a
+        // reserved-name error for a name the engine does not own.
+        const projected = collectProjectedTabsById(DockLayoutAdapter.project(model, {
+            enableDockPinAction     : true,
+            resolveComponentRef     : resolvePane,
+            resolveDockHeaderActions: () => [{action: 'constructor', iconCls: 'fa fa-x'}]
+        })).get('main-tabs');
+
+        expect(projected.headerActions.map(action => action.action)).toEqual(['constructor', 'pin'])
     });
 
     test('a projection with no host resolver and no close action carries no action slot at all', () => {

@@ -124,6 +124,14 @@ class Workspace extends Container {
          */
         enableDockCloseAction: false,
         /**
+         * Projects one persistent pin action into each Dock tab header — the entry half of the
+         * collapse-to-rail round-trip (docking design record §2.7). Pressing it on an edge-owned pane
+         * collapses that pane to its owning edge rail; the way back is the rail's existing reveal
+         * overlay and its pin control. Disabled by default; the projection is byte-identical while off.
+         * @member {Boolean} enableDockPinAction=false
+         */
+        enableDockPinAction: false,
+        /**
          * Enables the engine-owned dock tear-out admission/document/window lifecycle. Disabled
          * by default so ordinary workspaces and hosts carrying their own legacy lifecycle remain
          * byte-behaviorally unchanged until their migration leaf.
@@ -1129,7 +1137,8 @@ class Workspace extends Container {
      * project a host's own actions into that tabs node's header. The set is node-static and lives for
      * the node's retained lifetime — vary an action per active item by moving `hidden` on its stable
      * instance, the way {@link #syncDockCloseAction} does, not by returning a different list. Names
-     * must be unique per node and `close` is reserved while {@link #enableDockCloseAction} is on;
+     * must be unique per node, and every engine-owned name is reserved while its own opt-in is on —
+     * `close` under {@link #enableDockCloseAction}, `pin` under {@link #enableDockPinAction};
      * both violations throw at projection rather than silently unaddressing an action. Their intent
      * surfaces on the `dockHeaderAction` event — see {@link #onDockHeaderAction}.
      * @returns {Object}
@@ -1158,10 +1167,15 @@ class Workspace extends Container {
      * Synchronizes one retained close action against the live active item and committed policy.
      * Hidden-state changes stay on the stable action instance so Overflow receives its existing
      * `actionVisibilityChange` signal instead of an action-group replacement.
+     *
+     * Gated on {@link #enableDockCloseAction} for the reason given on {@link #syncDockPinAction}: the
+     * name is only this class's while its own opt-in is on.
      * @param {Neo.tab.Container|null} tabContainer
      * @protected
      */
     syncDockCloseAction(tabContainer) {
+        if (!this.enableDockCloseAction) return;
+
         let action = tabContainer?.getActionItem?.('close'),
             itemId = this.getActiveDockItemId(tabContainer),
             hidden = !itemId || this.dockModel?.items?.[itemId]?.closable === false;
@@ -1170,21 +1184,65 @@ class Workspace extends Container {
     }
 
     /**
-     * Synchronizes every projected close action after reconciliation, including retained tabs
+     * Synchronizes one retained pin action against the live active item and committed policy.
+     *
+     * Hidden wherever the collapse could not complete, so the header never offers a gesture the model
+     * or the projection would refuse: no active item, `pinnable: false` (which
+     * {@link Neo.dashboard.dock.model.Operations#setItemAutoHidden} rejects), or an item no edge owns
+     * (§2.7 — center never rails). The edge answer comes from
+     * {@link Neo.dashboard.dock.model.Document#findOwningEdge}, the same derivation the projection
+     * rails by, so the action cannot disagree with the rail it would collapse into.
+     *
+     * Like {@link #syncDockCloseAction}, hidden-state changes stay on the stable action instance so
+     * Overflow receives its existing `actionVisibilityChange` signal instead of an action-group
+     * replacement.
+     *
+     * **The opt-in gates policy synchronization, not only projection and dispatch.** `pin` is a
+     * reserved engine name exactly while {@link #enableDockPinAction} is on — that is the contract
+     * {@link #getDockProjectionOptions} states and the throw it enforces. While the flag is off the
+     * name belongs to whoever projected it through `resolveDockHeaderActions`, so resolving it here
+     * would let a disabled engine action move a host's `hidden` on every active-item change and
+     * reconciliation sweep. Default-off has to mean behaviorally inert, not merely unprojected.
+     * @param {Neo.tab.Container|null} tabContainer
+     * @protected
+     */
+    syncDockPinAction(tabContainer) {
+        if (!this.enableDockPinAction) return;
+
+        let action = tabContainer?.getActionItem?.('pin'),
+            itemId = this.getActiveDockItemId(tabContainer),
+            model  = this.dockModel,
+            hidden = !itemId
+                || model?.items?.[itemId]?.pinnable === false
+                || !model
+                || !Document.findOwningEdge(model, itemId);
+
+        action && action.hidden !== hidden && (action.hidden = hidden)
+    }
+
+    /**
+     * Synchronizes every projected engine header action after reconciliation, including retained tabs
      * whose action instance outlived a model-policy or active-item change.
+     *
+     * Each action's own sync is a no-op when that action was never projected (`getActionItem` misses),
+     * so this sweep stays correct for any subset of the engine set a consumer enabled.
      * @param {Map<String,Neo.tab.Container>|null} [tabs=null]
      * @protected
      */
-    syncDockCloseActions(tabs=null) {
-        let projectedTabs = tabs;
+    syncDockHeaderActions(tabs=null) {
+        let me            = this,
+            projectedTabs = tabs;
 
         if (!projectedTabs) {
-            let shell = this.getDockHost()?.items?.[this.dockShellIndex];
+            let shell = me.getDockHost()?.items?.[me.dockShellIndex];
 
             projectedTabs = shell ? Reconciler.collectProjectedTabs(shell) : new Map()
         }
 
-        projectedTabs?.forEach?.(tab => this.syncDockCloseAction(tab))
+        projectedTabs?.forEach?.(tab => {
+            me.syncDockCloseAction(tab);
+            me.syncDockPinAction(tab)
+        })
     }
 
     /**
@@ -1207,6 +1265,7 @@ class Workspace extends Container {
             descriptor, result;
 
         me.syncDockCloseAction(container);
+        me.syncDockPinAction(container);
 
         if (!me.dockModel || !itemId || committed === itemId) {
             return null
@@ -1233,14 +1292,15 @@ class Workspace extends Container {
      * Routes one persistent header action through the model and the class-owned projection chain,
      * and re-emits everything it does not own.
      *
-     * This class owns exactly one action: `close`, and only while {@link #enableDockCloseAction} is
-     * on. Every other intent — including host actions projected through
-     * `resolveDockHeaderActions` — is re-emitted as a **`dockHeaderAction`** event carrying
-     * `{action, dockNodeId, tabContainer}`, so a host receives it without subclassing this class or
-     * overriding a protected method, and this method returns `null` for it.
-     * Live reconciled order owns the close target at dispatch time. The current model locates that
-     * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
-     * is chained onto `refreshPromise`, so it cannot reach chrome the reconciler retires.
+     * This class owns the ENGINE SET, each action only while its own opt-in is on: `close`
+     * ({@link #enableDockCloseAction}) and `pin` ({@link #enableDockPinAction}). Every other intent —
+     * including host actions projected through `resolveDockHeaderActions` — is re-emitted as a
+     * **`dockHeaderAction`** event carrying `{action, dockNodeId, tabContainer}`, so a host receives it
+     * without subclassing this class or overriding a protected method, and this method returns `null`
+     * for it.
+     *
+     * Routing lives here and the effect lives in one handler per action, so a further engine action is
+     * a new handler plus a row below rather than another branch grown into this method.
      * @param {Object} data
      * @param {String} data.action
      * @param {String} data.dockNodeId
@@ -1248,16 +1308,38 @@ class Workspace extends Container {
      * @returns {{document:Object,errors:String[]}|null}
      */
     onDockHeaderAction({action, dockNodeId, tabContainer}={}) {
-        if (action !== 'close' || !this.enableDockCloseAction) {
-            // Not an action this class owns. Re-emit it so a host that projected its own actions
-            // through `resolveDockHeaderActions` receives the intent with its tabs node identified,
-            // without having to override a protected method or subclass at all. Dropping it here is
-            // what made the header slot unusable for anyone but the close action.
-            this.fire('dockHeaderAction', {action, dockNodeId, tabContainer});
+        let me = this;
 
-            return null
+        if (action === 'close' && me.enableDockCloseAction) {
+            return me.handleDockCloseAction({dockNodeId, tabContainer})
         }
 
+        if (action === 'pin' && me.enableDockPinAction) {
+            return me.handleDockPinAction({dockNodeId, tabContainer})
+        }
+
+        // Not an action this class owns. Re-emit it so a host that projected its own actions
+        // through `resolveDockHeaderActions` receives the intent with its tabs node identified,
+        // without having to override a protected method or subclass at all. Dropping it here is
+        // what made the header slot unusable for anyone but the close action.
+        me.fire('dockHeaderAction', {action, dockNodeId, tabContainer});
+
+        return null
+    }
+
+    /**
+     * Commits the engine-owned close action.
+     *
+     * Live reconciled order owns the close target at dispatch time. The current model locates that
+     * item's semantic tabs node, and the committed result owns its focus successor. Successful focus
+     * is chained onto `refreshPromise`, so it cannot reach chrome the reconciler retires.
+     * @param {Object} data
+     * @param {String} data.dockNodeId
+     * @param {Neo.tab.Container} data.tabContainer
+     * @returns {{document:Object,errors:String[]}|null}
+     * @protected
+     */
+    handleDockCloseAction({dockNodeId, tabContainer}={}) {
         let me     = this,
             itemId = me.getActiveDockItemId(tabContainer);
 
@@ -1280,6 +1362,78 @@ class Workspace extends Container {
             me.refreshPromise = me.refreshPromise.then(() => {
                 me.focusDockCloseTarget({dockNodeId: modelNodeId, itemId: focusId})
             })
+        }
+
+        return result
+    }
+
+    /**
+     * Commits the engine-owned pin action — docking design record §2.7's collapse-to-rail sequence.
+     *
+     * §2.7 specifies a two-step sequence and forbids a composite operation: `setItemPinned(false)`
+     * when the item is pinned (the model rejects `autoHidden` on a pinned item), then
+     * `setItemAutoHidden(true)`. Each step is an INDEPENDENT commit — reduced through
+     * {@link #applyDockZoneOperation} and published through {@link #onDockZoneDocumentChange} on its
+     * own — so both steps stay visible at the class's own write seam, the one `DockService` and
+     * `DockSplitter` already reach a holder through. Folding them into a single published change
+     * would make step 2 bypass that seam, since the seam reduces against the committed `dockModel`
+     * and step 2 needs step 1's result.
+     *
+     * A step-2 rejection therefore leaves the item unpinned and still visible. That is §2.7's own
+     * intermediate state, which it calls benign, and it is the price of the independence the row
+     * requires; the alternative buys atomicity by making half the gesture unobservable.
+     *
+     * An UNPINNED item — the ordinary case — is a single step and a single refresh; only collapsing a
+     * pinned pane commits twice.
+     *
+     * **Eligibility is re-derived here, from the current document, and not inherited from the chrome
+     * that emitted the intent.** {@link #syncDockPinAction} hides the action wherever no edge owns the
+     * item, but that visibility is a projection of the document as it stood at the last sweep, and the
+     * sweep is deferred behind reconciliation. Between a commit that moves an item to the root center
+     * and the refresh that re-hides its action, a retained-but-stale action is still visible and still
+     * dispatchable — and collapsing a center item is precisely what §2.7 forbids. Deciding from
+     * `dockModel` at dispatch closes that window: the same predicate, evaluated against the document
+     * the commit will actually reduce against.
+     * @param {Object} data
+     * @param {String} data.dockNodeId
+     * @param {Neo.tab.Container} data.tabContainer
+     * @returns {{document:Object,errors:String[]}|null}
+     * @protected
+     */
+    handleDockPinAction({dockNodeId, tabContainer}={}) {
+        let me     = this,
+            itemId = me.getActiveDockItemId(tabContainer);
+
+        if (!itemId) {
+            return {document: me.dockModel, errors: ['Dock pin action requires an active item']}
+        }
+
+        if (!me.dockModel) {
+            return {document: me.dockModel, errors: ['Dock pin action requires a committed document']}
+        }
+
+        if (!Document.findOwningEdge(me.dockModel, itemId)) {
+            return {document: me.dockModel, errors: ['Dock pin action requires an item owned by an edge zone']}
+        }
+
+        let descriptors = [],
+            result      = null;
+
+        me.dockModel.items?.[itemId]?.pinned === true &&
+            descriptors.push({operation: 'setItemPinned', itemId, pinned: false});
+
+        descriptors.push({operation: 'setItemAutoHidden', itemId, autoHidden: true});
+
+        for (const descriptor of descriptors) {
+            result = me.applyDockZoneOperation(descriptor);
+
+            if (!result || result.errors?.length || !result.document) {
+                return result
+            }
+
+            // Publishing here is what lets the NEXT step reduce against this one: the seam reads the
+            // committed `dockModel`, and this assigns it synchronously before the refresh is chained.
+            me.onDockZoneDocumentChange(result.document, descriptor, tabContainer)
         }
 
         return result
@@ -1539,6 +1693,7 @@ class Workspace extends Container {
                 // nowhere to arrive.
                 onDockHeaderAction     : me.onDockHeaderAction.bind(me),
                 ...(me.enableDockCloseAction && {enableDockCloseAction: true}),
+                ...(me.enableDockPinAction && {enableDockPinAction: true}),
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 resolveComponentRef      : itemResolver || ((componentRef, item, itemId) => me.resolveProjectedPane(itemId, item)),
@@ -1667,7 +1822,7 @@ class Workspace extends Container {
             waitForOverflowProjection
         });
 
-        me.syncDockCloseActions(result?.currentTabs);
+        me.syncDockHeaderActions(result?.currentTabs);
 
         // FLIP phase 2: fire-and-forget by default — the addon self-waits for the swap, inverts and
         // plays; the counted motion signal brackets the awaited animation window. Gate on the

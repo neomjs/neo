@@ -16,6 +16,8 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import Document                 from '../../../../src/dashboard/dock/model/Document.mjs';
+import Persistence              from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper               from '../../../../src/vdom/Helper.mjs';
 
@@ -91,6 +93,33 @@ class HostActionWorkspace extends DockWorkspace {
                 hostResolverCalls.push(nodeId);
                 return [{action: 'pin', iconCls: 'fa fa-thumbtack'}]
             }
+        }
+    }
+}
+
+/**
+ * A host that owns BOTH engine names while both opt-ins are off. Separate from
+ * {@link HostActionWorkspace} because the name-reservation contract is per-action — `close` and `pin`
+ * each belong to the host exactly while their own flag is off — and one fixture claiming both is the
+ * only way to show the two guards are symmetric rather than one being a special case.
+ */
+class HostBothActionsWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.HostBothActionsWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            resolveDockHeaderActions: () => [
+                {action: 'close', iconCls: 'fa fa-xmark'},
+                {action: 'pin',   iconCls: 'fa fa-thumbtack'}
+            ]
         }
     }
 }
@@ -259,6 +288,7 @@ Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
 Neo.setupClass(TearOutWorkspace);
 Neo.setupClass(HostActionWorkspace);
+Neo.setupClass(HostBothActionsWorkspace);
 
 const
     tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
@@ -860,6 +890,386 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(retainedSide.getActionItem('close')).toBe(closeAction);
         expect(closeAction.hidden).toBe(true);
         expect(focusTargets).toEqual(['terminal'])
+    });
+
+    test('the opt-in pin action commits §2.7\'s two-step collapse through the write seam and rails the pane', async () => {
+        const document = createEdgeDocument();
+
+        // A PINNED edge pane is the two-step case: the model refuses `autoHidden` on a pinned item,
+        // so the unpin is the collapse's precondition rather than an extra courtesy.
+        document.items.inspector.pinned = true;
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : document,
+            enableDockPinAction: true
+        });
+
+        const
+            tabs      = tabsOf(workspace.items[0]),
+            inspector = tabs.get('inspector-tabs'),
+            pinAction = inspector.getActionItem('pin'),
+            commits   = [],
+            apply     = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        expect(pinAction, 'the engine set projects into the live header').toBeTruthy();
+        expect(pinAction.hidden, 'an edge-owned pinnable pane can collapse').toBe(false);
+
+        // Merely RENDERING the action changes no committed state — the projection is view-only.
+        expect(workspace.getDockZoneDocument().items.inspector).toEqual({
+            componentRef: 'Inspector', title: 'Inspector', kind: 'panel', pinned: true
+        });
+
+        pinAction.handler({component: pinAction});
+        await workspace.refreshPromise;
+
+        // Both steps are INDEPENDENT commits and both went through the class's own write seam — the
+        // one `DockService` and `DockSplitter` reach a holder through. A folded single commit would
+        // have shown only one of them here.
+        expect(commits.map(descriptor => [descriptor.operation, descriptor.itemId])).toEqual([
+            ['setItemPinned',     'inspector'],
+            ['setItemAutoHidden', 'inspector']
+        ]);
+
+        const committed = workspace.getDockZoneDocument();
+
+        expect(committed.items.inspector.pinned).toBe(false);
+        expect(committed.items.inspector.autoHidden).toBe(true);
+
+        // The collapse is not merely a flag: the pane leaves its tab flow and the owning edge grows a
+        // rail. `right` is the band `findOwningEdge` named, so the derivation and the result agree.
+        const projected = workspace.projectDockModel(),
+              rails     = collect(projected, config => config.ntype === 'dashboard-dock-rail');
+
+        expect(rails.length).toBe(1);
+        expect(rails[0].edge).toBe('right');
+        expect(rails[0].railItems.map(item => item.dockItemId)).toEqual(['inspector']);
+        expect(tabsOf(projected).get('inspector-tabs'), 'an all-railed band keeps no tab flow').toBeUndefined()
+    });
+
+    test('an UNPINNED pane collapses in a single commit — the second step is a precondition, not a ritual', async () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const
+            inspector = tabsOf(workspace.items[0]).get('inspector-tabs'),
+            commits   = [],
+            apply     = workspace.applyDockZoneOperation.bind(workspace);
+
+        workspace.applyDockZoneOperation = descriptor => {
+            commits.push(descriptor);
+            return apply(descriptor)
+        };
+
+        inspector.getActionItem('pin').handler({component: inspector.getActionItem('pin')});
+        await workspace.refreshPromise;
+
+        expect(commits.map(descriptor => descriptor.operation)).toEqual(['setItemAutoHidden']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden).toBe(true)
+    });
+
+    test('the pin action refuses fail-closed where the collapse cannot complete, and moves by hidden on ONE instance', async () => {
+        const document = createEdgeDocument();
+
+        // Two items in the same edge band, opposite policies — so the action's availability changes
+        // with the ACTIVE item inside one tabs node, which is what the sync has to get right.
+        document.items.notes = {componentRef: 'Notes', title: 'Notes', kind: 'panel', pinnable: false};
+        document.nodes['inspector-tabs'].items.push('notes');
+
+        // A SECOND center item, so activating it drives the workspace's own policy sync over a
+        // center-owned pane. With only one center item the sync never runs there and the assertion
+        // below would only re-read what the adapter computed at projection time.
+        document.items.readme = {componentRef: 'Readme', title: 'Readme', kind: 'panel'};
+        document.nodes['center-tabs'].items.push('readme');
+
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : document,
+            enableDockPinAction: true
+        });
+
+        const
+            tabs        = tabsOf(workspace.items[0]),
+            inspector   = tabs.get('inspector-tabs'),
+            center      = tabs.get('center-tabs'),
+            pinAction   = inspector.getActionItem('pin'),
+            visibility  = [],
+            // The EMITTER of each signal, not just its payload. "The group was not replaced" is a
+            // claim about which instance spoke, and a rebuilt group would announce itself here by
+            // emitting from a different object while the payload looked identical.
+            signalSources = [];
+
+        inspector.getTabBar().on('actionVisibilityChange', data => {
+            visibility.push([data.action, data.component.hidden]);
+            signalSources.push(data.component)
+        });
+
+        // Center-owned: §2.7's fail-safe — main content never rails, so the affordance is not offered.
+        // Asserted BOTH where the adapter computed it and, below, after the workspace recomputes it:
+        // the two derive it independently, and only the switch exercises the workspace's own sync.
+        expect(center.getActionItem('pin').hidden, 'a center-owned pane cannot collapse').toBe(true);
+
+        await center.set({activeIndex: 1});
+
+        expect(center.getActionItem('pin').hidden, 'still no collapse after the workspace re-syncs a center pane')
+            .toBe(true);
+
+        expect(pinAction.hidden).toBe(false);
+
+        await inspector.set({activeIndex: 1});
+
+        expect(pinAction.hidden, '`pinnable: false` is refused by the model, so it is not offered').toBe(true);
+        expect(inspector.getActionItem('pin'), 'the SAME instance moved, the group was not replaced').toBe(pinAction);
+        expect(visibility, 'Overflow gets its signal from the instance, not a rebuilt group')
+            .toEqual([['pin', true]]);
+
+        // And the refusal holds if the intent is dispatched anyway — the model is the authority, not
+        // the hidden flag, which a host could always bypass.
+        const refused = workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        });
+
+        expect(refused.errors).toEqual(['item "notes" is not pinnable']);
+        expect(workspace.getDockZoneDocument().items.notes.autoHidden).toBeUndefined();
+
+        await inspector.set({activeIndex: 0});
+        expect(pinAction.hidden).toBe(false);
+
+        // AC-3's actual boundary. Everything above resolved when the container's own `set()` did,
+        // and the reconciler had not run yet — so a group replacement performed BY reconciliation
+        // was exactly what the identity assertion could not observe. `refreshPromise` is the seam
+        // the workspace chains that work onto, so awaiting it and re-resolving both the container
+        // and the action FROM the refreshed tree is what makes "the same instance" a claim about
+        // the lifetime the retained action actually has.
+        await workspace.refreshPromise;
+
+        const reconciledTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(reconciledTabs, 'the tabs node is retained across reconciliation').toBe(inspector);
+        expect(reconciledTabs.getActionItem('pin'), 'and so is the action instance on it')
+            .toBe(pinAction);
+        expect(pinAction.hidden, 'converging on the active item\'s real policy').toBe(false);
+
+        // The load-bearing half, and the reason this counts emitters rather than signals. The refresh
+        // QUEUE replays each pending refresh in order, and refresh #1 reconciles chrome to the
+        // document as it stood when it was queued — so its sweep re-hides the action before refresh
+        // #2 settles it, and the post-refresh signal COUNT is not 0. Those extra signals are a
+        // property of the queue, not of this action: `close` lags identically, and nothing here
+        // could fix it without changing refresh sequencing for every consumer. What AC-3 actually
+        // claims is that no group was ever rebuilt behind them — every signal, before and after
+        // reconciliation, came from the one retained instance.
+        expect(new Set(signalSources).size, 'one emitter across every signal, not a rebuilt group')
+            .toBe(1);
+        expect(signalSources[0], 'and it is the instance the assertions above held').toBe(pinAction)
+    });
+
+    /**
+     * AC-5, exercised at the seam it names. The claim is about what `Persistence.capturePerspective`
+     * WRITES, so inferring it from the source document proves nothing: capture normalizes, validates
+     * and fingerprints, and any of those three could have made rendering an action observable in a
+     * saved layout. Rendering is a projection concern and must leave layout truth byte-identical;
+     * the gesture is a model concern and must move exactly the two committed fields §2.7 names.
+     */
+    test('capturing a perspective is unmoved by rendering the action, and moves only pinned/autoHidden on the gesture', async () => {
+        const document = createEdgeDocument();
+
+        document.items.inspector.pinned = true;
+
+        const capture = () => {
+            const {layout, errors} = Persistence.capturePerspective(workspace.getDockZoneDocument(), {
+                layoutId: 'ac5', title: 'AC-5'
+            });
+
+            expect(errors, 'the capture seam itself stays clean').toEqual([]);
+            return layout
+        };
+
+        // Captured from a workspace with the action OFF, then from one with it ON: the difference
+        // between the two runs is precisely "the action was rendered".
+        workspace = Neo.create(PlainWorkspace, {dockModel: document});
+
+        const before = capture();
+
+        workspace.destroy();
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        workspace.dockModel.items.inspector.pinned = true;
+
+        const tabs      = tabsOf(workspace.items[0]),
+              inspector = tabs.get('inspector-tabs'),
+              pinAction = inspector.getActionItem('pin');
+
+        expect(pinAction, 'the action really was projected in the second run').toBeTruthy();
+
+        const afterRender = capture();
+
+        expect(JSON.stringify(afterRender), 'rendering an action writes nothing into layout truth')
+            .toBe(JSON.stringify(before));
+
+        // Now the gesture, through the real handler.
+        pinAction.handler({component: pinAction});
+        await workspace.refreshPromise;
+
+        const afterGesture = capture();
+
+        expect(JSON.stringify(afterGesture), 'the gesture is not a no-op — otherwise the diff below is vacuous')
+            .not.toBe(JSON.stringify(before));
+
+        // The diff is exactly §2.7's two committed fields, on the one item, and nothing else.
+        const beforeItem = before.dockZone.items.inspector,
+              afterItem  = afterGesture.dockZone.items.inspector;
+
+        expect({...afterItem, pinned: beforeItem.pinned, autoHidden: beforeItem.autoHidden},
+            'no field outside pinned/autoHidden moved on the captured item')
+            .toEqual({...beforeItem});
+        expect([beforeItem.pinned, beforeItem.autoHidden], 'the captured item started pinned and visible')
+            .toEqual([true, undefined]);
+        expect([afterItem.pinned, afterItem.autoHidden], 'and ends unpinned and auto-hidden')
+            .toEqual([false, true]);
+
+        expect({...afterGesture.dockZone, items: null}, 'and the node tree itself is untouched')
+            .toEqual({...before.dockZone, items: null})
+    });
+
+    test('the pin action reports its own missing preconditions, and stays inert while its opt-in is off', () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const inspector = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        workspace.dockModel = null;
+
+        expect(workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        }).errors).toEqual(['Dock pin action requires a committed document']);
+
+        workspace.dockModel = createEdgeDocument();
+
+        expect(workspace.onDockHeaderAction({action: 'pin', dockNodeId: 'inspector-tabs'}).errors)
+            .toEqual(['Dock pin action requires an active item']);
+
+        // With the opt-in off the name belongs to the host again: the intent is re-emitted, not acted
+        // on, and nothing is committed.
+        workspace.destroy();
+
+        const emitted = [];
+
+        workspace = Neo.create(PlainWorkspace, {dockModel: createEdgeDocument()});
+        workspace.on('dockHeaderAction', data => emitted.push(data.action));
+
+        const offTabs = tabsOf(workspace.items[0]).get('inspector-tabs');
+
+        expect(offTabs.getActionItem('pin'), 'nothing is projected while the opt-in is off').toBeFalsy();
+        expect(workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: offTabs
+        })).toBe(null);
+        expect(emitted).toEqual(['pin']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden).toBeUndefined()
+    });
+
+    /**
+     * "Default off" has to mean behaviorally inert, not merely unprojected. A host legitimately owns
+     * the names `close` and `pin` while their opt-ins are off, and the POLICY SYNC — not the
+     * projection, not the dispatch — is the third seam that has to honor that. It runs on every
+     * active-item change and every reconciliation sweep, so an unguarded sync moves a host's `hidden`
+     * with no gesture involved at all: the action simply drifts under the host's feet.
+     *
+     * `center-tabs` is where the engine's own predicate disagrees loudest. No edge owns a center item
+     * (§2.7 — main content never rails), so the engine would compute `hidden: true` for `pin` and
+     * commit it to an instance it does not own.
+     */
+    test('a host keeps its own close and pin actions while both engine opt-ins are off', () => {
+        const document = createEdgeDocument();
+
+        // Both halves need the engine's predicate to DISAGREE with the host's value, or the arm
+        // passes without exercising anything. `pin` disagrees on a center item for free — no edge
+        // owns it. `close` does not: it hides only on `closable: false`, so the fixture states it.
+        document.items.center.closable = false;
+
+        workspace = Neo.create(HostBothActionsWorkspace, {dockModel: document});
+
+        const tabs        = tabsOf(workspace.items[0]),
+              center      = tabs.get('center-tabs'),
+              pinAction   = center.getActionItem('pin'),
+              closeAction = center.getActionItem('close');
+
+        expect(pinAction,   'the host projected `pin` through the documented hook').toBeTruthy();
+        expect(closeAction, 'and `close` beside it').toBeTruthy();
+        expect([closeAction.hidden, pinAction.hidden], 'the host owns their initial visibility')
+            .toEqual([false, false]);
+
+        workspace.syncDockHeaderActions();
+
+        expect([closeAction.hidden, pinAction.hidden], 'the reconciliation sweep leaves host names alone')
+            .toEqual([false, false]);
+
+        workspace.onDockActiveIndexChange({dockNodeId: 'center-tabs', tabContainer: center});
+
+        expect([closeAction.hidden, pinAction.hidden], 'and so does an active-item change')
+            .toEqual([false, false]);
+        expect(center.getActionItem('pin'), 'the same host instances, never replaced').toBe(pinAction)
+    });
+
+    /**
+     * The chrome that emitted an intent is a projection of the document as it stood at the LAST sweep,
+     * and the sweep is deferred behind reconciliation. Between a commit that moves an item to the root
+     * center and the refresh that re-hides its action, the retained action is still visible and still
+     * dispatchable — and collapsing a center item is exactly what §2.7 forbids.
+     *
+     * Committed here through the real write seam rather than by assigning `dockModel`, because the
+     * defect only exists in the window that seam opens: `onDockZoneDocumentChange` advances the model
+     * synchronously and chains the sweep onto `refreshPromise`. Firing before that promise settles is
+     * not a contrived race; it is one click landing inside it.
+     */
+    test('a retained pin action refuses after the model moved its item to the center, before the sweep runs', async () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const tabs      = tabsOf(workspace.items[0]),
+              inspector = tabs.get('inspector-tabs'),
+              pinAction = inspector.getActionItem('pin');
+
+        expect(pinAction.hidden, 'an edge-owned pane can collapse, so the action is live').toBe(false);
+
+        const descriptor = {operation: 'moveItem', itemId: 'inspector', targetNodeId: 'center-tabs'},
+              moved      = workspace.applyDockZoneOperation(descriptor);
+
+        expect(moved.errors, 'the move itself is a clean commit').toEqual([]);
+        workspace.onDockZoneDocumentChange(moved.document, descriptor, inspector);
+
+        // The stale window: the model says center, the chrome still says right, and the action that
+        // reads `false` above has not been re-synced yet.
+        expect(Document.findOwningEdge(workspace.dockModel, 'inspector'), 'the model moved it to center')
+            .toBe(null);
+        expect(pinAction.hidden, 'the retained action is still visible — that is the window').toBe(false);
+
+        const refused = workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        });
+
+        expect(refused.errors, 'dispatch decides from the CURRENT document, not from the chrome')
+            .toEqual(['Dock pin action requires an item owned by an edge zone']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden, 'and commits nothing')
+            .toBeUndefined();
+
+        // Once the deferred sweep does run, the action agrees with the document on its own.
+        await workspace.refreshPromise;
+        workspace.syncDockHeaderActions();
+
+        expect(tabs.get('center-tabs')?.getActionItem('pin')?.hidden ?? true,
+            'a center-owned pane offers no collapse').toBe(true)
     });
 
     test('tab activation commits with close actions disabled and survives unrelated re-projection', async () => {

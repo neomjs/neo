@@ -513,6 +513,61 @@ class Document extends Base {
     }
 
     /**
+     * @summary Returns the workspace edge whose rail `itemId` would collapse to, or null when no
+     * edge owns it — the structural half of docking design record §2.7's "the rail an item collapses
+     * to is the edge zone that contains it".
+     *
+     * Walks item → tabs node → ancestors, recording every `edge-zone` ancestor reached through a
+     * DIRECTIONAL slot and returning the OUTERMOST one. Outermost is not an arbitrary tie-break: it
+     * is what the projection already does. `LayoutAdapter.projectEdgeZoneNode` collects each band
+     * with `collectAutoHiddenItems`, which recurses through nested edge-zones, then passes the
+     * claimed set down as `railedItemIds` so the inner tab flow drops them — so an item nested two
+     * edge-zones deep rails on the OUTER edge, and an inner band that also contains it never gets to
+     * claim it, because that projection filters its own collection against the inherited claim.
+     *
+     * This query and that projection must agree, and `DockZoneModel.spec` pins them together against
+     * the RENDERED tree — `LayoutAdapter.project()`, not `collectAutoHiddenItems`. Comparing against
+     * the collection helper is what let them drift: the helper recurses correctly and so agreed with
+     * this query by construction, while the projection built from it re-railed the nested item and
+     * left its sibling in the tab flow. Two derivations agreeing with each other was never the
+     * property; agreeing with what renders is.
+     *
+     * A `center` slot is not a claim (§2.7: center-zone items never rail — main content does not
+     * auto-hide), so an item reaching the root only through center zones returns null. Null is
+     * therefore the fail-safe answer for BOTH "center-owned" and "no such item": a caller gating an
+     * affordance on a truthy edge cannot offer a collapse the projection would not render.
+     * @param {Object} document
+     * @param {String} itemId
+     * @returns {String|null} One of `top`, `right`, `bottom`, `left`, else null
+     * @static
+     */
+    static findOwningEdge(document, itemId) {
+        let nodeId = Document.findContainingTabsId(document, itemId),
+            edge   = null,
+            seen   = new Set(),
+            parent;
+
+        // `seen` bounds the climb. A well-formed document is a tree, but this query also runs
+        // against documents mid-operation, and a cycle here would hang the render thread.
+        while (nodeId && !seen.has(nodeId)) {
+            seen.add(nodeId);
+
+            parent = Document.findParentSlot(document, nodeId);
+
+            if (!parent) break;
+
+            if (document.nodes[parent.parentId]?.type === 'edge-zone' &&
+                ['top', 'right', 'bottom', 'left'].includes(parent.slot)) {
+                edge = parent.slot
+            }
+
+            nodeId = parent.parentId
+        }
+
+        return edge
+    }
+
+    /**
      * @summary Mutating helper: removes `itemId` from whatever tabs node holds it, fixing activeItemId.
      * @param {Object} document the working (already-cloned) document
      * @param {String} itemId
