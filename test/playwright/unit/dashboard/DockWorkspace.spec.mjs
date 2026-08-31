@@ -16,6 +16,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService              from '../../../../src/ai/client/DockService.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
+import Document                 from '../../../../src/dashboard/dock/model/Document.mjs';
 import DomApiVnodeCreator       from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper               from '../../../../src/vdom/Helper.mjs';
 
@@ -91,6 +92,33 @@ class HostActionWorkspace extends DockWorkspace {
                 hostResolverCalls.push(nodeId);
                 return [{action: 'pin', iconCls: 'fa fa-thumbtack'}]
             }
+        }
+    }
+}
+
+/**
+ * A host that owns BOTH engine names while both opt-ins are off. Separate from
+ * {@link HostActionWorkspace} because the name-reservation contract is per-action — `close` and `pin`
+ * each belong to the host exactly while their own flag is off — and one fixture claiming both is the
+ * only way to show the two guards are symmetric rather than one being a special case.
+ */
+class HostBothActionsWorkspace extends DockWorkspace {
+    static config = {
+        className: 'Test.Unit.Dashboard.DockWorkspace.HostBothActionsWorkspace',
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }
+
+    construct(config) {
+        super.construct(config);
+        this.add(this.projectDockModel())
+    }
+
+    getDockProjectionOptions() {
+        return {
+            resolveDockHeaderActions: () => [
+                {action: 'close', iconCls: 'fa fa-xmark'},
+                {action: 'pin',   iconCls: 'fa fa-thumbtack'}
+            ]
         }
     }
 }
@@ -259,6 +287,7 @@ Neo.setupClass(HostedWorkspace);
 Neo.setupClass(BrokenHostWorkspace);
 Neo.setupClass(TearOutWorkspace);
 Neo.setupClass(HostActionWorkspace);
+Neo.setupClass(HostBothActionsWorkspace);
 
 const
     tabsOf  = shell => DockProjectionReconciler.collectProjectedTabs(shell),
@@ -1040,6 +1069,101 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         })).toBe(null);
         expect(emitted).toEqual(['pin']);
         expect(workspace.getDockZoneDocument().items.inspector.autoHidden).toBeUndefined()
+    });
+
+    /**
+     * "Default off" has to mean behaviorally inert, not merely unprojected. A host legitimately owns
+     * the names `close` and `pin` while their opt-ins are off, and the POLICY SYNC — not the
+     * projection, not the dispatch — is the third seam that has to honor that. It runs on every
+     * active-item change and every reconciliation sweep, so an unguarded sync moves a host's `hidden`
+     * with no gesture involved at all: the action simply drifts under the host's feet.
+     *
+     * `center-tabs` is where the engine's own predicate disagrees loudest. No edge owns a center item
+     * (§2.7 — main content never rails), so the engine would compute `hidden: true` for `pin` and
+     * commit it to an instance it does not own.
+     */
+    test('a host keeps its own close and pin actions while both engine opt-ins are off', () => {
+        const document = createEdgeDocument();
+
+        // Both halves need the engine's predicate to DISAGREE with the host's value, or the arm
+        // passes without exercising anything. `pin` disagrees on a center item for free — no edge
+        // owns it. `close` does not: it hides only on `closable: false`, so the fixture states it.
+        document.items.center.closable = false;
+
+        workspace = Neo.create(HostBothActionsWorkspace, {dockModel: document});
+
+        const tabs        = tabsOf(workspace.items[0]),
+              center      = tabs.get('center-tabs'),
+              pinAction   = center.getActionItem('pin'),
+              closeAction = center.getActionItem('close');
+
+        expect(pinAction,   'the host projected `pin` through the documented hook').toBeTruthy();
+        expect(closeAction, 'and `close` beside it').toBeTruthy();
+        expect([closeAction.hidden, pinAction.hidden], 'the host owns their initial visibility')
+            .toEqual([false, false]);
+
+        workspace.syncDockHeaderActions();
+
+        expect([closeAction.hidden, pinAction.hidden], 'the reconciliation sweep leaves host names alone')
+            .toEqual([false, false]);
+
+        workspace.onDockActiveIndexChange({dockNodeId: 'center-tabs', tabContainer: center});
+
+        expect([closeAction.hidden, pinAction.hidden], 'and so does an active-item change')
+            .toEqual([false, false]);
+        expect(center.getActionItem('pin'), 'the same host instances, never replaced').toBe(pinAction)
+    });
+
+    /**
+     * The chrome that emitted an intent is a projection of the document as it stood at the LAST sweep,
+     * and the sweep is deferred behind reconciliation. Between a commit that moves an item to the root
+     * center and the refresh that re-hides its action, the retained action is still visible and still
+     * dispatchable — and collapsing a center item is exactly what §2.7 forbids.
+     *
+     * Committed here through the real write seam rather than by assigning `dockModel`, because the
+     * defect only exists in the window that seam opens: `onDockZoneDocumentChange` advances the model
+     * synchronously and chains the sweep onto `refreshPromise`. Firing before that promise settles is
+     * not a contrived race; it is one click landing inside it.
+     */
+    test('a retained pin action refuses after the model moved its item to the center, before the sweep runs', async () => {
+        workspace = Neo.create(PlainWorkspace, {
+            dockModel          : createEdgeDocument(),
+            enableDockPinAction: true
+        });
+
+        const tabs      = tabsOf(workspace.items[0]),
+              inspector = tabs.get('inspector-tabs'),
+              pinAction = inspector.getActionItem('pin');
+
+        expect(pinAction.hidden, 'an edge-owned pane can collapse, so the action is live').toBe(false);
+
+        const descriptor = {operation: 'moveItem', itemId: 'inspector', targetNodeId: 'center-tabs'},
+              moved      = workspace.applyDockZoneOperation(descriptor);
+
+        expect(moved.errors, 'the move itself is a clean commit').toEqual([]);
+        workspace.onDockZoneDocumentChange(moved.document, descriptor, inspector);
+
+        // The stale window: the model says center, the chrome still says right, and the action that
+        // reads `false` above has not been re-synced yet.
+        expect(Document.findOwningEdge(workspace.dockModel, 'inspector'), 'the model moved it to center')
+            .toBe(null);
+        expect(pinAction.hidden, 'the retained action is still visible — that is the window').toBe(false);
+
+        const refused = workspace.onDockHeaderAction({
+            action: 'pin', dockNodeId: 'inspector-tabs', tabContainer: inspector
+        });
+
+        expect(refused.errors, 'dispatch decides from the CURRENT document, not from the chrome')
+            .toEqual(['Dock pin action requires an item owned by an edge zone']);
+        expect(workspace.getDockZoneDocument().items.inspector.autoHidden, 'and commits nothing')
+            .toBeUndefined();
+
+        // Once the deferred sweep does run, the action agrees with the document on its own.
+        await workspace.refreshPromise;
+        workspace.syncDockHeaderActions();
+
+        expect(tabs.get('center-tabs')?.getActionItem('pin')?.hidden ?? true,
+            'a center-owned pane offers no collapse').toBe(true)
     });
 
     test('tab activation commits with close actions disabled and survives unrelated re-projection', async () => {

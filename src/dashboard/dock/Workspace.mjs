@@ -1167,10 +1167,15 @@ class Workspace extends Container {
      * Synchronizes one retained close action against the live active item and committed policy.
      * Hidden-state changes stay on the stable action instance so Overflow receives its existing
      * `actionVisibilityChange` signal instead of an action-group replacement.
+     *
+     * Gated on {@link #enableDockCloseAction} for the reason given on {@link #syncDockPinAction}: the
+     * name is only this class's while its own opt-in is on.
      * @param {Neo.tab.Container|null} tabContainer
      * @protected
      */
     syncDockCloseAction(tabContainer) {
+        if (!this.enableDockCloseAction) return;
+
         let action = tabContainer?.getActionItem?.('close'),
             itemId = this.getActiveDockItemId(tabContainer),
             hidden = !itemId || this.dockModel?.items?.[itemId]?.closable === false;
@@ -1191,10 +1196,19 @@ class Workspace extends Container {
      * Like {@link #syncDockCloseAction}, hidden-state changes stay on the stable action instance so
      * Overflow receives its existing `actionVisibilityChange` signal instead of an action-group
      * replacement.
+     *
+     * **The opt-in gates policy synchronization, not only projection and dispatch.** `pin` is a
+     * reserved engine name exactly while {@link #enableDockPinAction} is on — that is the contract
+     * {@link #getDockProjectionOptions} states and the throw it enforces. While the flag is off the
+     * name belongs to whoever projected it through `resolveDockHeaderActions`, so resolving it here
+     * would let a disabled engine action move a host's `hidden` on every active-item change and
+     * reconciliation sweep. Default-off has to mean behaviorally inert, not merely unprojected.
      * @param {Neo.tab.Container|null} tabContainer
      * @protected
      */
     syncDockPinAction(tabContainer) {
+        if (!this.enableDockPinAction) return;
+
         let action = tabContainer?.getActionItem?.('pin'),
             itemId = this.getActiveDockItemId(tabContainer),
             model  = this.dockModel,
@@ -1371,6 +1385,15 @@ class Workspace extends Container {
      *
      * An UNPINNED item — the ordinary case — is a single step and a single refresh; only collapsing a
      * pinned pane commits twice.
+     *
+     * **Eligibility is re-derived here, from the current document, and not inherited from the chrome
+     * that emitted the intent.** {@link #syncDockPinAction} hides the action wherever no edge owns the
+     * item, but that visibility is a projection of the document as it stood at the last sweep, and the
+     * sweep is deferred behind reconciliation. Between a commit that moves an item to the root center
+     * and the refresh that re-hides its action, a retained-but-stale action is still visible and still
+     * dispatchable — and collapsing a center item is precisely what §2.7 forbids. Deciding from
+     * `dockModel` at dispatch closes that window: the same predicate, evaluated against the document
+     * the commit will actually reduce against.
      * @param {Object} data
      * @param {String} data.dockNodeId
      * @param {Neo.tab.Container} data.tabContainer
@@ -1387,6 +1410,10 @@ class Workspace extends Container {
 
         if (!me.dockModel) {
             return {document: me.dockModel, errors: ['Dock pin action requires a committed document']}
+        }
+
+        if (!Document.findOwningEdge(me.dockModel, itemId)) {
+            return {document: me.dockModel, errors: ['Dock pin action requires an item owned by an edge zone']}
         }
 
         let descriptors = [],
