@@ -189,10 +189,22 @@ Promise.all(promises).then(() => {
     // computed at runtime and are not broken. The directory their family loads from is the thing that
     // is not in the output tree, so that is what the line names — telling a developer "this import
     // does not resolve" would send them to inspect a template literal that is doing nothing wrong.
+    //
+    // A WARNING, never fatal, because the absence has two readings and this stage cannot choose
+    // between them. Inside this repository `apps`, `docs`, `examples` and `src` are all default roots
+    // and all present, so the uncopied-root reading is the only one that ever applies and the arm has
+    // never fired. A consuming workspace inverts it: `examples` is not among ITS default roots, so
+    // `dist/esm/examples/` cannot exist, and `src/worker/Data.mjs`'s `examples/` branch is one such a
+    // workspace never takes. Treated as fatal, that made every consumer build fail on a directory the
+    // workspace had no reason to own and no error text told it to declare.
+    //
+    // The `missing` arm above is the load-bearing one and is untouched: a LITERAL specifier that does
+    // not resolve is a dangling import whoever is building, which is what catches an uncopied root for
+    // every module actually imported by name.
     if (computedRoot.length > 0) {
-        console.error(`\ndist/esm: ${computedRoot.length} computed import(s) read from a directory the output tree does not have:`);
-        computedRoot.forEach(line => console.error(line));
-        console.error('\nThe interpolation is never resolved — only the path before it. A whole source root is likely uncopied.')
+        console.warn(`\ndist/esm: ${computedRoot.length} computed import(s) read from a directory the output tree does not have:`);
+        computedRoot.forEach(line => console.warn(line));
+        console.warn('\nThe interpolation is never resolved — only the path before it. Either a whole source root is uncopied, or the branch that reads it is one this workspace never takes. Only the first is a defect.')
     }
 
     // Separate from the missing set on purpose: these DO resolve. They reach the workspace's own
@@ -204,7 +216,9 @@ Promise.all(promises).then(() => {
         console.error('\nThese must be rewritten to the flattened dist/esm/src copy; two engine graphs cannot share a class registry.')
     }
 
-    if (unresolvable.length > 0) {
+    // `computed-root` is deliberately absent from this sum — see its report above. A build stays green
+    // with warnings and fails only on the two arms that name a real dangling or duplicated module.
+    if (missing.length + wrongEngine.length > 0) {
         process.exit(1)
     }
 
