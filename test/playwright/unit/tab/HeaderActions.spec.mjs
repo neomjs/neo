@@ -114,6 +114,62 @@ test.describe.serial('Neo tab header actions', () => {
         expect(secondBoundAction.handler()).toBe(2)
     });
 
+    test('contributed actions stay first and preserve identity across consumer replacements', () => {
+        const toolbar = own(Neo.create(Toolbar, {
+                  actions: [{action: 'first', iconCls: 'fa fa-one'}],
+                  items  : [{module: Component, flag: 'ordinary'}]
+              })),
+              events  = [],
+              changes = [];
+
+        toolbar.on('actionVisibilityChange', data => events.push(data.component));
+        toolbar.on('actionsChange', data => changes.push(data.actions));
+
+        const contribution = toolbar.addActionContribution({
+            action     : 'overflow',
+            hidden     : true,
+            iconCls    : 'fa fa-ellipsis',
+            showOnFocus: false
+        });
+
+        expect(contribution.isToolbarActionContribution).toBe(true);
+        expect(toolbar.items.map(item => item.isToolbarActionSpacer ? 'spacer' : item.action || item.flag))
+            .toEqual(['ordinary', 'spacer', 'overflow', 'first']);
+
+        toolbar.actions = [
+            {action: 'second', iconCls: 'fa fa-two'},
+            {action: 'third',  iconCls: 'fa fa-three'}
+        ];
+
+        expect(toolbar.getActionContributionItems()).toEqual([contribution]);
+        expect(toolbar.items.map(item => item.isToolbarActionSpacer ? 'spacer' : item.action || item.flag))
+            .toEqual(['ordinary', 'spacer', 'overflow', 'second', 'third']);
+        expect(changes.at(-1).map(item => item.action)).toEqual(['overflow', 'second', 'third']);
+
+        contribution.hidden = false;
+        contribution.hidden = true;
+        expect(events, 'a preserved contribution is bound once, not once per rebuild')
+            .toEqual([contribution, contribution]);
+
+        toolbar.actions = null;
+        expect(toolbar.getActionContributionItems()).toEqual([contribution]);
+        expect(toolbar.items.map(item => item.isToolbarActionSpacer ? 'spacer' : item.action || item.flag))
+            .toEqual(['ordinary', 'spacer', 'overflow']);
+
+        expect(toolbar.removeActionContribution(contribution)).toBe(contribution);
+        expect(contribution.isDestroyed).toBe(true);
+        expect(toolbar.getActionSpacer()).toBeNull();
+        expect(toolbar.items.map(item => item.flag)).toEqual(['ordinary']);
+
+        const teardownContribution = toolbar.addActionContribution({
+            action : 'teardown',
+            iconCls: 'fa fa-x'
+        });
+
+        toolbar.destroy();
+        expect(teardownContribution.isDestroyed, 'toolbar teardown owns contributed instances').toBe(true)
+    });
+
     test('contextual inactivity reserves the instance while leaving consumer availability intact', () => {
         const toolbar = own(Neo.create(Toolbar, {
                   actions: [{action: 'contextual', contextual: true, iconCls: 'fa fa-eye'}]

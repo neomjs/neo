@@ -1066,6 +1066,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
         expect(mainTabs.ntype).toBe('tab-container');
         expect(plugins).toHaveLength(1);
         expect(plugins[0].module).toBe(TabOverflowPlugin);
+        expect(plugins[0].projectAsAction, 'dock headers project Overflow into their action rail').toBe(true);
     });
 
     test.describe('tab sort boundary + tear-out projection threading', () => {

@@ -1081,10 +1081,11 @@ class LayoutAdapter extends Base {
             // hit-test the target zone and commit a `moveItem`. Still one drag system — no parallel pipeline.
             headerToolbar : {
                 // Tab-overflow affordance: when the projected headers exceed the toolbar width, the
-                // overflowing tabs collapse behind a floating overflow control whose menu reaches them
-                // (Neo.tab.plugin.Overflow — a generic tab-subsystem plugin the dock only consumes). Zero
-                // new model state: a menu selection routes through the tab.Container's existing activeIndex.
-                plugins       : [{module: TabOverflowPlugin}],
+                // overflowing tabs collapse behind the first stable header action whose menu reaches them
+                // (Neo.tab.plugin.Overflow — a generic tab-subsystem plugin the dock only consumes). The
+                // generic default stays floating; composed dock headers opt into their owned action rail.
+                // Zero new model state: menu selection routes through tab.Container's existing activeIndex.
+                plugins       : [{module: TabOverflowPlugin, projectAsAction: true}],
                 sortZoneConfig: {
                     module: TabSortZone,
                     // A dock host spans multiple tab strips. Workspace-backed compositions supply

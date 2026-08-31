@@ -224,6 +224,45 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
     });
 
+    test('action mode excludes its own geometry and visibility feedback, but not other actions', () => {
+        const plugin = createPlugin(async () => []),
+              own    = {hidden: false, id: 'overflow-action'},
+              host   = {action: 'host', hidden: false, id: 'host-action'};
+        let projections = 0;
+
+        plugin.control              = own;
+        plugin.owner.getActionItems = () => [own, host];
+        plugin.project              = () => { projections++ };
+
+        expect(plugin.getActionItems(), 'only the plugin contribution self-excludes').toEqual([host]);
+
+        plugin.onActionVisibilityChange({component: own});
+        expect(projections, 'the contribution hidden flip cannot re-enter its own partition').toBe(0);
+
+        plugin.onActionVisibilityChange({component: host});
+        plugin.onActionGeometryChange({component: own});
+        expect(projections, 'host visibility and rendered contribution width remain live inputs').toBe(2);
+
+        plugin.control = null
+    });
+
+    test('contribution retirement cannot start a projection after the destroy boundary', async () => {
+        let geometryReads = 0;
+
+        const plugin = createPlugin(async () => {
+            geometryReads++;
+            return []
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        geometryReads = 0;
+        plugin.isDestroying = true;
+
+        await plugin.project(false);
+
+        expect(geometryReads, 'the synchronous actionsChange from retirement performs no DOM round-trip').toBe(0)
+    });
+
     test('a recapture restores hidden-button config and VDOM removal state atomically', async () => {
         const
             makeButton = id => ({
@@ -481,11 +520,14 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     });
 
     test('main-axis geometry reserves actions and maps all four toolbar orientations', async () => {
-        const action = {hidden: false, id: 'action-1'};
+        const action  = {hidden: false, id: 'action-1'};
+        let   actionX = 200,
+            actionY  = 240;
+
         const plugin = createPlugin(async ids => ids.map(id => id === 'tab-overflow-test-owner'
             ? {height: 300, left: 0, top: 0, width: 240, x: 0, y: 0}
             : id === action.id
-                ? {height: 20, left: 200, top: 240, width: 20, x: 200, y: 240}
+                ? {height: 20, left: actionX, top: actionY, width: 20, x: actionX, y: actionY}
                 : {height: 130, width: 110}));
 
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -516,6 +558,17 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(split.hidden, 'the first action starts at x=200 despite its 20px width').toEqual(['b2']);
         expect(split.activeCap).toMatchObject({maxSize: 'maxWidth', usable: 160});
+
+        actionX             = 300;
+        plugin.naturalWidths = {b1: 120, b2: 120};
+        await plugin.project(false);
+
+        expect(split.hidden, 'a tab-pushed action rail cannot enlarge the toolbar extent').toEqual(['b2']);
+        expect(split.activeCap, 'the rendered action width bounds the pushed coordinate to the owner')
+            .toMatchObject({maxSize: 'maxWidth', usable: 180});
+
+        actionX              = 200;
+        plugin.naturalWidths = {b1: 110, b2: 110};
 
         const bothButtons = plugin.owner.items;
         plugin.owner.items = [bothButtons[0]];

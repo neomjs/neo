@@ -3,7 +3,7 @@ import Plugin from '../../plugin/Base.mjs';
 
 /**
  * @summary The tab-overflow affordance for a projected tab header toolbar: when headers exceed the
- * available main-axis extent, overflowing tabs collapse behind a floating control whose menu reaches them.
+ * available main-axis extent, overflowing tabs collapse behind one control whose menu reaches them.
  *
  * The pure decision is this plugin's own static {@link Neo.tab.plugin.Overflow.computeOverflow} — a
  * projection concern, nothing persists. This plugin is the RUNTIME complement: it measures the live header extents
@@ -13,13 +13,13 @@ import Plugin from '../../plugin/Base.mjs';
  * constraint). `items` order and `activeItemId` already capture the state; overflow is projection only.
  *
  * It attaches to the projected tab header toolbar (`Neo.tab.header.Toolbar`) — it is NOT a dock-specific
- * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The overflow control is an
- * OUT-OF-COLLECTION floating button rooted at `document.body`, deliberately NOT a member of `owner.items`:
- * the control has independent mount/alignment/menu lifecycle and therefore remains outside `owner.items`.
- * Ordinary flat toolbar actions can live in that collection because the tab toolbar and SortZone now expose
- * one explicit tab-button subset; the overflow control is still intentionally not an action or tab. It carries
- * none of a tab button's `activeIndex` click wiring (that lives in `getTabButtonConfig`, which the plugin
- * bypasses), so selecting it opens its menu rather than activating a phantom card.
+ * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The default embodiment is the
+ * historic OUT-OF-COLLECTION floating button rooted at `document.body`, with independent mount/alignment/menu
+ * lifecycle. {@link #projectAsAction} instead contributes one stable, focus-independent toolbar action for
+ * composed headers that already own an action rail. The toolbar preserves that contribution across consumer
+ * `actions` replacements; the plugin hides it (removeDom) while everything fits and self-excludes it from
+ * partition geometry and visibility feedback. Neither embodiment is a tab: both bypass `getTabButtonConfig`,
+ * so clicking opens the menu rather than activating a phantom card.
  *
  * Natural-width discipline: overflowing buttons are removed from the DOM (Neo's built-in `hidden` /
  * removeDom), so re-measuring them would collapse their width to 0 and corrupt the next split. The plugin
@@ -43,12 +43,18 @@ class Overflow extends Plugin {
          */
         ntype: 'plugin-tab-overflow',
         /**
-         * Main-axis size (px) the overflow control reserves from the header extent — handed to the pure core as
-         * `controlWidth`, which reserves it ONLY when something overflows (a control that exists only when
-         * needed must not consume space while everything fits). The historic config name stays compatible.
+         * Main-axis size (px) the floating control reserves from the header extent — handed to the pure core as
+         * `controlWidth`, which reserves it ONLY when something overflows. Action projection instead converges
+         * from zero to the contributed button's rendered extent; this historic estimate remains floating-only.
          * @member {Number} controlWidth=40
          */
-        controlWidth: 40
+        controlWidth: 40,
+        /**
+         * Projects the overflow control through the toolbar's stable contribution seam instead of as a
+         * floating `document.body` child. Disabled by default for byte-identical generic behavior.
+         * @member {Boolean} projectAsAction=false
+         */
+        projectAsAction: false
     }
 
     /**
@@ -248,10 +254,10 @@ class Overflow extends Plugin {
 
         me.onResize = me.onResize.bind(me);
 
-        // The control is deliberately outside the owner's component collection and DOM subtree, so container
-        // theme propagation cannot reach it. Keep that floating embodiment subscribed to every component in
-        // the source toolbar's theme chain; button.Base carries the resolved nearest-active theme through to
-        // the generated floating menu.List.
+        // The default floating control is outside the owner's component collection and DOM subtree, so
+        // container theme propagation cannot reach it. Keep that embodiment subscribed to every component in
+        // the source toolbar's theme chain; action mode inherits the same theme natively, and these idempotent
+        // updates keep both embodiments on one menu-theme path.
         //
         // Config subscribers run before the publisher's afterSetTheme() updates its cls carrier. Re-resolve in
         // the next microtask so getTheme() sees the completed ancestor change rather than the prior theme.
@@ -263,7 +269,8 @@ class Overflow extends Plugin {
             });
             if (me.owner.getConfig?.('dock')) {
                 me.observeConfig(me.owner, 'dock', () => {
-                    me.dockRecapturePending = true
+                    me.dockRecapturePending = true;
+                    me.measuredControlWidth = null
                 })
             }
         }
@@ -293,6 +300,7 @@ class Overflow extends Plugin {
      */
     getActionItems() {
         return (this.owner.getActionItems?.() || [])
+            .filter(item => item !== this.control)
             .filter(item => !item.hidden || item.hideMode === 'visibility')
     }
 
@@ -342,6 +350,7 @@ class Overflow extends Plugin {
         let me      = this,
             {owner} = me;
 
+        me.projectAsAction && me.createActionControl();
         owner.addDomListeners([{resize: me.onResize, scope: me}]);
         // Re-run on activation too: selecting a hidden tab flips activeIndex, and active-never-hidden must
         // then surface the newly-active tab into the header (swapping a fitting one into the overflow menu).
@@ -352,8 +361,8 @@ class Overflow extends Plugin {
         owner.on('insert', me.onTabSetChange, me);
         owner.on('remove', me.onTabSetChange, me);
         owner.on('actionsChange', me.onActionSetChange, me);
-        owner.on('actionGeometryChange', me.onActionSetChange, me);
-        owner.on('actionVisibilityChange', me.onActionSetChange, me);
+        owner.on('actionGeometryChange', me.onActionGeometryChange, me);
+        owner.on('actionVisibilityChange', me.onActionVisibilityChange, me);
         me.getTabContainer()?.on('moveTo', me.onTabSetChange, me);
         me.project(true)
     }
@@ -363,6 +372,26 @@ class Overflow extends Plugin {
      */
     onActionSetChange() {
         this.project(false)
+    }
+
+    /**
+     * Action geometry changes alter the tab-exclusive extent. The contributed control's own resize
+     * is intentionally included: it is how action mode replaces its first zero-width estimate with
+     * rendered truth.
+     * @protected
+     */
+    onActionGeometryChange() {
+        this.project(false)
+    }
+
+    /**
+     * Ignores the contributed control's own show/hide signal so its partition verdict cannot re-enter
+     * itself. Availability changes from every other action still re-project the tab extent.
+     * @param {Object} data
+     * @protected
+     */
+    onActionVisibilityChange({component}={}) {
+        component !== this.control && this.project(false)
     }
 
     /**
@@ -540,6 +569,14 @@ class Overflow extends Plugin {
             buttons  = me.getTabButtons(),
             geometry = me.getMainAxisConfig();
 
+        // Retiring an action contribution emits actionsChange synchronously. The destroy interceptor has
+        // already raised isDestroying at that point, but super.destroy() has not yet removed this listener's
+        // identity. Do not start one final DOM round-trip against the retiring control / owner boundary.
+        if (me.isDestroying || me.isDestroyed) {
+            me.resolveProjectionIdle?.();
+            return
+        }
+
         // The tab SortZone deliberately freezes item rectangles for the gesture. A resize/action
         // projection can otherwise hide or show members underneath that snapshot. Queue one sticky
         // pass and drain only after dragEnd restores natural layout.
@@ -643,9 +680,25 @@ class Overflow extends Plugin {
                 coordinateKey = geometry.dimension === 'width' ? 'x' : 'y',
                 ownerStart    = Number(ownerRect?.[startKey] ?? ownerRect?.[coordinateKey]),
                 actionStart   = Number(actionRects[0]?.[startKey] ?? actionRects[0]?.[coordinateKey]),
-                extent        = Number.isFinite(ownerStart) && Number.isFinite(actionStart)
+                ownerSize     = Number(ownerRect?.[geometry.dimension]),
+                actionSize    = actionRects.reduce((sum, rect) => {
+                    let size = Number(rect?.[geometry.dimension]);
+
+                    return sum + (Number.isFinite(size) ? Math.max(0, size) : 0)
+                }, 0),
+                coordinateExtent = Number.isFinite(ownerStart) && Number.isFinite(actionStart)
                     ? Math.max(0, Math.floor(actionStart - ownerStart))
-                    : Math.max(0, Math.floor(ownerRect?.[geometry.dimension] || 0)),
+                    : null,
+                sizeExtent = Number.isFinite(ownerSize)
+                    ? Math.max(0, Math.floor(ownerSize - actionSize))
+                    : null,
+                // Visible tabs can briefly push the action rail beyond the owner after a wide→narrow resize.
+                // Its coordinate then overstates available space and self-sustains an all-visible split. The
+                // rendered action widths provide the owner-bounded ceiling; the coordinate remains authoritative
+                // whenever gaps, margins, or another stricter boundary make it smaller.
+                extent = coordinateExtent === null
+                    ? sizeExtent || 0
+                    : sizeExtent === null ? coordinateExtent : Math.min(coordinateExtent, sizeExtent),
                 tabContainer  = me.getTabContainer(),
                 activeButton  = buttons[tabContainer?.activeIndex] || null,
                 items         = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]}));
@@ -656,7 +709,9 @@ class Overflow extends Plugin {
 
             // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
             //    The pure core is this plugin's own static (below) — no adapter namespace-reach, no cycle.
-            let controlWidth = Math.max(me.controlWidth, me.measuredControlWidth || 0),
+            let controlWidth = me.projectAsAction
+                    ? me.measuredControlWidth || 0
+                    : Math.max(me.controlWidth, me.measuredControlWidth || 0),
                 {hidden}     = Overflow.computeOverflow({
                     activeItemId: activeButton?.id,
                     controlWidth,
@@ -878,15 +933,48 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Creates / updates / tears down the single overflow control. A menu selection sets the
+     * Creates the hidden, stable toolbar contribution used by {@link #projectAsAction}. It exists before
+     * the first overflow so a consumer `actions` replacement while everything fits cannot erase the future
+     * affordance. The menu is supplied by the first real partition; no empty-menu async work is started.
+     * @returns {Neo.button.Base}
+     * @protected
+     */
+    createActionControl() {
+        let me = this;
+
+        if (me.control) {
+            return me.control
+        }
+
+        if (!Neo.isFunction(me.owner.addActionContribution)) {
+            throw new Error('Neo.tab.plugin.Overflow: projectAsAction requires a toolbar action-contribution owner')
+        }
+
+        me.control = me.owner.addActionContribution({
+            module : Button,
+            cls    : ['neo-tab-overflow-control'],
+            handler: Neo.emptyFn,
+            hidden : true,
+            iconCls: me.getMainAxisConfig().dimension === 'height'
+                ? 'fa fa-ellipsis-vertical'
+                : 'fa fa-ellipsis',
+            role       : 'button',
+            showOnFocus: false,
+            vdom       : {'aria-label': 'More tabs'}
+        });
+
+        return me.control
+    }
+
+    /**
+     * Creates / updates / hides or tears down the single overflow control. A menu selection sets the
      * tab.Container's `activeIndex` (the ordinary activation path); the follow-up measure pass then
      * surfaces the now-active tab by construction (active-never-hidden), so the selected tab is never
      * left in the menu.
      *
      * The control is a `button.Base` with a `menu` config — button.Base builds the dropdown `menu.List`
-     * itself, so no menu is hand-assembled here. It is a floating instance rooted at `document.body` (out
-     * of `owner.items`), and excluded from `getTabButtons()` by identity so it is never measured or hidden
-     * as a tab — see the class note on why the control must stay out of the SortZone-draggable collection.
+     * itself, so no menu is hand-assembled here. Floating mode destroys its body-rooted embodiment when
+     * everything fits; action mode keeps one toolbar contribution and toggles its `hidden` state.
      * @param {Object[]} hiddenMeta  `{text, iconCls, index}` per hidden tab, in header order.
      * @param {Neo.tab.Container} tabContainer
      */
@@ -894,6 +982,22 @@ class Overflow extends Plugin {
         let me = this;
 
         if (hiddenMeta.length < 1) {
+            if (me.projectAsAction) {
+                me.appliedHiddenIds     = null;
+                me.hiddenSignature      = null;
+                me.menuProjectionQueued = false;
+                me.menuRecaptureQueued  = false;
+                me.observedMenuList     = null;
+                if (me.control) {
+                    if (!me.control.hidden) {
+                        me.control.hidden = true
+                    } else if (!me.control.vdom?.removeDom) {
+                        me.control.hide()
+                    }
+                }
+                return
+            }
+
             if (me.control) {
                 let control = me.control;
 
@@ -922,6 +1026,8 @@ class Overflow extends Plugin {
                 cls  : ['neo-tab-overflow-menu'],
                 items: menuItems
             };
+
+        me.projectAsAction && !me.control && me.createActionControl();
 
         if (me.control) {
             let {menuList} = me.control;
@@ -952,7 +1058,13 @@ class Overflow extends Plugin {
             // rejection releases isVnodeInitializing before rethrowing, so the guard above
             // re-opens and a later sync retries. The align follows only a successful mount
             // (mirroring the sync-time re-align below).
-            if (!me.control.mounted && !me.control.isVnodeInitializing && !me.remountArming) {
+            if (me.projectAsAction) {
+                if (me.control.hidden) {
+                    me.control.hidden = false
+                } else if (me.control.vdom?.removeDom) {
+                    me.control.show()
+                }
+            } else if (!me.control.mounted && !me.control.isVnodeInitializing && !me.remountArming) {
                 me.remountArming = true;
 
                 me.control.initVnode(true)
@@ -1016,12 +1128,15 @@ class Overflow extends Plugin {
         // RA-13: re-align against the CURRENT owner rect. A floating component aligns once at mount and does
         // NOT re-align when its target moves. Re-aligning on each sync re-pins it to the current action or
         // owner edge — cheap + idempotent. The e2e owner-exact geometry assertion falsifies its absence.
-        if (me.control?.mounted) {
-            me.control.align   = me.getControlAlign();
+        if (me.control) {
             me.control.iconCls = me.getMainAxisConfig().dimension === 'height'
                 ? 'fa fa-ellipsis-vertical'
                 : 'fa fa-ellipsis';
-            me.control.alignTo()
+
+            if (!me.projectAsAction && me.control.mounted) {
+                me.control.align = me.getControlAlign();
+                me.control.alignTo()
+            }
         }
     }
 
@@ -1051,7 +1166,13 @@ class Overflow extends Plugin {
         me.menuProjectionQueued   = false;
         me.menuRecaptureQueued    = false;
         me.observedMenuList       = null;
-        me.control?.destroy(true);
+        if (me.control && !me.control.isDestroyed) {
+            if (me.control.isToolbarActionContribution === true) {
+                me.owner.removeActionContribution(me.control)
+            } else {
+                me.control.destroy(true)
+            }
+        }
         me.control = null;
         super.destroy(...args)
     }
