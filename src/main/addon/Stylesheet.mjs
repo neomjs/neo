@@ -52,7 +52,7 @@ class Stylesheet extends Base {
                 if (env === 'development' || env === 'dist/esm') {
                     faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
                 } else {
-                    faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
+                    faPath = (this.getAbsoluteDistRoot() ?? neoConfig.basePath.substring(6)) + 'resources/fontawesome-free/css/all.min.css'
                 }
 
                 this.createStyleSheet({
@@ -73,9 +73,7 @@ class Stylesheet extends Base {
         let {config} = Neo,
             {themes} = config,
             folders  = ['src', ...themes],
-            env      = config.environment,
-            path     = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
-            rootPath = config.basePath.substring(6);
+            cssRoot  = this.getCssRoot();
 
         document.body.classList.add(themes[0]);
 
@@ -85,9 +83,56 @@ class Stylesheet extends Base {
             }
 
             this.createStyleSheet({
-                href: `${rootPath}${path}css/${folder}/Global.css`
+                href: `${cssRoot}css/${folder}/Global.css`
             })
         })
+    }
+
+    /**
+     * @summary Resolves the dist-tree root for stylesheet/resource URLs when `basePath` is absolute.
+     *
+     * The relative arithmetic in {@link #getCssRoot} (`basePath.substring(6)` = strip one `../../`
+     * hop) is exact for the engine's own serving, where a dist page lives INSIDE
+     * `dist/<env>/apps/<app>/` and `basePath` climbs to the repository root. An absolute mount
+     * (one index per app OUTSIDE dist, e.g. `basePath: '/mount/'`) has no hops to strip — the dist
+     * tree hangs directly under the mount, so the root is `basePath + 'dist/<env>/'` (dist
+     * environments already carry the `dist/` prefix in their name). Returns `null` for relative
+     * basePaths, so callers keep the proven relative arithmetic byte-identical.
+     * @returns {String|null}
+     * @protected
+     */
+    getAbsoluteDistRoot() {
+        let {basePath, environment: env} = Neo.config;
+
+        if (basePath.startsWith('/') || /^https?:\/\//.test(basePath)) {
+            return `${basePath}${env.startsWith('dist/') ? env : `dist/${env}`}/`
+        }
+
+        return null
+    }
+
+    /**
+     * @summary The URL prefix every theme/global stylesheet hangs from, ending at the dist tree.
+     *
+     * Absolute mounts resolve through {@link #getAbsoluteDistRoot}; relative basePaths keep the
+     * original page-relative arithmetic (`rootPath` compensates app depth beyond two levels,
+     * `path` adds the fixed hop into `dist/<env>/` for non-dist environments, and a dist-mode
+     * page already lives inside the dist tree).
+     * @returns {String}
+     * @protected
+     */
+    getCssRoot() {
+        let absoluteRoot = this.getAbsoluteDistRoot();
+
+        if (absoluteRoot) {
+            return absoluteRoot
+        }
+
+        let {config} = Neo,
+            env      = config.environment,
+            path     = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`;
+
+        return config.basePath.substring(6) + path
     }
 
     /**
@@ -99,10 +144,8 @@ class Stylesheet extends Base {
     async addThemeFiles(data) {
         let {className} = data,
             {config}    = Neo,
-            env         = config.environment,
-            path        = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
-            promises    = [],
-            rootPath    = config.basePath.substring(6);
+            cssRoot     = this.getCssRoot(),
+            promises    = [];
 
         if (className.startsWith('Neo.')) {
             className = className.substring(4)
@@ -113,7 +156,7 @@ class Stylesheet extends Base {
         data.folders.forEach(folder => {
             if (folder === 'src' || folder.includes('theme-') && config.themes.includes(`neo-${folder}`)) {
                 promises.push(this.createStyleSheet({
-                    href: `${rootPath}${path}css/${folder}/${className}.css`
+                    href: `${cssRoot}css/${folder}/${className}.css`
                 }))
             }
         });

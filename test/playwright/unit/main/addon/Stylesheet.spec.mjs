@@ -37,7 +37,38 @@ documentRef.createElement = () => {
     return link
 };
 documentRef.head    = {appendChild: () => {}};
+documentRef.body    = {classList: {add: () => {}}};
 globalThis.document = documentRef;
+
+/**
+ * Runs one root-derivation scenario: pins the named Neo.config fields, invokes the real method
+ * via prototype (the addon's construct runs the full theme bootstrap, which the derivation
+ * contract does not need), and returns the emitted hrefs. Config is restored in ALL cases —
+ * worker processes share Neo.config across spec files.
+ * @param {Object} configPatch Fields to pin on Neo.config for the scenario.
+ * @param {Function} invoke Receives the prototype-bound surface; drives the method under test.
+ * @returns {String[]} The hrefs handed to createStyleSheet, in emission order.
+ */
+function deriveHrefs(configPatch, invoke) {
+    const
+        saved = {},
+        start = createdLinks.length;
+
+    Object.keys(configPatch).forEach(key => {
+        saved[key] = Neo.config[key];
+        Neo.config[key] = configPatch[key]
+    });
+
+    try {
+        invoke(Stylesheet.prototype)
+    } finally {
+        Object.keys(saved).forEach(key => {
+            saved[key] === undefined ? delete Neo.config[key] : Neo.config[key] = saved[key]
+        })
+    }
+
+    return createdLinks.slice(start).map(link => link.href)
+}
 
 /**
  * @summary The settlement contract of `createStyleSheet`: a load failure must NAME its href.
@@ -90,5 +121,108 @@ test.describe('Neo.main.addon.Stylesheet#createStyleSheet', () => {
         createdLinks.at(-1).dispatchEvent(new Event('load'));
 
         await expect(promise).resolves.toBeUndefined()
+    });
+});
+
+/**
+ * @summary The dist-root derivation contract: absolute mounts resolve, relative arithmetic is pinned.
+ *
+ * `basePath.substring(6)` means "strip one `../../` hop" — exact for the engine's own serving,
+ * where a dist page lives inside `dist/<env>/apps/<app>/`. An absolute mount (one index per app
+ * OUTSIDE dist, the klarserver arrangement) has no hops to strip: `/mount/` became `udio/…` and
+ * every stylesheet 404'd, black-paging the app. The absolute branch derives `basePath +
+ * 'dist/<env>/'`; every relative shape below is pinned byte-identical to the pre-fix arithmetic.
+ */
+test.describe('Neo.main.addon.Stylesheet — dist-root derivation', () => {
+    test.beforeEach(() => {
+        globalThis.document = documentRef
+    });
+
+    test.afterEach(() => {
+        createdLinks.length = 0
+    });
+
+    test('an absolute mount in a dist environment derives basePath + env for every global sheet', () => {
+        const hrefs = deriveHrefs(
+            {appPath: 'apps/probe/app.mjs', basePath: '/mount/', environment: 'dist/production', themes: ['neo-theme-dark']},
+            proto => proto.addGlobalCss()
+        );
+
+        expect(hrefs).toEqual([
+            '/mount/dist/production/css/src/Global.css',
+            '/mount/dist/production/css/theme-dark/Global.css'
+        ])
+    });
+
+    test('an absolute mount in a source environment derives basePath + dist/<env>', () => {
+        const hrefs = deriveHrefs(
+            {appPath: 'apps/probe/app.mjs', basePath: '/mount/', environment: 'development', themes: ['neo-theme-light']},
+            proto => proto.addGlobalCss()
+        );
+
+        expect(hrefs).toEqual([
+            '/mount/dist/development/css/src/Global.css',
+            '/mount/dist/development/css/theme-light/Global.css'
+        ])
+    });
+
+    test('addThemeFiles emits mount-rooted theme sheets on an absolute basePath', async () => {
+        const hrefs = deriveHrefs(
+            {appPath: 'apps/probe/app.mjs', basePath: '/webstudio/', environment: 'dist/development', themes: ['neo-theme-dark']},
+            proto => proto.addThemeFiles({className: 'Neo.grid.Container', folders: ['src', 'theme-dark']})
+        );
+
+        expect(hrefs).toEqual([
+            '/webstudio/dist/development/css/src/grid/Container.css',
+            '/webstudio/dist/development/css/theme-dark/grid/Container.css'
+        ])
+    });
+
+    test('the relative shapes stay byte-identical: source app, docs app, and a page inside the dist tree', () => {
+        // source app two levels deep: rootPath '' + path '../../dist/development/'
+        expect(deriveHrefs(
+            {appPath: 'apps/probe/app.mjs', basePath: '../../', environment: 'development', themes: ['neo-theme-dark']},
+            proto => proto.addGlobalCss()
+        )).toEqual([
+            '../../dist/development/css/src/Global.css',
+            '../../dist/development/css/theme-dark/Global.css'
+        ]);
+
+        // the docs config uses the single-hop compensation
+        expect(deriveHrefs(
+            {appPath: 'docs/app.mjs', basePath: '../', environment: 'development', themes: ['neo-theme-dark']},
+            proto => proto.addGlobalCss()
+        )).toEqual([
+            '../dist/development/css/src/Global.css',
+            '../dist/development/css/theme-dark/Global.css'
+        ]);
+
+        // a dist-mode page lives inside dist/<env>: rootPath '../../' + path ''
+        expect(deriveHrefs(
+            {appPath: 'apps/probe/app.mjs', basePath: '../../../../', environment: 'dist/production', themes: ['neo-theme-dark']},
+            proto => proto.addGlobalCss()
+        )).toEqual([
+            '../../css/src/Global.css',
+            '../../css/theme-dark/Global.css'
+        ])
+    });
+
+    test('getAbsoluteDistRoot answers absolute and fully-qualified mounts, and yields to relative arithmetic', () => {
+        const probe = (basePath, environment) => {
+            const saved = {basePath: Neo.config.basePath, environment: Neo.config.environment};
+
+            Object.assign(Neo.config, {basePath, environment});
+
+            try {
+                return Stylesheet.prototype.getAbsoluteDistRoot()
+            } finally {
+                Object.assign(Neo.config, saved)
+            }
+        };
+
+        expect(probe('/mount/', 'dist/esm')).toBe('/mount/dist/esm/');
+        expect(probe('https://cdn.example/app/', 'dist/production')).toBe('https://cdn.example/app/dist/production/');
+        expect(probe('../../', 'dist/production')).toBeNull();
+        expect(probe('../../../../', 'development')).toBeNull()
     });
 });
