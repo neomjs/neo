@@ -1368,13 +1368,23 @@ class Workspace extends Container {
      * projection-constant by design (per-item state must never vary the actions array), so a
      * pane-dependent action such as reload would stay at its projected default forever. Mount is
      * the one surface every boot path shares.
+     *
+     * The sync is DEFERRED off the mount cascade (the MonacoEditor post-mount idiom): container
+     * mount flips every child's `mounted` in the same frame, and writing action state into that
+     * window races the initial render application — observed on slow rigs as duplicated header
+     * chrome. The delay is a boot convenience, not a correctness surface: every write in the
+     * sweep is change-guarded and idempotent, and `timeout()` is destroy-rejected, so a torn-down
+     * workspace never runs it.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        value && this.syncDockHeaderActions()
+
+        value && this.timeout(100).then(() => {
+            !this.isDestroyed && this.syncDockHeaderActions()
+        }).catch(() => null)
     }
 
     /**
