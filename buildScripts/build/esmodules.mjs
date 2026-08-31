@@ -142,12 +142,12 @@ Promise.all(promises).then(() => {
     // reached a file the output tree never had. Copied here, beside `docs/output`, because it is the
     // same shape: an artifact the tree needs and the minifier does not produce.
     //
-    // Absent, nothing is copied and the guard below names it. That is deliberate: silence would hide
-    // a tree whose template processor cannot load, which is the failure mode this build now refuses.
-    const parse5Path = path.resolve(root, 'dist/parse5.mjs');
-    if (fs.existsSync(parse5Path)) {
-        fs.copySync(parse5Path, path.resolve(root, outputBasePath, 'dist/parse5.mjs'))
-    }
+    // Unconditional, with no existence check, because THIS SCRIPT cannot run without it: the
+    // `astTemplateProcessor` import above reaches `templateBuildProcessor`, which imports the same
+    // bundle at module scope. Absent, the build dies at load with ERR_MODULE_NOT_FOUND naming the
+    // path — louder than any check here could be, and a guarded copy would be unreachable code
+    // pretending the file is optional.
+    fs.copySync(path.resolve(root, 'dist/parse5.mjs'), path.resolve(root, outputBasePath, 'dist/parse5.mjs'));
 
     if (failures.length > 0) {
         console.error(`\ndist/esm: ${failures.length} file(s) failed to build:`);
