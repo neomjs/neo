@@ -142,12 +142,20 @@ Promise.all(promises).then(() => {
     // reached a file the output tree never had. Copied here, beside `docs/output`, because it is the
     // same shape: an artifact the tree needs and the minifier does not produce.
     //
-    // Unconditional, with no existence check, because THIS SCRIPT cannot run without it: the
-    // `astTemplateProcessor` import above reaches `templateBuildProcessor`, which imports the same
-    // bundle at module scope. Absent, the build dies at load with ERR_MODULE_NOT_FOUND naming the
-    // path — louder than any check here could be, and a guarded copy would be unreachable code
-    // pretending the file is optional.
-    fs.copySync(path.resolve(root, 'dist/parse5.mjs'), path.resolve(root, outputBasePath, 'dist/parse5.mjs'));
+    // Guarded, and the guard is NOT dead code — which is worth stating, because it looks like it is.
+    // `templateBuildProcessor` imports the same bundle at module scope, so this script cannot start
+    // without one; but that import resolves relative to THIS FILE, i.e. against the engine package,
+    // while the copy below reads `root`, the workspace being built. Inside this repository those are
+    // the same path and the check does read as unreachable. In a consuming workspace they are not:
+    // the engine supplies the bundle the loader needs and the workspace root has none, so an
+    // unconditional copy fails a build that is otherwise correct.
+    //
+    // Absent, nothing is copied and the guard below names the dangling import honestly. Giving the
+    // workspace case a real source is a packaging question, not a copy-site one.
+    const parse5Path = path.resolve(root, 'dist/parse5.mjs');
+    if (fs.existsSync(parse5Path)) {
+        fs.copySync(parse5Path, path.resolve(root, outputBasePath, 'dist/parse5.mjs'))
+    }
 
     if (failures.length > 0) {
         console.error(`\ndist/esm: ${failures.length} file(s) failed to build:`);
