@@ -142,6 +142,11 @@ Modern JavaScript modules that can be directly loaded and executed by browsers w
 A string alias used in Neo.mjs to declaratively specify the type of a component or class within a configuration object
 (e.g., `ntype: 'button'`, `ntype: 'container'`).
 
+An `ntype` is also the source of a class's **type flags**: `Neo.setupClass()` derives a boolean `is<Ntype>` property on
+the prototype for every `ntype` in the inheritance chain (`ntype: 'tree-store'` yields `isTreeStore`). Those names are
+computed at runtime, so they never appear as literals in the source — see
+[Extending Neo Classes](guides/fundamentals/ExtendingNeoClasses.md).
+
 ## O
 
 ### Observable

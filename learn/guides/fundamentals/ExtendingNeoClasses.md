@@ -195,10 +195,51 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
 * **Engine Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
   its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
+### Automatic `is<Ntype>` Type Flags
+
+Enhancing the global namespace is not the only thing `setupClass()` does. It also stamps a boolean **type flag** onto
+the class prototype for every `ntype` in the class's inheritance chain. The flag name is *derived* from the `ntype`
+rather than written by hand:
+
+```
+ntype: 'tree-store'  →  Neo.camel()       →  'treeStore'
+                     →  Neo.capitalize()  →  'TreeStore'
+                     →  proto.isTreeStore = true
+```
+
+Because the whole chain is walked, a class carries its ancestors' flags alongside its own:
+
+```javascript
+TreeStore.prototype.isTreeStore  // true
+TreeStore.prototype.isStore      // true — inherited via the ntype chain
+Store.prototype.isTreeStore      // undefined
+```
+
+This gives you a cheap type test that needs no `instanceof` and no import of the class you are testing against — which
+matters in a multi-threaded engine, where the class you would compare against may not live in the same worker. Real
+usage, from `src/grid/Container.mjs`:
+
+```javascript
+afterSetStore(value, oldValue) {
+    let me = this;
+    // ...
+    // a TreeStore turns the grid into a TreeGrid; a plain Store does not
+    me.isTreeGrid = value?.isTreeStore === true;
+}
+```
+
+> **These property names are computed at runtime, so you cannot find them by searching the source.**
+> `grep isTreeStore src/` matches only the line that *reads* the flag — the assignment does not exist as text
+> anywhere in the repository. A single search hit at a read site is therefore **not** evidence of a dangling
+> reference. Resolve the name against the `ntype` chain before concluding that a flag is undefined.
+>
+> The same invisibility applies to renames: changing a class's `ntype` renames every flag derived from it, and no
+> static search will surface the readers that silently became `undefined`.
+
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for
 its configuration-driven approach.
 
-## 5. Practical Examples: Models, Stores, and Controllers
+## 6. Practical Examples: Models, Stores, and Controllers
 
 The principles of class extension apply universally across all Neo.mjs class types.
 
