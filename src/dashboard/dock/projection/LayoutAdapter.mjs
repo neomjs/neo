@@ -685,6 +685,22 @@ class LayoutAdapter extends Base {
      * does not auto-hide — so a center-zone `autoHidden` item is left in the tab flow as a fail-safe (never vanishes).
      * The reveal overlay + pin control that act on a rail tab are follow-up slices; this projection makes an
      * auto-hidden item visible (as a rail tab) instead of invisible.
+     *
+     * **An ancestor's claim is inherited, not restarted.** `collectAutoHiddenItems` recurses through
+     * nested edge-zones, so an item two edge-zones deep is collected by BOTH the outer band and the
+     * inner one. {@link Neo.dashboard.dock.model.Document#findOwningEdge} answers that contest with the
+     * OUTERMOST edge, and this projection is the behavior that answer describes. The `inheritedIds`
+     * filter is what enforces it: without it a nested zone re-claims an item its ancestor already owns
+     * and the item renders on two rails. `DockZoneModel.spec` reds on exactly that.
+     *
+     * Seeding `railedItemIds` from the inherited set is a second, WEAKER guarantee, and it is honest to
+     * say no fixture currently reds on it. With the filter in place a band-nested zone can never claim
+     * anything new — its whole subtree was already collected by the ancestor — so `railedItemIds` stays
+     * empty and the `: context` fallback below preserves the ancestor's set anyway. The seed is kept
+     * because it makes the ternary's two branches mean the same thing: `railedItemIds` is "everything
+     * claimed at or above this node" in both. Without it the true branch REPLACES while the false branch
+     * INHERITS, and the code is correct only via a non-local argument about which items can appear
+     * beneath which zone — the kind of argument a later refactor breaks silently.
      * @param {String} nodeId
      * @param {Object} node
      * @param {Object} context
@@ -695,13 +711,15 @@ class LayoutAdapter extends Base {
     static projectEdgeZoneNode(nodeId, node, context) {
         let {zones={}} = node,
             railsByEdge   = {},
-            railedItemIds = new Set();
+            inheritedIds  = context.railedItemIds || null,
+            railedItemIds = new Set(inheritedIds);
 
         ['top', 'right', 'bottom', 'left'].forEach(edge => {
             let zoneId = Document.getZoneNodeId(zones[edge]);
 
             if (zoneId) {
-                let itemIds = this.collectAutoHiddenItems(zoneId, context);
+                let itemIds = this.collectAutoHiddenItems(zoneId, context)
+                    .filter(itemId => !inheritedIds?.has(itemId));
 
                 if (itemIds.length) {
                     railsByEdge[edge] = itemIds;
@@ -710,7 +728,9 @@ class LayoutAdapter extends Base {
             }
         });
 
-        // Pass the railed set down so projectTabsNode drops those items from the tab flow.
+        // Pass the railed set down so projectTabsNode drops those items from the tab flow. The set is
+        // the UNION of what an ancestor claimed and what this node just claimed, so a descendant tab
+        // flow drops every railed item above it, not only the nearest zone's.
         let childContext = railedItemIds.size ? {...context, railedItemIds} : context,
             middleItems  = [],
             rows         = [],

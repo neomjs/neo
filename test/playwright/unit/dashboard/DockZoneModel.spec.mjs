@@ -1780,35 +1780,66 @@ test.describe('Neo.dashboard.dock.model.Document', () => {
             expect(Document.findOwningEdge(d, 'main')).toBe(null)
         });
 
-        test('agrees with the projection it must not contradict: every railed item names the band it railed to', () => {
+        /**
+         * The agreement this query claims is with the RENDERED projection, so it is asserted against
+         * `LayoutAdapter.project()` rather than against `collectAutoHiddenItems`.
+         *
+         * That distinction is the whole arm. The collection helper recurses correctly through nested
+         * edge-zones, so it agrees with this query by construction — and a projection that disagreed
+         * with BOTH sat invisible behind it: `projectEdgeZoneNode` restarted its claim set per node,
+         * so a nested zone re-railed an item its ancestor already owned and simultaneously stopped
+         * suppressing the ancestor's other claims in its own tab flow. Two derivations agreeing with
+         * each other is not the property; agreeing with what renders is.
+         */
+        test('agrees with the RENDERED projection: one rail per railed item, none left in tab flow', () => {
             const d = nested();
 
             d.items.buried.autoHidden = true;
             d.items.plain.autoHidden  = true;
             d.items.main.autoHidden   = true;
 
-            // The adapter's own collection, per band of the ROOT edge-zone — the exact derivation the
-            // rails are built from. Whatever it claims for a band, this query must answer for the item;
-            // whatever it never claims, this query must answer null. Two derivations of one §2.7 rule
-            // that could silently drift apart are pinned together here instead.
-            let railed = 0;
+            const projected = LayoutAdapter.project(d, {
+                      resolveComponentRef: componentRef => ({ntype: 'component', reference: componentRef})
+                  }),
+                  rails   = [],
+                  tabFlow = [];
 
-            ['top', 'right', 'bottom', 'left'].forEach(edge => {
-                const zoneId = Document.getZoneNodeId(d.nodes.root.zones[edge]);
+            (function walk(config) {
+                if (!config || typeof config !== 'object') return;
 
-                (zoneId ? LayoutAdapter.collectAutoHiddenItems(zoneId, d) : []).forEach(itemId => {
-                    railed++;
-                    expect(Document.findOwningEdge(d, itemId), `${itemId} rails on ${edge}`).toBe(edge)
-                })
+                if (config.dockNodeType === 'edge-rail') {
+                    config.railItems?.forEach(tab => rails.push({edge: config.dockEdge, itemId: tab.dockItemId}))
+                }
+
+                // The tab flow's own id list, read where the projection actually writes it: the
+                // header toolbar's SortZone config, which is the list the rendered strip is built
+                // from rather than a re-derivation of it.
+                config.headerToolbar?.sortZoneConfig?.dockItemIds?.forEach(itemId => tabFlow.push(itemId));
+                Array.isArray(config.items) && config.items.forEach(walk)
+            })(projected);
+
+            // Non-vacuity: `not.toContain` on an empty array passes for the wrong reason, so the walk
+            // must be shown to have found the tab flow at all before anything is asserted absent from it.
+            expect(tabFlow.length, 'the walk reached a rendered tab flow to assert against').toBeGreaterThan(0);
+            expect(rails.length, 'and reached a rendered rail').toBeGreaterThan(0);
+
+            // `buried` sits two edge-zones deep and `plain` in the inner zone's center; both belong to
+            // the ROOT's left band, which is the answer `findOwningEdge` gives. Each must render on
+            // exactly one rail — `toEqual` on the collected edges is what forbids the second one.
+            ['buried', 'plain'].forEach(itemId => {
+                expect(rails.filter(rail => rail.itemId === itemId).map(rail => rail.edge),
+                    `${itemId} rails exactly once, on the band the query names`)
+                    .toEqual([Document.findOwningEdge(d, itemId)]);
+
+                expect(tabFlow, `${itemId} left the tab flow it railed out of`).not.toContain(itemId)
             });
 
-            // Non-vacuity: the loop above must actually have compared the pair it claims to.
-            expect(railed, 'the projection railed both left-band items to compare against').toBe(2);
-
-            // `main` is auto-hidden in the ROOT's center: the projection never rails it (it stays in
-            // the tab flow as §2.7's fail-safe), and the query agrees by answering null. This is the
-            // negative half — without it the loop above could pass by railing everything.
-            expect(Document.findOwningEdge(d, 'main')).toBe(null)
+            // The negative half. `main` is auto-hidden in the ROOT's center: §2.7's fail-safe keeps it
+            // in the tab flow rather than railing it, and the query agrees by answering null. Without
+            // this the arm above could pass by railing everything.
+            expect(Document.findOwningEdge(d, 'main')).toBe(null);
+            expect(rails.map(rail => rail.itemId), 'center content is never railed').not.toContain('main');
+            expect(tabFlow, 'and it stays visible instead of vanishing').toContain('main')
         });
 
         test('a cyclic document terminates instead of hanging the render thread', () => {

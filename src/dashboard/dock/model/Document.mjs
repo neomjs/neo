@@ -523,7 +523,14 @@ class Document extends Base {
      * with `collectAutoHiddenItems`, which recurses through nested edge-zones, then passes the
      * claimed set down as `railedItemIds` so the inner tab flow drops them — so an item nested two
      * edge-zones deep rails on the OUTER edge, and an inner band that also contains it never gets to
-     * claim it. This query and that projection must agree; `DockZoneModel.spec` pins them together.
+     * claim it, because that projection filters its own collection against the inherited claim.
+     *
+     * This query and that projection must agree, and `DockZoneModel.spec` pins them together against
+     * the RENDERED tree — `LayoutAdapter.project()`, not `collectAutoHiddenItems`. Comparing against
+     * the collection helper is what let them drift: the helper recurses correctly and so agreed with
+     * this query by construction, while the projection built from it re-railed the nested item and
+     * left its sibling in the tab flow. Two derivations agreeing with each other was never the
+     * property; agreeing with what renders is.
      *
      * A `center` slot is not a claim (§2.7: center-zone items never rail — main content does not
      * auto-hide), so an item reaching the root only through center zones returns null. Null is
