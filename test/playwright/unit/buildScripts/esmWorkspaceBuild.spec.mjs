@@ -169,6 +169,31 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
     });
 
     /**
+     * The third arm's exit gate, pinned end to end because narrowing `computed-root` narrowed the
+     * expression all three share. `esmDistTransforms.spec.mjs` proves `findUnresolvableImports`
+     * still CLASSIFIES this as `engine-identity`; only a real build proves the classification still
+     * reaches `process.exit(1)`.
+     *
+     * The specifier is deliberately root-relative rather than a shape house style produces. The
+     * rewrite drops the `node_modules/neo.mjs/` segment only from a specifier containing it with a
+     * leading slash; without one it takes the other branch, gains `../../`, and arrives in the output
+     * tree still addressing the workspace's own engine. Contrived as authorship, exact as a probe:
+     * the point is a surviving engine-identity residual, and this is the cheapest way to get one.
+     */
+    test('an emitted specifier that still reaches the workspace engine fails the build', () => {
+        workspace = createWorkspace({declareExtraRoot: true});
+
+        fs.outputFileSync(path.join(workspace, 'components/Second.mjs'),
+            "export {default} from 'node_modules/neo.mjs/src/core/Base.mjs';\n");
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, `build should have failed, output:\n${output}`).toBe(1);
+        expect(output).toContain('still address the workspace engine at node_modules/neo.mjs');
+        expect(output).toContain('two engine graphs cannot share a class registry')
+    });
+
+    /**
      * The declared root decides where the build WRITES, so an unvalidated one is an overwrite
      * primitive rather than a copy list. `path.resolve` discards every earlier segment once it meets
      * an absolute one, which collapses the build's input and output onto the same external directory:
