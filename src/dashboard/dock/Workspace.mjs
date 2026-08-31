@@ -1659,15 +1659,39 @@ class Workspace extends Container {
      * MonacoEditor post-mount idiom) — container mount flips every child's `mounted` in the same
      * frame. Every write in the sweep is change-guarded and idempotent, and `timeout()` is
      * destroy-rejected, so a torn-down workspace never runs it.
+     *
+     * The guard is re-derived AT WRITE TIME, not only at mount. The mount-time read proves nothing
+     * beyond "no refresh had started 100ms ago", and a refresh that BEGINS inside the deferral
+     * window owns boot truth exactly as much as one already open when the hook sampled. Awaiting
+     * here yields the settled tail every other write in this class schedules off, so the never-
+     * refreshed case is unaffected (awaiting `null` is a no-op) while the overlapping case stops
+     * writing into an open application train. Settled tail and not resolution: a rejection belongs
+     * to whoever awaited that commit's snapshot, and chrome still needs its sync either way.
+     *
+     * Returns the deferred chain (or `null` when no sweep is scheduled) so the boot path is
+     * awaitable. Callers ignore it; a witness cannot observe a deferral it has no handle on.
      * @param {Boolean} value
      * @param {Boolean} oldValue
+     * @returns {Promise|null}
      * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && !this.refreshPromise && this.timeout(100).then(() => {
-            !this.isDestroyed && this.syncDockHeaderActions()
+        if (!value || this.refreshPromise) {
+            return null
+        }
+
+        return this.timeout(100).then(async () => {
+            let me = this;
+
+            try {
+                await me.refreshPromise
+            } catch (error) {
+                // Not this sweep's rejection to handle — the chrome still wants syncing.
+            }
+
+            !me.isDestroyed && me.syncDockHeaderActions()
         }).catch(() => null)
     }
 
