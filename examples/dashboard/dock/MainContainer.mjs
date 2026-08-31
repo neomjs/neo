@@ -4,6 +4,7 @@ import Document           from '../../../src/dashboard/dock/model/Document.mjs';
 import Persistence        from '../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import TourRunner         from '../../../src/ai/client/TourRunner.mjs';
+import Component          from '../../../src/component/Base.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
@@ -102,6 +103,44 @@ const seededPerspectives = [{
  * @class Neo.examples.dashboard.dock.MainContainer
  * @extends Neo.dashboard.dock.Workspace
  */
+/**
+ * @summary The example's `dockReload()` contract carrier: reload means counting — the pane owns
+ * its meaning, and the visible counter is the gesture receipt a viewer (and the whitebox e2e)
+ * reads without tooling.
+ * @class Neo.examples.dashboard.dock.ReloadablePane
+ * @extends Neo.component.Base
+ */
+class ReloadablePane extends Component {
+    static config = {
+        /**
+         * @member {String} className='Neo.examples.dashboard.dock.ReloadablePane'
+         * @protected
+         */
+        className: 'Neo.examples.dashboard.dock.ReloadablePane',
+        /**
+         * @member {String} html='Strategy'
+         */
+        html: 'Strategy'
+    }
+
+    /**
+     * How often the engine's reload action asked this pane to refresh itself.
+     * @member {Number} reloadCount=0
+     */
+    reloadCount = 0
+
+    /**
+     * The reload delegation contract: this pane's reload meaning is a visible refresh counter.
+     * @returns {void}
+     */
+    dockReload() {
+        this.reloadCount++;
+        this.html = `Strategy · reloaded ${this.reloadCount}×`
+    }
+}
+
+ReloadablePane = Neo.setupClass(ReloadablePane);
+
 class MainContainer extends DockWorkspace {
     static config = {
         /**
@@ -126,6 +165,14 @@ class MainContainer extends DockWorkspace {
          * @member {Boolean} enableDockPinAction=true
          */
         enableDockPinAction: true,
+        /**
+         * And into the engine-owned, delegation-only reload action. The Strategy pane implements
+         * the `dockReload()` contract below, so the example shows both halves of the policy: the
+         * action appears on the pane that owns a reload meaning and stays hidden on every pane
+         * that does not.
+         * @member {Boolean} enableDockReloadAction=true
+         */
+        enableDockReloadAction: true,
         /**
          * The perspective toolbar sits at index 0; the projected shell follows it.
          * @member {Number} dockShellIndex=1
@@ -197,6 +244,14 @@ class MainContainer extends DockWorkspace {
      * @returns {Object}
      */
     resolvePane(itemId, item) {
+        // Strategy demonstrates the reload delegation contract; see ReloadablePane below.
+        if (itemId === 'strategy') {
+            return {
+                module: ReloadablePane,
+                style : {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'}
+            }
+        }
+
         return {
             ntype: 'component',
             style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
