@@ -1,5 +1,17 @@
 :root .neo-theme-neo-light { // .neo-tab-container
-    --tab-container-content-border: 1px solid #ddd;
+    --tab-container-content-border                 : 1px solid #ddd;
+    --tab-header-action-background-color-active   : var(--sem-color-surface-neutral-active);
+    --tab-header-action-background-color-hover    : var(--sem-color-surface-neutral-hover);
+    --tab-header-action-border-radius              : 4px;
+    --tab-header-action-glyph-color                : var(--sem-color-icon-neutral-subdued);
+    --tab-header-action-glyph-color-active         : var(--sem-color-icon-neutral-contrast);
+    --tab-header-action-glyph-color-hover          : var(--sem-color-icon-neutral-contrast);
+    --tab-header-action-size                       : 24px;
+    --tab-header-inline-background-image           : linear-gradient(
+        180deg,
+        var(--sem-color-surface-neutral-highlighted),
+        var(--sem-color-surface-neutral-default)
+    );
 
     // Embedded pane chrome uses the semantic 32px density tier and releases the free-standing
     // radius. The theme's ui:null contract remains the established 48px / 8px treatment.

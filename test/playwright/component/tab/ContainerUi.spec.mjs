@@ -9,24 +9,32 @@ const THEMES = [
 
 const EXPECTED = {
     'neo-theme-light': {
+        actionSize: '20px',
+        gradient  : false,
         inline    : {height: '25px', padding: '7px 10px 6px', radius: '0px'},
         null      : {height: '25px', padding: '7px 12px 6px', radius: '0px'},
         standalone: {height: '40px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(43, 43, 43)'
     },
     'neo-theme-dark': {
+        actionSize: '20px',
+        gradient  : false,
         inline    : {height: '25px', padding: '7px 10px 6px', radius: '0px'},
         null      : {height: '25px', padding: '7px 12px 6px', radius: '0px'},
         standalone: {height: '40px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(187, 187, 187)'
     },
     'neo-theme-neo-light': {
+        actionSize: '24px',
+        gradient  : true,
         inline    : {height: '32px', padding: '4px 12px 3px', radius: '0px'},
         null      : {height: '48px', padding: '7px 16px 6px', radius: '8px'},
         standalone: {height: '48px', padding: '7px 16px 6px', radius: '8px'},
         textColor : 'rgb(69, 75, 66)'
     },
     'neo-theme-neo-dark': {
+        actionSize: '24px',
+        gradient  : true,
         inline    : {height: '32px', padding: '4px 12px 3px', radius: '0px'},
         null      : {height: '48px', padding: '7px 16px 6px', radius: '8px'},
         standalone: {height: '48px', padding: '7px 16px 6px', radius: '8px'},
@@ -41,9 +49,11 @@ async function loadThemeStylesheets(page) {
     const hrefs = THEMES.flatMap(theme => {
         const directory = theme.replace('neo-theme-', 'theme-'),
               files     = [
+                  `/dist/development/css/${directory}/button/Base.css`,
                   `/dist/development/css/${directory}/tab/Container.css`,
                   `/dist/development/css/${directory}/tab/Strip.css`,
-                  `/dist/development/css/${directory}/tab/header/Button.css`
+                  `/dist/development/css/${directory}/tab/header/Button.css`,
+                  `/dist/development/css/${directory}/toolbar/Base.css`
               ];
 
         if (theme.includes('neo-light') || theme.includes('neo-dark')) {
@@ -120,6 +130,17 @@ async function createVariants(page) {
 
             variant.setUi && (config.ui = variant.ui);
 
+            if (variant.ui === 'inline') {
+                config.headerActions = [{
+                    action : 'pin',
+                    iconCls: 'fa fa-thumbtack'
+                }, {
+                    action     : 'close',
+                    iconCls    : 'fa fa-times',
+                    showOnFocus: false
+                }]
+            }
+
             const result = await Neo.worker.App.createNeoInstance(config);
 
             if (!result.success) {
@@ -128,6 +149,17 @@ async function createVariants(page) {
 
             ids.push(result.id)
         }
+
+        // CSS-scope negative control. This is deliberately page-realm DOM: the property under test
+        // is whether the tab-header ancestor selector leaks onto an otherwise ordinary action root,
+        // not another Toolbar construction path.
+        const ordinaryToolbar = document.createElement('div');
+
+        ordinaryToolbar.id        = 'tab-ui-ordinary-toolbar';
+        ordinaryToolbar.className = 'neo-toolbar';
+        ordinaryToolbar.innerHTML = '<button aria-label="ordinary action" ' +
+            'class="neo-button neo-toolbar-action"><span class="fa fa-star neo-button-glyph"></span></button>';
+        document.body.appendChild(ordinaryToolbar);
 
         return ids
     });
@@ -163,6 +195,25 @@ const readVariant = (page, id) => page.evaluate(componentId => {
     }
 }, id);
 
+/** @summary Reads concrete action paint and geometry rather than treating selector presence as evidence. */
+const readActionChrome = action => action.evaluate(node => {
+    const
+        glyph = node.querySelector('.neo-button-glyph'),
+        style = getComputedStyle(node);
+
+    return {
+        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        border         : style.border,
+        glyphColor     : getComputedStyle(glyph).color,
+        height         : style.height,
+        padding        : style.padding,
+        radius         : style.borderRadius,
+        visibility     : style.visibility,
+        width          : style.width
+    }
+});
+
 /** A generated-id-independent DOM signature for the omitted-vs-explicit-null regression control. */
 const readDomSignature = (page, id) => page.evaluate(componentId => {
     const visit = element => ({
@@ -187,6 +238,8 @@ test.describe('Neo.tab.Container — ui variants', () => {
             for (const id of ids) {
                 await Neo.worker.App.destroyNeoInstance(id)
             }
+
+            document.getElementById('tab-ui-ordinary-toolbar')?.remove()
         }, componentIds);
 
         componentIds = []
@@ -196,6 +249,27 @@ test.describe('Neo.tab.Container — ui variants', () => {
         test(`${theme}: null stays current while inline and standalone are intentional`, async ({page}, testInfo) => {
             await applyTheme(page, theme);
             expect(await page.evaluate(name => document.body.classList.contains(name), theme)).toBe(true);
+
+            const
+                inlineToolbar = page.locator('#tab-ui-inline > .neo-tab-header-toolbar'),
+                // Role locators deliberately exclude the aria-hidden gated action. The concrete
+                // action root is the geometry carrier this assertion needs to observe while quiet.
+                gatedAction   = inlineToolbar.locator('.neo-toolbar-action[aria-label="pin"]'),
+                closeAction   = inlineToolbar.locator('.neo-toolbar-action[aria-label="close"]'),
+                ordinary     = page.locator('#tab-ui-ordinary-toolbar .neo-toolbar-action');
+
+            await expect(gatedAction).toHaveClass(/neo-toolbar-action-context-inactive/);
+
+            const gatedBox = await gatedAction.boundingBox();
+
+            await inlineToolbar.locator('.neo-tab-header-button').first().focus();
+            await expect(gatedAction).not.toHaveClass(/neo-toolbar-action-context-inactive/);
+            await expect(gatedAction).toBeVisible();
+            await expect(closeAction).toBeVisible();
+
+            const exposedBox = await gatedAction.boundingBox();
+
+            expect(exposedBox, 'focus gating preserves the action box').toEqual(gatedBox);
 
             const measured = {
                 default   : await readVariant(page, 'tab-ui-default'),
@@ -241,18 +315,40 @@ test.describe('Neo.tab.Container — ui variants', () => {
             expect(measured.inline.height).not.toBe(measured.standalone.height);
             expect(measured.inline.radius).not.toBe(measured.standalone.radius);
 
+            const
+                restChrome     = await readActionChrome(closeAction),
+                ordinaryChrome = await readActionChrome(ordinary);
+
+            expect(restChrome).toMatchObject({
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                backgroundImage: 'none',
+                height         : EXPECTED[theme].actionSize,
+                padding        : '0px',
+                width          : EXPECTED[theme].actionSize
+            });
+            expect(ordinaryChrome.padding, 'ordinary toolbar actions keep stock button chrome')
+                .not.toBe('0px');
+
+            EXPECTED[theme].gradient
+                ? expect(measured.inline.backgroundImage).toContain('linear-gradient')
+                : expect(measured.inline.backgroundImage).toBe('none');
+
+            await closeAction.hover();
+            expect((await readActionChrome(closeAction)).backgroundColor)
+                .not.toBe('rgba(0, 0, 0, 0)');
+
             await testInfo.attach(`${theme}-tab-ui-comparison.json`, {
-                body       : Buffer.from(JSON.stringify(measured, null, 2)),
+                body       : Buffer.from(JSON.stringify({measured, ordinaryChrome, restChrome}, null, 2)),
                 contentType: 'application/json'
             });
             await testInfo.attach(`${theme}-tab-ui-comparison.png`, {
-                body       : await page.screenshot({clip: {height: 180, width: 1180, x: 0, y: 0}}),
+                body       : await page.screenshot({clip: {height: 260, width: 1180, x: 0, y: 0}}),
                 contentType: 'image/png'
             })
         })
     }
 
-    test('the inline gradient hook is opt-in and cannot leak to ui:null', async ({page}) => {
+    test('the inline gradient hook is theme-valued, overridable and cannot leak to ui:null', async ({page}) => {
         await applyTheme(page, 'neo-theme-neo-light');
 
         const before = {
@@ -263,7 +359,7 @@ test.describe('Neo.tab.Container — ui variants', () => {
         };
 
         expect(before.default.backgroundImage).toBe('none');
-        expect(before.inline.backgroundImage).toBe('none');
+        expect(before.inline.backgroundImage).toContain('linear-gradient');
         expect(before.nested).toMatchObject({
             backgroundImage: 'none',
             height         : '48px',
