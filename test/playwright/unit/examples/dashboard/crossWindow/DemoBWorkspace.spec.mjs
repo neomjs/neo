@@ -10,13 +10,13 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import '../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import Component                from '../../../../../../src/component/Base.mjs';
-import Container                from '../../../../../../src/container/Base.mjs';
-import DemoBWorkspace           from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
-import DockPreview              from '../../../../../../src/dashboard/dock/interaction/Preview.mjs';
-import DockProjectionReconciler from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
-import Document                 from '../../../../../../src/dashboard/dock/model/Document.mjs';
-import Operations               from '../../../../../../src/dashboard/dock/model/Operations.mjs';
+import Component                                           from '../../../../../../src/component/Base.mjs';
+import Container                                           from '../../../../../../src/container/Base.mjs';
+import DemoBWorkspace, {describeCrossWindowChromeMismatch} from '../../../../../../examples/dashboard/crossWindow/DemoBWorkspace.mjs';
+import DockPreview                                         from '../../../../../../src/dashboard/dock/interaction/Preview.mjs';
+import DockProjectionReconciler                            from '../../../../../../src/dashboard/dock/projection/Reconciler.mjs';
+import Document                                            from '../../../../../../src/dashboard/dock/model/Document.mjs';
+import Operations                                          from '../../../../../../src/dashboard/dock/model/Operations.mjs';
 
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 
@@ -2015,5 +2015,97 @@ test.describe.serial('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => 
         expect(pane.isDestroyed).toBeTruthy();
 
         workspace = null
+    })
+});
+
+/**
+ * The per-conjunct chrome guard, exercised at the branch the executor consumes.
+ *
+ * `executeCrossWindowStep` reads the live chrome and hands the READ VALUES here, so the comparison
+ * is reachable without a rendered two-window workspace. These arms are what make the split load-
+ * bearing: a term that is miswired, renamed, reordered, or collapsed back into one generic receipt
+ * reds here rather than surviving to a live run that can only report that something disagreed.
+ */
+test.describe('describeCrossWindowChromeMismatch', () => {
+    const TERMS = ['dockNodeId', 'dockWorkspaceId', 'barItemCount', 'projectedCount', 'projectedItemIds'];
+
+    /**
+     * The agreeing observation: every arm below mutates exactly one field of this.
+     * @param {Object} [overrides]
+     * @returns {Object}
+     */
+    const observation = (overrides={}) => ({
+        observedBarItemCount    : 1,
+        observedNodeId          : 'main-tabs',
+        observedProjectedItemIds: ['workbench'],
+        observedWorkspaceId     : 'demo-b-main',
+        sourceItemIds           : ['workbench'],
+        sourceNodeId            : 'main-tabs',
+        sourceWorkspaceId       : 'demo-b-main',
+        ...overrides
+    });
+
+    test('agreeing chrome admits, and still reports every term', () => {
+        const {chromeMismatch, error, mismatchedTerms} = describeCrossWindowChromeMismatch(observation());
+
+        expect(error).toBeNull();
+        expect(mismatchedTerms).toEqual([]);
+
+        // Order is part of the contract: the receipt is read positionally by a human comparing two
+        // runs, so a reordering is a regression even though no verdict changes.
+        expect(Object.keys(chromeMismatch)).toEqual(TERMS);
+        Object.values(chromeMismatch).forEach(term => expect(term.mismatch).toBe(false))
+    });
+
+    // One mutation per conjunct. Each names the ONE term it must surface — an implementation that
+    // collapses the five into a single receipt fails all five, and one that miswires a term fails
+    // exactly that row. `projectedCount` shortens the observation instead of lengthening it: a longer
+    // list also trips `projectedItemIds`, which would stop the arm isolating a single term.
+    const isolations = [
+        ['dockNodeId',       {observedNodeId: 'popup-tabs'}],
+        ['dockWorkspaceId',  {observedWorkspaceId: 'demo-b-popup'}],
+        ['barItemCount',     {observedBarItemCount: 2}],
+        ['projectedCount',   {observedProjectedItemIds: []}],
+        ['projectedItemIds', {observedProjectedItemIds: ['other']}]
+    ];
+
+    isolations.forEach(([term, override]) => {
+        test(`a ${term} disagreement rejects, naming ${term} alone`, () => {
+            const {chromeMismatch, error, mismatchedTerms} = describeCrossWindowChromeMismatch(observation(override));
+
+            expect(mismatchedTerms).toEqual([term]);
+            expect(chromeMismatch[term].mismatch).toBe(true);
+
+            // The prefix is the part a live run greps for; the suffix is the whole point of the split.
+            expect(error).toBe(`source drag chrome does not match the current workspace document: ${term}`)
+        })
+    });
+
+    test('the receipt survives JSON: absent surfaces keep their actual field as null', () => {
+        // Every optional read is undefined at once — the shape a step that aborts before the chrome
+        // exists actually produces, and precisely when the diagnostic matters most.
+        const {chromeMismatch, mismatchedTerms} = describeCrossWindowChromeMismatch(observation({
+            observedBarItemCount    : undefined,
+            observedNodeId          : undefined,
+            observedProjectedItemIds: undefined,
+            observedWorkspaceId     : undefined
+        }));
+
+        expect(mismatchedTerms).toEqual(['dockNodeId', 'dockWorkspaceId', 'barItemCount', 'projectedCount']);
+
+        // Non-vacuity: assert the pre-transport shape first, so the round trip below is evidence about
+        // SERIALIZATION rather than about the object having been empty all along.
+        expect(chromeMismatch.dockNodeId).toEqual({expected: 'main-tabs', actual: null, mismatch: true});
+
+        const roundTripped = JSON.parse(JSON.stringify(chromeMismatch));
+
+        mismatchedTerms.forEach(term => {
+            expect(Object.keys(roundTripped[term]).sort()).toEqual(['actual', 'expected', 'mismatch'])
+        });
+
+        // The falsifier for the repair: an undefined `actual` is DROPPED by JSON.stringify, so this
+        // same assertion against the un-normalized shape finds `actual` missing on all four rows.
+        expect(roundTripped.dockNodeId.actual).toBeNull();
+        expect(roundTripped.barItemCount.actual).toBeNull()
     })
 });
