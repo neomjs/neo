@@ -1711,8 +1711,13 @@ class Workspace extends Container {
             me.dockReloadInFlight.delete(itemId);
 
             // Re-derive both action axes from current truth: the active item may have changed
-            // mid-flight, so assigning `disabled = false` here would leak across items.
-            me.syncDockReloadAction(tabContainer)
+            // mid-flight, so assigning `disabled = false` here would leak across items. The
+            // settle edge queues BEHIND any in-flight refresh (settled tail, never a raw write
+            // beside a reconcile) — a settlement is not latency-sensitive, and the post-reconcile
+            // sweep re-derives the same truth anyway when a commit is what changed the item.
+            (me.refreshPromise?.catch(() => {}) || Promise.resolve()).then(() => {
+                !me.isDestroyed && me.syncDockReloadAction(tabContainer)
+            })
         }
 
         !me.isDestroyed && me.fire('dockReloadSettled', {dockNodeId, errors, itemId});
@@ -1754,9 +1759,12 @@ class Workspace extends Container {
             hidden   = typeof carrier !== 'function'
         }
 
-        if (action) {
-            action.disabled !== disabled && (action.disabled = disabled);
-            action.hidden   !== hidden   && (action.hidden   = hidden)
+        // ONE batched update for both axes (`set()`), never two sequential writes: each write
+        // opens its own vdom round trip on the tab bar, and stacked in-flight bar updates racing
+        // a following reconcile is exactly the collision that duplicated retained chrome on slow
+        // rigs.
+        if (action && (action.disabled !== disabled || action.hidden !== hidden)) {
+            action.set({disabled, hidden})
         }
     }
 
