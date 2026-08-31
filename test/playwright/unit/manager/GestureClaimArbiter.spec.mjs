@@ -357,20 +357,28 @@ test.describe('Neo.manager.GestureClaimArbiter — the §2.8.1 claim protocol', 
         });
 
         test('an existing record that expired mid-pass is STALE, not pinned alive by the pass instant', () => {
-            arbiter.claim('zone-a', {id: 'first'});        // clock 1_000 → expires 1_100
-            const passInstant = arbiter.passInstant();     // 1_000, before the expiry
+            // All three instants differ ON PURPOSE. The acquisition (900) must not coincide with the
+            // pass instant (950): if it did, the surviving `existing.acquiredAt` and the freshly
+            // supplied `timestamp` would be the same number, and the assertion below would read the
+            // same on both sides of the boundary — passing whether liveness is judged against the
+            // refresh or against the stale pass instant, and so witnessing neither.
+            clock = 900;
+            arbiter.claim('zone-a', {id: 'first'});        // acquired 900 → expires 1_000
+
+            clock = 950;
+            const passInstant = arbiter.passInstant();     // 950, still before the expiry
 
             // The pass drags past the existing record's expiry.
-            clock = 1_200;
+            clock = 1_100;
 
             const record = arbiter.claim('zone-a', {id: 'second'}, passInstant);
 
             // Liveness is judged at the REFRESH, so this is a reacquisition: seniority resets to the
             // instant supplied now, and the dead record's acquiredAt does not survive. Judging it
-            // against the stale pass instant would have read `expiresAt 1_100 >= 1_000` = live and
-            // revived a claim that had already lapsed.
-            expect(record.acquiredAt).toBe(passInstant);
-            expect(record.expiresAt).toBe(1_300);
+            // against the stale pass instant would have read `expiresAt 1_000 >= 950` = live and
+            // revived a claim that had already lapsed — carrying 900 forward instead of 950.
+            expect(record.acquiredAt).toBe(passInstant);   // 950 shipped, 900 if the boundary regresses
+            expect(record.expiresAt).toBe(1_200);
             expect(arbiter.resolve()?.zone).toEqual({id: 'second'})
         })
     })
