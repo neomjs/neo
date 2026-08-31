@@ -1662,11 +1662,17 @@ class Workspace extends Container {
      *
      * The guard is re-derived AT WRITE TIME, not only at mount. The mount-time read proves nothing
      * beyond "no refresh had started 100ms ago", and a refresh that BEGINS inside the deferral
-     * window owns boot truth exactly as much as one already open when the hook sampled. Awaiting
-     * here yields the settled tail every other write in this class schedules off, so the never-
-     * refreshed case is unaffected (awaiting `null` is a no-op) while the overlapping case stops
-     * writing into an open application train. Settled tail and not resolution: a rejection belongs
-     * to whoever awaited that commit's snapshot, and chrome still needs its sync either way.
+     * window owns boot truth exactly as much as one already open when the hook sampled. The
+     * never-refreshed case is unaffected — awaiting `null` is a no-op — while the overlapping case
+     * stops writing into an open application train. Settled tail and not resolution: a rejection
+     * belongs to whoever awaited that commit's snapshot, and chrome still needs its sync either way.
+     *
+     * A SETTLED PROMISE IS NOT THE SETTLED TAIL, because `refreshPromise` is a mutable field. A
+     * second commit can replace it while the snapshot this sweep awaited is still pending; that
+     * snapshot settling would then authorize the write ahead of the reconcile that replaced it —
+     * the same race one door further in. So the wait re-reads the field and repeats until the
+     * promise it awaited is still the one the workspace holds. Each commit chains off its
+     * predecessor's settled tail, so the loop drains rather than spins, and it needs no timer.
      *
      * Returns the deferred chain (or `null` when no sweep is scheduled) so the boot path is
      * awaitable. Callers ignore it; a witness cannot observe a deferral it has no handle on.
@@ -1683,13 +1689,18 @@ class Workspace extends Container {
         }
 
         return this.timeout(100).then(async () => {
-            let me = this;
+            let me = this,
+                awaited;
 
-            try {
-                await me.refreshPromise
-            } catch (error) {
-                // Not this sweep's rejection to handle — the chrome still wants syncing.
-            }
+            do {
+                awaited = me.refreshPromise;
+
+                try {
+                    await awaited
+                } catch (error) {
+                    // Not this sweep's rejection to handle — the chrome still wants syncing.
+                }
+            } while (!me.isDestroyed && me.refreshPromise !== awaited);
 
             !me.isDestroyed && me.syncDockHeaderActions()
         }).catch(() => null)

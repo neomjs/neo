@@ -292,12 +292,19 @@ Neo.setupClass(HostActionWorkspace);
 Neo.setupClass(HostBothActionsWorkspace);
 
 /**
- * Records every boot-sweep entry so the mount-window race is observable without touching
- * production: the override is a test subclass, not an injected hook.
+ * Observes the boot sweep on BOTH axes: when it ran, and what it did.
+ *
+ * The log alone is not a witness — it survives deleting the consumed `super` call, so it certifies
+ * scheduling and nothing else. Every arm below therefore also reads the projected `reload` action,
+ * whose row is projection-CONSTANT while its `hidden` state is pane-dependent: a placeholder pane
+ * owns no `dockReload()`, so the action projects visible and only this sweep can hide it. Deleting
+ * the `super` call leaves the log intact and reds the state assertions, which is the point.
  */
 class SweepWitnessWorkspace extends PlainWorkspace {
     static config = {
-        className: 'Test.Unit.Dashboard.DockWorkspace.SweepWitnessWorkspace'
+        className             : 'Test.Unit.Dashboard.DockWorkspace.SweepWitnessWorkspace',
+        enableDockCloseAction : true,
+        enableDockReloadAction: true
     }
 
     sweepLog = []
@@ -2507,8 +2514,34 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         expect(producer.isDestroyed).toBe(true)
     });
 
-    test('the boot sweep defers to a refresh that begins inside its mount window', async () => {
+    /**
+     * Reads the projected engine actions on one tabs node: how many carry each name, and the
+     * `hidden` state of `reload`. Arity answers the duplicate-chrome question directly, and
+     * `reload` is the state probe because its row is projection-constant while its visibility is
+     * pane-dependent — a placeholder pane owns no `dockReload()`, so it projects VISIBLE and only
+     * the sweep can hide it.
+     */
+    const readActions = tabContainer => {
+        const items = tabContainer.getTabBar()?.getActionItems() || [];
+
+        return {
+            arity: ['close', 'reload'].map(name => items.filter(item => item.action === name).length),
+            close: tabContainer.getActionItem('close')?.hidden
+        }
+    };
+
+    test('the boot sweep defers to a refresh that begins inside its mount window, then writes', async () => {
         workspace = Neo.create(SweepWitnessWorkspace, {dockModel: createDocument()});
+
+        const side = tabsOf(workspace.items[0]).get('side-tabs');
+
+        // The state control: the projection computed `close` from the model as it stood, then the
+        // model changed underneath it. Only the sweep can reconcile the two, so this assertion dies
+        // if the consumed `super.syncDockHeaderActions()` is removed — a log-only witness would not.
+        expect(readActions(side), 'projected: one of each, close visible for a closable item')
+            .toEqual({arity: [1, 1], close: false});
+
+        workspace.dockModel.items.preview.closable = false;
 
         // The never-refreshed boot path: nothing owns the application train when the hook samples.
         workspace.refreshPromise = null;
@@ -2520,8 +2553,7 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // A refresh BEGINS inside the deferral window — after the mount-time sample, before the
         // write. A thenable records whether the sweep consults it at all: the mount-time read
         // proves only that nothing had started 100ms earlier, so a sweep that never re-derives
-        // writes straight into an open application train. That is the duplicated-bar-chrome race,
-        // and `awaited` staying false is exactly what it looks like from here.
+        // writes straight into an open application train.
         let awaited = false;
 
         workspace.refreshPromise = {
@@ -2536,20 +2568,73 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         await sweepChain;
 
         expect(awaited, 'the sweep must re-derive refreshPromise at WRITE time, not trust the mount-time sample').toBe(true);
-        expect(workspace.sweepLog, 'the sweep runs on the settled tail, never ahead of it').toEqual(['settled', 'sweep'])
+        expect(workspace.sweepLog, 'the sweep runs on the settled tail, never ahead of it').toEqual(['settled', 'sweep']);
+        expect(readActions(side), 'and it WROTE: still exactly one of each, close now hidden per the model')
+            .toEqual({arity: [1, 1], close: true})
+    });
+
+    test('a tail REPLACED while the sampled one is pending does not authorize the write', async () => {
+        workspace = Neo.create(SweepWitnessWorkspace, {dockModel: createDocument()});
+
+        const side = tabsOf(workspace.items[0]).get('side-tabs');
+
+        workspace.dockModel.items.preview.closable = false;
+        workspace.refreshPromise = null;
+
+        const sweepChain = workspace.afterSetMounted(true, false);
+
+        // `refreshPromise` is a MUTABLE field, so a settled promise is not the settled TAIL.
+        //
+        // Staging both promises up front proves nothing: the deferral has not fired yet, so the
+        // sweep would simply sample the replacement and never enter the contested state. The
+        // replacement has to land WHILE the sweep is awaiting its sample, so P1 performs it from
+        // inside its own `then` — the sweep has sampled P1, P2 becomes the tail, P1 settles under it.
+        //
+        // The discriminator is P2's `then`: it fires only if the sweep goes back and consults the
+        // CURRENT tail. A sweep that trusts one snapshot writes on P1's settlement and never reaches
+        // P2 at all, leaving `observedAtP2` null. No wall-clock anywhere.
+        let observedAtP2 = null;
+
+        const p2 = {
+            then(onFulfilled) {
+                observedAtP2 = [...workspace.sweepLog];
+                onFulfilled?.();
+                return Promise.resolve()
+            }
+        };
+
+        workspace.refreshPromise = {
+            then(onFulfilled) {
+                workspace.refreshPromise = p2;
+                onFulfilled?.();
+                return Promise.resolve()
+            }
+        };
+
+        await sweepChain;
+
+        expect(observedAtP2, 'the sweep must re-read the field and await the tail that replaced its sample')
+            .not.toBe(null);
+        expect(observedAtP2, 'and it must not have written before reaching that tail').toEqual([]);
+        expect(workspace.sweepLog, 'exactly one sweep, on the current tail').toEqual(['sweep']);
+        expect(readActions(side), 'which wrote, once').toEqual({arity: [1, 1], close: true})
     });
 
     test('the never-refreshed boot path still sweeps — the hook keeps doing its original job', async () => {
         workspace = Neo.create(SweepWitnessWorkspace, {dockModel: createDocument()});
 
+        const side = tabsOf(workspace.items[0]).get('side-tabs');
+
+        workspace.dockModel.items.preview.closable = false;
         workspace.refreshPromise = null;
 
         // No refresh ever appears. Awaiting `null` is a no-op, so the static-boot consumer this
-        // hook exists for still gets its one sync; a repair that simply skipped the sweep whenever
-        // it could not prove the train was clear would satisfy arity and re-open that defect.
+        // hook exists for still gets its one sync; a repair that skipped the sweep whenever it
+        // could not prove the train was clear would re-open exactly that defect.
         await workspace.afterSetMounted(true, false);
 
-        expect(workspace.sweepLog).toEqual(['sweep'])
+        expect(workspace.sweepLog).toEqual(['sweep']);
+        expect(readActions(side), 'the static-boot consumer gets its correction').toEqual({arity: [1, 1], close: true})
     });
 
     test('a refresh already open at mount time still suppresses the boot sweep entirely', async () => {
