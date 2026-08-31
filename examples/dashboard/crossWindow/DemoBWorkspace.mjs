@@ -90,7 +90,7 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
  * @param {String[]} data.sourceItemIds Committed item ids for the source node.
  * @param {String} data.sourceNodeId Committed source node id.
  * @param {String} data.sourceWorkspaceId Committed source workspace id.
- * @returns {{chromeMismatch:Object,error:String|null,mismatchedTerms:String[]}}
+ * @returns {{chromeMismatch:Object,error:(String|null),mismatchedTerms:String[]}}
  */
 export const describeCrossWindowChromeMismatch = ({
     observedBarItemCount,
