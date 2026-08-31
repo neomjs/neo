@@ -459,9 +459,10 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
         // `true` for a commit and `retireVessel(...)` for a refusal — which is also true when the
         // retirement succeeds — so any stub that models the outcome with a Boolean teaches the wrong
         // grammar, and a handler reading that Boolean would report detaches that never happened.
-        // The commit is witnessed against the real lifecycle instead, in the `#17681` matrix:
-        // "#17947 pop-out commits detachItem through the REAL lifecycle, not a stubbed pair".
-        // What the stubs above are for is dispatch, ordering, geometry and pre-terminal refusal.
+        // The commit is witnessed against the real lifecycle instead, in the engine tear-out
+        // lifecycle matrix below — the arm that drives a real vessel admission and asserts the
+        // committed document no longer contains the item. What the stubs above are for is dispatch,
+        // ordering, geometry and pre-terminal refusal.
 
         test('with the lifecycle off, a HOST owns pop-out and the engine re-emits its intent', async () => {
             // The two questions — may a host own the name, and does the engine intercept the intent —
