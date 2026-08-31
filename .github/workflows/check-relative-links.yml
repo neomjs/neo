@@ -1,13 +1,20 @@
-name: Learn Link Guard
+name: Doc Link Guard
 
 # Custody decisions move link targets; nothing moves the referrers. This is the surface that
-# notices. It runs on any `learn/**` change and on the guard's own files, so a checker that stops
-# working is caught by the same trigger that would have caught the links.
+# notices. It covers two corpora — the `learn/**` guides and the entry docs a newcomer reads first
+# (root-level `*.md` plus `.github/**`) — and runs on the guard's own files too, so a checker that
+# stops working is caught by the same trigger that would have caught the links.
+#
+# The entry docs joined after `CONTRIBUTING.md` spent two days pointing a community contributor at
+# files the Brain split had moved, because this trigger was scoped to `learn/**` only.
 on:
   pull_request:
     branches: [dev]
     paths:
       - 'learn/**'
+      - '*.md'
+      - '.github/*.md'
+      - '.github/**/*.md'
       - 'buildScripts/util/check-relative-links.mjs'
       - '.github/workflows/check-relative-links.yml'
       - 'package.json'
@@ -15,6 +22,9 @@ on:
     branches: [dev]
     paths:
       - 'learn/**'
+      - '*.md'
+      - '.github/*.md'
+      - '.github/**/*.md'
       - 'buildScripts/util/check-relative-links.mjs'
       - '.github/workflows/check-relative-links.yml'
       - 'package.json'
@@ -37,5 +47,5 @@ jobs:
 
       # No `npm ci`: the guard shells out to git and uses only Node built-ins, so a dependency
       # install would be latency with no bearing on the result.
-      - name: Check relative links under learn/
+      - name: Check relative links in the guides and the entry docs
         run: npm run check-relative-links
