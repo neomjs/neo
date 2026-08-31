@@ -25,14 +25,14 @@ const EDGES = ['top', 'right', 'bottom', 'left'];
 
 let previewId;
 
-const buildPreview = kind => ({
+const buildPreview = (kind, state = 'accepted') => ({
     schema   : 'neo.dock.preview.v1',
     previewId: `preview:probe:main-tabs:${kind}`,
     itemId   : 'probe-item',
     source   : {surface: 'dashboard-sort-zone', sortZoneId: 'probe-zone'},
     target   : {containerId: 'workspace', nodeId: 'main-tabs'},
     placement: {kind, ratio: 0.5},
-    feedback : {state: 'accepted'}
+    feedback : {state}
 });
 
 test.beforeEach(async ({page}) => {
@@ -66,9 +66,9 @@ test.afterEach(async ({page}) => {
  * here: `applyTargetGeometry` is a method, not a remote config, and the fill/border/opacity under
  * test are decided by the class set alone. The pure geometry contract is a unit concern.
  */
-const renderEdge = async (page, edge) => {
+const renderEdge = async (page, edge, state = 'accepted') => {
     await page.evaluate(([id, previewObj]) => Neo.worker.App.setConfigs({id, dockPreview: previewObj}),
-        [previewId, buildPreview(`edge-${edge}`)]);
+        [previewId, buildPreview(`edge-${edge}`, state)]);
 
     // Wait for THIS edge's class, not merely for a node to exist. The node is reused across
     // renders, so `waitForSelector` on the generic class returns the PREVIOUS edge's node
@@ -117,57 +117,59 @@ const renderSplit = async (page, position, orientation = 'horizontal') => {
 };
 
 test.describe('Neo.dashboard.dock.interaction.Preview — what each edge region paints', () => {
-    test('every edge paints the same translucent fill — only the cut border differs', async ({page}) => {
-        const rendered = {};
+    test('every edge paints a uniform border in both feedback states — the cut side is a class, never a width', async ({page}) => {
+        // Both states carry their own border rule (solid accept, dashed reject), so a
+        // state-scoped cut override would be invisible to a single-state matrix — each state
+        // renders its full edge set and pins the uniform contract independently.
+        for (const state of ['accepted', 'rejected']) {
+            const rendered = {};
 
-        for (const edge of EDGES) {
-            rendered[edge] = await renderEdge(page, edge);
-            expect(rendered[edge].missing, `${edge}: an affordance node must be rendered`).toBeFalsy()
+            for (const edge of EDGES) {
+                rendered[edge] = await renderEdge(page, edge, state);
+                expect(rendered[edge].missing, `${state}/${edge}: an affordance node must be rendered`).toBeFalsy()
+            }
+
+            // The property the original defect reports: one edge reading darker than its
+            // siblings. A fill that differs between edges IS the bug, whatever produced it.
+            const fills = EDGES.map(e => rendered[e].background);
+
+            expect(new Set(fills).size, `${state}: fills must be identical across edges, got ${JSON.stringify(fills)}`).toBe(1);
+
+            // Non-vacuity: a transparent fill everywhere would also collapse to one value while
+            // rendering nothing. Pin that the fill is a real translucent colour.
+            const fill = fills[0];
+
+            expect(fill, `${state}: the fill must not be transparent`).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+            expect(fill, `${state}: the fill must carry alpha`).toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
+
+            // Border, compared ACROSS edges — not merely within each one.
+            //
+            // An earlier revision asserted only that the four SIDES of a given edge shared a
+            // colour. Every edge could satisfy that independently while differing from its
+            // siblings, so the per-edge facts reduce to one normalized signature and the
+            // SIGNATURES are compared. The border is UNIFORM by contract: the cut side survives
+            // only as the stamped semantic class, never as a thicker edge.
+            const signatures = EDGES.map(edge => {
+                const r      = rendered[edge],
+                      sides  = [r.borderTop, r.borderRight, r.borderBottom, r.borderLeft],
+                      widths = new Set(sides.map(side => parseFloat(side.width))),
+                      colors = new Set(sides.map(side => side.color));
+
+                // Structure first: one shared width, one shared colour, and a real border —
+                // without this the reduction below could collapse a broken edge into a tidy signature.
+                expect(widths.size, `${state}/${edge}: all four border widths must match — no cut accent`).toBe(1);
+                expect([...widths][0], `${state}/${edge}: the border must render`).toBeGreaterThan(0);
+                expect(colors.size, `${state}/${edge}: all four border colours must match`).toBe(1);
+
+                return `${[...colors][0]}|width:${[...widths][0]}`
+            });
+
+            expect(new Set(signatures).size,
+                `${state}: border signature must be identical across edges, got ${JSON.stringify(signatures)}`).toBe(1);
+
+            // Opacity is a whole-overlay multiplier; an edge-dependent value would darken one axis.
+            expect(new Set(EDGES.map(e => rendered[e].opacity)).size, `${state}: opacity must not vary by edge`).toBe(1)
         }
-
-        // The property the defect reports: one edge reading far darker than its siblings. A fill
-        // that differs between edges IS the bug, whatever produced it.
-        const fills = EDGES.map(e => rendered[e].background);
-
-        expect(new Set(fills).size, `fills must be identical across edges, got ${JSON.stringify(fills)}`).toBe(1);
-
-        // Non-vacuity: a transparent fill everywhere would also collapse to one value while
-        // rendering nothing. Pin that the fill is a real translucent colour.
-        const fill = fills[0];
-
-        expect(fill, 'the fill must not be transparent').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
-        expect(fill, 'the fill must carry alpha — an opaque fill is the reported defect').toMatch(/rgba\([^)]+,\s*0?\.\d+\)/);
-
-        // Border, compared ACROSS edges — not merely within each one.
-        //
-        // An earlier revision asserted only that the four SIDES of a given edge shared a colour.
-        // Every edge could satisfy that independently while differing from its siblings: a
-        // right-only border colour, or a width that changes with the axis, stayed green. AC-1 asks
-        // for equality across edges, so the per-edge facts are reduced to one normalized signature
-        // and the SIGNATURES are compared. The border is UNIFORM by contract: the cut
-        // side survives only as the stamped semantic class, never as a thicker edge — an
-        // asymmetric width reads as a rendering glitch, and the region fill already shows where
-        // the splitter lands.
-        const signatures = EDGES.map(edge => {
-            const r      = rendered[edge],
-                  sides  = [r.borderTop, r.borderRight, r.borderBottom, r.borderLeft],
-                  widths = new Set(sides.map(side => parseFloat(side.width))),
-                  colors = new Set(sides.map(side => side.color));
-
-            // Structure first: one shared width, one shared colour, and a real border. Without
-            // this the reduction below could collapse a genuinely broken edge into a tidy signature.
-            expect(widths.size, `${edge}: all four border widths must match — no cut accent`).toBe(1);
-            expect([...widths][0], `${edge}: the border must render`).toBeGreaterThan(0);
-            expect(colors.size, `${edge}: all four border colours must match`).toBe(1);
-
-            return `${[...colors][0]}|width:${[...widths][0]}`
-        });
-
-        expect(new Set(signatures).size,
-            `border signature must be identical across edges, got ${JSON.stringify(signatures)}`).toBe(1);
-
-        // Opacity is a multiplier on the whole overlay; an edge-dependent value would darken one axis.
-        expect(new Set(EDGES.map(e => rendered[e].opacity)).size, 'opacity must not vary by edge').toBe(1)
     });
 
     test('a split placement paints the same translucent region, not the solid insertion bar', async ({page}) => {
