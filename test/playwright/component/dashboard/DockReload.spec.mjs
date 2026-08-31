@@ -209,6 +209,12 @@ test.describe('dock reload — delegation-only, settled, single-flight', () => {
     });
 
     test('default-off is behaviorally inert: a host-owned reload action keeps consumer state', async ({page}) => {
+        // Isolated fixture: two workspaces booting concurrently in one app interfere on CI
+        // (double-rendered bar chrome) — the flag-off subject boots alone on its own page.
+        await page.goto('test/playwright/component/apps/dock-hostreload/index.html');
+        await page.waitForSelector('#dock-hostreload-workspace', {state: 'attached'});
+        await page.waitForSelector('.neo-tab-header-button', {state: 'visible'});
+
         const host   = tabsNodeWith(page, 'HostA'),
               close  = actionButton(host, 'fa-times'),
               reload = actionButton(host, 'fa-rotate-right');
