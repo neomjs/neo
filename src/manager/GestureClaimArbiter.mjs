@@ -20,9 +20,17 @@
  *   ignores AND prunes expired claims — staleness is the safety net for surfaces that vanish
  *   without an explicit {@link #release} (a window closing mid-gesture).
  * - **Deterministic outcomes, all three cases:** *tie* — earliest acquisition wins, with stable-id
- *   lexicographic order as the final tiebreak (two claims in the same clock millisecond stay
+ *   lexicographic order as the final tiebreak (claims sharing an acquisition instant stay
  *   deterministic); *stale* — ignored; *no claim* — {@link #resolve} returns `null` and the caller
  *   fails closed: no preview, no commit.
+ * - **One instant per claim pass:** zones the caller evaluates against a single pointer event became
+ *   hoverable simultaneously, so they carry no seniority relative to each other and MUST share one
+ *   acquisition instant — that is what puts them in the tie case where the lexicographic tiebreak
+ *   governs. A caller raising several claims per pass therefore samples its clock ONCE and passes
+ *   that instant to every {@link #claim} of the pass; reading the clock per call instead lets a
+ *   millisecond boundary falling mid-pass invent a seniority ordering, and the winner degrades to
+ *   the caller's iteration order — the registration-order nondeterminism §2.8.1 exists to replace.
+ *   Seniority ACROSS passes is unaffected: successive passes carry successive instants.
  *
  * Stable identity is the caller's contract: a workspace/zone identity that survives re-registration
  * and never encodes `windowId` or registration/insertion order.
@@ -37,7 +45,8 @@ let gestureTokenSeq = 0;
  * @param {Function} [config.now=Date.now] Injectable clock, milliseconds.
  * @returns {Object} arbiter
  * @returns {Number}   arbiter.claimCount     Live claim count (expired claims included until pruned).
- * @returns {Function} arbiter.claim          `(stableId, zone)` acquire-or-refresh; returns the claim record.
+ * @returns {Function} arbiter.claim          `(stableId, zone, timestamp)` acquire-or-refresh; returns the claim record.
+ * @returns {Function} arbiter.passInstant    `()` → one acquisition instant to share across a claim pass.
  * @returns {Function} arbiter.release        `(stableId)` drops a claim; unknown ids are a no-op.
  * @returns {Function} arbiter.reset          Kills every claim — the gesture-terminal cleanup.
  * @returns {Function} arbiter.resolve        `()` → `{stableId, zone}` of the winning claim, or `null` (fail closed).
@@ -58,23 +67,52 @@ export function createGestureClaimArbiter({claimTtlMs = 300, now = Date.now} = {
         },
 
         /**
+         * Samples ONE acquisition instant for a claim pass, from this arbiter's own clock. A caller
+         * evaluating several zones against a single pointer event calls this once and hands the
+         * result to every {@link #claim} of that pass, so the zones tie and resolve lexicographically
+         * instead of by the caller's iteration order. Reading a clock of the caller's own would
+         * defeat the injected-clock witnesses, which is why the instant comes from here.
+         * @returns {Number}
+         */
+        passInstant() {
+            return now()
+        },
+
+        /**
          * Acquire-or-refresh the claim for one stable identity. Seniority survives a refresh
          * ONLY while the claim is still live: an existing record whose expiry has elapsed is
          * absent by contract (stale = ignored), so re-claiming after expiry is a REACQUISITION —
          * a new acquisition time, competing under the tie/age rules as a new claim. The expiry
          * boundary is `expiresAt >= now` = live, matching the resolver's prune condition exactly.
+         *
+         * **The pass instant is the SENIORITY axis and nothing else.** It orders claims against each
+         * other; it does not say when this call happened. Liveness and expiry are therefore read from
+         * the real clock at refresh, never from `timestamp` — a pass is not guaranteed to be short,
+         * and deriving `expiresAt` from its start makes a claim refreshed more than `claimTtlMs` into
+         * a slow pass arrive ALREADY EXPIRED. That inverts the one property the TTL exists to state:
+         * a claim lives `claimTtlMs` after its LAST REFRESH. The same read also decides `live`, so an
+         * existing record that expired mid-pass is correctly seen as stale rather than pinned alive by
+         * a stale instant.
+         *
          * @param {String} stableId
          * @param {Object} zone Opaque target handle, returned verbatim by a winning resolve.
+         * @param {Number} [timestamp=now()] The claim pass's acquisition instant. A caller raising
+         * several claims for ONE pointer event passes the same instant to all of them, so they
+         * compete as a tie and resolve lexicographically; the default is for single-claim callers,
+         * for whom a per-call clock read and a per-pass one are the same thing.
          * @returns {Object} the live claim record `{acquiredAt, expiresAt, stableId, token, zone}`
          */
-        claim(stableId, zone) {
+        claim(stableId, zone, timestamp = now()) {
             const
-                timestamp = now(),
-                existing  = claims.get(stableId),
-                live      = existing != null && existing.expiresAt >= timestamp,
-                record    = {
+                // Real time, sampled once per call: liveness and expiry are wall-clock facts.
+                refreshedAt = now(),
+                existing    = claims.get(stableId),
+                live        = existing != null && existing.expiresAt >= refreshedAt,
+                record      = {
+                    // Seniority: the pass instant on acquisition, carried forward across a refresh.
                     acquiredAt: live ? existing.acquiredAt : timestamp,
-                    expiresAt : timestamp + claimTtlMs,
+                    // Lifetime: always measured from THIS refresh.
+                    expiresAt : refreshedAt + claimTtlMs,
                     stableId,
                     token,
                     zone

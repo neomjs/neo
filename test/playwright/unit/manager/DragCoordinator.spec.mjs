@@ -505,13 +505,15 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
  * zones — the same harness idiom as the teardown-hygiene block above.
  */
 test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () => {
-    let DragCoordinator, Rectangle, WindowManager;
+    let DragCoordinator, Rectangle, WindowManager, createGestureClaimArbiter;
     let calls;
 
     test.beforeAll(async () => {
         DragCoordinator = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
         Rectangle       = (await import('../../../../src/util/Rectangle.mjs')).default;
-        WindowManager   = (await import('../../../../src/manager/Window.mjs')).default
+        WindowManager   = (await import('../../../../src/manager/Window.mjs')).default;
+
+        ({createGestureClaimArbiter} = await import('../../../../src/manager/GestureClaimArbiter.mjs'))
     });
 
     function resetCoordinator() {
@@ -674,6 +676,36 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
         // gesture terminal: the token is dead
         expect(DragCoordinator.pointerClaimArbiter).toBeNull()
+    });
+
+    test('THE OVERLAP FALSIFIER holds when the clock moves mid-pass — the winner is not the loop order', () => {
+        const source = createSource();
+
+        // The falsifier above passes only while the whole claim pass fits inside one millisecond,
+        // which is a property of machine speed, not of the protocol. This runs the identical
+        // geometry against a clock that ticks on EVERY read — the most hostile pass possible — so
+        // the outcome depends on the pass sharing one acquisition instant and nothing else. With a
+        // per-claim clock read the boundary orders the zones by iteration and 'workspace-c' wins.
+        let tick = 1_000;
+
+        DragCoordinator.pointerClaimArbiter = createGestureClaimArbiter({now: () => tick++});
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a',      0,     0, 800, 600);
+        registerWindow('win-b',      100, 100, 800, 600);
+        registerWindow('win-c',      200, 200, 800, 600);
+
+        DragCoordinator.register(createZone('workspace-c', 'win-c'));
+        DragCoordinator.register(createZone('workspace-b', 'win-b'));
+        DragCoordinator.register(createZone('workspace-a', 'win-a'));
+
+        move(source, 300, 300);
+        move(source, 310, 310);
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect([...new Set(calls.filter(([name]) => name === 'move').map(([, id]) => id))]).toEqual(['workspace-a']);
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([['drop', 'workspace-a', 'tab-1']])
     });
 
     test('the NEGATIVE witness: stable-identity-free zones resolve by REGISTRATION ORDER — the pinned legacy nondeterminism', () => {
