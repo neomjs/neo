@@ -2046,14 +2046,35 @@ class DemoBWorkspace extends Container {
                 }
             }
 
-            if (sourceTabs?.dockNodeId !== sourceNodeId
-                || sourceZone?.dockWorkspaceId !== sourceWorkspaceId
-                || sourceBar?.items?.length !== sourceItems.length
-                || projectedItems.length !== sourceItems.length
-                || projectedItems.some((projectedItemId, index) => projectedItemId !== sourceItems[index])) {
+            // Each term is observed SEPARATELY, for the same reason the coordinator observes its own
+            // claim candidates one by one (`manager/DragCoordinator#recordClaimResolution`): `||`
+            // short-circuits, so a single collapsed error string cannot distinguish a projection-identity
+            // mismatch from a tab-bar arity one. A receipt that proves the step aborted before any gesture
+            // started, but not on which term, cannot be re-run into an answer — the term is already gone.
+            let chromeMismatch = {
+                dockNodeId      : {expected: sourceNodeId,          actual: sourceTabs?.dockNodeId},
+                dockWorkspaceId : {expected: sourceWorkspaceId,     actual: sourceZone?.dockWorkspaceId},
+                barItemCount    : {expected: sourceItems.length,    actual: sourceBar?.items?.length},
+                projectedCount  : {expected: sourceItems.length,    actual: projectedItems.length},
+                projectedItemIds: {expected: [...sourceItems],      actual: [...projectedItems]}
+            };
+
+            // `barItemCount` compares the tab bar's rendered children against the DOCUMENT's item count,
+            // so any header-action chrome the bar carries that is not a projected dock item makes the two
+            // disagree — the first term to suspect while header actions keep landing on that surface.
+            chromeMismatch.dockNodeId.mismatch       = chromeMismatch.dockNodeId.actual      !== sourceNodeId;
+            chromeMismatch.dockWorkspaceId.mismatch  = chromeMismatch.dockWorkspaceId.actual !== sourceWorkspaceId;
+            chromeMismatch.barItemCount.mismatch     = chromeMismatch.barItemCount.actual    !== sourceItems.length;
+            chromeMismatch.projectedCount.mismatch   = chromeMismatch.projectedCount.actual  !== sourceItems.length;
+            chromeMismatch.projectedItemIds.mismatch = projectedItems.some((projectedItemId, index) => projectedItemId !== sourceItems[index]);
+
+            let mismatchedTerms = Object.keys(chromeMismatch).filter(term => chromeMismatch[term].mismatch);
+
+            if (mismatchedTerms.length > 0) {
                 return {
                     applied: false,
-                    errors : ['source drag chrome does not match the current workspace document']
+                    errors : [`source drag chrome does not match the current workspace document: ${mismatchedTerms.join(', ')}`],
+                    debug  : {chromeMismatch}
                 }
             }
 
