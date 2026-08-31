@@ -368,4 +368,36 @@ test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract',
         expect(resizeMessages().length).toBe(2);
         expect(resizeMessages()[1].message.data.componentIds).toEqual(['component-2'])
     });
+
+    test('unregister: an unnamed caller removes nothing, and the target stays observed', async () => {
+        setHidden(true);
+
+        makeNode('target-1', 388, 550);
+
+        // Production shape of a component whose teardown is unnamed: `manager.DomEvent` contributes
+        // the real holder, the component's own register contributes an anonymous one.
+        await addon.register({componentId: 'component-1', id: 'target-1'});
+        await addon.register({id: 'target-1'});
+        await wait(200);
+        expect(resizeMessages().length).toBe(1);
+
+        // The teardown every caller outside `list.Buffered` used to make. It names no holder, so the
+        // filter drops only the `undefined` and `component-1` survives — the list never empties, the
+        // native target is never unobserved, and the poll stays armed for a destroyed component.
+        addon.unregister({id: 'target-1'});
+
+        nodeMap.get('target-1').offsetHeight = 600;
+        await wait(200);
+
+        expect(resizeMessages().length).toBe(2);
+        expect(resizeMessages()[1].message.data.componentIds).toEqual(['component-1']);
+
+        // Naming the holder is the whole difference: the same call with `componentId` releases it.
+        addon.unregister({componentId: 'component-1', id: 'target-1'});
+
+        nodeMap.get('target-1').offsetHeight = 700;
+        await wait(200);
+
+        expect(resizeMessages().length).toBe(2)
+    });
 });
