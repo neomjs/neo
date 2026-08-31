@@ -1,4 +1,4 @@
-// The token bridge lives at the VIEWPORT, not the workspace.
+// The token bridge must OUT-RANK the theme on EVERY element the theme can declare on.
 //
 // Workstation owns its palette (`--workstation-*`, defined globally per skin under
 // `:root .neo-theme-*`), but generic grid/tab primitives read Neo's own token names. The block
@@ -13,7 +13,37 @@
 // theme class and every component stylesheet were present. Bridging at the viewport keeps the
 // layering honest — global palette → viewport bridge → component consumption — and the vessel
 // inherits it without pretending to be a workspace.
-.workstation-viewport {
+//
+// WHY THE SELECTOR IS SHAPED LIKE THE THEME'S OWN.
+// `.workstation-viewport` alone is (0,1,0) and loses to the theme's (0,2,0) `:root .neo-theme-*`
+// on the very element it sits on, because the engine stamps the skin class onto the viewport too:
+// `div.workstation-viewport.neo-viewport.neo-theme-neo-dark`. The earlier workspace scope was
+// never in that contest — `:root .neo-theme-*` does not match `.workstation-workspace` at boot, so
+// the bridge was the only matching declaration and won by default. Moving here bought the vessel
+// its reachability and silently handed the contest to the theme: measured before this fix, 21 of
+// the 23 contested tokens resolved to theme values. The active-tab indicator painted `#FFFFFF` instead
+// of the instrument's mint, grid borders painted `--purple-800`, and
+// `--grid-header-button-justify-content` lost `flex-end` to `start` — so one loss was layout, not
+// colour. The two tokens no theme declares (`--grid-cell-progress-*`) resolved correctly
+// throughout: the bridge was well-formed, only out-ranked.
+//
+// Raising the viewport rule alone is NOT enough, and that is the part worth remembering. Which
+// elements carry a skin class is runtime state, not structure. At boot only the viewport and body
+// do; `.neo-grid-container` carries one from the start, and after a runtime skin switch
+// `.workstation-workspace` acquires one too. For an inherited custom property the NEAREST
+// declaring ancestor wins outright — specificity never enters that comparison — so any single
+// pinned element is one re-render away from being shadowed again — which is how the move to the
+// viewport cured the vessel and broke the workspace in the same edit.
+//
+// So the bridge mirrors the theme's own reach instead of guessing an element: the app viewport,
+// and every skin-carrying element inside it. `[class*="neo-theme-"]` is precisely the set
+// `:root .neo-theme-*` can match, so the two rules are always evaluated on the same elements and
+// this one is (0,3,0) against the theme's (0,2,0) — a deterministic win on each of them, with no
+// per-skin duplication. The theme layer is NOT the home for this: emitted there it would tie the
+// theme's own (0,2,0) and resolve on load order, and an equal-specificity load-order tie is not a
+// contract — CSS is emitted per source file, so no readable source order decides it.
+:root .workstation-viewport[class*="neo-theme-"],
+:root .workstation-viewport [class*="neo-theme-"] {
     // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
     // palette in both skins instead of leaking their default blue/purple values.
     --grid-container-border-color              : var(--workstation-line);
@@ -21,26 +51,34 @@
     --grid-container-cell-background-color-even: var(--workstation-panel-2);
     --grid-container-color                     : var(--workstation-ink-dim);
     --grid-container-header-cell-border-bottom : 1px solid var(--workstation-line);
-    --grid-cell-background-color-hover          : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
-    --grid-cell-progress-active-color           : var(--workstation-signal);
-    --grid-cell-progress-track-color            : var(--workstation-line);
-    --grid-header-button-background-color       : var(--workstation-panel-2);
-    --grid-header-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-    --grid-header-button-color                  : var(--workstation-ink);
-    --grid-header-button-color-hover            : var(--workstation-ink);
-    --grid-header-button-glyph-color            : var(--workstation-ink-dim);
-    --grid-header-button-glyph-color-hover      : var(--workstation-signal);
-    // Header buttons use row-reverse to keep their sort glyph after the label. `flex-end`
-    // therefore means physical left/start alignment for the complete label + glyph group.
-    --grid-header-button-justify-content        : flex-end;
-    --grid-header-button-padding                : 0 10px;
-    --tab-button-background-color               : transparent;
-    --tab-button-background-color-active        : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
-    --tab-button-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
-    --tab-button-glyph-color                    : var(--workstation-ink-dim);
-    --tab-button-text-color                     : var(--workstation-ink-dim);
-    --tab-indicator-background-color-active     : var(--workstation-signal);
-    --tab-strip-background-color                : var(--workstation-panel-2);
+    --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
+    --grid-cell-progress-active-color          : var(--workstation-signal);
+    --grid-cell-progress-track-color           : var(--workstation-line);
+    --tab-button-background-color              : transparent;
+    --tab-button-background-color-active       : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+    --tab-button-background-color-hover        : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
+    --tab-button-glyph-color                   : var(--workstation-ink-dim);
+    --tab-button-text-color                    : var(--workstation-ink-dim);
+    --tab-indicator-background-color-active    : var(--workstation-signal);
+    --tab-strip-background-color               : var(--workstation-panel-2);
+
+    // Pane-header action chrome. The engine sizes these; the instrument colours them.
+    // An action and a tab share one strip, so they share one hover language: the same signal wash
+    // as `--tab-button-background-color-hover` above, and the same resting ink as the tab labels.
+    // Size and radius stay theme-owned — those are density decisions, not identity.
+    --tab-header-action-background-color-active: color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+    --tab-header-action-background-color-hover : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
+    --tab-header-action-glyph-color            : var(--workstation-ink-dim);
+    --tab-header-action-glyph-color-active     : var(--workstation-signal);
+    --tab-header-action-glyph-color-hover      : var(--workstation-signal);
+    // The inline variant's band. The neo themes value this hook with a neutral olive ramp; painted
+    // over this instrument's blue-slate panel it read as a foreign surface, because
+    // `background-image` covers the `background-color` the header rule sets below.
+    --tab-header-inline-background-image       : linear-gradient(
+        180deg,
+        var(--workstation-panel-2),
+        var(--workstation-panel)
+    );
 }
 
 .workstation-viewport.neo-viewport {
@@ -154,9 +192,15 @@
         border    : 0;
     }
 
+    // `background-color`, not the `background` shorthand: the inline variant paints its band
+    // through `background-image` (`src/tab/Container.scss`), and the shorthand's implicit
+    // `background-image: none` fought a rule it cannot out-rank — (0,2,0) here against the engine's
+    // (0,3,0) `.neo-tab-container.neo-tab-container-inline > .neo-tab-header-toolbar`. Naming the
+    // longhand makes the two layers additive instead of silently contested: this sets the ground,
+    // `--tab-header-inline-background-image` above sets the band that sits on it.
     .neo-tab-header-toolbar {
-        background   : var(--workstation-panel-2);
-        border-bottom: 1px solid var(--workstation-line);
+        background-color: var(--workstation-panel-2);
+        border-bottom   : 1px solid var(--workstation-line);
     }
 
     .neo-tab-header-button.pressed {
