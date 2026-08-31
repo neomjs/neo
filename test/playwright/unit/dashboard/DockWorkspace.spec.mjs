@@ -771,6 +771,82 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             expect(workspace.tearOutPanes.preview, 'the vessel holds the pane').toBeTruthy()
         });
 
+        test('#17947 a REDUCER refusal reaches the caller as a refusal, though the terminal resolved TRUE', async () => {
+            // The falsifier this arm exists for: `window.TearOut`'s terminal returns `true` on a
+            // committed detach AND `retireVessel(vessel)` on a reducer refusal — which is ALSO true
+            // when the retirement succeeds. Reading that Boolean as success reports a detach that
+            // never happened.
+            //
+            // The sibling stub arm injects `terminalResult` and therefore certifies a grammar the
+            // production terminal never emits. This one drives the REAL pair: real admission, the
+            // real `createDockTearOutHandlers` terminal, the real `applyTearOutOperation` wrapper
+            // (including its placement capture and rollback), and a real vessel retirement whose
+            // success is what makes the Boolean lie.
+            workspace = Neo.create(TearOutWorkspace, {
+                dockModel             : createDocument(),
+                enableDockPopOutAction: true
+            });
+
+            // The refusal enters at the reducer — the one seam a refusal actually comes from in
+            // production. Everything above it stays real, which is the point: the wrapper must
+            // reach its verdict from the committed document, not from what the pair returned.
+            workspace.applyDockZoneOperation = descriptor => descriptor?.operation === 'detachItem'
+                ? {document: null, errors: ['detachItem refused by the reducer']}
+                : {document: workspace.dockModel, errors: []};
+
+            // The document seam must never fire on a refusal. Counted rather than inferred from the
+            // document: a sync that ran and committed the SAME document would be invisible to a
+            // content comparison, and it is the call that is forbidden here.
+            const syncs        = [],
+                  realSync     = workspace.onTearOutDocumentChange.bind(workspace),
+                  realTerminal = workspace.tearOutHandlers.onDockTearOutTerminal;
+
+            workspace.onTearOutDocumentChange = (...args) => {
+                syncs.push(args);
+                return realSync(...args)
+            };
+
+            // Captured so the arm can assert the Boolean was genuinely `true` — without that, a
+            // refusal envelope proves nothing, because a terminal returning `false` would produce
+            // the same envelope for an entirely different reason.
+            let terminalResult;
+
+            workspace.tearOutHandlers.onDockTearOutTerminal = async data => {
+                terminalResult = await realTerminal(data);
+                return terminalResult
+            };
+
+            const tabContainer = {
+                activeIndex: 0,
+                getTabBar  : () => ({sortZoneConfig: {dockItemIds: ['preview']}}),
+                id         : 'popout-tabs'
+            };
+
+            const result = await workspace.handleDockPopOutAction({dockNodeId: 'main-tabs', tabContainer});
+
+            // The lie, witnessed: the retirement succeeded, so the terminal reports `true`.
+            expect(terminalResult, 'a refusal whose cleanup succeeded still resolves true').toBe(true);
+
+            // And the caller is told the truth anyway.
+            expect(result.errors?.[0]).toMatch(/refused by the detach commit/);
+
+            // Zero document sync, on both readings: the seam never fired, and the item is still
+            // exactly where it was — `wasInTree` was true going in, so this is an observed
+            // non-transition rather than the absence of any evidence.
+            expect(syncs, 'a refused detach commits nothing').toEqual([]);
+            expect(Document.findContainingTabsId(workspace.getDockZoneDocument(), 'preview'))
+                .toBe('side-tabs');
+
+            // The vessel the refusal opened is retired — once. This is what made the Boolean true,
+            // so an arm that did not assert it would not have reproduced the falsifier at all.
+            expect(workspace.closeRequests.filter(vessel => vessel.itemId === 'preview'))
+                .toHaveLength(1);
+
+            // The rollback half of the real wrapper: a refused detach keeps no placement record,
+            // which is what lets a later attempt capture a fresh one.
+            expect(workspace.tearOutPlacements.preview, 'a refused detach records no placement').toBeUndefined()
+        });
+
         // A click is asynchronous across two awaits while `destroy()` is synchronous, so the window
         // between them is reachable in production: the pane is measured through the main thread, and
         // the host's vessel seam can take arbitrarily long to answer. These two arms drive a REAL
@@ -901,18 +977,19 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             // document. This is the half that is unambiguously contractual.
             expect(terminals, 'a destroyed workspace reaches no commit seam').toEqual([]);
 
-            // ⚠️ TRIPWIRE — asserts the CURRENT behaviour, which is a LEAK, not the desired one.
-            // The host opened a real window and is never asked to close it: teardown does not
-            // invalidate the coordinator's pending admission, so the late-vessel retirement path
-            // that exists for exactly this case never runs. Measured across BOTH close collectors,
-            // not inferred — the harness seam and the instance override are each empty.
+            // EXACTLY ONCE. The host opened a real OS window on the far side of teardown, so the
+            // only correct outcome is that it is asked to close it — once. `toHaveLength(1)` is the
+            // whole assertion: zero is the orphan this guard exists to prevent, and two is a
+            // double-close of a window the host has already disposed of.
             //
-            // The gap lives in the shared tear-out machine and is reachable from the drag gesture
-            // too, so it is NOT this leaf's to repair; it is tracked as its own leaf. When that
-            // lands, this assertion goes RED and must become the exactly-once close it should
-            // always have been. That is the point of pinning it: a leak nobody can silently keep.
+            // Measured across BOTH close collectors rather than inferred — the harness seam and the
+            // instance override are each recorded, so a close landing on either is counted.
+            //
+            // Note the attribution above: the coordinator still reports a seam refusal, because
+            // `acquireTearOutVessel` refuses on behalf of a destroyed workspace. The cleanup is the
+            // workspace's own, taken before that refusal is handed back.
             expect(closes.filter(vessel => vessel.windowName === 'tearout-late-preview'))
-                .toHaveLength(0)
+                .toHaveLength(1)
         });
 
         test('terminal-first connect lands one admitted live pane, then returns it before observers fire', async () => {

@@ -499,6 +499,10 @@ class Workspace extends Container {
         };
         me.tearOutAdmissions.set(itemId, admission);
 
+        // Captured while the workspace is still alive, for the destroyed branch below — see the
+        // comment there for why reading the hook after the await is not the same thing.
+        const closeVessel = me.closeTearOutVessel.bind(me);
+
         try {
             vessel = await me.openTearOutVessel(request)
         } catch (error) {
@@ -507,6 +511,32 @@ class Workspace extends Container {
 
         if (!vessel) {
             me.tearOutAdmissions.get(itemId) === admission && me.clearTearOutAdmission(itemId, admission);
+            return null
+        }
+
+        // `destroy()` can land inside the await above, and this is the one gap where teardown cannot
+        // clean up after itself: `retireTearOutState` sweeps vessels by `windowName`, and a pending
+        // admission has none yet — the host is still deciding. So the sweep skips this record, then
+        // the host answers with a REAL OS window that no map still remembers. Everything below reads
+        // admission state that teardown has already dismantled; reaching it throws, the coordinator's
+        // `openVessel` try/catch swallows that as a failed admission, and the window is orphaned with
+        // nobody holding its name.
+        //
+        // Closed through the hook captured ABOVE, not through {@link #retireTearOutVessel} and not
+        // through `me.closeTearOutVessel` read here: the retirement bookkeeping lives in the very
+        // maps teardown just reset, and `Neo.core.Base#destroy` deletes the instance's own
+        // properties — so a consumer hook assigned per instance is already gone by this line, and
+        // reading it now would silently fall back to a prototype default that no longer knows about
+        // this vessel. The reference captured while the workspace was alive is the one that owns it.
+        //
+        // Exactly once: this branch runs at most once per admission and then refuses, so no later
+        // path can retire the same vessel again. Wrapped because a hook that throws here would
+        // surface as an unhandled rejection — the caller discards this promise.
+        if (me.isDestroyed) {
+            try {
+                await closeVessel({...vessel, admissionToken, generation: admission.generation, itemId})
+            } catch (error) {}
+
             return null
         }
 
